@@ -1,0 +1,393 @@
+#Requires -Version 7.0
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+# Projektroot = Ordner dieser Datei
+$ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+if(-not $ProjectRoot){ $ProjectRoot = (Resolve-Path ".").Path }
+
+function OK($m){ Write-Host "[OK]   $m"   -ForegroundColor Green }
+function INF($m){ Write-Host "[INFO] $m"  -ForegroundColor Cyan  }
+function WRN($m){ Write-Host "[WARN] $m"  -ForegroundColor Yellow}
+function ERR($m){ Write-Host "[ERR]  $m"  -ForegroundColor Red   }
+
+INF "Root: $ProjectRoot"
+
+# --- Verzeichnisse ---
+$dirs = @(
+  "scripts","scripts\utils","output","output\assembled_intraday",
+  "output\aggregates","output\qc","docs","assets"
+)
+$dirs | ForEach-Object {
+  New-Item -ItemType Directory -Path (Join-Path $ProjectRoot $_) -Force | Out-Null
+}
+
+# Helper zum Schreiben von Dateien (UTF-8 ohne BOM)
+function Write-Text([string]$rel, [string]$content){
+  $path = Join-Path $ProjectRoot $rel
+  New-Item -ItemType Directory -Path (Split-Path -Parent $path) -Force | Out-Null
+  $content | Out-File -LiteralPath $path -Encoding utf8NoBOM
+  OK "wrote: $path"
+}
+
+# --- utils/common.ps1 ---
+Write-Text "scripts\utils\common.ps1" @'
+Set-StrictMode -Version Latest
+function Write-Info([string]$m){ Write-Host "[INFO] $m" -ForegroundColor Cyan }
+function Write-Ok([string]$m){ Write-Host "[OK]   $m" -ForegroundColor Green }
+function Write-Warn2([string]$m){ Write-Host "[WARN] $m" -ForegroundColor Yellow }
+function Write-Err([string]$m){ Write-Host "[ERR]  $m" -ForegroundColor Red }
+function Start-Step([string]$m){
+  Write-Info $m; $script:_sw=[System.Diagnostics.Stopwatch]::StartNew()
+}
+function End-Step([string]$m){
+  if($script:_sw){ $script:_sw.Stop(); $secs=[Math]::Round($script:_sw.Elapsed.TotalSeconds,1) } else { $secs=0 }
+  Write-Ok ("{0} ({1} s)" -f $m,$secs)
+}
+'@
+
+# --- 31_assemble_intraday.ps1 ---
+Write-Text "scripts\31_assemble_intraday.ps1" @'
+#Requires -Version 7.0
+. "$PSScriptRoot\utils\common.ps1"
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$py = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
+if(-not (Test-Path $py)){ $py = "py" }
+
+Start-Step "Assemble (Intraday)"
+$inParquet  = Join-Path $ProjectRoot "output\assembled_intraday\assembled_intraday.parquet"
+$headCsv    = Join-Path $ProjectRoot "output\assembled_intraday\assembled_intraday_head.csv"
+$schemaJson = Join-Path $ProjectRoot "output\assembled_intraday\assembled_intraday_schema.json"
+$reportJson = Join-Path $ProjectRoot "output\assembled_intraday\assembled_intraday_report.json"
+
+$pycode = @'
+import os, json, numpy as np, pandas as pd
+from datetime import datetime, timedelta, timezone
+pr = r"__PR__"
+p_in = os.path.join(pr, r"output\assembled_intraday\assembled_intraday.parquet")
+p_head = os.path.join(pr, r"output\assembled_intraday\assembled_intraday_head.csv")
+p_schema = os.path.join(pr, r"output\assembled_intraday\assembled_intraday_schema.json")
+p_report = os.path.join(pr, r"output\assembled_intraday\assembled_intraday_report.json")
+
+def ensure_sample():
+    import pyarrow as pa, pyarrow.parquet as pq
+    if os.path.exists(p_in):
+        return
+    # 10 Tage 1-Minuten-Daten, 3 Ticker → genug fürs Resample
+    tz = timezone.utc
+    start = datetime(2024,1,2,tzinfo=tz)
+    periods = 10*24*60
+    ts = pd.date_range(start, periods=periods, freq="1min", tz="UTC")
+    tickers = ["AAA","BBB","CCC"]
+    frames=[]
+    rng = np.random.default_rng(42)
+    for t in tickers:
+        base = 100 + rng.normal(0,1, size=len(ts)).cumsum()
+        df = pd.DataFrame({
+            "ts": ts,
+            "ticker": t,
+            "open": base,
+            "high": base + rng.uniform(0,0.5,len(ts)),
+            "low":  base - rng.uniform(0,0.5,len(ts)),
+            "close": base + rng.normal(0,0.2,len(ts)),
+            "volume": rng.integers(1_000, 5_000, len(ts))
+        })
+        frames.append(df)
+    out = pd.concat(frames, ignore_index=True)
+    out.to_parquet(p_in, index=False)
+
+def main():
+    ensure_sample()
+    df = pd.read_parquet(p_in)
+    df["ts"] = pd.to_datetime(df["ts"], utc=True, errors="coerce")
+    df = df.dropna(subset=["ts"])
+    # Head
+    df.head(100).to_csv(p_head, index=False)
+    # Schema
+    schema = {c:str(dt) for c,dt in df.dtypes.items()}
+    with open(p_schema,"w",encoding="utf-8") as f:
+        json.dump(schema, f, ensure_ascii=False, indent=2)
+    # Report
+    rep = {
+        "rows": int(len(df)),
+        "tickers": int(df["ticker"].nunique()),
+        "ts_min": df["ts"].min().isoformat(),
+        "ts_max": df["ts"].max().isoformat()
+    }
+    with open(p_report,"w",encoding="utf-8") as f:
+        json.dump(rep,f,ensure_ascii=False,indent=2)
+
+if __name__=="__main__":
+    pr = r"__PR__"
+    main()
+'@
+$pycode = $pycode.Replace("__PR__", $ProjectRoot.Replace("\","\\"))
+$tmp = Join-Path $env:TEMP ("assemble_{0}.py" -f ([guid]::NewGuid()))
+$pycode | Out-File $tmp -Encoding utf8NoBOM
+& $py $tmp | Out-Null
+Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+
+Write-Ok ("head   -> {0}" -f $headCsv)
+Write-Ok ("schema -> {0}" -f $schemaJson)
+Write-Ok ("report -> {0}" -f $reportJson)
+End-Step "Assemble abgeschlossen"
+'@
+
+# --- 50_resample_intraday.ps1 ---
+Write-Text "scripts\50_resample_intraday.ps1" @'
+#Requires -Version 7.0
+param(
+  [string]$MinTs = "",
+  [string]$MaxTs = "",
+  [string[]]$Intervals = @("5min","15min","30min","60min")
+)
+. "$PSScriptRoot\utils\common.ps1"
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$py = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
+if(-not (Test-Path $py)){ $py = "py" }
+
+Start-Step "Starte Resampling ..."
+$inParquet = Join-Path $ProjectRoot "output\assembled_intraday\assembled_intraday.parquet"
+$outDir    = Join-Path $ProjectRoot "output\aggregates"
+New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+
+$cfg = [pscustomobject]@{
+  in_parquet = $inParquet
+  out_dir    = $outDir
+  intervals  = $Intervals
+  min_ts     = $MinTs
+  max_ts     = $MaxTs
+}
+$cfgFile = Join-Path $env:TEMP ("resample_{0}.json" -f ([guid]::NewGuid()))
+$cfg | ConvertTo-Json -Depth 5 | Out-File $cfgFile -Encoding utf8NoBOM
+
+$pycode = @'
+import os, json, pandas as pd
+def run(cfg):
+    p_in = cfg["in_parquet"]
+    out_dir = cfg["out_dir"]
+    ivs = cfg["intervals"]
+    min_ts = cfg.get("min_ts") or ""
+    max_ts = cfg.get("max_ts") or ""
+    df = pd.read_parquet(p_in)
+    df["ts"] = pd.to_datetime(df["ts"], utc=True, errors="coerce")
+    df = df.dropna(subset=["ts"]).sort_values("ts")
+    if min_ts:
+        df = df[df["ts"] >= pd.to_datetime(min_ts, utc=True, errors="coerce")]
+    if max_ts:
+        df = df[df["ts"] <= pd.to_datetime(max_ts, utc=True, errors="coerce")]
+    summary=[]
+    for itv in ivs:
+        parts=[]
+        for tkr, g in df.groupby("ticker", sort=False):
+            agg = (g.set_index("ts")
+                     .resample(itv, label="left", closed="left")
+                     .agg({"open":"first","high":"max","low":"min","close":"last","volume":"sum"}))
+            agg["ticker"] = tkr
+            agg = agg.reset_index()
+            parts.append(agg)
+        out = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
+        # Windows: ":" ist in Dateinamen verboten → ersetzen
+        safe = itv.replace(":","")
+        out_path = os.path.join(out_dir, f"assembled_intraday_{safe}.parquet")
+        out.to_parquet(out_path, index=False)
+        summary.append({"interval": itv, "rows": int(len(out)), "file": out_path})
+    rep = {"summary": summary}
+    with open(os.path.join(out_dir,"resample_report.json"), "w", encoding="utf-8") as f:
+        json.dump(rep, f, ensure_ascii=False, indent=2)
+
+if __name__=="__main__":
+    import sys
+    cfg = json.load(open(sys.argv[1], "r", encoding="utf-8"))
+    run(cfg)
+'@
+$pyFile = Join-Path $env:TEMP ("resample_{0}.py" -f ([guid]::NewGuid()))
+$pycode | Out-File $pyFile -Encoding utf8NoBOM
+& $py $pyFile $cfgFile | Out-Null
+Remove-Item $pyFile,$cfgFile -Force -ErrorAction SilentlyContinue
+
+Write-Ok ("Resampling abgeschlossen")
+Write-Ok ("Output: {0}" -f $outDir)
+Write-Ok ("Report: {0}" -f (Join-Path $outDir "resample_report.json"))
+'@
+
+# --- 51_qc_intraday_gaps.ps1 (zeitzonenfest) ---
+Write-Text "scripts\51_qc_intraday_gaps.ps1" @'
+#Requires -Version 7.0
+param(
+  [string]$ExpectedFreq = "1min"
+)
+. "$PSScriptRoot\utils\common.ps1"
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$py = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
+if(-not (Test-Path $py)){ $py = "py" }
+
+Start-Step "Starte QC Gaps ..."
+$inParquet = Join-Path $ProjectRoot "output\assembled_intraday\assembled_intraday.parquet"
+$outCsv    = Join-Path $ProjectRoot "output\qc\intraday_gaps.csv"
+$outJson   = Join-Path $ProjectRoot "output\qc\intraday_gaps_summary.json"
+New-Item -ItemType Directory -Path (Split-Path -Parent $outCsv) -Force | Out-Null
+
+$cfg = [pscustomobject]@{
+  in_file = $inParquet
+  out_csv = $outCsv
+  out_json= $outJson
+  expected_freq = $ExpectedFreq
+}
+$cfgFile = Join-Path $env:TEMP ("qcgaps_{0}.json" -f ([guid]::NewGuid()))
+$cfg | ConvertTo-Json -Depth 5 | Out-File $cfgFile -Encoding utf8NoBOM
+
+$pycode = @'
+import os, json, pandas as pd, numpy as np
+def run(cfg):
+    fn = cfg["in_file"]
+    out_csv = cfg["out_csv"]
+    out_json= cfg["out_json"]
+    expected_freq = cfg.get("expected_freq","1min")
+    df = pd.read_parquet(fn)
+    df["ts"] = pd.to_datetime(df["ts"], utc=True, errors="coerce")
+    df = df.dropna(subset=["ts"]).sort_values(["ticker","ts"])
+    gaps=[]
+    exp_minutes = pd.Timedelta(expected_freq).total_seconds()/60.0
+    for tkr, g in df.groupby("ticker", sort=False):
+        dmin = g["ts"].diff().dt.total_seconds().div(60).fillna(0)
+        # Lücke wenn Differenz > erwartetes Minutenintervall
+        mask = dmin > exp_minutes
+        total = int(mask.sum())
+        max_gap = float(dmin.max()) if len(dmin) else 0.0
+        gaps.append({"ticker": tkr, "total_gaps": total, "max_gap_minutes": max_gap})
+    total_gaps = int(sum(x["total_gaps"] for x in gaps))
+    max_overall = float(max([x["max_gap_minutes"] for x in gaps] or [0.0]))
+    pd.DataFrame(gaps).to_csv(out_csv, index=False)
+    with open(out_json,"w",encoding="utf-8") as f:
+        json.dump({"total_gaps": total_gaps, "max_gap_minutes_overall": max_overall, "by_ticker": gaps},
+                  f, ensure_ascii=False, indent=2)
+if __name__=="__main__":
+    import sys
+    cfg = json.load(open(sys.argv[1],"r",encoding="utf-8"))
+    run(cfg)
+'@
+$pyFile = Join-Path $env:TEMP ("qcgaps_{0}.py" -f ([guid]::NewGuid()))
+$pycode | Out-File $pyFile -Encoding utf8NoBOM
+& $py $pyFile $cfgFile | Out-Null
+Remove-Item $pyFile,$cfgFile -Force -ErrorAction SilentlyContinue
+End-Step "QC Gaps abgeschlossen"
+Write-Ok ("CSV:  $outCsv")
+Write-Ok ("JSON: $outJson")
+'@
+
+# --- 52_make_acceptance_intraday_sprint7.ps1 ---
+Write-Text "scripts\52_make_acceptance_intraday_sprint7.ps1" @'
+#Requires -Version 7.0
+param(
+  [int]$MinRowsPerInterval = 50,
+  [int]$MaxGapMinutes = 480,
+  [int]$MaxTotalGaps = 100000
+)
+. "$PSScriptRoot\utils\common.ps1"
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+
+$repPath = Join-Path $ProjectRoot "output\aggregates\resample_report.json"
+$qcPath  = Join-Path $ProjectRoot "output\qc\intraday_gaps_summary.json"
+
+$summary = @()
+if(Test-Path $repPath){
+  $obj = Get-Content $repPath -Raw | ConvertFrom-Json
+  $summary = $obj.summary
+}
+
+$qc = $null
+if(Test-Path $qcPath){ $qc = Get-Content $qcPath -Raw | ConvertFrom-Json }
+
+$okResample = $true
+foreach($it in $summary){ if([int]$it.rows -lt $MinRowsPerInterval){ $okResample = $false; break } }
+$okQc = $false
+if($qc){ $okQc = ([int]$qc.total_gaps -le $MaxTotalGaps) -and ([double]$qc.max_gap_minutes_overall -le $MaxGapMinutes) }
+
+$status = if($okResample -and $okQc){ "PASS" } else { "FAIL" }
+
+$md = @()
+$md += "# SPRINT 7 - ACCEPTANCE (Resample + QC)"
+$md += ""
+$md += ("**Datum (Berlin):** {0:yyyy-MM-dd HH:mm:ssK}" -f (Get-Date).ToUniversalTime().ToLocalTime())
+$md += ""
+$md += "## Ergebnis"
+$md += ("- **Status:** {0}" -f $status)
+$md += ""
+$md += "## Gate-Parameter"
+$md += ("- MinRowsPerInterval: **{0}**" -f $MinRowsPerInterval)
+$md += ("- MaxGapMinutes: **{0}**" -f $MaxGapMinutes)
+$md += ("- MaxTotalGaps: **{0}**" -f $MaxTotalGaps)
+$md += ""
+$md += "## Resample-Report"
+if($summary.Count -gt 0){
+  foreach($it in $summary){
+    $md += ('- Intervall **{0}**: Zeilen **{1}** -> Datei: `{2}`' -f $it.interval, $it.rows, $it.file)
+  }
+}else{
+  $md += "- (Keine Resample-Zusammenfassung gefunden.)"
+}
+$md += ""
+$md += "## QC Gaps (Kurzfassung)"
+if($qc){
+  $md += ('- total_gaps: **{0}**' -f $qc.total_gaps)
+  $md += ('- max_gap_minutes_overall: **{0}**' -f $qc.max_gap_minutes_overall)
+}else{
+  $md += "- (Keine QC-Zusammenfassung gefunden.)"
+}
+$md += ""
+$md += "## Artefakte"
+$md += "- `output/aggregates/resample_report.json`"
+$md += "- `output/qc/intraday_gaps.csv`"
+$md += "- `output/qc/intraday_gaps_summary.json`"
+
+$out = Join-Path $ProjectRoot "docs\SPRINT_7_ACCEPTANCE.md"
+$md -join "`r`n" | Out-File -LiteralPath $out -Encoding utf8NoBOM
+Write-Ok ("written: {0}" -f $out)
+if($status -eq "PASS"){ Write-Ok "Acceptance PASS (Sprint 7)" } else { Write-Warn2 "Acceptance FAIL (Sprint 7)" }
+'@
+
+# --- 40_run_intraday_pipeline.ps1 ---
+Write-Text "scripts\40_run_intraday_pipeline.ps1" @'
+#Requires -Version 7.0
+. "$PSScriptRoot\utils\common.ps1"
+$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+
+Write-Info "ProjectRoot: $ProjectRoot"
+& "$PSScriptRoot\31_assemble_intraday.ps1"
+
+& "$PSScriptRoot\50_resample_intraday.ps1"
+
+& "$PSScriptRoot\51_qc_intraday_gaps.ps1" -ExpectedFreq "1min"
+
+& "$PSScriptRoot\52_make_acceptance_intraday_sprint7.ps1" `
+   -MinRowsPerInterval 50 -MaxGapMinutes 480 -MaxTotalGaps 100000
+
+Write-Ok "Pipeline finished successfully."
+'@
+
+# --- README & requirements ---
+Write-Text "README_QuickStart.txt" @'
+PowerShell 7:   pwsh -NoLogo
+cd F:\Python_Projekt\Aktiengerüst
+.\scripts\40_run_intraday_pipeline.ps1
+Outputs:
+- output\assembled_intraday\...
+- output\aggregates\resample_report.json
+- output\qc\intraday_gaps*.*
+- docs\SPRINT_7_ACCEPTANCE.md
+'@
+
+Write-Text "requirements.txt" @'
+pandas==2.3.3
+pyarrow==21.0.0
+fastparquet==2024.11.0
+numpy==2.3.3
+python-dateutil==2.9.0.post0
+tzdata==2025.2
+pytz==2025.2
+fsspec==2025.9.0
+cramjam==2.11.0
+'@
+
+OK "Seed abgeschlossen."

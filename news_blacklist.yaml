@@ -1,0 +1,7 @@
+domains:
+- reddit.com
+- stocktwits.com
+patterns:
+- '*-promo-*'
+- '*-pump-*'
+- '*-sponsored-*'

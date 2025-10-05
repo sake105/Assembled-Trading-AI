@@ -1,0 +1,30 @@
+param(
+  [string]$Freq = '5min',
+  [float]$Notional = 10000,
+  [float]$CommissionBps = 0.5
+)
+$ErrorActionPreference = 'Stop'
+$ROOT = (Get-Location).Path
+$Py = Join-Path $ROOT '.venv/Systems/python.exe'
+if(-not (Test-Path $Py)){ $Py = Join-Path $ROOT '.venv/Scripts/python.exe' }
+$Script = Join-Path $ROOT 'scripts/sprint8_execution.py'
+
+function Info($m){ $ts=(Get-Date).ToUniversalTime().ToString('s')+'Z'; Write-Host "[$ts] [COST] $m" }
+
+if(-not (Test-Path $Script)){ throw "Nicht gefunden: $Script" }
+Info "Start Execution & Costs | freq=$Freq notional=$Notional commission=$CommissionBps bps"
+& $Py $Script --freq $Freq --notional $Notional --commission-bps $CommissionBps
+if($LASTEXITCODE -ne 0){ throw "Execution fehlgeschlagen" }
+
+# Übersicht
+$OUT = Join-Path $ROOT 'output'
+$orders = Join-Path $OUT 'orders.csv'
+$sensi  = Join-Path $OUT 'cost_sensitivity.md'
+$fill   = Join-Path $OUT 'fill_sim.md'
+
+if(Test-Path $orders){ Info "[OK] Orders: $orders" }
+if(Test-Path $sensi){  Info "[OK] Sensitivity: $sensi" }
+if(Test-Path $fill){   Info "[OK] FillSim: $fill" }
+Info "DONE"
+
+

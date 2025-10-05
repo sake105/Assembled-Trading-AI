@@ -1,0 +1,17 @@
+signal_threshold: 0.75
+domains:
+  reuters.com: 0.98
+  bloomberg.com: 0.96
+  ft.com: 0.95
+  wsj.com: 0.93
+  cnbc.com: 0.82
+  apnews.com: 0.93
+  barrons.com: 0.9
+  marketwatch.com: 0.8
+  handelsblatt.com: 0.88
+  faz.net: 0.88
+  boersen-zeitung.de: 0.9
+  businesswire.com: 0.85
+  globenewswire.com: 0.83
+  irpages.de: 0.9
+  deraktionaer.de: 0.8

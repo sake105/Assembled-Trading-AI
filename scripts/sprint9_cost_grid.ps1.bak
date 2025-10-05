@@ -1,0 +1,27 @@
+param(
+  [string]$Freq = '5min',
+  [float[]]$CommissionBps = @(0.0, 0.5, 1.0),
+  [float[]]$SpreadW = @(0.5, 1.0, 2.0),
+  [float[]]$ImpactW = @(0.5, 1.0, 2.0),
+  [float]$Notional = 10000
+)
+$ErrorActionPreference = 'Stop'
+$ROOT = (Get-Location).Path
+$Py = Join-Path $ROOT '.venv/Scripts/python.exe'
+$Script = Join-Path $ROOT 'scripts/sprint9_cost_grid.py'
+
+function Info($m){ $ts=(Get-Date).ToUniversalTime().ToString('s')+'Z'; Write-Host "[$ts] [GRID] $m" }
+
+if(-not (Test-Path $Py)){ throw "Python venv nicht gefunden: $Py" }
+if(-not (Test-Path $Script)){ throw "Nicht gefunden: $Script" }
+
+$cb = ($CommissionBps -join ' ')
+$sw = ($SpreadW -join ' ')
+$iw = ($ImpactW -join ' ')
+Info "Start Grid | freq=$Freq | commission=$cb | spread_w=$sw | impact_w=$iw"
+& $Py $Script --freq $Freq --notional $Notional --commission-bps $CommissionBps --spread-w $SpreadW --impact-w $ImpactW
+if($LASTEXITCODE -ne 0){ throw "Grid fehlgeschlagen" }
+$OUT = Join-Path $ROOT 'output'
+$rep = Join-Path $OUT 'cost_grid_report.md'
+if(Test-Path $rep){ Info "[OK] Report: $rep" }
+Info "DONE"

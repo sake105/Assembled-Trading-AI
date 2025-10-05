@@ -1,0 +1,8 @@
+ROOT: D:\PROJEKT_AKTIE\Projekt_1\Grundsachen
+PYTHON: 3.13.7
+PACKAGES: {"pandas": "2.3.2", "numpy": "2.3.2", "pyarrow": "21.0.0", "yfinance": "0.2.65", "python-dotenv": "unknown"}
+.env present: OK  ALPHA=None  FINNHUB=None
+WATCHLIST: path=D:\PROJEKT_AKTIE\Projekt_1\Grundsachen\Sprint2_Update_v24\config\watchlist.txt  count=4  first10=['AAPL', 'MSFT', 'GOOGL', 'NVDA']
+RAW_SUMMARY: {"AAPL": {"parquet_files": 21, "latest": "D:\\PROJEKT_AKTIE\\Projekt_1\\Grundsachen\\data\\raw\\AAPL\\2025.parquet"}, "MSFT": {"parquet_files": 21, "latest": "D:\\PROJEKT_AKTIE\\Projekt_1\\Grundsachen\\data\\raw\\MSFT\\2025.parquet"}, "GOOGL": {"parquet_files": 21, "latest": "D:\\PROJEKT_AKTIE\\Projekt_1\\Grundsachen\\data\\raw\\GOOGL\\2025.parquet"}, "NVDA": {"parquet_files": 21, "latest": "D:\\PROJEKT_AKTIE\\Projekt_1\\Grundsachen\\data\\raw\\NVDA\\2025.parquet"}}
+FEATURES_DIR: D:\PROJEKT_AKTIE\Projekt_1\Grundsachen\Sprint2_Update_v24\output\features  latest=D:\PROJEKT_AKTIE\Projekt_1\Grundsachen\Sprint2_Update_v24\output\features\NVDA_features.parquet
+SCORES_DIR:  D:\PROJEKT_AKTIE\Projekt_1\Grundsachen\Sprint2_Update_v24\output\scores  latest=D:\PROJEKT_AKTIE\Projekt_1\Grundsachen\Sprint2_Update_v24\output\scores\NVDA_screener.csv

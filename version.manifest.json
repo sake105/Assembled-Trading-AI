@@ -1,0 +1,22 @@
+{
+  "version": "v24-Sprint1",
+  "date": "2025-08-21 10:32 UTC",
+  "replaces": [
+    "Skeleton v24"
+  ],
+  "modules_updated": [
+    "src/etl/*",
+    "src/features/*",
+    "src/signals/*",
+    "src/portfolio/*",
+    "src/backtest/*",
+    "src/ui/app.py",
+    "src/scheduler/jobs.py",
+    "src/news/*",
+    "tools/self_test.py",
+    "scripts/run_backfill.py",
+    "scripts/run_screener.py"
+  ],
+  "config_samples": [],
+  "notes": "Implements Sprint 1 (P0) core pipeline with costs & UI."
+}

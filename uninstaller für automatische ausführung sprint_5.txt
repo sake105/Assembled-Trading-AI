@@ -1,0 +1,36 @@
+# === UNINSTALL: Sprint-5 Daily Timer (pythonw + Autostart) ===
+$ErrorActionPreference = 'Stop'
+chcp 65001 > $null
+
+$Root     = 'D:\PROJEKT_AKTIE\Projekt_1\Grundsachen'
+$ToolsDir = Join-Path $Root 'tools'
+$TimerPy  = Join-Path $ToolsDir 'daily_timer.py'
+$RunKey   = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+$RunName  = 'S5-DailyTimer'
+$Startup  = [Environment]::GetFolderPath('Startup')
+$LnkPath  = Join-Path $Startup 'S5-DailyTimer.lnk'
+
+# HKCU\Run entfernen
+if (Get-ItemProperty -Path $RunKey -Name $RunName -ErrorAction SilentlyContinue) {
+    Remove-ItemProperty -Path $RunKey -Name $RunName -ErrorAction SilentlyContinue
+    Write-Host "🗑️ Autostart (Run) entfernt: $RunName" -ForegroundColor Yellow
+}
+
+# LNK entfernen
+if (Test-Path $LnkPath) {
+    Remove-Item -LiteralPath $LnkPath -Force
+    Write-Host "🗑️ Autostart-Verknüpfung entfernt: $LnkPath" -ForegroundColor Yellow
+}
+
+# Laufende Timer-Prozesse, die unsere Datei nutzen, beenden
+Get-CimInstance Win32_Process -Filter "Name='pythonw.exe'" -ErrorAction SilentlyContinue |
+  Where-Object { $_.CommandLine -like "*$([Regex]::Escape($TimerPy))*" } |
+  ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+
+# Timer-Datei optional löschen
+if (Test-Path $TimerPy) {
+    Remove-Item -LiteralPath $TimerPy -Force
+    Write-Host "🗑️ Timer-Datei gelöscht: $TimerPy" -ForegroundColor Yellow
+}
+
+Write-Host "✔ Deinstallation abgeschlossen." -ForegroundColor Green

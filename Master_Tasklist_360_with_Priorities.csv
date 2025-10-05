@@ -1,0 +1,361 @@
+ID;Kategorie;Bezug;Beschreibung;DoD;Status;Prio;Sprint;Owner
+1;Feature Implementierung;Zweitquelle Preise;Implementiere: Zweitquelle Preise;Code & Review;TODO;P0;Sprint 1;Owner
+2;Unit-Test;Zweitquelle Preise;Unit-Tests für: Zweitquelle Preise;UT grün, Coverage ≥ 80%;TODO;P0;Sprint 1;Owner
+3;Integrationstest;Zweitquelle Preise;E2E: ETL→Feature/Signal→Report für: Zweitquelle Preise;IT grün, Golden Files;TODO;P0;Sprint 1;Owner
+4;Feature Implementierung;Corporate-Actions-Log;Implementiere: Corporate-Actions-Log;Code & Review;TODO;P0;Sprint 1;Owner
+5;Unit-Test;Corporate-Actions-Log;Unit-Tests für: Corporate-Actions-Log;UT grün, Coverage ≥ 80%;TODO;P0;Sprint 1;Owner
+6;Integrationstest;Corporate-Actions-Log;E2E: ETL→Feature/Signal→Report für: Corporate-Actions-Log;IT grün, Golden Files;TODO;P0;Sprint 1;Owner
+7;Feature Implementierung;Börsenkalender;Implementiere: Börsenkalender;Code & Review;TODO;P0;Sprint 1;Owner
+8;Unit-Test;Börsenkalender;Unit-Tests für: Börsenkalender;UT grün, Coverage ≥ 80%;TODO;P0;Sprint 1;Owner
+9;Integrationstest;Börsenkalender;E2E: ETL→Feature/Signal→Report für: Börsenkalender;IT grün, Golden Files;TODO;P0;Sprint 1;Owner
+10;Feature Implementierung;Sommer-/Winterzeit;Implementiere: Sommer-/Winterzeit;Code & Review;TODO;P1;Sprint 2;Owner
+11;Unit-Test;Sommer-/Winterzeit;Unit-Tests für: Sommer-/Winterzeit;UT grün, Coverage ≥ 80%;TODO;P1;Sprint 2;Owner
+12;Integrationstest;Sommer-/Winterzeit;E2E: ETL→Feature/Signal→Report für: Sommer-/Winterzeit;IT grün, Golden Files;TODO;P1;Sprint 2;Owner
+13;Feature Implementierung;Ausreißer-Klassifikation;Implementiere: Ausreißer-Klassifikation;Code & Review;TODO;P1;Sprint 2;Owner
+14;Unit-Test;Ausreißer-Klassifikation;Unit-Tests für: Ausreißer-Klassifikation;UT grün, Coverage ≥ 80%;TODO;P1;Sprint 2;Owner
+15;Integrationstest;Ausreißer-Klassifikation;E2E: ETL→Feature/Signal→Report für: Ausreißer-Klassifikation;IT grün, Golden Files;TODO;P1;Sprint 2;Owner
+16;Feature Implementierung;Volume-Sanity;Implementiere: Volume-Sanity;Code & Review;TODO;P1;Sprint 2;Owner
+17;Unit-Test;Volume-Sanity;Unit-Tests für: Volume-Sanity;UT grün, Coverage ≥ 80%;TODO;P1;Sprint 2;Owner
+18;Integrationstest;Volume-Sanity;E2E: ETL→Feature/Signal→Report für: Volume-Sanity;IT grün, Golden Files;TODO;P1;Sprint 2;Owner
+19;Feature Implementierung;Währungs-Mapping;Implementiere: Währungs-Mapping;Code & Review;TODO;P1;Sprint 2;Owner
+20;Unit-Test;Währungs-Mapping;Unit-Tests für: Währungs-Mapping;UT grün, Coverage ≥ 80%;TODO;P1;Sprint 2;Owner
+21;Integrationstest;Währungs-Mapping;E2E: ETL→Feature/Signal→Report für: Währungs-Mapping;IT grün, Golden Files;TODO;P1;Sprint 2;Owner
+22;Feature Implementierung;Benchmarks/ETFs;Implementiere: Benchmarks/ETFs;Code & Review;TODO;P1;Sprint 2;Owner
+23;Unit-Test;Benchmarks/ETFs;Unit-Tests für: Benchmarks/ETFs;UT grün, Coverage ≥ 80%;TODO;P1;Sprint 2;Owner
+24;Integrationstest;Benchmarks/ETFs;E2E: ETL→Feature/Signal→Report für: Benchmarks/ETFs;IT grün, Golden Files;TODO;P1;Sprint 2;Owner
+25;Feature Implementierung;Delisting-Policy;Implementiere: Delisting-Policy;Code & Review;TODO;P1;Sprint 2;Owner
+26;Unit-Test;Delisting-Policy;Unit-Tests für: Delisting-Policy;UT grün, Coverage ≥ 80%;TODO;P1;Sprint 2;Owner
+27;Integrationstest;Delisting-Policy;E2E: ETL→Feature/Signal→Report für: Delisting-Policy;IT grün, Golden Files;TODO;P1;Sprint 2;Owner
+28;Feature Implementierung;Daten-Diff-Store;Implementiere: Daten-Diff-Store;Code & Review;TODO;P2;Sprint 3;Owner
+29;Unit-Test;Daten-Diff-Store;Unit-Tests für: Daten-Diff-Store;UT grün, Coverage ≥ 80%;TODO;P2;Sprint 3;Owner
+30;Integrationstest;Daten-Diff-Store;E2E: ETL→Feature/Signal→Report für: Daten-Diff-Store;IT grün, Golden Files;TODO;P2;Sprint 3;Owner
+31;Feature Implementierung;Mehr Volatilitätsmaße;Implementiere: Mehr Volatilitätsmaße;Code & Review;TODO;P0;Sprint 1;Owner
+32;Unit-Test;Mehr Volatilitätsmaße;Unit-Tests für: Mehr Volatilitätsmaße;UT grün, Coverage ≥ 80%;TODO;P0;Sprint 1;Owner
+33;Integrationstest;Mehr Volatilitätsmaße;E2E: ETL→Feature/Signal→Report für: Mehr Volatilitätsmaße;IT grün, Golden Files;TODO;P0;Sprint 1;Owner
+34;Feature Implementierung;Trend-Stabilität;Implementiere: Trend-Stabilität;Code & Review;TODO;P0;Sprint 1;Owner
+35;Unit-Test;Trend-Stabilität;Unit-Tests für: Trend-Stabilität;UT grün, Coverage ≥ 80%;TODO;P0;Sprint 1;Owner
+36;Integrationstest;Trend-Stabilität;E2E: ETL→Feature/Signal→Report für: Trend-Stabilität;IT grün, Golden Files;TODO;P0;Sprint 1;Owner
+37;Feature Implementierung;Mean-Reversion-Score;Implementiere: Mean-Reversion-Score;Code & Review;TODO;P1;Sprint 2;Owner
+38;Unit-Test;Mean-Reversion-Score;Unit-Tests für: Mean-Reversion-Score;UT grün, Coverage ≥ 80%;TODO;P1;Sprint 2;Owner
+39;Integrationstest;Mean-Reversion-Score;E2E: ETL→Feature/Signal→Report für: Mean-Reversion-Score;IT grün, Golden Files;TODO;P1;Sprint 2;Owner
+40;Feature Implementierung;Liquiditätsklassen;Implementiere: Liquiditätsklassen;Code & Review;TODO;P1;Sprint 2;Owner
+41;Unit-Test;Liquiditätsklassen;Unit-Tests für: Liquiditätsklassen;UT grün, Coverage ≥ 80%;TODO;P1;Sprint 2;Owner
+42;Integrationstest;Liquiditätsklassen;E2E: ETL→Feature/Signal→Report für: Liquiditätsklassen;IT grün, Golden Files;TODO;P1;Sprint 2;Owner
+43;Feature Implementierung;Gap-Attribution;Implementiere: Gap-Attribution;Code & Review;TODO;P0;Sprint 1;Owner
+44;Unit-Test;Gap-Attribution;Unit-Tests für: Gap-Attribution;UT grün, Coverage ≥ 80%;TODO;P0;Sprint 1;Owner
+45;Integrationstest;Gap-Attribution;E2E: ETL→Feature/Signal→Report für: Gap-Attribution;IT grün, Golden Files;TODO;P0;Sprint 1;Owner
+46;Feature Implementierung;Volatility Squeeze+;Implementiere: Volatility Squeeze+;Code & Review;TODO;P0;Sprint 1;Owner
+47;Unit-Test;Volatility Squeeze+;Unit-Tests für: Volatility Squeeze+;UT grün, Coverage ≥ 80%;TODO;P0;Sprint 1;Owner
+48;Integrationstest;Volatility Squeeze+;E2E: ETL→Feature/Signal→Report für: Volatility Squeeze+;IT grün, Golden Files;TODO;P0;Sprint 1;Owner
+49;Feature Implementierung;Event-Fahnen;Implementiere: Event-Fahnen;Code & Review;TODO;P2;Sprint 3;Owner
+50;Unit-Test;Event-Fahnen;Unit-Tests für: Event-Fahnen;UT grün, Coverage ≥ 80%;TODO;P2;Sprint 3;Owner
+51;Integrationstest;Event-Fahnen;E2E: ETL→Feature/Signal→Report für: Event-Fahnen;IT grün, Golden Files;TODO;P2;Sprint 3;Owner
+52;Feature Implementierung;Sektor-/Peer-RS;Implementiere: Sektor-/Peer-RS;Code & Review;TODO;P1;Sprint 2;Owner
+53;Unit-Test;Sektor-/Peer-RS;Unit-Tests für: Sektor-/Peer-RS;UT grün, Coverage ≥ 80%;TODO;P1;Sprint 2;Owner
+54;Integrationstest;Sektor-/Peer-RS;E2E: ETL→Feature/Signal→Report für: Sektor-/Peer-RS;IT grün, Golden Files;TODO;P1;Sprint 2;Owner
+55;Feature Implementierung;Rolling-Korrelationen;Implementiere: Rolling-Korrelationen;Code & Review;TODO;P1;Sprint 2;Owner
+56;Unit-Test;Rolling-Korrelationen;Unit-Tests für: Rolling-Korrelationen;UT grün, Coverage ≥ 80%;TODO;P1;Sprint 2;Owner
+57;Integrationstest;Rolling-Korrelationen;E2E: ETL→Feature/Signal→Report für: Rolling-Korrelationen;IT grün, Golden Files;TODO;P1;Sprint 2;Owner
+58;Feature Implementierung;Regime-Label-Bibliothek;Implementiere: Regime-Label-Bibliothek;Code & Review;TODO;P0;Sprint 1;Owner
+59;Unit-Test;Regime-Label-Bibliothek;Unit-Tests für: Regime-Label-Bibliothek;UT grün, Coverage ≥ 80%;TODO;P0;Sprint 1;Owner
+60;Integrationstest;Regime-Label-Bibliothek;E2E: ETL→Feature/Signal→Report für: Regime-Label-Bibliothek;IT grün, Golden Files;TODO;P0;Sprint 1;Owner
+61;Feature Implementierung;Whitelist-Only-Modus;Implementiere: Whitelist-Only-Modus;Code & Review;TODO;P0;Sprint 1;Owner
+62;Unit-Test;Whitelist-Only-Modus;Unit-Tests für: Whitelist-Only-Modus;UT grün, Coverage ≥ 80%;TODO;P0;Sprint 1;Owner
+63;Integrationstest;Whitelist-Only-Modus;E2E: ETL→Feature/Signal→Report für: Whitelist-Only-Modus;IT grün, Golden Files;TODO;P0;Sprint 1;Owner
+64;Feature Implementierung;Dedupe v2;Implementiere: Dedupe v2;Code & Review;TODO;P0;Sprint 1;Owner
+65;Unit-Test;Dedupe v2;Unit-Tests für: Dedupe v2;UT grün, Coverage ≥ 80%;TODO;P0;Sprint 1;Owner
+66;Integrationstest;Dedupe v2;E2E: ETL→Feature/Signal→Report für: Dedupe v2;IT grün, Golden Files;TODO;P0;Sprint 1;Owner
+67;Feature Implementierung;Velocity-Spikes;Implementiere: Velocity-Spikes;Code & Review;TODO;P2;Sprint 3;Owner
+68;Unit-Test;Velocity-Spikes;Unit-Tests für: Velocity-Spikes;UT grün, Coverage ≥ 80%;TODO;P2;Sprint 3;Owner
+69;Integrationstest;Velocity-Spikes;E2E: ETL→Feature/Signal→Report für: Velocity-Spikes;IT grün, Golden Files;TODO;P2;Sprint 3;Owner
+70;Feature Implementierung;Novelty-Score;Implementiere: Novelty-Score;Code & Review;TODO;P1;Sprint 2;Owner
+71;Unit-Test;Novelty-Score;Unit-Tests für: Novelty-Score;UT grün, Coverage ≥ 80%;TODO;P1;Sprint 2;Owner
+72;Integrationstest;Novelty-Score;E2E: ETL→Feature/Signal→Report für: Novelty-Score;IT grün, Golden Files;TODO;P1;Sprint 2;Owner
+73;Feature Implementierung;Event-Typisierung;Implementiere: Event-Typisierung;Code & Review;TODO;P1;Sprint 2;Owner
+74;Unit-Test;Event-Typisierung;Unit-Tests für: Event-Typisierung;UT grün, Coverage ≥ 80%;TODO;P1;Sprint 2;Owner
+75;Integrationstest;Event-Typisierung;E2E: ETL→Feature/Signal→Report für: Event-Typisierung;IT grün, Golden Files;TODO;P1;Sprint 2;Owner
+76;Feature Implementierung;Sentiment-Aggregation;Implementiere: Sentiment-Aggregation;Code & Review;TODO;P1;Sprint 2;Owner
+77;Unit-Test;Sentiment-Aggregation;Unit-Tests für: Sentiment-Aggregation;UT grün, Coverage ≥ 80%;TODO;P1;Sprint 2;Owner
+78;Integrationstest;Sentiment-Aggregation;E2E: ETL→Feature/Signal→Report für: Sentiment-Aggregation;IT grün, Golden Files;TODO;P1;Sprint 2;Owner
+79;Feature Implementierung;Konfliktprüfung;Implementiere: Konfliktprüfung;Code & Review;TODO;P2;Sprint 3;Owner
+80;Unit-Test;Konfliktprüfung;Unit-Tests für: Konfliktprüfung;UT grün, Coverage ≥ 80%;TODO;P2;Sprint 3;Owner
+81;Integrationstest;Konfliktprüfung;E2E: ETL→Feature/Signal→Report für: Konfliktprüfung;IT grün, Golden Files;TODO;P2;Sprint 3;Owner
+82;Feature Implementierung;Mehrsprachigkeit;Implementiere: Mehrsprachigkeit;Code & Review;TODO;P2;Sprint 3;Owner
+83;Unit-Test;Mehrsprachigkeit;Unit-Tests für: Mehrsprachigkeit;UT grün, Coverage ≥ 80%;TODO;P2;Sprint 3;Owner
+84;Integrationstest;Mehrsprachigkeit;E2E: ETL→Feature/Signal→Report für: Mehrsprachigkeit;IT grün, Golden Files;TODO;P2;Sprint 3;Owner
+85;Feature Implementierung;Negations-/Sarkasmus-Filter;Implementiere: Negations-/Sarkasmus-Filter;Code & Review;TODO;P2;Sprint 3;Owner
+86;Unit-Test;Negations-/Sarkasmus-Filter;Unit-Tests für: Negations-/Sarkasmus-Filter;UT grün, Coverage ≥ 80%;TODO;P2;Sprint 3;Owner
+87;Integrationstest;Negations-/Sarkasmus-Filter;E2E: ETL→Feature/Signal→Report für: Negations-/Sarkasmus-Filter;IT grün, Golden Files;TODO;P2;Sprint 3;Owner
+88;Feature Implementierung;Source-Drift-Monitor;Implementiere: Source-Drift-Monitor;Code & Review;TODO;P2;Sprint 3;Owner
+89;Unit-Test;Source-Drift-Monitor;Unit-Tests für: Source-Drift-Monitor;UT grün, Coverage ≥ 80%;TODO;P2;Sprint 3;Owner
+90;Integrationstest;Source-Drift-Monitor;E2E: ETL→Feature/Signal→Report für: Source-Drift-Monitor;IT grün, Golden Files;TODO;P2;Sprint 3;Owner
+91;Feature Implementierung;Meta-Labeling;Implementiere: Meta-Labeling;Code & Review;TODO;P2;Sprint 3;Owner
+92;Unit-Test;Meta-Labeling;Unit-Tests für: Meta-Labeling;UT grün, Coverage ≥ 80%;TODO;P2;Sprint 3;Owner
+93;Integrationstest;Meta-Labeling;E2E: ETL→Feature/Signal→Report für: Meta-Labeling;IT grün, Golden Files;TODO;P2;Sprint 3;Owner
+94;Feature Implementierung;Zwei-Stufen-Modelle;Implementiere: Zwei-Stufen-Modelle;Code & Review;TODO;P2;Sprint 3;Owner
+95;Unit-Test;Zwei-Stufen-Modelle;Unit-Tests für: Zwei-Stufen-Modelle;UT grün, Coverage ≥ 80%;TODO;P2;Sprint 3;Owner
+96;Integrationstest;Zwei-Stufen-Modelle;E2E: ETL→Feature/Signal→Report für: Zwei-Stufen-Modelle;IT grün, Golden Files;TODO;P2;Sprint 3;Owner
+97;Feature Implementierung;PurgedKFold+Embargo;Implementiere: PurgedKFold+Embargo;Code & Review;TODO;P2;Sprint 3;Owner
+98;Unit-Test;PurgedKFold+Embargo;Unit-Tests für: PurgedKFold+Embargo;UT grün, Coverage ≥ 80%;TODO;P2;Sprint 3;Owner
+99;Integrationstest;PurgedKFold+Embargo;E2E: ETL→Feature/Signal→Report für: PurgedKFold+Embargo;IT grün, Golden Files;TODO;P2;Sprint 3;Owner
+100;Feature Implementierung;Walk-Forward-Plan;Implementiere: Walk-Forward-Plan;Code & Review;TODO;P2;Sprint 3;Owner
+101;Unit-Test;Walk-Forward-Plan;Unit-Tests für: Walk-Forward-Plan;UT grün, Coverage ≥ 80%;TODO;P2;Sprint 3;Owner
+102;Integrationstest;Walk-Forward-Plan;E2E: ETL→Feature/Signal→Report für: Walk-Forward-Plan;IT grün, Golden Files;TODO;P2;Sprint 3;Owner
+103;Feature Implementierung;Regularisierung/ES;Implementiere: Regularisierung/ES;Code & Review;TODO;P2;Sprint 3;Owner
+104;Unit-Test;Regularisierung/ES;Unit-Tests für: Regularisierung/ES;UT grün, Coverage ≥ 80%;TODO;P2;Sprint 3;Owner
+105;Integrationstest;Regularisierung/ES;E2E: ETL→Feature/Signal→Report für: Regularisierung/ES;IT grün, Golden Files;TODO;P2;Sprint 3;Owner
+106;Feature Implementierung;SHAP-Stabilität;Implementiere: SHAP-Stabilität;Code & Review;TODO;P2;Sprint 3;Owner
+107;Unit-Test;SHAP-Stabilität;Unit-Tests für: SHAP-Stabilität;UT grün, Coverage ≥ 80%;TODO;P2;Sprint 3;Owner
+108;Integrationstest;SHAP-Stabilität;E2E: ETL→Feature/Signal→Report für: SHAP-Stabilität;IT grün, Golden Files;TODO;P2;Sprint 3;Owner
+109;Feature Implementierung;Drift-Monitor;Implementiere: Drift-Monitor;Code & Review;TODO;P2;Sprint 3;Owner
+110;Unit-Test;Drift-Monitor;Unit-Tests für: Drift-Monitor;UT grün, Coverage ≥ 80%;TODO;P2;Sprint 3;Owner
+111;Integrationstest;Drift-Monitor;E2E: ETL→Feature/Signal→Report für: Drift-Monitor;IT grün, Golden Files;TODO;P2;Sprint 3;Owner
+112;Feature Implementierung;Ensembling/Stacking;Implementiere: Ensembling/Stacking;Code & Review;TODO;P2;Sprint 3;Owner
+113;Unit-Test;Ensembling/Stacking;Unit-Tests für: Ensembling/Stacking;UT grün, Coverage ≥ 80%;TODO;P2;Sprint 3;Owner
+114;Integrationstest;Ensembling/Stacking;E2E: ETL→Feature/Signal→Report für: Ensembling/Stacking;IT grün, Golden Files;TODO;P2;Sprint 3;Owner
+115;Feature Implementierung;Anomalie-Detektion;Implementiere: Anomalie-Detektion;Code & Review;TODO;P2;Sprint 3;Owner
+116;Unit-Test;Anomalie-Detektion;Unit-Tests für: Anomalie-Detektion;UT grün, Coverage ≥ 80%;TODO;P2;Sprint 3;Owner
+117;Integrationstest;Anomalie-Detektion;E2E: ETL→Feature/Signal→Report für: Anomalie-Detektion;IT grün, Golden Files;TODO;P2;Sprint 3;Owner
+118;Feature Implementierung;Kalibrierung;Implementiere: Kalibrierung;Code & Review;TODO;P2;Sprint 3;Owner
+119;Unit-Test;Kalibrierung;Unit-Tests für: Kalibrierung;UT grün, Coverage ≥ 80%;TODO;P2;Sprint 3;Owner
+120;Integrationstest;Kalibrierung;E2E: ETL→Feature/Signal→Report für: Kalibrierung;IT grün, Golden Files;TODO;P2;Sprint 3;Owner
+121;Feature Implementierung;Gating-Order fix;Implementiere: Gating-Order fix;Code & Review;TODO;P0;Sprint 1;Owner
+122;Unit-Test;Gating-Order fix;Unit-Tests für: Gating-Order fix;UT grün, Coverage ≥ 80%;TODO;P0;Sprint 1;Owner
+123;Integrationstest;Gating-Order fix;E2E: ETL→Feature/Signal→Report für: Gating-Order fix;IT grün, Golden Files;TODO;P0;Sprint 1;Owner
+124;Feature Implementierung;Hysterese;Implementiere: Hysterese;Code & Review;TODO;P0;Sprint 1;Owner
+125;Unit-Test;Hysterese;Unit-Tests für: Hysterese;UT grün, Coverage ≥ 80%;TODO;P0;Sprint 1;Owner
+126;Integrationstest;Hysterese;E2E: ETL→Feature/Signal→Report für: Hysterese;IT grün, Golden Files;TODO;P0;Sprint 1;Owner
+127;Feature Implementierung;Konfliktmatrix;Implementiere: Konfliktmatrix;Code & Review;TODO;P3;Sprint 4+ / Backlog;Owner
+128;Unit-Test;Konfliktmatrix;Unit-Tests für: Konfliktmatrix;UT grün, Coverage ≥ 80%;TODO;P3;Sprint 4+ / Backlog;Owner
+129;Integrationstest;Konfliktmatrix;E2E: ETL→Feature/Signal→Report für: Konfliktmatrix;IT grün, Golden Files;TODO;P3;Sprint 4+ / Backlog;Owner
+130;Feature Implementierung;Score-Smoothing;Implementiere: Score-Smoothing;Code & Review;TODO;P3;Sprint 4+ / Backlog;Owner
+131;Unit-Test;Score-Smoothing;Unit-Tests für: Score-Smoothing;UT grün, Coverage ≥ 80%;TODO;P3;Sprint 4+ / Backlog;Owner
+132;Integrationstest;Score-Smoothing;E2E: ETL→Feature/Signal→Report für: Score-Smoothing;IT grün, Golden Files;TODO;P3;Sprint 4+ / Backlog;Owner
+133;Feature Implementierung;Setup-Typisierung;Implementiere: Setup-Typisierung;Code & Review;TODO;P3;Sprint 4+ / Backlog;Owner
+134;Unit-Test;Setup-Typisierung;Unit-Tests für: Setup-Typisierung;UT grün, Coverage ≥ 80%;TODO;P3;Sprint 4+ / Backlog;Owner
+135;Integrationstest;Setup-Typisierung;E2E: ETL→Feature/Signal→Report für: Setup-Typisierung;IT grün, Golden Files;TODO;P3;Sprint 4+ / Backlog;Owner
+136;Feature Implementierung;Horizont-Profile;Implementiere: Horizont-Profile;Code & Review;TODO;P3;Sprint 4+ / Backlog;Owner
+137;Unit-Test;Horizont-Profile;Unit-Tests für: Horizont-Profile;UT grün, Coverage ≥ 80%;TODO;P3;Sprint 4+ / Backlog;Owner
+138;Integrationstest;Horizont-Profile;E2E: ETL→Feature/Signal→Report für: Horizont-Profile;IT grün, Golden Files;TODO;P3;Sprint 4+ / Backlog;Owner
+139;Feature Implementierung;Fee-Gate dynamisch;Implementiere: Fee-Gate dynamisch;Code & Review;TODO;P0;Sprint 1;Owner
+140;Unit-Test;Fee-Gate dynamisch;Unit-Tests für: Fee-Gate dynamisch;UT grün, Coverage ≥ 80%;TODO;P0;Sprint 1;Owner
+141;Integrationstest;Fee-Gate dynamisch;E2E: ETL→Feature/Signal→Report für: Fee-Gate dynamisch;IT grün, Golden Files;TODO;P0;Sprint 1;Owner
+142;Feature Implementierung;Volatility-Budget;Implementiere: Volatility-Budget;Code & Review;TODO;P0;Sprint 1;Owner
+143;Unit-Test;Volatility-Budget;Unit-Tests für: Volatility-Budget;UT grün, Coverage ≥ 80%;TODO;P0;Sprint 1;Owner
+144;Integrationstest;Volatility-Budget;E2E: ETL→Feature/Signal→Report für: Volatility-Budget;IT grün, Golden Files;TODO;P0;Sprint 1;Owner
+145;Feature Implementierung;Spread-Proxy dynamisch;Implementiere: Spread-Proxy dynamisch;Code & Review;TODO;P3;Sprint 4+ / Backlog;Owner
+146;Unit-Test;Spread-Proxy dynamisch;Unit-Tests für: Spread-Proxy dynamisch;UT grün, Coverage ≥ 80%;TODO;P3;Sprint 4+ / Backlog;Owner
+147;Integrationstest;Spread-Proxy dynamisch;E2E: ETL→Feature/Signal→Report für: Spread-Proxy dynamisch;IT grün, Golden Files;TODO;P3;Sprint 4+ / Backlog;Owner
+148;Feature Implementierung;ATR-SL & Chandelier;Implementiere: ATR-SL & Chandelier;Code & Review;TODO;P0;Sprint 1;Owner
+149;Unit-Test;ATR-SL & Chandelier;Unit-Tests für: ATR-SL & Chandelier;UT grün, Coverage ≥ 80%;TODO;P0;Sprint 1;Owner
+150;Integrationstest;ATR-SL & Chandelier;E2E: ETL→Feature/Signal→Report für: ATR-SL & Chandelier;IT grün, Golden Files;TODO;P0;Sprint 1;Owner
+151;Feature Implementierung;TP-Leitern;Implementiere: TP-Leitern;Code & Review;TODO;P3;Sprint 4+ / Backlog;Owner
+152;Unit-Test;TP-Leitern;Unit-Tests für: TP-Leitern;UT grün, Coverage ≥ 80%;TODO;P3;Sprint 4+ / Backlog;Owner
+153;Integrationstest;TP-Leitern;E2E: ETL→Feature/Signal→Report für: TP-Leitern;IT grün, Golden Files;TODO;P3;Sprint 4+ / Backlog;Owner
+154;Feature Implementierung;Exposure/Loss-Limits;Implementiere: Exposure/Loss-Limits;Code & Review;TODO;P3;Sprint 4+ / Backlog;Owner
+155;Unit-Test;Exposure/Loss-Limits;Unit-Tests für: Exposure/Loss-Limits;UT grün, Coverage ≥ 80%;TODO;P3;Sprint 4+ / Backlog;Owner
+156;Integrationstest;Exposure/Loss-Limits;E2E: ETL→Feature/Signal→Report für: Exposure/Loss-Limits;IT grün, Golden Files;TODO;P3;Sprint 4+ / Backlog;Owner
+157;Feature Implementierung;Rebalance-Regeln;Implementiere: Rebalance-Regeln;Code & Review;TODO;P3;Sprint 4+ / Backlog;Owner
+158;Unit-Test;Rebalance-Regeln;Unit-Tests für: Rebalance-Regeln;UT grün, Coverage ≥ 80%;TODO;P3;Sprint 4+ / Backlog;Owner
+159;Integrationstest;Rebalance-Regeln;E2E: ETL→Feature/Signal→Report für: Rebalance-Regeln;IT grün, Golden Files;TODO;P3;Sprint 4+ / Backlog;Owner
+160;Feature Implementierung;EUR-Reporting;Implementiere: EUR-Reporting;Code & Review;TODO;P3;Sprint 4+ / Backlog;Owner
+161;Unit-Test;EUR-Reporting;Unit-Tests für: EUR-Reporting;UT grün, Coverage ≥ 80%;TODO;P3;Sprint 4+ / Backlog;Owner
+162;Integrationstest;EUR-Reporting;E2E: ETL→Feature/Signal→Report für: EUR-Reporting;IT grün, Golden Files;TODO;P3;Sprint 4+ / Backlog;Owner
+163;Feature Implementierung;Batching;Implementiere: Batching;Code & Review;TODO;P3;Sprint 4+ / Backlog;Owner
+164;Unit-Test;Batching;Unit-Tests für: Batching;UT grün, Coverage ≥ 80%;TODO;P3;Sprint 4+ / Backlog;Owner
+165;Integrationstest;Batching;E2E: ETL→Feature/Signal→Report für: Batching;IT grün, Golden Files;TODO;P3;Sprint 4+ / Backlog;Owner
+166;Feature Implementierung;vectorbt + backtesting.py;Implementiere: vectorbt + backtesting.py;Code & Review;TODO;P0;Sprint 1;Owner
+167;Unit-Test;vectorbt + backtesting.py;Unit-Tests für: vectorbt + backtesting.py;UT grün, Coverage ≥ 80%;TODO;P0;Sprint 1;Owner
+168;Integrationstest;vectorbt + backtesting.py;E2E: ETL→Feature/Signal→Report für: vectorbt + backtesting.py;IT grün, Golden Files;TODO;P0;Sprint 1;Owner
+169;Feature Implementierung;Parameter-Stress;Implementiere: Parameter-Stress;Code & Review;TODO;P1;Sprint 2;Owner
+170;Unit-Test;Parameter-Stress;Unit-Tests für: Parameter-Stress;UT grün, Coverage ≥ 80%;TODO;P1;Sprint 2;Owner
+171;Integrationstest;Parameter-Stress;E2E: ETL→Feature/Signal→Report für: Parameter-Stress;IT grün, Golden Files;TODO;P1;Sprint 2;Owner
+172;Feature Implementierung;Monte-Carlo;Implementiere: Monte-Carlo;Code & Review;TODO;P1;Sprint 2;Owner
+173;Unit-Test;Monte-Carlo;Unit-Tests für: Monte-Carlo;UT grün, Coverage ≥ 80%;TODO;P1;Sprint 2;Owner
+174;Integrationstest;Monte-Carlo;E2E: ETL→Feature/Signal→Report für: Monte-Carlo;IT grün, Golden Files;TODO;P1;Sprint 2;Owner
+175;Feature Implementierung;Survivorship-Check;Implementiere: Survivorship-Check;Code & Review;TODO;P3;Sprint 4+ / Backlog;Owner
+176;Unit-Test;Survivorship-Check;Unit-Tests für: Survivorship-Check;UT grün, Coverage ≥ 80%;TODO;P3;Sprint 4+ / Backlog;Owner
+177;Integrationstest;Survivorship-Check;E2E: ETL→Feature/Signal→Report für: Survivorship-Check;IT grün, Golden Files;TODO;P3;Sprint 4+ / Backlog;Owner
+178;Feature Implementierung;Kosten immer aktiv;Implementiere: Kosten immer aktiv;Code & Review;TODO;P0;Sprint 1;Owner
+179;Unit-Test;Kosten immer aktiv;Unit-Tests für: Kosten immer aktiv;UT grün, Coverage ≥ 80%;TODO;P0;Sprint 1;Owner
+180;Integrationstest;Kosten immer aktiv;E2E: ETL→Feature/Signal→Report für: Kosten immer aktiv;IT grün, Golden Files;TODO;P0;Sprint 1;Owner
+181;Feature Implementierung;Berichtsset;Implementiere: Berichtsset;Code & Review;TODO;P1;Sprint 2;Owner
+182;Unit-Test;Berichtsset;Unit-Tests für: Berichtsset;UT grün, Coverage ≥ 80%;TODO;P1;Sprint 2;Owner
+183;Integrationstest;Berichtsset;E2E: ETL→Feature/Signal→Report für: Berichtsset;IT grün, Golden Files;TODO;P1;Sprint 2;Owner
+184;Feature Implementierung;Promotion-Kriterien;Implementiere: Promotion-Kriterien;Code & Review;TODO;P0;Sprint 1;Owner
+185;Unit-Test;Promotion-Kriterien;Unit-Tests für: Promotion-Kriterien;UT grün, Coverage ≥ 80%;TODO;P0;Sprint 1;Owner
+186;Integrationstest;Promotion-Kriterien;E2E: ETL→Feature/Signal→Report für: Promotion-Kriterien;IT grün, Golden Files;TODO;P0;Sprint 1;Owner
+187;Feature Implementierung;Dark-Theme & Badges;Implementiere: Dark-Theme & Badges;Code & Review;TODO;P1;Sprint 2;Owner
+188;Unit-Test;Dark-Theme & Badges;Unit-Tests für: Dark-Theme & Badges;UT grün, Coverage ≥ 80%;TODO;P1;Sprint 2;Owner
+189;Integrationstest;Dark-Theme & Badges;E2E: ETL→Feature/Signal→Report für: Dark-Theme & Badges;IT grün, Golden Files;TODO;P1;Sprint 2;Owner
+190;Feature Implementierung;Heatmap Drill-down;Implementiere: Heatmap Drill-down;Code & Review;TODO;P1;Sprint 2;Owner
+191;Unit-Test;Heatmap Drill-down;Unit-Tests für: Heatmap Drill-down;UT grün, Coverage ≥ 80%;TODO;P1;Sprint 2;Owner
+192;Integrationstest;Heatmap Drill-down;E2E: ETL→Feature/Signal→Report für: Heatmap Drill-down;IT grün, Golden Files;TODO;P1;Sprint 2;Owner
+193;Feature Implementierung;Top-Listen;Implementiere: Top-Listen;Code & Review;TODO;P1;Sprint 2;Owner
+194;Unit-Test;Top-Listen;Unit-Tests für: Top-Listen;UT grün, Coverage ≥ 80%;TODO;P1;Sprint 2;Owner
+195;Integrationstest;Top-Listen;E2E: ETL→Feature/Signal→Report für: Top-Listen;IT grün, Golden Files;TODO;P1;Sprint 2;Owner
+196;Feature Implementierung;Guardrails Settings;Implementiere: Guardrails Settings;Code & Review;TODO;P2;Sprint 3;Owner
+197;Unit-Test;Guardrails Settings;Unit-Tests für: Guardrails Settings;UT grün, Coverage ≥ 80%;TODO;P2;Sprint 3;Owner
+198;Integrationstest;Guardrails Settings;E2E: ETL→Feature/Signal→Report für: Guardrails Settings;IT grün, Golden Files;TODO;P2;Sprint 3;Owner
+199;Feature Implementierung;Warnbanner Fee-Gate;Implementiere: Warnbanner Fee-Gate;Code & Review;TODO;P2;Sprint 3;Owner
+200;Unit-Test;Warnbanner Fee-Gate;Unit-Tests für: Warnbanner Fee-Gate;UT grün, Coverage ≥ 80%;TODO;P2;Sprint 3;Owner
+201;Integrationstest;Warnbanner Fee-Gate;E2E: ETL→Feature/Signal→Report für: Warnbanner Fee-Gate;IT grün, Golden Files;TODO;P2;Sprint 3;Owner
+202;Feature Implementierung;Journal Analytics;Implementiere: Journal Analytics;Code & Review;TODO;P1;Sprint 2;Owner
+203;Unit-Test;Journal Analytics;Unit-Tests für: Journal Analytics;UT grün, Coverage ≥ 80%;TODO;P1;Sprint 2;Owner
+204;Integrationstest;Journal Analytics;E2E: ETL→Feature/Signal→Report für: Journal Analytics;IT grün, Golden Files;TODO;P1;Sprint 2;Owner
+205;Feature Implementierung;APScheduler;Implementiere: APScheduler;Code & Review;TODO;P0;Sprint 1;Owner
+206;Unit-Test;APScheduler;Unit-Tests für: APScheduler;UT grün, Coverage ≥ 80%;TODO;P0;Sprint 1;Owner
+207;Integrationstest;APScheduler;E2E: ETL→Feature/Signal→Report für: APScheduler;IT grün, Golden Files;TODO;P0;Sprint 1;Owner
+208;Feature Implementierung;Idempotenz;Implementiere: Idempotenz;Code & Review;TODO;P0;Sprint 1;Owner
+209;Unit-Test;Idempotenz;Unit-Tests für: Idempotenz;UT grün, Coverage ≥ 80%;TODO;P0;Sprint 1;Owner
+210;Integrationstest;Idempotenz;E2E: ETL→Feature/Signal→Report für: Idempotenz;IT grün, Golden Files;TODO;P0;Sprint 1;Owner
+211;Feature Implementierung;Logging;Implementiere: Logging;Code & Review;TODO;P2;Sprint 3;Owner
+212;Unit-Test;Logging;Unit-Tests für: Logging;UT grün, Coverage ≥ 80%;TODO;P2;Sprint 3;Owner
+213;Integrationstest;Logging;E2E: ETL→Feature/Signal→Report für: Logging;IT grün, Golden Files;TODO;P2;Sprint 3;Owner
+214;Feature Implementierung;Self-Test-Seite;Implementiere: Self-Test-Seite;Code & Review;TODO;P3;Sprint 4+ / Backlog;Owner
+215;Unit-Test;Self-Test-Seite;Unit-Tests für: Self-Test-Seite;UT grün, Coverage ≥ 80%;TODO;P3;Sprint 4+ / Backlog;Owner
+216;Integrationstest;Self-Test-Seite;E2E: ETL→Feature/Signal→Report für: Self-Test-Seite;IT grün, Golden Files;TODO;P3;Sprint 4+ / Backlog;Owner
+217;Feature Implementierung;Ressourcen-Management;Implementiere: Ressourcen-Management;Code & Review;TODO;P3;Sprint 4+ / Backlog;Owner
+218;Unit-Test;Ressourcen-Management;Unit-Tests für: Ressourcen-Management;UT grün, Coverage ≥ 80%;TODO;P3;Sprint 4+ / Backlog;Owner
+219;Integrationstest;Ressourcen-Management;E2E: ETL→Feature/Signal→Report für: Ressourcen-Management;IT grün, Golden Files;TODO;P3;Sprint 4+ / Backlog;Owner
+220;Feature Implementierung;Secrets in .env;Implementiere: Secrets in .env;Code & Review;TODO;P3;Sprint 4+ / Backlog;Owner
+221;Unit-Test;Secrets in .env;Unit-Tests für: Secrets in .env;UT grün, Coverage ≥ 80%;TODO;P3;Sprint 4+ / Backlog;Owner
+222;Integrationstest;Secrets in .env;E2E: ETL→Feature/Signal→Report für: Secrets in .env;IT grün, Golden Files;TODO;P3;Sprint 4+ / Backlog;Owner
+223;Feature Implementierung;Rechtemodell;Implementiere: Rechtemodell;Code & Review;TODO;P3;Sprint 4+ / Backlog;Owner
+224;Unit-Test;Rechtemodell;Unit-Tests für: Rechtemodell;UT grün, Coverage ≥ 80%;TODO;P3;Sprint 4+ / Backlog;Owner
+225;Integrationstest;Rechtemodell;E2E: ETL→Feature/Signal→Report für: Rechtemodell;IT grün, Golden Files;TODO;P3;Sprint 4+ / Backlog;Owner
+226;Feature Implementierung;Disclaimer & Paper;Implementiere: Disclaimer & Paper;Code & Review;TODO;P3;Sprint 4+ / Backlog;Owner
+227;Unit-Test;Disclaimer & Paper;Unit-Tests für: Disclaimer & Paper;UT grün, Coverage ≥ 80%;TODO;P3;Sprint 4+ / Backlog;Owner
+228;Integrationstest;Disclaimer & Paper;E2E: ETL→Feature/Signal→Report für: Disclaimer & Paper;IT grün, Golden Files;TODO;P3;Sprint 4+ / Backlog;Owner
+229;Feature Implementierung;Konfig-Hash;Implementiere: Konfig-Hash;Code & Review;TODO;P3;Sprint 4+ / Backlog;Owner
+230;Unit-Test;Konfig-Hash;Unit-Tests für: Konfig-Hash;UT grün, Coverage ≥ 80%;TODO;P3;Sprint 4+ / Backlog;Owner
+231;Integrationstest;Konfig-Hash;E2E: ETL→Feature/Signal→Report für: Konfig-Hash;IT grün, Golden Files;TODO;P3;Sprint 4+ / Backlog;Owner
+232;Feature Implementierung;Aufbewahrung;Implementiere: Aufbewahrung;Code & Review;TODO;P3;Sprint 4+ / Backlog;Owner
+233;Unit-Test;Aufbewahrung;Unit-Tests für: Aufbewahrung;UT grün, Coverage ≥ 80%;TODO;P3;Sprint 4+ / Backlog;Owner
+234;Integrationstest;Aufbewahrung;E2E: ETL→Feature/Signal→Report für: Aufbewahrung;IT grün, Golden Files;TODO;P3;Sprint 4+ / Backlog;Owner
+235;Feature Implementierung;Unit-Tests;Implementiere: Unit-Tests;Code & Review;TODO;P3;Sprint 4+ / Backlog;Owner
+236;Unit-Test;Unit-Tests;Unit-Tests für: Unit-Tests;UT grün, Coverage ≥ 80%;TODO;P3;Sprint 4+ / Backlog;Owner
+237;Integrationstest;Unit-Tests;E2E: ETL→Feature/Signal→Report für: Unit-Tests;IT grün, Golden Files;TODO;P3;Sprint 4+ / Backlog;Owner
+238;Feature Implementierung;Integration/Load/Edge;Implementiere: Integration/Load/Edge;Code & Review;TODO;P3;Sprint 4+ / Backlog;Owner
+239;Unit-Test;Integration/Load/Edge;Unit-Tests für: Integration/Load/Edge;UT grün, Coverage ≥ 80%;TODO;P3;Sprint 4+ / Backlog;Owner
+240;Integrationstest;Integration/Load/Edge;E2E: ETL→Feature/Signal→Report für: Integration/Load/Edge;IT grün, Golden Files;TODO;P3;Sprint 4+ / Backlog;Owner
+241;Docs/Config;Doku & Config #1;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P0;Sprint 1;Owner
+242;Docs/Config;Doku & Config #2;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P0;Sprint 1;Owner
+243;Docs/Config;Doku & Config #3;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P0;Sprint 1;Owner
+244;Docs/Config;Doku & Config #4;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P0;Sprint 1;Owner
+245;Docs/Config;Doku & Config #5;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P0;Sprint 1;Owner
+246;Docs/Config;Doku & Config #6;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P0;Sprint 1;Owner
+247;Docs/Config;Doku & Config #7;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P0;Sprint 1;Owner
+248;Docs/Config;Doku & Config #8;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P0;Sprint 1;Owner
+249;Docs/Config;Doku & Config #9;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P0;Sprint 1;Owner
+250;Docs/Config;Doku & Config #10;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P0;Sprint 1;Owner
+251;Docs/Config;Doku & Config #11;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P0;Sprint 1;Owner
+252;Docs/Config;Doku & Config #12;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P0;Sprint 1;Owner
+253;Docs/Config;Doku & Config #13;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P0;Sprint 1;Owner
+254;Docs/Config;Doku & Config #14;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P0;Sprint 1;Owner
+255;Docs/Config;Doku & Config #15;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P0;Sprint 1;Owner
+256;Docs/Config;Doku & Config #16;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P1;Sprint 2;Owner
+257;Docs/Config;Doku & Config #17;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P1;Sprint 2;Owner
+258;Docs/Config;Doku & Config #18;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P1;Sprint 2;Owner
+259;Docs/Config;Doku & Config #19;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P1;Sprint 2;Owner
+260;Docs/Config;Doku & Config #20;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P1;Sprint 2;Owner
+261;Docs/Config;Doku & Config #21;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P1;Sprint 2;Owner
+262;Docs/Config;Doku & Config #22;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P1;Sprint 2;Owner
+263;Docs/Config;Doku & Config #23;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P1;Sprint 2;Owner
+264;Docs/Config;Doku & Config #24;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P1;Sprint 2;Owner
+265;Docs/Config;Doku & Config #25;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P1;Sprint 2;Owner
+266;Docs/Config;Doku & Config #26;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P2;Sprint 3;Owner
+267;Docs/Config;Doku & Config #27;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P2;Sprint 3;Owner
+268;Docs/Config;Doku & Config #28;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P2;Sprint 3;Owner
+269;Docs/Config;Doku & Config #29;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P2;Sprint 3;Owner
+270;Docs/Config;Doku & Config #30;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P2;Sprint 3;Owner
+271;Docs/Config;Doku & Config #31;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P2;Sprint 3;Owner
+272;Docs/Config;Doku & Config #32;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P2;Sprint 3;Owner
+273;Docs/Config;Doku & Config #33;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P2;Sprint 3;Owner
+274;Docs/Config;Doku & Config #34;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P2;Sprint 3;Owner
+275;Docs/Config;Doku & Config #35;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P2;Sprint 3;Owner
+276;Docs/Config;Doku & Config #36;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P3;Sprint 4+ / Backlog;Owner
+277;Docs/Config;Doku & Config #37;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P3;Sprint 4+ / Backlog;Owner
+278;Docs/Config;Doku & Config #38;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P3;Sprint 4+ / Backlog;Owner
+279;Docs/Config;Doku & Config #39;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P3;Sprint 4+ / Backlog;Owner
+280;Docs/Config;Doku & Config #40;Handbuch, Tooltips, config.yaml-Defaults;Review, Lesbarkeit;TODO;P3;Sprint 4+ / Backlog;Owner
+281;UI/UX Polish;UI-Polish #1;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P0;Sprint 1;UI
+282;UI/UX Polish;UI-Polish #2;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P0;Sprint 1;UI
+283;UI/UX Polish;UI-Polish #3;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P0;Sprint 1;UI
+284;UI/UX Polish;UI-Polish #4;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P0;Sprint 1;UI
+285;UI/UX Polish;UI-Polish #5;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P0;Sprint 1;UI
+286;UI/UX Polish;UI-Polish #6;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P0;Sprint 1;UI
+287;UI/UX Polish;UI-Polish #7;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P0;Sprint 1;UI
+288;UI/UX Polish;UI-Polish #8;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P0;Sprint 1;UI
+289;UI/UX Polish;UI-Polish #9;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P0;Sprint 1;UI
+290;UI/UX Polish;UI-Polish #10;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P0;Sprint 1;UI
+291;UI/UX Polish;UI-Polish #11;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P1;Sprint 2;UI
+292;UI/UX Polish;UI-Polish #12;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P1;Sprint 2;UI
+293;UI/UX Polish;UI-Polish #13;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P1;Sprint 2;UI
+294;UI/UX Polish;UI-Polish #14;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P1;Sprint 2;UI
+295;UI/UX Polish;UI-Polish #15;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P1;Sprint 2;UI
+296;UI/UX Polish;UI-Polish #16;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P1;Sprint 2;UI
+297;UI/UX Polish;UI-Polish #17;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P1;Sprint 2;UI
+298;UI/UX Polish;UI-Polish #18;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P1;Sprint 2;UI
+299;UI/UX Polish;UI-Polish #19;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P1;Sprint 2;UI
+300;UI/UX Polish;UI-Polish #20;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P1;Sprint 2;UI
+301;UI/UX Polish;UI-Polish #21;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P2;Sprint 3;UI
+302;UI/UX Polish;UI-Polish #22;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P2;Sprint 3;UI
+303;UI/UX Polish;UI-Polish #23;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P2;Sprint 3;UI
+304;UI/UX Polish;UI-Polish #24;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P2;Sprint 3;UI
+305;UI/UX Polish;UI-Polish #25;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P2;Sprint 3;UI
+306;UI/UX Polish;UI-Polish #26;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P2;Sprint 3;UI
+307;UI/UX Polish;UI-Polish #27;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P3;Sprint 4+ / Backlog;UI
+308;UI/UX Polish;UI-Polish #28;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P3;Sprint 4+ / Backlog;UI
+309;UI/UX Polish;UI-Polish #29;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P3;Sprint 4+ / Backlog;UI
+310;UI/UX Polish;UI-Polish #30;Dark-Theme, Badges, Layout, Tooltips;Visuell abgenommen;TODO;P3;Sprint 4+ / Backlog;UI
+311;Orchestrierung/DevOps;Ops #1;APScheduler, Idempotenz, Logs, CI;SLA erreicht;TODO;P0;Sprint 1;Infra
+312;Orchestrierung/DevOps;Ops #2;APScheduler, Idempotenz, Logs, CI;SLA erreicht;TODO;P0;Sprint 1;Infra
+313;Orchestrierung/DevOps;Ops #3;APScheduler, Idempotenz, Logs, CI;SLA erreicht;TODO;P0;Sprint 1;Infra
+314;Orchestrierung/DevOps;Ops #4;APScheduler, Idempotenz, Logs, CI;SLA erreicht;TODO;P0;Sprint 1;Infra
+315;Orchestrierung/DevOps;Ops #5;APScheduler, Idempotenz, Logs, CI;SLA erreicht;TODO;P0;Sprint 1;Infra
+316;Orchestrierung/DevOps;Ops #6;APScheduler, Idempotenz, Logs, CI;SLA erreicht;TODO;P0;Sprint 1;Infra
+317;Orchestrierung/DevOps;Ops #7;APScheduler, Idempotenz, Logs, CI;SLA erreicht;TODO;P0;Sprint 1;Infra
+318;Orchestrierung/DevOps;Ops #8;APScheduler, Idempotenz, Logs, CI;SLA erreicht;TODO;P0;Sprint 1;Infra
+319;Orchestrierung/DevOps;Ops #9;APScheduler, Idempotenz, Logs, CI;SLA erreicht;TODO;P0;Sprint 1;Infra
+320;Orchestrierung/DevOps;Ops #10;APScheduler, Idempotenz, Logs, CI;SLA erreicht;TODO;P0;Sprint 1;Infra
+321;Orchestrierung/DevOps;Ops #11;APScheduler, Idempotenz, Logs, CI;SLA erreicht;TODO;P1;Sprint 2;Infra
+322;Orchestrierung/DevOps;Ops #12;APScheduler, Idempotenz, Logs, CI;SLA erreicht;TODO;P1;Sprint 2;Infra
+323;Orchestrierung/DevOps;Ops #13;APScheduler, Idempotenz, Logs, CI;SLA erreicht;TODO;P1;Sprint 2;Infra
+324;Orchestrierung/DevOps;Ops #14;APScheduler, Idempotenz, Logs, CI;SLA erreicht;TODO;P1;Sprint 2;Infra
+325;Orchestrierung/DevOps;Ops #15;APScheduler, Idempotenz, Logs, CI;SLA erreicht;TODO;P1;Sprint 2;Infra
+326;Orchestrierung/DevOps;Ops #16;APScheduler, Idempotenz, Logs, CI;SLA erreicht;TODO;P1;Sprint 2;Infra
+327;Orchestrierung/DevOps;Ops #17;APScheduler, Idempotenz, Logs, CI;SLA erreicht;TODO;P2;Sprint 3;Infra
+328;Orchestrierung/DevOps;Ops #18;APScheduler, Idempotenz, Logs, CI;SLA erreicht;TODO;P2;Sprint 3;Infra
+329;Orchestrierung/DevOps;Ops #19;APScheduler, Idempotenz, Logs, CI;SLA erreicht;TODO;P2;Sprint 3;Infra
+330;Orchestrierung/DevOps;Ops #20;APScheduler, Idempotenz, Logs, CI;SLA erreicht;TODO;P2;Sprint 3;Infra
+331;Backfill/Validation;Backfill #1;20y Backfill, Validierungsreports;Reports ohne Fehler;TODO;P0;Sprint 1;ETL
+332;Backfill/Validation;Backfill #2;20y Backfill, Validierungsreports;Reports ohne Fehler;TODO;P0;Sprint 1;ETL
+333;Backfill/Validation;Backfill #3;20y Backfill, Validierungsreports;Reports ohne Fehler;TODO;P0;Sprint 1;ETL
+334;Backfill/Validation;Backfill #4;20y Backfill, Validierungsreports;Reports ohne Fehler;TODO;P0;Sprint 1;ETL
+335;Backfill/Validation;Backfill #5;20y Backfill, Validierungsreports;Reports ohne Fehler;TODO;P0;Sprint 1;ETL
+336;Backfill/Validation;Backfill #6;20y Backfill, Validierungsreports;Reports ohne Fehler;TODO;P0;Sprint 1;ETL
+337;Backfill/Validation;Backfill #7;20y Backfill, Validierungsreports;Reports ohne Fehler;TODO;P1;Sprint 2;ETL
+338;Backfill/Validation;Backfill #8;20y Backfill, Validierungsreports;Reports ohne Fehler;TODO;P1;Sprint 2;ETL
+339;Backfill/Validation;Backfill #9;20y Backfill, Validierungsreports;Reports ohne Fehler;TODO;P1;Sprint 2;ETL
+340;Backfill/Validation;Backfill #10;20y Backfill, Validierungsreports;Reports ohne Fehler;TODO;P1;Sprint 2;ETL
+341;Performance;Perf #1;Caching, DuckDB-Optimierungen, Batching;Benchmarks ok;TODO;P1;Sprint 2;Core
+342;Performance;Perf #2;Caching, DuckDB-Optimierungen, Batching;Benchmarks ok;TODO;P1;Sprint 2;Core
+343;Performance;Perf #3;Caching, DuckDB-Optimierungen, Batching;Benchmarks ok;TODO;P1;Sprint 2;Core
+344;Performance;Perf #4;Caching, DuckDB-Optimierungen, Batching;Benchmarks ok;TODO;P1;Sprint 2;Core
+345;Performance;Perf #5;Caching, DuckDB-Optimierungen, Batching;Benchmarks ok;TODO;P2;Sprint 3;Core
+346;Performance;Perf #6;Caching, DuckDB-Optimierungen, Batching;Benchmarks ok;TODO;P2;Sprint 3;Core
+347;Performance;Perf #7;Caching, DuckDB-Optimierungen, Batching;Benchmarks ok;TODO;P2;Sprint 3;Core
+348;Performance;Perf #8;Caching, DuckDB-Optimierungen, Batching;Benchmarks ok;TODO;P2;Sprint 3;Core
+349;Performance;Perf #9;Caching, DuckDB-Optimierungen, Batching;Benchmarks ok;TODO;P2;Sprint 3;Core
+350;Performance;Perf #10;Caching, DuckDB-Optimierungen, Batching;Benchmarks ok;TODO;P2;Sprint 3;Core
+351;Journal/Back-Office;Journal #1;TR-CSV Import, P&L, Steuer-Hilfen;Abgleich Beispiel-CSV;TODO;P1;Sprint 2;UI/Core
+352;Journal/Back-Office;Journal #2;TR-CSV Import, P&L, Steuer-Hilfen;Abgleich Beispiel-CSV;TODO;P1;Sprint 2;UI/Core
+353;Journal/Back-Office;Journal #3;TR-CSV Import, P&L, Steuer-Hilfen;Abgleich Beispiel-CSV;TODO;P1;Sprint 2;UI/Core
+354;Journal/Back-Office;Journal #4;TR-CSV Import, P&L, Steuer-Hilfen;Abgleich Beispiel-CSV;TODO;P1;Sprint 2;UI/Core
+355;Journal/Back-Office;Journal #5;TR-CSV Import, P&L, Steuer-Hilfen;Abgleich Beispiel-CSV;TODO;P1;Sprint 2;UI/Core
+356;Journal/Back-Office;Journal #6;TR-CSV Import, P&L, Steuer-Hilfen;Abgleich Beispiel-CSV;TODO;P2;Sprint 3;UI/Core
+357;Journal/Back-Office;Journal #7;TR-CSV Import, P&L, Steuer-Hilfen;Abgleich Beispiel-CSV;TODO;P2;Sprint 3;UI/Core
+358;Journal/Back-Office;Journal #8;TR-CSV Import, P&L, Steuer-Hilfen;Abgleich Beispiel-CSV;TODO;P2;Sprint 3;UI/Core
+359;Journal/Back-Office;Journal #9;TR-CSV Import, P&L, Steuer-Hilfen;Abgleich Beispiel-CSV;TODO;P2;Sprint 3;UI/Core
+360;Journal/Back-Office;Journal #10;TR-CSV Import, P&L, Steuer-Hilfen;Abgleich Beispiel-CSV;TODO;P2;Sprint 3;UI/Core

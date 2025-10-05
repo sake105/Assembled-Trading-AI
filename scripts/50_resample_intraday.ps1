@@ -1,0 +1,102 @@
+# scripts\50_resample_intraday.ps1  (PS 7.x)
+[CmdletBinding()]
+param(
+  [string]$InputParquet = (Join-Path $PSScriptRoot "..\output\assembled_intraday\assembled_intraday.parquet"),
+  [string[]]$Intervals  = @('5min','15min','30min','60min'),
+  [string]$OutDir       = (Join-Path $PSScriptRoot "..\output\aggregates")
+)
+
+function WInfo([string]$m){ Write-Host "[INFO] $m" -ForegroundColor Cyan }
+function WOk  ([string]$m){ Write-Host "[OK]   $m" -ForegroundColor Green }
+function WErr ([string]$m){ Write-Host "[ERR]  $m" -ForegroundColor Red }
+
+$python = Join-Path (Split-Path $PSScriptRoot -Parent) ".venv\Scripts\python.exe"
+if(-not (Test-Path $python)){ WErr "Python venv nicht gefunden: $python"; throw "Kein Python" }
+
+$InputParquet = (Resolve-Path $InputParquet).Path
+New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
+
+# --- Python-Code in Temp-Datei ---
+$tmp = Join-Path ([IO.Path]::GetTempPath()) ("resample_" + [guid]::NewGuid().ToString("N"))
+New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+$pyFile = Join-Path $tmp "resample.py"
+
+$py = @'
+import sys, json, pathlib
+import pandas as pd
+
+inp      = sys.argv[1]
+outdir   = pathlib.Path(sys.argv[2])
+intervals= json.loads(sys.argv[3])
+report   = outdir / "resample_report.json"
+
+df = pd.read_parquet(inp)
+req = ["ticker","ts","open","high","low","close","volume"]
+missing = [c for c in req if c not in df.columns]
+if missing:
+    raise SystemExit(f"missing columns: {missing}")
+
+df["ts"] = pd.to_datetime(df["ts"], utc=True)
+df = df.sort_values(["ticker","ts"]).reset_index(drop=True)
+
+summary = []
+outdir.mkdir(parents=True, exist_ok=True)
+
+for itv in intervals:
+    frames = []
+    # Kein groupby.apply -> keine FutureWarning
+    for name, g in df.groupby("ticker", sort=False):
+        ag = (g.set_index("ts")
+                .resample(itv, label="left", closed="left")
+                .agg(open=("open","first"),
+                     high=("high","max"),
+                     low=("low","min"),
+                     close=("close","last"),
+                     volume=("volume","sum"))
+                .dropna(subset=["open","high","low","close"], how="all")
+                .reset_index())
+        ag["ticker"] = name
+        frames.append(ag)
+    out = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=["ts","open","high","low","close","volume","ticker"])
+
+    fn = f"assembled_intraday_{itv}.parquet"
+    out_path = outdir / fn
+    out.to_parquet(out_path, engine="pyarrow", index=False)
+    summary.append({"interval": itv, "rows": int(len(out)), "file": str(out_path)})
+
+rep = {"summary": summary}
+report.write_text(json.dumps(rep, ensure_ascii=False), encoding="utf-8")
+print(json.dumps(rep, ensure_ascii=False))
+'@
+
+$py | Out-File -LiteralPath $pyFile -Encoding utf8
+
+# --- Ausführen ---
+WInfo "Python: $python"
+WInfo "Starte Resampling ..."
+$env:PYTHONUTF8 = "1"
+
+$intervalsJson = ($Intervals | ConvertTo-Json -Compress)
+$stdout = & $python $pyFile $InputParquet $OutDir $intervalsJson 2>&1
+$exit   = $LASTEXITCODE
+
+if($exit -ne 0){
+  WErr $stdout
+  throw "Python-Resampling hat ExitCode $exit"
+}
+
+# Ausgabe hübsch
+try {
+  $report = $stdout | ConvertFrom-Json
+  foreach($r in $report.summary){
+    WOk ("geschrieben: " + $r.file)
+  }
+} catch {
+  $stdout -split "`r?`n" | ForEach-Object { if($_){ Write-Host $_ } }
+}
+
+WOk  "Resampling abgeschlossen"
+WOk  ("Output: " + (Resolve-Path $OutDir).Path)
+WOk  ("Report: " + (Join-Path $OutDir 'resample_report.json'))
+
+

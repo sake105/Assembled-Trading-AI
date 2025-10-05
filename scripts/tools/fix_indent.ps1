@@ -1,0 +1,87 @@
+param(
+  [string[]]$Paths = @("scripts","docs","output","data"),
+  [int]$SpacesPerTab = 4,
+  [switch]$OnlyLeading = $false,
+  [switch]$TrimTrailing = $true,
+  [switch]$EnsureUtf8 = $true,
+  [switch]$DryRun = $false,
+  [switch]$Backup = $true,
+  [string[]]$Include = @("*.py","*.ps1","*.psm1","*.psd1"),
+  [string[]]$Exclude = @("*.parquet","*.csv","*.png","*.jpg","*.zip","*.exe","*.dll")
+)
+
+<#
+.SYNOPSIS
+  Fixes indentation & encoding issues across project files (tabs→spaces, UTF-8, trailing whitespace).
+.DESCRIPTION
+  - Replaces TABs with spaces (default: 4) — optionally only at line starts (-OnlyLeading)
+  - Trims trailing whitespace (-TrimTrailing)
+  - Ensures UTF-8 (no BOM) (-EnsureUtf8)
+  - Writes .bak backups unless -Backup:$false
+  - Supports -DryRun to preview changes
+.EXAMPLES
+  pwsh -File .\scripts\tools\fix_indent.ps1
+  pwsh -File .\scripts\tools\fix_indent.ps1 -Paths scripts -OnlyLeading -SpacesPerTab 4
+  pwsh -File .\scripts\tools\fix_indent.ps1 -Paths scripts\sprint10_portfolio.py -DryRun
+#>
+
+$ErrorActionPreference = 'Stop'
+$ROOT = (Get-Location).Path
+function Info($m){ $ts=(Get-Date).ToUniversalTime().ToString('s')+'Z'; Write-Host "[$ts] [FIX] $m" }
+
+# Expand target files
+$files = @()
+foreach($p in $Paths){
+  $target = Join-Path $ROOT $p
+  if(Test-Path $target -PathType Leaf){ $files += $target; continue }
+  if(Test-Path $target -PathType Container){
+    foreach($pat in $Include){
+      $files += Get-ChildItem -Path $target -Recurse -Filter $pat -File -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }
+    }
+  }
+}
+if(-not $files){ Info "No matching files"; exit 0 }
+
+# Apply Exclude patterns (simple -like match on filename)
+$files = $files | Where-Object {
+  $name = [System.IO.Path]::GetFileName($_)
+  -not ($Exclude | Where-Object { $name -like $_ })
+} | Sort-Object -Unique
+
+$space = ' ' * $SpacesPerTab
+$changed = 0
+
+foreach($file in $files){
+  $orig = Get-Content -LiteralPath $file -Raw -ErrorAction Stop
+  $text = $orig
+
+  if($OnlyLeading){
+    $text = ($text -split "\r?\n") | ForEach-Object {
+      # replace only leading TABs at start-of-line
+      $_ -replace "^(\t+)", { param($m) ($m.Groups[1].Value -replace "\t", $space) }
+    } | ForEach-Object {
+      if($TrimTrailing){ $_ -replace "\s+$", '' } else { $_ }
+    } | Out-String
+  } else {
+    # replace all TABs everywhere
+    $text = $text -replace "\t", $space
+    if($TrimTrailing){
+      $text = ($text -split "\r?\n") | ForEach-Object { $_ -replace "\s+$", '' } | Out-String
+    }
+  }
+
+  # Ensure single trailing newline
+  if(-not $text.EndsWith("`n")){ $text += "`n" }
+
+  if($text -ne $orig){
+    $changed++
+    if($DryRun){ Info "DRY: would fix $file"; continue }
+    if($Backup){ Copy-Item -LiteralPath $file -Destination "$file.bak" -Force }
+    if($EnsureUtf8){ Set-Content -LiteralPath $file -Value $text -Encoding utf8NoBOM }
+    else { Set-Content -LiteralPath $file -Value $text -Encoding utf8 }
+    Info "Fixed: $file"
+  }
+}
+Info "Done. Changed: $changed file(s)."
+
+
