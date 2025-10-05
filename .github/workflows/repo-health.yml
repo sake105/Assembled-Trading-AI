@@ -1,17 +1,12 @@
-name: Monthly Repo Health Check
+name: Monthly Repo Health Check + Discord Alert
 
 on:
   schedule:
-    # Läuft am 1. jedes Monats um 02:00 UTC
-    - cron: "0 2 1 * *"
+    - cron: "0 2 1 * *"   # 1. Tag jedes Monats um 02:00 UTC
   workflow_dispatch: {}
 
 permissions:
   contents: read
-
-concurrency:
-  group: repo-health
-  cancel-in-progress: true
 
 jobs:
   health:
@@ -56,3 +51,17 @@ jobs:
         with:
           name: repo-health-report
           path: .github/health_report.txt
+
+      - name: Notify Discord
+        if: failure() || success()
+        env:
+          DISCORD_WEBHOOK: ${{ https://discord.com/api/webhooks/1424436985023434835/k-43Imyn6RLQp3jUeTsc0ax-jsht7o-Q4OHHJpH2VNAEI24111EpL2S_iTOt5h8_u6lq }}
+        run: |
+          STATUS="✅ Success"
+          if [ "${{ job.status }}" != "success" ]; then
+            STATUS="❌ Failure"
+          fi
+          CONTENT="[$STATUS] Repo Health Check – ${{ github.repository }} @ $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          curl -H "Content-Type: application/json" \
+               -d "{\"content\": \"$CONTENT\"}" \
+               "$DISCORD_WEBHOOK"
