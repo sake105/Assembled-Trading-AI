@@ -1,0 +1,42 @@
+name: Nightly Auto Sync
+
+on:
+  schedule:
+    # Runs daily at 01:30 UTC (≈ 03:30 Europe/Berlin in Sommerzeit, 02:30 im Winter)
+    - cron: '30 1 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write  # allow pushing commits
+
+concurrency:
+  group: nightly-sync
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      # Optional: make a small heartbeat change so there's a traceable nightly commit.
+      # Remove this step if you DON'T want daily commits.
+      - name: Write heartbeat
+        run: |
+          mkdir -p .github
+          echo "Last sync: $(date -u +'%Y-%m-%dT%H:%M:%SZ')" > .github/heartbeat.txt
+          git add .github/heartbeat.txt
+
+      - name: Commit & Push if changed
+        run: |
+          if git diff --staged --quiet; then
+            echo "Nothing to commit."
+          else
+            git -c user.name="github-actions[bot]" \
+                -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+                commit -m "CI: nightly heartbeat [skip ci]"
+            git push
+          fi
