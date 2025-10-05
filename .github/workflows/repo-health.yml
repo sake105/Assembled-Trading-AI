@@ -52,10 +52,10 @@ jobs:
           name: repo-health-report
           path: .github/health_report.txt
 
-      - name: Notify Discord
+          - name: Notify Discord
         if: failure() || success()
         env:
-          DISCORD_WEBHOOK: ${{ https://discord.com/api/webhooks/1424436985023434835/k-43Imyn6RLQp3jUeTsc0ax-jsht7o-Q4OHHJpH2VNAEI24111EpL2S_iTOt5h8_u6lq }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
           STATUS="✅ Success"
           if [ "${{ job.status }}" != "success" ]; then
@@ -65,3 +65,4 @@ jobs:
           curl -H "Content-Type: application/json" \
                -d "{\"content\": \"$CONTENT\"}" \
                "$DISCORD_WEBHOOK"
+
