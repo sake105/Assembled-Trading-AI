@@ -52,7 +52,7 @@ jobs:
           name: repo-health-report
           path: .github/health_report.txt
 
-          - name: Notify Discord
+      - name: Notify Discord
         if: failure() || success()
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
