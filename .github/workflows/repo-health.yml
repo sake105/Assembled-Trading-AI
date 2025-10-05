@@ -1,0 +1,58 @@
+name: Monthly Repo Health Check
+
+on:
+  schedule:
+    # Läuft am 1. jedes Monats um 02:00 UTC
+    - cron: "0 2 1 * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repo-health
+  cancel-in-progress: true
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Python Environment Smoke Test
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install minimal dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas numpy pyarrow fastparquet
+
+      - name: Verify Scripts Folder Exists
+        run: |
+          if [ ! -d "scripts" ]; then
+            echo "❌ Folder 'scripts' missing" && exit 1
+          fi
+          echo "✅ Scripts folder found"
+
+      - name: Dry-run basic Python import
+        run: |
+          python - <<'PY'
+          import pandas, numpy, pyarrow, fastparquet
+          print("✅ All core packages import successfully")
+          PY
+
+      - name: Write monthly report
+        run: |
+          mkdir -p .github
+          echo "Health-check OK: $(date -u +'%Y-%m-%dT%H:%M:%SZ')" > .github/health_report.txt
+          cat .github/health_report.txt
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: repo-health-report
+          path: .github/health_report.txt
