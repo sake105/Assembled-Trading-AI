@@ -1,13 +1,12 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-"""
-Sprint 10 – Portfolio Wiring with Start Capital & Exposure (CLEAN)
-- Capital-based portfolio on regime features
-- Equal-weight exposure across active symbols
-- Next-bar-open execution with simple cost model
-- Outputs: portfolio_trades.csv, portfolio_equity_<freq>.csv, portfolio_report.md
-"""
+# sprint10_portfolio.py
+# Portfolio-Layer (Sprint 10) mit Kostenparametern
+# - liest Preise aus output/aggregates/assembled_intraday_<freq>.parquet
+# - (optional) Signale aus output/features/regime_<freq>.parquet
+# - robustes De-Dupe vor Pivot
+# - Kostenmodell über commission_bps * Turnover
+
 from __future__ import annotations
+
 import argparse
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,206 +15,253 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "output"
-FEAT = OUT / "features"
-LOGS = ROOT / "logs"
-OUT.mkdir(parents=True, exist_ok=True)
-LOGS.mkdir(parents=True, exist_ok=True)
-
-
-def log(msg: str) -> None:
-    ts = pd.Timestamp.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-    line = f"[{ts}] [PF10] {msg}"
-    print(line)
-    with open(LOGS / "sprint10_portfolio.log", "a", encoding="utf-8") as fh:
-        fh.write(line + "\n")
-
-
-def load_features(freq: str) -> pd.DataFrame:
-    path = FEAT / f"regime_{freq}.parquet"
-    if not path.exists():
-        raise FileNotFoundError(f"features not found: {path}")
-    df = pd.read_parquet(path)
-    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True).dt.tz_convert(None)
-    df["symbol"] = df["symbol"].astype(object).where(df["symbol"].notna(), "UNKNOWN")
-    need = {"timestamp","symbol","open","close","trend_regime","vol_regime","liq_regime","spread_proxy"}
-    miss = need - set(df.columns)
-    if miss:
-        raise ValueError(f"Missing columns in features: {sorted(miss)}")
-    return df.sort_values(["symbol","timestamp"]).reset_index(drop=True)
-
-
-def next_open(df: pd.DataFrame) -> pd.Series:
-    col = "open" if "open" in df.columns else "close"
-    return df.groupby("symbol")[col].shift(-1)
-
-
-def build_trades(df: pd.DataFrame, exposure: float, start_capital: float, spread_w: float, impact_w: float, commission_bps: float) -> pd.DataFrame:
-    df = df.copy()
-    df["reg"] = df["trend_regime"].fillna(0).astype(int)
-    df["reg_sw"] = df.groupby("symbol")["reg"].diff().fillna(0).ne(0)
-    df["open_next"] = next_open(df)
-
-    # active symbols per timestamp (for equal-weight)
-    ts_sym = df.dropna(subset=["open_next"]).groupby("timestamp")["symbol"].nunique().rename("n_active")
-    df = df.merge(ts_sym, on="timestamp", how="left")
-
-    trades = df[df["reg_sw"] & df["open_next"].notna()].copy()
-    trades = trades[["timestamp","symbol","reg","open_next","spread_proxy","vol_regime","liq_regime","n_active"]]
-    trades.rename(columns={"open_next":"px_ref"}, inplace=True)
-    trades["side"] = trades["reg"].map({-1:"SELL",0:"FLAT",1:"BUY"})
-
-    trades["spread_w"] = float(spread_w)
-    trades["impact_w"] = float(impact_w)
-    trades["commission_bps"] = float(commission_bps)
-    trades["exposure"] = float(exposure)
-    trades["start_capital"] = float(start_capital)
-    return trades.sort_values(["timestamp","symbol"]).reset_index(drop=True)
-
-
-def apply_costs(side: pd.Series, px_ref: pd.Series, spread_proxy: pd.Series, vol_regime: pd.Series, liq_regime: pd.Series, spread_w: float, impact_w: float, commission_bps: float) -> tuple[pd.Series, pd.Series]:
-    half_spread = 0.5 * spread_w * spread_proxy.fillna(0.0005)
-    impact = (0.0002 * impact_w * vol_regime.fillna(0)) + (0.0003 * impact_w * (1 - liq_regime.fillna(0)))
-    slip = half_spread + impact
-    signed = np.where(side.values == "BUY", +slip, -slip)
-    px_exec = px_ref * (1.0 + signed)
-    commission = commission_bps * 1e-4 * px_exec  # per unit; multiply by qty later
-    return px_exec, commission
-
-
-def simulate(df: pd.DataFrame, trades: pd.DataFrame, start_capital: float, exposure: float, max_leverage: float) -> tuple[pd.DataFrame, pd.DataFrame]:
-    symbols = sorted(df["symbol"].unique())
-    timeline = sorted(df["timestamp"].unique())
-
-    cash = start_capital
-    positions = {s: 0.0 for s in symbols}
-
-    exec_rows = []
-    eq_rows = []
-
-    px_close = df.pivot(index="timestamp", columns="symbol", values="close").reindex(index=timeline, columns=symbols)
-
-    trade_iter = trades.itertuples(index=False)
-    current = next(trade_iter, None)
-
-    for ts in timeline:
-        # execute trades scheduled at this timestamp
-        while current is not None and current.timestamp == ts:
-            sym = current.symbol
-            side = current.side
-            px_ref = float(current.px_ref)
-            px_exec, comm_unit = apply_costs(pd.Series([side]), pd.Series([px_ref]),
-                                             pd.Series([current.spread_proxy]), pd.Series([current.vol_regime]), pd.Series([current.liq_regime]),
-                                             current.spread_w, current.impact_w, current.commission_bps)
-            px_exec = float(px_exec.iloc[0]); comm_unit = float(comm_unit.iloc[0])
-
-            # equal-weight target across n_active symbols
-            n_active = max(int(current.n_active), 1)
-            # current portfolio equity (mark-to-market on close price at ts)
-            eq_now = cash + sum(positions[s] * float(px_close.loc[ts, s] or 0.0) for s in symbols)
-            target_gross = exposure * eq_now
-            per_sym_notional = target_gross / n_active
-            target_shares = (per_sym_notional / px_exec) * (1 if side == "BUY" else -1)
-            qty = target_shares - positions[sym]
-
-            # simple leverage cap
-            gross_before = sum(abs(positions[s] * float(px_close.loc[ts, s] or 0.0)) for s in symbols)
-            gross_after = gross_before + abs(qty * px_exec)
-            max_gross = max_leverage * max(eq_now, 1e-6)
-            if gross_after > max_gross:
-                scale = max(0.0, (max_gross - gross_before) / (abs(qty * px_exec) + 1e-12))
-                qty *= scale
-
-            trade_cost = qty * px_exec
-            commission = abs(qty) * comm_unit
-            cash -= trade_cost + commission
-            positions[sym] += qty
-            exec_rows.append((ts, sym, side, float(qty), float(px_exec), float(commission)))
-            current = next(trade_iter, None)
-
-        eq_val = cash + sum(positions[s] * float(px_close.loc[ts, s] or 0.0) for s in symbols)
-        eq_rows.append((ts, float(cash), float(eq_val)))
-
-    trades_df = pd.DataFrame(exec_rows, columns=["timestamp","symbol","side","qty","px_exec","commission"])
-    equity_df = pd.DataFrame(eq_rows, columns=["timestamp","cash","equity"])
-    return trades_df, equity_df
+AGG_DIR = OUT / "aggregates"
+FEAT_DIR = OUT / "features"
 
 
 @dataclass
-class Metrics:
-    pf: float
-    trades: int
-    winrate: float
-    avg_trade: float
-    sharpe: float
-    maxdd: float
-    cagr: float
+class Args:
+    freq: str
+    start_capital: float
+    exposure: float
+    max_leverage: float
+    commission_bps: float
+    spread_w: float
+    impact_w: float
 
 
-def compute_metrics(equity: pd.Series, trades_pnl: pd.Series) -> Metrics:
-    pnl_pos = trades_pnl[trades_pnl > 0].sum()
-    pnl_neg = -trades_pnl[trades_pnl < 0].sum()
-    pf = float(pnl_pos / pnl_neg) if pnl_neg > 0 else np.nan
-    trades = int((trades_pnl != 0).sum())
-    winrate = float((trades_pnl > 0).mean()) if trades > 0 else np.nan
-    avg_trade = float(trades_pnl.mean()) if trades > 0 else np.nan
-
-    ret = equity.pct_change().replace([np.inf, -np.inf], np.nan).dropna()
-    sharpe = float(np.sqrt(252 * 78) * ret.mean() / (ret.std() + 1e-12)) if len(ret) > 1 else np.nan
-    roll_max = equity.cummax()
-    maxdd = float(((equity - roll_max) / (roll_max + 1e-12)).min())
-    days = max((equity.index[-1] - equity.index[0]).days, 1)
-    cagr = float((equity.iloc[-1] / max(equity.iloc[0], 1e-6)) ** (365 / days) - 1.0)
-    return Metrics(pf, trades, winrate, avg_trade, sharpe, maxdd, cagr)
+def parse_args() -> Args:
+    p = argparse.ArgumentParser(description="Sprint 10 Portfolio Simulator")
+    p.add_argument("--freq", dest="freq", default="5min")
+    p.add_argument("--start-capital", dest="start_capital", type=float, default=10_000.0)
+    p.add_argument("--exposure", dest="exposure", type=float, default=1.0)
+    p.add_argument("--max-leverage", dest="max_leverage", type=float, default=1.0)
+    # Kosten-Parameter (kompatibel zu PS1; spread/impact derzeit Platzhalter)
+    p.add_argument("--commission-bps", dest="commission_bps", type=float, default=0.0)
+    p.add_argument("--spread-w", dest="spread_w", type=float, default=1.0)
+    p.add_argument("--impact-w", dest="impact_w", type=float, default=1.0)
+    a = p.parse_args()
+    return Args(a.freq, a.start_capital, a.exposure, a.max_leverage, a.commission_bps, a.spread_w, a.impact_w)
 
 
-def write_reports(trades: pd.DataFrame, equity: pd.DataFrame, freq: str, m: Metrics) -> None:
-    trades.to_csv(OUT / "portfolio_trades.csv", index=False)
-    equity.to_csv(OUT / f"portfolio_equity_{freq}.csv", index=False)
-    lines = [
-        "# Portfolio Report",
-        "",
-        f"**Frequency**: {freq}",
-        "",
-        f"- PF: {m.pf:.2f}",
-        f"- Trades: {m.trades}",
-        f"- Winrate: {m.winrate:.2%}",
-        f"- Avg Trade (PnL): {m.avg_trade:.4f}",
-        f"- Sharpe: {m.sharpe:.2f}",
-        f"- Max Drawdown: {m.maxdd:.2%}",
-        f"- CAGR: {m.cagr:.2%}",
+def _log(msg: str) -> None:
+    ts = pd.Timestamp.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    print(f"[{ts}] [PF10] {msg}")
+
+
+def load_prices(freq: str) -> pd.DataFrame:
+    cand = [
+        AGG_DIR / f"assembled_intraday_{freq}.parquet",
+        AGG_DIR / f"{freq}.parquet",
     ]
-    (OUT / "portfolio_report.md").write_text("\n".join(lines), encoding="utf-8")
+    for f in cand:
+        if f.exists():
+            df = pd.read_parquet(f)
+            break
+    else:
+        raise FileNotFoundError(f"Keine Aggregates gefunden (gesucht: {', '.join(str(x) for x in cand)})")
+
+    # Spalten normalisieren
+    cols = {c.lower(): c for c in df.columns}
+    def has(name: str) -> bool: return name in cols or name in df.columns
+
+    if has("timestamp"):
+        ts_col = cols.get("timestamp", "timestamp")
+    elif has("time"):
+        ts_col = cols.get("time", "time")
+        df = df.rename(columns={ts_col: "timestamp"})
+        ts_col = "timestamp"
+    else:
+        raise ValueError("Spalte 'timestamp' fehlt in Aggregates")
+
+    if has("symbol"):
+        sym_col = cols.get("symbol", "symbol")
+    elif has("ticker"):
+        sym_col = cols.get("ticker", "ticker")
+        df = df.rename(columns={sym_col: "symbol"})
+        sym_col = "symbol"
+    else:
+        raise ValueError("Spalte 'symbol' fehlt in Aggregates")
+
+    lc = {k.lower(): k for k in df.columns}
+    close = lc.get("close")
+    if close is None:
+        px = lc.get("px") or lc.get("price")
+        if px is not None:
+            df = df.rename(columns={px: "close"})
+        else:
+            open_c = lc.get("open"); high_c = lc.get("high"); low_c = lc.get("low"); close_c = lc.get("close")
+            if all(v is not None for v in [open_c, high_c, low_c, close_c]):
+                df["close"] = (df[open_c] + df[high_c] + df[low_c] + df[close_c]) / 4.0
+            else:
+                raise ValueError("Konnte 'close' nicht herleiten (fehlende Preis-Spalten).")
+
+    df = df.rename(columns={ts_col: "timestamp", sym_col: "symbol"})
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
+    df = df.sort_values(["timestamp", "symbol"]).dropna(subset=["timestamp", "symbol"])
+
+    dups = int(df.duplicated(["timestamp", "symbol"]).sum())
+    if dups:
+        _log(f"WARN: found {dups} duplicate (timestamp,symbol) rows – collapsing by last")
+        df = df.drop_duplicates(["timestamp", "symbol"], keep="last")
+
+    return df[["timestamp", "symbol", "close"]].copy()
+
+
+def load_signals(freq: str, symbols: list[str], timeline: pd.DatetimeIndex) -> pd.DataFrame:
+    file = FEAT_DIR / f"regime_{freq}.parquet"
+    if file.exists():
+        sig = pd.read_parquet(file)
+        for c in ("timestamp", "symbol"):
+            if c not in sig.columns and c.upper() in sig.columns:
+                sig = sig.rename(columns={c.upper(): c})
+        if "risk_on" not in sig.columns:
+            alt = [c for c in sig.columns if c.lower() in ("risk_on", "riskon", "regime", "li_regime")]
+            if alt:
+                sig["risk_on"] = (sig[alt[0]] > 0).astype(int)
+            else:
+                return pd.DataFrame(1.0, index=timeline, columns=symbols)
+        sig["timestamp"] = pd.to_datetime(sig["timestamp"], utc=True, errors="coerce")
+        sig = sig.dropna(subset=["timestamp", "symbol"]).sort_values(["timestamp", "symbol"])
+        sig = sig.drop_duplicates(["timestamp", "symbol"], keep="last")
+        mat = sig.pivot_table(index="timestamp", columns="symbol", values="risk_on", aggfunc="last")
+        mat = mat.reindex(index=timeline, columns=symbols).fillna(method="ffill").fillna(0.0)
+        return mat.clip(lower=0.0, upper=1.0)
+    else:
+        return pd.DataFrame(1.0, index=timeline, columns=symbols)
+
+
+def simulate(df_prices: pd.DataFrame,
+             signals: pd.DataFrame,
+             start_capital: float,
+             exposure: float,
+             max_leverage: float,
+             commission_bps: float) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    timeline = pd.DatetimeIndex(df_prices["timestamp"].sort_values().unique())
+    symbols = sorted(df_prices["symbol"].unique().tolist())
+
+    px_close = (
+        df_prices.pivot_table(index="timestamp", columns="symbol", values="close", aggfunc="last")
+        .reindex(index=timeline, columns=symbols)
+        .ffill()
+    )
+    rets = px_close.pct_change().fillna(0.0)
+
+    sig = signals.reindex(index=timeline, columns=symbols).fillna(0.0).clip(0.0, 1.0)
+    active = sig.sum(axis=1).replace(0, np.nan)
+    weights = sig.div(active, axis=0).fillna(0.0) * float(exposure)
+
+    tot_abs = weights.abs().sum(axis=1)
+    scale = (tot_abs / max(max_leverage, 1e-9))
+    over = scale > 1.0
+    if over.any():
+        weights.loc[over] = weights.loc[over].div(scale.loc[over], axis=0)
+
+    gross_ret = (weights.shift(1).fillna(0.0) * rets).sum(axis=1)
+
+    # Turnover = Sum |ΔW| (fraktional); Kosten in bps dagegen
+    w_prev = weights.shift(1).fillna(0.0)
+    delta = (weights - w_prev)
+    turnover = delta.abs().sum(axis=1)                     # fraktional
+    cost_ret = (commission_bps / 1e4) * turnover           # bps × turnover
+    net_ret = gross_ret - cost_ret
+
+    equity = (1.0 + net_ret).cumprod() * float(start_capital)
+    equity_df = pd.DataFrame({"timestamp": timeline, "equity": equity.values, "pf_ret": net_ret.values})
+
+    trades_list = []
+    for t, ts in enumerate(timeline):
+        row_d = delta.iloc[t]
+        row_prev = w_prev.iloc[t]
+        row_now = weights.iloc[t]
+        for s in symbols:
+            dw = float(row_d[s])
+            if abs(dw) > 1e-12:
+                trades_list.append({
+                    "timestamp": ts,
+                    "symbol": s,
+                    "weight_prev": float(row_prev[s]),
+                    "weight": float(row_now[s]),
+                    "delta_w": dw
+                })
+    trades_df = pd.DataFrame(trades_list)
+
+    weights_df = weights.copy()
+    weights_df.insert(0, "timestamp", timeline)
+
+    return trades_df, equity_df, weights_df
+
+
+def write_outputs(freq: str,
+                  trades: pd.DataFrame,
+                  equity: pd.DataFrame,
+                  commission_bps: float,
+                  exposure: float,
+                  max_leverage: float) -> None:
+    OUT.mkdir(parents=True, exist_ok=True)
+    trades_file = OUT / "portfolio_trades.csv"
+    equity_file = OUT / f"portfolio_equity_{freq}.csv"
+    report_file = OUT / "portfolio_report.md"
+
+    if not trades.empty:
+        t = trades.copy()
+        t["timestamp"] = pd.to_datetime(t["timestamp"]).dt.tz_convert("UTC")
+        t.sort_values(["timestamp", "symbol"], inplace=True)
+        t.to_csv(trades_file, index=False)
+    else:
+        pd.DataFrame(columns=["timestamp", "symbol", "weight_prev", "weight", "delta_w"]).to_csv(trades_file, index=False)
+
+    e = equity.copy()
+    e["timestamp"] = pd.to_datetime(e["timestamp"]).dt.tz_convert("UTC")
+    e.to_csv(equity_file, index=False)
+
+    # Report
+    lines = ["# Portfolio Report", ""]
+    if not e.empty:
+        eq = e.set_index("timestamp")["equity"].replace([np.inf, -np.inf], np.nan).dropna()
+        if len(eq) >= 2:
+            days = max((eq.index[-1] - eq.index[0]).days, 1)
+            total_ret = float(eq.iloc[-1] / max(eq.iloc[0], 1e-9) - 1.0)
+            cagr = float(((eq.iloc[-1] / max(eq.iloc[0], 1e-9)) ** (365.0 / days) - 1.0)) if days > 0 else np.nan
+            dd = float((eq / eq.cummax() - 1.0).min())
+            lines += [
+                f"- Period days: {days}",
+                f"- Total return (net): {total_ret:.4f}",
+                f"- CAGR (net): {cagr if np.isfinite(cagr) else 'nan'}",
+                f"- Max Drawdown: {dd:.4f}",
+                "",
+                "## Settings",
+                f"- Exposure: {exposure}",
+                f"- Max Leverage: {max_leverage}",
+                f"- Commission (bps per turnover): {commission_bps}",
+            ]
+    Path(report_file).write_text("\n".join(lines), encoding="utf-8")
+
+    _log(f"[OK] written: {trades_file}")
+    _log(f"[OK] written: {equity_file}")
+    _log(f"[OK] written: {report_file}")
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Sprint 10 – Portfolio Wiring")
-    ap.add_argument("--freq", default="5min", choices=["1min","5min","15min"])
-    ap.add_argument("--start-capital", type=float, default=10_000.0)
-    ap.add_argument("--exposure", type=float, default=1.0)
-    ap.add_argument("--max-leverage", type=float, default=1.0)
-    ap.add_argument("--commission-bps", type=float, default=0.5)
-    ap.add_argument("--spread-w", type=float, default=1.0)
-    ap.add_argument("--impact-w", type=float, default=1.0)
-    args = ap.parse_args()
+    args = parse_args()
+    _log(
+        f"START Portfolio | freq={args.freq} start_capital={args.start_capital} "
+        f"exp={args.exposure} lev={args.max_leverage} "
+        f"comm_bps={args.commission_bps} spread_w={args.spread_w} impact_w={args.impact_w}"
+    )
 
-    log(f"START Portfolio | freq={args.freq} start_capital={args.start_capital} exp={args.exposure} lev={args.max_leverage}")
-    df = load_features(args.freq)
-    trades = build_trades(df, args.exposure, args.start_capital, args.spread_w, args.impact_w, args.commission_bps)
-    trades_df, equity_df = simulate(df, trades, args.start_capital, args.exposure, args.max_leverage)
+    prices = load_prices(args.freq)
+    timeline = pd.DatetimeIndex(prices["timestamp"].sort_values().unique())
+    symbols = sorted(prices["symbol"].unique().tolist())
+    signals = load_signals(args.freq, symbols, timeline)
 
-    # approximate trade PnL from equity diffs at trade timestamps
-    eq_ts = equity_df.set_index("timestamp")["equity"]
-    t_equity = eq_ts.reindex(trades_df["timestamp"]).ffill()
-    trades_pnl = t_equity.diff().fillna(0.0)
+    trades_df, equity_df, _weights = simulate(
+        prices, signals, args.start_capital, args.exposure, args.max_leverage, args.commission_bps
+    )
 
-    m = compute_metrics(equity_df.set_index("timestamp")["equity"], trades_pnl)
-    write_reports(trades_df, equity_df, args.freq, m)
-    log("[OK] written: output/portfolio_trades.csv")
-    log(f"[OK] written: output/portfolio_equity_{args.freq}.csv")
-    log("[OK] written: output/portfolio_report.md")
-    log("DONE Portfolio")
+    write_outputs(args.freq, trades_df, equity_df, args.commission_bps, args.exposure, args.max_leverage)
+    _log("DONE Portfolio")
+
 
 if __name__ == "__main__":
     main()
-
-
