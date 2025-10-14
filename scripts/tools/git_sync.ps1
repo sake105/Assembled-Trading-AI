@@ -1,9 +1,9 @@
 <# 
   Safe Git sync: stage → commit → fetch --all -p → rebase → push (mit Fallback)
-  - Unicode-sicher (ü/ä/ö in Pfaden) durch -LiteralPath
-  - Robust gegen @{u}-Parsing (als String)
-  - Run() nimmt Argument-Arrays → keine kaputten Quotes
-  - Auto-WIP vor Rebase, falls Baum dirty ist
+  - Unicode-sicher (-LiteralPath)
+  - "@{u}"-Parsing fix (als String)
+  - Run(): nimmt Restargumente ODER Arrays → keine zerrissenen Quotes
+  - Ensure-Clean-Tree committed wirklich unstaged + untracked vor Rebase
 #>
 
 param(
@@ -19,18 +19,20 @@ function Log([string]$m, [string]$tag = "SYNC"){
   Write-Host "[$ts] [$tag] $m"
 }
 
-# Git-Aufruf: nimmt Argument-ARRAY → Quotes/Spaces bleiben korrekt
-function Run([string[]]$args){
-  if(-not $args -or $args.Count -eq 0){ Log "(noop)"; return }
-  Log ($args -join ' ') "GIT"
-  & git.exe -c core.longpaths=true -c advice.detachedHead=false -c fetch.prune=true @args
-  if($LASTEXITCODE -ne 0){ throw "git $($args -join ' ') failed (exit $LASTEXITCODE)" }
+# Robust: akzeptiert Restargumente ODER Arrays
+function Run {
+  param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Args)
+  if(-not $Args -or $Args.Count -eq 0){ Log "(noop)"; return }
+  Log ($Args -join ' ') "GIT"
+  & git.exe -c core.longpaths=true -c advice.detachedHead=false -c fetch.prune=true @Args
+  if($LASTEXITCODE -ne 0){ throw "git $($Args -join ' ') failed (exit $LASTEXITCODE)" }
 }
 
-# Wenn Working Tree dirty → kurzer WIP-Commit
 function Ensure-Clean-Tree {
-  $status = (git status --porcelain) -join "`n"
-  if([string]::IsNullOrWhiteSpace($status)){
+  & git update-index -q --refresh 1>$null 2>$null
+  $unstaged  = ((git diff --name-only) -join "`n").Trim()
+  $untracked = ((git ls-files --others --exclude-standard) -join "`n").Trim()
+  if([string]::IsNullOrWhiteSpace($unstaged) -and [string]::IsNullOrWhiteSpace($untracked)){
     Log "Working tree ist clean"
     return
   }
@@ -44,9 +46,7 @@ try{
   $gitv = (& git --version) 2>$null
   if(-not $gitv){ throw "git not found" }
   Log "Using $gitv" "GIT"
-}catch{
-  throw "Git ist nicht im PATH. Bitte installieren oder PATH prüfen."
-}
+}catch{ throw "Git ist nicht im PATH. Bitte installieren oder PATH prüfen." }
 
 # --- Repo-Root Unicode-sicher ermitteln ---
 try{
@@ -59,12 +59,10 @@ try{
     if(-not (Test-Path -LiteralPath $root)){ throw "Not a valid path: $root" }
     Set-Location -LiteralPath $root
   }
-}catch{
-  throw "Kein Git-Repository gefunden. Bitte im Repo oder einem Unterordner starten."
-}
+}catch{ throw "Kein Git-Repository gefunden. Bitte im Repo starten." }
 Log "Repo: $((Get-Location).Path)" "GIT"
 
-# --- Upstream prüfen (escaped "@{u}" + sauberes Umleiten) ---
+# --- Upstream prüfen ---
 $hasUpstream = $false
 try{
   $null = & git rev-parse --abbrev-ref --symbolic-full-name "@{u}" 1>$null 2>$null
@@ -74,23 +72,21 @@ try{
 if(-not $hasUpstream){
   Log "Kein Upstream gefunden – versuche $Remote/$Branch zu setzen" "GIT"
   $remotes = (git remote) -split "`n" | ForEach-Object { $_.Trim() } | Where-Object {$_}
-  if(-not ($remotes -contains $Remote)){
-    throw "Remote '$Remote' fehlt. Bitte zuerst 'git remote add $Remote <url>' ausführen."
-  }
+  if(-not ($remotes -contains $Remote)){ throw "Remote '$Remote' fehlt. 'git remote add $Remote <url>'" }
   Run @("fetch","--all","-p")
   Run @("branch","--set-upstream-to=$Remote/$Branch",$Branch)
 }
 
-# --- Basiskonfig (harmlos & hilfreich) ---
+# --- Basiskonfig ---
 try{
   git config --global pull.rebase true  | Out-Null
   git config --global fetch.prune true  | Out-Null
 }catch{}
 
-# --- Staging & Commit ---
+# --- Staging & Commit (vorab) ---
 Log "Staging changes"
 Run @("add","-A")
-$diff = (git status --porcelain) -join "`n"
+$diff = ((git status --porcelain) -join "`n").Trim()
 if([string]::IsNullOrWhiteSpace($diff)){
   if($AllowEmpty){
     Log "Keine Änderungen – erzeuge Empty-Commit"
@@ -102,14 +98,11 @@ if([string]::IsNullOrWhiteSpace($diff)){
   Run @("commit","-m",$Message)
 }
 
-# --- Sync: fetch → (Auto-WIP falls nötig) → rebase → push (Retry) ---
+# --- Sync: fetch → Auto-WIP → rebase → push (Retry) ---
 try{
   Run @("fetch","--all","-p")
-
-  # Safety: Working tree clean halten
   Ensure-Clean-Tree
 
-  # Sicherstellen, dass wir auf $Branch sind
   try{
     $cur = (git rev-parse --abbrev-ref HEAD).Trim()
     if($cur -ne $Branch){
