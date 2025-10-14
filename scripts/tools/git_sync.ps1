@@ -1,17 +1,25 @@
-param(
-  [string]$Message = "Auto-sync $(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss')",
-  [switch]$AllowEmpty,
-  [string]$Remote = "origin",
-  [string]$Branch = "main"
-)
+<# 
+  Safe Git sync: stage → commit → fetch --all -p → rebase → push (mit Fallback)
+  - Unicode-sicher (ü/ä/ö in Pfaden) durch -LiteralPath
+  - Robust gegen @{u}-Parsing (als String)
+  - Run() nimmt Argument-Arrays → keine kaputten Quotes
+  - Auto-WIP vor Rebase, falls Baum dirty ist
+#>
 
+param(
+  [string]$Message   = "Auto-sync $(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss')",
+  [switch]$AllowEmpty,
+  [string]$Remote    = "origin",
+  [string]$Branch    = "main"
+)
 $ErrorActionPreference = 'Stop'
 
 function Log([string]$m, [string]$tag = "SYNC"){
   $ts = (Get-Date).ToUniversalTime().ToString('s') + 'Z'
   Write-Host "[$ts] [$tag] $m"
 }
-# Robust: ignoriert leere Befehle
+
+# Git-Aufruf: nimmt Argument-ARRAY → Quotes/Spaces bleiben korrekt
 function Run([string[]]$args){
   if(-not $args -or $args.Count -eq 0){ Log "(noop)"; return }
   Log ($args -join ' ') "GIT"
@@ -19,28 +27,44 @@ function Run([string[]]$args){
   if($LASTEXITCODE -ne 0){ throw "git $($args -join ' ') failed (exit $LASTEXITCODE)" }
 }
 
+# Wenn Working Tree dirty → kurzer WIP-Commit
+function Ensure-Clean-Tree {
+  $status = (git status --porcelain) -join "`n"
+  if([string]::IsNullOrWhiteSpace($status)){
+    Log "Working tree ist clean"
+    return
+  }
+  Log "Dirty tree erkannt – erstelle Auto-WIP-Commit"
+  Run @("add","-A")
+  Run @("commit","-m","WIP: autosave before rebase")
+}
+
 # --- Git vorhanden? ---
 try{
   $gitv = (& git --version) 2>$null
   if(-not $gitv){ throw "git not found" }
   Log "Using $gitv" "GIT"
-}catch{ throw "Git ist nicht im PATH. Bitte installieren oder PATH prüfen." }
+}catch{
+  throw "Git ist nicht im PATH. Bitte installieren oder PATH prüfen."
+}
 
-# --- Repo-Root Unicode-sicher ---
+# --- Repo-Root Unicode-sicher ermitteln ---
 try{
   $scriptRoot = Split-Path -Parent $PSCommandPath
   $candidate  = [System.IO.Path]::GetFullPath((Join-Path $scriptRoot '..\..'))
-  if(Test-Path -LiteralPath $candidate){ Set-Location -LiteralPath $candidate }
-  else {
+  if(Test-Path -LiteralPath $candidate){
+    Set-Location -LiteralPath $candidate
+  } else {
     $root = ((git rev-parse --show-toplevel) -join "`n").Trim()
     if(-not (Test-Path -LiteralPath $root)){ throw "Not a valid path: $root" }
     Set-Location -LiteralPath $root
   }
+}catch{
+  throw "Kein Git-Repository gefunden. Bitte im Repo oder einem Unterordner starten."
 }
-catch{ throw "Kein Git-Repository gefunden. Bitte im Repo starten." }
 Log "Repo: $((Get-Location).Path)" "GIT"
 
-# --- Upstream prüfen (stdout/stderr weg) ---
+# --- Upstream prüfen (escaped "@{u}" + sauberes Umleiten) ---
 $hasUpstream = $false
 try{
   $null = & git rev-parse --abbrev-ref --symbolic-full-name "@{u}" 1>$null 2>$null
@@ -50,29 +74,42 @@ try{
 if(-not $hasUpstream){
   Log "Kein Upstream gefunden – versuche $Remote/$Branch zu setzen" "GIT"
   $remotes = (git remote) -split "`n" | ForEach-Object { $_.Trim() } | Where-Object {$_}
-  if(-not ($remotes -contains $Remote)){ throw "Remote '$Remote' fehlt (git remote add $Remote <url>)" }
+  if(-not ($remotes -contains $Remote)){
+    throw "Remote '$Remote' fehlt. Bitte zuerst 'git remote add $Remote <url>' ausführen."
+  }
   Run @("fetch","--all","-p")
   Run @("branch","--set-upstream-to=$Remote/$Branch",$Branch)
 }
 
-# --- Basiskonfig ---
-try{ git config --global pull.rebase true | Out-Null; git config --global fetch.prune true | Out-Null }catch{}
+# --- Basiskonfig (harmlos & hilfreich) ---
+try{
+  git config --global pull.rebase true  | Out-Null
+  git config --global fetch.prune true  | Out-Null
+}catch{}
 
 # --- Staging & Commit ---
 Log "Staging changes"
 Run @("add","-A")
 $diff = (git status --porcelain) -join "`n"
 if([string]::IsNullOrWhiteSpace($diff)){
-  if($AllowEmpty){ Log "Keine Änderungen – erzeuge Empty-Commit"; Run @("commit","--allow-empty","-m",$Message) }
-  else { Log "No changes to commit. Use -AllowEmpty to force empty commit." }
+  if($AllowEmpty){
+    Log "Keine Änderungen – erzeuge Empty-Commit"
+    Run @("commit","--allow-empty","-m",$Message)
+  } else {
+    Log "No changes to commit. Use -AllowEmpty to force empty commit."
+  }
 } else {
   Run @("commit","-m",$Message)
 }
 
-# --- Sync: fetch → rebase → push (Retry) ---
+# --- Sync: fetch → (Auto-WIP falls nötig) → rebase → push (Retry) ---
 try{
   Run @("fetch","--all","-p")
 
+  # Safety: Working tree clean halten
+  Ensure-Clean-Tree
+
+  # Sicherstellen, dass wir auf $Branch sind
   try{
     $cur = (git rev-parse --abbrev-ref HEAD).Trim()
     if($cur -ne $Branch){
@@ -83,7 +120,7 @@ try{
         Run @("checkout","-b",$Branch,"$Remote/$Branch")
       }
     }
-  } catch {}
+  }catch{}
 
   Log "Rebase auf $Remote/$Branch"
   & git rebase "$Remote/$Branch"
@@ -97,6 +134,7 @@ try{
   if($LASTEXITCODE -ne 0){
     Log "Push abgelehnt – erneuter fetch+rebase+push" "GIT"
     Run @("fetch","--all","-p")
+    Ensure-Clean-Tree
     & git rebase "$Remote/$Branch"
     if($LASTEXITCODE -ne 0){
       & git rebase --abort 1>$null 2>$null
