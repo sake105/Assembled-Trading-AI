@@ -100,7 +100,11 @@ def _position_target_weights(df: pd.DataFrame) -> pd.DataFrame:
         else:
             g["w"] = s / denom
         return g
-    df = df.groupby("timestamp", group_keys=False).apply(_row_weights)
+   df = (
+    df.loc[:, ["timestamp", "symbol", "sig", "close"]]
+      .groupby("timestamp", group_keys=False)[["symbol", "sig", "close"]]
+      .apply(_row_weights)
+)
     return df[["timestamp","symbol","w","close"]]
 
 def _build_price_matrix(df: pd.DataFrame, symbols: list[str], timeline: pd.DatetimeIndex) -> pd.DataFrame:
