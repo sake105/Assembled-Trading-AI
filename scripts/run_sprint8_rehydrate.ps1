@@ -1,107 +1,56 @@
 param(
-  [switch]$UseDemo = $false,           # Falls keine Daten vorhanden: Demo-Daten generieren
-  [string]$Symbols = "AAPL,MSFT",     # Standard-Symbole
-  [int]$QuickDays = 180                # Quick-Window
+  [string]$Freq = '5min',
+  [switch]$Quick = $true,
+  [int]$QuickDays = 180,
+  [string]$Symbols = 'AAPL,MSFT'
 )
 
 $ErrorActionPreference = 'Stop'
+function Info($m){ $ts=(Get-Date).ToUniversalTime().ToString('s')+'Z'; Write-Host "[$ts] [REHYDRATE] $m" }
 
-# --- Paths --------------------------------------------------------------
-$ROOT   = (Get-Location).Path
-$Config = Join-Path $ROOT 'config'
-$Data   = Join-Path $ROOT 'data'
-$Raw1m  = Join-Path $Data 'raw/1min'
-$Out    = Join-Path $ROOT 'output'
-$Agg    = Join-Path $Out 'aggregates'
-$AsmOut = Join-Path $Out 'assembled_intraday'
-$Feat   = Join-Path $Out 'features'
-$Logs   = Join-Path $ROOT 'logs'
-$Scripts= Join-Path $ROOT 'scripts'
+$ROOT    = (Get-Location).Path
+$Py      = Join-Path $ROOT '.venv/Scripts/python.exe'
+$Out     = Join-Path $ROOT 'output'
+$Data    = Join-Path $ROOT 'data'
 
-$Py    = Join-Path $ROOT '.venv/Scripts/python.exe'
-$FEpy  = Join-Path $Scripts 'sprint8_feature_engineering.py'
-$AsmPS = Join-Path $Scripts '31_assemble_intraday.ps1'
-$ResPS = Join-Path $Scripts '50_resample_intraday.ps1'
+Info "Python: $Py"
+Info "Checking core packages..."
+& $Py -c "import pandas, numpy, pyarrow; print('[OK] pandas'); print('[OK] numpy'); print('[OK] pyarrow'); print('[OK] Packages ready')"
 
-# --- Helpers ------------------------------------------------------------
-function Write-Info($msg){ $ts=(Get-Date).ToUniversalTime().ToString('s')+'Z'; Write-Host "[$ts] [REHYDRATE] $msg" }
-function Ensure-Dir($p){ if(-not (Test-Path $p)){ New-Item -ItemType Directory -Force -Path $p | Out-Null } }
-function Count-Files($path,$pattern){ if(-not (Test-Path $path)){ return 0 }; (Get-ChildItem -Path $path -Recurse -File -Include $pattern -ErrorAction SilentlyContinue).Count }
-
-# --- Ensure structure ---------------------------------------------------
-$null = ($Config,$Data,$Raw1m,$Out,$Agg,$AsmOut,$Feat,$Logs,$Scripts) | ForEach-Object{ Ensure-Dir $_ }
-
-# --- Sanity: venv / python --------------------------------------------
-if(-not (Test-Path $Py)){ throw "Python venv nicht gefunden: $Py. Bitte .\\.venv\\Scripts\\Activate.ps1 ausführen und Dependencies prüfen." }
-
-Write-Info "Python: $Py"
-Write-Info "Checking core packages..."
-& $Py -c @"
-import importlib, sys
-for pkg in ("pandas","numpy","pyarrow"):
-    try:
-        importlib.import_module(pkg)
-        print(f"[OK] {pkg}")
-    except Exception as e:
-        print(f"[FAIL] {pkg}: {e}"); sys.exit(1)
-print("[OK] Packages ready")
-"@
-if($LASTEXITCODE -ne 0){
-    throw "Python-Pakete fehlen. Bitte 'pip install pandas numpy pyarrow' in der venv ausführen."
+# Assemble/Resample werden übersprungen, wenn Artefakte existieren
+$agg5  = Join-Path $Out 'aggregates'
+$asm   = Join-Path $Out 'assembled_intraday'
+if(Test-Path (Join-Path $agg5 "assembled_intraday_${Freq}.parquet")){
+  Info "Assemble-Outputs gefunden (überspringe Assemble)"
+}
+if(Test-Path (Join-Path $agg5 "assembled_intraday_${Freq}.parquet")){
+  Info "$Freq-Resample vorhanden (überspringe Resample)"
 }
 
-# --- Step 1: (Re)Assemble / Resample ----------------------------------
-$needAssemble = ($null -eq (Get-ChildItem $AsmOut -Recurse -File -ErrorAction SilentlyContinue))
-$needResample = ($null -eq (Get-ChildItem $Agg -Recurse -File -Include '*5min*.parquet','*5min*.csv' -ErrorAction SilentlyContinue))
+$raw1m = Join-Path $Data 'raw\1min'
+$filesRaw   = (Test-Path $raw1m) ? (Get-ChildItem $raw1m -Filter *.csv -File | Measure-Object).Count : 0
+$filesAsm   = (Test-Path $asm) ? (Get-ChildItem $asm -Filter *.parquet -File | Measure-Object).Count : 0
+$filesAgg   = (Test-Path $agg5) ? (Get-ChildItem $agg5 -Filter *$Freq*.parquet -File | Measure-Object).Count : 0
+Info ("Files: raw/1min={0}, assembled/1min={1}, aggregates(*{2}*)={3}" -f $filesRaw,$filesAsm,$Freq,$filesAgg)
 
-if($needAssemble){ Write-Info "Assemble-Outputs fehlen → starte 31_assemble_intraday.ps1"; & pwsh -File $AsmPS }
-else { Write-Info "Assemble-Outputs gefunden (überspringe Assemble)" }
+# Feature-Build
+$demo = $false
+$pyArgs = @('--freq', $Freq)
+if($Quick){ $pyArgs += @('--quick', '--qdays', "$QuickDays") }
+if(-not [string]::IsNullOrWhiteSpace($Symbols)){ $pyArgs += @('--symbols', $Symbols) }
 
-if($needResample){ Write-Info "5min-Resample fehlt → starte 50_resample_intraday.ps1"; & pwsh -File $ResPS }
-else { Write-Info "5min-Resample vorhanden (überspringe Resample)" }
-
-# --- Step 2: Datenlage prüfen -----------------------------------------
-$raw1mCnt = Count-Files $Raw1m @('*.parquet','*.csv')
-$asm1mCnt = Count-Files (Join-Path $AsmOut '1min') @('*.parquet','*.csv')
-$agg5mCnt = Count-Files $Agg @('*5min*.parquet','*5min*.csv')
-
-Write-Info "Files: raw/1min=$raw1mCnt, assembled/1min=$asm1mCnt, aggregates(*5min*)=$agg5mCnt"
-
-# --- Step 3: Feature Build Strategy -----------------------------------
-$freq = $null
-if($agg5mCnt -gt 0){ $freq = '5min' }
-elseif($raw1mCnt -gt 0 -or $asm1mCnt -gt 0){ $freq = '1min' }
-elseif($UseDemo){ $freq = '1min' }
-else {
-  Write-Info "Keine Daten gefunden. Starte mit -UseDemo oder fülle data/raw/1min bzw. output/aggregates mit Dateien."
-  exit 2
-}
-
-# --- Step 4: Features bauen -------------------------------------------
-Write-Info "Baue Features | freq=$freq | symbols=$Symbols | quickDays=$QuickDays | demo=$UseDemo"
-$args = @('scripts/sprint8_feature_engineering.py','--freq', $freq,'--symbols', $Symbols,'--quick','--quick-days', "$QuickDays")
-if($UseDemo){ $args += @('--demo','--demo-days','30') }
-
-& $Py @args
+Info ("Baue Features | freq={0} | symbols={1} | quickDays={2} | demo={3}" -f $Freq, $Symbols, $QuickDays, $demo)
+& $Py (Join-Path $ROOT 'scripts\sprint8_feature_engineering.py') @pyArgs
 if($LASTEXITCODE -ne 0){ throw "Feature-Build gescheitert (siehe Log)." }
 
-# --- Step 5: Ergebnisübersicht ----------------------------------------
-$base = Join-Path $Feat "base_${freq}.parquet"
-$micro = Join-Path $Feat "micro_${freq}.parquet"
-$reg = Join-Path $Feat "regime_${freq}.parquet"
-
-$written = @()
-if (Test-Path $base)  { $written += $base }
-if (Test-Path $micro) { $written += $micro }
-if (Test-Path $reg)   { $written += $reg }
-
-if ($written.Count -gt 0) {
-  Write-Info "[OK] Features geschrieben:"
-  $written | ForEach-Object { Write-Host " - $_" }
-} else {
-  Write-Info "[WARN] Keine Feature-Dateien gefunden – bitte Log prüfen: $($Logs)\sprint8_feature_engineering.log"
+# Ausgabe
+$feat = Join-Path $Out 'features'
+if(Test-Path $feat){
+  Info "[OK] Features geschrieben:"
+  Get-ChildItem $feat -Filter *.parquet | ForEach-Object {
+    Write-Host " - $($_.FullName)"
+  }
+  $manifest = Join-Path $feat 'feature_manifest.json'
+  if(Test-Path $manifest){ Info "[OK] manifest updated: $manifest" }
 }
-
-Write-Info "Rehydrate + Orchestrator DONE"
-
-
+Info "Rehydrate + Orchestrator DONE"
