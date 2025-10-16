@@ -1,287 +1,211 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Sprint 8 – Feature Engineering (FULL)
-- Robust Loader: searches data roots (raw/assembled/aggregates)
-- Symbol normalization hardened (no 'NAN' string; fallback 'UNKNOWN')
-- Demo mode (synthetic) when requested or no inputs found
-- Feature sets: base, micro, regime
-- Writes: output/features/{base,micro,regime}_<freq>.parquet + feature_manifest.json
-
-Usage examples
---------------
-python scripts/sprint8_feature_engineering.py --freq 5min --symbols AAPL,MSFT --quick
-python scripts/sprint8_feature_engineering.py --freq 1min --demo --demo-days 30
+Sprint 8 Feature Engineering – Produktionsklar
 """
-from __future__ import annotations
-import argparse
-import json
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Iterable, List
 
+from __future__ import annotations
+import os, sys, json, argparse, warnings
+from typing import List, Iterable
 import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]
-DATA = ROOT / "data"
-RAW_DIR = DATA / "raw"
-OUT = ROOT / "output"
-AGG = OUT / "aggregates"
-ASM = OUT / "assembled_intraday"
-FEAT = OUT / "features"
-LOGS = ROOT / "logs"
-for p in (FEAT, LOGS):
-    p.mkdir(parents=True, exist_ok=True)
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+DATA_DIR = os.path.join(ROOT, "data")
+OUT_DIR = os.path.join(ROOT, "output")
+OUT_FEAT = os.path.join(OUT_DIR, "features")
 
-SEARCH_ROOTS = [RAW_DIR, ASM, AGG]
-BASE_SCHEMA = ["timestamp", "symbol", "open", "high", "low", "close", "volume"]
+SEARCH_ROOTS = [
+    os.path.join(DATA_DIR, "raw"),
+    os.path.join(OUT_DIR, "assembled_intraday"),
+    os.path.join(OUT_DIR, "aggregates"),
+]
 
-# -------------------- utils & logging --------------------
+REQUIRED_COLS = ["timestamp", "symbol", "open", "high", "low", "close"]
+OPTIONAL_COLS = ["volume", "vwap"]
 
-def log(msg: str) -> None:
-    ts = pd.Timestamp.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-    print(f"[{ts}] [SPRINT8] {msg}")
+def _ensure_dir(p: str) -> None:
+    os.makedirs(p, exist_ok=True)
 
-# -------------------- symbol normalization --------------------
+def _find_candidates(freq: str) -> list[str]:
+    exts = (".parquet", ".csv")
+    hits: list[str] = []
+    for r in SEARCH_ROOTS:
+        if not os.path.exists(r):
+            continue
+        for root, _, files in os.walk(r):
+            for f in files:
+                lf = f.lower()
+                if lf.endswith(exts) and (freq in lf or lf.endswith(f"{freq}.parquet") or lf.endswith(f"{freq}.csv")):
+                    hits.append(os.path.join(root, f))
+    return hits
 
-def _normalize_symbol_str(s: str) -> str:
-    s = s.strip().upper()
-    if not s:
-        return s
-    # normalize delimiters
-    s2 = s.replace("/", ".").replace("-", ".")
-    # handle vendor prefixes like "XETRA:AAPL" (keep right side)
-    if ":" in s2:
-        s2 = s2.split(":")[-1]
-    # drop right-side suffixes like ".US"
-    if "." in s2:
-        s2 = s2.split(".")[0]
-    return s2
+def _read_any(path: str) -> pd.DataFrame:
+    try:
+        if path.lower().endswith(".parquet"):
+            return pd.read_parquet(path)
+        return pd.read_csv(path)
+    except Exception:
+        return pd.DataFrame()
 
-def _normalize_symbol_series(ser: pd.Series) -> pd.Series:
-    ser = ser.copy()
-    # keep NaN as NaN, do not cast to string first
-    mask = ser.notna()
-    ser.loc[mask] = ser.loc[mask].astype(str).map(_normalize_symbol_str)
-    return ser
+def _standardize(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+    # Spaltennamen → lower
+    lower = {c: str(c).lower() for c in df.columns}
+    df = df.rename(columns=lower)
+    # Aliasse
+    alias = {"time": "timestamp", "date": "timestamp", "dt": "timestamp"}
+    for a, tgt in alias.items():
+        if a in df.columns and "timestamp" not in df.columns:
+            df = df.rename(columns={a: "timestamp"})
+    if "ticker" in df.columns and "symbol" not in df.columns:
+        df = df.rename(columns={"ticker": "symbol"})
+    # Typisierung
+    if "timestamp" in df.columns:
+        df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
+    for c in ["open","high","low","close","volume","vwap"]:
+        if c in df.columns:
+            df[c] = pd.to_numeric(df[c], errors="coerce").astype("float64")
+    df = df.replace([np.inf, -np.inf], np.nan)
+    if "timestamp" in df.columns:
+        df = df.dropna(subset=["timestamp"]).sort_values(["timestamp", "symbol"] if "symbol" in df.columns else ["timestamp"])
+    return df.reset_index(drop=True)
 
-# -------------------- schema checks --------------------
-
-def assert_schema(df: pd.DataFrame, required: Iterable[str], name: str) -> None:
-    missing = [c for c in required if c not in df.columns]
+def _assert_schema(df: pd.DataFrame, name: str) -> None:
+    missing = [c for c in REQUIRED_COLS if c not in df.columns]
     if missing:
         raise ValueError(f"[{name}] Missing columns: {missing}")
 
-def assert_invariants(df: pd.DataFrame, name: str) -> None:
-    if df.empty:
-        raise ValueError(f"[{name}] DataFrame is empty")
-
-# -------------------- data loading --------------------
-
-def find_candidates(freq: str) -> List[Path]:
-    patterns = ["*.parquet", "*.csv"]
-    cands: List[Path] = []
-    for root in SEARCH_ROOTS:
-        p = (root / freq) if (root / freq).exists() else root
-        for pat in patterns:
-            cands.extend(p.rglob(pat))
-    return sorted({c.resolve() for c in cands})
-
-def read_any(path: Path) -> pd.DataFrame:
-    if path.suffix.lower() == ".parquet":
-        return pd.read_parquet(path)
-    return pd.read_csv(path)
-
-def load_raw(freq: str, symbols: List[str] | None, quick_days: int | None, allow_demo: bool, demo_days: int) -> pd.DataFrame:
-    log(f"Symbols filter: {symbols if symbols else '[ALL]'}")
-    sr = [str((r / freq).resolve()) if (r / freq).exists() else str(r.resolve()) for r in SEARCH_ROOTS]
-    log(f"Search roots: {sr}")
-    cands = [p for p in find_candidates(freq) if p.is_file()]
-    log(f"Found {len(cands)} candidate file(s)")
-
-    if not cands and allow_demo:
-        log("No input files found — using synthetic demo data.")
-        return make_demo(freq=freq, days=demo_days)
-    elif not cands:
-        raise FileNotFoundError(
-            "No input files found. Looked in: " + ", ".join(str((r / freq).resolve()) for r in SEARCH_ROOTS)
-        )
-
-    frames: List[pd.DataFrame] = []
-    for f in cands:
-        df = read_any(f)
-        # column aliasing
-        aliases = {
-            "time": "timestamp",
-            "datetime": "timestamp",
-            "ts": "timestamp",
-            "ticker": "symbol",
-            "secid": "symbol",
-        }
-        for a, b in aliases.items():
-            if a in df.columns and b not in df.columns:
-                df = df.rename(columns={a: b})
-        assert_schema(df, BASE_SCHEMA, f"RAW:{f.name}")
-        # timestamps → UTC naive
-        df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True).dt.tz_convert(None)
-        # normalize symbols robustly
-        df["symbol"] = _normalize_symbol_series(df["symbol"]).astype(object)
-        frames.append(df[BASE_SCHEMA])
-
-    all_df = pd.concat(frames, ignore_index=True)
-    assert_invariants(all_df, "RAW_ALL")
-
-    # Quick window
-    if quick_days is not None:
-        cutoff = all_df["timestamp"].max() - pd.Timedelta(days=quick_days)
-        before = len(all_df)
-        all_df = all_df[all_df["timestamp"] >= cutoff]
-        after = len(all_df)
-        log(f"Quick filter: cutoff={cutoff} → rows {after} (from {before})")
-        if after == 0 and allow_demo:
-            log("Quick removed all rows → using demo data.")
-            return make_demo(freq=freq, days=demo_days)
-
-    # Symbol filter
-    if symbols:
-        before = len(all_df)
-        filt = all_df["symbol"].isin([_normalize_symbol_str(s) for s in symbols])
-        kept = all_df.loc[filt]
-        log(f"Applied symbol filter {symbols} → rows {len(kept)} (from {before})")
-        if kept.empty:
-            log("WARNING: Symbol filter removed all rows → falling back to all symbols.")
-        else:
-            all_df = kept
-
-    # Final fallback: if still NaNs in symbol, replace with 'UNKNOWN' (never 'NAN' string)
-    if all_df["symbol"].isna().any():
-        all_df["symbol"] = all_df["symbol"].astype(object)
-        all_df["symbol"] = all_df["symbol"].where(all_df["symbol"].notna(), "UNKNOWN")
-
-    return all_df.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
-
-# -------------------- demo data --------------------
-
-def make_demo(freq: str, days: int = 30) -> pd.DataFrame:
-    rng = np.random.default_rng(7)
-    syms = ["AAPL", "MSFT"]
-    # pick step based on freq
-    step = dict(**{"1min": "1min", "5min": "5min", "15min": "15min"}).get(freq, "5min")
-    end = pd.Timestamp.utcnow().floor("min")
-    start = end - pd.Timedelta(days=days)
-    idx = pd.date_range(start, end, freq=step, inclusive="left", tz="UTC").tz_convert(None)
-    frames = []
-    for s in syms:
-        ret = rng.normal(0, 0.0009, len(idx))
-        px = 100 * np.exp(np.cumsum(ret))
-        op = px * (1 + rng.normal(0, 0.0003, len(idx)))
-        hi = np.maximum.reduce([op, px, op * (1 + np.abs(rng.normal(0, 0.0007, len(idx))))])
-        lo = np.minimum.reduce([op, px, op * (1 - np.abs(rng.normal(0, 0.0007, len(idx))))])
-        vo = rng.integers(1_000, 50_000, len(idx)).astype(float)
-        frames.append(pd.DataFrame({
-            "timestamp": idx,
-            "symbol": s,
-            "open": op,
-            "high": hi,
-            "low": lo,
-            "close": px,
-            "volume": vo,
-        }))
+def _concat_nonempty(frames: Iterable[pd.DataFrame]) -> pd.DataFrame:
+    frames = [f for f in frames if isinstance(f, pd.DataFrame) and not f.empty]
+    if not frames:
+        return pd.DataFrame()
     return pd.concat(frames, ignore_index=True)
 
-# -------------------- features --------------------
+def _clip_numbers(df: pd.DataFrame) -> pd.DataFrame:
+    for c in df.select_dtypes(include=[np.number]).columns:
+        df[c] = df[c].ffill().bfill().fillna(0.0).clip(-1e12, 1e12)
+    return df
 
-def features_base(df: pd.DataFrame, freq: str) -> pd.DataFrame:
-    out = df.copy()
-    out["return_1"] = out.groupby("symbol")["close"].pct_change()
-    out["hl_spread"] = (out["high"] - out["low"]) / out["close"].replace(0, np.nan)
-    out["vol_z"] = out.groupby("symbol")["volume"].transform(lambda s: (s - s.rolling(50).mean()) / (s.rolling(50).std() + 1e-9))
-    return out
+def _compute_features(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    df["ret_1"] = df.groupby("symbol")["close"].pct_change().replace([np.inf, -np.inf], np.nan).fillna(0.0)
+    df["hlc3"] = (df["high"] + df["low"] + df["close"]) / 3.0
+    df["vol_20"] = df.groupby("symbol")["ret_1"].rolling(20).std().reset_index(level=0, drop=True).fillna(0.0)
+    tr = (df["high"] - df["low"]).abs()
+    df["atr_14"] = tr.rolling(14).mean().fillna(0.0)
+    df["ma_fast"] = df.groupby("symbol")["close"].rolling(10).mean().reset_index(level=0, drop=True)
+    df["ma_slow"] = df.groupby("symbol")["close"].rolling(30).mean().reset_index(level=0, drop=True)
+    df["risk_on"] = (df["ma_fast"] > df["ma_slow"]).astype("int8")
 
-def features_micro(df: pd.DataFrame, freq: str) -> pd.DataFrame:
-    out = df.copy()
-    out["mom_3"] = out.groupby("symbol")["close"].pct_change(3)
-    out["mom_12"] = out.groupby("symbol")["close"].pct_change(12)
-    out["atr_14"] = (out["high"] - out["low"]).rolling(14).mean()
-    out["spread_proxy"] = (out["high"] - out["low"]) / out["close"].replace(0, np.nan)
-    return out
+    base_cols = list({*REQUIRED_COLS, "volume", "vwap", "ret_1", "hlc3", "vol_20", "atr_14"})
+    base_cols = [c for c in base_cols if c in df.columns]
+    base = df[base_cols].copy()
+    micro = df[["symbol", "timestamp", "ret_1", "vol_20", "atr_14"]].copy()
+    regime = df[["symbol", "timestamp", "ma_fast", "ma_slow", "risk_on"]].copy()
+    return base, micro, regime
 
-def features_regime(df: pd.DataFrame, freq: str) -> pd.DataFrame:
-    out = df.copy()
-    # Trend regime: sign of 12-period momentum
-    tr = out.groupby("symbol")["close"].pct_change(12)
-    out["trend_regime"] = np.sign(tr).fillna(0).astype(int)
-    # Vol regime: high vol if rolling stdev above median
-    vol = out.groupby("symbol")["return_1"].transform(lambda s: s.rolling(20).std())
-    med = vol.groupby(out["symbol"]).transform("median")
-    out["vol_regime"] = (vol > med).astype(int)
-    # Liquidity regime: high if volume above rolling median
-    vmed = out.groupby("symbol")["volume"].transform(lambda s: s.rolling(20).median())
-    out["liq_regime"] = (out["volume"] >= vmed).fillna(False).astype(int)
-    # Ensure dtypes small & safe
-    out["vol_regime"] = out["vol_regime"].astype("int8")
-    out["liq_regime"] = out["liq_regime"].astype("int8")
-    out["trend_regime"] = out["trend_regime"].astype("int8")
-    return out
+def build_features(freq: str, symbols: list[str], quick: bool, qdays: int) -> None:
+    print(f"[SPRINT8] START Sprint8 Feature Build | freq={freq} quick={quick} qdays={qdays}")
+    print(f"[SPRINT8] Symbols filter: {symbols if symbols else ['ALL']}")
+    print(f"[SPRINT8] Search roots: {SEARCH_ROOTS}")
 
-# -------------------- manifest --------------------
+    files = _find_candidates(freq)
+    print(f"[SPRINT8] Found {len(files)} candidate file(s)")
+    if not files:
+        raise FileNotFoundError("No input files found in " + ", ".join(SEARCH_ROOTS))
 
-def write_manifest(freq: str, written: List[str]) -> None:
-    man = {
-        "freq": freq,
-        "written": written,
-        "timestamp": pd.Timestamp.utcnow().isoformat() + "Z",
-    }
-    (FEAT / "feature_manifest.json").write_text(json.dumps(man, indent=2), encoding="utf-8")
+    frames = []
+    for f in files:
+        df = _standardize(_read_any(f))
+        if df.empty or "timestamp" not in df.columns:
+            continue
+        if "symbol" not in df.columns:
+            df["symbol"] = "NAN"
+        frames.append(df)
 
-# -------------------- main --------------------
+    all_df = _concat_nonempty(frames)
+    if all_df.empty:
+        raise ValueError("[RAW_ALL] DataFrame is empty")
 
-def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--freq", default="1min", choices=["1min", "5min", "15min"])
-    ap.add_argument("--symbols", default=None, help="Comma separated list or omit for all")
-    ap.add_argument("--quick", action="store_true")
-    ap.add_argument("--quick-days", type=int, default=180)
-    ap.add_argument("--demo", action="store_true")
-    ap.add_argument("--demo-days", type=int, default=30)
-    args = ap.parse_args()
+    if quick:
+        cutoff = all_df["timestamp"].max() - pd.Timedelta(days=qdays)
+        all_df = all_df[all_df["timestamp"] >= cutoff]
+        print(f"[SPRINT8] Quick filter: cutoff={cutoff} → rows {len(all_df)} (from {sum(len(x) for x in frames)})")
 
-    log(f"START Sprint8 Feature Build | freq={args.freq} quick={args.quick} qdays={args.quick_days}")
-    symbols = [s.strip() for s in args.symbols.split(",")] if args.symbols else None
+    if symbols and symbols != ["ALL"]:
+        before = len(all_df)
+        all_df = all_df[all_df["symbol"].isin(symbols)]
+        print(f"[SPRINT8] Applied symbol filter {symbols} → rows {len(all_df)} (from {before})")
+        if all_df.empty:
+            print("[SPRINT8] WARNING: Symbol filter removed all rows → falling back to ALL.")
+            all_df = _concat_nonempty(frames)
+            if quick:
+                cutoff = all_df["timestamp"].max() - pd.Timedelta(days=qdays)
+                all_df = all_df[all_df["timestamp"] >= cutoff]
 
-    df = load_raw(
-        freq=args.freq,
-        symbols=symbols,
-        quick_days=(args.quick_days if args.quick else None),
-        allow_demo=args.demo,
-        demo_days=args.demo_days,
-    )
+    # Pflichtspalten ggf. minimal auffüllen
+    for c in REQUIRED_COLS:
+        if c not in all_df.columns:
+            if c in ("open", "high", "low") and "close" in all_df.columns:
+                all_df[c] = all_df["close"]
+            elif c in ("timestamp", "symbol"):
+                raise ValueError(f"[RAW_ALL] Missing required column: {c}")
+            else:
+                all_df[c] = np.nan
+    _assert_schema(all_df, "RAW_ALL")
 
-    log(f"Loaded rows={len(df)} | symbols={sorted(df['symbol'].dropna().unique().tolist())} | timerange=[{df['timestamp'].min()}, {df['timestamp'].max()}]")
+    all_df = _clip_numbers(all_df)
 
-    base = features_base(df, args.freq)
-    micro = features_micro(base, args.freq)
-    regime = features_regime(micro, args.freq)
+    base, micro, regime = _compute_features(all_df)
 
-    # Write outputs
-    out_base = FEAT / f"base_{args.freq}.parquet"
-    out_micro = FEAT / f"micro_{args.freq}.parquet"
-    out_reg = FEAT / f"regime_{args.freq}.parquet"
-    base.to_parquet(out_base, index=False)
-    micro.to_parquet(out_micro, index=False)
-    regime.to_parquet(out_reg, index=False)
+    _ensure_dir(OUT_FEAT)
+    base_path   = os.path.join(OUT_FEAT, f"base_{freq}.parquet")
+    micro_path  = os.path.join(OUT_FEAT, f"micro_{freq}.parquet")
+    regime_path = os.path.join(OUT_FEAT, f"regime_{freq}.parquet")
+    base.to_parquet(base_path)
+    micro.to_parquet(micro_path)
+    regime.to_parquet(regime_path)
+    print(f"[SPRINT8] [OK] written: {base_path}")
+    print(f"[SPRINT8] [OK] written: {micro_path}")
+    print(f"[SPRINT8] [OK] written: {regime_path}")
 
-    log(f"[OK] written: {out_base}")
-    log(f"[OK] written: {out_micro}")
-    log(f"[OK] written: {out_reg}")
+    manifest = os.path.join(OUT_FEAT, "feature_manifest.json")
+    try:
+        info = {"freq": freq, "rows": int(len(all_df)), "symbols": sorted(list(map(str, all_df["symbol"].dropna().unique())))}
+        if os.path.exists(manifest):
+            with open(manifest, "r", encoding="utf-8") as f:
+                obj = json.load(f)
+        else:
+            obj = {}
+        obj[f"features_{freq}"] = info
+        with open(manifest, "w", encoding="utf-8") as f:
+            json.dump(obj, f, indent=2, ensure_ascii=False)
+        print(f"[SPRINT8] [OK] manifest updated: {manifest}")
+    except Exception:
+        pass
 
-    write_manifest(args.freq, [str(out_base), str(out_micro), str(out_reg)])
-    log("Acceptance hint: Validate PF>1.25 under cost stress once Execution v2 is wired.")
-    log("DONE Sprint8 Feature Build")
-    return 0
+    print("[SPRINT8] Acceptance hint: Validate PF>1.25 under cost stress once Execution v2 is wired.")
+    print("[SPRINT8] DONE Sprint8 Feature Build")
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--freq", type=str, default="5min")
+    p.add_argument("--symbols", type=str, default="ALL")
+    p.add_argument("--quick", action="store_true")
+    p.add_argument("--qdays", type=int, default=180)
+    # Alias für Kompatibilität zu run_sprint8_rehydrate.ps1
+    p.add_argument("--quick-days", dest="qdays", type=int)
+    args = p.parse_args()
+
+    syms = [s.strip() for s in (args.symbols or "ALL").split(",")] if args.symbols else ["ALL"]
+    warnings.filterwarnings("ignore", category=FutureWarning)
+    build_features(args.freq, syms, args.quick, args.qdays)
 
 if __name__ == "__main__":
-    raise SystemExit(main())
-
-
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception as e:
+        print(f"[SPRINT8] [FAIL] {e}", file=sys.stderr)
+        sys.exit(1)
