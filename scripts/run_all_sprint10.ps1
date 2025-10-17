@@ -1,196 +1,227 @@
-param(
-  [string]$Freq = '5min',
-  [double]$StartCapital = 10000,
-  [double]$Exposure = 1,
-  [double]$MaxLeverage = 1,
-  [double]$CommissionBps = 0.5,
-  [double]$SpreadW = 1,
-  [double]$ImpactW = 1,
+<# 
+  scripts/run_all_sprint10.ps1
+  Orchestriert den kompletten Sprint-Flow (Seed → Rehydrate → Features → Cost → Backtest → CostGrid → Portfolio → Git Sync)
+  - Nutzt tools/activate_python.ps1 -ReturnPath, um robust die .venv-Python zu bekommen (ohne pip-Output als "Kommando" zu interpretieren)
+  - Optionales Discord-Notify, wenn DISCORD_WEBHOOK_URL (oder -DiscordWebhook) gesetzt ist
+#>
 
-  # Rehydrate/Features
+[CmdletBinding()]
+param(
+  # Welche Schritte?
+  [switch]$Seed,
+  [switch]$Rehydrate,
+  [switch]$Features,
+  [switch]$Cost,
+  [switch]$Backtest,
+  [switch]$CostGrid,
+  [switch]$Portfolio,
+  [switch]$Sync,
+
+  # Häufig genutzte Parameter
+  [ValidateSet("1min","5min","15min","30min","60min","day")]
+  [string]$Freq = "5min",
+  [double]$StartCapital = 10000,
+  [double]$Exposure = 1.0,
+  [double]$MaxLeverage = 1.0,
+  [double]$CommissionBps = 0.5,
+  [double]$SpreadW = 1.0,
+  [double]$ImpactW = 1.0,
+
+  # Sprint8 Feature-Build quick-Modus
   [switch]$Quick = $true,
   [int]$QuickDays = 180,
-  [string]$Symbols = 'AAPL,MSFT',
+  [string[]]$Symbols = @("AAPL","MSFT"),
 
-  # Steps
-  [switch]$Seed = $true,
-  [switch]$Rehydrate = $true,
-  [switch]$Features = $true,
-  [switch]$Costs = $true,
-  [switch]$Backtest = $true,
-  [switch]$Grid = $true,
-  [switch]$Portfolio = $true,
-  [switch]$Sync = $true,
-  [switch]$Notify = $false
+  # Discord
+  [string]$DiscordWebhook = $null
 )
 
-$ErrorActionPreference = 'Stop'
-function Info($m){ $ts=(Get-Date).ToUniversalTime().ToString('s')+'Z'; Write-Host "[$ts] [RUNALL] $m" }
+$ErrorActionPreference = "Stop"
 
-$ROOT    = (Get-Location).Path
-$Py      = Join-Path $ROOT '.venv/Scripts/python.exe'
-$Scripts = Join-Path $ROOT 'scripts'
-$Out     = Join-Path $ROOT 'output'
+function Info([string]$m){ Write-Host $m -ForegroundColor Cyan }
+function Ok([string]$m){ Write-Host $m -ForegroundColor Green }
+function Warn([string]$m){ Write-Warning $m }
+function Fail([string]$m){ Write-Error $m; exit 1 }
 
-function Run([string]$label, [ScriptBlock]$block){
-  Info $label
-  & $block
+# ------------------------------------------------------------
+# 0) Projektpfade
+# ------------------------------------------------------------
+$ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$RepoRoot   = (Resolve-Path -Path (Join-Path $ScriptRoot "..")).Path
+
+Set-Location $RepoRoot
+
+# ------------------------------------------------------------
+# 1) .venv aktivieren und Python-Pfad sauber beziehen
+# ------------------------------------------------------------
+$activate = Join-Path $ScriptRoot "tools\activate_python.ps1"
+if (-not (Test-Path -Path $activate -PathType Leaf)) {
+  Fail "activate_python.ps1 nicht gefunden: $activate"
+}
+
+# Nur der Python-Pfad kommt als Output zurück, alle anderen Ausgaben gehen direkt zur Konsole
+$VenvPython = & $activate -RepoRoot $RepoRoot -VenvDir ".venv" -CreateIfMissing -InstallRequirements -ReturnPath
+if (-not (Test-Path -Path $VenvPython -PathType Leaf)) {
+  Fail "Venv-Python nicht gefunden: $VenvPython"
+}
+Info "[RUNALL] Using Python: $VenvPython"
+
+# ------------------------------------------------------------
+# 2) Discord Webhook ermitteln (ENV oder Param)
+# ------------------------------------------------------------
+if (-not $DiscordWebhook -and $env:DISCORD_WEBHOOK_URL) {
+  $DiscordWebhook = $env:DISCORD_WEBHOOK_URL
+}
+$CanNotifyDiscord = -not [string]::IsNullOrWhiteSpace($DiscordWebhook)
+
+$notifyScript = Join-Path $ScriptRoot "tools\notify_discord.ps1"
+function NotifyDiscord([string]$title, [string]$content){
+  if (-not $CanNotifyDiscord) { return }
+  if (-not (Test-Path -Path $notifyScript -PathType Leaf)) { return }
+  try {
+    & $notifyScript -Title $title -Content $content -WebhookUrl $DiscordWebhook
+  } catch {
+    Warn "Discord-Notify fehlgeschlagen: $($_.Exception.Message)"
+  }
+}
+
+# ------------------------------------------------------------
+# 3) Hilfsfunktion zum Run eines .ps1 mit Fehlerbehandlung
+# ------------------------------------------------------------
+function Run-Step([string]$label, [scriptblock]$action) {
+  Write-Host ("[{0}] {1}" -f (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ"), $label) -ForegroundColor Yellow
+  & $action
   if($LASTEXITCODE -ne 0){ throw "$label fehlgeschlagen" }
 }
 
-function Get-CostGridBest {
-  $md  = Join-Path $Out 'cost_grid_report.md'
-  $csv = Join-Path $Out 'cost_grid_results.csv'
+# ------------------------------------------------------------
+# 4) Anzeige Start
+# ------------------------------------------------------------
+Write-Host ("[{0}] [RUNALL] Start | freq={1} cap={2} exp={3} lev={4} comm={5}bps spread={6} impact={7}" -f (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ"), $Freq, $StartCapital, $Exposure, $MaxLeverage, $CommissionBps, $SpreadW, $ImpactW) -ForegroundColor Magenta
+Write-Host "[RUNALL] START" -ForegroundColor Magenta
+NotifyDiscord "RunAll gestartet" "freq=$Freq | cap=$StartCapital | exp=$Exposure | lev=$MaxLeverage | comm=${CommissionBps}bps | spread=$SpreadW | impact=$ImpactW"
 
-  if(Test-Path $csv){
-    try{
-      $rows = Import-Csv $csv
-      $best = $rows | ForEach-Object {
-        [pscustomobject]@{
-          commission_bps = [double]$_.commission_bps
-          spread_w       = [double]$_.spread_w
-          impact_w       = [double]$_.impact_w
-          PF             = [double]$_.PF
-          Sharpe         = [double]$_.Sharpe
-          Trades         = [int]$_.Trades
-          FinalEquity    = [double]$_.FinalEquity
-        }
-      } | Sort-Object PF -Descending | Select-Object -First 1
-      if($best){ return $best }
-    } catch { }
-  }
-
-  if(-not (Test-Path $md)){ return $null }
-
-  $text = Get-Content $md -Raw
-  $pf = $null
-  $m = [regex]::Match($text, '\*\*Best PF:\*\*\s*(?<pf>[0-9]+(?:\.[0-9]+)?)', 'IgnoreCase')
-  if($m.Success){ $pf = [double]$m.Groups['pf'].Value }
-
-  $mc = [regex]::Match($text, 'Params:\s*commission\s*(?<c>[0-9]+(?:\.[0-9]+)?)\s*bps,\s*spread_w\s*(?<sw>[0-9]+(?:\.[0-9]+)?),\s*impact_w\s*(?<iw>[0-9]+(?:\.[0-9]+)?)', 'IgnoreCase')
-  $m2 = [regex]::Match($text, 'Trades:\s*(?<t>[0-9]+)\s*•\s*Final\s*Equity:\s*(?<eq>[0-9\.\s]+)\s*•\s*Sharpe:\s*(?<sh>[0-9\.\-]+)', 'IgnoreCase')
-
-  if($pf -ne $null -and $mc.Success){
-    $obj = [pscustomobject]@{
-      commission_bps = [double]$mc.Groups['c'].Value
-      spread_w       = [double]$mc.Groups['sw'].Value
-      impact_w       = [double]$mc.Groups['iw'].Value
-      PF             = [double]$pf
-      Sharpe         = $null
-      Trades         = $null
-      FinalEquity    = $null
-    }
-    if($m2.Success){
-      $obj.Trades = [int]$m2.Groups['t'].Value
-      $eq = ($m2.Groups['eq'].Value -replace '\s','')
-      $obj.FinalEquity = [double]$eq
-      $obj.Sharpe = [double]$m2.Groups['sh'].Value
-    }
-    return $obj
-  }
-  return $null
-}
-
-$commStr   = ([string]$CommissionBps).Replace(',','.')
-$spreadStr = ([string]$SpreadW).Replace(',','.')
-$impactStr = ([string]$ImpactW).Replace(',','.')
-Info ("Start | freq={0} cap={1} exp={2} lev={3} comm={4}bps spread={5} impact={6}" -f $Freq,$StartCapital,$Exposure,$MaxLeverage,$commStr,$spreadStr,$impactStr)
-
-if($Seed){
-  Run "Seede Demo-Daten…" {
-    & $Py (Join-Path $Scripts '00_seed_demo_data.py') --freq $Freq
-  }
-}
-
-if($Rehydrate){
-  Run "run_sprint8_rehydrate.ps1" {
-    $rehydrateArgs = @('-File', (Join-Path $Scripts 'run_sprint8_rehydrate.ps1'), '-Freq', $Freq)
-    if($Quick){ $rehydrateArgs += '-Quick' }
-    if(-not [string]::IsNullOrWhiteSpace($Symbols)){ $rehydrateArgs += @('-Symbols', $Symbols) }
-
-    try { & pwsh @rehydrateArgs }
-    catch {
-      Info "Rehydrate (Fallback) ohne Quick/Symbols…"
-      & pwsh -File (Join-Path $Scripts 'run_sprint8_rehydrate.ps1') -Freq $Freq
+# ------------------------------------------------------------
+# 5) Seed (optional – wenn Script vorhanden)
+# ------------------------------------------------------------
+if ($Seed) {
+  Run-Step "Seede Demo-Daten…" {
+    $seedPy = Join-Path $RepoRoot "scripts\seed_demo_data.py"
+    if (Test-Path -Path $seedPy -PathType Leaf) {
+      & $VenvPython $seedPy --freq $Freq
+    } else {
+      Warn "seed_demo_data.py nicht gefunden – überspringe Seed."
     }
   }
 }
 
-if($Features){
-  Run "SPRINT8 Features bauen… ($Freq)" {
-    $args = @('--freq', $Freq)
-    if($Quick){
-      $args += '--quick'
-      if($PSBoundParameters.ContainsKey('QuickDays')){ $args += @('--qdays', "$QuickDays") }
+# ------------------------------------------------------------
+# 6) Rehydrate (Sprint 8)
+# ------------------------------------------------------------
+if ($Rehydrate) {
+  Run-Step "run_sprint8_rehydrate.ps1" {
+    $rehydrate = Join-Path $RepoRoot "scripts\run_sprint8_rehydrate.ps1"
+    if (-not (Test-Path -Path $rehydrate -PathType Leaf)) { throw "Script fehlt: $rehydrate" }
+
+    # Primär mit Quick + QuickDays
+    try {
+      & pwsh -File $rehydrate -Freq $Freq -Symbols ($Symbols -join ",") -Quick:$Quick -QuickDays $QuickDays
+    } catch {
+      Warn "Rehydrate mit -Quick/-QuickDays fehlgeschlagen → Fallback ohne Quick-Flags."
+      & pwsh -File $rehydrate -Freq $Freq -Symbols ($Symbols -join ",")
     }
-    if(-not [string]::IsNullOrWhiteSpace($Symbols)){ $args += @('--symbols', $Symbols) }
-    & $Py (Join-Path $Scripts 'sprint8_feature_engineering.py') @args
   }
 }
 
-if($Costs){
-  Run "sprint8_cost_model.ps1" {
-    & pwsh -File (Join-Path $Scripts 'sprint8_cost_model.ps1') -Freq $Freq -Notional $StartCapital -CommissionBps $CommissionBps
+# ------------------------------------------------------------
+# 7) Features explizit (optional – meist redundant zu Rehydrate)
+# ------------------------------------------------------------
+if ($Features) {
+  Run-Step "SPRINT8 Features bauen… ($Freq)" {
+    $featPy = Join-Path $RepoRoot "scripts\sprint8_feature_engineering.py"
+    if (-not (Test-Path -Path $featPy -PathType Leaf)) { throw "Script fehlt: $featPy" }
+
+    $args = @("--freq", $Freq)
+    if ($Quick)    { $args += @("--quick", "--qdays", "$QuickDays") }
+    if ($Symbols -and $Symbols.Count -gt 0) { $args += @("--symbols", ($Symbols -join ",")) }
+
+    & $VenvPython $featPy @args
   }
 }
 
-if($Backtest){
-  Run "sprint9_backtest.ps1" {
-    & pwsh -File (Join-Path $Scripts 'sprint9_backtest.ps1') -Freq $Freq
+# ------------------------------------------------------------
+# 8) Execution & Costs
+# ------------------------------------------------------------
+if ($Cost) {
+  Run-Step "sprint8_cost_model.ps1" {
+    $costPS1 = Join-Path $RepoRoot "scripts\sprint8_cost_model.ps1"
+    if (-not (Test-Path -Path $costPS1 -PathType Leaf)) { throw "Script fehlt: $costPS1" }
+    & pwsh -File $costPS1 -Freq $Freq -Notional $StartCapital -CommissionBps $CommissionBps
   }
 }
 
-$Best = $null
-if($Grid){
-  Run "sprint9_cost_grid.ps1" {
-    & pwsh -File (Join-Path $Scripts 'sprint9_cost_grid.ps1') -Freq $Freq
-  }
-  $Best = Get-CostGridBest
-  if($Best){
-    Info ("Bestes Grid → PF={0} | comm={1}bps | spread={2} | impact={3} | trades={4} | equity={5} | sharpe={6}" -f `
-      $Best.PF, $Best.commission_bps, $Best.spread_w, $Best.impact_w, $Best.Trades, $Best.FinalEquity, $Best.Sharpe)
-  } else {
-    Info "Hinweis: Konnte keinen Best-Block aus cost_grid_report extrahieren."
+# ------------------------------------------------------------
+# 9) Backtest (Sprint 9)
+# ------------------------------------------------------------
+if ($Backtest) {
+  Run-Step "sprint9_backtest.ps1" {
+    $btPS1 = Join-Path $RepoRoot "scripts\sprint9_backtest.ps1"
+    if (-not (Test-Path -Path $btPS1 -PathType Leaf)) { throw "Script fehlt: $btPS1" }
+    & pwsh -File $btPS1 -Freq $Freq
   }
 }
 
-if($Portfolio){
-  Run "sprint10_portfolio.ps1" {
-    & pwsh -File (Join-Path $Scripts 'sprint10_portfolio.ps1') `
-      -Freq $Freq -StartCapital $StartCapital -Exposure $Exposure -MaxLeverage $MaxLeverage `
+# ------------------------------------------------------------
+# 10) Cost Grid (Sprint 9)
+# ------------------------------------------------------------
+$bestGridLine = $null
+if ($CostGrid) {
+  Run-Step "sprint9_cost_grid.ps1" {
+    $gridPS1 = Join-Path $RepoRoot "scripts\sprint9_cost_grid.ps1"
+    if (-not (Test-Path -Path $gridPS1 -PathType Leaf)) { throw "Script fehlt: $gridPS1" }
+    & pwsh -File $gridPS1 -Freq $Freq
+  }
+
+  # Versuch, "Bestes Grid" aus Report zu lesen (optional)
+  $gridReport = Join-Path $RepoRoot "output\cost_grid_report.md"
+  if (Test-Path -Path $gridReport -PathType Leaf) {
+    $bestGridLine = (Get-Content $gridReport | Select-String -Pattern "Bestes Grid").Line
+    if ($bestGridLine) { Write-Host "[RUNALL] $bestGridLine" -ForegroundColor DarkCyan }
+  }
+}
+
+# ------------------------------------------------------------
+# 11) Portfolio (Sprint 10)
+# ------------------------------------------------------------
+if ($Portfolio) {
+  Run-Step "sprint10_portfolio.ps1" {
+    $pfPS1 = Join-Path $RepoRoot "scripts\sprint10_portfolio.ps1"
+    if (-not (Test-Path -Path $pfPS1 -PathType Leaf)) { throw "Script fehlt: $pfPS1" }
+    & pwsh -File $pfPS1 -Freq $Freq -StartCapital $StartCapital -Exposure $Exposure -MaxLeverage $MaxLeverage `
       -CommissionBps $CommissionBps -SpreadW $SpreadW -ImpactW $ImpactW
   }
 }
 
-if($Sync){
-  Run "git_sync.ps1" {
-    $msg = "RunAll: $($Freq), cap=$($StartCapital), exp=$($Exposure), comm=$($CommissionBps)bps, spread=$($SpreadW), impact=$($ImpactW)"
-    & pwsh -File (Join-Path $Scripts 'tools/git_sync.ps1') -Message $msg
+# ------------------------------------------------------------
+# 12) Git Sync
+# ------------------------------------------------------------
+if ($Sync) {
+  Run-Step "git_sync.ps1" {
+    $syncPS1 = Join-Path $RepoRoot "scripts\tools\git_sync.ps1"
+    if (-not (Test-Path -Path $syncPS1 -PathType Leaf)) { throw "Script fehlt: $syncPS1" }
+    $msg = "RunAll: $Freq, cap=$StartCapital, exp=$Exposure, comm=${CommissionBps}bps, spread=$SpreadW, impact=$ImpactW"
+    & pwsh -File $syncPS1 -Message $msg
   }
 }
 
-if($Notify){
-  $title = "RunAll abgeschlossen"
-  $report = @(
-    "Freq: $Freq",
-    "Portfolio: cap=$StartCapital | exp=$Exposure | lev=$MaxLeverage | comm=$CommissionBps bps | spread=$SpreadW | impact=$ImpactW"
-  )
-
-  if($Best){
-    $report += @(
-      "",
-      "**Cost-Grid (Best):**",
-      "PF=$($Best.PF) | Sharpe=$($Best.Sharpe) | Trades=$($Best.Trades) | Final=$($Best.FinalEquity)",
-      "Params: commission=$($Best.commission_bps) bps | spread_w=$($Best.spread_w) | impact_w=$($Best.impact_w)"
-    )
-  } else {
-    $report += @("", "_Hinweis: Konnte Best-Block aus Cost-Grid nicht extrahieren._")
-  }
-
-  $content = ($report -join "`n")
-  Run "Discord-Notify…" {
-    & pwsh -File (Join-Path $Scripts 'tools/notify_discord.ps1') -Title $title -Content $content
-  }
+# ------------------------------------------------------------
+# 13) Fertig / Notify
+# ------------------------------------------------------------
+if ($bestGridLine) {
+  NotifyDiscord "RunAll abgeschlossen" "$bestGridLine"
+} else {
+  NotifyDiscord "RunAll abgeschlossen" "freq=$Freq | cap=$StartCapital | exp=$Exposure | lev=$MaxLeverage | comm=${CommissionBps}bps | spread=$SpreadW | impact=$ImpactW"
 }
 
-Info "DONE"
+Write-Host ("[{0}] [RUNALL] DONE" -f (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")) -ForegroundColor Magenta
+exit 0

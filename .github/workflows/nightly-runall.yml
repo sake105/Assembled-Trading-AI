@@ -1,0 +1,48 @@
+name: Nightly RunAll
+
+on:
+  schedule:
+    - cron: "0 3 * * *"   # täglich 03:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  runall:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PowerShell modules (optional)
+        run: |
+          pwsh -NoProfile -Command "Write-Host 'PS ready'"
+
+      - name: Create venv & deps
+        shell: pwsh
+        run: |
+          python -m venv .venv
+          .\.venv\Scripts\python -m pip install --upgrade pip
+          if (Test-Path requirements.txt) { .\.venv\Scripts\pip install -r requirements.txt }
+          if (Test-Path requirements-dev.txt) { .\.venv\Scripts\pip install -r requirements-dev.txt }
+
+      - name: Run All (5min demo)
+        shell: pwsh
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          .\.venv\Scripts\Activate.ps1
+          pwsh -File .\scripts\run_all_sprint10.ps1 -Freq 5min -StartCapital 10000 -Exposure 1 -MaxLeverage 1 -CommissionBps 0.5 -SpreadW 1 -ImpactW 1 -Seed -Rehydrate -Features -Cost -Backtest -CostGrid -Portfolio -Sync
+
+      - name: Commit summary & outputs
+        if: always()
+        shell: pwsh
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add output/*
+          git commit -m "Nightly RunAll artifacts" || echo "nothing to commit"
+          git push
