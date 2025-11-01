@@ -1,21 +1,155 @@
-# scripts/sprint9_cost_grid.py
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Sprint 9 — Cost Grid
+Liest Feature-Parquets, erzeugt ein simples Signal, simuliert Kosten
+über ein Gitter (commission_bps, spread_w, impact_w) und schreibt
+einen Markdown-Report nach output/cost_grid_report.md.
+
+Kompatibel mit den PowerShell-Logs:
+[GRID] START Grid | freq=5min | commission=[...] | spread_w=[...] | impact_w=[...]
+[GRID] [OK] written: {out_path.resolve()}
+"""
+
 from __future__ import annotations
 
 import argparse
+import math
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable, Tuple, List
+from typing import Iterable, List, Tuple
 
 import numpy as np
 import pandas as pd
 
-# ----------------------------
-# CLI & Paths
-# ----------------------------
-ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "output"
-FEATURES_DIR = OUT / "features"
+
+# ---------- Args ----------
+
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser()
+    p.add_argument("--freq", default="5min", type=str)
+    # kompatibel zu PS-Skripten:
+    p.add_argument("--notional", default=10_000, type=float)
+    p.add_argument(
+        "--commission-bps",
+        nargs="+",
+        type=float,
+        default=[0.0, 0.5, 1.0],
+        dest="commission_bps",
+    )
+    p.add_argument(
+        "--spread-w",
+        nargs="+",
+        type=float,
+        default=[0.5, 1.0, 2.0],
+        dest="spread_ws",
+    )
+    p.add_argument(
+        "--impact-w",
+        nargs="+",
+        type=float,
+        default=[0.5, 1.0, 2.0],
+        dest="impact_ws",
+    )
+    return p.parse_args()
+
+
+# ---------- I/O Helpers ----------
+
+REPO = Path(__file__).resolve().parents[1]
+OUT = REPO / "output"
+FEAT = OUT / "features"
+
+
+def _ensure_ts(df: pd.DataFrame) -> pd.DataFrame:
+    # Timestamp vereinheitlichen → tz-naiv (pandas/numpy kompatibel)
+    if "timestamp" not in df.columns:
+        raise ValueError("Features müssen eine 'timestamp'-Spalte besitzen.")
+    ts = pd.to_datetime(df["timestamp"], utc=True)
+    df["timestamp"] = ts.dt.tz_convert(None)
+    return df
+
+
+def load_features(freq: str) -> pd.DataFrame:
+    """
+    Lädt base_{freq}.parquet, micro_{freq}.parquet, regime_{freq}.parquet
+    und merged sie auf ['timestamp','symbol'].
+    """
+    base_p = FEAT / f"base_{freq}.parquet"
+    micr_p = FEAT / f"micro_{freq}.parquet"
+    reg_p = FEAT / f"regime_{freq}.parquet"
+
+    if not base_p.exists() or not micr_p.exists() or not reg_p.exists():
+        raise FileNotFoundError("Feature-Dateien fehlen. Bitte Sprint8 ausführen.")
+
+    base = pd.read_parquet(base_p)
+    micr = pd.read_parquet(micr_p)
+    regi = pd.read_parquet(reg_p)
+
+    base = _ensure_ts(base)
+    micr = _ensure_ts(micr)
+    regi = _ensure_ts(regi)
+
+    on = ["timestamp", "symbol"]
+    df = base.merge(micr, on=on, how="inner", validate="m:1").merge(regi, on=on, how="inner", validate="m:1")
+
+    # Wichtige Spalten absichern
+    if "close" not in df.columns:
+        # ggf. 'price' oder ähnlich als close benutzen
+        maybe = [c for c in ["price", "last", "adj_close"] if c in df.columns]
+        if not maybe:
+            raise KeyError("Spalte 'close' nicht gefunden.")
+        df = df.rename(columns={maybe[0]: "close"})
+
+    # Typen säubern
+    df["symbol"] = df["symbol"].astype(str)
+    df = df.sort_values(["timestamp", "symbol"]).reset_index(drop=True)
+
+    return df
+
+
+# ---------- Signal ----------
+
+def ema_regime(df: pd.DataFrame, span_fast: int = 8, span_slow: int = 21) -> pd.DataFrame:
+    """
+    Einfache Trend-Regime-Logik: fast EMA vs slow EMA.
+    Gibt 'trend_regime' {+1, -1, 0} zurück.
+    FutureWarning-frei: keine groupby.apply-Rückgabe mit gruppierenden Spalten.
+    """
+    def _per_symbol(d: pd.DataFrame) -> pd.DataFrame:
+        s = d["close"].astype(float)
+        ema_f = s.ewm(span=span_fast, adjust=False).mean()
+        ema_s = s.ewm(span=span_slow, adjust=False).mean()
+        reg = np.sign(ema_f - ema_s).astype(int)
+        out = d[["timestamp", "symbol"]].copy()
+        out["trend_regime"] = reg.values
+        return out
+
+    g = df.groupby("symbol", group_keys=False)
+    parts: List[pd.DataFrame] = []
+    for _, d in g:
+        parts.append(_per_symbol(d))
+    out = pd.concat(parts, ignore_index=True)
+    return df.merge(out, on=["timestamp", "symbol"], how="left")
+
+
+def build_signal(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Finales Signal:
+    - Nutzt vorhandenes 'trend_regime' oder berechnet EMA-Regime.
+    - Konvertiert in Positionsgröße p ∈ {-1, 0, +1}.
+    """
+    if "trend_regime" not in df.columns:
+        df = ema_regime(df)
+
+    pos = df["trend_regime"].fillna(0).astype(int).clip(-1, 1)
+    out = df[["timestamp", "symbol", "close"]].copy()
+    out["pos"] = pos.values
+    return out
+
+
+# ---------- Costs & Backtest ----------
 
 @dataclass(frozen=True)
 class CostParams:
@@ -23,269 +157,185 @@ class CostParams:
     spread_w: float
     impact_w: float
 
-def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser()
-    p.add_argument("--freq", default="5min")
-    p.add_argument("--notional", type=float, default=10_000.0)
-    p.add_argument("--commission-bps", nargs="*", type=float, default=[0.0, 0.5, 1.0, 2.0, 5.0])
-    p.add_argument("--spread-w",       nargs="*", type=float, default=[0.25, 0.5, 1.0, 2.0, 3.0])
-    p.add_argument("--impact-w",       nargs="*", type=float, default=[0.0, 0.25, 0.5, 1.0, 2.0])
-    p.add_argument("--signal", choices=["simple","ema","regime"], default="ema")
-    p.add_argument("--plot", action="store_true", help="Optional: Heatmaps/Curves plotten, wenn matplotlib installiert ist")
-    return p.parse_args()
 
-# ----------------------------
-# Loading & sanitizing
-# ----------------------------
-def _load_parquet_safe(path: Path) -> pd.DataFrame:
-    if not path.exists():
-        raise FileNotFoundError(f"Nicht gefunden: {path}")
-    df = pd.read_parquet(path)
-    # timestamp robust → tz-aware UTC
-    if "timestamp" in df.columns:
-        if not pd.api.types.is_datetime64_any_dtype(df["timestamp"]):
-            df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
-        elif df["timestamp"].dt.tz is None:
-            df["timestamp"] = df["timestamp"].dt.tz_localize("UTC")
-        else:
-            df["timestamp"] = df["timestamp"].dt.tz_convert("UTC")
-    # Spaltennamen normalisieren
-    df.columns = [str(c) for c in df.columns]
-    return df
+def _turnover(pos: pd.Series) -> pd.Series:
+    # |Δ Position|
+    return pos.diff().abs().fillna(0.0)
 
-def load_features(freq: str) -> pd.DataFrame:
-    # Wir brauchen mindestens base + micro; regime optional
-    base = _load_parquet_safe(FEATURES_DIR / f"base_{freq}.parquet")
-    micro = _load_parquet_safe(FEATURES_DIR / f"micro_{freq}.parquet")
-    maybe_regime = (FEATURES_DIR / f"regime_{freq}.parquet")
-    if maybe_regime.exists():
-        regime = _load_parquet_safe(maybe_regime)
-        df = base.merge(micro, on=["timestamp","symbol"], how="outer").merge(regime, on=["timestamp","symbol"], how="outer")
-    else:
-        df = base.merge(micro, on=["timestamp","symbol"], how="outer")
 
-    # Duplikate bereinigen
-    df = df.drop_duplicates(subset=["timestamp","symbol"]).sort_values(["timestamp","symbol"])
-    # Basisfelder sichern
-    needed = ["timestamp","symbol","close"]
-    for c in needed:
-        if c not in df.columns:
-            raise KeyError(f"Fehlende Spalte '{c}' in Features.")
-    # NaN/Inf cleanup
-    for c in ["open","high","low","close","volume"]:
-        if c in df.columns:
-            s = pd.to_numeric(df[c], errors="coerce")
-            df[c] = s.replace([np.inf,-np.inf], np.nan)
-    df = df.sort_values(["timestamp","symbol"])
-    return df
+def simulate_costs(signal: pd.DataFrame, costs: CostParams, notional: float) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Rechnet P&L (einfach) mit Kostenmodell über alle Symbole zusammen.
+    Gibt:
+      equity_df:  timestamp, equity
+      rows_df:    eine Zeile mit Metriken für diesen Kostenpunkt
+    """
+    df = signal.sort_values(["symbol", "timestamp"]).copy()
 
-# ----------------------------
-# Signals
-# ----------------------------
-def signal_simple(df: pd.DataFrame) -> pd.DataFrame:
-    """Toy-Signal: +1 wenn close über 5-EMA, -1 wenn darunter."""
-    def _per_symbol(g: pd.DataFrame) -> pd.DataFrame:
-        g = g.sort_values("timestamp").copy()
-        ema = g["close"].ewm(span=5, adjust=False).mean()
-        g["weight"] = np.where(g["close"] > ema, 1.0, -1.0)
-        return g
-    return df.groupby("symbol", group_keys=False).apply(_per_symbol)
-
-def signal_ema(df: pd.DataFrame) -> pd.DataFrame:
-    """Cross von kurzen/längeren EMAs → -1/0/+1."""
-    def _per_symbol(g: pd.DataFrame) -> pd.DataFrame:
-        g = g.sort_values("timestamp").copy()
-        ema_fast = g["close"].ewm(span=8, adjust=False).mean()
-        ema_slow = g["close"].ewm(span=21, adjust=False).mean()
-        sig = np.sign((ema_fast - ema_slow).fillna(0.0))
-        # Glätten, um Churn zu reduzieren
-        sig = sig.rolling(3, min_periods=1).mean().round().clip(-1,1)
-        g["weight"] = sig.astype(float)
-        return g
-    return df.groupby("symbol", group_keys=False).apply(_per_symbol)
-
-def signal_regime(df: pd.DataFrame) -> pd.DataFrame:
-    """Wenn 'trend_regime' vorhanden: >0 → long, <0 → short, sonst 0."""
-    if "trend_regime" not in df.columns:
-        # Fallback: ema
-        return signal_ema(df)
-    def _per_symbol(g: pd.DataFrame) -> pd.DataFrame:
-        g = g.sort_values("timestamp").copy()
-        sig = pd.to_numeric(g["trend_regime"], errors="coerce").fillna(0.0)
-        g["weight"] = np.sign(sig).astype(float)
-        return g
-    return df.groupby("symbol", group_keys=False).apply(_per_symbol)
-
-# ----------------------------
-# Cost model & simulation
-# ----------------------------
-def _portfolio_returns(df: pd.DataFrame, weight_col: str = "weight") -> pd.Series:
     # Log-Returns je Symbol
-    ret = df.groupby("symbol")["close"].transform(lambda s: np.log(s).diff()).fillna(0.0)
-    w = pd.to_numeric(df[weight_col], errors="coerce").fillna(0.0)
+    df["ret"] = (
+        df.groupby("symbol", group_keys=False)["close"]
+          .apply(lambda s: np.log(s).diff())
+          .fillna(0.0)
+          .astype(float)
+    )
 
-    # Rebalance-Kosten: Kommission + Spread/Impact pro Gewichtswechsel
-    dw = w.groupby(df["symbol"]).transform(lambda s: s.diff().abs()).fillna(0.0)
-    return ret, w, dw
+    # Brutto-PL = pos[t-1] * ret[t] * Notional
+    df["pos_shift"] = df.groupby("symbol", group_keys=False)["pos"].shift().fillna(0.0)
+    df["pnl_gross"] = df["pos_shift"] * df["ret"] * notional
 
-def simulate_costs(df: pd.DataFrame, costs: CostParams, notional: float) -> Tuple[pd.Series, dict]:
-    df = df.sort_values(["timestamp","symbol"]).copy()
+    # Kosten
+    # Commission (bps) pro gehandeltem Notional beim Umschalten
+    turn = (
+        df.groupby("symbol", group_keys=False)["pos"]
+          .apply(_turnover)
+          .reset_index(level=0, drop=True)
+    )
+    df["turnover"] = turn
 
-    # returns & weights
-    ret, w, dw = _portfolio_returns(df)
+    commission = costs.commission_bps / 10_000.0
+    # Einfaches Spread-/Impact-Modell proportional zum Turnover
+    spread_cost = costs.spread_w * 0.5 / 10_000.0  # 0.5 bps baseline * weight
+    impact_cost = costs.impact_w * 0.5 / 10_000.0  # 0.5 bps baseline * weight
 
-    # Brutto-Portfolio-Return = Sum over symbols (w * ret) (gleichgewichtet über verfügbare Symbole je Timestamp)
-    # Pivots für saubere Zeitachsen-Aggregation
-    idx = df["timestamp"]
-    sym = df["symbol"]
+    df["costs"] = (commission + spread_cost + impact_cost) * df["turnover"] * notional
+    df["pnl_net"] = df["pnl_gross"] - df["costs"]
 
-    # Werte in breite Matrizen
-    ret_wide = pd.pivot_table(pd.DataFrame({"timestamp": idx, "symbol": sym, "ret": ret}),
-                              index="timestamp", columns="symbol", values="ret", aggfunc="first").sort_index()
-    w_wide   = pd.pivot_table(pd.DataFrame({"timestamp": idx, "symbol": sym, "w": w}),
-                              index="timestamp", columns="symbol", values="w", aggfunc="first").sort_index()
-    dw_wide  = pd.pivot_table(pd.DataFrame({"timestamp": idx, "symbol": sym, "dw": dw}),
-                              index="timestamp", columns="symbol", values="dw", aggfunc="first").sort_index()
-
-    # Vorwärts auffüllen (Timestamps konsistent)
-    ret_wide = ret_wide.fillna(0.0)
-    w_wide   = w_wide.ffill().fillna(0.0)
-    dw_wide  = dw_wide.fillna(0.0)
-
-    # Kosten in Brutto-Return (bps → Dezimal)
-    commission = costs.commission_bps * 1e-4
-    trading_cost = commission * dw_wide + costs.spread_w * 1e-4 * dw_wide + costs.impact_w * 1e-4 * dw_wide
-
-    gross = (w_wide * ret_wide).mean(axis=1)  # gleichgewichtet über Symbole
-    net = gross - trading_cost.mean(axis=1)
-
-    # Equity-Kurve
-    eq = (np.log1p(net).cumsum()).apply(np.expm1)
-    eq = (1.0 + eq) * notional
+    # Aggregation über Symbole → Zeitreihe
+    pnl_t = df.groupby("timestamp", as_index=False)["pnl_net"].sum()
+    pnl_t = pnl_t.sort_values("timestamp")
+    equity = pnl_t["pnl_net"].cumsum() + notional
 
     # Kennzahlen
-    pnl = eq.diff().fillna(0.0)
-    vol = pnl.std(ddof=0)
-    mean = pnl.mean()
-    sharpe = 0.0 if vol == 0 else (mean / vol) * np.sqrt(252 * (6.5*60/5))  # intraday 5min ~ 78 Bars/Tag
-    pf = 0.0
-    gains = pnl[pnl > 0].sum()
-    losses = -pnl[pnl < 0].sum()
-    if losses > 0:
-        pf = gains / losses
+    trades = int(df["turnover"].astype(float).gt(0).sum())
+    pnl_pos = df["pnl_net"].clip(lower=0).sum()
+    pnl_neg = -df["pnl_net"].clip(upper=0).sum()
+    profit_factor = (pnl_pos / pnl_neg) if pnl_neg > 0 else math.inf
 
-    stats = dict(
-        pf=float(pf),
-        sharpe=float(sharpe),
-        trades=int((dw_wide.values > 0).sum()),
-        final_equity=float(eq.iloc[-1]),
+    # Sharpe (einfach: mean/std der Tages-/Bar-Returns des Portfolios)
+    port_ret = pnl_t["pnl_net"] / notional
+    sharpe = float(port_ret.mean() / (port_ret.std(ddof=1) + 1e-12))
+
+    equity_df = pd.DataFrame({"timestamp": pnl_t["timestamp"], "equity": equity})
+    row = pd.DataFrame(
+        [{
+            "commission_bps": costs.commission_bps,
+            "spread_w": costs.spread_w,
+            "impact_w": costs.impact_w,
+            "profit_factor": float(profit_factor),
+            "sharpe": float(sharpe),
+            "trades": trades,
+            "final_equity": float(equity.iloc[-1]),
+        }]
     )
-    return eq.astype(float), stats
+    return equity_df, row
 
-# ----------------------------
-# Grid driver
-# ----------------------------
-def run_grid(df: pd.DataFrame,
-             commissions: Iterable[float],
-             spread_ws: Iterable[float],
-             impact_ws: Iterable[float],
-             notional: float
-             ) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    # Signal wählen
-    sig_df = {
-        "simple": signal_simple,
-        "ema":    signal_ema,
-        "regime": signal_regime,
-    }[args.signal](df)
 
-    curves: List[pd.Series] = []
-    rows: List[dict] = []
+def run_grid(
+    df: pd.DataFrame,
+    commissions: Iterable[float],
+    spread_ws: Iterable[float],
+    impact_ws: Iterable[float],
+    notional: float,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    signal = build_signal(df)
+
+    curves: List[pd.DataFrame] = []
+    rows: List[pd.DataFrame] = []
 
     for c in commissions:
         for sw in spread_ws:
             for iw in impact_ws:
-                eq, stats = simulate_costs(sig_df, CostParams(c, sw, iw), notional)
-                tag = f"c{c}_sw{sw}_iw{iw}"
-                eq.name = tag
-                curves.append(eq)
-                rows.append(dict(commission_bps=c, spread_w=sw, impact_w=iw, **stats))
+                e, r = simulate_costs(signal, CostParams(c, sw, iw), notional)
+                # Output für spätere CSV/Plot optional sammeln
+                e = e.copy()
+                e["commission_bps"] = c
+                e["spread_w"] = sw
+                e["impact_w"] = iw
+                curves.append(e)
+                rows.append(r)
 
-    curves_df = pd.concat(curves, axis=1)
-    res_df = pd.DataFrame(rows).sort_values(["commission_bps","spread_w","impact_w"]).reset_index(drop=True)
+    curves_df = pd.concat(curves, ignore_index=True)
+    res_df = pd.concat(rows, ignore_index=True)
     return curves_df, res_df
 
-# ----------------------------
-# Reporting
-# ----------------------------
-def write_report(freq: str, res: pd.DataFrame, curves: pd.DataFrame) -> None:
-    OUT.mkdir(parents=True, exist_ok=True)
+
+# ---------- Report ----------
+
+def write_report(res_df: pd.DataFrame, out_md: Path, freq: str) -> str:
+    res = res_df.copy()
+    res = res.sort_values(["profit_factor", "sharpe", "final_equity"], ascending=[False, False, False])
+    best = res.iloc[0].to_dict()
+
     # Markdown
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    best = res.sort_values("pf", ascending=False).iloc[0]
-    md = [
-        f"# Cost Grid Report ({freq})",
-        "",
-        f"Generated: **{ts}**  |  Best PF: **{best['pf']:.2f}** | comm={best['commission_bps']}, spread={best['spread_w']}, impact={best['impact_w']}",
-        "",
-        res.to_markdown(index=False),
-        ""
-    ]
-    (OUT / "cost_grid_report.md").write_text("\n".join(md), encoding="utf-8")
-    # CSV/Parquet
-    res.to_csv(OUT / "cost_grid_results.csv", index=False)
-    curves.to_parquet(OUT / "cost_grid_curves.parquet")
+    lines = []
+    lines.append(f"# Cost Grid Report ({freq})")
+    lines.append("")
+    lines.append("## Bestes Setting")
+    lines.append("")
+    lines.append(
+        f"- **PF**={best['profit_factor']:.4f} | **Sharpe**={best['sharpe']:.4f} | "
+        f"**Final Equity**={best['final_equity']:.2f} | **Trades**={int(best['trades'])}"
+    )
+    lines.append(
+        f"- **Commission**={best['commission_bps']} bps | **SpreadW**={best['spread_w']} | **ImpactW**={best['impact_w']}"
+    )
+    lines.append("")
+    lines.append("## Tabelle")
+    lines.append("")
+    tab = res.copy()
+    tab["profit_factor"] = tab["profit_factor"].map(lambda x: f"{x:.4f}")
+    tab["sharpe"] = tab["sharpe"].map(lambda x: f"{x:.4f}")
+    tab["final_equity"] = tab["final_equity"].map(lambda x: f"{x:.2f}")
+    lines.append(tab.to_markdown(index=False))
 
-def try_plot(res: pd.DataFrame, curves: pd.DataFrame) -> None:
-    try:
-        import matplotlib.pyplot as plt
-        import itertools
+    out_md.parent.mkdir(parents=True, exist_ok=True)
+    out_md.write_text("\n".join(lines), encoding="utf-8")
 
-        # Heatmap PF über (spread_w × impact_w) je commission
-        commissions = sorted(res["commission_bps"].unique())
-        for c in commissions:
-            sub = res[res["commission_bps"] == c].pivot(index="spread_w", columns="impact_w", values="pf")
-            plt.figure()
-            plt.imshow(sub.values, aspect="auto")
-            plt.xticks(range(len(sub.columns)), sub.columns)
-            plt.yticks(range(len(sub.index)), sub.index)
-            plt.title(f"PF heatmap (commission={c} bps)")
-            plt.colorbar()
-            plt.xlabel("impact_w")
-            plt.ylabel("spread_w")
-            plt.tight_layout()
-            plt.savefig(OUT / f"cost_grid_heatmap_comm_{c}.png", dpi=140)
-            plt.close()
+    # Für RunAll-Log-Zeile zurückgeben:
+    summary = (
+        f"Bestes Grid → PF={best['profit_factor']} | comm={best['commission_bps']}bps | "
+        f"spread={best['spread_w']} | impact={best['impact_w']} | trades={int(best['trades'])} | "
+        f"equity={int(best['final_equity'])} | sharpe={best['sharpe']}"
+    )
+    return summary
 
-        # Top-3 Equity
-        top3 = res.sort_values("pf", ascending=False).head(3)
-        plt.figure()
-        for _, row in top3.iterrows():
-            tag = f"c{row['commission_bps']}_sw{row['spread_w']}_iw{row['impact_w']}"
-            if tag in curves.columns:
-                curves[tag].plot()
-        plt.title("Top-3 Equity Curves (by PF)")
-        plt.xlabel("time")
-        plt.ylabel("equity")
-        plt.tight_layout()
-        plt.savefig(OUT / "cost_grid_top3_equity.png", dpi=140)
-        plt.close()
-    except Exception as e:
-        # plotting ist optional → nur still schlucken
-        pass
 
-# ----------------------------
-# Main
-# ----------------------------
-if __name__ == "__main__":
+# ---------- Main ----------
+
+def main():
     args = parse_args()
-    print(f"[GRID] START Grid | freq={args.freq} | commission={args.commission_bps} | spread_w={args.spread_w} | impact_w={args.impact_w}")
+
+    print(f"[GRID] START Grid | freq={args.freq} | "
+          f"commission={list(args.commission_bps)} | spread_w={list(args.spread_ws)} | impact_w={list(args.impact_ws)}")
 
     df = load_features(args.freq)
-    curves_df, res_df = run_grid(df, args.commission_bps, args.spread_w, args.impact_w, notional=args.notional)
+    curves_df, res_df = run_grid(
+        df,
+        commissions=args.commission_bps,
+        spread_ws=args.spread_ws,
+        impact_ws=args.impact_ws,
+        notional=args.notional,
+    )
 
-    write_report(args.freq, res_df, curves_df)
-    if args.plot:
-        try_plot(res_df, curves_df)
+    # (Optional) CSVs ablegen
+    OUT.mkdir(parents=True, exist_ok=True)
+    (OUT / "cost_grid_curves.csv").write_text(
+        curves_df.to_csv(index=False), encoding="utf-8"
+    )
+    (OUT / "cost_grid_results.csv").write_text(
+        res_df.to_csv(index=False), encoding="utf-8"
+    )
 
-    print(f"[GRID] [OK] written: {OUT / 'cost_grid_report.md'}")
+    md = OUT / "cost_grid_report.md"
+    summary = write_report(res_df, md, args.freq)
+    print(f"[GRID] [OK] written: {md}")
     print("[GRID] DONE Grid")
+    # auch die kurze Zusammenfassung für nachgelagertes Parsing ausgeben:
+    print(summary)
+
+
+if __name__ == "__main__":
+    main()
+
+

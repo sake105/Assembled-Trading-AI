@@ -1,13 +1,6 @@
-<# 
-  scripts/run_all_sprint10.ps1
-  Orchestriert den kompletten Sprint-Flow (Seed → Rehydrate → Features → Cost → Backtest → CostGrid → Portfolio → Git Sync)
-  - Nutzt tools/activate_python.ps1 -ReturnPath, um robust die .venv-Python zu bekommen (ohne pip-Output als "Kommando" zu interpretieren)
-  - Optionales Discord-Notify, wenn DISCORD_WEBHOOK_URL (oder -DiscordWebhook) gesetzt ist
-#>
-
+<# Orchestriert Sprint 8–10 Pipeline. #>
 [CmdletBinding()]
 param(
-  # Welche Schritte?
   [switch]$Seed,
   [switch]$Rehydrate,
   [switch]$Features,
@@ -17,211 +10,149 @@ param(
   [switch]$Portfolio,
   [switch]$Sync,
 
-  # Häufig genutzte Parameter
-  [ValidateSet("1min","5min","15min","30min","60min","day")]
-  [string]$Freq = "5min",
+  [ValidateSet('1min','5min')]
+  [string]$Freq = '5min',
+
   [double]$StartCapital = 10000,
-  [double]$Exposure = 1.0,
-  [double]$MaxLeverage = 1.0,
+  [double]$Exposure     = 1,
+  [double]$MaxLeverage  = 1,
+
   [double]$CommissionBps = 0.5,
-  [double]$SpreadW = 1.0,
-  [double]$ImpactW = 1.0,
+  [double]$SpreadW       = 1.0,
+  [double]$ImpactW       = 1.0,
 
-  # Sprint8 Feature-Build quick-Modus
-  [switch]$Quick = $true,
-  [int]$QuickDays = 180,
-  [string[]]$Symbols = @("AAPL","MSFT"),
-
-  # Discord
-  [string]$DiscordWebhook = $null
+  # Quick-Window für Sprint8 (Tage)
+  [int]$QuickDays = 180
 )
 
-$ErrorActionPreference = "Stop"
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
-function Info([string]$m){ Write-Host $m -ForegroundColor Cyan }
-function Ok([string]$m){ Write-Host $m -ForegroundColor Green }
-function Warn([string]$m){ Write-Warning $m }
-function Fail([string]$m){ Write-Error $m; exit 1 }
-
-# ------------------------------------------------------------
-# 0) Projektpfade
-# ------------------------------------------------------------
-$ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$RepoRoot   = (Resolve-Path -Path (Join-Path $ScriptRoot "..")).Path
-
-Set-Location $RepoRoot
-
-# ------------------------------------------------------------
-# 1) .venv aktivieren und Python-Pfad sauber beziehen
-# ------------------------------------------------------------
-$activate = Join-Path $ScriptRoot "tools\activate_python.ps1"
-if (-not (Test-Path -Path $activate -PathType Leaf)) {
-  Fail "activate_python.ps1 nicht gefunden: $activate"
-}
-
-# Nur der Python-Pfad kommt als Output zurück, alle anderen Ausgaben gehen direkt zur Konsole
-$VenvPython = & $activate -RepoRoot $RepoRoot -VenvDir ".venv" -CreateIfMissing -InstallRequirements -ReturnPath
-if (-not (Test-Path -Path $VenvPython -PathType Leaf)) {
-  Fail "Venv-Python nicht gefunden: $VenvPython"
-}
-Info "[RUNALL] Using Python: $VenvPython"
-
-# ------------------------------------------------------------
-# 2) Discord Webhook ermitteln (ENV oder Param)
-# ------------------------------------------------------------
-if (-not $DiscordWebhook -and $env:DISCORD_WEBHOOK_URL) {
-  $DiscordWebhook = $env:DISCORD_WEBHOOK_URL
-}
-$CanNotifyDiscord = -not [string]::IsNullOrWhiteSpace($DiscordWebhook)
-
-$notifyScript = Join-Path $ScriptRoot "tools\notify_discord.ps1"
-function NotifyDiscord([string]$title, [string]$content){
-  if (-not $CanNotifyDiscord) { return }
-  if (-not (Test-Path -Path $notifyScript -PathType Leaf)) { return }
+function Invoke-Step {
+  param([string]$Label, [ScriptBlock]$Action)
+  Write-Host "[$Label] START" -ForegroundColor Cyan
   try {
-    & $notifyScript -Title $title -Content $content -WebhookUrl $DiscordWebhook
+    & $Action
+    Write-Host "[$Label] DONE" -ForegroundColor Green
   } catch {
-    Warn "Discord-Notify fehlgeschlagen: $($_.Exception.Message)"
+    Write-Host "[$Label] FEHLER: $($_.Exception.Message)" -ForegroundColor Red
+    throw
   }
 }
 
-# ------------------------------------------------------------
-# 3) Hilfsfunktion zum Run eines .ps1 mit Fehlerbehandlung
-# ------------------------------------------------------------
-function Run-Step([string]$label, [scriptblock]$action) {
-  Write-Host ("[{0}] {1}" -f (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ"), $label) -ForegroundColor Yellow
-  & $action
-  if($LASTEXITCODE -ne 0){ throw "$label fehlgeschlagen" }
+# --- Pfade
+$ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$RepoRoot   = Split-Path -Parent $ScriptRoot
+$VenvPath   = Join-Path $RepoRoot ".venv"
+$ReqPath    = Join-Path $RepoRoot "requirements.txt"
+
+# --- Python / Venv sicherstellen
+$ActivatePath = Join-Path $ScriptRoot "tools\activate_python.ps1"
+if (-not (Test-Path $ActivatePath -PathType Leaf)) {
+  throw "tools\activate_python.ps1 nicht gefunden."
 }
+. $ActivatePath   # dot-source: bringt Ensure-Venv in den aktuellen Scope
 
-# ------------------------------------------------------------
-# 4) Anzeige Start
-# ------------------------------------------------------------
-Write-Host ("[{0}] [RUNALL] Start | freq={1} cap={2} exp={3} lev={4} comm={5}bps spread={6} impact={7}" -f (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ"), $Freq, $StartCapital, $Exposure, $MaxLeverage, $CommissionBps, $SpreadW, $ImpactW) -ForegroundColor Magenta
-Write-Host "[RUNALL] START" -ForegroundColor Magenta
-NotifyDiscord "RunAll gestartet" "freq=$Freq | cap=$StartCapital | exp=$Exposure | lev=$MaxLeverage | comm=${CommissionBps}bps | spread=$SpreadW | impact=$ImpactW"
+$Global:VenvPython = Ensure-Venv -RepoRoot $RepoRoot -VenvPath $VenvPath -Requirements $ReqPath -Quiet:$false
 
-# ------------------------------------------------------------
-# 5) Seed (optional – wenn Script vorhanden)
-# ------------------------------------------------------------
+Write-Host "[RUNALL] Using Python: $Global:VenvPython" -ForegroundColor DarkCyan
+$ts = Get-Date -AsUTC -Format "yyyy-MM-ddTHH:mm:ssZ"
+Write-Host "[$ts] [RUNALL Start | freq=$Freq cap=$StartCapital exp=$Exposure lev=$MaxLeverage comm=${CommissionBps}bps spread=$SpreadW impact=$ImpactW]" -ForegroundColor DarkCyan
+
+# --- Helpers zu Skriptpfaden
+$PS8_Rehydrate = Join-Path $ScriptRoot "run_sprint8_rehydrate.ps1"
+$PS8_Cost      = Join-Path $ScriptRoot "sprint8_cost_model.ps1"
+$PS9_Backtest  = Join-Path $ScriptRoot "sprint9_backtest.ps1"
+$PS9_Grid      = Join-Path $ScriptRoot "sprint9_cost_grid.ps1"
+$PS10_Port     = Join-Path $ScriptRoot "sprint10_portfolio.ps1"
+$PS_GitSync    = Join-Path $ScriptRoot "tools\git_sync.ps1"
+$SeedPy        = Join-Path $ScriptRoot "tools\seed_demo_data.py"
+
+# --- SEED
 if ($Seed) {
-  Run-Step "Seede Demo-Daten…" {
-    $seedPy = Join-Path $RepoRoot "scripts\seed_demo_data.py"
-    if (Test-Path -Path $seedPy -PathType Leaf) {
-      & $VenvPython $seedPy --freq $Freq
+  Invoke-Step -Label "SEED" -Action {
+    if (Test-Path $SeedPy -PathType Leaf) {
+      & $Global:VenvPython "$SeedPy" --freq "$Freq"
+      if ($LASTEXITCODE -ne 0) { throw "seed_demo_data.py exit $LASTEXITCODE" }
     } else {
-      Warn "seed_demo_data.py nicht gefunden – überspringe Seed."
+      Write-Warning "seed_demo_data.py nicht gefunden – überspringe Seed."
     }
   }
 }
 
-# ------------------------------------------------------------
-# 6) Rehydrate (Sprint 8)
-# ------------------------------------------------------------
+# --- REHYDRATE (benannte Parameter, kein Positionsbinding)
 if ($Rehydrate) {
-  Run-Step "run_sprint8_rehydrate.ps1" {
-    $rehydrate = Join-Path $RepoRoot "scripts\run_sprint8_rehydrate.ps1"
-    if (-not (Test-Path -Path $rehydrate -PathType Leaf)) { throw "Script fehlt: $rehydrate" }
-
-    # Primär mit Quick + QuickDays
-    try {
-      & pwsh -File $rehydrate -Freq $Freq -Symbols ($Symbols -join ",") -Quick:$Quick -QuickDays $QuickDays
-    } catch {
-      Warn "Rehydrate mit -Quick/-QuickDays fehlgeschlagen → Fallback ohne Quick-Flags."
-      & pwsh -File $rehydrate -Freq $Freq -Symbols ($Symbols -join ",")
-    }
+  Invoke-Step -Label "REHYDRATE" -Action {
+    if (-not (Test-Path $PS8_Rehydrate -PathType Leaf)) { throw "run_sprint8_rehydrate.ps1 nicht gefunden." }
+    & $PS8_Rehydrate -Freq $Freq -Quick -QuickDays $QuickDays
+    if ($LASTEXITCODE -ne 0) { throw "run_sprint8_rehydrate.ps1 exit $LASTEXITCODE" }
   }
 }
 
-# ------------------------------------------------------------
-# 7) Features explizit (optional – meist redundant zu Rehydrate)
-# ------------------------------------------------------------
+# --- FEATURES (idempotent – Sprint8 schreibt Dateien; optional erneut)
 if ($Features) {
-  Run-Step "SPRINT8 Features bauen… ($Freq)" {
-    $featPy = Join-Path $RepoRoot "scripts\sprint8_feature_engineering.py"
-    if (-not (Test-Path -Path $featPy -PathType Leaf)) { throw "Script fehlt: $featPy" }
-
-    $args = @("--freq", $Freq)
-    if ($Quick)    { $args += @("--quick", "--qdays", "$QuickDays") }
-    if ($Symbols -and $Symbols.Count -gt 0) { $args += @("--symbols", ($Symbols -join ",")) }
-
-    & $VenvPython $featPy @args
+  Invoke-Step -Label "FEATURES" -Action {
+    if (-not (Test-Path $PS8_Rehydrate -PathType Leaf)) { throw "run_sprint8_rehydrate.ps1 nicht gefunden." }
+    & $PS8_Rehydrate -Freq $Freq -Quick -QuickDays $QuickDays
+    if ($LASTEXITCODE -ne 0) { throw "Features (via Rehydrate) exit $LASTEXITCODE" }
   }
 }
 
-# ------------------------------------------------------------
-# 8) Execution & Costs
-# ------------------------------------------------------------
+# --- COST
 if ($Cost) {
-  Run-Step "sprint8_cost_model.ps1" {
-    $costPS1 = Join-Path $RepoRoot "scripts\sprint8_cost_model.ps1"
-    if (-not (Test-Path -Path $costPS1 -PathType Leaf)) { throw "Script fehlt: $costPS1" }
-    & pwsh -File $costPS1 -Freq $Freq -Notional $StartCapital -CommissionBps $CommissionBps
+  Invoke-Step -Label "COST" -Action {
+    if (-not (Test-Path $PS8_Cost)) { throw "sprint8_cost_model.ps1 nicht gefunden." }
+    & $PS8_Cost -Freq $Freq -Notional $StartCapital -CommissionBps $CommissionBps
+    if ($LASTEXITCODE -ne 0) { throw "sprint8_cost_model exit $LASTEXITCODE" }
   }
 }
 
-# ------------------------------------------------------------
-# 9) Backtest (Sprint 9)
-# ------------------------------------------------------------
+# --- BACKTEST
 if ($Backtest) {
-  Run-Step "sprint9_backtest.ps1" {
-    $btPS1 = Join-Path $RepoRoot "scripts\sprint9_backtest.ps1"
-    if (-not (Test-Path -Path $btPS1 -PathType Leaf)) { throw "Script fehlt: $btPS1" }
-    & pwsh -File $btPS1 -Freq $Freq
+  Invoke-Step -Label "BACKTEST" -Action {
+    if (-not (Test-Path $PS9_Backtest)) { throw "sprint9_backtest.ps1 nicht gefunden." }
+    & $PS9_Backtest -Freq $Freq
+    if ($LASTEXITCODE -ne 0) { throw "sprint9_backtest exit $LASTEXITCODE" }
   }
 }
 
-# ------------------------------------------------------------
-# 10) Cost Grid (Sprint 9)
-# ------------------------------------------------------------
-$bestGridLine = $null
+# --- COST GRID
 if ($CostGrid) {
-  Run-Step "sprint9_cost_grid.ps1" {
-    $gridPS1 = Join-Path $RepoRoot "scripts\sprint9_cost_grid.ps1"
-    if (-not (Test-Path -Path $gridPS1 -PathType Leaf)) { throw "Script fehlt: $gridPS1" }
-    & pwsh -File $gridPS1 -Freq $Freq
-  }
-
-  # Versuch, "Bestes Grid" aus Report zu lesen (optional)
-  $gridReport = Join-Path $RepoRoot "output\cost_grid_report.md"
-  if (Test-Path -Path $gridReport -PathType Leaf) {
-    $bestGridLine = (Get-Content $gridReport | Select-String -Pattern "Bestes Grid").Line
-    if ($bestGridLine) { Write-Host "[RUNALL] $bestGridLine" -ForegroundColor DarkCyan }
+  Invoke-Step -Label "COSTGRID" -Action {
+    if (-not (Test-Path $PS9_Grid)) { throw "sprint9_cost_grid.ps1 nicht gefunden." }
+    & $PS9_Grid -Freq $Freq -Notional $StartCapital `
+# NEU (echte Float-Arrays)
+	& "$PSScriptRoot\sprint9_cost_grid.ps1" `
+  -Freq $Freq `
+  -CommissionBps @(0.0, 0.5, 1.0) `
+  -SpreadW @(0.5, 1.0, 2.0) `
+  -ImpactW @(0.5, 1.0, 2.0) `
+  -Notional $StartCapital
+if($LASTEXITCODE -ne 0){ throw "COSTGRID fehlgeschlagen" }
   }
 }
 
-# ------------------------------------------------------------
-# 11) Portfolio (Sprint 10)
-# ------------------------------------------------------------
+# --- PORTFOLIO
 if ($Portfolio) {
-  Run-Step "sprint10_portfolio.ps1" {
-    $pfPS1 = Join-Path $RepoRoot "scripts\sprint10_portfolio.ps1"
-    if (-not (Test-Path -Path $pfPS1 -PathType Leaf)) { throw "Script fehlt: $pfPS1" }
-    & pwsh -File $pfPS1 -Freq $Freq -StartCapital $StartCapital -Exposure $Exposure -MaxLeverage $MaxLeverage `
+  Invoke-Step -Label "PF10" -Action {
+    if (-not (Test-Path $PS10_Port)) { throw "sprint10_portfolio.ps1 nicht gefunden." }
+    & $PS10_Port -Freq $Freq `
+      -StartCapital $StartCapital -Exposure $Exposure -MaxLeverage $MaxLeverage `
       -CommissionBps $CommissionBps -SpreadW $SpreadW -ImpactW $ImpactW
+    if ($LASTEXITCODE -ne 0) { throw "sprint10_portfolio exit $LASTEXITCODE" }
   }
 }
 
-# ------------------------------------------------------------
-# 12) Git Sync
-# ------------------------------------------------------------
+# --- GIT SYNC
 if ($Sync) {
-  Run-Step "git_sync.ps1" {
-    $syncPS1 = Join-Path $RepoRoot "scripts\tools\git_sync.ps1"
-    if (-not (Test-Path -Path $syncPS1 -PathType Leaf)) { throw "Script fehlt: $syncPS1" }
-    $msg = "RunAll: $Freq, cap=$StartCapital, exp=$Exposure, comm=${CommissionBps}bps, spread=$SpreadW, impact=$ImpactW"
-    & pwsh -File $syncPS1 -Message $msg
+  Invoke-Step -Label "GIT" -Action {
+    if (-not (Test-Path $PS_GitSync)) { throw "tools\git_sync.ps1 nicht gefunden." }
+    $msg = "RunAll: $Freq, cap=$StartCapital, exp=$Exposure, comm=$CommissionBps" +
+           "bps, spread=$SpreadW, impact=$ImpactW"
+    & $PS_GitSync -Message $msg
+    if ($LASTEXITCODE -ne 0) { throw "git_sync exit $LASTEXITCODE" }
   }
 }
 
-# ------------------------------------------------------------
-# 13) Fertig / Notify
-# ------------------------------------------------------------
-if ($bestGridLine) {
-  NotifyDiscord "RunAll abgeschlossen" "$bestGridLine"
-} else {
-  NotifyDiscord "RunAll abgeschlossen" "freq=$Freq | cap=$StartCapital | exp=$Exposure | lev=$MaxLeverage | comm=${CommissionBps}bps | spread=$SpreadW | impact=$ImpactW"
-}
-
-Write-Host ("[{0}] [RUNALL] DONE" -f (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")) -ForegroundColor Magenta
-exit 0
+$tsDone = Get-Date -AsUTC -Format "yyyy-MM-ddTHH:mm:ssZ"
+Write-Host "[$tsDone] [RUNALL] DONE" -ForegroundColor Green
