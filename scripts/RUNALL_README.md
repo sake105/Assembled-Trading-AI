@@ -37,3 +37,4 @@ pwsh -File .\scripts\run_all_sprint10.ps1 -Rehydrate -Features -Quick:$false
 - **Seed fehlt:** Warnung ist ok, wenn `scripts\seed_demo_data.py` nicht existiert.
 - **Discord 404 / leerer Hook:** Entweder `-DiscordWebhookUrl` setzen oder `$env:DISCORD_WEBHOOK_URL`.
 - **Pandas FutureWarnings:** harmlos, wir haben bereits `groupby(..., group_keys=False)` o.ä. im Code angepasst.
+

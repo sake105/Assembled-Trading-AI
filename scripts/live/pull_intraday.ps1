@@ -1,53 +1,57 @@
-<# 
-.SYNOPSIS
-  PS7 wrapper to pull live 1m intraday data via yfinance and write Parquet compatible with Sprint8+.
-
-.PARAMETER Symbols
-  Comma separated list (default: AAPL,MSFT)
-
-.PARAMETER Days
-  Days of 1m history to fetch (default: 5; Yahoo supports up to 7 for 1m)
-
-.EXAMPLE
-  pwsh -File .\scripts\live\pull_intraday.ps1 -Symbols "AAPL,MSFT" -Days 5
-#>
-
+# scripts/live/pull_intraday.ps1
 [CmdletBinding()]
 param(
-  [string]$Symbols = "AAPL,MSFT",
-  [int]$Days = 5
+  [string] $Symbols = "AAPL,MSFT",
+  [int]    $Days    = 3,
+  [string] $RepoRoot,
+  [switch] $NoThrow
 )
 
-$ErrorActionPreference = 'Stop'
-$repo = Split-Path -Parent -Path $PSCommandPath | Split-Path -Parent  # repo root from scripts/live
-Write-Host "[LIVE] Repo: $repo"
+$ErrorActionPreference = "Stop"
 
-# Ensure venv + packages
-$activate = Join-Path $repo "scripts\tools\activate_python.ps1"
-if(-not (Test-Path $activate -PathType Leaf)){
-  throw "activate_python.ps1 nicht gefunden: $activate"
+# --- robuste Pfaderkennung ---
+$scriptPath = $PSCommandPath
+if (-not $scriptPath) { $scriptPath = $MyInvocation.MyCommand.Definition }
+if (-not $scriptPath) { $scriptPath = [System.IO.Path]::Combine((Get-Location).Path, "scripts","live","pull_intraday.ps1") }
+
+$scriptDir = [System.IO.Path]::GetDirectoryName($scriptPath)
+if ([string]::IsNullOrWhiteSpace($scriptDir)) { $scriptDir = (Get-Location).Path }
+
+# RepoRoot korrekt: zwei Ebenen hoch (…\scripts\live -> …\scripts -> …\<RepoRoot>)
+if (-not $RepoRoot -or $RepoRoot -eq "") {
+  $p1 = [System.IO.Directory]::GetParent($scriptDir)       # ...\scripts
+  if ($null -eq $p1) { throw "Konnte scripts-Ordner nicht bestimmen (scriptDir='$scriptDir')." }
+  $p2 = [System.IO.Directory]::GetParent($p1.FullName)     # ...\<RepoRoot>
+  if ($null -eq $p2) { throw "Konnte RepoRoot nicht bestimmen (scripts='$($p1.FullName)')." }
+  $RepoRoot = $p2.FullName
 }
 
-# Activate (ensures pip + requirements)
-& $activate | Write-Host
+# --- Python aus .venv, sonst global ---
+$py = [System.IO.Path]::Combine($RepoRoot, ".venv", "Scripts", "python.exe")
+if (-not (Test-Path -LiteralPath $py)) { $py = "python" }
 
-# Ensure yfinance is available (lightweight, no pin forced)
-$python = Join-Path $repo ".venv\Scripts\python.exe"
-$null = & $python -c "import importlib, sys; sys.exit(0 if importlib.util.find_spec('yfinance') else 1)"
-if($LASTEXITCODE -ne 0){
-  Write-Host "[LIVE] Installing yfinance…"
-  & $python -m pip install --upgrade "yfinance==0.2.54"
-  if($LASTEXITCODE -ne 0){ throw "pip install yfinance failed" }
+# --- Python-Skript ---
+$pyScript = [System.IO.Path]::Combine($RepoRoot, "scripts", "live", "pull_intraday.py")
+if (-not (Test-Path -LiteralPath $pyScript)) {
+  throw "pull_intraday.py nicht gefunden: $pyScript"
 }
 
-# Run puller
-$pull = Join-Path $repo "scripts\live\pull_intraday.py"
-if(-not (Test-Path $pull -PathType Leaf)){
-  throw "pull_intraday.py nicht gefunden: $pull"
+Write-Host "[PYENV] Python:" $py
+Write-Host "[LIVE]  Repo:  " $RepoRoot
+Write-Host "[LIVE]  Symbols:" $Symbols
+Write-Host "[LIVE]  Days:   " $Days
+
+# --- Call ---
+& $py $pyScript `
+  --symbols $Symbols `
+  --days $Days `
+  --repo-root $RepoRoot
+$exit = $LASTEXITCODE
+
+if ($exit -ne 0) {
+  $msg = "pull_intraday.py fehlgeschlagen (ExitCode $exit)."
+  if ($NoThrow) { Write-Warning $msg } else { throw $msg }
+} else {
+  Write-Host "[LIVE] DONE"
 }
 
-Write-Host "[LIVE] Running puller…"
-& $python $pull --symbols $Symbols --days $Days --repo-root $repo
-if($LASTEXITCODE -ne 0){ throw "Live-Pull fehlgeschlagen" }
-
-Write-Host "[LIVE] DONE"

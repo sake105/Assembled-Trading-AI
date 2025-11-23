@@ -1,29 +1,104 @@
+<#  sprint9_cost_grid.ps1
+    Robust wrapper für sprint9_cost_grid.py
+    - akzeptiert Werte als String mit Leerzeichen/Komma/Semikolon
+    - Dezimaltrennzeichen , oder .
+    - Aliase für alte Parameternamen (CommissionBps / SpreadW / ImpactW)
+#>
+
+[CmdletBinding()]
 param(
-  [string]$Freq = '5min',
-  [float[]]$CommissionBps = @(0.0, 0.5, 1.0),
-  [float[]]$SpreadW = @(0.5, 1.0, 2.0),
-  [float[]]$ImpactW = @(0.5, 1.0, 2.0),
-  [float]$Notional = 10000
+  [Parameter(Mandatory = $false)]
+  [string]$Freq = "5min",
+
+  # Beispiele: "0 0.5 1", "0,0.5,1", "0;0,5;1"
+  [Parameter(Mandatory = $false)]
+  [Alias('Commission','CommissionBps')]
+  [string]$CommissionValues = "0 0.5 1",
+
+  [Parameter(Mandatory = $false)]
+  [Alias('Spread','SpreadW')]
+  [string]$SpreadValues = "0.5 1 2",
+
+  [Parameter(Mandatory = $false)]
+  [Alias('Impact','ImpactW')]
+  [string]$ImpactValues = "0.5 1 2"
 )
-$ErrorActionPreference = 'Stop'
-$ROOT = (Get-Location).Path
-$Py = Join-Path $ROOT '.venv/Scripts/python.exe'
-$Script = Join-Path $ROOT 'scripts/sprint9_cost_grid.py'
 
-function Info($m){ $ts=(Get-Date).ToUniversalTime().ToString('s')+'Z'; Write-Host "[$ts] [GRID] $m" }
+# --- Utils -------------------------------------------------------------
 
-if(-not (Test-Path $Py)){ throw "Python venv nicht gefunden: $Py" }
-if(-not (Test-Path $Script)){ throw "Nicht gefunden: $Script" }
+function Parse-Floats {
+  param([string]$s)
+  # Trenner normalisieren (Leerzeichen, Komma, Semikolon -> Leerzeichen)
+  $norm = ($s -replace '[;,\s]+',' ').Trim()
+  if ([string]::IsNullOrWhiteSpace($norm)) { return @() }
 
-$cb = ($CommissionBps -join ' ')
-$sw = ($SpreadW -join ' ')
-$iw = ($ImpactW -join ' ')
-Info "Start Grid | freq=$Freq | commission=$cb | spread_w=$sw | impact_w=$iw"
-& $Py $Script --freq $Freq --notional $Notional --commission-bps $CommissionBps --spread-w $SpreadW --impact-w $ImpactW
-if($LASTEXITCODE -ne 0){ throw "Grid fehlgeschlagen" }
-$OUT = Join-Path $ROOT 'output'
-$rep = Join-Path $OUT 'cost_grid_report.md'
-if(Test-Path $rep){ Info "[OK] Report: $rep" }
-Info "DONE"
+  $vals = @()
+  foreach ($tok in ($norm -split ' +')) {
+    if ($tok -eq '') { continue }
+    # Dezimal-Komma -> Punkt
+    $tok2 = $tok -replace ',', '.'
+    try {
+      $vals += [single]$tok2
+    } catch {
+      throw "Ungültiger Float-Wert: '$tok' (aus '$s')"
+    }
+  }
+  return ,$vals
+}
 
+function Get-Python {
+  # 1) bevorzugt global gesetztes Venv-Python
+  if ($Global:VenvPython -and (Test-Path $Global:VenvPython -PathType Leaf)) {
+    return $Global:VenvPython
+  }
+  # 2) versuche .venv relativ zum Repo (zwei Ebenen über diesem Skript)
+  try {
+    $venvCandidate = Join-Path (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path '.venv\Scripts\python.exe'
+    if (Test-Path $venvCandidate -PathType Leaf) { return $venvCandidate }
+  } catch { }
+  # 3) Fallback: python im PATH
+  return 'python'
+}
+
+# --- Parse Inputs ------------------------------------------------------
+
+$commissions = Parse-Floats -s $CommissionValues
+$spreadWs    = Parse-Floats -s $SpreadValues
+$impactWs    = Parse-Floats -s $ImpactValues
+
+Write-Host ("[GRID] START Grid | freq={0} | commission=[{1}] | spread_w=[{2}] | impact_w=[{3}]" -f `
+  $Freq, ($commissions -join ', '), ($spreadWs -join ', '), ($impactWs -join ', '))
+
+# --- Call Python -------------------------------------------------------
+
+$py = Get-Python
+if (-not (Get-Command $py -ErrorAction SilentlyContinue)) {
+  throw "Python nicht gefunden: $py"
+}
+
+# Pfad zum Python-Skript relativ zu diesem Skript
+$pyScript = Join-Path $PSScriptRoot 'sprint9_cost_grid.py'
+if (-not (Test-Path $pyScript -PathType Leaf)) {
+  throw "Python-Skript nicht gefunden: $pyScript"
+}
+
+# Arg-Liste für argparse (nargs='+')
+$pyArgs = @(
+  $pyScript,
+  '--freq', $Freq,
+  '--commission-bps'
+) + $commissions + @(
+  '--spread-w'
+) + $spreadWs + @(
+  '--impact-w'
+) + $impactWs
+
+# Ausführen
+& $py @pyArgs
+$exit = $LASTEXITCODE
+if ($exit -ne 0) {
+  throw "Grid fehlgeschlagen (ExitCode $exit)."
+}
+
+Write-Host "[GRID] DONE"
 

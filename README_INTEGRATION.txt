@@ -18,3 +18,4 @@ un_all_sprint2.ps1
    ```
 - `.env` is loaded automatically by each Sprint-2 script — no code changes needed.
 - Keep `.env` private. Rotate keys if the zip is shared externally.
+

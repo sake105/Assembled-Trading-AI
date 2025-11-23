@@ -1,32 +1,12 @@
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-
-# Virtual env
+# Python & Venv
 .venv/
+__pycache__/
+*.pyc
 
-# VS Code / IDE
-.vscode/
-.idea/
-*.code-workspace
+# Data & Outputs
+data/
+output/
 
-# OS junk
+# OS/Tools
 .DS_Store
 Thumbs.db
-
-# Project outputs
-output/
-logs/
-
-# Data caches & temp
-*.tmp
-*.log
-
-# Optional: raw data can be big; uncomment to ignore
-# data/raw/
-
-# Optional: parquet/feather via Git LFS
-# *.parquet
-# *.feather

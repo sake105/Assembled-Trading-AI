@@ -15,3 +15,4 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zipPathResolved = Resolve-Path $zipPath
 Write-Host "[ARTIFACTS] Created $zipPathResolved"
 $zipPathResolved
+

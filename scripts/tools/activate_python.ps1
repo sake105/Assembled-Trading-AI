@@ -85,3 +85,4 @@ function Ensure-Venv {
 if ($ExecutionContext.SessionState.Module) {
   Export-ModuleMember -Function Ensure-Venv
 }
+

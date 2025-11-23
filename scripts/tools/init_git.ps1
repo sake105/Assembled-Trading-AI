@@ -80,3 +80,4 @@ Info "Committing: $InitialMessage"
 Info 'Status:'
  git status --short
 Info 'DONE'
+

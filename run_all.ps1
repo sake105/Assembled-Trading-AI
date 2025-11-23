@@ -9,3 +9,4 @@ python ".\Sprint1_Update_v24\scripts\screener_local.py"                 # Kennza
 # optional - nur wenn whitelist/blacklist konfiguriert ist:
 # python ".\News_AllIn_TrustedFeeds_v24\scripts\run_news.py"
 
+

@@ -38,3 +38,4 @@ oneclick/run_all.sh
 - **JSON-Logs**: maschinenlesbar + rotierend (Tagesrotation)
 
 Viel Erfolg — du musst im Idealfall nur *ein Skript* starten.
+

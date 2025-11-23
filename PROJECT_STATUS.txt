@@ -6,3 +6,4 @@ WATCHLIST: path=D:\PROJEKT_AKTIE\Projekt_1\Grundsachen\Sprint2_Update_v24\config
 RAW_SUMMARY: {"AAPL": {"parquet_files": 21, "latest": "D:\\PROJEKT_AKTIE\\Projekt_1\\Grundsachen\\data\\raw\\AAPL\\2025.parquet"}, "MSFT": {"parquet_files": 21, "latest": "D:\\PROJEKT_AKTIE\\Projekt_1\\Grundsachen\\data\\raw\\MSFT\\2025.parquet"}, "GOOGL": {"parquet_files": 21, "latest": "D:\\PROJEKT_AKTIE\\Projekt_1\\Grundsachen\\data\\raw\\GOOGL\\2025.parquet"}, "NVDA": {"parquet_files": 21, "latest": "D:\\PROJEKT_AKTIE\\Projekt_1\\Grundsachen\\data\\raw\\NVDA\\2025.parquet"}}
 FEATURES_DIR: D:\PROJEKT_AKTIE\Projekt_1\Grundsachen\Sprint2_Update_v24\output\features  latest=D:\PROJEKT_AKTIE\Projekt_1\Grundsachen\Sprint2_Update_v24\output\features\NVDA_features.parquet
 SCORES_DIR:  D:\PROJEKT_AKTIE\Projekt_1\Grundsachen\Sprint2_Update_v24\output\scores  latest=D:\PROJEKT_AKTIE\Projekt_1\Grundsachen\Sprint2_Update_v24\output\scores\NVDA_screener.csv
+

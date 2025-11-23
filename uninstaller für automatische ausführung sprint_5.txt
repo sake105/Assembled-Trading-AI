@@ -34,3 +34,4 @@ if (Test-Path $TimerPy) {
 }
 
 Write-Host "✔ Deinstallation abgeschlossen." -ForegroundColor Green
+
