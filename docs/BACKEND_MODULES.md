@@ -343,12 +343,17 @@ qa_result = aggregate_qa_status("1d")
 
 **Zweck:** Technical Analysis Features.
 
-**Platzhalter:**
-- `features/ta_features.py` - Technische Indikatoren (EMA, SMA, RSI, MACD, etc.)
+**Implementiert:**
+- `features/ta_features.py` - Technische Indikatoren
+  - `add_log_returns()`: Logarithmische Returns
+  - `add_moving_averages()`: Simple Moving Averages (SMA) für mehrere Fenster
+  - `add_atr()`: Average True Range (Volatilitätsindikator)
+  - `add_rsi()`: Relative Strength Index (Momentum-Indikator)
+  - `add_all_features()`: Convenience-Funktion für alle Features
 
 **Zukünftige Integration:**
-- Nutzt `pipeline.signals.compute_ema_signals` als Basis
-- Erweitert um weitere TA-Indikatoren
+- Erweitert um weitere TA-Indikatoren (MACD, Bollinger Bands, etc.)
+- ML-Feature-Engineering-Pipeline
 
 ---
 
@@ -356,12 +361,16 @@ qa_result = aggregate_qa_status("1d")
 
 **Zweck:** Signal-Generation-Framework.
 
-**Platzhalter:**
+**Implementiert:**
 - `signals/rules_trend.py` - Trend-Following-Signale
+  - `generate_trend_signals()`: Generiert LONG/FLAT Signale basierend auf MA-Crossover
+  - `generate_trend_signals_from_prices()`: Convenience-Funktion für direkte Signal-Generierung
+  - Signal-Logik: LONG wenn ma_fast > ma_slow AND Volumen über Schwellenwert
+  - Score: Signal-Stärke (0.0 bis 1.0) basierend auf MA-Spread und Volumen
 
 **Zukünftige Integration:**
-- Nutzt `pipeline.signals.compute_ema_signals` als Basis
-- Erweitert um weitere Signal-Regeln
+- Erweitert um weitere Trend-Regeln (EMA-Crossover, etc.)
+- Mean-Reversion-Strategien
 
 ---
 

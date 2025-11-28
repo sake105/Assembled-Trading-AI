@@ -80,6 +80,20 @@ Das Backend von Assembled Trading AI ist eine **file-based Trading-Pipeline** mi
   - `load_eod_prices_for_universe()` - Lädt Preise für Symbol-Universum (z. B. watchlist.txt)
   - `validate_price_data()` - Validiert Datenqualität (OHLC-Relationen, NaNs, etc.)
 
+**Features Layer:**
+- `src/assembled_core/features/ta_features.py` - Technische Indikatoren
+  - `add_log_returns()` - Logarithmische Returns
+  - `add_moving_averages()` - Simple Moving Averages (SMA)
+  - `add_atr()` - Average True Range (Volatilität)
+  - `add_rsi()` - Relative Strength Index (Momentum)
+  - `add_all_features()` - Alle Features auf einmal
+
+**Signals Layer:**
+- `src/assembled_core/signals/rules_trend.py` - Trend-Following-Signale
+  - `generate_trend_signals()` - Generiert LONG/FLAT Signale basierend auf MA-Crossover
+  - Signal-Logik: LONG wenn ma_fast > ma_slow AND Volumen über Schwellenwert
+  - Score: Signal-Stärke (0.0 bis 1.0) basierend auf MA-Spread und Volumen
+
 **Output:**
 - `data/raw/1min/{SYMBOL}.parquet` - Rohdaten pro Symbol
 - `data/sample/eod_sample.parquet` - Beispiel-Daten für Tests (2-3 Ticker, ~30 Tage)
