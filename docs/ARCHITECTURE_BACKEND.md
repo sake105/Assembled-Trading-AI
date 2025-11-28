@@ -74,8 +74,15 @@ Das Backend von Assembled Trading AI ist eine **file-based Trading-Pipeline** mi
 - `scripts/live/pull_intraday.py` - Yahoo Finance (1-Minuten-Daten)
 - `scripts/live/pull_intraday_av.py` - Alpha Vantage (Fallback)
 
+**Data Layer:**
+- `src/assembled_core/data/prices_ingest.py` - EOD-Preis-Ingestion mit OHLCV
+  - `load_eod_prices()` - Lädt EOD-Preise mit vollständigen OHLCV-Daten
+  - `load_eod_prices_for_universe()` - Lädt Preise für Symbol-Universum (z. B. watchlist.txt)
+  - `validate_price_data()` - Validiert Datenqualität (OHLC-Relationen, NaNs, etc.)
+
 **Output:**
 - `data/raw/1min/{SYMBOL}.parquet` - Rohdaten pro Symbol
+- `data/sample/eod_sample.parquet` - Beispiel-Daten für Tests (2-3 Ticker, ~30 Tage)
 
 **Format:**
 - Spalten: `timestamp` (UTC), `symbol`, `open`, `high`, `low`, `close`, `volume`
