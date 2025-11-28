@@ -252,6 +252,92 @@ curl http://localhost:8000/api/v1/portfolio/1d/current
 
 ---
 
+## EOD-MVP (run_daily.py)
+
+### Übersicht
+
+Das EOD-MVP-Skript (`scripts/run_daily.py`) ist ein fokussierter Runner für tägliche Order-Generierung, der die neuen modularen Layer aus Phase 3 nutzt:
+
+- **data.prices_ingest**: Lädt EOD-Preise mit OHLCV
+- **features.ta_features**: Berechnet technische Indikatoren
+- **signals.rules_trend**: Generiert Trend-Following-Signale
+- **portfolio.position_sizing**: Bestimmt Zielpositionen
+- **execution.order_generation**: Generiert Orders aus Zielpositionen
+- **execution.safe_bridge**: Schreibt SAFE-Bridge-kompatible CSV-Dateien
+
+**Unterschied zu `run_eod_pipeline.py`:**
+- `run_eod_pipeline.py`: Vollständige Pipeline mit Backtest, Portfolio-Simulation, QA
+- `run_daily.py`: Fokussiertes EOD-MVP, das nur SAFE-Orders generiert (ohne Backtest/Portfolio-Equity)
+
+### Verwendung
+
+**Basis-Kommando:**
+```bash
+python scripts/run_daily.py --date 2025-01-15
+```
+
+**Mit Optionen:**
+```bash
+python scripts/run_daily.py --date 2025-01-15 --top-n 5 --ma-fast 20 --ma-slow 50
+```
+
+**Ohne Datum (heute):**
+```bash
+python scripts/run_daily.py
+```
+
+### Optionen
+
+**Optional:**
+- `--date`: Datum (YYYY-MM-DD), default: heute
+- `--universe`: Pfad zur Universe-Datei (default: watchlist.txt)
+- `--price-file`: Expliziter Pfad zur Preis-Datei
+- `--out`: Output-Verzeichnis (default: config.OUTPUT_DIR)
+- `--total-capital`: Gesamtkapital für Position-Sizing (default: 1.0)
+- `--top-n`: Maximale Anzahl Positionen (default: None = alle)
+- `--ma-fast`: Fast Moving Average Fenster (default: 20)
+- `--ma-slow`: Slow Moving Average Fenster (default: 50)
+- `--min-score`: Minimum Signal-Score-Schwellenwert (default: 0.0)
+
+### Ablauf
+
+1. **EOD-Preise laden**: `data.prices_ingest.load_eod_prices_for_universe()`
+2. **TA-Features berechnen**: `features.ta_features.add_all_features()`
+3. **Trend-Signale generieren**: `signals.rules_trend.generate_trend_signals_from_prices()`
+4. **Zielpositionen bestimmen**: `portfolio.position_sizing.compute_target_positions_from_trend_signals()`
+5. **Orders generieren**: `execution.order_generation.generate_orders_from_signals()`
+6. **SAFE-Orders schreiben**: `execution.safe_bridge.write_safe_orders_csv()`
+
+### Output
+
+- **SAFE-Orders CSV**: `output/orders_YYYYMMDD.csv`
+  - Format: `Ticker`, `Side`, `Quantity`, `PriceType`, `Comment`
+  - Human-in-the-Loop: Alle Orders müssen manuell geprüft werden
+
+### Beispiele
+
+**Standard-EOD-MVP:**
+```bash
+python scripts/run_daily.py --date 2025-01-15
+```
+
+**Mit Top-5 Selektion:**
+```bash
+python scripts/run_daily.py --date 2025-01-15 --top-n 5
+```
+
+**Mit benutzerdefinierten MA-Parametern:**
+```bash
+python scripts/run_daily.py --date 2025-01-15 --ma-fast 10 --ma-slow 30
+```
+
+**Mit expliziter Preis-Datei:**
+```bash
+python scripts/run_daily.py --date 2025-01-15 --price-file data/sample/eod_sample.parquet
+```
+
+---
+
 ## Nächste Schritte
 
 - **Scheduling:** Cron-Job oder Task-Scheduler für automatische EOD-Läufe

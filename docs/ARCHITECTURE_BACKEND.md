@@ -195,7 +195,9 @@ Das Backend von Assembled Trading AI ist eine **file-based Trading-Pipeline** mi
 
 ## EOD Pipeline Orchestration
 
-**Script:** `scripts/run_eod_pipeline.py`
+**Scripts:**
+- `scripts/run_eod_pipeline.py` - Vollständige EOD-Pipeline (Execute, Backtest, Portfolio, QA)
+- `scripts/run_daily.py` - EOD-MVP Runner (fokussiert auf SAFE-Order-Generierung)
 
 **Funktion:** Führt alle Pipeline-Schritte in einem Lauf aus:
 1. Preis-Daten-Prüfung
