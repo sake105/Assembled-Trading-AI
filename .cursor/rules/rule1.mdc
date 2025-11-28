@@ -1,0 +1,75 @@
+---
+alwaysApply: true
+---
+
+# Assembled Trading AI — Projektregeln (immer anwenden)
+
+## Zweck
+Diese Regeln sind die *Quelle der Wahrheit* für unser Aktiengerüst in Cursor. Sie gelten für **alle** Chats und Command-K Ausführungen.
+
+## Quellen der Wahrheit (Repo)
+- `docs/cursor/CONTEXT_PACK.md` (Projektüberblick & Glossar)
+- `docs/cursor/RULES.md` (Langfassung der Regeln)
+- `docs/cursor/TASKS.md` (Standard-Workflows & Kommandos)
+> **Wichtig:** Inhalte in Cursor dürfen diese Dateien *nicht* überstimmen.
+
+## Sprache & Stil
+- **Antwortsprache: Deutsch.**
+- Knapp, technisch präzise, keine Vermutungen ohne Kennzeichnung.
+
+## Shell/Runtime
+- **PowerShell 7 (`pwsh`)** – keine Windows PowerShell 5.x.
+- Pfade **immer** relativ ab Skript: `Join-Path $PSScriptRoot …`.
+- **Kein Bash-Heredoc** in PS. Stattdessen Here-String → `python -`.  
+  (Falls Legacy-Heredocs auftauchen: `scripts/ps/fix_heredocs.ps1` nutzen.)
+
+## Dateiverträge (müssen stabil bleiben)
+**Eingang**
+- Intraday 1m Rohdaten: `data/raw/1min/*.parquet`  
+  **Spalten:** `timestamp` (UTC), `symbol`, `close` *(weitere ok, aber optional)*
+
+**Resample-Output**
+- `output/aggregates/5min.parquet`  
+  **Spalten exakt:** `symbol`, `timestamp` (UTC), `close`  
+  Sortierung: `timestamp`, `symbol` aufsteigend. Keine Duplikate.
+
+**Orders**
+- `output/orders_5min.csv` und `output/orders_1d.csv`  
+  *Schema wird durch die Python-Skripte vorgegeben und darf nicht verändert werden.*
+
+**Reports/Curves**
+- `output/performance_report_5min.md`, `output/performance_report_1d.md`  
+- `output/equity_curve_5min.csv`, `output/equity_curve_1d.csv`  
+- `output/portfolio_report.md`, `output/portfolio_equity_*.csv`
+
+## Resampling (1m → 5m) — Musskriterien
+- Vor dem Resample: `timestamp` → **UTC** (`pd.to_datetime(..., utc=True)`).
+- `groupby("symbol")` + `.resample("5min").last()` auf `close`.
+- Nachher: `dropna()`, sortieren, Spaltensatz prüfen (siehe oben).
+- Sanity-Checks loggen: Zeilenanzahl, Symbolanzahl, erste/letzte Zeitstempel.
+
+## Zeitzonen
+- **Ausschließlich UTC** in allen Dateien, Logs und Reports.
+
+## Pipeline-Erwartungen (ohne Strukturbruch)
+- **Execute** nutzt die 5-Min-Preise und schreibt Orders (keine Schemaänderung).
+- **Backtest** liest Orders+Preise und schreibt Reports/Curves wie oben.
+- **Portfolio** rechnet Kosten mit Parametern (commission bps, spread-w, impact-w).
+
+## Änderungsprinzipien
+- Minimalinvasiv: keine Umbenennungen funktionierender Pfade/Dateien.
+- Kein „Quickfix“ direkt in Abhängigkeitscode; stattdessen Helfer unter `scripts/dev`/`scripts/tools`.
+- Neue Artefakte kommen nach `output/` oder `logs/`, **nicht** in `data/raw`.
+
+## Fehlertoleranz & Rate-Limit
+- Bei Yahoo-Rate-Limit: Pull überspringen (`-SkipPull`) und mit localen Daten weitermachen.
+- Scripts sollen verständliche Fehler werfen (nicht stumm scheitern).
+
+## Qualitätssicherung (Schnelltests)
+- Nach Resample: `rows`, `unique symbols`, `first/last timestamp` ausgeben.
+- Vor Backtest: Datei-Existenz + Formate prüfen; bei Verstoß abbrechen.
+
+---
+---
+alwaysApply: true
+---
