@@ -480,5 +480,95 @@ def test_something(tmp_output_dir, monkeypatch):
 
 ---
 
+## Code-Style & Static Checks
+
+**Wichtig:** Code-Style und Static-Analysis-Tools helfen, Code-Qualität und Konsistenz zu gewährleisten.
+
+### Tools
+
+**Ruff:**
+- Schneller Linter für Python (ersetzt flake8, isort, etc.)
+- Prüft Syntax-Fehler, unbenutzte Imports, Code-Style
+
+**Black:**
+- Code-Formatter für konsistentes Formatting
+- Automatische Formatierung nach PEP 8
+
+**mypy:**
+- Static Type Checker für Python
+- Prüft Type-Annotations auf Konsistenz
+
+### Installation
+
+**Dev-Dependencies installieren:**
+```bash
+pip install -e ".[dev]"
+```
+
+Oder einzeln:
+```bash
+pip install ruff black mypy
+```
+
+### Verwendung
+
+**Ruff (Linting):**
+```bash
+# Alle Dateien prüfen
+ruff check src tests scripts
+
+# Automatisch fixen (wo möglich)
+ruff check --fix src tests scripts
+```
+
+**Black (Formatting):**
+```bash
+# Code formatieren
+black src tests scripts
+
+# Nur prüfen (keine Änderungen)
+black --check src tests scripts
+```
+
+**mypy (Type Checking):**
+```bash
+# Kernmodule prüfen
+mypy src/assembled_core/data src/assembled_core/features src/assembled_core/signals src/assembled_core/execution src/assembled_core/portfolio
+
+# Alle Module (wenn gewünscht)
+mypy src/assembled_core
+```
+
+### Konfiguration
+
+**Datei:** `pyproject.toml`
+
+**Ruff:**
+- `target-version = "py310"`
+- `select = ["E", "F", "I"]` - Errors, pyflakes, isort
+- `line-length = 88`
+
+**Black:**
+- `target-version = ["py310"]`
+- `line-length = 88`
+
+**mypy:**
+- `python_version = "3.10"`
+- `strict = False` - Moderater Modus (nicht zu strikt)
+- `mypy_path = "src"`
+
+### Empfehlungen
+
+**Vor Commits:**
+- `ruff check src tests` - Offensichtliche Fehler prüfen
+- `black src tests scripts` - Code formatieren
+- `mypy` auf Kernmodulen - Type-Checks (optional)
+
+**CI/CD (Zukunft):**
+- Diese Checks können später als Pflicht in CI/CD-Pipelines integriert werden
+- Aktuell sind sie Empfehlungen, keine Hard-Requirements
+
+---
+
 ## Weiterführende Dokumente
 
