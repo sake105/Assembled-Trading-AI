@@ -366,6 +366,37 @@ Siehe [Backend Roadmap](BACKEND_ROADMAP.md) für geplante Erweiterungen und Phas
 
 ---
 
+## Logging & Error Handling
+
+**Zentrale Logging-Konfiguration:**
+- `src/assembled_core/logging_utils.py` - Logging-Helper-Modul
+  - `setup_logging(level="INFO")` - Richtet einheitliches Logging ein
+  - Format: `[LEVEL] message`
+  - Levels: INFO (normal), WARNING (soft problems), ERROR (hard errors)
+
+**Verwendung in CLI-Scripts:**
+```python
+from src.assembled_core.logging_utils import setup_logging
+
+logger = setup_logging(level="INFO")
+logger.info("Starting pipeline")
+logger.error("Error occurred")
+sys.exit(1)  # Bei Fehlern
+```
+
+**Fehlerbehandlung:**
+- Klare ERROR-Log-Meldungen
+- `sys.exit(1)` für Fehler, `sys.exit(0)` für Erfolg
+- Keine unformatierten Tracebacks im Normalfall
+
+**Betroffene Scripts:**
+- `scripts/run_daily.py` - EOD-MVP Runner
+- `scripts/run_eod_pipeline.py` - Vollständige EOD-Pipeline
+
+Siehe auch: [Backend Core - Logging](backend_core.md#logging--error-handling-in-cli-scripts)
+
+---
+
 ## Weiterführende Dokumente
 
 - [BACKEND_MODULES.md](BACKEND_MODULES.md): Detaillierte Beschreibung der einzelnen Module.

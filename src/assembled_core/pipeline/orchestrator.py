@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -12,12 +13,16 @@ import pandas as pd
 from src.assembled_core.config import OUTPUT_DIR, SUPPORTED_FREQS
 from src.assembled_core.costs import get_default_cost_model
 from src.assembled_core.ema_config import get_default_ema_config
+from src.assembled_core.logging_utils import get_logger
 from src.assembled_core.pipeline.backtest import compute_metrics, simulate_equity, write_backtest_report
 from src.assembled_core.pipeline.io import load_orders, load_prices, load_prices_with_fallback
 from src.assembled_core.pipeline.orders import signals_to_orders, write_orders
 from src.assembled_core.pipeline.portfolio import simulate_with_costs, write_portfolio_report
 from src.assembled_core.pipeline.signals import compute_ema_signals
 from src.assembled_core.qa.health import aggregate_qa_status
+
+# Get logger (will use default logging if not configured)
+logger = get_logger("assembled_core.pipeline")
 
 
 def run_execute_step(
@@ -197,38 +202,38 @@ def run_eod_pipeline(
             prices = load_prices(freq, price_file=price_file, output_dir=base)
         else:
             prices = load_prices_with_fallback(freq, output_dir=base)
-        print(f"[EOD] Price data OK: {len(prices)} rows, {prices['symbol'].nunique()} symbols")
+        logger.info(f"Price data OK: {len(prices)} rows, {prices['symbol'].nunique()} symbols")
     except FileNotFoundError as e:
-        print(f"[EOD] ERROR: Price data not found: {e}")
+        logger.error(f"Price data not found: {e}")
         failure_flag = True
     
     # Step 2: Execute
     try:
-        print(f"[EOD] Step 2: Execute")
+        logger.info("Step 2: Execute")
         orders_path, orders = run_execute_step(freq, output_dir=base, price_file=price_file)
-        print(f"[EOD] [OK] Orders written: {orders_path} | rows={len(orders)}")
+        logger.info(f"Orders written: {orders_path} | rows={len(orders)}")
         completed_steps.append("execute")
     except Exception as e:
-        print(f"[EOD] ERROR in execute step: {e}")
+        logger.error(f"ERROR in execute step: {e}", exc_info=True)
         failure_flag = True
     
     # Step 3: Backtest
     if not skip_backtest:
         try:
-            print(f"[EOD] Step 3: Backtest")
+            logger.info("Step 3: Backtest")
             curve_path, rep_path = run_backtest_step(freq, start_capital, output_dir=base, price_file=price_file)
-            print(f"[EOD] [OK] Backtest written: {curve_path}, {rep_path}")
+            logger.info(f"Backtest written: {curve_path}, {rep_path}")
             completed_steps.append("backtest")
         except Exception as e:
-            print(f"[EOD] ERROR in backtest step: {e}")
+            logger.error(f"ERROR in backtest step: {e}", exc_info=True)
             failure_flag = True
     else:
-        print(f"[EOD] Step 3: Backtest (SKIPPED)")
+        logger.info("Step 3: Backtest (SKIPPED)")
     
     # Step 4: Portfolio
     if not skip_portfolio:
         try:
-            print(f"[EOD] Step 4: Portfolio")
+            logger.info("Step 4: Portfolio")
             eq_path, rep_path = run_portfolio_step(
                 freq,
                 start_capital,
@@ -237,27 +242,34 @@ def run_eod_pipeline(
                 impact_w=impact_w,
                 output_dir=base
             )
-            print(f"[EOD] [OK] Portfolio written: {eq_path}, {rep_path}")
+            logger.info(f"Portfolio written: {eq_path}, {rep_path}")
             completed_steps.append("portfolio")
         except Exception as e:
-            print(f"[EOD] ERROR in portfolio step: {e}")
+            logger.error(f"ERROR in portfolio step: {e}", exc_info=True)
             failure_flag = True
     else:
-        print(f"[EOD] Step 4: Portfolio (SKIPPED)")
+        logger.info("Step 4: Portfolio (SKIPPED)")
     
     # Step 5: QA
     qa_result = None
     if not skip_qa:
         try:
-            print(f"[EOD] Step 5: QA")
+            logger.info("Step 5: QA")
             qa_result = aggregate_qa_status(freq, output_dir=base)
-            print(f"[EOD] [OK] QA status: {qa_result['overall_status']}")
+            qa_status = qa_result.get("overall_status", "unknown")
+            logger.info(f"QA completed: overall_status={qa_status}")
+            
+            if qa_status == "error":
+                logger.error("QA overall_status is 'error' - some checks failed")
+            elif qa_status == "warning":
+                logger.warning("QA overall_status is 'warning' - some checks have warnings")
+            
             completed_steps.append("qa")
         except Exception as e:
-            print(f"[EOD] ERROR in QA step: {e}")
+            logger.error(f"ERROR in QA step: {e}", exc_info=True)
             failure_flag = True
     else:
-        print(f"[EOD] Step 5: QA (SKIPPED)")
+        logger.info("Step 5: QA (SKIPPED)")
     
     finished_at = datetime.utcnow()
     
@@ -280,7 +292,7 @@ def run_eod_pipeline(
     with open(manifest_path, "w", encoding="utf-8") as f:
         json.dump(manifest, f, indent=2)
     
-    print(f"[EOD] [OK] Manifest written: {manifest_path}")
+    logger.info(f"Manifest written: {manifest_path}")
     
     return manifest
 

@@ -17,6 +17,7 @@ Difference from run_eod_pipeline.py:
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 from datetime import datetime, date
 from pathlib import Path
@@ -32,6 +33,7 @@ from src.assembled_core.data.prices_ingest import load_eod_prices, load_eod_pric
 from src.assembled_core.execution.order_generation import generate_orders_from_signals
 from src.assembled_core.execution.safe_bridge import write_safe_orders_csv
 from src.assembled_core.features.ta_features import add_all_features
+from src.assembled_core.logging_utils import setup_logging
 from src.assembled_core.portfolio.position_sizing import compute_target_positions_from_trend_signals
 from src.assembled_core.signals.rules_trend import generate_trend_signals_from_prices
 
@@ -207,26 +209,29 @@ def run_daily_eod(
         ValueError: If date string is invalid or no valid symbols remain
         SystemExit: If no orders can be generated (no valid symbols)
     """
+    # Setup logging
+    logger = setup_logging(level="INFO")
+    
     # Parse date
     try:
         target_date = parse_target_date(date_str)
     except ValueError as e:
-        print(f"[DAILY] ERROR: {e}")
+        logger.error(f"Invalid date format: {e}")
         sys.exit(1)
     
     # Determine output directory
     out_dir = Path(output_dir) if output_dir else OUTPUT_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
     
-    print(f"[DAILY] Starting EOD-MVP for {target_date.strftime('%Y-%m-%d')}")
-    print(f"[DAILY] Output directory: {out_dir}")
+    logger.info(f"Starting EOD-MVP for {target_date.strftime('%Y-%m-%d')}")
+    logger.info(f"Output directory: {out_dir}")
     
     # Step 1: Load universe symbols (if universe_file provided)
     universe_symbols = []
     if universe_file:
         universe_path = Path(universe_file)
         if not universe_path.exists():
-            print(f"[DAILY] ERROR: Universe file not found: {universe_path}")
+            logger.error(f"Universe file not found: {universe_path}")
             sys.exit(1)
         
         # Read symbols from universe file
@@ -238,21 +243,21 @@ def run_daily_eod(
                         universe_symbols.append(line.upper())
             
             if not universe_symbols:
-                print(f"[DAILY] ERROR: No symbols found in universe file: {universe_path}")
+                logger.error(f"No symbols found in universe file: {universe_path}")
                 sys.exit(1)
             
-            print(f"[DAILY] Universe loaded: {len(universe_symbols)} symbols")
+            logger.info(f"Universe loaded: {len(universe_symbols)} symbols")
         except Exception as e:
-            print(f"[DAILY] ERROR: Failed to read universe file: {e}")
+            logger.error(f"Failed to read universe file: {e}", exc_info=True)
             sys.exit(1)
     
     # Step 2: Load EOD prices
-    print(f"[DAILY] Step 1: Loading EOD prices...")
+    logger.info("Step 1: Loading EOD prices...")
     try:
         if price_file:
             price_path = Path(price_file)
             if not price_path.exists():
-                print(f"[DAILY] ERROR: Price file not found: {price_path}")
+                logger.error(f"Price file not found: {price_path}")
                 sys.exit(1)
             
             prices = load_eod_prices(price_file=price_path, freq="1d")
@@ -263,20 +268,20 @@ def run_daily_eod(
             )
         
         if prices.empty:
-            print(f"[DAILY] ERROR: Price data is empty after loading")
+            logger.error("Price data is empty after loading")
             sys.exit(1)
         
-        print(f"[DAILY] [OK] Loaded prices: {len(prices)} rows, {prices['symbol'].nunique()} symbols")
+        logger.info(f"Loaded prices: {len(prices)} rows, {prices['symbol'].nunique()} symbols")
     except FileNotFoundError as e:
-        print(f"[DAILY] ERROR: {e}")
+        logger.error(f"Price file not found: {e}")
         sys.exit(1)
     except Exception as e:
-        print(f"[DAILY] ERROR loading prices: {e}")
+        logger.error(f"Failed to load prices: {e}", exc_info=True)
         sys.exit(1)
     
     # Step 3: Validate universe vs. data and filter
     if universe_symbols:
-        print(f"[DAILY] Step 2: Validating universe symbols against price data...")
+        logger.info("Step 2: Validating universe symbols against price data...")
         prices_filtered, missing_symbols = validate_universe_vs_data(
             universe_symbols,
             prices,
@@ -284,29 +289,29 @@ def run_daily_eod(
         )
         
         if missing_symbols:
-            print(f"[DAILY] WARNING: {len(missing_symbols)} symbols from universe have no price data: {', '.join(missing_symbols)}")
-            print(f"[DAILY] These symbols will be dropped from the flow.")
+            logger.warning(f"{len(missing_symbols)} symbols from universe have no price data: {', '.join(missing_symbols)}")
+            logger.warning("These symbols will be dropped from the flow.")
         
         if prices_filtered.empty:
-            print(f"[DAILY] ERROR: No valid symbols with price data remain after filtering.")
-            print(f"[DAILY] No orders will be generated.")
+            logger.error("No valid symbols with price data remain after filtering.")
+            logger.error("No orders will be generated.")
             sys.exit(1)
         
         prices = prices_filtered
-        print(f"[DAILY] [OK] Valid symbols: {prices['symbol'].nunique()} symbols with data")
+        logger.info(f"Valid symbols: {prices['symbol'].nunique()} symbols with data")
     else:
         # No universe file: filter prices to target date
-        print(f"[DAILY] Step 2: Filtering prices to target date...")
+        logger.info("Step 2: Filtering prices to target date...")
         prices = filter_prices_for_date(prices, target_date, mode="last_available")
         
         if prices.empty:
-            print(f"[DAILY] ERROR: No price data available for target date {target_date.strftime('%Y-%m-%d')}")
+            logger.error(f"No price data available for target date {target_date.strftime('%Y-%m-%d')}")
             sys.exit(1)
         
-        print(f"[DAILY] [OK] Filtered prices: {len(prices)} rows, {prices['symbol'].nunique()} symbols")
+        logger.info(f"Filtered prices: {len(prices)} rows, {prices['symbol'].nunique()} symbols")
     
     # Step 4: Compute TA features
-    print(f"[DAILY] Step 3: Computing TA features...")
+    logger.info("Step 3: Computing TA features...")
     try:
         prices_with_features = add_all_features(
             prices,
@@ -315,13 +320,13 @@ def run_daily_eod(
             rsi_window=14,
             include_rsi=True
         )
-        print(f"[DAILY] [OK] Features computed: {len(prices_with_features)} rows")
+        logger.info(f"Features computed: {len(prices_with_features)} rows")
     except Exception as e:
-        print(f"[DAILY] ERROR computing features: {e}")
+        logger.error(f"Failed to compute features: {e}", exc_info=True)
         sys.exit(1)
     
     # Step 5: Generate trend signals
-    print(f"[DAILY] Step 4: Generating trend signals...")
+    logger.info("Step 4: Generating trend signals...")
     try:
         signals = generate_trend_signals_from_prices(
             prices_with_features,
@@ -329,13 +334,13 @@ def run_daily_eod(
             ma_slow=ma_slow
         )
         long_signals = signals[signals["direction"] == "LONG"]
-        print(f"[DAILY] [OK] Signals generated: {len(long_signals)} LONG signals from {len(signals)} total")
+        logger.info(f"Signals generated: {len(long_signals)} LONG signals from {len(signals)} total")
     except Exception as e:
-        print(f"[DAILY] ERROR generating signals: {e}")
+        logger.error(f"Failed to generate signals: {e}", exc_info=True)
         sys.exit(1)
     
     # Step 6: Compute target positions
-    print(f"[DAILY] Step 5: Computing target positions...")
+    logger.info("Step 5: Computing target positions...")
     try:
         targets = compute_target_positions_from_trend_signals(
             signals,
@@ -345,8 +350,8 @@ def run_daily_eod(
         )
         
         if targets.empty:
-            print(f"[DAILY] WARNING: No target positions computed (no LONG signals or all filtered out)")
-            print(f"[DAILY] No orders will be generated.")
+            logger.warning("No target positions computed (no LONG signals or all filtered out)")
+            logger.warning("No orders will be generated.")
             # Create empty SAFE file
             safe_path = write_safe_orders_csv(
                 pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"]),
@@ -355,18 +360,18 @@ def run_daily_eod(
                 price_type="MARKET",
                 comment="EOD Strategy - Daily MVP (no signals)"
             )
-            print(f"[DAILY] [OK] Empty SAFE orders file written: {safe_path}")
+            logger.info(f"Empty SAFE orders file written: {safe_path}")
             return safe_path
         
-        print(f"[DAILY] [OK] Target positions: {len(targets)} symbols")
+        logger.info(f"Target positions: {len(targets)} symbols")
         if not targets.empty:
-            print(f"[DAILY] Symbols: {', '.join(targets['symbol'].tolist())}")
+            logger.info(f"Symbols: {', '.join(targets['symbol'].tolist())}")
     except Exception as e:
-        print(f"[DAILY] ERROR computing targets: {e}")
+        logger.error(f"Failed to compute target positions: {e}", exc_info=True)
         sys.exit(1)
     
     # Step 7: Generate orders
-    print(f"[DAILY] Step 6: Generating orders...")
+    logger.info("Step 6: Generating orders...")
     try:
         orders = generate_orders_from_signals(
             signals,
@@ -377,7 +382,7 @@ def run_daily_eod(
         )
         
         if orders.empty:
-            print(f"[DAILY] WARNING: No orders generated (no position changes)")
+            logger.warning("No orders generated (no position changes)")
             # Create empty SAFE file
             safe_path = write_safe_orders_csv(
                 orders,
@@ -386,20 +391,20 @@ def run_daily_eod(
                 price_type="MARKET",
                 comment="EOD Strategy - Daily MVP (no orders)"
             )
-            print(f"[DAILY] [OK] Empty SAFE orders file written: {safe_path}")
+            logger.info(f"Empty SAFE orders file written: {safe_path}")
             return safe_path
         
-        print(f"[DAILY] [OK] Orders generated: {len(orders)} orders")
+        logger.info(f"Orders generated: {len(orders)} orders")
         if not orders.empty:
             buy_count = len(orders[orders["side"] == "BUY"])
             sell_count = len(orders[orders["side"] == "SELL"])
-            print(f"[DAILY] Order breakdown: {buy_count} BUY, {sell_count} SELL")
+            logger.info(f"Order breakdown: {buy_count} BUY, {sell_count} SELL")
     except Exception as e:
-        print(f"[DAILY] ERROR generating orders: {e}")
+        logger.error(f"Failed to generate orders: {e}", exc_info=True)
         sys.exit(1)
     
     # Step 8: Write SAFE-Bridge CSV
-    print(f"[DAILY] Step 7: Writing SAFE-Bridge CSV...")
+    logger.info("Step 7: Writing SAFE-Bridge CSV...")
     try:
         safe_path = write_safe_orders_csv(
             orders,
@@ -408,13 +413,13 @@ def run_daily_eod(
             price_type="MARKET",
             comment="EOD Strategy - Daily MVP"
         )
-        print(f"[DAILY] [OK] SAFE orders written: {safe_path}")
-        print(f"[DAILY] [OK] Total orders: {len(orders)}")
+        logger.info(f"SAFE orders written: {safe_path}")
+        logger.info(f"Total orders: {len(orders)}")
     except Exception as e:
-        print(f"[DAILY] ERROR writing SAFE orders: {e}")
+        logger.error(f"Failed to write SAFE orders: {e}", exc_info=True)
         sys.exit(1)
     
-    print(f"[DAILY] SUCCESS: EOD-MVP completed for {target_date.strftime('%Y-%m-%d')}")
+    logger.info(f"SUCCESS: EOD-MVP completed for {target_date.strftime('%Y-%m-%d')}")
     return safe_path
 
 
@@ -480,6 +485,9 @@ def main() -> None:
     
     args = p.parse_args()
     
+    # Setup logging for main
+    logger = setup_logging(level="INFO")
+    
     try:
         safe_path = run_daily_eod(
             date_str=args.date,
@@ -493,16 +501,14 @@ def main() -> None:
             min_score=args.min_score
         )
         
-        print(f"[DAILY] Output file: {safe_path}")
+        logger.info(f"Output file: {safe_path}")
         sys.exit(0)
     
     except SystemExit:
         # Re-raise SystemExit (from sys.exit() calls)
         raise
     except Exception as e:
-        print(f"[DAILY] FATAL ERROR: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"FATAL ERROR: {e}", exc_info=True)
         sys.exit(1)
 
 

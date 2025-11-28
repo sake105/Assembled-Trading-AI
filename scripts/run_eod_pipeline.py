@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 from pathlib import Path
 
@@ -12,6 +13,7 @@ sys.path.insert(0, str(ROOT))
 
 from src.assembled_core.config import OUTPUT_DIR, SUPPORTED_FREQS
 from src.assembled_core.costs import get_default_cost_model
+from src.assembled_core.logging_utils import setup_logging
 from src.assembled_core.pipeline.orchestrator import run_eod_pipeline
 
 
@@ -83,9 +85,12 @@ def main() -> None:
     
     args = p.parse_args()
     
-    print(f"[EOD] Starting EOD pipeline for {args.freq}")
-    print(f"[EOD] Start capital: {args.start_capital}")
-    print(f"[EOD] Output directory: {args.out}")
+    # Setup logging
+    logger = setup_logging(level="INFO")
+    
+    logger.info(f"Starting EOD pipeline for {args.freq}")
+    logger.info(f"Start capital: {args.start_capital}")
+    logger.info(f"Output directory: {args.out}")
     
     try:
         manifest = run_eod_pipeline(
@@ -101,22 +106,27 @@ def main() -> None:
             impact_w=args.impact_w
         )
         
-        print(f"[EOD] Pipeline completed")
-        print(f"[EOD] Completed steps: {', '.join(manifest['completed_steps'])}")
+        logger.info("Pipeline completed")
+        logger.info(f"Completed steps: {', '.join(manifest['completed_steps'])}")
+        
         if manifest.get("qa_overall_status"):
-            print(f"[EOD] QA status: {manifest['qa_overall_status']}")
+            qa_status = manifest["qa_overall_status"]
+            logger.info(f"QA overall_status: {qa_status}")
+            
+            if qa_status == "error":
+                logger.error("QA overall_status is 'error' - pipeline may have issues")
+            elif qa_status == "warning":
+                logger.warning("QA overall_status is 'warning' - some checks failed")
         
         if manifest.get("failure"):
-            print(f"[EOD] WARNING: Some steps failed")
+            logger.error("Some pipeline steps failed")
             sys.exit(1)
         else:
-            print(f"[EOD] SUCCESS: All steps completed")
+            logger.info("SUCCESS: All steps completed")
             sys.exit(0)
     
     except Exception as e:
-        print(f"[EOD] FATAL ERROR: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"FATAL ERROR: {e}", exc_info=True)
         sys.exit(1)
 
 
