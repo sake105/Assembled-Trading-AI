@@ -259,5 +259,14 @@ curl http://localhost:8000/api/v1/portfolio/1d/current
 - **Notifications:** E-Mail/Slack-Benachrichtigungen bei Fehlern
 - **Retry-Logik:** Automatische Wiederholung fehlgeschlagener Schritte
 
-Siehe auch: `docs/backend_core.md` für Details zur Pipeline-Architektur.
+---
+
+## Weiterführende Dokumentation
+
+- [Backend Architecture](ARCHITECTURE_BACKEND.md) - Gesamtarchitektur und Datenfluss
+- [Backend Modules](BACKEND_MODULES.md) - Detaillierte Modulübersicht
+- [Backend API](backend_api.md) - FastAPI-Endpoints
+- [Backend Core](backend_core.md) - Konfiguration & Testing
+- [Data Sources](DATA_SOURCES_BACKEND.md) - Datenquellen-Übersicht
+- [Backend Roadmap](BACKEND_ROADMAP.md) - Entwicklungs-Roadmap
 

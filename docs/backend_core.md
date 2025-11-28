@@ -353,7 +353,14 @@ Die zentrale Konfiguration wird auch in der zukünftigen FastAPI-Implementierung
 - **Tests** können `config.OUTPUT_DIR` mocken, um isolierte Tests zu ermöglichen
 - **QA-Endpoints** können `aggregate_qa_status()` verwenden, um Health-Checks via API bereitzustellen
 
-Siehe auch: 
-- `docs/fastapi_endpoints_design.md` (API-Design)
-- `docs/eod_pipeline.md` (EOD-Pipeline-Orchestrierung)
+---
+
+## Weiterführende Dokumentation
+
+- [Backend Architecture](ARCHITECTURE_BACKEND.md) - Gesamtarchitektur und Datenfluss
+- [Backend Modules](BACKEND_MODULES.md) - Detaillierte Modulübersicht
+- [Backend API](backend_api.md) - FastAPI-Endpoints
+- [EOD Pipeline](eod_pipeline.md) - Pipeline-Orchestrierung
+- [Data Sources](DATA_SOURCES_BACKEND.md) - Datenquellen-Übersicht
+- [Backend Roadmap](BACKEND_ROADMAP.md) - Entwicklungs-Roadmap
 

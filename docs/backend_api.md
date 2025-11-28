@@ -419,6 +419,17 @@ curl http://localhost:8000/api/v1/qa/status?freq=1d
 
 ---
 
+## Weiterführende Dokumentation
+
+- [Backend Architecture](ARCHITECTURE_BACKEND.md) - Gesamtarchitektur und Datenfluss
+- [Backend Modules](BACKEND_MODULES.md) - Detaillierte Modulübersicht
+- [Backend Core](backend_core.md) - Konfiguration & Testing
+- [EOD Pipeline](eod_pipeline.md) - Pipeline-Orchestrierung
+- [Data Sources](DATA_SOURCES_BACKEND.md) - Datenquellen-Übersicht
+- [Backend Roadmap](BACKEND_ROADMAP.md) - Entwicklungs-Roadmap
+
+---
+
 ## Error Handling
 
 ### 404 Not Found
