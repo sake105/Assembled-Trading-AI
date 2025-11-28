@@ -94,6 +94,25 @@ Das Backend von Assembled Trading AI ist eine **file-based Trading-Pipeline** mi
   - Signal-Logik: LONG wenn ma_fast > ma_slow AND Volumen über Schwellenwert
   - Score: Signal-Stärke (0.0 bis 1.0) basierend auf MA-Spread und Volumen
 
+**Portfolio Layer:**
+- `src/assembled_core/portfolio/position_sizing.py` - Positionsgrößen-Bestimmung
+  - `compute_target_positions()` - Berechnet Zielpositionen aus Signalen
+  - Strategien: Equal Weight (1/N) oder Score-basiert
+  - Top-N Selektion: Wählt beste Signale nach Score
+  - Output: DataFrame mit symbol, target_weight, target_qty
+
+**Execution Layer:**
+- `src/assembled_core/execution/order_generation.py` - Order-Generierung
+  - `generate_orders_from_targets()` - Vergleicht aktuelle vs. Zielpositionen
+  - `generate_orders_from_signals()` - Convenience: Signale → Orders in einem Schritt
+  - Output: DataFrame mit timestamp, symbol, side, qty, price
+
+**SAFE-Bridge:**
+- `src/assembled_core/execution/safe_bridge.py` - SAFE-kompatible Order-Dateien
+  - `write_safe_orders_csv()` - Erstellt SAFE-Bridge CSV-Dateien
+  - Format: `orders_YYYYMMDD.csv` mit Spalten: Ticker, Side, Quantity, PriceType, Comment
+  - Human-in-the-Loop: Alle Orders müssen manuell geprüft werden
+
 **Output:**
 - `data/raw/1min/{SYMBOL}.parquet` - Rohdaten pro Symbol
 - `data/sample/eod_sample.parquet` - Beispiel-Daten für Tests (2-3 Ticker, ~30 Tage)

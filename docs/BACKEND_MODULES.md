@@ -378,12 +378,17 @@ qa_result = aggregate_qa_status("1d")
 
 **Zweck:** Portfolio-Management.
 
-**Platzhalter:**
+**Implementiert:**
 - `portfolio/position_sizing.py` - Position-Sizing-Strategien
+  - `compute_target_positions()`: Berechnet Zielpositionen aus Signalen
+  - `compute_target_positions_from_trend_signals()`: Convenience-Funktion für Trend-Signale
+  - Strategien: Equal Weight (1/N) oder Score-basiert
+  - Top-N Selektion: Wählt beste Signale nach Score
+  - Output: DataFrame mit symbol, target_weight, target_qty
 
 **Zukünftige Integration:**
-- Nutzt `pipeline.portfolio.simulate_with_costs` für Backtesting
-- Erweitert um Position-Sizing-Logik
+- Erweitert um weitere Sizing-Strategien (Kelly Criterion, Risk Parity, etc.)
+- Integration mit Risk-Management
 
 ---
 
@@ -391,12 +396,19 @@ qa_result = aggregate_qa_status("1d")
 
 **Zweck:** Order-Execution-Logik.
 
-**Platzhalter:**
-- `execution/order_generation.py` - Orders aus Signalen generieren
+**Implementiert:**
+- `execution/order_generation.py` - Orders aus Signalen/Positionen generieren
+  - `generate_orders_from_targets()`: Vergleicht aktuelle vs. Zielpositionen
+  - `generate_orders_from_signals()`: Convenience: Signale → Orders
+  - Output: DataFrame mit timestamp, symbol, side, qty, price
+- `execution/safe_bridge.py` - SAFE-Bridge Order-Dateien
+  - `write_safe_orders_csv()`: Erstellt SAFE-kompatible CSV-Dateien
+  - Format: `orders_YYYYMMDD.csv` mit Spalten: Ticker, Side, Quantity, PriceType, Comment
+  - Human-in-the-Loop: Alle Orders müssen manuell geprüft werden
 
 **Zukünftige Integration:**
-- Nutzt `pipeline.orders.signals_to_orders` als Basis
-- Erweitert um Position-Sizing und Risk-Management
+- Erweitert um verschiedene Order-Typen (Market, Limit, Stop-Loss)
+- Integration mit Risk-Management und Position-Limits
 
 ---
 
