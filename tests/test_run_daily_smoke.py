@@ -290,3 +290,53 @@ def test_run_daily_eod_empty_price_data(tmp_path: Path, monkeypatch):
         )
     
     assert exc_info.value.code == 1
+
+
+def test_run_daily_eod_invalid_orders_validation(tmp_path: Path, monkeypatch, capsys):
+    """Test that run_daily handles invalid orders (e.g., Quantity=0) correctly."""
+    from src.assembled_core.config import OUTPUT_DIR
+    from src.assembled_core.execution.order_generation import generate_orders_from_signals
+    
+    # Monkeypatch OUTPUT_DIR
+    monkeypatch.setattr("src.assembled_core.execution.safe_bridge.OUTPUT_DIR", tmp_path)
+    monkeypatch.setattr("src.assembled_core.config.OUTPUT_DIR", tmp_path)
+    
+    # Create price data
+    price_file = create_sample_price_data(tmp_path, symbols=["AAPL"])
+    
+    # Mock generate_orders_from_signals to return invalid orders (Quantity=0)
+    def mock_generate_orders_invalid(*args, **kwargs):
+        return pd.DataFrame([
+            {"timestamp": datetime(2025, 1, 15), "symbol": "AAPL", "side": "BUY", "qty": 0.0, "price": 100.0}
+        ])
+    
+    # Patch the function
+    import src.assembled_core.execution.order_generation as order_gen
+    original_func = order_gen.generate_orders_from_signals
+    order_gen.generate_orders_from_signals = mock_generate_orders_invalid
+    
+    try:
+        # Run daily EOD - should fail with validation error
+        test_date = datetime(2025, 1, 15)
+        with pytest.raises(SystemExit) as exc_info:
+            run_daily_eod(
+                date_str=test_date.strftime("%Y-%m-%d"),
+                price_file=price_file,
+                output_dir=tmp_path,
+                total_capital=1.0
+            )
+        
+        # Should exit with code 1
+        assert exc_info.value.code == 1
+        
+        # Check that error message was logged
+        captured = capsys.readouterr()
+        output = captured.out + captured.err
+        assert "validation failed" in output.lower() or "validation" in output.lower()
+        
+        # File should not be created
+        expected_file = tmp_path / f"orders_{test_date.strftime('%Y%m%d')}.csv"
+        assert not expected_file.exists()
+    finally:
+        # Restore original function
+        order_gen.generate_orders_from_signals = original_func

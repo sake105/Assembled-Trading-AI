@@ -223,3 +223,114 @@ def test_generate_orders_from_signals():
     assert set(orders["symbol"].values) == {"AAPL", "MSFT"}
     assert (orders["side"] == "BUY").all()
 
+
+def test_validate_safe_orders_df_quantity_zero(tmp_path: Path):
+    """Test that orders with Quantity <= 0 fail validation."""
+    from src.assembled_core.execution.safe_bridge import validate_safe_orders_df
+    
+    # Create orders with zero quantity
+    df = pd.DataFrame([
+        {"Ticker": "AAPL", "Side": "BUY", "Quantity": 0.0, "PriceType": "MARKET", "Comment": "Test"},
+        {"Ticker": "MSFT", "Side": "BUY", "Quantity": -1.0, "PriceType": "MARKET", "Comment": "Test"},
+        {"Ticker": "GOOGL", "Side": "BUY", "Quantity": 10.0, "PriceType": "MARKET", "Comment": "Test"},
+    ])
+    
+    result = validate_safe_orders_df(df)
+    
+    # Should have issues (zero/negative quantities)
+    assert len(result["issues"]) > 0
+    assert "Quantity <= 0" in " ".join(result["issues"])
+    
+    # Cleaned DataFrame should only have GOOGL (valid)
+    assert len(result["df_cleaned"]) == 1
+    assert result["df_cleaned"]["Ticker"].iloc[0] == "GOOGL"
+    
+    # Should still be valid (has at least one valid row)
+    assert result["valid"] is True
+
+
+def test_validate_safe_orders_df_all_invalid(tmp_path: Path):
+    """Test that if all orders are invalid, validation fails."""
+    from src.assembled_core.execution.safe_bridge import validate_safe_orders_df
+    
+    # All orders have zero quantity
+    df = pd.DataFrame([
+        {"Ticker": "AAPL", "Side": "BUY", "Quantity": 0.0, "PriceType": "MARKET", "Comment": "Test"},
+        {"Ticker": "MSFT", "Side": "BUY", "Quantity": -1.0, "PriceType": "MARKET", "Comment": "Test"},
+    ])
+    
+    result = validate_safe_orders_df(df)
+    
+    # Should be invalid (all rows removed)
+    assert result["valid"] is False
+    assert len(result["df_cleaned"]) == 0
+    assert "no valid orders remain" in " ".join(result["issues"]).lower()
+
+
+def test_validate_safe_orders_df_invalid_side(tmp_path: Path):
+    """Test that orders with invalid Side fail validation."""
+    from src.assembled_core.execution.safe_bridge import validate_safe_orders_df
+    
+    # Create orders with invalid side
+    df = pd.DataFrame([
+        {"Ticker": "AAPL", "Side": "INVALID", "Quantity": 10.0, "PriceType": "MARKET", "Comment": "Test"},
+        {"Ticker": "MSFT", "Side": "BUY", "Quantity": 10.0, "PriceType": "MARKET", "Comment": "Test"},
+    ])
+    
+    result = validate_safe_orders_df(df)
+    
+    # Should have issues (invalid side)
+    assert len(result["issues"]) > 0
+    assert "invalid Side" in " ".join(result["issues"])
+    
+    # Cleaned DataFrame should only have MSFT (valid)
+    assert len(result["df_cleaned"]) == 1
+    assert result["df_cleaned"]["Ticker"].iloc[0] == "MSFT"
+
+
+def test_validate_safe_orders_df_duplicates(tmp_path: Path):
+    """Test that duplicate orders are aggregated."""
+    from src.assembled_core.execution.safe_bridge import validate_safe_orders_df
+    
+    # Create duplicate orders (same Ticker, Side, Comment)
+    df = pd.DataFrame([
+        {"Ticker": "AAPL", "Side": "BUY", "Quantity": 5.0, "PriceType": "MARKET", "Comment": "Test"},
+        {"Ticker": "AAPL", "Side": "BUY", "Quantity": 3.0, "PriceType": "MARKET", "Comment": "Test"},
+        {"Ticker": "MSFT", "Side": "BUY", "Quantity": 10.0, "PriceType": "MARKET", "Comment": "Test"},
+    ])
+    
+    result = validate_safe_orders_df(df)
+    
+    # Should have warning about duplicates
+    assert len(result["issues"]) > 0
+    assert "duplicate" in " ".join(result["issues"]).lower() or "aggregated" in " ".join(result["issues"]).lower()
+    
+    # Should be valid (duplicates aggregated)
+    assert result["valid"] is True
+    
+    # Should have 2 rows (AAPL aggregated, MSFT separate)
+    assert len(result["df_cleaned"]) == 2
+    
+    # AAPL quantity should be summed (5.0 + 3.0 = 8.0)
+    aapl_row = result["df_cleaned"][result["df_cleaned"]["Ticker"] == "AAPL"]
+    assert len(aapl_row) == 1
+    assert aapl_row["Quantity"].iloc[0] == pytest.approx(8.0)
+
+
+def test_write_safe_orders_csv_validation_fails(tmp_path: Path):
+    """Test that write_safe_orders_csv raises ValueError when validation fails."""
+    from src.assembled_core.execution.safe_bridge import write_safe_orders_csv
+    
+    # Create orders with all invalid quantities
+    orders = pd.DataFrame([
+        {"timestamp": datetime(2025, 1, 1), "symbol": "AAPL", "side": "BUY", "qty": 0.0, "price": 100.0},
+        {"timestamp": datetime(2025, 1, 1), "symbol": "MSFT", "side": "BUY", "qty": -1.0, "price": 200.0},
+    ])
+    
+    # Should raise ValueError
+    with pytest.raises(ValueError, match="SAFE orders validation failed"):
+        write_safe_orders_csv(orders, output_path=tmp_path / "orders_invalid.csv")
+    
+    # File should not be created
+    assert not (tmp_path / "orders_invalid.csv").exists()
+

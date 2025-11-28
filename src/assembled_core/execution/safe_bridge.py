@@ -13,10 +13,96 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 import pandas as pd
 
 from src.assembled_core.config import OUTPUT_DIR
+
+
+def validate_safe_orders_df(df: pd.DataFrame) -> dict[str, bool | list[str]]:
+    """Validate SAFE orders DataFrame before writing.
+    
+    This function performs sanity checks on orders to ensure they are valid
+    before writing to CSV. Invalid orders are rejected to prevent writing
+    obviously broken data.
+    
+    Validation checks:
+    - No rows with Quantity <= 0
+    - Side must be in {BUY, SELL}
+    - No duplicate rows (same Ticker, Side, Comment) - these are aggregated
+    
+    Args:
+        df: DataFrame with SAFE-Bridge format columns: Ticker, Side, Quantity, PriceType, Comment
+    
+    Returns:
+        Dictionary with:
+        - valid: bool - True if all checks pass
+        - issues: list[str] - List of descriptive issue messages (empty if valid=True)
+        - df_cleaned: pd.DataFrame - Cleaned DataFrame (duplicates aggregated, invalid rows removed)
+    
+    Note:
+        If duplicates are found, they are aggregated (quantities summed).
+        If invalid rows are found (Quantity <= 0, invalid Side), they are removed.
+        The function returns the cleaned DataFrame, but if all rows are invalid,
+        valid=False and df_cleaned will be empty.
+    """
+    issues = []
+    df_cleaned = df.copy()
+    
+    if df_cleaned.empty:
+        return {
+            "valid": True,
+            "issues": [],
+            "df_cleaned": df_cleaned
+        }
+    
+    # Check 1: Quantity <= 0
+    invalid_qty = df_cleaned[df_cleaned["Quantity"] <= 0]
+    if not invalid_qty.empty:
+        count = len(invalid_qty)
+        symbols = invalid_qty["Ticker"].unique().tolist()
+        issues.append(f"{count} order(s) with Quantity <= 0: {', '.join(symbols[:5])}{'...' if len(symbols) > 5 else ''}")
+        df_cleaned = df_cleaned[df_cleaned["Quantity"] > 0].copy()
+    
+    # Check 2: Side must be BUY or SELL
+    valid_sides = {"BUY", "SELL"}
+    invalid_sides = df_cleaned[~df_cleaned["Side"].isin(valid_sides)]
+    if not invalid_sides.empty:
+        count = len(invalid_sides)
+        invalid_values = invalid_sides["Side"].unique().tolist()
+        issues.append(f"{count} order(s) with invalid Side: {', '.join(invalid_values)}")
+        df_cleaned = df_cleaned[df_cleaned["Side"].isin(valid_sides)].copy()
+    
+    # Check 3: Duplicate rows (same Ticker, Side, Comment) - aggregate
+    if not df_cleaned.empty:
+        duplicates = df_cleaned.duplicated(subset=["Ticker", "Side", "Comment"], keep=False)
+        if duplicates.any():
+            dup_count = duplicates.sum()
+            # Aggregate duplicates: sum quantities
+            df_cleaned = df_cleaned.groupby(["Ticker", "Side", "Comment", "PriceType"], as_index=False).agg({
+                "Quantity": "sum"
+            })
+            issues.append(f"{dup_count} duplicate order(s) aggregated (quantities summed)")
+    
+    # Final check: If all rows were invalid, mark as invalid
+    if df_cleaned.empty and not df.empty:
+        issues.append("All orders were invalid and removed - no valid orders remain")
+        return {
+            "valid": False,
+            "issues": issues,
+            "df_cleaned": df_cleaned
+        }
+    
+    # If we have issues but some valid rows remain, it's a warning but still valid
+    # (we'll log warnings but allow the file to be written)
+    valid = len(issues) == 0 or not df_cleaned.empty
+    
+    return {
+        "valid": valid,
+        "issues": issues,
+        "df_cleaned": df_cleaned
+    }
 
 
 def write_safe_orders_csv(
@@ -68,11 +154,24 @@ def write_safe_orders_csv(
             "Comment": comment
         })
         
-        # Validate sides
-        valid_sides = {"BUY", "SELL"}
-        invalid = safe_df[~safe_df["Side"].isin(valid_sides)]
-        if not invalid.empty:
-            raise ValueError(f"Invalid side values: {invalid['Side'].unique()}. Must be BUY or SELL")
+        # Validate orders
+        validation_result = validate_safe_orders_df(safe_df)
+        
+        if not validation_result["valid"]:
+            issues_str = "; ".join(validation_result["issues"])
+            raise ValueError(
+                f"SAFE orders validation failed - no file will be written. Issues: {issues_str}"
+            )
+        
+        # Use cleaned DataFrame (duplicates aggregated, invalid rows removed)
+        safe_df = validation_result["df_cleaned"]
+        
+        # Log warnings if there were issues (but file is still written)
+        if validation_result["issues"]:
+            from src.assembled_core.logging_utils import get_logger
+            logger = get_logger()
+            for issue in validation_result["issues"]:
+                logger.warning(f"SAFE orders validation warning: {issue}")
     
     # Determine output path
     if output_path is None:

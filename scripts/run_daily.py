@@ -415,9 +415,23 @@ def run_daily_eod(
         )
         logger.info(f"SAFE orders written: {safe_path}")
         logger.info(f"Total orders: {len(orders)}")
+    except ValueError as e:
+        # ValueError from validation - log clearly and exit
+        error_msg = str(e)
+        if "SAFE orders validation failed" in error_msg:
+            logger.error(f"SAFE orders validation failed - no file written. {error_msg}")
+        else:
+            logger.error(f"Failed to write SAFE orders: {error_msg}")
+        sys.exit(1)
     except Exception as e:
         logger.error(f"Failed to write SAFE orders: {e}", exc_info=True)
         sys.exit(1)
+    
+    # Summary log
+    unique_symbols = orders["symbol"].nunique() if not orders.empty else 0
+    buy_count = len(orders[orders["side"] == "BUY"]) if not orders.empty else 0
+    sell_count = len(orders[orders["side"] == "SELL"]) if not orders.empty else 0
+    logger.info(f"Summary: {unique_symbols} symbols, {len(orders)} orders ({buy_count} BUY, {sell_count} SELL), file: {safe_path.name}")
     
     logger.info(f"SUCCESS: EOD-MVP completed for {target_date.strftime('%Y-%m-%d')}")
     return safe_path
