@@ -389,3 +389,96 @@ api_key = os.getenv("ALPHAVANTAGE_API_KEY")
 
 **Grundregel:** Niemals Secrets im Code oder in versionierten Dateien speichern.
 
+---
+
+## Test-Layer
+
+**Wichtig:** Alle Tests sind offline-sicher und rufen keine externen APIs oder Netzwerkdienste auf.
+
+### Test-Kategorien
+
+**Unit-Tests (`tests/test_*.py`):**
+- Schnelle, isolierte Tests einzelner Funktionen/Module
+- Laufzeit: < 1 Sekunde pro Test
+- Marker: `@pytest.mark.unit` (optional)
+- Beispiele: `test_data_prices_ingest.py`, `test_features_ta.py`, `test_signals_ema.py`
+
+**Smoke-Tests:**
+- End-to-End-Tests für vollständige Pipeline-Läufe
+- Laufzeit: Kann länger sein (mehrere Sekunden)
+- Marker: `@pytest.mark.smoke`
+- Beispiele: `test_run_daily_smoke.py`, `test_run_eod_pipeline.py`, `test_api_smoke.py`
+
+**Integration-Tests:**
+- Tests, die mehrere Module zusammen testen
+- Marker: `@pytest.mark.integration`
+- Beispiele: `test_backtest_portfolio_smoke.py`, `test_io_smoke.py`
+
+**Externe Tests (ausgeschlossen):**
+- Tests, die Netzwerkzugriffe oder externe Services benötigen
+- Marker: `@pytest.mark.external`
+- Standardmäßig ausgeschlossen (siehe `pytest.ini`)
+
+### Pytest-Konfiguration
+
+**Datei:** `pytest.ini` im Repo-Root
+
+**Konfiguration:**
+- `testpaths = tests` - Test-Verzeichnis
+- `python_files = test_*.py` - Test-Datei-Muster
+- Marker: `slow`, `smoke`, `unit`, `integration`, `external`
+- Standard: Externe Tests ausgeschlossen (`-m "not external"`)
+
+**Beispiel-Commands:**
+```bash
+# Alle Tests (außer externe)
+pytest
+
+# Nur Smoke-Tests
+pytest -m smoke
+
+# Nur schnelle Tests (keine slow/external)
+pytest -m "not slow and not external"
+
+# Alle Tests inkl. externe
+pytest -m ""
+
+# Mit Coverage (falls pytest-cov installiert)
+pytest --cov=src/assembled_core --cov-report=term-missing
+```
+
+### Shared Fixtures
+
+**Datei:** `tests/conftest.py`
+
+**Verfügbare Fixtures:**
+- `tmp_output_dir`: Temporäres Output-Verzeichnis für Tests
+- `sample_universe`: Beispiel-Universe-Datei
+- `sample_price_data`: Beispiel-Preis-Daten (Parquet)
+
+**Verwendung:**
+```python
+def test_something(tmp_output_dir, monkeypatch):
+    # Use tmp_output_dir as OUTPUT_DIR
+    monkeypatch.setattr("src.assembled_core.config.OUTPUT_DIR", tmp_output_dir)
+    # ... test code ...
+```
+
+### Offline-Garantie
+
+**Regel:** Keine Tests rufen externe APIs oder Netzwerkdienste auf.
+
+**Prüfung:**
+- Keine Imports von `yfinance`, `requests`, `httpx`, `aiohttp` in Tests
+- Keine HTTP/HTTPS-Requests in Tests
+- Alle Daten sind synthetisch oder lokal (Parquet/CSV)
+
+**Falls Netzwerkzugriffe nötig:**
+- Tests mit `@pytest.mark.external` markieren
+- Standardmäßig ausgeschlossen (siehe `pytest.ini`)
+- Mocking bevorzugen statt echter Netzwerkzugriffe
+
+---
+
+## Weiterführende Dokumente
+
