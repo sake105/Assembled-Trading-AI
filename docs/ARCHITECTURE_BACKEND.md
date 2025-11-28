@@ -397,6 +397,74 @@ Siehe auch: [Backend Core - Logging](backend_core.md#logging--error-handling-in-
 
 ---
 
+## CI / GitHub Actions
+
+**Wichtig:** Alle Pull Requests müssen die CI-Checks bestehen, bevor sie gemerged werden.
+
+### Workflow
+
+**Datei:** `.github/workflows/backend-ci.yml`
+
+**Trigger:**
+- Push zu `main` oder `develop` Branch
+- Pull Requests zu `main` oder `develop` Branch
+
+**Python-Versionen:**
+- Aktuell: Python 3.10
+- Zukünftig erweiterbar auf 3.11, 3.12
+
+### CI-Checks
+
+**1. Tests:**
+- Führt `pytest tests/` aus
+- Prüft Unit-Tests und Smoke-Tests
+- Muss erfolgreich sein (Exit-Code 0)
+
+**2. Ruff (Linting):**
+- Führt `ruff check src tests scripts` aus
+- Prüft Code-Style, Syntax-Fehler, unbenutzte Imports
+- Muss erfolgreich sein (Exit-Code 0)
+
+**3. mypy (Type Checking):**
+- Führt `mypy` auf Kernmodulen aus:
+  - `src/assembled_core/data`
+  - `src/assembled_core/features`
+  - `src/assembled_core/signals`
+  - `src/assembled_core/execution`
+  - `src/assembled_core/portfolio`
+- Aktuell optional (`continue-on-error: true`)
+- Zukünftig kann dies zu einem Hard-Requirement werden
+
+### Lokales Testen
+
+**Vor dem Push:**
+```bash
+# Tests lokal ausführen
+pytest tests/
+
+# Ruff lokal prüfen
+ruff check src tests scripts
+
+# mypy lokal prüfen
+mypy src/assembled_core/data src/assembled_core/features src/assembled_core/signals src/assembled_core/execution src/assembled_core/portfolio
+```
+
+**Empfehlung:** Führe diese Checks lokal aus, bevor du einen PR erstellst.
+
+### PR-Merge-Policy
+
+**Regel:** PRs sollten nur gemerged werden, wenn:
+- Alle CI-Checks grün sind (✓)
+- Tests erfolgreich
+- Ruff erfolgreich
+- (Optional) mypy erfolgreich oder akzeptable Warnungen
+
+**Ausnahmen:**
+- Nur in Ausnahmefällen (z. B. Dokumentations-Only-Änderungen) können Checks übersprungen werden
+- Im Normalfall: CI muss grün sein
+
+---
+
 ## Weiterführende Dokumente
 
 - [BACKEND_MODULES.md](BACKEND_MODULES.md): Detaillierte Beschreibung der einzelnen Module.
