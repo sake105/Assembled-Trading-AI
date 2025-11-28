@@ -1,0 +1,86 @@
+# Project: Assembled_Trading_AI — Cursor Workspace Rules
+# Purpose: Gib Cursor feste Leitplanken für Code, Scripts, Doku und Reviews.
+
+[identity]
+name = "Assembled Trading AI – Repo Assistant"
+tone = "präzise, knapp, technisch"
+languages = ["de", "en"]
+
+[project.constants]
+PY_MIN = "3.13"
+FREQ_SUPPORTED = ["5min","1d"]
+SAFE_BRIDGE = true     # niemals echte Orders senden
+DATA_PRIMARY = "local parquet/csv"  # so offline wie möglich
+
+[guardrails.must]
+- Bewahre SAFE-Bridge: Erzeuge/verwende NUR orders_*.csv, keine Broker-APIs.
+- Verändere keine Pfade unter ./data/, ./output/ in destructive Weise.
+- Schreibe PowerShell so, dass PS7 kompatibel ist (keine Bash-Heredocs).
+- Für Inline-Python in PS: Here-String an python.exe pipen (keine `python - <<'PY'`).
+- Resampling MUSS 'symbol','timestamp','close' in genau dieser Reihenfolge liefern.
+- Alle neuen Python-Scripts: type hints, docstrings, small functions, no globals.
+- Keine Netz-Calls in Backtests/Resample. Yahoo/AV nur in pull_* Skripten.
+- Logge knapp: [TAG] ...; nutze stdout, keine GUI.
+
+[guardrails.must_not]
+- Keine Live-Trading-Anbindung implementieren.
+- Keine heimlichen Abhängigkeiten (nur requirements.txt).
+- Kein state in Notebook-Style Scripten.
+
+[coding.python]
+style = "pep8"
+imports = ["pandas as pd","numpy as np","pathlib.Path as P"]
+strict_types = true
+tests.lightweight = true
+io.default_timezone = "UTC"
+
+[coding.powershell]
+version = "7+"
+heredoc_policy = "here-string + pipe to python -"
+examples = [
+  "@'`nprint(\"ok\")`n'@ | & \"$Repo/.venv/Scripts/python.exe\" -"
+]
+trap_errors = true
+
+[repo.structure.trust]
+# Cursor soll diese Dateien zuerst lesen, um Kontext zu verstehen:
+bootstrap = [
+  "scripts/run_all_sprint10.ps1",
+  "scripts/live/pull_intraday.ps1",
+  "scripts/sprint9_execute.py",
+  "scripts/sprint9_backtest.py",
+  "scripts/sprint10_portfolio.py",
+  "scripts/ps/ps_py_utils.ps1",
+  "requirements.txt",
+  "watchlist.txt"
+]
+
+[workflows.run-all]
+goal = "Tageslauf E2E (pull->resample->execute->backtest->portfolio)"
+acceptance = [
+  "output/aggregates/5min.parquet exists (cols: symbol,timestamp,close)",
+  "output/orders_5min.csv rows>=1",
+  "output/performance_report_5min.md contains 'Final PF:'",
+  "output/portfolio_report.md contains 'Final PF:'"
+]
+
+[workflows.resample_1m_to_5m]
+input = "data/raw/1min/*.parquet (must contain timestamp,symbol,close)"
+output = "output/aggregates/5min.parquet"
+rules = [
+  "timestamp: tz-aware UTC",
+  "groupby symbol -> resample('5min').last()",
+  "dropna; sort by ['timestamp','symbol']",
+  "validate schema == ['symbol','timestamp','close']"
+]
+
+[checklist.pr.before_commit]
+- Lint/format ok
+- 5min resample smoke-test ok
+- No heredoc anti-patterns in PS
+- No network calls in backtests
+
+[doc.behavior]
+- Erkläre Änderungen stets mit Short rationale + Testschritten.
+- Wenn unsicher: frage nach constraints, NICHT raten (aber hier: strikte Regeln anwenden).
+

@@ -1,0 +1,10 @@
+.venv/
+logs/
+output/**
+data/**        # außer wenige Beispiele
+!data/README.md
+**/*.parquet
+**/*.pkl
+**/*.png
+**/*.jpg
+**/.ipynb_checkpoints/
