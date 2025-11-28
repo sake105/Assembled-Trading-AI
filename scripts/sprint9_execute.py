@@ -1,4 +1,7 @@
 # scripts/sprint9_execute.py
+# LEGACY: Dieses Script gehört zur alten Sprint-Phase.
+# Für neue Entwicklungen bitte src/assembled_core/* und scripts/run_*.py verwenden.
+# Dieses Script wird noch von run_all_sprint10.ps1 verwendet, ist aber deprecated.
 from __future__ import annotations
 
 import argparse

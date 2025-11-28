@@ -465,6 +465,62 @@ mypy src/assembled_core/data src/assembled_core/features src/assembled_core/sign
 
 ---
 
+## Legacy & Sprints
+
+**Wichtig:** Klare Trennung zwischen neuem Backend-Core und altem Sprint-Code.
+
+### Neuer Backend-Core
+
+**Produktionscode:**
+- `src/assembled_core/` - Alle Kernlogik (Data, Features, Signals, Portfolio, Execution, QA, API)
+- `scripts/run_*.py` - Neue CLI-Scripts:
+  - `scripts/run_daily.py` - EOD-MVP Runner
+  - `scripts/run_eod_pipeline.py` - Vollständige EOD-Pipeline
+  - `scripts/run_api.py` - FastAPI-Server
+
+**Regel:** Neue Features **immer** in `src/assembled_core/` implementieren und über neue CLI-Scripts (`scripts/run_*.py`) anbinden.
+
+### Legacy-Code
+
+**Legacy-Ordner:**
+- `legacy/` - Alte, nicht mehr produktiv benötigte Skripte und Artefakte
+  - `legacy/scripts/` - Alte Sprint-Skripte (sprint8_*, sprint9_execution.py, sprint9_cost_grid.py, sprint9_plot.py)
+  - Alte ZIP-Dateien und Backup-Dateien (`.bak`)
+
+**Legacy-Scripts (noch in `scripts/`):**
+- `scripts/sprint9_execute.py` - **LEGACY**, wird noch von `run_all_sprint10.ps1` verwendet
+- `scripts/sprint9_backtest.py` - **LEGACY**, wird noch von `run_all_sprint10.ps1` verwendet
+- `scripts/sprint10_portfolio.py` - **LEGACY**, wird noch von `run_all_sprint10.ps1` verwendet
+- `scripts/run_all_sprint10.ps1` - **LEGACY**, nutzt alte Sprint-Scripts
+
+**Warnung:** Alle Legacy-Scripts sind mit einem `# LEGACY:` Kommentar markiert. Diese sollten nicht für neue Entwicklungen verwendet werden.
+
+### Migration
+
+**Von Legacy zu Core:**
+- Alte Sprint-Scripts (`sprint9_*`, `sprint10_*`) → Neue Core-Module (`src/assembled_core/pipeline/*`)
+- Alte CLI-Scripts → Neue CLI-Scripts (`scripts/run_*.py`)
+- Alte PowerShell-Wrapper → Neue Python-Scripts oder `run_eod_pipeline.py`
+
+**Beispiel:**
+- **Alt:** `python scripts/sprint9_execute.py --freq 5min`
+- **Neu:** `python scripts/run_eod_pipeline.py --freq 5min` (oder `run_daily.py` für EOD-MVP)
+
+### Best Practices
+
+**Für neue Entwicklungen:**
+1. Implementiere Logik in `src/assembled_core/`
+2. Erstelle CLI-Wrapper in `scripts/run_*.py` (falls nötig)
+3. Nutze bestehende Core-Module (`pipeline.*`, `data.*`, `features.*`, etc.)
+4. **NICHT:** Alte Sprint-Scripts erweitern oder modifizieren
+
+**Für Legacy-Code:**
+- Nur für Referenzzwecke behalten
+- Nicht für neue Features verwenden
+- Bei Bedarf schrittweise zu Core-Modulen migrieren
+
+---
+
 ## Weiterführende Dokumente
 
 - [BACKEND_MODULES.md](BACKEND_MODULES.md): Detaillierte Beschreibung der einzelnen Module.
