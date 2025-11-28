@@ -6,6 +6,33 @@ __pycache__/
 # Data & Outputs
 data/
 output/
+logs/
+
+# Archive & Legacy (nicht versionieren)
+archive/
+legacy/
+backup/
+
+# Binary Archives
+*.zip
+*.7z
+*.rar
+*.tar.gz
+*.tar.bz2
+
+# Log Files
+*.log
+*_run.log
+_screener_run.log
+
+# Temporary Files
+tmp_*.py
+*.tmp
+*.bak
+
+# Large Documents (optional - behalten wenn wichtig)
+# *.docx
+# *.xlsx
 
 # OS/Tools
 .DS_Store
