@@ -10,6 +10,7 @@ Zukünftige Integration:
 """
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 from src.assembled_core.features.ta_features import add_moving_averages
@@ -83,7 +84,7 @@ def generate_trend_signals(
     else:
         long_condition = df[ma_fast_col] > df[ma_slow_col]
     
-    df["direction"] = pd.where(long_condition, "LONG", "FLAT")
+    df["direction"] = np.where(long_condition, "LONG", "FLAT")
     
     # Compute signal score (0.0 to 1.0)
     # Score based on:
@@ -99,7 +100,7 @@ def generate_trend_signals(
         df["score"] = ma_score.fillna(0.0)
     
     # Only set score for LONG signals, FLAT = 0.0
-    df["score"] = pd.where(df["direction"] == "LONG", df["score"], 0.0)
+    df["score"] = np.where(df["direction"] == "LONG", df["score"], 0.0)
     
     # Select output columns
     result = df[["timestamp", "symbol", "direction", "score"]].copy()
