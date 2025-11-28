@@ -1,0 +1,125 @@
+# scripts/run_eod_pipeline.py
+"""EOD pipeline orchestration script."""
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+# Import core modules
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from src.assembled_core.config import OUTPUT_DIR, SUPPORTED_FREQS
+from src.assembled_core.costs import get_default_cost_model
+from src.assembled_core.pipeline.orchestrator import run_eod_pipeline
+
+
+def main() -> None:
+    """CLI entry point for EOD pipeline."""
+    # Get default cost model for help text
+    default_costs = get_default_cost_model()
+    
+    p = argparse.ArgumentParser(
+        description="EOD Pipeline Orchestration - Runs full pipeline (execute, backtest, portfolio, QA)"
+    )
+    p.add_argument(
+        "--freq",
+        choices=SUPPORTED_FREQS,
+        required=True,
+        help="Trading frequency"
+    )
+    p.add_argument(
+        "--start-capital",
+        type=float,
+        default=10000.0,
+        help="Starting capital (default: 10000.0)"
+    )
+    p.add_argument(
+        "--skip-backtest",
+        action="store_true",
+        help="Skip backtest step"
+    )
+    p.add_argument(
+        "--skip-portfolio",
+        action="store_true",
+        help="Skip portfolio step"
+    )
+    p.add_argument(
+        "--skip-qa",
+        action="store_true",
+        help="Skip QA step"
+    )
+    p.add_argument(
+        "--price-file",
+        type=str,
+        default=None,
+        help="Optional explicit path to price file"
+    )
+    p.add_argument(
+        "--commission-bps",
+        type=float,
+        default=None,
+        help=f"Commission in basis points (default: {default_costs.commission_bps} from cost model)"
+    )
+    p.add_argument(
+        "--spread-w",
+        type=float,
+        default=None,
+        help=f"Spread weight (default: {default_costs.spread_w} from cost model)"
+    )
+    p.add_argument(
+        "--impact-w",
+        type=float,
+        default=None,
+        help=f"Impact weight (default: {default_costs.impact_w} from cost model)"
+    )
+    p.add_argument(
+        "--out",
+        type=str,
+        default=str(OUTPUT_DIR),
+        help="Output directory (default: from config)"
+    )
+    
+    args = p.parse_args()
+    
+    print(f"[EOD] Starting EOD pipeline for {args.freq}")
+    print(f"[EOD] Start capital: {args.start_capital}")
+    print(f"[EOD] Output directory: {args.out}")
+    
+    try:
+        manifest = run_eod_pipeline(
+            freq=args.freq,
+            start_capital=args.start_capital,
+            skip_backtest=args.skip_backtest,
+            skip_portfolio=args.skip_portfolio,
+            skip_qa=args.skip_qa,
+            output_dir=Path(args.out),
+            price_file=args.price_file,
+            commission_bps=args.commission_bps,
+            spread_w=args.spread_w,
+            impact_w=args.impact_w
+        )
+        
+        print(f"[EOD] Pipeline completed")
+        print(f"[EOD] Completed steps: {', '.join(manifest['completed_steps'])}")
+        if manifest.get("qa_overall_status"):
+            print(f"[EOD] QA status: {manifest['qa_overall_status']}")
+        
+        if manifest.get("failure"):
+            print(f"[EOD] WARNING: Some steps failed")
+            sys.exit(1)
+        else:
+            print(f"[EOD] SUCCESS: All steps completed")
+            sys.exit(0)
+    
+    except Exception as e:
+        print(f"[EOD] FATAL ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
+
