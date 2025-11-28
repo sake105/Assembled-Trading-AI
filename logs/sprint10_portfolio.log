@@ -1,6 +1,0 @@
-[2025-10-05T14:02:44Z] [PF10] START Portfolio | freq=5min start_capital=10000.0 exp=1.0 lev=1.0
-[2025-10-05T14:02:44Z] [PF10] [OK] written: output/portfolio_trades.csv
-[2025-10-05T14:02:44Z] [PF10] [OK] written: output/portfolio_equity_5min.csv
-[2025-10-05T14:02:44Z] [PF10] [OK] written: output/portfolio_report.md
-[2025-10-05T14:02:44Z] [PF10] DONE Portfolio
-[2025-10-05T17:11:29Z] [PF10] START Portfolio | freq=5min start_capital=10000.0 exp=1.0 lev=1.0
