@@ -160,11 +160,79 @@ Dieses Dokument beschreibt die geplante Entwicklungs-Roadmap für das Backend vo
 
 ---
 
-## Phase 4: Production-Ready (Geplant)
+## Phase 4: Backtests & QA-Grundlagen
+
+**Ziel:** Robuste Backtest-Infrastruktur mit umfassender Qualitätssicherung.
+
+**Status:** ✅ Abgeschlossen
+
+### Übersicht
+
+Phase 4 implementiert eine integrierte QA- und Backtest-Infrastruktur, die es ermöglicht, Trading-Strategien systematisch zu testen, zu evaluieren und zu validieren. Die Module arbeiten zusammen, um:
+
+1. **Flexible Backtests** durchzuführen (Backtest-Engine)
+2. **Performance-Metriken** zu berechnen (QA-Metriken)
+3. **Qualitäts-Gates** zu evaluieren (QA-Gates)
+4. **Walk-Forward-Analysen** durchzuführen (Walk-Forward)
+5. **QA-Reports** zu generieren (QA-Reports)
+
+### Sprint 14: Backtest-Engine & QA-Metriken
+
+**Status:** ✅ Abgeschlossen
+
+**Aufgaben:**
+- [x] Portfolio-Level-Backtest-Engine (`qa.backtest_engine`)
+- [x] Zentrale Metriken-Berechnung (`qa.metrics`)
+- [x] PerformanceMetrics-Dataclass
+- [x] Integration in EOD-Pipeline
+
+**Ergebnisse:**
+- Flexible Backtest-Engine mit custom Signal- und Sizing-Funktionen
+- Umfassende Metriken-Berechnung (Returns, Risk-Adjusted, Risk, Trade Metrics)
+- Integration in `run_eod_pipeline.py` (Step 5b)
+
+---
+
+### Sprint 15: QA-Gates & Walk-Forward
+
+**Status:** ✅ Abgeschlossen
+
+**Aufgaben:**
+- [x] QA-Gates-System (`qa.qa_gates`)
+- [x] Walk-Forward-Analyse (`qa.walk_forward`)
+- [x] Integration in EOD-Pipeline (QA-Gates)
+- [x] Tests für alle QA-Module
+
+**Ergebnisse:**
+- Automatisierte Qualitäts-Gates (OK/WARNING/BLOCK)
+- Walk-Forward-Analyse mit IS/OOS-Metriken
+- Integration in `run_eod_pipeline.py` (Step 5c)
+- Umfassende Test-Suite (`tests/test_qa_*.py`)
+
+---
+
+### Sprint 16: QA-Reports
+
+**Status:** ✅ Abgeschlossen
+
+**Aufgaben:**
+- [x] QA-Report-Generierung (`reports.daily_qa_report`)
+- [x] Markdown-Report-Format
+- [x] Convenience-Funktion (`generate_qa_report_from_files`)
+- [x] Tests für Report-Generierung
+
+**Ergebnisse:**
+- Automatische QA-Report-Generierung
+- Markdown-Reports mit Metriken, QA-Gates, Equity-Curve-Link, Config-Info
+- Integration in EOD-Pipeline (optional)
+
+---
+
+## Phase 5: Production-Ready (Geplant)
 
 **Ziel:** Backend für Produktion vorbereiten.
 
-### Sprint 11: Performance & Skalierung (Geplant)
+### Sprint 17: Performance & Skalierung (Geplant)
 
 **Ziele:**
 - Performance-Optimierung
@@ -173,7 +241,7 @@ Dieses Dokument beschreibt die geplante Entwicklungs-Roadmap für das Backend vo
 
 ---
 
-### Sprint 12: Monitoring & Alerting (Geplant)
+### Sprint 18: Monitoring & Alerting (Geplant)
 
 **Ziele:**
 - Health-Check-Dashboard
@@ -182,7 +250,7 @@ Dieses Dokument beschreibt die geplante Entwicklungs-Roadmap für das Backend vo
 
 ---
 
-### Sprint 13: Testing & QA (Geplant)
+### Sprint 19: Testing & QA (Geplant)
 
 **Ziele:**
 - Umfassende Test-Suite

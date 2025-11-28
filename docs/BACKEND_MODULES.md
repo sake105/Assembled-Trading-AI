@@ -404,6 +404,218 @@ print(f"Trades: {result.metrics['trades']}")
 
 ---
 
+### `qa.metrics`
+
+**Zweck:** Zentrale Berechnung von Performance- und Risk-Metriken.
+
+**Dataclass:**
+- `PerformanceMetrics` - Umfassende Metriken-Dataclass mit Returns, Risk-Adjusted Returns, Risk Metrics, Trade Metrics, Metadata
+
+**Funktionen:**
+- `compute_all_metrics(equity, trades=None, start_capital=10000.0, freq="1d", risk_free_rate=0.0) -> PerformanceMetrics`
+- `compute_equity_metrics(equity, start_capital, freq, risk_free_rate) -> PerformanceMetrics`
+- `compute_trade_metrics(trades, equity, start_capital, freq) -> PerformanceMetrics`
+- `compute_sharpe_ratio(returns, freq, risk_free_rate=0.0) -> float | None`
+- `compute_sortino_ratio(returns, freq, risk_free_rate=0.0) -> float | None`
+- `compute_drawdown(equity) -> tuple[pd.Series, float, float]`
+- `compute_cagr(equity, start_capital, freq) -> float | None`
+- `compute_turnover(trades, equity, start_capital, freq) -> float | None`
+
+**Metriken:**
+- **Returns:** Final PF, Total Return, CAGR
+- **Risk-Adjusted:** Sharpe Ratio, Sortino Ratio, Calmar Ratio
+- **Risk:** Max Drawdown, Current Drawdown, Volatility, VaR (95%)
+- **Trade Metrics:** Hit Rate, Profit Factor, Avg Win/Loss, Turnover
+
+**Verwendung:**
+```python
+from src.assembled_core.qa.metrics import compute_all_metrics
+
+metrics = compute_all_metrics(
+    equity=equity_df,
+    trades=trades_df,  # Optional
+    start_capital=10000.0,
+    freq="1d",
+    risk_free_rate=0.0
+)
+
+print(f"Sharpe: {metrics.sharpe_ratio:.4f}")
+print(f"CAGR: {metrics.cagr:.2%}")
+print(f"MaxDD: {metrics.max_drawdown_pct:.2f}%")
+```
+
+**Abhängigkeiten:** `pandas`, `numpy`
+
+**Integration:**
+- Wird von `qa.backtest_engine` genutzt (via `pipeline.backtest.compute_metrics` als Fallback)
+- Wird von `qa.walk_forward` genutzt (pro Fenster IS/OOS-Metriken)
+- Wird von `qa.qa_gates` genutzt (als Input für Gate-Evaluierung)
+- Wird von `reports.daily_qa_report` genutzt (für Report-Generierung)
+
+---
+
+### `qa.qa_gates`
+
+**Zweck:** Qualitäts-Gates zur automatisierten Strategie-Evaluierung.
+
+**Enum:**
+- `QAResult` - `OK`, `WARNING`, `BLOCK`
+
+**Dataclasses:**
+- `QAGateResult` - `gate_name`, `result`, `reason`, `details`
+- `QAGatesSummary` - `overall_result`, `passed_gates`, `warning_gates`, `blocked_gates`, `gate_results`
+
+**Funktionen:**
+- `evaluate_all_gates(metrics, config=None) -> QAGatesSummary`
+- `check_sharpe_ratio(metrics, min_sharpe=1.0, warning_sharpe=0.5) -> QAGateResult`
+- `check_max_drawdown(metrics, max_dd_pct_limit=-20.0, warning_dd_pct=-15.0) -> QAGateResult`
+- `check_turnover(metrics, max_turnover=10.0, warning_turnover=5.0) -> QAGateResult`
+- `check_cagr(metrics, min_cagr=0.05, warning_cagr=0.0) -> QAGateResult`
+- `check_volatility(metrics, max_volatility=0.30, warning_volatility=0.25) -> QAGateResult`
+- `check_hit_rate(metrics, min_hit_rate=0.50, warning_hit_rate=0.40) -> QAGateResult`
+- `check_profit_factor(metrics, min_profit_factor=1.5, warning_profit_factor=1.2) -> QAGateResult`
+
+**Gate-Logik:**
+- **OK:** Metrik erfüllt Minimum-Schwellenwert
+- **WARNING:** Metrik zwischen Warning- und Minimum-Schwellenwert
+- **BLOCK:** Metrik unter Warning-Schwellenwert (oder kritischer Fehler)
+
+**Overall Status:**
+- **OK:** Alle Gates OK
+- **WARNING:** Mindestens ein Gate WARNING, keine BLOCK
+- **BLOCK:** Mindestens ein Gate BLOCK
+
+**Verwendung:**
+```python
+from src.assembled_core.qa.qa_gates import evaluate_all_gates
+from src.assembled_core.qa.metrics import compute_all_metrics
+
+metrics = compute_all_metrics(equity_df, trades_df, start_capital=10000.0, freq="1d")
+gate_result = evaluate_all_gates(metrics)
+
+print(f"Overall Status: {gate_result.overall_result.value}")
+print(f"Passed: {gate_result.passed_gates}, Warnings: {gate_result.warning_gates}, Blocked: {gate_result.blocked_gates}")
+```
+
+**Abhängigkeiten:** `qa.metrics`
+
+**Integration:**
+- Wird von `pipeline.orchestrator` genutzt (in `run_eod_pipeline`, Step 5c)
+- Wird von `reports.daily_qa_report` genutzt (für Report-Generierung)
+- Wird von `api.routers.qa` genutzt (für API-Endpoint `/api/v1/qa/status`)
+
+---
+
+### `qa.walk_forward`
+
+**Zweck:** Walk-Forward-Analyse für robuste Strategie-Validierung.
+
+**Dataclasses:**
+- `WalkForwardConfig` - `train_size`, `test_size`, `step_size`, `window_type`, `embargo_periods`, `purge_periods`, etc.
+- `WalkForwardWindow` - `train_start`, `train_end`, `test_start`, `test_end`, `train_data`, `test_data`, `window_index`
+- `WalkForwardWindowResult` - `window_index`, `train_start`, `train_end`, `test_start`, `test_end`, `is_metrics`, `oos_metrics`, `backtest_result`
+- `WalkForwardResult` - `config`, `windows`, `window_results`, `summary_metrics`
+
+**Funktionen:**
+- `run_walk_forward_backtest(prices, signal_fn, position_sizing_fn, config, ...) -> WalkForwardResult`
+- `_split_time_series(data, config, freq) -> list[WalkForwardWindow]`
+- `_aggregate_walk_forward_metrics(window_results) -> dict`
+
+**Workflow:**
+1. Split Zeitreihe in Train/Test-Fenster (rolling oder expanding)
+2. Pro Fenster:
+   - Backtest auf Test-Fenster (OOS - Out-of-Sample)
+   - OOS-Metriken berechnen (via `qa.metrics.compute_all_metrics`)
+   - Optional: Backtest auf Train-Fenster (IS - In-Sample)
+   - Optional: IS-Metriken berechnen
+3. Aggregation über alle Fenster (Mean, Std, Win Rate)
+
+**Summary Metrics:**
+- **IS (In-Sample):** `is_mean_final_pf`, `is_mean_sharpe`, `is_mean_cagr`
+- **OOS (Out-of-Sample):** `oos_mean_final_pf`, `oos_std_final_pf`, `oos_mean_sharpe`, `oos_std_sharpe`, `oos_mean_cagr`, `oos_std_cagr`, `oos_mean_max_drawdown_pct`, `oos_win_rate`
+- **Totals:** `total_periods`, `total_trades`, `num_windows`
+
+**Verwendung:**
+```python
+from src.assembled_core.qa.walk_forward import WalkForwardConfig, run_walk_forward_backtest
+from src.assembled_core.signals.rules_trend import generate_trend_signals_from_prices
+from src.assembled_core.portfolio.position_sizing import compute_target_positions
+
+config = WalkForwardConfig(
+    train_size=252,  # 1 Jahr
+    test_size=63,    # 1 Quartal
+    step_size=21,    # 1 Monat
+    window_type="rolling"
+)
+
+result = run_walk_forward_backtest(
+    prices=price_df,
+    signal_fn=generate_trend_signals_from_prices,
+    position_sizing_fn=compute_target_positions,
+    config=config,
+    start_capital=10000.0,
+    freq="1d"
+)
+
+print(f"OOS Mean Sharpe: {result.summary_metrics['oos_mean_sharpe']:.2f}")
+print(f"OOS Win Rate: {result.summary_metrics['oos_win_rate']:.1%}")
+```
+
+**Abhängigkeiten:**
+- `qa.backtest_engine` (für Backtest pro Fenster)
+- `qa.metrics` (für Metriken-Berechnung pro Fenster)
+
+**Vorteile:**
+- Robustheit: Vermeidet Overfitting durch Out-of-Sample-Testing
+- Datenleck-Vermeidung: Embargo & Purging zwischen Train/Test
+- Flexibel: Rolling & Expanding Windows
+- Detailliert: IS/OOS-Metriken pro Fenster + Aggregation
+
+---
+
+### `reports.daily_qa_report`
+
+**Zweck:** Generierung von QA-Reports in Markdown-Format.
+
+**Funktionen:**
+- `generate_qa_report(metrics, gate_result, strategy_name, freq, ...) -> Path`
+- `generate_qa_report_from_files(freq, strategy_name, equity_file=None, ...) -> Path`
+- `_build_report_content(...) -> str`
+
+**Report-Inhalt:**
+1. **Header:** Strategy-Name, Frequenz, Generierungszeit
+2. **Performance Metrics:** Returns, Risk-Adjusted Returns, Risk Metrics, Trade Metrics, Period Information
+3. **QA Gates:** Overall Status (mit Emoji), Gate Counts, Gate Details (Tabelle)
+4. **Equity Curve:** Link/Pfad zur Equity-Kurve CSV, Visualisierungs-Hinweis
+5. **Data Status:** Data Start/End Date, Range, Frequency
+6. **Configuration:** Optionale Config-Info (EMA-Params, Cost Model, etc.)
+
+**Output:**
+- Dateiname: `qa_report_{strategy}_{freq}_{date}.md`
+- Speicherort: `output/reports/`
+
+**Verwendung:**
+```python
+from src.assembled_core.reports.daily_qa_report import generate_qa_report_from_files
+
+report_path = generate_qa_report_from_files(
+    freq="1d",
+    strategy_name="ema_trend",
+    config_info={"ema_fast": 20, "ema_slow": 60, "commission_bps": 0.5}
+)
+# → output/reports/qa_report_ema_trend_1d_20250115.md
+```
+
+**Abhängigkeiten:**
+- `qa.metrics` (für Metriken-Berechnung, wenn `generate_qa_report_from_files` genutzt wird)
+- `qa.qa_gates` (für Gate-Evaluierung, wenn `generate_qa_report_from_files` genutzt wird)
+
+**Integration:**
+- Kann direkt mit `PerformanceMetrics` + `QAGatesSummary` genutzt werden
+- Oder via Convenience-Funktion `generate_qa_report_from_files` (lädt Equity/Trades, berechnet Metriken, evaluiert Gates, generiert Report)
+
+---
+
 ## Zukünftige Module (Skelett vorhanden)
 
 ### `data/`

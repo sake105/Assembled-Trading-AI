@@ -142,6 +142,68 @@ Nach jedem Lauf wird ein Run-Manifest als JSON geschrieben:
       }
     }
   ],
+  "qa_metrics": {
+    "final_pf": 1.15,
+    "total_return": 0.15,
+    "cagr": 0.08,
+    "sharpe_ratio": 1.2,
+    "sortino_ratio": 1.5,
+    "calmar_ratio": 0.4,
+    "max_drawdown": -12.0,
+    "max_drawdown_pct": -12.0,
+    "current_drawdown": -3.0,
+    "volatility": 0.18,
+    "var_95": -600.0,
+    "hit_rate": null,
+    "profit_factor": null,
+    "avg_win": null,
+    "avg_loss": null,
+    "turnover": null,
+    "total_trades": null,
+    "start_date": "2020-01-01T00:00:00+00:00",
+    "end_date": "2020-12-31T00:00:00+00:00",
+    "periods": 252,
+    "start_capital": 10000.0,
+    "end_equity": 11500.0
+  },
+  "qa_gate_result": {
+    "overall_result": "ok",
+    "passed_gates": 5,
+    "warning_gates": 2,
+    "blocked_gates": 0,
+    "gate_results": [
+      {
+        "gate_name": "sharpe_ratio",
+        "result": "ok",
+        "reason": "Sharpe ratio 1.2000 meets minimum threshold 1.00",
+        "details": {
+          "sharpe_ratio": 1.2,
+          "min_sharpe": 1.0,
+          "warning_sharpe": 0.5
+        }
+      },
+      {
+        "gate_name": "max_drawdown",
+        "result": "ok",
+        "reason": "Maximum drawdown -12.00% is within acceptable limits",
+        "details": {
+          "max_drawdown_pct": -12.0,
+          "max_dd_limit": -20.0,
+          "warning_dd": -15.0
+        }
+      },
+      {
+        "gate_name": "turnover",
+        "result": "warning",
+        "reason": "Turnover cannot be computed (no trades provided)",
+        "details": {
+          "turnover": null,
+          "max_turnover": 50.0,
+          "warning_turnover": 30.0
+        }
+      }
+    ]
+  },
   "timestamps": {
     "started": "2025-11-28T16:00:00Z",
     "finished": "2025-11-28T16:05:00Z"
@@ -154,8 +216,17 @@ Nach jedem Lauf wird ein Run-Manifest als JSON geschrieben:
 - `freq`: Trading-Frequenz
 - `start_capital`: Verwendetes Startkapital
 - `completed_steps`: Liste der erfolgreich abgeschlossenen Schritte
-- `qa_overall_status`: QA-Overall-Status ("ok", "warning", "error")
-- `qa_checks`: Liste der QA-Check-Ergebnisse
+- `qa_overall_status`: QA-Overall-Status ("ok", "warning", "error") - Health-Checks
+- `qa_checks`: Liste der QA-Check-Ergebnisse (Health-Checks)
+- `qa_metrics`: Performance-Metriken (optional, wenn Portfolio/Backtest verfügbar)
+  - `final_pf`, `total_return`, `cagr`, `sharpe_ratio`, `sortino_ratio`, `calmar_ratio`
+  - `max_drawdown`, `max_drawdown_pct`, `current_drawdown`, `volatility`, `var_95`
+  - `hit_rate`, `profit_factor`, `avg_win`, `avg_loss`, `turnover`, `total_trades`
+  - `start_date`, `end_date`, `periods`, `start_capital`, `end_equity`
+- `qa_gate_result`: QA-Gate-Ergebnis (optional, wenn Metriken verfügbar)
+  - `overall_result`: "ok", "warning", oder "block"
+  - `passed_gates`, `warning_gates`, `blocked_gates`: Anzahl Gates pro Status
+  - `gate_results`: Liste der einzelnen Gate-Ergebnisse (gate_name, result, reason, details)
 - `timestamps`: Start- und End-Zeitstempel (ISO 8601)
 - `failure`: Boolean, ob Fehler aufgetreten sind
 

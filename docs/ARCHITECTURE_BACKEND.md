@@ -255,6 +255,139 @@ result = run_portfolio_backtest(
 
 ---
 
+## Phase 4: Backtests & QA-Grundlagen
+
+**Ziel:** Robuste Backtest-Infrastruktur mit umfassender Qualitätssicherung.
+
+### Übersicht
+
+Die Phase 4-Module bilden eine integrierte QA- und Backtest-Infrastruktur, die es ermöglicht, Trading-Strategien systematisch zu testen, zu evaluieren und zu validieren. Die Module arbeiten zusammen, um:
+
+1. **Flexible Backtests** durchzuführen (Backtest-Engine)
+2. **Performance-Metriken** zu berechnen (QA-Metriken)
+3. **Qualitäts-Gates** zu evaluieren (QA-Gates)
+4. **Walk-Forward-Analysen** durchzuführen (Walk-Forward)
+5. **QA-Reports** zu generieren (QA-Reports)
+
+### Datenfluss: Backtest & QA-Pipeline
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              Backtest Engine (qa.backtest_engine)           │
+│                                                              │
+│  1. Feature-Computation (optional)                          │
+│  2. Signal-Generierung (via signal_fn)                       │
+│  3. Position-Sizing (via position_sizing_fn)                │
+│  4. Order-Generierung                                       │
+│  5. Equity-Simulation (mit/ohne Kosten)                      │
+│                                                              │
+│  → BacktestResult (equity, metrics, trades, ...)            │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│              QA Metrics (qa.metrics)                        │
+│                                                              │
+│  compute_all_metrics(equity, trades, ...)                   │
+│                                                              │
+│  → PerformanceMetrics:                                      │
+│    - Returns (PF, CAGR, Total Return)                       │
+│    - Risk-Adjusted (Sharpe, Sortino, Calmar)                │
+│    - Risk (MaxDD, Volatility, VaR)                          │
+│    - Trade Metrics (Hit Rate, Profit Factor, Turnover)      │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│              QA Gates (qa.qa_gates)                        │
+│                                                              │
+│  evaluate_all_gates(metrics)                                 │
+│                                                              │
+│  → QAGatesSummary:                                          │
+│    - Overall Status (OK/WARNING/BLOCK)                      │
+│    - Individual Gate Results (Sharpe, MaxDD, Turnover, ...) │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│         Walk-Forward Analysis (qa.walk_forward)             │
+│                                                              │
+│  run_walk_forward_backtest(prices, signal_fn, ...)          │
+│                                                              │
+│  1. Split in Train/Test Windows                              │
+│  2. Run Backtest per Window (IS/OOS)                        │
+│  3. Compute Metrics per Window                              │
+│  4. Aggregate Results                                       │
+│                                                              │
+│  → WalkForwardResult (window_results, summary_metrics)       │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│         QA Report (reports.daily_qa_report)                 │
+│                                                              │
+│  generate_qa_report(metrics, gate_result, ...)              │
+│                                                              │
+│  → Markdown-Report:                                          │
+│    - Performance Metrics                                    │
+│    - QA Gates Status                                        │
+│    - Equity Curve Link                                      │
+│    - Data Status & Config                                   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Module-Integration
+
+**1. Backtest-Engine → QA-Metriken:**
+- `BacktestResult.equity` → `compute_all_metrics()` → `PerformanceMetrics`
+- `BacktestResult.trades` (optional) → Trade-Metriken (Hit Rate, Profit Factor, Turnover)
+
+**2. QA-Metriken → QA-Gates:**
+- `PerformanceMetrics` → `evaluate_all_gates()` → `QAGatesSummary`
+- Automatische Evaluierung gegen Schwellenwerte (Sharpe, MaxDD, Turnover, etc.)
+
+**3. Walk-Forward → QA-Metriken:**
+- Pro Fenster: `run_portfolio_backtest()` → `BacktestResult` → `compute_all_metrics()` → IS/OOS-Metriken
+- Aggregation über alle Fenster für robuste Strategie-Validierung
+
+**4. QA-Metriken + QA-Gates → QA-Report:**
+- `PerformanceMetrics` + `QAGatesSummary` → `generate_qa_report()` → Markdown-Report
+- Convenience: `generate_qa_report_from_files()` lädt Equity/Trades, berechnet Metriken, evaluiert Gates, generiert Report
+
+### Verwendung im EOD-Pipeline
+
+Die QA-Module sind in `run_eod_pipeline.py` integriert:
+
+```python
+# 5a. Portfolio Simulation (mit Kosten)
+equity, metrics = run_portfolio_step(...)
+
+# 5b. Performance Metrics (via qa.metrics)
+from src.assembled_core.qa.metrics import compute_all_metrics
+qa_metrics = compute_all_metrics(equity, trades, start_capital, freq)
+
+# 5c. QA Gates (via qa.qa_gates)
+from src.assembled_core.qa.qa_gates import evaluate_all_gates
+qa_gate_result = evaluate_all_gates(qa_metrics)
+
+# Run Manifest enthält qa_metrics und qa_gate_result
+manifest = {
+    ...
+    "qa_metrics": {...},  # Serialisierte PerformanceMetrics
+    "qa_gate_result": {...}  # Serialisierte QAGatesSummary
+}
+```
+
+### Vorteile
+
+- **Modularität:** Jedes Modul hat eine klare Verantwortlichkeit
+- **Wiederverwendbarkeit:** Module können unabhängig genutzt werden
+- **Testbarkeit:** Synthetische Daten für alle Module testbar
+- **Erweiterbarkeit:** Neue Metriken/Gates einfach hinzufügbar
+- **Integration:** Nahtlose Integration in EOD-Pipeline und Walk-Forward-Analysen
+
+---
+
 ## EOD Pipeline Orchestration
 
 **Scripts:**

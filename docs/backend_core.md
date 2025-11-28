@@ -324,6 +324,114 @@ portfolio: ok - Portfolio file OK: 50 rows, equity range [10000.00, 10050.00]
 >>> result = aggregate_qa_status("1d", output_dir=Path("/custom/path"))
 ```
 
+---
+
+### `src/assembled_core/qa/metrics.py`
+
+**Zweck:** Performance-Metriken-Berechnung aus Equity-Kurven und Trades.
+
+**Dataclass:**
+- `PerformanceMetrics` - 17 Metriken (Performance, Risk-Adjusted, Risk, Trade-basiert, Metadata)
+
+**Funktionen:**
+- `compute_all_metrics(equity, trades=None, start_capital=10000.0, freq="1d", risk_free_rate=0.0) -> PerformanceMetrics`
+- `compute_equity_metrics(equity, start_capital=10000.0, freq="1d", risk_free_rate=0.0) -> PerformanceMetrics`
+- Helper: `compute_sharpe_ratio()`, `compute_sortino_ratio()`, `compute_drawdown()`, `compute_cagr()`, `compute_turnover()`
+
+**Verwendung:**
+```python
+from src.assembled_core.qa.metrics import compute_all_metrics
+
+metrics = compute_all_metrics(equity_df, trades_df, start_capital=10000.0, freq="1d")
+# Returns: PerformanceMetrics with all computed metrics
+```
+
+**Abhängigkeiten:** `pandas`, `numpy`
+
+---
+
+### `src/assembled_core/qa/qa_gates.py`
+
+**Zweck:** QA-Gates für strukturierte Performance-Bewertung.
+
+**Enums/Dataclasses:**
+- `QAResult` - Enum: OK, WARNING, BLOCK
+- `QAGateResult` - `gate_name`, `result`, `reason`, `details`
+- `QAGatesSummary` - `overall_result`, `passed_gates`, `warning_gates`, `blocked_gates`, `gate_results`
+
+**Gate-Funktionen:**
+- `check_sharpe_ratio()` - Sharpe-OOS > Schwellwert (min: 1.0, warning: 0.5)
+- `check_max_drawdown()` - MaxDD < Limit (max: -20%, warning: -15%)
+- `check_turnover()` - Turnover < Schwelle (max: 50x, warning: 30x)
+- `check_cagr()` - CAGR > Minimum (min: 5%, warning: 0%)
+- `check_volatility()` - Volatility < Maximum (max: 30%, warning: 25%)
+- `check_hit_rate()` - Hit Rate > Minimum (min: 50%, warning: 40%)
+- `check_profit_factor()` - Profit Factor > Minimum (min: 1.5, warning: 1.2)
+
+**Hauptfunktion:**
+- `evaluate_all_gates(metrics, gate_config=None) -> QAGatesSummary`
+
+**Verwendung:**
+```python
+from src.assembled_core.qa.qa_gates import evaluate_all_gates
+from src.assembled_core.qa.metrics import compute_all_metrics
+
+metrics = compute_all_metrics(equity_df, trades_df, start_capital=10000.0, freq="1d")
+gate_result = evaluate_all_gates(metrics)
+
+if gate_result.overall_result == QAResult.BLOCK:
+    print("BLOCKED: Strategy does not meet quality gates")
+    for gate in gate_result.gate_results:
+        if gate.result == QAResult.BLOCK:
+            print(f"  - {gate.gate_name}: {gate.reason}")
+```
+
+**Abhängigkeiten:** `qa.metrics`
+
+**QA-Gate-Mechanismus:**
+
+Die QA-Gates bewerten Performance-Metriken anhand konfigurierbarer Schwellwerte:
+
+1. **Drei-Stufen-System:**
+   - **OK**: Gate passiert, keine Probleme
+   - **WARNING**: Gate passiert, aber mit Bedenken (z. B. Sharpe < 1.0 aber > 0.5)
+   - **BLOCK**: Gate blockiert (z. B. Sharpe < 0.5, MaxDD < -20%)
+
+2. **Gate-Evaluierung:**
+   - Jeder Gate prüft eine spezifische Metrik gegen zwei Schwellwerte (min/max und warning)
+   - `evaluate_all_gates()` führt alle 7 Gates aus und aggregiert das Ergebnis
+   - Overall-Result ist das schlechteste Ergebnis (BLOCK > WARNING > OK)
+
+3. **Integration in Pipeline:**
+   - Nach Portfolio-Step werden Performance-Metriken berechnet
+   - QA-Gates werden automatisch evaluiert
+   - Ergebnisse werden im Run-Manifest gespeichert (`qa_metrics`, `qa_gate_result`)
+
+4. **Konfigurierbare Schwellwerte:**
+   - Default-Schwellwerte sind in den Gate-Funktionen definiert
+   - Custom-Schwellwerte können via `gate_config` übergeben werden
+   - Beispiel: Strenge Schwellwerte für Produktions-Strategien
+
+**Beispiel-Gate-Ergebnis:**
+```python
+{
+  "overall_result": "warning",
+  "passed_gates": 4,
+  "warning_gates": 3,
+  "blocked_gates": 0,
+  "gate_results": [
+    {
+      "gate_name": "sharpe_ratio",
+      "result": "warning",
+      "reason": "Sharpe ratio 0.6000 is below minimum threshold 1.00",
+      "details": {"sharpe_ratio": 0.6, "min_sharpe": 1.0, "warning_sharpe": 0.5}
+    }
+  ]
+}
+```
+
+---
+
 ### Integration in Pipeline
 
 Die QA-Checks können nach jedem Pipeline-Schritt ausgeführt werden:

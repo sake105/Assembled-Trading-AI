@@ -20,9 +20,82 @@ from src.assembled_core.pipeline.orders import signals_to_orders, write_orders
 from src.assembled_core.pipeline.portfolio import simulate_with_costs, write_portfolio_report
 from src.assembled_core.pipeline.signals import compute_ema_signals
 from src.assembled_core.qa.health import aggregate_qa_status
+from src.assembled_core.qa.metrics import compute_all_metrics
+from src.assembled_core.qa.qa_gates import QAResult, evaluate_all_gates
 
 # Get logger (will use default logging if not configured)
 logger = get_logger("assembled_core.pipeline")
+
+
+def _metrics_to_dict(metrics) -> dict[str, Any] | None:
+    """Convert PerformanceMetrics to dictionary for JSON serialization.
+    
+    Args:
+        metrics: PerformanceMetrics instance or None
+    
+    Returns:
+        Dictionary representation or None
+    """
+    if metrics is None:
+        return None
+    
+    return {
+        "final_pf": metrics.final_pf,
+        "total_return": metrics.total_return,
+        "cagr": metrics.cagr,
+        "sharpe_ratio": metrics.sharpe_ratio,
+        "sortino_ratio": metrics.sortino_ratio,
+        "calmar_ratio": metrics.calmar_ratio,
+        "max_drawdown": metrics.max_drawdown,
+        "max_drawdown_pct": metrics.max_drawdown_pct,
+        "current_drawdown": metrics.current_drawdown,
+        "volatility": metrics.volatility,
+        "var_95": metrics.var_95,
+        "hit_rate": metrics.hit_rate,
+        "profit_factor": metrics.profit_factor,
+        "avg_win": metrics.avg_win,
+        "avg_loss": metrics.avg_loss,
+        "turnover": metrics.turnover,
+        "total_trades": metrics.total_trades,
+        "start_date": metrics.start_date.isoformat() if metrics.start_date else None,
+        "end_date": metrics.end_date.isoformat() if metrics.end_date else None,
+        "periods": metrics.periods,
+        "start_capital": metrics.start_capital,
+        "end_equity": metrics.end_equity
+    }
+
+
+def _gate_result_to_dict(gate_result) -> dict[str, Any] | None:
+    """Convert QAGatesSummary to dictionary for JSON serialization.
+    
+    Args:
+        gate_result: QAGatesSummary instance or None
+    
+    Returns:
+        Dictionary representation or None
+    """
+    if gate_result is None:
+        return None
+    
+    passed = sum(1 for r in gate_result.gate_results if r.result.value == "ok")
+    warnings = sum(1 for r in gate_result.gate_results if r.result.value == "warning")
+    blocked = sum(1 for r in gate_result.gate_results if r.result.value == "block")
+    
+    return {
+        "overall_result": gate_result.overall_result.value,
+        "passed_gates": passed,
+        "warning_gates": warnings,
+        "blocked_gates": blocked,
+        "gate_results": [
+            {
+                "gate_name": r.gate_name,
+                "result": r.result.value,
+                "reason": r.reason,
+                "details": r.details
+            }
+            for r in gate_result.gate_results
+        ]
+    }
 
 
 def run_execute_step(
@@ -252,17 +325,80 @@ def run_eod_pipeline(
     
     # Step 5: QA
     qa_result = None
+    qa_metrics = None
+    qa_gate_result = None
     if not skip_qa:
         try:
             logger.info("Step 5: QA")
+            
+            # 5a: Health checks (existing)
             qa_result = aggregate_qa_status(freq, output_dir=base)
             qa_status = qa_result.get("overall_status", "unknown")
-            logger.info(f"QA completed: overall_status={qa_status}")
+            logger.info(f"QA health checks completed: overall_status={qa_status}")
             
             if qa_status == "error":
                 logger.error("QA overall_status is 'error' - some checks failed")
             elif qa_status == "warning":
                 logger.warning("QA overall_status is 'warning' - some checks have warnings")
+            
+            # 5b: Performance metrics (new)
+            try:
+                logger.info("Step 5b: Computing performance metrics")
+                # Load portfolio equity (preferred) or backtest equity
+                portfolio_equity_file = base / f"portfolio_equity_{freq}.csv"
+                backtest_equity_file = base / f"equity_curve_{freq}.csv"
+                
+                if portfolio_equity_file.exists():
+                    equity_df = pd.read_csv(portfolio_equity_file)
+                    equity_df["timestamp"] = pd.to_datetime(equity_df["timestamp"], utc=True)
+                    logger.info(f"Using portfolio equity: {len(equity_df)} rows")
+                elif backtest_equity_file.exists():
+                    equity_df = pd.read_csv(backtest_equity_file)
+                    equity_df["timestamp"] = pd.to_datetime(equity_df["timestamp"], utc=True)
+                    logger.info(f"Using backtest equity: {len(equity_df)} rows")
+                else:
+                    logger.warning("No equity file found for metrics computation")
+                    equity_df = None
+                
+                # Load trades if available
+                orders_df = None
+                try:
+                    orders_df = load_orders(freq, output_dir=base, strict=False)
+                    if orders_df.empty:
+                        orders_df = None
+                except Exception:
+                    pass  # Orders optional for metrics
+                
+                if equity_df is not None and not equity_df.empty:
+                    qa_metrics = compute_all_metrics(
+                        equity=equity_df,
+                        trades=orders_df,
+                        start_capital=start_capital,
+                        freq=freq,
+                        risk_free_rate=0.0
+                    )
+                    logger.info(f"Performance metrics computed: PF={qa_metrics.final_pf:.4f}, Sharpe={qa_metrics.sharpe_ratio}, CAGR={qa_metrics.cagr}")
+                    
+                    # 5c: QA gates (new)
+                    logger.info("Step 5c: Evaluating QA gates")
+                    qa_gate_result = evaluate_all_gates(qa_metrics)
+                    gate_status = qa_gate_result.overall_result.value
+                    passed = sum(1 for r in qa_gate_result.gate_results if r.result.value == "ok")
+                    warnings = sum(1 for r in qa_gate_result.gate_results if r.result.value == "warning")
+                    blocked = sum(1 for r in qa_gate_result.gate_results if r.result.value == "block")
+                    logger.info(f"QA gates completed: overall_result={gate_status} (passed={passed}, warnings={warnings}, blocked={blocked})")
+                    
+                    if qa_gate_result.overall_result == QAResult.BLOCK:
+                        logger.error("QA gates BLOCKED - strategy does not meet quality thresholds")
+                        # Don't set failure_flag here - gates are informational, not blocking
+                    elif qa_gate_result.overall_result == QAResult.WARNING:
+                        logger.warning("QA gates WARNING - some quality thresholds not met")
+                else:
+                    logger.warning("Cannot compute QA metrics: no equity data available")
+                    
+            except Exception as e:
+                logger.warning(f"QA metrics/gates computation failed: {e}", exc_info=True)
+                # Don't fail the pipeline if metrics/gates fail - they're optional
             
             completed_steps.append("qa")
         except Exception as e:
@@ -280,6 +416,8 @@ def run_eod_pipeline(
         "completed_steps": completed_steps,
         "qa_overall_status": qa_result["overall_status"] if qa_result else None,
         "qa_checks": qa_result["checks"] if qa_result else [],
+        "qa_metrics": _metrics_to_dict(qa_metrics) if qa_metrics else None,
+        "qa_gate_result": _gate_result_to_dict(qa_gate_result) if qa_gate_result else None,
         "timestamps": {
             "started": started_at.isoformat(),
             "finished": finished_at.isoformat()
