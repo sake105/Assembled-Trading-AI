@@ -42,6 +42,11 @@ Das Backend von Assembled Trading AI ist eine **file-based Trading-Pipeline** mi
 │  │  (Costs)     │  │  Health      │  │  Generation  │       │
 │  └──────────────┘  └──────────────┘  └──────────────┘       │
 │                                                              │
+│  ┌──────────────┐                                           │
+│  │  Backtest    │  Portfolio-Level-Backtest-Engine         │
+│  │  Engine      │  (Flexible Strategy Testing)               │
+│  └──────────────┘                                           │
+│                                                              │
 │  → output/orders_{freq}.csv                                  │
 │  → output/equity_curve_{freq}.csv                           │
 │  → output/portfolio_equity_{freq}.csv                       │
@@ -191,6 +196,63 @@ Das Backend von Assembled Trading AI ist eine **file-based Trading-Pipeline** mi
 
 **Output:** JSON-Status mit `overall_status` (ok/warning/error)
 
+### 8. Portfolio-Level Backtest Engine
+
+**Module:** `src/assembled_core/qa/backtest_engine.py`
+
+**Funktion:** `run_portfolio_backtest(prices, signal_fn, position_sizing_fn, ...)`
+
+**Zweck:** Generische Portfolio-Level-Backtest-Engine, die den kompletten Backtest-Workflow orchestriert:
+1. Feature-Computation (optional)
+2. Signal-Generierung (via custom signal_fn)
+3. Position-Sizing (via custom position_sizing_fn)
+4. Order-Generierung
+5. Equity-Simulation (mit/ohne Kosten)
+6. Performance-Metriken
+
+**Eingaben:**
+- `prices`: DataFrame (OHLCV, timestamp, symbol, close, ...)
+- `signal_fn`: Callable (Preise → Signale)
+- `position_sizing_fn`: Callable (Signale + Kapital → Zielpositionen)
+- `start_capital`: Startkapital
+- Kosten-Parameter: `commission_bps`, `spread_w`, `impact_w` oder `cost_model`
+- Flags: `include_costs`, `include_trades`, `include_signals`, `include_targets`
+
+**Ausgaben:**
+- `BacktestResult` mit:
+  - `equity`: DataFrame (date, timestamp, equity, daily_return)
+  - `metrics`: dict (final_pf, sharpe, trades, ...)
+  - `trades`: Optional DataFrame (alle Trades)
+  - `signals`: Optional DataFrame (alle Signale)
+  - `target_positions`: Optional DataFrame (Zielpositionen)
+
+**Integration:**
+- Nutzt bestehende Module: `features.ta_features`, `execution.order_generation`, `pipeline.backtest`, `pipeline.portfolio`
+- Kann von `run_eod_pipeline.py` und `run_daily.py` genutzt werden für flexible Backtest-Szenarien
+- Unterstützt custom Signal- und Position-Sizing-Funktionen für Strategie-Experimente
+
+**Verwendung:**
+```python
+from src.assembled_core.qa.backtest_engine import run_portfolio_backtest
+from src.assembled_core.signals.rules_trend import generate_trend_signals_from_prices
+from src.assembled_core.portfolio.position_sizing import compute_target_positions
+
+def signal_fn(prices_df):
+    return generate_trend_signals_from_prices(prices_df, ma_fast=20, ma_slow=50)
+
+def sizing_fn(signals_df, capital):
+    return compute_target_positions(signals_df, total_capital=capital, equal_weight=True)
+
+result = run_portfolio_backtest(
+    prices=prices,
+    signal_fn=signal_fn,
+    position_sizing_fn=sizing_fn,
+    start_capital=10000.0,
+    include_costs=True,
+    include_trades=True
+)
+```
+
 ---
 
 ## EOD Pipeline Orchestration
@@ -254,7 +316,7 @@ Siehe auch: [Backend API Dokumentation](backend_api.md)
 **Hauptmodule:**
 - `pipeline/` - Core Trading-Pipeline (I/O, Signale, Orders, Backtest, Portfolio)
 - `api/` - FastAPI Backend (App, Models, Routers)
-- `qa/` - QA/Health-Checks
+- `qa/` - QA/Health-Checks und Backtest-Engine
 - `config.py` - Zentrale Konfiguration (OUTPUT_DIR, SUPPORTED_FREQS)
 - `costs.py` - Cost-Model-Konfiguration
 - `ema_config.py` - EMA-Parameter-Konfiguration

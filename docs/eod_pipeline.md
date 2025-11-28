@@ -200,6 +200,186 @@ Diese Funktionen können auch programmatisch verwendet werden (z.B. in Tests ode
 
 ---
 
+## Portfolio-Level Backtest Engine
+
+### Übersicht
+
+Die Backtest-Engine (`src/assembled_core/qa/backtest_engine.py`) bietet eine generische, flexible Backtest-Infrastruktur für Portfolio-Level-Strategien.
+
+**Zweck:**
+- Orchestriert den kompletten Backtest-Workflow (Features → Signale → Position-Sizing → Orders → Equity)
+- Unterstützt custom Signal- und Position-Sizing-Funktionen
+- Ermöglicht Strategie-Experimente ohne Code-Änderungen
+
+**Integration mit EOD-Pipeline:**
+
+**1. Integration in `run_eod_pipeline.py`:**
+- Die Backtest-Engine kann als Alternative zu `run_backtest_step()` verwendet werden
+- Ermöglicht flexiblere Backtest-Szenarien mit custom Signal-Funktionen
+- Beispiel: Strategie-Vergleich mit verschiedenen Signal-Parametern
+
+**2. Integration in `run_daily.py`:**
+- Optional: Nach Order-Generierung einen schnellen Backtest durchführen
+- Validierung der erwarteten Performance vor manueller Prüfung
+- Beispiel: "Wie würde diese Order-Liste performen?"
+
+### Verwendung
+
+**Basis-Beispiel:**
+```python
+from src.assembled_core.qa.backtest_engine import run_portfolio_backtest
+from src.assembled_core.data.prices_ingest import load_eod_prices
+from src.assembled_core.signals.rules_trend import generate_trend_signals_from_prices
+from src.assembled_core.portfolio.position_sizing import compute_target_positions
+
+# Preise laden
+prices = load_eod_prices(freq="1d")
+
+# Signal-Funktion definieren
+def signal_fn(prices_df):
+    return generate_trend_signals_from_prices(prices_df, ma_fast=20, ma_slow=50)
+
+# Position-Sizing-Funktion definieren
+def sizing_fn(signals_df, capital):
+    return compute_target_positions(signals_df, total_capital=capital, equal_weight=True)
+
+# Backtest ausführen
+result = run_portfolio_backtest(
+    prices=prices,
+    signal_fn=signal_fn,
+    position_sizing_fn=sizing_fn,
+    start_capital=10000.0,
+    include_costs=True,
+    include_trades=True
+)
+
+# Ergebnisse auswerten
+print(f"Final PF: {result.metrics['final_pf']:.4f}")
+print(f"Sharpe: {result.metrics['sharpe']:.4f}")
+print(f"Trades: {result.metrics['trades']}")
+```
+
+**Mit custom Features:**
+```python
+result = run_portfolio_backtest(
+    prices=prices,
+    signal_fn=signal_fn,
+    position_sizing_fn=sizing_fn,
+    start_capital=10000.0,
+    compute_features=True,
+    feature_config={
+        "ma_windows": (10, 30, 100),
+        "atr_window": 20,
+        "rsi_window": 14,
+        "include_rsi": True
+    }
+)
+```
+
+**Ohne Kosten (kostenfreie Simulation):**
+```python
+result = run_portfolio_backtest(
+    prices=prices,
+    signal_fn=signal_fn,
+    position_sizing_fn=sizing_fn,
+    start_capital=10000.0,
+    include_costs=False  # Nutzt pipeline.backtest.simulate_equity
+)
+```
+
+### Eingaben
+
+**Erforderlich:**
+- `prices`: DataFrame mit OHLCV-Daten (timestamp, symbol, close, ...)
+- `signal_fn`: Callable, das Preise in Signale umwandelt
+- `position_sizing_fn`: Callable, das Signale + Kapital in Zielpositionen umwandelt
+
+**Optional:**
+- `start_capital`: Startkapital (default: 10000.0)
+- `commission_bps`, `spread_w`, `impact_w`: Kosten-Parameter
+- `cost_model`: CostModel-Instanz (alternativ zu einzelnen Parametern)
+- `include_costs`: Ob Kosten berücksichtigt werden sollen (default: True)
+- `include_trades`: Ob Trade-Liste im Result enthalten sein soll (default: False)
+- `include_signals`: Ob Signal-Liste im Result enthalten sein soll (default: False)
+- `include_targets`: Ob Zielpositionen im Result enthalten sein sollen (default: False)
+- `compute_features`: Ob TA-Features berechnet werden sollen (default: True)
+- `feature_config`: Konfiguration für Feature-Computation
+
+### Ausgaben
+
+**BacktestResult:**
+- `equity`: DataFrame mit Spalten: `date`, `timestamp`, `equity`, `daily_return`
+  - `date`: Date-Objekt (date)
+  - `timestamp`: pd.Timestamp (UTC)
+  - `equity`: Portfolio-Equity-Wert
+  - `daily_return`: Tägliche Rendite (pct_change)
+- `metrics`: Dictionary mit Performance-Metriken
+  - `final_pf`: Final Performance Factor (equity[-1] / equity[0])
+  - `sharpe`: Sharpe Ratio
+  - `trades`: Anzahl Trades
+- `trades`: Optional DataFrame (timestamp, symbol, side, qty, price)
+- `signals`: Optional DataFrame (timestamp, symbol, direction, score)
+- `target_positions`: Optional DataFrame (symbol, target_weight, target_qty)
+
+### Vorteile
+
+**Flexibilität:**
+- Custom Signal- und Sizing-Funktionen ermöglichen schnelle Strategie-Experimente
+- Keine Code-Änderungen nötig für neue Strategien
+
+**Komposabilität:**
+- Nutzt bestehende Module (keine Duplikation)
+- Kann mit jedem Signal- oder Sizing-Algorithmus kombiniert werden
+
+**Vollständigkeit:**
+- Equity-Kurve mit täglichen Returns
+- Performance-Metriken
+- Optionale Details (Trades, Signale, Zielpositionen)
+
+**Testbarkeit:**
+- Kann mit synthetischen Daten getestet werden
+- Offline-first (keine Netzwerkzugriffe)
+
+### Integration in Pipeline-Scripts
+
+**Zukünftige Erweiterung von `run_eod_pipeline.py`:**
+```python
+# Optional: Backtest-Engine für flexible Strategie-Tests
+from src.assembled_core.qa.backtest_engine import run_portfolio_backtest
+
+# Custom Signal-Funktion
+def custom_signal_fn(prices_df):
+    # Eigene Signal-Logik
+    return signals
+
+# Backtest mit custom Strategie
+result = run_portfolio_backtest(
+    prices=prices,
+    signal_fn=custom_signal_fn,
+    position_sizing_fn=sizing_fn,
+    start_capital=10000.0
+)
+```
+
+**Zukünftige Erweiterung von `run_daily.py`:**
+```python
+# Optional: Schneller Backtest nach Order-Generierung
+result = run_portfolio_backtest(
+    prices=filtered_prices,
+    signal_fn=signal_fn,
+    position_sizing_fn=sizing_fn,
+    start_capital=10000.0,
+    include_costs=True,
+    include_trades=True
+)
+
+# Logge erwartete Performance
+logger.info(f"Expected PF: {result.metrics['final_pf']:.4f}")
+logger.info(f"Expected Sharpe: {result.metrics['sharpe']:.4f}")
+```
+
+---
+
 ## Fehlerbehandlung
 
 - **Preis-Daten fehlen:** Fehler wird geloggt, `failure_flag` gesetzt, Pipeline fährt fort
@@ -268,6 +448,10 @@ Das EOD-MVP-Skript (`scripts/run_daily.py`) ist ein fokussierter Runner für tä
 **Unterschied zu `run_eod_pipeline.py`:**
 - `run_eod_pipeline.py`: Vollständige Pipeline mit Backtest, Portfolio-Simulation, QA
 - `run_daily.py`: Fokussiertes EOD-MVP, das nur SAFE-Orders generiert (ohne Backtest/Portfolio-Equity)
+
+**Zukünftige Integration mit Backtest-Engine:**
+- Die Backtest-Engine (`qa.backtest_engine`) kann optional in `run_daily.py` integriert werden, um nach der Order-Generierung einen schnellen Backtest durchzuführen
+- Dies würde es ermöglichen, die erwartete Performance der generierten Orders zu validieren, bevor sie manuell geprüft werden
 
 ### Verwendung
 

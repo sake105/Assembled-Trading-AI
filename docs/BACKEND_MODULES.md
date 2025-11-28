@@ -324,6 +324,86 @@ qa_result = aggregate_qa_status("1d")
 
 ---
 
+### `qa.backtest_engine`
+
+**Zweck:** Portfolio-Level-Backtest-Engine für flexible Strategie-Tests.
+
+**Dataclass:**
+- `BacktestResult` - `equity`, `metrics`, `trades`, `signals`, `target_positions`
+
+**Funktionen:**
+- `run_portfolio_backtest(prices, signal_fn, position_sizing_fn, start_capital=10000.0, ...) -> BacktestResult`
+
+**Eingaben:**
+- `prices`: DataFrame mit OHLCV-Daten (timestamp, symbol, close, ...)
+- `signal_fn`: Callable[[pd.DataFrame], pd.DataFrame] - Custom Signal-Funktion
+- `position_sizing_fn`: Callable[[pd.DataFrame, float], pd.DataFrame] - Custom Position-Sizing-Funktion
+- `start_capital`: Startkapital (default: 10000.0)
+- Kosten: `commission_bps`, `spread_w`, `impact_w` oder `cost_model: CostModel`
+- Flags: `include_costs`, `include_trades`, `include_signals`, `include_targets`
+- `compute_features`: Ob TA-Features berechnet werden sollen (default: True)
+- `feature_config`: Konfiguration für Feature-Computation
+
+**Ausgaben:**
+- `BacktestResult` mit:
+  - `equity`: DataFrame (date, timestamp, equity, daily_return)
+  - `metrics`: dict (final_pf, sharpe, trades, ...)
+  - `trades`: Optional DataFrame (alle Trades, wenn `include_trades=True`)
+  - `signals`: Optional DataFrame (alle Signale, wenn `include_signals=True`)
+  - `target_positions`: Optional DataFrame (Zielpositionen, wenn `include_targets=True`)
+
+**Workflow:**
+1. Feature-Computation (optional, via `features.ta_features.add_all_features`)
+2. Signal-Generierung (via `signal_fn`)
+3. Position-Sizing (via `position_sizing_fn`, gruppiert nach timestamp)
+4. Order-Generierung (via `execution.order_generation.generate_orders_from_targets`)
+5. Equity-Simulation:
+   - Mit Kosten: `pipeline.portfolio.simulate_with_costs`
+   - Ohne Kosten: `pipeline.backtest.simulate_equity`
+6. Equity-Enhancement (date, daily_return hinzufügen)
+7. Performance-Metriken (via `pipeline.backtest.compute_metrics`)
+
+**Verwendung:**
+```python
+from src.assembled_core.qa.backtest_engine import run_portfolio_backtest
+from src.assembled_core.signals.rules_trend import generate_trend_signals_from_prices
+from src.assembled_core.portfolio.position_sizing import compute_target_positions
+
+def signal_fn(prices_df):
+    return generate_trend_signals_from_prices(prices_df, ma_fast=20, ma_slow=50)
+
+def sizing_fn(signals_df, capital):
+    return compute_target_positions(signals_df, total_capital=capital, equal_weight=True)
+
+result = run_portfolio_backtest(
+    prices=prices,
+    signal_fn=signal_fn,
+    position_sizing_fn=sizing_fn,
+    start_capital=10000.0,
+    include_costs=True,
+    include_trades=True
+)
+
+print(f"Final PF: {result.metrics['final_pf']:.4f}")
+print(f"Sharpe: {result.metrics['sharpe']:.4f}")
+print(f"Trades: {result.metrics['trades']}")
+```
+
+**Abhängigkeiten:**
+- `features.ta_features` (für Feature-Computation)
+- `execution.order_generation` (für Order-Generierung)
+- `pipeline.backtest` (für kostenfreie Simulation)
+- `pipeline.portfolio` (für kostenbewusste Simulation)
+- `costs.CostModel` (für Kosten-Parameter)
+
+**Vorteile:**
+- Flexibel: Custom Signal- und Sizing-Funktionen als Callables
+- Komposabel: Nutzt bestehende Module (keine Duplikation)
+- Vollständig: Equity + Metriken + optionale Details (Trades, Signale, Targets)
+- Testbar: Kann mit synthetischen Daten getestet werden
+
+---
+
 ## Zukünftige Module (Skelett vorhanden)
 
 ### `data/`
