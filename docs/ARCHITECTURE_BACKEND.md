@@ -350,3 +350,29 @@ Siehe auch: [Data Sources Dokumentation](DATA_SOURCES_BACKEND.md)
 
 Siehe [Backend Roadmap](BACKEND_ROADMAP.md) für geplante Erweiterungen und Phasen.
 
+---
+
+## Secrets & .env
+
+**Wichtig:** Alle Produktions-Skripte nutzen Umgebungsvariablen für API-Keys und Secrets, niemals hardcodierte Werte.
+
+**Details:**
+- Siehe `docs/SECURITY_SECRETS.md` für vollständige Dokumentation
+- API-Keys werden über Umgebungsvariablen gesetzt (z. B. `$env:ALPHAVANTAGE_API_KEY`)
+- `.env`-Dateien sind lokal und werden nicht in Git getrackt (siehe `.gitignore`)
+- Konfigurationsdateien (`config/datasource.psd1`) nutzen Platzhalter: `$env:VARIABLE_NAME`
+
+**Grundregel:** Niemals Secrets im Code oder in versionierten Dateien speichern.
+
+---
+
+## Weiterführende Dokumente
+
+- [BACKEND_MODULES.md](BACKEND_MODULES.md): Detaillierte Beschreibung der einzelnen Module.
+- [BACKEND_ROADMAP.md](BACKEND_ROADMAP.md): Die Entwicklungs-Roadmap des Backends.
+- [DATA_SOURCES_BACKEND.md](DATA_SOURCES_BACKEND.md): Übersicht über alle Datenquellen.
+- [backend_core.md](backend_core.md): Details zur Kernkonfiguration und Test-Suite.
+- [backend_api.md](backend_api.md): Detaillierte API-Dokumentation.
+- [eod_pipeline.md](eod_pipeline.md): Detaillierte Beschreibung der EOD-Pipeline.
+- [SECURITY_SECRETS.md](SECURITY_SECRETS.md): Secrets-Management und Best Practices.
+

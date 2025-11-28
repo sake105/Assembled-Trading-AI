@@ -34,6 +34,14 @@ tmp_*.py
 # *.docx
 # *.xlsx
 
+# Secrets & Environment Variables
+.env
+.env.*
+*.env
+.env.local
+.env.dev
+.env.prod
+
 # OS/Tools
 .DS_Store
 Thumbs.db

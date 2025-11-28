@@ -363,4 +363,29 @@ Die zentrale Konfiguration wird auch in der zukünftigen FastAPI-Implementierung
 - [EOD Pipeline](eod_pipeline.md) - Pipeline-Orchestrierung
 - [Data Sources](DATA_SOURCES_BACKEND.md) - Datenquellen-Übersicht
 - [Backend Roadmap](BACKEND_ROADMAP.md) - Entwicklungs-Roadmap
+- [Security & Secrets](SECURITY_SECRETS.md) - Secrets-Management und Best Practices
+
+---
+
+## Secrets & .env
+
+**Wichtig:** Alle Produktions-Skripte nutzen Umgebungsvariablen für API-Keys und Secrets, niemals hardcodierte Werte.
+
+**Details:**
+- Siehe `docs/SECURITY_SECRETS.md` für vollständige Dokumentation
+- API-Keys werden über Umgebungsvariablen gesetzt (z. B. `$env:ALPHAVANTAGE_API_KEY`)
+- `.env`-Dateien sind lokal und werden nicht in Git getrackt (siehe `.gitignore`)
+- Konfigurationsdateien (`config/datasource.psd1`) nutzen Platzhalter: `$env:VARIABLE_NAME`
+
+**Beispiel:**
+```powershell
+# PowerShell: Umgebungsvariable setzen
+$env:ALPHAVANTAGE_API_KEY = "your-key-here"
+
+# Python: Aus Umgebungsvariable lesen
+import os
+api_key = os.getenv("ALPHAVANTAGE_API_KEY")
+```
+
+**Grundregel:** Niemals Secrets im Code oder in versionierten Dateien speichern.
 
