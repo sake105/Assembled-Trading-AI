@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -16,12 +16,20 @@ sys.path.insert(0, str(ROOT))
 from scripts.run_daily import run_daily_eod
 
 
-def create_sample_price_data(tmp_path: Path) -> Path:
-    """Create sample price data for testing."""
-    from datetime import datetime, timedelta
+def create_sample_price_data(tmp_path: Path, symbols: list[str] = None) -> Path:
+    """Create sample price data for testing.
+    
+    Args:
+        tmp_path: Temporary directory path
+        symbols: List of symbols to include (default: ["AAPL", "MSFT", "GOOGL"])
+    
+    Returns:
+        Path to created parquet file
+    """
+    if symbols is None:
+        symbols = ["AAPL", "MSFT", "GOOGL"]
     
     base = datetime(2025, 1, 1, 0, 0, 0)
-    symbols = ["AAPL", "MSFT", "GOOGL"]
     data = []
     
     for sym in symbols:
@@ -136,22 +144,148 @@ def test_run_daily_eod_with_universe(tmp_path: Path, monkeypatch):
     assert safe_path.exists()
 
 
+def test_run_daily_eod_universe_missing_symbols(tmp_path: Path, monkeypatch, capsys):
+    """Test that symbols in universe without data are warned and dropped."""
+    from src.assembled_core.config import OUTPUT_DIR
+    
+    # Monkeypatch OUTPUT_DIR
+    monkeypatch.setattr("src.assembled_core.execution.safe_bridge.OUTPUT_DIR", tmp_path)
+    monkeypatch.setattr("src.assembled_core.config.OUTPUT_DIR", tmp_path)
+    
+    # Create price data for only 1 symbol (AAPL)
+    price_file = create_sample_price_data(tmp_path, symbols=["AAPL"])
+    
+    # Create universe file with 3 symbols (but only AAPL has data)
+    universe_file = tmp_path / "test_universe.txt"
+    universe_file.write_text("AAPL\nMSFT\nGOOGL\n", encoding="utf-8")
+    
+    # Run daily EOD
+    test_date = datetime(2025, 1, 15)
+    safe_path = run_daily_eod(
+        date_str=test_date.strftime("%Y-%m-%d"),
+        universe_file=universe_file,
+        price_file=price_file,
+        output_dir=tmp_path,
+        total_capital=1.0
+    )
+    
+    # Check that WARNING was logged
+    captured = capsys.readouterr()
+    assert "WARNING" in captured.out or "WARNING" in captured.err
+    assert "MSFT" in captured.out or "MSFT" in captured.err
+    assert "GOOGL" in captured.out or "GOOGL" in captured.err
+    
+    # Check that SAFE file was created (with orders only for AAPL)
+    assert safe_path.exists()
+    
+    # Read SAFE file
+    df = pd.read_csv(safe_path)
+    
+    # If orders exist, they should only be for AAPL
+    if len(df) > 0:
+        assert (df["Ticker"] == "AAPL").all(), "Orders should only be for AAPL (only symbol with data)"
+
+
+def test_run_daily_eod_no_symbols_after_filtering(tmp_path: Path, monkeypatch, capsys):
+    """Test that script exits cleanly when no symbols remain after filtering."""
+    from src.assembled_core.config import OUTPUT_DIR
+    
+    # Monkeypatch OUTPUT_DIR
+    monkeypatch.setattr("src.assembled_core.execution.safe_bridge.OUTPUT_DIR", tmp_path)
+    monkeypatch.setattr("src.assembled_core.config.OUTPUT_DIR", tmp_path)
+    
+    # Create price data for symbols NOT in universe
+    price_file = create_sample_price_data(tmp_path, symbols=["TSLA", "NVDA"])
+    
+    # Create universe file with different symbols
+    universe_file = tmp_path / "test_universe.txt"
+    universe_file.write_text("AAPL\nMSFT\nGOOGL\n", encoding="utf-8")
+    
+    # Run daily EOD - should exit with error
+    test_date = datetime(2025, 1, 15)
+    
+    with pytest.raises(SystemExit) as exc_info:
+        run_daily_eod(
+            date_str=test_date.strftime("%Y-%m-%d"),
+            universe_file=universe_file,
+            price_file=price_file,
+            output_dir=tmp_path,
+            total_capital=1.0
+        )
+    
+    # Should exit with code 1 (error)
+    assert exc_info.value.code == 1
+    
+    # Check that error message was logged
+    captured = capsys.readouterr()
+    assert "ERROR" in captured.out or "ERROR" in captured.err
+    assert "No valid symbols" in captured.out or "No valid symbols" in captured.err or "no price data" in captured.out.lower()
+
+
 def test_run_daily_eod_invalid_date():
-    """Test that invalid date raises ValueError."""
-    with pytest.raises(ValueError, match="Invalid date format"):
+    """Test that invalid date raises SystemExit."""
+    with pytest.raises(SystemExit) as exc_info:
         run_daily_eod(date_str="invalid-date")
+    
+    assert exc_info.value.code == 1
 
 
 def test_run_daily_eod_missing_price_file(tmp_path: Path, monkeypatch):
-    """Test that missing price file raises FileNotFoundError."""
+    """Test that missing price file raises SystemExit."""
     from src.assembled_core.config import OUTPUT_DIR
     
     monkeypatch.setattr("src.assembled_core.config.OUTPUT_DIR", tmp_path)
     
-    with pytest.raises((FileNotFoundError, ValueError)):
+    with pytest.raises(SystemExit) as exc_info:
         run_daily_eod(
             date_str="2025-01-15",
             price_file=tmp_path / "nonexistent.parquet",
             output_dir=tmp_path
         )
+    
+    assert exc_info.value.code == 1
 
+
+def test_run_daily_eod_missing_universe_file(tmp_path: Path, monkeypatch):
+    """Test that missing universe file raises SystemExit."""
+    from src.assembled_core.config import OUTPUT_DIR
+    
+    monkeypatch.setattr("src.assembled_core.config.OUTPUT_DIR", tmp_path)
+    
+    # Create price file
+    price_file = create_sample_price_data(tmp_path)
+    
+    # Non-existent universe file
+    universe_file = tmp_path / "nonexistent_universe.txt"
+    
+    with pytest.raises(SystemExit) as exc_info:
+        run_daily_eod(
+            date_str="2025-01-15",
+            universe_file=universe_file,
+            price_file=price_file,
+            output_dir=tmp_path
+        )
+    
+    assert exc_info.value.code == 1
+
+
+def test_run_daily_eod_empty_price_data(tmp_path: Path, monkeypatch):
+    """Test that empty price data raises SystemExit."""
+    from src.assembled_core.config import OUTPUT_DIR
+    
+    monkeypatch.setattr("src.assembled_core.execution.safe_bridge.OUTPUT_DIR", tmp_path)
+    monkeypatch.setattr("src.assembled_core.config.OUTPUT_DIR", tmp_path)
+    
+    # Create empty price file
+    price_file = tmp_path / "empty_prices.parquet"
+    empty_df = pd.DataFrame(columns=["timestamp", "symbol", "open", "high", "low", "close", "volume"])
+    empty_df.to_parquet(price_file, index=False)
+    
+    with pytest.raises(SystemExit) as exc_info:
+        run_daily_eod(
+            date_str="2025-01-15",
+            price_file=price_file,
+            output_dir=tmp_path
+        )
+    
+    assert exc_info.value.code == 1

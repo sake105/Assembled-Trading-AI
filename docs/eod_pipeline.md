@@ -336,6 +336,50 @@ python scripts/run_daily.py --date 2025-01-15 --ma-fast 10 --ma-slow 30
 python scripts/run_daily.py --date 2025-01-15 --price-file data/sample/eod_sample.parquet
 ```
 
+### Datums-Handling
+
+**`--date` Parameter:**
+- Format: `YYYY-MM-DD` (z. B. `2025-01-15`)
+- Default: Heute (UTC)
+- Bedeutung: Handelstag, für den Orders erstellt werden sollen
+
+**Daten-Filterung:**
+- Das Script verwendet die **letzten verfügbaren Daten <= target_date** (pro Symbol)
+- Falls für den exakten target_date keine Daten vorhanden sind, wird der letzte verfügbare Tag verwendet
+- Dies stellt sicher, dass auch bei fehlenden Tagesdaten die neuesten verfügbaren Daten verwendet werden
+
+**Beispiel:**
+```bash
+# Orders für 2025-01-15 generieren
+# Verwendet letzte verfügbare Daten <= 2025-01-15 pro Symbol
+python scripts/run_daily.py --date 2025-01-15
+```
+
+### Fehlerverhalten
+
+**Universe-Symbole ohne Daten:**
+- Wenn Symbole im Universe-File sind, für die keine Preis-Daten existieren:
+  - **WARNUNG** wird geloggt mit Liste der betroffenen Symbole
+  - Diese Symbole werden aus dem Flow entfernt (keine Orders generiert)
+  - Script fährt mit verbleibenden Symbolen fort
+
+**Kein Symbol übrig nach Filtering:**
+- Wenn nach dem Filtering keine Symbole mehr übrig bleiben:
+  - Script bricht sauber ab mit Exit-Code 1
+  - Klare Fehlermeldung: "No valid symbols with price data remain after filtering"
+  - Keine SAFE-Orders-Datei wird erstellt
+
+**Weitere Fehlerszenarien:**
+- **Universe-File nicht gefunden:** Exit-Code 1, klare Fehlermeldung
+- **Preis-File nicht gefunden (wenn `--price-file` gesetzt):** Exit-Code 1, klare Fehlermeldung
+- **Leeres DataFrame nach Laden:** Exit-Code 1, Fehlermeldung "Price data is empty"
+- **Ungültiges Datum:** Exit-Code 1, Fehlermeldung "Invalid date format"
+- **Keine Orders generiert:** Leere SAFE-Datei wird erstellt, Script beendet erfolgreich (Exit-Code 0)
+
+**Exit-Codes:**
+- `0`: Erfolgreich (Orders generiert oder leere Datei erstellt)
+- `1`: Fehler (keine Daten, keine Symbole, Datei nicht gefunden, etc.)
+
 ---
 
 ## Nächste Schritte
