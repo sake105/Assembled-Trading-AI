@@ -9,20 +9,24 @@ description = "Core backend for Assembled Trading AI - Data ingestion, signal ge
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "pandas>=2.0.0",
-    "numpy>=1.24.0",
-    "fastapi>=0.100.0",
-    "uvicorn[standard]>=0.23.0",
-    "pydantic>=2.0.0",
+  "pandas>=2.0.0",
+  "numpy>=1.24.0",
+  "fastapi>=0.100.0",
+  "uvicorn[standard]>=0.23.0",
+  "pydantic>=2.0.0",
+  "pyarrow>=10.0.0",
+  "fastparquet>=2023.1.0",
+  "yfinance>=0.2.30",
+  "matplotlib>=3.7.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "ruff>=0.1.0",
-    "black>=23.0.0",
-    "mypy>=1.5.0",
+  "pytest>=7.0.0",
+  "pytest-cov>=4.0.0",
+  "ruff>=0.1.0",
+  "black>=23.0.0",
+  "mypy>=1.5.0",
 ]
 
 [tool.setuptools]
@@ -31,69 +35,30 @@ package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 
-# Ruff configuration
 [tool.ruff]
 target-version = "py310"
 src = ["src", "scripts", "tests"]
-select = [
-    "E",   # pycodestyle errors
-    "F",   # pyflakes
-    "I",   # isort
-    "W",   # pycodestyle warnings
-]
-ignore = [
-    "E501",  # line too long (handled by black)
-    "E203",  # whitespace before ':' (handled by black)
-]
+select = ["E", "F", "I", "W"]
+ignore = ["E501", "E203"]
 line-length = 88
-exclude = [
-    ".git",
-    "__pycache__",
-    ".venv",
-    "venv",
-    "build",
-    "dist",
-]
 
 [tool.ruff.isort]
-known-first-party = ["src.assembled_core"]
+known-first-party = ["assembled_core"]
 
-# Black configuration
 [tool.black]
 target-version = ["py310"]
 line-length = 88
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-  # directories
-  \.git
-  | __pycache__
-  | \.venv
-  | venv
-  | build
-  | dist
-)/
-'''
 
-# mypy configuration
 [tool.mypy]
 python_version = "3.10"
-strict = False
-warn_return_any = True
-warn_unused_configs = True
-disallow_untyped_defs = False
-disallow_incomplete_defs = False
-check_untyped_defs = True
-no_implicit_optional = True
-warn_redundant_casts = True
-warn_unused_ignores = True
-warn_no_return = True
+strict = false
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
 mypy_path = "src"
-plugins = []
-
-[[tool.mypy.overrides]]
-module = [
-    "tests.*",
-    "scripts.*",
-]
-ignore_errors = True

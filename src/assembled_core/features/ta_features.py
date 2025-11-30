@@ -14,44 +14,46 @@ import numpy as np
 import pandas as pd
 
 
-def add_log_returns(df: pd.DataFrame, price_col: str = "close") -> pd.DataFrame:
-    """Add log returns to price DataFrame.
-    
-    Computes log returns: log(price_t / price_{t-1}) = log(price_t) - log(price_{t-1})
-    
-    Args:
-        df: DataFrame with columns: timestamp, symbol, and price_col
-        price_col: Column name for price data (default: "close")
-    
-    Returns:
-        DataFrame with additional column: log_return
-        Sorted by symbol, then timestamp
-    
-    Raises:
-        KeyError: If required columns are missing
+def add_log_returns(
+    df: pd.DataFrame,
+    price_col: str = "close",
+    out_col: str = "log_return",
+) -> pd.DataFrame:
     """
-    df = df.copy()
+    Füge logarithmische Returns pro Symbol hinzu.
     
-    # Ensure required columns
+    Erwartet:
+    - Spalte 'symbol'
+    - Spalte `price_col` (z.B. 'close')
+    - Optional: 'timestamp' für zeitliche Sortierung
+    
+    Rückgabe:
+    - DataFrame mit neuer Spalte `out_col`
+    """
+    if "symbol" not in df.columns:
+        raise KeyError("symbol")
     if price_col not in df.columns:
         raise KeyError(f"Price column '{price_col}' not found. Available columns: {list(df.columns)}")
-    
-    # Sort by symbol and timestamp
-    if "symbol" in df.columns:
-        df = df.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
-    else:
-        df = df.sort_values("timestamp").reset_index(drop=True)
-    
-    # Compute log returns per symbol
-    if "symbol" in df.columns:
-        df["log_return"] = (
-            df.groupby("symbol", group_keys=False)[price_col]
-            .apply(lambda x: np.log(x / x.shift(1)))
-        )
-    else:
-        df["log_return"] = np.log(df[price_col] / df[price_col].shift(1))
-    
-    return df
+
+    result = df.copy()
+
+    # Für stabile Berechnung nach Zeit sortieren
+    sort_cols = ["symbol"]
+    if "timestamp" in result.columns:
+        sort_cols.append("timestamp")
+
+    tmp = result.sort_values(sort_cols)
+
+    # Log-Preis & Differenz pro Symbol
+    log_price = np.log(tmp[price_col].astype("float64"))
+    log_ret = log_price.groupby(tmp["symbol"]).diff()
+
+    # Zurück in die ursprüngliche Index-Reihenfolge
+    log_ret = log_ret.reindex(result.index)
+
+    result[out_col] = log_ret.astype("float64")
+
+    return result
 
 
 def add_moving_averages(
@@ -103,135 +105,124 @@ def add_moving_averages(
     return df
 
 
-def add_atr(df: pd.DataFrame, window: int = 14) -> pd.DataFrame:
-    """Add Average True Range (ATR) to price DataFrame.
-    
-    ATR measures volatility by computing the average of True Range over a window.
-    True Range = max(high - low, abs(high - prev_close), abs(low - prev_close))
-    
-    Args:
-        df: DataFrame with columns: timestamp, symbol, high, low, close
-        window: ATR window size (default: 14)
-    
-    Returns:
-        DataFrame with additional column: atr_{window}
-        Sorted by symbol, then timestamp
-    
-    Raises:
-        KeyError: If required columns (high, low, close) are missing
+def add_atr(
+    df: pd.DataFrame,
+    window: int = 14,
+    high_col: str = "high",
+    low_col: str = "low",
+    close_col: str = "close",
+) -> pd.DataFrame:
     """
-    df = df.copy()
+    Füge Average True Range (ATR) pro Symbol hinzu.
     
-    # Ensure required columns
-    required = ["high", "low", "close"]
-    missing = [c for c in required if c not in df.columns]
-    if missing:
-        raise KeyError(f"Missing required columns: {missing}. Available: {list(df.columns)}")
+    Erwartet:
+    - Spalten: 'symbol', high_col, low_col, close_col
+    - Optional: 'timestamp'
     
-    # Sort by symbol and timestamp
-    if "symbol" in df.columns:
-        df = df.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
-    else:
-        df = df.sort_values("timestamp").reset_index(drop=True)
-    
-    def compute_atr_for_symbol(d: pd.DataFrame) -> pd.Series:
-        """Compute ATR for a single symbol."""
-        high = d["high"].values
-        low = d["low"].values
-        close = d["close"].values
-        
-        # True Range
-        tr1 = high - low
-        tr2 = np.abs(high - np.roll(close, 1))
-        tr3 = np.abs(low - np.roll(close, 1))
-        
-        # First TR should not use previous close
-        tr2[0] = 0.0
-        tr3[0] = 0.0
-        
-        true_range = np.maximum(tr1, np.maximum(tr2, tr3))
-        
-        # ATR = rolling mean of True Range
-        atr = pd.Series(true_range).rolling(window=window, min_periods=1).mean()
-        
-        return atr
-    
-    # Compute ATR per symbol
-    if "symbol" in df.columns:
-        df[f"atr_{window}"] = (
-            df.groupby("symbol", group_keys=False)
-            .apply(compute_atr_for_symbol, include_groups=False)
-            .reset_index(drop=True)
-        )
-    else:
-        df[f"atr_{window}"] = compute_atr_for_symbol(df)
-    
-    return df
+    Rückgabe:
+    - DataFrame mit neuer Spalte f"atr_{window}"
+    """
+    required_cols = ["symbol", high_col, low_col, close_col]
+    missing_cols = [col for col in required_cols if col not in df.columns]
+    if missing_cols:
+        # Tests erwarten KeyError mit "Missing required columns"
+        raise KeyError(f"Missing required columns: {', '.join(missing_cols)}")
+
+    result = df.copy()
+
+    sort_cols = ["symbol"]
+    if "timestamp" in result.columns:
+        sort_cols.append("timestamp")
+
+    tmp = result.sort_values(sort_cols)
+
+    high = tmp[high_col].astype("float64")
+    low = tmp[low_col].astype("float64")
+    close = tmp[close_col].astype("float64")
+
+    prev_close = close.groupby(tmp["symbol"]).shift(1)
+
+    tr1 = (high - low).abs()
+    tr2 = (high - prev_close).abs()
+    tr3 = (low - prev_close).abs()
+
+    true_range = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+
+    # min_periods=1, damit nicht nur NaNs am Anfang sind
+    atr = (
+        true_range.groupby(tmp["symbol"])
+        .rolling(window=window, min_periods=1)
+        .mean()
+        .reset_index(level=0, drop=True)
+    )
+
+    # zurück auf ursprünglichen Index
+    atr = atr.reindex(result.index)
+
+    result[f"atr_{window}"] = atr.astype("float64")
+
+    return result
 
 
-def add_rsi(df: pd.DataFrame, window: int = 14, price_col: str = "close") -> pd.DataFrame:
-    """Add Relative Strength Index (RSI) to price DataFrame.
-    
-    RSI measures momentum by comparing average gains to average losses over a window.
-    RSI = 100 - (100 / (1 + RS)), where RS = avg_gain / avg_loss
-    
-    Args:
-        df: DataFrame with columns: timestamp, symbol, and price_col
-        window: RSI window size (default: 14)
-        price_col: Column name for price data (default: "close")
-    
-    Returns:
-        DataFrame with additional column: rsi_{window}
-        Sorted by symbol, then timestamp
-    
-    Raises:
-        KeyError: If required columns are missing
+def add_rsi(
+    df: pd.DataFrame,
+    window: int = 14,
+    price_col: str = "close",
+) -> pd.DataFrame:
     """
-    df = df.copy()
+    Füge einen klassischen RSI (Wilder) pro Symbol hinzu.
     
-    # Ensure required columns
+    Erwartet:
+    - Spalten: 'symbol', price_col
+    - Optional: 'timestamp'
+    
+    Rückgabe:
+    - DataFrame mit neuer Spalte f"rsi_{window}"
+    """
+    if "symbol" not in df.columns:
+        raise KeyError("symbol")
     if price_col not in df.columns:
-        raise KeyError(f"Price column '{price_col}' not found. Available columns: {list(df.columns)}")
-    
-    # Sort by symbol and timestamp
-    if "symbol" in df.columns:
-        df = df.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
-    else:
-        df = df.sort_values("timestamp").reset_index(drop=True)
-    
-    def compute_rsi_for_symbol(d: pd.DataFrame) -> pd.Series:
-        """Compute RSI for a single symbol."""
-        prices = d[price_col].values
-        deltas = np.diff(prices)
-        
-        # Separate gains and losses
-        gains = np.where(deltas > 0, deltas, 0.0)
-        losses = np.where(deltas < 0, -deltas, 0.0)
-        
-        # Average gains and losses (using exponential moving average)
-        avg_gain = pd.Series(gains).ewm(alpha=1.0/window, adjust=False, min_periods=window).mean()
-        avg_loss = pd.Series(losses).ewm(alpha=1.0/window, adjust=False, min_periods=window).mean()
-        
-        # RSI calculation
-        rs = avg_gain / (avg_loss + 1e-10)  # Avoid division by zero
-        rsi = 100.0 - (100.0 / (1.0 + rs))
-        
-        # First value is NaN (no previous price)
-        rsi = pd.concat([pd.Series([np.nan]), rsi]).reset_index(drop=True)
-        
-        return rsi
-    
-    # Compute RSI per symbol
-    if "symbol" in df.columns:
-        df[f"rsi_{window}"] = (
-            df.groupby("symbol", group_keys=False)
-            .apply(compute_rsi_for_symbol, include_groups=False)
-            .reset_index(drop=True)
-        )
-    else:
-        df[f"rsi_{window}"] = compute_rsi_for_symbol(df)
-    
-    return df
+        raise KeyError(price_col)
+
+    result = df.copy()
+
+    sort_cols = ["symbol"]
+    if "timestamp" in result.columns:
+        sort_cols.append("timestamp")
+
+    tmp = result.sort_values(sort_cols)
+
+    close = tmp[price_col].astype("float64")
+
+    delta = close.groupby(tmp["symbol"]).diff()
+
+    gain = delta.clip(lower=0.0)
+    loss = -delta.clip(upper=0.0)
+
+    # Wilder-RSI klassisch mit gleitendem Mittel
+    avg_gain = (
+        gain.groupby(tmp["symbol"])
+        .rolling(window=window, min_periods=window)
+        .mean()
+        .reset_index(level=0, drop=True)
+    )
+
+    avg_loss = (
+        loss.groupby(tmp["symbol"])
+        .rolling(window=window, min_periods=window)
+        .mean()
+        .reset_index(level=0, drop=True)
+    )
+
+    rs = avg_gain / avg_loss
+
+    rsi = 100.0 - 100.0 / (1.0 + rs)
+
+    rsi = rsi.reindex(result.index)
+
+    result[f"rsi_{window}"] = rsi.astype("float64")
+
+    return result
 
 
 def add_all_features(

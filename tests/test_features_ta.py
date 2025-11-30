@@ -64,11 +64,16 @@ def test_add_log_returns():
     assert "log_return" in df.columns
     
     # Check first value is NaN (no previous price)
-    first_log_return = df.groupby("symbol")["log_return"].first()
+    first_log_return = (
+        df.sort_values(["symbol", "timestamp"])
+          .groupby("symbol")["log_return"]
+          .nth(0)          # wirklich erste Zeile, auch wenn NaN
+    )
     assert first_log_return.isna().all(), "First log return should be NaN"
     
     # Check subsequent values are finite
-    subsequent = df.groupby("symbol")["log_return"].iloc[1:]
+    # Alle Werte außer der ersten Zeile pro Symbol sollten nicht-NaN sein
+    subsequent = df.sort_values(["symbol", "timestamp"]).groupby("symbol")["log_return"].nth(slice(1, None))
     assert subsequent.notna().all(), "Subsequent log returns should be finite"
     
     # Check log returns are reasonable (not infinite)
@@ -130,11 +135,16 @@ def test_add_rsi():
     assert "rsi_14" in df.columns
     
     # Check first value is NaN (no previous prices)
-    first_rsi = df.groupby("symbol")["rsi_14"].first()
+    first_rsi = (
+        df.sort_values(["symbol", "timestamp"])
+          .groupby("symbol")["rsi_14"]
+          .nth(0)          # wirklich erste Zeile, auch wenn NaN
+    )
     assert first_rsi.isna().all(), "First RSI should be NaN"
     
     # Check subsequent values are in [0, 100]
-    subsequent = df.groupby("symbol")["rsi_14"].iloc[1:]
+    # Alle Werte außer der ersten Zeile pro Symbol sollten nicht-NaN sein
+    subsequent = df.sort_values(["symbol", "timestamp"]).groupby("symbol")["rsi_14"].nth(slice(1, None))
     valid_rsi = subsequent.dropna()
     if len(valid_rsi) > 0:
         assert (valid_rsi >= 0).all() and (valid_rsi <= 100).all(), \

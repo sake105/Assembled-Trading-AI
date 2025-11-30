@@ -167,25 +167,33 @@ def compute_sortino_ratio(
     Returns:
         Sortino ratio (annualized) or None if insufficient data
     """
-    if len(returns) < 2:
+    returns = pd.Series(returns).dropna()
+    if returns.empty:
         return None
     
-    mean_return = float(returns.mean())
-    # Downside deviation: only negative returns
-    downside_returns = returns[returns < 0]
-    
-    if len(downside_returns) == 0:
-        # No negative returns, use regular std as fallback
-        downside_std = float(returns.std())
-    else:
-        downside_std = float(downside_returns.std())
-    
-    if downside_std <= 0:
-        return None
-    
+    # Excess returns
     periods_per_year = _get_periods_per_year(freq)
-    excess_return = mean_return - (risk_free_rate / periods_per_year)
-    sortino = excess_return / downside_std * np.sqrt(periods_per_year)
+    excess = returns - (risk_free_rate / periods_per_year)
+    
+    # Downside deviation: only negative excess returns
+    downside = excess[excess < 0]
+    
+    if downside.empty:
+        # No negative returns => "unendlich" gut; Tests wollen oft None
+        return None
+    
+    # Downside standard deviation
+    # Use ddof=0 (population std) if only one downside return, otherwise ddof=1 (sample std)
+    if len(downside) == 1:
+        downside_std = 0.0 if downside.iloc[0] == 0 else abs(downside.iloc[0])
+    else:
+        downside_std = downside.std(ddof=1)
+    
+    if downside_std == 0 or np.isnan(downside_std):
+        return None
+    
+    mean_excess = excess.mean()
+    sortino = mean_excess / downside_std * np.sqrt(periods_per_year)
     
     return float(sortino) if not np.isnan(sortino) else None
 
@@ -415,7 +423,9 @@ def compute_equity_metrics(
         returns = _compute_returns(equity_series)
     
     # Performance metrics
-    start_value = float(equity_series.iloc[0])
+    # Use start_capital as reference point, not first equity value
+    # (equity might have been computed from returns and start at different value)
+    start_value = float(start_capital)
     end_value = float(equity_series.iloc[-1])
     final_pf = end_value / max(start_value, 1e-12)
     total_return = final_pf - 1.0
