@@ -81,7 +81,12 @@ def simulate_with_costs(
     )
 
     # wende Cash-Deltas ab jeweiligem Index an (cum)
-    equity = equity + np.cumsum(ts_to_delta)
+    # First equity value should always be start_capital (before any trades)
+    # Apply deltas starting from the period AFTER they occur
+    # So equity[0] = start_capital, equity[1] = start_capital + delta[0], etc.
+    cumsum_deltas = np.cumsum(ts_to_delta)
+    # Shift by 1: equity[0] stays at start_capital, equity[1] = start_capital + delta[0], etc.
+    equity[1:] = equity[1:] + cumsum_deltas[:-1]
 
     eq = pd.DataFrame({"timestamp": tl, "equity": equity})
     # simple Kennzahlen
