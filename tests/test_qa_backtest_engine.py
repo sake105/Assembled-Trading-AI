@@ -6,6 +6,8 @@ import pytest
 import numpy as np
 import pandas as pd
 
+pytestmark = pytest.mark.phase4
+
 from src.assembled_core.qa.backtest_engine import BacktestResult, run_portfolio_backtest
 
 

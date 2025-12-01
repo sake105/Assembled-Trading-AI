@@ -17,6 +17,8 @@ sys.path.insert(0, str(ROOT))
 
 from src.assembled_core.config import OUTPUT_DIR
 
+pytestmark = pytest.mark.phase4
+
 
 @pytest.fixture
 def synthetic_prices(tmp_path: Path) -> pd.DataFrame:
