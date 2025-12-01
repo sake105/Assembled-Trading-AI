@@ -45,3 +45,4 @@ tmp_*.py
 # OS/Tools
 .DS_Store
 Thumbs.db
+src/assembled_trading_core.egg-info/
