@@ -1,752 +1,261 @@
 # Backend Architecture - Assembled Trading AI
 
-## Übersicht
+**Letzte Aktualisierung:** 2025-01-15
 
-Das Backend von Assembled Trading AI ist eine **file-based Trading-Pipeline** mit einem **read-only FastAPI-Server**. Es verarbeitet Marktdaten, generiert Trading-Signale, simuliert Backtests und Portfolio-Performance, und stellt die Ergebnisse über eine REST-API bereit.
+## Überblick
 
-**Kernprinzipien:**
-- **Single Source of Truth:** `src/assembled_core/` enthält alle Kernlogik
-- **File-based:** Keine Datenbank, alle Daten in CSV/Parquet-Dateien
-- **SAFE-Bridge:** Keine Live-Trading-Anbindung, nur Simulation via `orders_*.csv`
-- **Offline-first:** Lokale Daten bevorzugt, Netz-Calls nur in Pull-Skripten
+Das Backend von Assembled Trading AI ist ein modulares Trading-Core-System, das folgende Hauptfunktionen bereitstellt:
 
----
+- **Daten-Ingest**: Laden und Verarbeitung von Preis-Daten (EOD, Intraday)
+- **Feature-Engineering**: Technische Indikatoren (TA-Features)
+- **Signal-Generierung**: Trading-Signale basierend auf Strategien (z.B. Trend-Baseline)
+- **Backtesting**: Portfolio-Simulation mit Kostenmodellen
+- **QA & Metriken**: Performance-Metriken, QA-Gates, Health-Checks
+- **Reports**: Automatische QA-Reports und Performance-Analysen
+- **API**: FastAPI-basierte REST-API für Lese-Zugriffe
 
-## Architektur-Übersicht
+## High-Level-Komponenten
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Data Ingestion Layer                      │
-│  (scripts/live/pull_intraday.py, pull_intraday_av.py)       │
-│  → data/raw/1min/*.parquet                                  │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Resampling Layer                          │
-│  (scripts/run_all_sprint10.ps1 - inline Python)             │
-│  → output/aggregates/5min.parquet, daily.parquet            │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Core Pipeline (src/assembled_core/)            │
-│                                                              │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
-│  │  Signals     │→ │   Orders     │→ │  Backtest   │       │
-│  │  (EMA)       │  │  Generation  │  │  Simulation │       │
-│  └──────────────┘  └──────────────┘  └──────────────┘       │
-│                                                              │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
-│  │  Portfolio   │→ │     QA       │→ │   Reports    │       │
-│  │  (Costs)     │  │  Health      │  │  Generation  │       │
-│  └──────────────┘  └──────────────┘  └──────────────┘       │
-│                                                              │
-│  ┌──────────────┐                                           │
-│  │  Backtest    │  Portfolio-Level-Backtest-Engine         │
-│  │  Engine      │  (Flexible Strategy Testing)               │
-│  └──────────────┘                                           │
-│                                                              │
-│  → output/orders_{freq}.csv                                  │
-│  → output/equity_curve_{freq}.csv                           │
-│  → output/portfolio_equity_{freq}.csv                       │
-│  → output/performance_report_{freq}.md                      │
-│  → output/portfolio_report_{freq}.md                        │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│              FastAPI Backend (src/assembled_core/api/)      │
-│                                                              │
-│  GET /api/v1/signals/{freq}                                 │
-│  GET /api/v1/orders/{freq}                                  │
-│  GET /api/v1/portfolio/{freq}/current                       │
-│  GET /api/v1/performance/{freq}/metrics                     │
-│  GET /api/v1/risk/{freq}/summary                            │
-│  GET /api/v1/qa/status                                      │
-│                                                              │
-│  → Liest direkt aus output/* Dateien                        │
-└─────────────────────────────────────────────────────────────┘
-```
+### 1. `assembled_core.data` - Daten-Ingest
 
----
+**Zweck**: Laden und Verarbeitung von Preis-Daten aus verschiedenen Quellen.
 
-## Datenfluss
+**Module**:
+- `prices_ingest.py`: 
+  - `load_eod_prices()`: Lädt EOD-Preise aus Parquet-Dateien
+  - `load_eod_prices_for_universe()`: Lädt Preise für ein Universe (z.B. watchlist.txt)
 
-### 1. Data Ingestion
+**Unterstützte Frequenzen**: `1d` (täglich), `5min` (5-Minuten)
 
-**Scripts:**
-- `scripts/live/pull_intraday.py` - Yahoo Finance (1-Minuten-Daten)
-- `scripts/live/pull_intraday_av.py` - Alpha Vantage (Fallback)
+**Datenquellen** (aktuell):
+- Lokale Parquet-Dateien (`output/aggregates/daily.parquet`, `output/aggregates/5min.parquet`)
+- Universe-Dateien (z.B. `watchlist.txt`)
 
-**Data Layer:**
-- `src/assembled_core/data/prices_ingest.py` - EOD-Preis-Ingestion mit OHLCV
-  - `load_eod_prices()` - Lädt EOD-Preise mit vollständigen OHLCV-Daten
-  - `load_eod_prices_for_universe()` - Lädt Preise für Symbol-Universum (z. B. watchlist.txt)
-  - `validate_price_data()` - Validiert Datenqualität (OHLC-Relationen, NaNs, etc.)
-
-**Features Layer:**
-- `src/assembled_core/features/ta_features.py` - Technische Indikatoren
-  - `add_log_returns()` - Logarithmische Returns
-  - `add_moving_averages()` - Simple Moving Averages (SMA)
-  - `add_atr()` - Average True Range (Volatilität)
-  - `add_rsi()` - Relative Strength Index (Momentum)
-  - `add_all_features()` - Alle Features auf einmal
-
-**Signals Layer:**
-- `src/assembled_core/signals/rules_trend.py` - Trend-Following-Signale
-  - `generate_trend_signals()` - Generiert LONG/FLAT Signale basierend auf MA-Crossover
-  - Signal-Logik: LONG wenn ma_fast > ma_slow AND Volumen über Schwellenwert
-  - Score: Signal-Stärke (0.0 bis 1.0) basierend auf MA-Spread und Volumen
-
-**Portfolio Layer:**
-- `src/assembled_core/portfolio/position_sizing.py` - Positionsgrößen-Bestimmung
-  - `compute_target_positions()` - Berechnet Zielpositionen aus Signalen
-  - Strategien: Equal Weight (1/N) oder Score-basiert
-  - Top-N Selektion: Wählt beste Signale nach Score
-  - Output: DataFrame mit symbol, target_weight, target_qty
-
-**Execution Layer:**
-- `src/assembled_core/execution/order_generation.py` - Order-Generierung
-  - `generate_orders_from_targets()` - Vergleicht aktuelle vs. Zielpositionen
-  - `generate_orders_from_signals()` - Convenience: Signale → Orders in einem Schritt
-  - Output: DataFrame mit timestamp, symbol, side, qty, price
-
-**SAFE-Bridge:**
-- `src/assembled_core/execution/safe_bridge.py` - SAFE-kompatible Order-Dateien
-  - `write_safe_orders_csv()` - Erstellt SAFE-Bridge CSV-Dateien
-  - Format: `orders_YYYYMMDD.csv` mit Spalten: Ticker, Side, Quantity, PriceType, Comment
-  - Human-in-the-Loop: Alle Orders müssen manuell geprüft werden
-
-**Output:**
-- `data/raw/1min/{SYMBOL}.parquet` - Rohdaten pro Symbol
-- `data/sample/eod_sample.parquet` - Beispiel-Daten für Tests (2-3 Ticker, ~30 Tage)
-
-**Format:**
-- Spalten: `timestamp` (UTC), `symbol`, `open`, `high`, `low`, `close`, `volume`
-
-### 2. Resampling
-
-**Script:**
-- `scripts/run_all_sprint10.ps1` - Inline Python für 1m → 5m Resampling
-
-**Output:**
-- `output/aggregates/5min.parquet` - Aggregierte 5-Minuten-Daten
-- `output/aggregates/daily.parquet` - Tägliche Daten (falls vorhanden)
-
-**Format:**
-- Spalten: `symbol`, `timestamp` (UTC), `close`
-- Sortiert: `timestamp`, `symbol` aufsteigend
-
-### 3. Signal Generation
-
-**Module:** `src/assembled_core/pipeline/signals.py`
-
-**Funktion:** `compute_ema_signals(prices, fast, slow)`
-
-**Strategie:** EMA-Crossover (Fast EMA kreuzt Slow EMA)
-
-**Output:** Signale mit `sig` (-1, 0, +1) für BUY/NEUTRAL/SELL
-
-### 4. Order Generation
-
-**Module:** `src/assembled_core/pipeline/orders.py`
-
-**Funktion:** `signals_to_orders(signals)`
-
-**Output:**
-- `output/orders_{freq}.csv`
-- Spalten: `timestamp`, `symbol`, `side` (BUY/SELL), `qty`, `price`
-
-### 5. Backtest Simulation
-
-**Module:** `src/assembled_core/pipeline/backtest.py`
-
-**Funktion:** `simulate_equity(prices, orders, start_capital)`
-
-**Output:**
-- `output/equity_curve_{freq}.csv` - Equity-Kurve ohne Kosten
-- `output/performance_report_{freq}.md` - Performance-Metriken
-
-### 6. Portfolio Simulation
-
-**Module:** `src/assembled_core/pipeline/portfolio.py`
-
-**Funktion:** `simulate_with_costs(orders, start_capital, commission_bps, spread_w, impact_w, freq)`
-
-**Kostenmodell:**
-- Commission (Basis-Punkte)
-- Spread (Bid/Ask-Spread)
-- Market Impact (Preisabschlag)
-
-**Output:**
-- `output/portfolio_equity_{freq}.csv` - Equity-Kurve mit Kosten
-- `output/portfolio_report_{freq}.md` - Portfolio-Metriken (PF, Sharpe, Trades)
-
-### 7. QA/Health Checks
-
-**Module:** `src/assembled_core/qa/health.py`
-
-**Funktion:** `aggregate_qa_status(freq)`
-
-**Checks:**
-- Prices: Datei-Existenz, Schema, Datenqualität
-- Orders: Datei-Existenz, Schema, Validierung
-- Portfolio: Datei-Existenz, Equity-Kurve, Metriken
-
-**Output:** JSON-Status mit `overall_status` (ok/warning/error)
-
-### 8. Portfolio-Level Backtest Engine
-
-**Module:** `src/assembled_core/qa/backtest_engine.py`
-
-**Funktion:** `run_portfolio_backtest(prices, signal_fn, position_sizing_fn, ...)`
-
-**Zweck:** Generische Portfolio-Level-Backtest-Engine, die den kompletten Backtest-Workflow orchestriert:
-1. Feature-Computation (optional)
-2. Signal-Generierung (via custom signal_fn)
-3. Position-Sizing (via custom position_sizing_fn)
-4. Order-Generierung
-5. Equity-Simulation (mit/ohne Kosten)
-6. Performance-Metriken
-
-**Eingaben:**
-- `prices`: DataFrame (OHLCV, timestamp, symbol, close, ...)
-- `signal_fn`: Callable (Preise → Signale)
-- `position_sizing_fn`: Callable (Signale + Kapital → Zielpositionen)
-- `start_capital`: Startkapital
-- Kosten-Parameter: `commission_bps`, `spread_w`, `impact_w` oder `cost_model`
-- Flags: `include_costs`, `include_trades`, `include_signals`, `include_targets`
-
-**Ausgaben:**
-- `BacktestResult` mit:
-  - `equity`: DataFrame (date, timestamp, equity, daily_return)
-  - `metrics`: dict (final_pf, sharpe, trades, ...)
-  - `trades`: Optional DataFrame (alle Trades)
-  - `signals`: Optional DataFrame (alle Signale)
-  - `target_positions`: Optional DataFrame (Zielpositionen)
-
-**Integration:**
-- Nutzt bestehende Module: `features.ta_features`, `execution.order_generation`, `pipeline.backtest`, `pipeline.portfolio`
-- Kann von `run_eod_pipeline.py` und `run_daily.py` genutzt werden für flexible Backtest-Szenarien
-- Unterstützt custom Signal- und Position-Sizing-Funktionen für Strategie-Experimente
-
-**Verwendung:**
-```python
-from src.assembled_core.qa.backtest_engine import run_portfolio_backtest
-from src.assembled_core.signals.rules_trend import generate_trend_signals_from_prices
-from src.assembled_core.portfolio.position_sizing import compute_target_positions
-
-def signal_fn(prices_df):
-    return generate_trend_signals_from_prices(prices_df, ma_fast=20, ma_slow=50)
-
-def sizing_fn(signals_df, capital):
-    return compute_target_positions(signals_df, total_capital=capital, equal_weight=True)
-
-result = run_portfolio_backtest(
-    prices=prices,
-    signal_fn=signal_fn,
-    position_sizing_fn=sizing_fn,
-    start_capital=10000.0,
-    include_costs=True,
-    include_trades=True
-)
-```
-
----
-
-## Phase 4: Backtests & QA-Grundlagen
-
-**Ziel:** Robuste Backtest-Infrastruktur mit umfassender Qualitätssicherung.
-
-### Übersicht
-
-Die Phase 4-Module bilden eine integrierte QA- und Backtest-Infrastruktur, die es ermöglicht, Trading-Strategien systematisch zu testen, zu evaluieren und zu validieren. Die Module arbeiten zusammen, um:
-
-1. **Flexible Backtests** durchzuführen (Backtest-Engine)
-2. **Performance-Metriken** zu berechnen (QA-Metriken)
-3. **Qualitäts-Gates** zu evaluieren (QA-Gates)
-4. **Walk-Forward-Analysen** durchzuführen (Walk-Forward)
-5. **QA-Reports** zu generieren (QA-Reports)
-
-### Datenfluss: Backtest & QA-Pipeline
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│              Backtest Engine (qa.backtest_engine)           │
-│                                                              │
-│  1. Feature-Computation (optional)                          │
-│  2. Signal-Generierung (via signal_fn)                       │
-│  3. Position-Sizing (via position_sizing_fn)                │
-│  4. Order-Generierung                                       │
-│  5. Equity-Simulation (mit/ohne Kosten)                      │
-│                                                              │
-│  → BacktestResult (equity, metrics, trades, ...)            │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│              QA Metrics (qa.metrics)                        │
-│                                                              │
-│  compute_all_metrics(equity, trades, ...)                   │
-│                                                              │
-│  → PerformanceMetrics:                                      │
-│    - Returns (PF, CAGR, Total Return)                       │
-│    - Risk-Adjusted (Sharpe, Sortino, Calmar)                │
-│    - Risk (MaxDD, Volatility, VaR)                          │
-│    - Trade Metrics (Hit Rate, Profit Factor, Turnover)      │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│              QA Gates (qa.qa_gates)                        │
-│                                                              │
-│  evaluate_all_gates(metrics)                                 │
-│                                                              │
-│  → QAGatesSummary:                                          │
-│    - Overall Status (OK/WARNING/BLOCK)                      │
-│    - Individual Gate Results (Sharpe, MaxDD, Turnover, ...) │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│         Walk-Forward Analysis (qa.walk_forward)             │
-│                                                              │
-│  run_walk_forward_backtest(prices, signal_fn, ...)          │
-│                                                              │
-│  1. Split in Train/Test Windows                              │
-│  2. Run Backtest per Window (IS/OOS)                        │
-│  3. Compute Metrics per Window                              │
-│  4. Aggregate Results                                       │
-│                                                              │
-│  → WalkForwardResult (window_results, summary_metrics)       │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│         QA Report (reports.daily_qa_report)                 │
-│                                                              │
-│  generate_qa_report(metrics, gate_result, ...)              │
-│                                                              │
-│  → Markdown-Report:                                          │
-│    - Performance Metrics                                    │
-│    - QA Gates Status                                        │
-│    - Equity Curve Link                                      │
-│    - Data Status & Config                                   │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Module-Integration
-
-**1. Backtest-Engine → QA-Metriken:**
-- `BacktestResult.equity` → `compute_all_metrics()` → `PerformanceMetrics`
-- `BacktestResult.trades` (optional) → Trade-Metriken (Hit Rate, Profit Factor, Turnover)
-
-**2. QA-Metriken → QA-Gates:**
-- `PerformanceMetrics` → `evaluate_all_gates()` → `QAGatesSummary`
-- Automatische Evaluierung gegen Schwellenwerte (Sharpe, MaxDD, Turnover, etc.)
-
-**3. Walk-Forward → QA-Metriken:**
-- Pro Fenster: `run_portfolio_backtest()` → `BacktestResult` → `compute_all_metrics()` → IS/OOS-Metriken
-- Aggregation über alle Fenster für robuste Strategie-Validierung
-
-**4. QA-Metriken + QA-Gates → QA-Report:**
-- `PerformanceMetrics` + `QAGatesSummary` → `generate_qa_report()` → Markdown-Report
-- Convenience: `generate_qa_report_from_files()` lädt Equity/Trades, berechnet Metriken, evaluiert Gates, generiert Report
-
-### Verwendung im EOD-Pipeline
-
-Die QA-Module sind in `run_eod_pipeline.py` integriert:
-
-```python
-# 5a. Portfolio Simulation (mit Kosten)
-equity, metrics = run_portfolio_step(...)
-
-# 5b. Performance Metrics (via qa.metrics)
-from src.assembled_core.qa.metrics import compute_all_metrics
-qa_metrics = compute_all_metrics(equity, trades, start_capital, freq)
-
-# 5c. QA Gates (via qa.qa_gates)
-from src.assembled_core.qa.qa_gates import evaluate_all_gates
-qa_gate_result = evaluate_all_gates(qa_metrics)
-
-# Run Manifest enthält qa_metrics und qa_gate_result
-manifest = {
-    ...
-    "qa_metrics": {...},  # Serialisierte PerformanceMetrics
-    "qa_gate_result": {...}  # Serialisierte QAGatesSummary
-}
-```
-
-### Vorteile
-
-- **Modularität:** Jedes Modul hat eine klare Verantwortlichkeit
-- **Wiederverwendbarkeit:** Module können unabhängig genutzt werden
-- **Testbarkeit:** Synthetische Daten für alle Module testbar
-- **Erweiterbarkeit:** Neue Metriken/Gates einfach hinzufügbar
-- **Integration:** Nahtlose Integration in EOD-Pipeline und Walk-Forward-Analysen
-
----
-
-## EOD Pipeline Orchestration
-
-**Scripts:**
-- `scripts/run_eod_pipeline.py` - Vollständige EOD-Pipeline (Execute, Backtest, Portfolio, QA)
-- `scripts/run_daily.py` - EOD-MVP Runner (fokussiert auf SAFE-Order-Generierung)
-
-**Funktion:** Führt alle Pipeline-Schritte in einem Lauf aus:
-1. Preis-Daten-Prüfung
-2. Execute (Signale → Orders)
-3. Backtest (Equity ohne Kosten)
-4. Portfolio (Equity mit Kosten)
-5. QA (Health-Checks)
-
-**Output:**
-- Alle Pipeline-Outputs (siehe oben)
-- `output/run_manifest_{freq}.json` - Maschinenlesbares Run-Manifest
-
-**Verwendung:**
-```bash
-python scripts/run_eod_pipeline.py --freq 1d --start-capital 10000
-```
-
-Siehe auch: [EOD Pipeline Dokumentation](eod_pipeline.md)
-
----
-
-## FastAPI Backend
-
-**Module:** `src/assembled_core/api/`
-
-**App Factory:** `api.app.create_app()`
-
-**Routers:**
-- `api/routers/signals.py` - Trading-Signale
-- `api/routers/orders.py` - Generierte Orders
-- `api/routers/portfolio.py` - Portfolio-Zustand und Equity-Kurve
-- `api/routers/performance.py` - Backtest-Performance-Metriken
-- `api/routers/risk.py` - Risk-Metriken (Sharpe, Drawdown, VaR)
-- `api/routers/qa.py` - QA/Health-Status
-
-**Start:**
-```bash
-python scripts/run_api.py
-```
-
-**URLs:**
-- API: `http://localhost:8000`
-- Docs: `http://localhost:8000/docs` (Swagger UI)
-- ReDoc: `http://localhost:8000/redoc`
-
-Siehe auch: [Backend API Dokumentation](backend_api.md)
-
----
-
-## Module-Struktur
-
-**Kern-Package:** `src/assembled_core/`
-
-**Hauptmodule:**
-- `pipeline/` - Core Trading-Pipeline (I/O, Signale, Orders, Backtest, Portfolio)
-- `api/` - FastAPI Backend (App, Models, Routers)
-- `qa/` - QA/Health-Checks und Backtest-Engine
-- `config.py` - Zentrale Konfiguration (OUTPUT_DIR, SUPPORTED_FREQS)
-- `costs.py` - Cost-Model-Konfiguration
-- `ema_config.py` - EMA-Parameter-Konfiguration
-
-**Zukünftige Module (Skelett vorhanden):**
-- `data/` - Data Ingestion (Multi-Source)
-- `features/` - Technical Analysis Features
-- `signals/` - Signal-Generation-Framework
-- `portfolio/` - Portfolio-Management
-- `execution/` - Order-Execution-Logik
-- `reports/` - Report-Generierung
-
-Siehe auch: [Backend Modules Dokumentation](BACKEND_MODULES.md)
-
----
-
-## Konfiguration
-
-**Zentrale Config:** `src/assembled_core/config.py`
-
-**Konstanten:**
-- `OUTPUT_DIR` - Pfad zum `output/` Verzeichnis
-- `SUPPORTED_FREQS` - Unterstützte Frequenzen (`("1d", "5min")`)
-
-**Cost Model:** `src/assembled_core/costs.py`
-- `get_default_cost_model()` - Standard-Kosten-Parameter
-
-**EMA Config:** `src/assembled_core/ema_config.py`
-- `get_default_ema_config(freq)` - Frequenz-spezifische EMA-Parameter
-
-Siehe auch: [Backend Core Dokumentation](backend_core.md)
-
----
-
-## Datenquellen
-
-**Aktuell:**
-- **Yahoo Finance** (`yfinance`) - Primärquelle für Intraday-Daten
-- **Alpha Vantage** - Fallback bei Rate-Limits
-- **Lokale Dateien** - Parquet/CSV für Offline-Betrieb
-
-**Geplant:**
-- Fundamentals (z. B. SEC Filings)
-- Insider-Transaktionen
-- Congress Trading
+**Phase 6 Erweiterungen** (geplant):
+- Insider-Trading-Daten
+- Congress-Trading-Daten
 - Shipping-Daten
 - News-Feeds
 
-Siehe auch: [Data Sources Dokumentation](DATA_SOURCES_BACKEND.md)
+---
+
+### 2. `assembled_core.features` - Feature-Engineering
+
+**Zweck**: Berechnung technischer Indikatoren für Trading-Strategien.
+
+**Module**:
+- `ta_features.py`:
+  - `add_log_returns()`: Logarithmische Renditen
+  - `add_atr()`: Average True Range
+  - `add_rsi()`: Relative Strength Index
+  - `add_moving_averages()`: Gleitende Durchschnitte
+  - `add_all_features()`: Alle TA-Features auf einmal
+
+**Verwendung**: Features werden typischerweise vor der Signal-Generierung berechnet.
 
 ---
 
-## Scripts & Entry Points
+### 3. `assembled_core.signals` - Signal-Generierung
 
-**Pipeline-Scripts:**
-- `scripts/sprint9_execute.py` - Signal-Generierung und Order-Erstellung
-- `scripts/sprint9_backtest.py` - Backtest-Simulation
-- `scripts/sprint10_portfolio.py` - Portfolio-Simulation mit Kosten
-- `scripts/run_eod_pipeline.py` - Vollständige EOD-Pipeline
-- `scripts/run_daily.py` - EOD-MVP Runner (fokussiert auf SAFE-Order-Generierung)
-- `scripts/run_backtest_strategy.py` - Strategy Backtest CLI (Research-Backtests für Strategien)
+**Zweck**: Generierung von Trading-Signalen basierend auf Strategien.
 
-**API:**
-- `scripts/run_api.py` - FastAPI-Server starten
+**Module**:
+- `rules_trend.py`:
+  - `generate_trend_signals_from_prices()`: Trend-Baseline-Strategie (EMA-basiert)
 
-**Data Ingestion:**
-- `scripts/live/pull_intraday.py` - Yahoo Finance Pull
-- `scripts/live/pull_intraday_av.py` - Alpha Vantage Pull
+**Signal-Typen**:
+- `LONG`: Kaufsignal
+- `FLAT`: Keine Position
+- `SHORT`: Verkaufssignal (geplant)
 
-### Strategy Backtest CLI
+---
 
-**Script:** `scripts/run_backtest_strategy.py`
+### 4. `assembled_core.portfolio` - Position Sizing
 
-**Zweck:** Research-Backtests für Strategien mit flexibler Konfiguration.
+**Zweck**: Berechnung von Ziel-Positionen basierend auf Signalen.
 
-**Hauptmerkmale:**
-- Nutzt `qa.backtest_engine` für flexibles Backtesting
-- Unterstützt verschiedene Strategien (aktuell: `trend_baseline`)
-- Automatische QA-Gates-Evaluierung
-- Optional: QA-Report-Generierung
+**Module**:
+- `position_sizing.py`:
+  - `compute_target_positions_equal_weight()`: Gleichgewichtete Positionen
+  - `compute_target_positions_top_n()`: Top-N-Positionen
+  - `compute_target_positions_from_trend_signals()`: Position Sizing für Trend-Signale
 
-**Beispiel:**
+---
+
+### 5. `assembled_core.execution` - Order-Generierung
+
+**Zweck**: Generierung von Orders aus Ziel-Positionen.
+
+**Module**:
+- `order_generation.py`: Order-Generierung
+- `safe_bridge.py`: Safe-Bridge-Modus (keine echten Orders, nur CSV-Output)
+
+**Output**: Orders werden als CSV-Dateien geschrieben (`output/orders_1d.csv`, `output/orders_5min.csv`)
+
+---
+
+### 6. `assembled_core.qa` - Quality Assurance
+
+**Zweck**: Backtesting, Performance-Metriken, QA-Gates und Health-Checks.
+
+**Module**:
+
+#### `backtest_engine.py`
+- `run_portfolio_backtest()`: Portfolio-Level-Backtest-Engine
+- `BacktestResult`: Ergebnis-Dataclass
+
+#### `metrics.py`
+- `compute_all_metrics()`: Alle Performance-Metriken
+- `compute_sharpe_ratio()`: Sharpe-Ratio
+- `compute_sortino_ratio()`: Sortino-Ratio
+- `compute_equity_metrics()`: Equity-Kurven-Metriken
+- `compute_trade_metrics()`: Trade-basierte Metriken
+
+#### `qa_gates.py`
+- `evaluate_all_gates()`: Evaluierung aller QA-Gates
+- `QAResult`: OK / WARNING / BLOCK
+- Gate-Typen: Sharpe, Sortino, Max Drawdown, Turnover, CAGR, etc.
+
+#### `walk_forward.py`
+- Walk-Forward-Analyse (geplant)
+
+#### `health.py`
+- `check_prices()`: Prüfung von Preis-Dateien
+- `check_orders()`: Prüfung von Order-Dateien
+- `check_portfolio()`: Prüfung von Portfolio-Dateien
+- `aggregate_qa_status()`: Aggregation aller Health-Checks
+
+---
+
+### 7. `assembled_core.pipeline` - Pipeline-Orchestrierung
+
+**Zweck**: Orchestrierung der gesamten Trading-Pipeline.
+
+**Module**:
+
+#### `orchestrator.py`
+- `run_eod_pipeline()`: Vollständige EOD-Pipeline (Execute → Backtest → Portfolio → QA)
+
+#### `signals.py`
+- Signal-Generierung innerhalb der Pipeline
+
+#### `orders.py`
+- Order-Generierung innerhalb der Pipeline
+
+#### `backtest.py`
+- Backtest-Simulation innerhalb der Pipeline
+
+#### `portfolio.py`
+- Portfolio-Simulation innerhalb der Pipeline
+
+#### `io.py`
+- I/O-Funktionen (Laden/Speichern von Daten)
+
+---
+
+### 8. `assembled_core.reports` - Report-Generierung
+
+**Zweck**: Automatische Generierung von QA-Reports und Performance-Analysen.
+
+**Module**:
+- `daily_qa_report.py`:
+  - `generate_qa_report()`: Generiert QA-Report aus Metriken
+  - `generate_qa_report_from_files()`: Generiert QA-Report aus Dateien
+
+**Output**: Markdown-Reports (`output/reports/qa_report_*.md`)
+
+---
+
+### 9. `assembled_core.api` - FastAPI Backend
+
+**Zweck**: REST-API für Lese-Zugriffe auf Pipeline-Outputs.
+
+**Module**:
+- `app.py`: FastAPI-App-Factory (`create_app()`)
+- `models.py`: Pydantic-Models für API-Requests/Responses
+- `routers/`:
+  - `signals.py`: Signal-Endpoints
+  - `orders.py`: Order-Endpoints
+  - `portfolio.py`: Portfolio-Endpoints
+  - `performance.py`: Performance-Metriken-Endpoints
+  - `risk.py`: Risk-Metriken-Endpoints
+  - `qa.py`: QA-Status-Endpoints
+
+**Verwendung**: 
 ```bash
-python scripts/run_backtest_strategy.py --freq 1d --universe watchlist.txt --start-capital 10000 --generate-report
+python scripts/run_api.py
+# API läuft auf http://localhost:8000
 ```
 
-**Unterschied zu anderen Scripts:**
-- `run_eod_pipeline.py`: Vollständige Pipeline mit Run-Manifest
-- `run_daily.py`: EOD-MVP für SAFE-Order-Generierung
-- `run_backtest_strategy.py`: Research-Backtests mit verschiedenen Strategien und Parametern
-
 ---
 
-## Weiterführende Dokumentation
+## Architektur-Diagramm (Text-basiert)
 
-- [Backend Modules](BACKEND_MODULES.md) - Detaillierte Modulübersicht
-- [Backend API](backend_api.md) - FastAPI-Endpoints
-- [Backend Core](backend_core.md) - Konfiguration & Testing
-- [EOD Pipeline](eod_pipeline.md) - Pipeline-Orchestrierung
-- [Data Sources](DATA_SOURCES_BACKEND.md) - Datenquellen-Übersicht
-- [Backend Roadmap](BACKEND_ROADMAP.md) - Entwicklungs-Roadmap
-
----
-
-## Design-Prinzipien
-
-1. **Separation of Concerns:** Jedes Modul hat eine klare Verantwortlichkeit
-2. **Pure Functions:** Pipeline-Funktionen sind möglichst pure (keine Seiteneffekte)
-3. **File-based I/O:** Alle Daten in CSV/Parquet, keine Datenbank
-4. **Type Hints:** Vollständige Type-Annotations für bessere IDE-Unterstützung
-5. **Testability:** Module sind testbar ohne externe Abhängigkeiten
-6. **Backwards Compatibility:** Bestehende Scripts/APIs bleiben funktionsfähig
-
----
-
-## Nächste Schritte
-
-Siehe [Backend Roadmap](BACKEND_ROADMAP.md) für geplante Erweiterungen und Phasen.
-
----
-
-## Secrets & .env
-
-**Wichtig:** Alle Produktions-Skripte nutzen Umgebungsvariablen für API-Keys und Secrets, niemals hardcodierte Werte.
-
-**Details:**
-- Siehe `docs/SECURITY_SECRETS.md` für vollständige Dokumentation
-- API-Keys werden über Umgebungsvariablen gesetzt (z. B. `$env:ALPHAVANTAGE_API_KEY`)
-- `.env`-Dateien sind lokal und werden nicht in Git getrackt (siehe `.gitignore`)
-- Konfigurationsdateien (`config/datasource.psd1`) nutzen Platzhalter: `$env:VARIABLE_NAME`
-
-**Grundregel:** Niemals Secrets im Code oder in versionierten Dateien speichern.
-
----
-
-## Logging & Error Handling
-
-**Zentrale Logging-Konfiguration:**
-- `src/assembled_core/logging_utils.py` - Logging-Helper-Modul
-  - `setup_logging(level="INFO")` - Richtet einheitliches Logging ein
-  - Format: `[LEVEL] message`
-  - Levels: INFO (normal), WARNING (soft problems), ERROR (hard errors)
-
-**Verwendung in CLI-Scripts:**
-```python
-from src.assembled_core.logging_utils import setup_logging
-
-logger = setup_logging(level="INFO")
-logger.info("Starting pipeline")
-logger.error("Error occurred")
-sys.exit(1)  # Bei Fehlern
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    User-Facing Scripts                          │
+├─────────────────────────────────────────────────────────────────┤
+│  run_backtest_strategy.py  │  run_eod_pipeline.py  │  run_api.py│
+└──────────────┬──────────────┴──────────┬───────────┴────────────┘
+               │                          │
+               ▼                          ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    Pipeline Orchestrator                        │
+│                    (orchestrator.py)                            │
+└──────────────┬─────────────────────────────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│  │   Data       │  │  Features    │  │   Signals    │          │
+│  │  (Ingest)    │→ │  (TA)       │→ │  (Trend)     │          │
+│  └──────────────┘  └──────────────┘  └──────────────┘          │
+│                                 │                                │
+│                                 ▼                                │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│  │  Portfolio   │  │  Execution   │  │   Orders     │          │
+│  │ (Sizing)     │→ │  (Generate)  │→ │  (CSV)       │          │
+│  └──────────────┘  └──────────────┘  └──────────────┘          │
+│                                 │                                │
+│                                 ▼                                │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│  │  Backtest   │  │     QA       │  │   Reports    │          │
+│  │  (Engine)    │→ │ (Metrics/Gates)│→ │  (Markdown)  │          │
+│  └──────────────┘  └──────────────┘  └──────────────┘          │
+└─────────────────────────────────────────────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    FastAPI Backend                              │
+│              (Read-only API Access)                             │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-**Fehlerbehandlung:**
-- Klare ERROR-Log-Meldungen
-- `sys.exit(1)` für Fehler, `sys.exit(0)` für Erfolg
-- Keine unformatierten Tracebacks im Normalfall
+## Datenfluss
 
-**Betroffene Scripts:**
-- `scripts/run_daily.py` - EOD-MVP Runner
-- `scripts/run_eod_pipeline.py` - Vollständige EOD-Pipeline
+1. **Daten-Ingest**: `data/prices_ingest.py` lädt Preise aus Parquet-Dateien
+2. **Feature-Engineering**: `features/ta_features.py` berechnet TA-Indikatoren
+3. **Signal-Generierung**: `signals/rules_trend.py` generiert Trading-Signale
+4. **Position Sizing**: `portfolio/position_sizing.py` berechnet Ziel-Positionen
+5. **Order-Generierung**: `execution/order_generation.py` erzeugt Orders
+6. **Backtesting**: `qa/backtest_engine.py` simuliert Portfolio-Performance
+7. **QA & Metriken**: `qa/metrics.py` und `qa/qa_gates.py` evaluieren Performance
+8. **Reports**: `reports/daily_qa_report.py` generiert QA-Reports
+9. **API**: `api/` stellt REST-Endpoints für Lese-Zugriffe bereit
 
-Siehe auch: [Backend Core - Logging](backend_core.md#logging--error-handling-in-cli-scripts)
+## Konfiguration
 
----
+- **Zentrale Config**: `config.py` (OUTPUT_DIR, SUPPORTED_FREQS, etc.)
+- **EMA-Config**: `ema_config.py` (Moving-Average-Parameter)
+- **Cost-Model**: `costs.py` (Commission, Spread, Impact)
 
-## CI / GitHub Actions
+## Phase 6 Erweiterungen (geplant)
 
-**Wichtig:** Alle Pull Requests müssen die CI-Checks bestehen, bevor sie gemerged werden.
+Phase 6 wird zusätzliche Datenquellen hinzufügen:
 
-### Workflow
+- **Insider-Trading-Daten**: `assembled_core.data.insider`
+- **Congress-Trading-Daten**: `assembled_core.data.congress`
+- **Shipping-Daten**: `assembled_core.data.shipping`
+- **News-Feeds**: `assembled_core.data.news`
 
-**Datei:** `.github/workflows/backend-ci.yml`
-
-**Trigger:**
-- Push zu `main` oder `develop` Branch
-- Pull Requests zu `main` oder `develop` Branch
-
-**Python-Versionen:**
-- Aktuell: Python 3.10
-- Zukünftig erweiterbar auf 3.11, 3.12
-
-### CI-Checks
-
-**1. Tests:**
-- Führt `pytest tests/` aus
-- Prüft Unit-Tests und Smoke-Tests
-- Muss erfolgreich sein (Exit-Code 0)
-
-**2. Ruff (Linting):**
-- Führt `ruff check src tests scripts` aus
-- Prüft Code-Style, Syntax-Fehler, unbenutzte Imports
-- Muss erfolgreich sein (Exit-Code 0)
-
-**3. mypy (Type Checking):**
-- Führt `mypy` auf Kernmodulen aus:
-  - `src/assembled_core/data`
-  - `src/assembled_core/features`
-  - `src/assembled_core/signals`
-  - `src/assembled_core/execution`
-  - `src/assembled_core/portfolio`
-- Aktuell optional (`continue-on-error: true`)
-- Zukünftig kann dies zu einem Hard-Requirement werden
-
-### Lokales Testen
-
-**Vor dem Push:**
-```bash
-# Tests lokal ausführen
-pytest tests/
-
-# Ruff lokal prüfen
-ruff check src tests scripts
-
-# mypy lokal prüfen
-mypy src/assembled_core/data src/assembled_core/features src/assembled_core/signals src/assembled_core/execution src/assembled_core/portfolio
-```
-
-**Empfehlung:** Führe diese Checks lokal aus, bevor du einen PR erstellst.
-
-### PR-Merge-Policy
-
-**Regel:** PRs sollten nur gemerged werden, wenn:
-- Alle CI-Checks grün sind (✓)
-- Tests erfolgreich
-- Ruff erfolgreich
-- (Optional) mypy erfolgreich oder akzeptable Warnungen
-
-**Ausnahmen:**
-- Nur in Ausnahmefällen (z. B. Dokumentations-Only-Änderungen) können Checks übersprungen werden
-- Im Normalfall: CI muss grün sein
-
----
-
-## Legacy & Sprints
-
-**Wichtig:** Klare Trennung zwischen neuem Backend-Core und altem Sprint-Code.
-
-### Neuer Backend-Core
-
-**Produktionscode:**
-- `src/assembled_core/` - Alle Kernlogik (Data, Features, Signals, Portfolio, Execution, QA, API)
-- `scripts/run_*.py` - Neue CLI-Scripts:
-  - `scripts/run_daily.py` - EOD-MVP Runner
-  - `scripts/run_eod_pipeline.py` - Vollständige EOD-Pipeline
-  - `scripts/run_api.py` - FastAPI-Server
-
-**Regel:** Neue Features **immer** in `src/assembled_core/` implementieren und über neue CLI-Scripts (`scripts/run_*.py`) anbinden.
-
-### Legacy-Code
-
-**Legacy-Ordner:**
-- `legacy/` - Alte, nicht mehr produktiv benötigte Skripte und Artefakte
-  - `legacy/scripts/` - Alte Sprint-Skripte (sprint8_*, sprint9_execution.py, sprint9_cost_grid.py, sprint9_plot.py)
-  - Alte ZIP-Dateien und Backup-Dateien (`.bak`)
-
-**Legacy-Scripts (noch in `scripts/`):**
-- `scripts/sprint9_execute.py` - **LEGACY**, wird noch von `run_all_sprint10.ps1` verwendet
-- `scripts/sprint9_backtest.py` - **LEGACY**, wird noch von `run_all_sprint10.ps1` verwendet
-- `scripts/sprint10_portfolio.py` - **LEGACY**, wird noch von `run_all_sprint10.ps1` verwendet
-- `scripts/run_all_sprint10.ps1` - **LEGACY**, nutzt alte Sprint-Scripts
-
-**Warnung:** Alle Legacy-Scripts sind mit einem `# LEGACY:` Kommentar markiert. Diese sollten nicht für neue Entwicklungen verwendet werden.
-
-### Migration
-
-**Von Legacy zu Core:**
-- Alte Sprint-Scripts (`sprint9_*`, `sprint10_*`) → Neue Core-Module (`src/assembled_core/pipeline/*`)
-- Alte CLI-Scripts → Neue CLI-Scripts (`scripts/run_*.py`)
-- Alte PowerShell-Wrapper → Neue Python-Scripts oder `run_eod_pipeline.py`
-
-**Beispiel:**
-- **Alt:** `python scripts/sprint9_execute.py --freq 5min`
-- **Neu:** `python scripts/run_eod_pipeline.py --freq 5min` (oder `run_daily.py` für EOD-MVP)
-
-### Best Practices
-
-**Für neue Entwicklungen:**
-1. Implementiere Logik in `src/assembled_core/`
-2. Erstelle CLI-Wrapper in `scripts/run_*.py` (falls nötig)
-3. Nutze bestehende Core-Module (`pipeline.*`, `data.*`, `features.*`, etc.)
-4. **NICHT:** Alte Sprint-Scripts erweitern oder modifizieren
-
-**Für Legacy-Code:**
-- Nur für Referenzzwecke behalten
-- Nicht für neue Features verwenden
-- Bei Bedarf schrittweise zu Core-Modulen migrieren
-
----
-
-## Weiterführende Dokumente
-
-- [BACKEND_MODULES.md](BACKEND_MODULES.md): Detaillierte Beschreibung der einzelnen Module.
-- [BACKEND_ROADMAP.md](BACKEND_ROADMAP.md): Die Entwicklungs-Roadmap des Backends.
-- [DATA_SOURCES_BACKEND.md](DATA_SOURCES_BACKEND.md): Übersicht über alle Datenquellen.
-- [backend_core.md](backend_core.md): Details zur Kernkonfiguration und Test-Suite.
-- [backend_api.md](backend_api.md): Detaillierte API-Dokumentation.
-- [eod_pipeline.md](eod_pipeline.md): Detaillierte Beschreibung der EOD-Pipeline.
-- [SECURITY_SECRETS.md](SECURITY_SECRETS.md): Secrets-Management und Best Practices.
-
+Diese werden in die bestehende Pipeline-Architektur integriert.
