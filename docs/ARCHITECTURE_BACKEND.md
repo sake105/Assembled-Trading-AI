@@ -509,6 +509,8 @@ Siehe auch: [Data Sources Dokumentation](DATA_SOURCES_BACKEND.md)
 - `scripts/sprint9_backtest.py` - Backtest-Simulation
 - `scripts/sprint10_portfolio.py` - Portfolio-Simulation mit Kosten
 - `scripts/run_eod_pipeline.py` - Vollständige EOD-Pipeline
+- `scripts/run_daily.py` - EOD-MVP Runner (fokussiert auf SAFE-Order-Generierung)
+- `scripts/run_backtest_strategy.py` - Strategy Backtest CLI (Research-Backtests für Strategien)
 
 **API:**
 - `scripts/run_api.py` - FastAPI-Server starten
@@ -516,6 +518,28 @@ Siehe auch: [Data Sources Dokumentation](DATA_SOURCES_BACKEND.md)
 **Data Ingestion:**
 - `scripts/live/pull_intraday.py` - Yahoo Finance Pull
 - `scripts/live/pull_intraday_av.py` - Alpha Vantage Pull
+
+### Strategy Backtest CLI
+
+**Script:** `scripts/run_backtest_strategy.py`
+
+**Zweck:** Research-Backtests für Strategien mit flexibler Konfiguration.
+
+**Hauptmerkmale:**
+- Nutzt `qa.backtest_engine` für flexibles Backtesting
+- Unterstützt verschiedene Strategien (aktuell: `trend_baseline`)
+- Automatische QA-Gates-Evaluierung
+- Optional: QA-Report-Generierung
+
+**Beispiel:**
+```bash
+python scripts/run_backtest_strategy.py --freq 1d --universe watchlist.txt --start-capital 10000 --generate-report
+```
+
+**Unterschied zu anderen Scripts:**
+- `run_eod_pipeline.py`: Vollständige Pipeline mit Run-Manifest
+- `run_daily.py`: EOD-MVP für SAFE-Order-Generierung
+- `run_backtest_strategy.py`: Research-Backtests mit verschiedenen Strategien und Parametern
 
 ---
 

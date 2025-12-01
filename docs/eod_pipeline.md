@@ -98,6 +98,8 @@ Die Pipeline führt folgende Schritte in dieser Reihenfolge aus:
 
 Nach jedem Lauf wird ein Run-Manifest als JSON geschrieben:
 
+**Dateiname:** `output/run_manifest_{freq}.json`
+
 **Pfad:** `output/run_manifest_{freq}.json`
 
 **Beispiel-Inhalt:**
@@ -204,6 +206,7 @@ Nach jedem Lauf wird ein Run-Manifest als JSON geschrieben:
       }
     ]
   },
+  "qa_report_path": "reports/qa_report_eod_pipeline_core_1d_20251128.md",
   "timestamps": {
     "started": "2025-11-28T16:00:00Z",
     "finished": "2025-11-28T16:05:00Z"
@@ -227,8 +230,19 @@ Nach jedem Lauf wird ein Run-Manifest als JSON geschrieben:
   - `overall_result`: "ok", "warning", oder "block"
   - `passed_gates`, `warning_gates`, `blocked_gates`: Anzahl Gates pro Status
   - `gate_results`: Liste der einzelnen Gate-Ergebnisse (gate_name, result, reason, details)
+- `qa_report_path`: Relativer Pfad zum QA-Report (optional, z. B. "reports/qa_report_eod_pipeline_core_1d_20251128.md")
 - `timestamps`: Start- und End-Zeitstempel (ISO 8601)
 - `failure`: Boolean, ob Fehler aufgetreten sind
+
+**QA-Report:**
+
+Nach jedem erfolgreichen Pipeline-Lauf mit QA-Schritt wird automatisch ein QA-Report generiert (sofern Metriken und Gates berechnet werden konnten). Der Report liegt unter `output/reports/qa_report_eod_pipeline_core_{freq}_{date}.md` und enthält:
+- Performance-Metriken (Returns, Risk-Adjusted, Risk, Trade Metrics)
+- QA-Gates-Status und Details
+- Equity-Curve-Link
+- Konfigurationsinformationen (EMA-Params, Cost Model, etc.)
+
+Der Pfad zum Report wird im Run-Manifest unter `qa_report_path` gespeichert.
 
 ---
 
@@ -241,8 +255,16 @@ Nach jedem Lauf wird ein Run-Manifest als JSON geschrieben:
 
 ## Integration mit FastAPI
 
-Das Run-Manifest kann von der FastAPI-API gelesen werden, um den Status des letzten Pipeline-Laufs zu ermitteln:
+Das Run-Manifest dient als primäre Datenquelle für die FastAPI-Endpoints:
 
+**QA Performance & Gates Endpoints:**
+- `GET /api/v1/qa/metrics/{freq}` - Liest `qa_metrics` aus Manifest (Fallback: Berechnung aus Equity-Dateien)
+- `GET /api/v1/qa/gates/{freq}` - Liest `qa_gate_result` aus Manifest (Fallback: Berechnung aus Metriken)
+
+**QA Health Endpoint:**
+- `GET /api/v1/qa/status?freq={freq}` - Führt Health-Checks aus (unabhängig vom Manifest)
+
+**Beispiel:**
 ```python
 import json
 from pathlib import Path
@@ -253,6 +275,20 @@ if manifest_path.exists():
         manifest = json.load(f)
     print(f"Last run: {manifest['timestamps']['finished']}")
     print(f"QA status: {manifest['qa_overall_status']}")
+    print(f"Final PF: {manifest['qa_metrics']['final_pf'] if manifest.get('qa_metrics') else 'N/A'}")
+    print(f"QA Gates: {manifest['qa_gate_result']['overall_result'] if manifest.get('qa_gate_result') else 'N/A'}")
+```
+
+**API-Abfrage:**
+```bash
+# Performance-Metriken aus Manifest
+curl http://localhost:8000/api/v1/qa/metrics/1d
+
+# QA-Gates aus Manifest
+curl http://localhost:8000/api/v1/qa/gates/1d
+
+# QA-Health-Status (unabhängig)
+curl http://localhost:8000/api/v1/qa/status?freq=1d
 ```
 
 ---
@@ -630,6 +666,35 @@ python scripts/run_daily.py --date 2025-01-15
 - **Leeres DataFrame nach Laden:** Exit-Code 1, Fehlermeldung "Price data is empty"
 - **Ungültiges Datum:** Exit-Code 1, Fehlermeldung "Invalid date format"
 - **Keine Orders generiert:** Leere SAFE-Datei wird erstellt, Script beendet erfolgreich (Exit-Code 0)
+
+---
+
+## Strategy Backtest CLI (run_backtest_strategy.py)
+
+**Zweck:** Research-Backtests für Strategien mit flexibler Konfiguration.
+
+**Verwendung:**
+
+```bash
+# Basis-Backtest mit Standardeinstellungen
+python scripts/run_backtest_strategy.py --freq 1d
+
+# Backtest mit Universe-Datei und Report-Generierung
+python scripts/run_backtest_strategy.py --freq 1d --universe watchlist.txt --start-capital 10000 --generate-report
+
+# Backtest mit custom Preis-Datei und Cost-Parametern
+python scripts/run_backtest_strategy.py --freq 1d --price-file data/sample/eod_sample.parquet --commission-bps 0.5 --spread-w 0.3
+```
+
+**Funktionen:**
+- Nutzt `qa.backtest_engine` für flexibles Backtesting
+- Unterstützt verschiedene Strategien (aktuell: `trend_baseline`)
+- Automatische QA-Gates-Evaluierung
+- Optional: QA-Report-Generierung
+
+**Unterschied zu `run_eod_pipeline.py`:**
+- `run_eod_pipeline.py`: Vollständige Pipeline (Execute → Backtest → Portfolio → QA) mit Run-Manifest
+- `run_backtest_strategy.py`: Fokussiert auf Research-Backtests mit verschiedenen Strategien und Parametern
 
 **Exit-Codes:**
 - `0`: Erfolgreich (Orders generiert oder leere Datei erstellt)

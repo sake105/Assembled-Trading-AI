@@ -22,6 +22,7 @@ from src.assembled_core.pipeline.signals import compute_ema_signals
 from src.assembled_core.qa.health import aggregate_qa_status
 from src.assembled_core.qa.metrics import compute_all_metrics
 from src.assembled_core.qa.qa_gates import QAResult, evaluate_all_gates
+from src.assembled_core.reports.daily_qa_report import generate_qa_report
 
 # Get logger (will use default logging if not configured)
 logger = get_logger("assembled_core.pipeline")
@@ -327,6 +328,7 @@ def run_eod_pipeline(
     qa_result = None
     qa_metrics = None
     qa_gate_result = None
+    qa_report_path_rel = None
     if not skip_qa:
         try:
             logger.info("Step 5: QA")
@@ -393,12 +395,66 @@ def run_eod_pipeline(
                         # Don't set failure_flag here - gates are informational, not blocking
                     elif qa_gate_result.overall_result == QAResult.WARNING:
                         logger.warning("QA gates WARNING - some quality thresholds not met")
+                    
+                    # 5d: Generate QA report
+                    try:
+                        logger.info("Step 5d: Generating QA report")
+                        
+                        # Build config info for report
+                        # Get actual cost parameters used (CLI overrides or defaults)
+                        cost_model = get_default_cost_model()
+                        final_commission_bps = commission_bps if commission_bps is not None else cost_model.commission_bps
+                        final_spread_w = spread_w if spread_w is not None else cost_model.spread_w
+                        final_impact_w = impact_w if impact_w is not None else cost_model.impact_w
+                        
+                        ema_config = get_default_ema_config(freq)
+                        config_info = {
+                            "strategy": "eod_pipeline_core",
+                            "freq": freq,
+                            "start_capital": start_capital,
+                            "ema_fast": ema_config.fast,
+                            "ema_slow": ema_config.slow,
+                            "commission_bps": final_commission_bps,
+                            "spread_w": final_spread_w,
+                            "impact_w": final_impact_w
+                        }
+                        
+                        # Determine equity curve path for report
+                        equity_curve_path = None
+                        if portfolio_equity_file.exists():
+                            equity_curve_path = portfolio_equity_file
+                        elif backtest_equity_file.exists():
+                            equity_curve_path = backtest_equity_file
+                        
+                        # Generate report
+                        qa_report_path = generate_qa_report(
+                            metrics=qa_metrics,
+                            gate_result=qa_gate_result,
+                            strategy_name="eod_pipeline_core",
+                            freq=freq,
+                            equity_curve_path=equity_curve_path,
+                            data_start_date=qa_metrics.start_date,
+                            data_end_date=qa_metrics.end_date,
+                            config_info=config_info,
+                            output_dir=base / "reports"
+                        )
+                        
+                        # Convert to relative path for manifest (relative to base output dir)
+                        qa_report_path_rel = qa_report_path.relative_to(base)
+                        logger.info(f"QA report written: {qa_report_path}")
+                        
+                    except Exception as e:
+                        logger.warning(f"QA report generation failed: {e}", exc_info=True)
+                        qa_report_path_rel = None
+                        # Don't fail the pipeline if report generation fails - it's optional
                 else:
                     logger.warning("Cannot compute QA metrics: no equity data available")
+                    qa_report_path_rel = None
                     
             except Exception as e:
                 logger.warning(f"QA metrics/gates computation failed: {e}", exc_info=True)
                 # Don't fail the pipeline if metrics/gates fail - they're optional
+                qa_report_path_rel = None
             
             completed_steps.append("qa")
         except Exception as e:
@@ -418,6 +474,7 @@ def run_eod_pipeline(
         "qa_checks": qa_result["checks"] if qa_result else [],
         "qa_metrics": _metrics_to_dict(qa_metrics) if qa_metrics else None,
         "qa_gate_result": _gate_result_to_dict(qa_gate_result) if qa_gate_result else None,
+        "qa_report_path": str(qa_report_path_rel) if qa_report_path_rel else None,
         "timestamps": {
             "started": started_at.isoformat(),
             "finished": finished_at.isoformat()

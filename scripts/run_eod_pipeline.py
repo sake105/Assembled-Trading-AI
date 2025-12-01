@@ -118,6 +118,10 @@ def main() -> None:
             elif qa_status == "warning":
                 logger.warning("QA overall_status is 'warning' - some checks failed")
         
+        # Log QA report path if available
+        if manifest.get("qa_report_path"):
+            logger.info(f"QA Report: {manifest['qa_report_path']}")
+        
         if manifest.get("failure"):
             logger.error("Some pipeline steps failed")
             sys.exit(1)

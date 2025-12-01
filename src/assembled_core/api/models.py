@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -284,4 +284,131 @@ class EquityCurveResponse(BaseModel):
     count: int = Field(..., description="Number of points")
     start_equity: float = Field(..., description="Starting equity")
     end_equity: float = Field(..., description="Ending equity")
+
+
+# ============================================================================
+# QA Performance & Gates Models
+# ============================================================================
+
+class PerformanceMetricsResponse(BaseModel):
+    """Performance metrics response.
+    
+    Derived from: qa.metrics.PerformanceMetrics
+    Source: run_manifest_{freq}.json (qa_metrics) or computed from equity/trades
+    """
+    # Performance
+    final_pf: float = Field(..., description="Final Performance Factor")
+    total_return: float = Field(..., description="Total Return")
+    cagr: Optional[float] = Field(None, description="Compound Annual Growth Rate")
+    
+    # Risk-Adjusted Returns
+    sharpe_ratio: Optional[float] = Field(None, description="Sharpe Ratio (annualized)")
+    sortino_ratio: Optional[float] = Field(None, description="Sortino Ratio (annualized)")
+    calmar_ratio: Optional[float] = Field(None, description="Calmar Ratio")
+    
+    # Risk Metrics
+    max_drawdown: float = Field(..., description="Maximum drawdown (absolute, negative value)")
+    max_drawdown_pct: float = Field(..., description="Maximum drawdown (percent, negative value)")
+    current_drawdown: float = Field(..., description="Current drawdown (absolute)")
+    volatility: Optional[float] = Field(None, description="Volatility (annualized)")
+    var_95: Optional[float] = Field(None, description="Value at Risk (95% confidence)")
+    
+    # Trade Metrics
+    hit_rate: Optional[float] = Field(None, description="Win Rate")
+    profit_factor: Optional[float] = Field(None, description="Profit Factor")
+    avg_win: Optional[float] = Field(None, description="Average win per trade")
+    avg_loss: Optional[float] = Field(None, description="Average loss per trade")
+    turnover: Optional[float] = Field(None, description="Portfolio turnover (annualized)")
+    total_trades: Optional[int] = Field(None, description="Total number of trades")
+    
+    # Metadata
+    start_date: datetime = Field(..., description="First timestamp")
+    end_date: datetime = Field(..., description="Last timestamp")
+    periods: int = Field(..., description="Number of periods")
+    start_capital: float = Field(..., description="Starting capital")
+    end_equity: float = Field(..., description="Ending equity")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "final_pf": 1.1250,
+                "total_return": 0.1250,
+                "cagr": 0.1523,
+                "sharpe_ratio": 1.2345,
+                "sortino_ratio": 1.5678,
+                "calmar_ratio": 0.8765,
+                "max_drawdown": -150.25,
+                "max_drawdown_pct": -15.025,
+                "current_drawdown": -50.0,
+                "volatility": 0.18,
+                "var_95": -200.0,
+                "hit_rate": 0.55,
+                "profit_factor": 1.75,
+                "avg_win": 25.0,
+                "avg_loss": -15.0,
+                "turnover": 2.5,
+                "total_trades": 100,
+                "start_date": "2023-01-01T00:00:00Z",
+                "end_date": "2023-12-31T00:00:00Z",
+                "periods": 252,
+                "start_capital": 10000.0,
+                "end_equity": 11250.0
+            }
+        }
+
+
+class QAGateResultModel(BaseModel):
+    """Individual QA gate result.
+    
+    Derived from: qa.qa_gates.QAGateResult
+    """
+    gate_name: str = Field(..., description="Name of the gate (e.g., 'sharpe_ratio', 'max_drawdown')")
+    result: str = Field(..., description="Gate result: 'OK', 'WARNING', or 'BLOCK'")
+    reason: str = Field(..., description="Human-readable reason for the result")
+    details: Optional[dict[str, Any]] = Field(None, description="Additional details (e.g., actual value, threshold)")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "gate_name": "sharpe_ratio",
+                "result": "OK",
+                "reason": "Sharpe ratio 1.2345 meets minimum threshold 1.00",
+                "details": {
+                    "sharpe_ratio": 1.2345,
+                    "min_sharpe": 1.0,
+                    "warning_sharpe": 0.5
+                }
+            }
+        }
+
+
+class QAGatesSummaryResponse(BaseModel):
+    """QA gates summary response.
+    
+    Derived from: qa.qa_gates.QAGatesSummary
+    Source: run_manifest_{freq}.json (qa_gate_result) or computed from metrics
+    """
+    overall_result: str = Field(..., description="Overall result: 'OK', 'WARNING', or 'BLOCK'")
+    counts: dict[str, int] = Field(..., description="Gate counts: {'ok': N, 'warning': M, 'block': K}")
+    gate_results: list[QAGateResultModel] = Field(..., description="List of individual gate results")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "overall_result": "OK",
+                "counts": {
+                    "ok": 5,
+                    "warning": 1,
+                    "block": 0
+                },
+                "gate_results": [
+                    {
+                        "gate_name": "sharpe_ratio",
+                        "result": "OK",
+                        "reason": "Sharpe ratio 1.2345 meets minimum threshold 1.00",
+                        "details": {"sharpe_ratio": 1.2345, "min_sharpe": 1.0}
+                    }
+                ]
+            }
+        }
 
