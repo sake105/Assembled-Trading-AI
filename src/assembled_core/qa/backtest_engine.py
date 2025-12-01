@@ -197,24 +197,38 @@ def run_portfolio_backtest(
         >>> print(f"Trades: {result.metrics['trades']}")
     """
     # Validate input
+    if prices is None or prices.empty:
+        raise ValueError("Missing required columns: prices DataFrame is None or empty")
+    
     required_cols = ["timestamp", "symbol", "close"]
     missing = [c for c in required_cols if c not in prices.columns]
     if missing:
-        raise ValueError(f"Missing required columns in prices: {missing}")
+        raise ValueError(f"Missing required columns: {', '.join(missing)}")
     
     # Ensure prices are sorted
     prices = prices.sort_values(["symbol", "timestamp"]).reset_index(drop=True).copy()
     
     # Step 1: Compute features (optional)
-    if compute_features:
+    # Only compute features if prices is not empty (features require data)
+    if compute_features and len(prices) > 0:
         config = feature_config or {}
-        prices_with_features = add_all_features(
-            prices,
-            ma_windows=config.get("ma_windows", (20, 50, 200)),
-            atr_window=config.get("atr_window", 14),
-            rsi_window=config.get("rsi_window", 14),
-            include_rsi=config.get("include_rsi", True)
-        )
+        # Check if we have required columns for features (ATR needs high/low)
+        has_ohlc = all(col in prices.columns for col in ["high", "low", "open"])
+        if has_ohlc:
+            prices_with_features = add_all_features(
+                prices,
+                ma_windows=config.get("ma_windows", (20, 50, 200)),
+                atr_window=config.get("atr_window", 14),
+                rsi_window=config.get("rsi_window", 14),
+                include_rsi=config.get("include_rsi", True)
+            )
+        else:
+            # If OHLC not available, only compute features that don't need them
+            prices_with_features = add_log_returns(prices.copy())
+            prices_with_features = add_moving_averages(
+                prices_with_features,
+                windows=config.get("ma_windows", (20, 50, 200))
+            )
     else:
         prices_with_features = prices.copy()
     

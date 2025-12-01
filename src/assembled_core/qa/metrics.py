@@ -423,15 +423,15 @@ def compute_equity_metrics(
         returns = _compute_returns(equity_series)
     
     # Performance metrics
-    # Use start_capital as reference point, not first equity value
-    # (equity might have been computed from returns and start at different value)
-    start_value = float(start_capital)
-    end_value = float(equity_series.iloc[-1])
-    final_pf = end_value / max(start_value, 1e-12)
+    # Use start_capital as reference point (as per test expectations)
+    # total_return = end_eq / start_capital - 1, not end_eq / start_eq - 1
+    start_eq = float(equity_series.iloc[0])
+    end_eq = float(equity_series.iloc[-1])
+    final_pf = end_eq / max(start_capital, 1e-12)
     total_return = final_pf - 1.0
     
     periods = len(equity)
-    cagr = compute_cagr(start_value, end_value, periods, freq)
+    cagr = compute_cagr(start_capital, end_eq, periods, freq)
     
     # Risk-adjusted returns
     sharpe_ratio = compute_sharpe_ratio(returns, freq, risk_free_rate) if len(returns) >= 2 else None
@@ -456,7 +456,7 @@ def compute_equity_metrics(
     # VaR (95% confidence, historical)
     var_95 = None
     if len(returns) >= 5:
-        var_95 = float(np.percentile(returns, 5) * end_value)
+        var_95 = float(np.percentile(returns, 5) * end_eq)
         if np.isnan(var_95):
             var_95 = None
     
@@ -486,7 +486,7 @@ def compute_equity_metrics(
         end_date=end_date,
         periods=periods,
         start_capital=start_capital,
-        end_equity=end_value
+        end_equity=end_eq
     )
 
 
