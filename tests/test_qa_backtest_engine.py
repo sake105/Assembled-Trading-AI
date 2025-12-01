@@ -240,6 +240,7 @@ def test_backtest_engine_invalid_signal_fn(synthetic_prices_multi_year):
 
 
 @pytest.mark.smoke
+@pytest.mark.slow
 def test_backtest_engine_multi_year(synthetic_prices_multi_year):
     """Test normal backtest over multiple years → sensible equity curve.
     
@@ -304,6 +305,7 @@ def test_backtest_engine_multi_year(synthetic_prices_multi_year):
 
 
 @pytest.mark.smoke
+@pytest.mark.slow
 def test_backtest_engine_with_costs(synthetic_prices_multi_year):
     """Test backtest with cost model → equity curve reflects costs."""
     result = run_portfolio_backtest(
@@ -388,6 +390,7 @@ def test_backtest_engine_with_gaps(synthetic_prices_with_gaps):
 
 
 @pytest.mark.unit
+@pytest.mark.slow
 def test_backtest_engine_no_features(synthetic_prices_multi_year):
     """Test backtest without feature computation."""
     result = run_portfolio_backtest(
@@ -438,6 +441,7 @@ def test_backtest_engine_no_trades(synthetic_prices_multi_year):
 
 
 @pytest.mark.unit
+@pytest.mark.slow
 def test_backtest_engine_optional_outputs(synthetic_prices_multi_year):
     """Test that optional outputs are only included when requested."""
     # Test without optional outputs
@@ -472,6 +476,7 @@ def test_backtest_engine_optional_outputs(synthetic_prices_multi_year):
 
 
 @pytest.mark.unit
+@pytest.mark.slow
 def test_backtest_engine_cost_model(synthetic_prices_multi_year):
     """Test backtest with CostModel instead of individual parameters."""
     from src.assembled_core.costs import CostModel
