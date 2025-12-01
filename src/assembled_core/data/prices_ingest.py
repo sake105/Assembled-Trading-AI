@@ -128,6 +128,7 @@ def load_eod_prices(
 def load_eod_prices_for_universe(
     universe_file: Path | str | None = None,
     price_file: Path | str | None = None,
+    data_dir: Path | str | None = None,
     freq: Literal["1d", "5min"] = "1d"
 ) -> pd.DataFrame:
     """Load EOD prices for symbols from a universe file (e.g., watchlist.txt).
@@ -135,6 +136,7 @@ def load_eod_prices_for_universe(
     Args:
         universe_file: Path to file with symbols (one per line). If None, uses watchlist.txt.
         price_file: Optional explicit path to price file. If None, uses default path for freq.
+        data_dir: Optional base data directory. If None, uses config.OUTPUT_DIR for aggregates.
         freq: Frequency string ("1d" or "5min"), default "1d"
     
     Returns:
@@ -169,7 +171,7 @@ def load_eod_prices_for_universe(
         raise ValueError(f"No symbols found in universe file: {universe_path}")
     
     # Load prices for these symbols
-    return load_eod_prices(symbols=symbols, price_file=price_file, freq=freq)
+    return load_eod_prices(symbols=symbols, price_file=price_file, data_dir=data_dir, freq=freq)
 
 
 def validate_price_data(df: pd.DataFrame) -> dict[str, bool | int | str]:

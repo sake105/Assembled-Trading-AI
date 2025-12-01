@@ -63,7 +63,7 @@ import pandas as pd
 
 from src.assembled_core.costs import CostModel, get_default_cost_model
 from src.assembled_core.execution.order_generation import generate_orders_from_targets
-from src.assembled_core.features.ta_features import add_all_features
+from src.assembled_core.features.ta_features import add_all_features, add_log_returns, add_moving_averages
 from src.assembled_core.pipeline.backtest import compute_metrics, simulate_equity
 from src.assembled_core.pipeline.portfolio import simulate_with_costs
 

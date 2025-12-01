@@ -84,6 +84,7 @@ def test_run_backtest_strategy_smoke(tmp_path: Path, sample_price_file: Path, mo
                 "--freq", "1d",
                 "--price-file", str(sample_price_file),
                 "--start-capital", "10000",
+                "--out", str(tmp_path),
                 "--generate-report"
             ],
             cwd=str(ROOT),
@@ -181,10 +182,11 @@ def test_run_backtest_strategy_with_universe(tmp_path: Path, sample_price_file: 
         # Create aggregates directory with daily.parquet
         (tmp_path / "aggregates").mkdir(parents=True, exist_ok=True)
         
-        # Copy price file to expected location
+        # Copy price file to expected location (only if different)
         target_price_file = tmp_path / "aggregates" / "daily.parquet"
         import shutil
-        shutil.copy(sample_price_file, target_price_file)
+        if sample_price_file.resolve() != target_price_file.resolve():
+            shutil.copy(sample_price_file, target_price_file)
         
         # Create watchlist in tmp_path (will be used as base)
         (tmp_path / "watchlist.txt").write_text("AAPL\nMSFT\n", encoding="utf-8")
@@ -196,6 +198,7 @@ def test_run_backtest_strategy_with_universe(tmp_path: Path, sample_price_file: 
                 str(script_path),
                 "--freq", "1d",
                 "--universe", str(tmp_path / "watchlist.txt"),
+                "--out", str(tmp_path),
                 "--start-capital", "10000"
             ],
             cwd=str(ROOT),

@@ -181,11 +181,12 @@ Examples:
     return parser.parse_args()
 
 
-def load_price_data(args: argparse.Namespace) -> pd.DataFrame:
+def load_price_data(args: argparse.Namespace, output_dir: Path | None = None) -> pd.DataFrame:
     """Load price data based on CLI arguments.
     
     Args:
         args: Parsed command-line arguments
+        output_dir: Output directory for price data (default: None, uses args.out or OUTPUT_DIR)
     
     Returns:
         DataFrame with price data (timestamp, symbol, open, high, low, close, volume)
@@ -194,16 +195,28 @@ def load_price_data(args: argparse.Namespace) -> pd.DataFrame:
         FileNotFoundError: If price file or universe file not found
         ValueError: If no data found for universe symbols
     """
+    # Get output directory for price data loading
+    if output_dir is None:
+        output_dir = Path(args.out) if args.out else OUTPUT_DIR
+    
     if args.price_file:
         logger.info(f"Loading prices from explicit file: {args.price_file}")
         prices = load_eod_prices(price_file=args.price_file, freq=args.freq)
     elif args.universe:
         logger.info(f"Loading prices for universe: {args.universe}")
-        prices = load_eod_prices_for_universe(universe_file=args.universe, freq=args.freq)
+        prices = load_eod_prices_for_universe(
+            universe_file=args.universe, 
+            data_dir=output_dir,
+            freq=args.freq
+        )
     else:
         # Default: use watchlist.txt
         logger.info("Loading prices for default universe (watchlist.txt)")
-        prices = load_eod_prices_for_universe(universe_file=None, freq=args.freq)
+        prices = load_eod_prices_for_universe(
+            universe_file=None, 
+            data_dir=output_dir,
+            freq=args.freq
+        )
     
     logger.info(f"Loaded {len(prices)} rows for {prices['symbol'].nunique()} symbols")
     logger.info(f"Date range: {prices['timestamp'].min()} to {prices['timestamp'].max()}")
