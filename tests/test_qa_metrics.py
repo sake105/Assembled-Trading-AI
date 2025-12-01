@@ -92,14 +92,35 @@ def synthetic_equity_negative() -> pd.DataFrame:
 def synthetic_equity_sideways() -> pd.DataFrame:
     """Synthetic equity curve with sideways movement (low return, high volatility)."""
     dates = pd.date_range("2020-01-01", periods=252, freq="D")
-    # Sideways: ~0% daily return, 3% volatility
+    # Sideways: Generate equity that starts and ends at start_capital with high volatility
+    # Use random walk that returns to start (mean-reverting)
     np.random.seed(44)
-    returns = np.random.normal(0.0, 0.03, 252)
-    equity = 10000.0 * (1 + returns).cumprod()
+    start_capital = 10000.0
+    n = len(dates)
+    equity_values = [start_capital]
+    
+    # Generate random returns with high volatility
+    returns = np.random.normal(0.0, 0.03, n - 1)
+    # Adjust returns so cumulative product is exactly 1.0 (ends at start)
+    cumulative = (1 + returns).prod()
+    if abs(cumulative - 1.0) > 1e-10:
+        # Scale returns to make cumulative = 1.0
+        adjustment = (1.0 / cumulative) ** (1.0 / (n - 1))
+        returns = returns * adjustment
+    
+    # Build equity curve
+    for r in returns:
+        equity_values.append(equity_values[-1] * (1 + r))
+    
+    # Ensure it ends exactly at start_capital (should be close already)
+    if abs(equity_values[-1] - start_capital) > 0.01:
+        # Scale entire curve so end = start_capital
+        scale = start_capital / equity_values[-1]
+        equity_values = [v * scale for v in equity_values]
     
     return pd.DataFrame({
         "timestamp": dates,
-        "equity": equity
+        "equity": equity_values
     })
 
 
@@ -455,69 +476,6 @@ def test_compute_all_metrics_without_trades(synthetic_equity_1d):
     assert metrics.total_trades is None
     assert metrics.turnover is None
     assert metrics.hit_rate is None
-
-
-@pytest.fixture
-def synthetic_equity_strong_positive() -> pd.DataFrame:
-    """Synthetic equity curve with strong positive trend (high CAGR)."""
-    dates = pd.date_range("2020-01-01", periods=252, freq="D")
-    # Strong positive trend: ~0.3% daily return, 1.5% volatility
-    np.random.seed(42)  # For reproducibility
-    returns = np.random.normal(0.003, 0.015, 252)
-    equity = 10000.0 * (1 + returns).cumprod()
-    
-    return pd.DataFrame({
-        "timestamp": dates,
-        "equity": equity
-    })
-
-
-@pytest.fixture
-def synthetic_equity_negative() -> pd.DataFrame:
-    """Synthetic equity curve with strong negative trend."""
-    dates = pd.date_range("2020-01-01", periods=252, freq="D")
-    # Strong negative trend: ~-0.3% daily return, 1.5% volatility
-    np.random.seed(43)
-    returns = np.random.normal(-0.003, 0.015, 252)
-    equity = 10000.0 * (1 + returns).cumprod()
-    
-    return pd.DataFrame({
-        "timestamp": dates,
-        "equity": equity
-    })
-
-
-@pytest.fixture
-def synthetic_equity_sideways() -> pd.DataFrame:
-    """Synthetic equity curve with sideways movement (low return, high volatility)."""
-    dates = pd.date_range("2020-01-01", periods=252, freq="D")
-    # Sideways: ~0% daily return, 3% volatility
-    np.random.seed(44)
-    returns = np.random.normal(0.0, 0.03, 252)
-    equity = 10000.0 * (1 + returns).cumprod()
-    
-    return pd.DataFrame({
-        "timestamp": dates,
-        "equity": equity
-    })
-
-
-@pytest.fixture
-def synthetic_trades_high_turnover() -> pd.DataFrame:
-    """Synthetic trades DataFrame with high turnover (many trades)."""
-    dates = pd.date_range("2020-01-01", periods=252, freq="D")
-    trades = []
-    for i, date in enumerate(dates):
-        # Trade every day
-        trades.append({
-            "timestamp": date,
-            "symbol": f"SYM{i % 5}",  # Rotate between 5 symbols
-            "side": "BUY" if i % 2 == 0 else "SELL",
-            "qty": 100.0,
-            "price": 100.0 + i * 0.1
-        })
-    
-    return pd.DataFrame(trades)
 
 
 @pytest.mark.smoke
