@@ -13,14 +13,14 @@ from src.assembled_core.qa.backtest_engine import BacktestResult, run_portfolio_
 
 @pytest.fixture
 def synthetic_prices_multi_year() -> pd.DataFrame:
-    """Create synthetic EOD price data for multiple years (2 symbols, ~3 years).
+    """Create synthetic EOD price data for multiple years (2 symbols, ~1.5 years).
     
     Returns:
         DataFrame with columns: timestamp, symbol, open, high, low, close, volume
-        Dates: 2020-01-01 to 2022-12-31 (daily)
+        Dates: 2021-01-01 to 2022-06-30 (daily, ~1.5 years)
         Symbols: AAPL, MSFT
     """
-    dates = pd.date_range(start="2020-01-01", end="2022-12-31", freq="D", tz="UTC")
+    dates = pd.date_range(start="2021-01-01", end="2022-06-30", freq="D", tz="UTC")
     # Filter out weekends (keep only weekdays)
     dates = dates[dates.weekday < 5]
     
