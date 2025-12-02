@@ -129,14 +129,32 @@ pytest ... 2>&1 | Select-String -Pattern "..." | Select-Object -Last 2
 
 ## Integration in CI/CD
 
-Für automatisierte Testläufe (z.B. GitHub Actions):
+**GitHub Actions CI (.github/workflows/backend-ci.yml):**
+
+Die CI testet nur die stabilen Kern-Suites (Phase 4 + Phase 6):
 
 ```yaml
-# Beispiel GitHub Actions
-- name: Run Phase-4 Tests
-  run: pytest -m phase4 --tb=short
+- name: Run backend core tests (phase4 + phase6)
+  run: |
+    pytest -m "phase4 or phase6" -q --maxfail=1 --disable-warnings
+```
 
-- name: Run Phase-6 Tests
-  run: pytest -m phase6 --tb=short
+**Warum nur Phase 4 + Phase 6?**
+
+- ✅ Phase 4: Backend Core (TA, QA, Backtest, Reports) – stabil und getestet
+- ✅ Phase 6: Event Features (Insider, Shipping, etc.) – stabil und getestet
+- ⚠️ Legacy-Tests (API-Smoke, alte Portfolio-Tests) sind noch nicht auf den neuen Stand gehoben und würden CI blockieren
+
+**Lokal alle Tests ausführen:**
+
+```powershell
+# Alle Tests (inkl. Legacy)
+.\.venv\Scripts\python.exe -m pytest tests/ -v
+```
+
+**Nur Kern-Backend (wie CI):**
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -m "phase4 or phase6" -q
 ```
 

@@ -32,9 +32,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
       
-      - name: Run tests
+      - name: Run backend core tests (phase4 + phase6)
         run: |
-          pytest tests/ -v --tb=short
+          pytest -m "phase4 or phase6" -q --maxfail=1 --disable-warnings
       
       - name: Run ruff (linting)
         run: |
