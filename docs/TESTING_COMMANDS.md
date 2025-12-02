@@ -127,6 +127,72 @@ cd F:\Python_Projekt\Aktiengerüst
 
 ---
 
+## Standard-Test-Profile (QoL)
+
+### 🚀 Schnell (für tägliche Arbeit)
+
+**Phase 4 + 6:** Backend Core + Event Features (~146 Tests, ~18s)
+```powershell
+.\.venv\Scripts\python.exe -m pytest -m "phase4 or phase6" -q
+```
+
+**Mit Warnings-Check:**
+```powershell
+.\.venv\Scripts\python.exe -m pytest -m "phase4 or phase6" -q -W error
+```
+
+### 🔬 Vollständig (inkl. Meta & Risk)
+
+**Alle Phasen:** Phase 4 + 6 + 7 + 8 (~206 Tests, ~19s)
+```powershell
+.\.venv\Scripts\python.exe -m pytest -m "phase4 or phase6 or phase7 or phase8" -q
+```
+
+**Mit Performance-Analyse:**
+```powershell
+.\.venv\Scripts\python.exe -m pytest -m "phase4 or phase6 or phase7 or phase8" -q --durations=10
+```
+
+**Mit harten Warnings-Check (0 Warnings erzwungen):**
+```powershell
+.\.venv\Scripts\python.exe -m pytest -m "phase4 or phase6 or phase7 or phase8" -W error --maxfail=1
+```
+
+---
+
+## Standard-Test-Profile (QoL)
+
+### 🚀 Schnell (für tägliche Arbeit)
+
+**Phase 4 + 6:** Backend Core + Event Features (~146 Tests, ~18s)
+```powershell
+.\.venv\Scripts\python.exe -m pytest -m "phase4 or phase6" -q
+```
+
+**Mit Warnings-Check:**
+```powershell
+.\.venv\Scripts\python.exe -m pytest -m "phase4 or phase6" -q -W error
+```
+
+### 🔬 Vollständig (inkl. Meta & Risk)
+
+**Alle Phasen:** Phase 4 + 6 + 7 + 8 (~206 Tests, ~19s)
+```powershell
+.\.venv\Scripts\python.exe -m pytest -m "phase4 or phase6 or phase7 or phase8" -q
+```
+
+**Mit Performance-Analyse:**
+```powershell
+.\.venv\Scripts\python.exe -m pytest -m "phase4 or phase6 or phase7 or phase8" -q --durations=10
+```
+
+**Mit harten Warnings-Check (0 Warnings erzwungen):**
+```powershell
+.\.venv\Scripts\python.exe -m pytest -m "phase4 or phase6 or phase7 or phase8" -W error --maxfail=1
+```
+
+---
+
 ## Wichtige Hinweise
 
 ### ❌ Nicht verwenden
@@ -199,19 +265,21 @@ pytest ... 2>&1 | Select-String -Pattern "..." | Select-Object -Last 2
 
 **GitHub Actions CI (.github/workflows/backend-ci.yml):**
 
-Die CI testet nur die stabilen Kern-Suites (Phase 4 + Phase 6):
+Die CI testet alle stabilen Phasen mit harten Warnings-Check:
 
 ```yaml
-- name: Run backend core tests (phase4 + phase6)
+- name: Run backend core tests (phase4 + phase6 + phase7 + phase8)
   run: |
-    pytest -m "phase4 or phase6" -q --maxfail=1 --disable-warnings
+    pytest -m "phase4 or phase6 or phase7 or phase8" -q --maxfail=1 -W error
 ```
 
-**Warum nur Phase 4 + Phase 6?**
+**Getestete Phasen:**
 
 - ✅ Phase 4: Backend Core (TA, QA, Backtest, Reports) – stabil und getestet
 - ✅ Phase 6: Event Features (Insider, Shipping, etc.) – stabil und getestet
-- ⚠️ Legacy-Tests (API-Smoke, alte Portfolio-Tests) sind noch nicht auf den neuen Stand gehoben und würden CI blockieren
+- ✅ Phase 7: Labeling & ML Dataset Builder – stabil und getestet
+- ✅ Phase 8: Risk Engine & Scenario Analysis – stabil und getestet
+- 🔒 **-W error**: Erzwingt 0 Warnings im CI (keine neuen Warnings durchrutschen lassen)
 
 **Lokal alle Tests ausführen:**
 
