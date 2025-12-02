@@ -1,6 +1,7 @@
 """Tests for daily QA report generation."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -334,35 +335,43 @@ def test_generate_qa_report_from_files(tmp_path, synthetic_equity_positive, synt
     assert "test_strategy" in content
 
 
-def test_generate_qa_report_from_files_default_equity(tmp_path, synthetic_equity_positive):
-    """Test generate_qa_report_from_files with default equity file path."""
-    # Create output directory structure
-    output_base = tmp_path / "output"
-    output_base.mkdir()
+def test_generate_qa_report_from_files_default_equity():
+    """
+    Test generate_qa_report_from_files with default equity file path.
     
-    # Write equity to default location
-    equity_file = output_base / "portfolio_equity_1d.csv"
-    synthetic_equity_positive.to_csv(equity_file, index=False)
+    In CI gibt es kein vorher erzeugtes output/portfolio_equity_1d.csv.
+    Deshalb erstellt der Test hier eine kleine Dummy-Equity-Kurve
+    genau an diesem Default-Pfad.
+    """
+    # output/ Ordner sicherstellen
+    output_dir = Path("output")
+    output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Temporarily override OUTPUT_DIR for this test
-    import src.assembled_core.reports.daily_qa_report as report_module
-    original_output_dir = report_module.OUTPUT_DIR
-    report_module.OUTPUT_DIR = output_base
+    equity_file = output_dir / "portfolio_equity_1d.csv"
     
-    try:
-        # Generate report (should find default equity file)
-        report_path = generate_qa_report_from_files(
-            freq="1d",
-            strategy_name="test_strategy",
-            equity_file=None,  # Use default
-            start_capital=10000.0,
-            output_dir=tmp_path / "reports"
-        )
-        
-        assert report_path.exists()
-    finally:
-        # Restore original OUTPUT_DIR
-        report_module.OUTPUT_DIR = original_output_dir
+    # kleine synthetische Equity-Kurve
+    df = pd.DataFrame(
+        {
+            "timestamp": [
+                datetime(2020, 1, 1, tzinfo=timezone.utc),
+                datetime(2020, 1, 2, tzinfo=timezone.utc),
+                datetime(2020, 1, 3, tzinfo=timezone.utc),
+            ],
+            "equity": [10000.0, 10050.0, 10090.0],
+        }
+    )
+    df.to_csv(equity_file, index=False)
+    
+    # jetzt sollte die Funktion das Default-File finden
+    report_path = generate_qa_report_from_files(
+        freq="1d",
+        strategy_name="test_strategy",
+        equity_file=None,  # Use default
+        start_capital=10000.0
+    )
+    
+    assert report_path.exists()
+    assert report_path.is_file()
 
 
 def test_generate_qa_report_from_files_missing_equity(tmp_path):
