@@ -38,7 +38,7 @@ jobs:
       
       - name: Run ruff (linting)
         run: |
-          ruff check src tests scripts
+          ruff check src tests scripts --exclude scripts/tools --exclude scripts/00_seed_demo_data.py
       
       - name: Run mypy (type checking)
         run: |

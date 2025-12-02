@@ -39,7 +39,7 @@ def main():
     if not orders.empty:
         print(f"[BT9] Reading orders: rows={len(orders)}")
     else:
-        print(f"[BT9] Orders nicht gefunden → flache Equity (nur Startkapital).")
+        print("[BT9] Orders nicht gefunden → flache Equity (nur Startkapital).")
     
     # Simulate
     eq = simulate_equity(prices, orders, start_capital=float(args.start_capital))

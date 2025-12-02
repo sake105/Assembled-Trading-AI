@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import logging
 import sys
 from pathlib import Path
 
@@ -133,9 +132,10 @@ def run_eod_from_args(args: argparse.Namespace) -> None:
         price_file = None
     
     # Handle universe file (if provided, pass to orchestrator if it supports it)
-    universe_file = getattr(args, "universe", None)
-    start_date = getattr(args, "start_date", None)
-    end_date = getattr(args, "end_date", None)
+    # Note: These are currently not passed to run_eod_pipeline, but kept for future use
+    _ = getattr(args, "universe", None)  # universe_file
+    _ = getattr(args, "start_date", None)  # start_date
+    _ = getattr(args, "end_date", None)  # end_date
     
     manifest = run_eod_pipeline(
         freq=args.freq,

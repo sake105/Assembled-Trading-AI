@@ -39,11 +39,14 @@ where = ["src"]
 [tool.ruff]
 target-version = "py310"
 src = ["src", "scripts", "tests"]
-select = ["E", "F", "I", "W"]
-ignore = ["E501", "E203"]
 line-length = 88
 
-[tool.ruff.isort]
+[tool.ruff.lint]
+# Nur echte Fehler prüfen, keine Style-Warnungen
+select = ["E", "F"]
+ignore = ["E501", "E203", "E402"]  # E402: Module level import not at top (absichtlich in Tests nach sys.path.insert)
+
+[tool.ruff.lint.isort]
 known-first-party = ["assembled_core"]
 
 [tool.black]

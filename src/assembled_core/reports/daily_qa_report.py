@@ -16,7 +16,7 @@ import pandas as pd
 
 from src.assembled_core.config import OUTPUT_DIR
 from src.assembled_core.qa.metrics import PerformanceMetrics
-from src.assembled_core.qa.qa_gates import QAGatesSummary, QAResult
+from src.assembled_core.qa.qa_gates import QAGatesSummary
 
 
 def generate_qa_report(

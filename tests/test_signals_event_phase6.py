@@ -159,7 +159,7 @@ def test_generate_event_signals_mixed_signals(sample_prices_with_features):
     # Check signal distribution
     long_count = (result["direction"] == "LONG").sum()
     short_count = (result["direction"] == "SHORT").sum()
-    flat_count = (result["direction"] == "FLAT").sum()
+    _ = (result["direction"] == "FLAT").sum()  # flat_count
     
     # Should have some LONG and SHORT signals
     assert long_count > 0

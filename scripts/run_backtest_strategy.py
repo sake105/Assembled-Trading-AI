@@ -19,10 +19,10 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.assembled_core.config import OUTPUT_DIR, SUPPORTED_FREQS, get_base_dir
+from src.assembled_core.config import OUTPUT_DIR, SUPPORTED_FREQS
 from src.assembled_core.costs import CostModel, get_default_cost_model
 from src.assembled_core.data.prices_ingest import load_eod_prices, load_eod_prices_for_universe
-from src.assembled_core.ema_config import EmaConfig, get_default_ema_config
+from src.assembled_core.ema_config import get_default_ema_config
 from src.assembled_core.logging_utils import setup_logging
 from src.assembled_core.portfolio.position_sizing import compute_target_positions_from_trend_signals
 from src.assembled_core.qa.backtest_engine import BacktestResult, run_portfolio_backtest
@@ -392,7 +392,7 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             position_sizing_fn = create_event_position_sizing_fn()
         else:
             logger.error(f"Unknown strategy: {args.strategy}")
-            logger.info(f"Supported strategies: trend_baseline, event_insider_shipping")
+            logger.info("Supported strategies: trend_baseline, event_insider_shipping")
             return 1
         
         # Run backtest

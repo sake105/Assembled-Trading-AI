@@ -1,5 +1,8 @@
 # scripts/tools/parse_best_grid.py
-import json, re, math, sys
+import json
+import re
+import math
+import sys
 from pathlib import Path
 
 REPORT = Path(__file__).resolve().parents[2] / "output" / "cost_grid_report.md"

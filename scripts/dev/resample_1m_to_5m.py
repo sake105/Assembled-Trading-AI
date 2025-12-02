@@ -1,5 +1,8 @@
 #!/usr/bin/env python
-import sys, argparse, pathlib as pl, pandas as pd
+import sys
+import argparse
+import pathlib as pl
+import pandas as pd
 
 pd.options.mode.use_inf_as_na = True
 

@@ -21,7 +21,6 @@ from src.assembled_core.execution.safe_bridge import (
     write_safe_orders_csv,
     write_safe_orders_csv_from_targets
 )
-from src.assembled_core.portfolio.position_sizing import compute_target_positions
 
 
 def create_sample_target_positions() -> pd.DataFrame:
@@ -36,7 +35,7 @@ def create_sample_target_positions() -> pd.DataFrame:
 
 def create_sample_prices() -> pd.DataFrame:
     """Create sample prices."""
-    from datetime import datetime, timedelta
+    from datetime import datetime
     
     base = datetime(2025, 1, 1, 0, 0, 0)
     data = []
@@ -146,7 +145,6 @@ def test_write_safe_orders_csv(tmp_path: Path):
 
 def test_write_safe_orders_csv_date_filename(tmp_path: Path, monkeypatch):
     """Test SAFE-Bridge CSV with date-based filename."""
-    from src.assembled_core.config import OUTPUT_DIR
     
     # Monkeypatch OUTPUT_DIR to tmp_path
     monkeypatch.setattr("src.assembled_core.execution.safe_bridge.OUTPUT_DIR", tmp_path)
@@ -181,7 +179,6 @@ def test_write_safe_orders_csv_empty(tmp_path: Path):
 
 def test_write_safe_orders_csv_from_targets(tmp_path: Path, monkeypatch):
     """Test writing SAFE-Bridge CSV from target positions."""
-    from src.assembled_core.config import OUTPUT_DIR
     
     # Monkeypatch OUTPUT_DIR to tmp_path
     monkeypatch.setattr("src.assembled_core.execution.safe_bridge.OUTPUT_DIR", tmp_path)

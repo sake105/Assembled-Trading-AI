@@ -254,7 +254,7 @@ def check_portfolio(freq: str, output_dir: Path | None = None) -> QaCheckResult:
             return QaCheckResult(
                 name="portfolio",
                 status="error",
-                message=f"Missing 'equity' column in portfolio file",
+                message="Missing 'equity' column in portfolio file",
                 details={
                     "file": str(portfolio_file),
                     "available": list(df.columns)

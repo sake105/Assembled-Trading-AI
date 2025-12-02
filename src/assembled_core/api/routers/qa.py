@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from pathlib import Path
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
@@ -21,8 +20,8 @@ from src.assembled_core.config import OUTPUT_DIR, SUPPORTED_FREQS
 from src.assembled_core.logging_utils import get_logger
 from src.assembled_core.pipeline.io import load_orders
 from src.assembled_core.qa.health import aggregate_qa_status
-from src.assembled_core.qa.metrics import PerformanceMetrics, compute_all_metrics
-from src.assembled_core.qa.qa_gates import QAGateResult, QAGatesSummary, QAResult, evaluate_all_gates
+from src.assembled_core.qa.metrics import compute_all_metrics
+from src.assembled_core.qa.qa_gates import evaluate_all_gates
 
 router = APIRouter()
 logger = get_logger(__name__)

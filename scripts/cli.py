@@ -58,11 +58,11 @@ def get_git_branch() -> str | None:
 def print_version() -> None:
     """Print version and project information."""
     branch = get_git_branch()
-    print(f"Assembled Trading AI - Central CLI")
+    print("Assembled Trading AI - Central CLI")
     print(f"Version: {__version__}")
     if branch:
         print(f"Git Branch: {branch}")
-    print(f"Status: Phase-4/Phase-6 ready")
+    print("Status: Phase-4/Phase-6 ready")
     print(f"Python: {sys.version.split()[0]}")
 
 

@@ -65,7 +65,6 @@ def create_sample_price_data(tmp_path: Path, symbols: list[str] = None) -> Path:
 
 def test_run_daily_eod_smoke(tmp_path: Path, monkeypatch):
     """Test run_daily_eod with sample data."""
-    from src.assembled_core.config import OUTPUT_DIR
     
     # Monkeypatch OUTPUT_DIR to tmp_path
     monkeypatch.setattr("src.assembled_core.execution.safe_bridge.OUTPUT_DIR", tmp_path)
@@ -116,7 +115,6 @@ def test_run_daily_eod_smoke(tmp_path: Path, monkeypatch):
 
 def test_run_daily_eod_with_universe(tmp_path: Path, monkeypatch):
     """Test run_daily_eod with universe file."""
-    from src.assembled_core.config import OUTPUT_DIR, get_base_dir
     
     # Monkeypatch OUTPUT_DIR
     monkeypatch.setattr("src.assembled_core.execution.safe_bridge.OUTPUT_DIR", tmp_path)
@@ -146,7 +144,6 @@ def test_run_daily_eod_with_universe(tmp_path: Path, monkeypatch):
 
 def test_run_daily_eod_universe_missing_symbols(tmp_path: Path, monkeypatch, capsys):
     """Test that symbols in universe without data are warned and dropped."""
-    from src.assembled_core.config import OUTPUT_DIR
     
     # Monkeypatch OUTPUT_DIR
     monkeypatch.setattr("src.assembled_core.execution.safe_bridge.OUTPUT_DIR", tmp_path)
@@ -188,7 +185,6 @@ def test_run_daily_eod_universe_missing_symbols(tmp_path: Path, monkeypatch, cap
 
 def test_run_daily_eod_no_symbols_after_filtering(tmp_path: Path, monkeypatch, capsys):
     """Test that script exits cleanly when no symbols remain after filtering."""
-    from src.assembled_core.config import OUTPUT_DIR
     
     # Monkeypatch OUTPUT_DIR
     monkeypatch.setattr("src.assembled_core.execution.safe_bridge.OUTPUT_DIR", tmp_path)
@@ -233,7 +229,6 @@ def test_run_daily_eod_invalid_date():
 
 def test_run_daily_eod_missing_price_file(tmp_path: Path, monkeypatch):
     """Test that missing price file raises SystemExit."""
-    from src.assembled_core.config import OUTPUT_DIR
     
     monkeypatch.setattr("src.assembled_core.config.OUTPUT_DIR", tmp_path)
     
@@ -249,7 +244,6 @@ def test_run_daily_eod_missing_price_file(tmp_path: Path, monkeypatch):
 
 def test_run_daily_eod_missing_universe_file(tmp_path: Path, monkeypatch):
     """Test that missing universe file raises SystemExit."""
-    from src.assembled_core.config import OUTPUT_DIR
     
     monkeypatch.setattr("src.assembled_core.config.OUTPUT_DIR", tmp_path)
     
@@ -272,7 +266,6 @@ def test_run_daily_eod_missing_universe_file(tmp_path: Path, monkeypatch):
 
 def test_run_daily_eod_empty_price_data(tmp_path: Path, monkeypatch):
     """Test that empty price data raises SystemExit."""
-    from src.assembled_core.config import OUTPUT_DIR
     
     monkeypatch.setattr("src.assembled_core.execution.safe_bridge.OUTPUT_DIR", tmp_path)
     monkeypatch.setattr("src.assembled_core.config.OUTPUT_DIR", tmp_path)
@@ -294,8 +287,6 @@ def test_run_daily_eod_empty_price_data(tmp_path: Path, monkeypatch):
 
 def test_run_daily_eod_invalid_orders_validation(tmp_path: Path, monkeypatch, capsys):
     """Test that run_daily handles invalid orders (e.g., Quantity=0) correctly."""
-    from src.assembled_core.config import OUTPUT_DIR
-    from src.assembled_core.execution.order_generation import generate_orders_from_signals
     
     # Monkeypatch OUTPUT_DIR
     monkeypatch.setattr("src.assembled_core.execution.safe_bridge.OUTPUT_DIR", tmp_path)

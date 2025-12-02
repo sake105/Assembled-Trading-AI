@@ -14,7 +14,6 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from datetime import datetime, timezone, timedelta
 
 ROOT = Path(__file__).resolve().parents[1]
 RAW_1M = ROOT / 'data' / 'raw' / '1min'

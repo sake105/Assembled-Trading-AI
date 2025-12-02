@@ -10,10 +10,10 @@ from datetime import datetime, timedelta, timezone
 import pandas as pd
 import pytest
 
-from src.assembled_core.data.congress_trades_ingest import load_congress_sample, normalize_congress
+from src.assembled_core.data.congress_trades_ingest import load_congress_sample
 from src.assembled_core.data.insider_ingest import load_insider_sample, normalize_insider
-from src.assembled_core.data.news_ingest import load_news_sample, normalize_news
-from src.assembled_core.data.shipping_routes_ingest import load_shipping_sample, normalize_shipping
+from src.assembled_core.data.news_ingest import load_news_sample
+from src.assembled_core.data.shipping_routes_ingest import load_shipping_sample
 from src.assembled_core.features.congress_features import add_congress_features
 from src.assembled_core.features.insider_features import add_insider_features
 from src.assembled_core.features.news_features import add_news_features

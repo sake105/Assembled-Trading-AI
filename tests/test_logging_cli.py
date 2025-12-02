@@ -3,16 +3,14 @@
 from __future__ import annotations
 
 import sys
-import subprocess
 from pathlib import Path
 
-import pytest
 
 # Add repo root to path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.assembled_core.logging_utils import setup_logging, get_logger
+from src.assembled_core.logging_utils import setup_logging
 
 
 def test_setup_logging():
@@ -52,8 +50,6 @@ def test_logger_levels(capsys):
 
 def test_run_daily_logging_patterns(tmp_path: Path, monkeypatch, capsys):
     """Test that run_daily logs expected patterns."""
-    from src.assembled_core.config import OUTPUT_DIR
-    from scripts.run_daily import create_sample_price_data
     
     # Monkeypatch OUTPUT_DIR
     monkeypatch.setattr("src.assembled_core.execution.safe_bridge.OUTPUT_DIR", tmp_path)
@@ -112,7 +108,6 @@ def test_run_daily_logging_patterns(tmp_path: Path, monkeypatch, capsys):
 
 def test_run_eod_pipeline_logging_patterns(tmp_path: Path, monkeypatch, capsys):
     """Test that run_eod_pipeline logs expected patterns."""
-    from src.assembled_core.config import OUTPUT_DIR
     from src.assembled_core.pipeline.orchestrator import run_eod_pipeline
     
     # Monkeypatch OUTPUT_DIR
@@ -141,7 +136,7 @@ def test_run_eod_pipeline_logging_patterns(tmp_path: Path, monkeypatch, capsys):
     
     # Setup logging
     from src.assembled_core.logging_utils import setup_logging
-    logger = setup_logging(level="INFO")
+    setup_logging(level="INFO")
     
     # Run pipeline (may fail, but should log)
     try:

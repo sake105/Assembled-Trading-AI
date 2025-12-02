@@ -4,18 +4,15 @@ from __future__ import annotations
 
 import sys
 import subprocess
-from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 import pytest
-from pandas import Timedelta
 
 # Add repo root to path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.assembled_core.config import OUTPUT_DIR
 
 pytestmark = pytest.mark.phase4
 
@@ -178,7 +175,7 @@ def test_run_backtest_strategy_with_universe(tmp_path: Path, sample_price_file: 
     
     # Also need to update the base dir for watchlist lookup
     import src.assembled_core.config as config_module
-    original_base_dir = getattr(config_module, "_BASE_DIR_CACHE", None)
+    _ = getattr(config_module, "_BASE_DIR_CACHE", None)  # original_base_dir
     
     try:
         # Create aggregates directory with daily.parquet

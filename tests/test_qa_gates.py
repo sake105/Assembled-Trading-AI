@@ -9,7 +9,6 @@ pytestmark = pytest.mark.phase4
 
 from src.assembled_core.qa.metrics import PerformanceMetrics, compute_all_metrics
 from src.assembled_core.qa.qa_gates import (
-    QAGateResult,
     QAGatesSummary,
     QAResult,
     check_cagr,

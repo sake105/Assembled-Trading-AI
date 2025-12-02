@@ -18,7 +18,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from src.assembled_core.api.app import create_app
-from src.assembled_core.config import OUTPUT_DIR
 
 
 @pytest.fixture

@@ -17,9 +17,8 @@ Difference from run_eod_pipeline.py:
 from __future__ import annotations
 
 import argparse
-import logging
 import sys
-from datetime import datetime, date
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -28,7 +27,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.assembled_core.config import OUTPUT_DIR, get_base_dir
+from src.assembled_core.config import OUTPUT_DIR
 from src.assembled_core.data.prices_ingest import load_eod_prices, load_eod_prices_for_universe
 from src.assembled_core.execution.order_generation import generate_orders_from_signals
 from src.assembled_core.execution.safe_bridge import write_safe_orders_csv
