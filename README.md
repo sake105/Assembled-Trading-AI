@@ -235,6 +235,18 @@ pytest -m phase8
 
 **Weitere Details:** Siehe `docs/PHASE8_RISK_ENGINE.md`
 
+### Phase-9-Tests (Model Governance & Validation)
+
+Phase-9-Tests für Model Governance (Validation, Drift Detection):
+
+```bash
+pytest -m phase9
+```
+
+**Erwartete Dauer:** < 2 Sekunden für ~41 Tests
+
+**Weitere Details:** Siehe `docs/PHASE9_MODEL_GOVERNANCE.md`
+
 ### Langsame Backtest-Tests
 
 Backtest-Tests mit größeren Datensätzen sind mit `@pytest.mark.slow` markiert:
@@ -309,6 +321,7 @@ Aktiengerüst/
 - **Testing-Commands:** `docs/TESTING_COMMANDS.md`
 - **Phase 6 Events:** `docs/PHASE6_EVENTS.md`
 - **Phase 8 Risk Engine:** `docs/PHASE8_RISK_ENGINE.md` (Portfolio Risk, Scenarios, Shipping Risk)
+- **Phase 9 Model Governance:** `docs/PHASE9_MODEL_GOVERNANCE.md` (Model Validation, Drift Detection)
 - **Legacy-Übersicht:** `docs/LEGACY_OVERVIEW.md`
 - **Legacy-Mapping:** `docs/LEGACY_TO_CORE_MAPPING.md`
 - **PowerShell-Wrapper:** `docs/POWERSHELL_WRAPPERS.md`
@@ -321,6 +334,7 @@ Aktiengerüst/
 - ✅ **Phase 5:** Dokumentation & Legacy-Mapping
 - ✅ **Phase 6:** Event-Features Skeletons (Insider, Congress, Shipping, News)
 - ✅ **Phase 8:** Risk Engine & Scenario Analysis (39 Tests, <2s)
+- ✅ **Phase 9:** Model Governance & Validation (41 Tests, <2s)
 
 ---
 

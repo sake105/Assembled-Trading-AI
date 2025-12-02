@@ -265,12 +265,111 @@ pytest -m "phase4 or phase6 or phase7 or phase8 or phase9" --maxfail=1 -q
 
 ---
 
+## Drift Detection
+
+### Modul: `src/assembled_core/qa/drift_detection.py`
+
+Das Drift-Detection-Modul stellt Funktionen zur Erkennung von Verteilungsverschiebungen (Drift) in Features, Labels und Performance-Metriken bereit. Es verwendet den Population Stability Index (PSI) für Verteilungsvergleiche und Rolling-Statistiken für Performance-Drift.
+
+### Population Stability Index (PSI)
+
+**`compute_psi()`** berechnet den PSI zwischen zwei Verteilungen:
+
+- **PSI < 0.1**: Kein signifikanter Drift
+- **0.1 <= PSI < 0.2**: Moderater Drift
+- **PSI >= 0.2**: Signifikanter Drift
+
+**Beispiel:**
+```python
+from src.assembled_core.qa.drift_detection import compute_psi
+import pandas as pd
+
+base = pd.Series([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+current = pd.Series([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+psi = compute_psi(base, current)  # PSI ≈ 0 (identische Verteilungen)
+```
+
+### Feature Drift
+
+**`detect_feature_drift()`** erkennt Drift in Feature-DataFrames:
+
+- Berechnet PSI für jede gemeinsame Feature-Spalte
+- Klassifiziert Drift als "NONE", "MODERATE" oder "SEVERE"
+- Gibt DataFrame mit Feature-Namen, PSI-Werten und Drift-Flags zurück
+
+**Beispiel:**
+```python
+from src.assembled_core.qa.drift_detection import detect_feature_drift
+import pandas as pd
+import numpy as np
+
+base_df = pd.DataFrame({
+    "feature1": np.random.normal(0, 1, 100),
+    "feature2": np.random.normal(0, 1, 100)
+})
+current_df = pd.DataFrame({
+    "feature1": np.random.normal(5, 1, 100),  # Shifted
+    "feature2": np.random.normal(0, 1, 100)   # Same
+})
+
+drift_results = detect_feature_drift(base_df, current_df)
+# drift_results enthält: feature, psi, drift_flag
+```
+
+### Label Drift
+
+**`detect_label_drift()`** erkennt Drift in Label-Verteilungen:
+
+- Vergleicht Verteilung von Labels (binär oder multi-class) zwischen Base- und Current-Periode
+- Berechnet PSI und zusätzliche Statistiken (Mean, Mean-Shift)
+- Gibt Dictionary mit PSI, Statistiken und Drift-Flag zurück
+
+**Beispiel:**
+```python
+from src.assembled_core.qa.drift_detection import detect_label_drift
+import pandas as pd
+
+base_labels = pd.Series([0, 0, 0, 0, 1, 1])  # 33% positive
+current_labels = pd.Series([0, 1, 1, 1, 1, 1])  # 83% positive
+
+drift = detect_label_drift(base_labels, current_labels)
+# drift enthält: psi, base_mean, current_mean, mean_shift, drift_detected, drift_severity
+```
+
+### Performance Drift
+
+**`compute_performance_drift()`** erkennt Performance-Degradation in Equity-Kurven:
+
+- Vergleicht Rolling Sharpe Ratio und Average Returns zwischen erster und zweiter Hälfte
+- Erkennt Performance-Degradation basierend auf Sharpe-Abnahme oder Return-Abnahme
+- Gibt Dictionary mit Performance-Metriken und `performance_degrading` Flag zurück
+
+**Beispiel:**
+```python
+from src.assembled_core.qa.drift_detection import compute_performance_drift
+import pandas as pd
+import numpy as np
+
+# Equity mit degradierender Performance
+returns1 = np.random.normal(0.01, 0.01, 50)  # Gute Performance
+returns2 = np.random.normal(-0.005, 0.01, 50)  # Schlechte Performance
+equity = pd.Series([10000.0])
+for r in list(returns1) + list(returns2):
+    equity = pd.concat([equity, pd.Series([equity.iloc[-1] * (1 + r)])])
+
+drift = compute_performance_drift(equity, window=20)
+# drift enthält: reference_sharpe, current_sharpe, performance_degrading, etc.
+```
+
+---
+
 ## Nächste Schritte
 
 - **Deflated Sharpe Berechnung**: Implementierung einer Funktion zur Berechnung des Deflated Sharpe Ratios
 - **Integration in Reports**: Validierungsergebnisse in QA-Reports aufnehmen
 - **Automatisierung**: Validierung automatisch nach jedem Backtest ausführen
 - **Model Cards ausfüllen**: Für jedes Modell im Inventory eine spezifische Model Card erstellen
+- **Drift-Monitoring**: Automatisches Drift-Monitoring in Production-Pipeline
 
 ---
 
@@ -280,4 +379,6 @@ pytest -m "phase4 or phase6 or phase7 or phase8 or phase9" --maxfail=1 -q
 - **Model Card Template**: `docs/models/MODEL_CARD_TEMPLATE.md`
 - **Validation Module**: `src/assembled_core/qa/validation.py`
 - **Validation Tests**: `tests/test_qa_validation.py`
+- **Drift Detection Module**: `src/assembled_core/qa/drift_detection.py`
+- **Drift Detection Tests**: `tests/test_qa_drift_detection.py`
 

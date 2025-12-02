@@ -100,6 +100,32 @@ cd F:\Python_Projekt\Aktiengerüst
 
 ---
 
+### Phase-9-Tests (Model Governance & Validation)
+
+**Phase-9-Suite:**
+```powershell
+.\.venv\Scripts\python.exe -m pytest -m phase9
+```
+
+**Erwartete Ausgabe:**
+- ~41 Tests in < 2 Sekunden
+- Alle Tests sollten grün sein
+
+**Test-Dateien:**
+- `tests/test_qa_validation.py` - Model Validation (22 Tests)
+- `tests/test_qa_drift_detection.py` - Drift Detection (19 Tests)
+
+**Gezielte Tests:**
+```powershell
+# Nur Validation
+.\.venv\Scripts\python.exe -m pytest tests/test_qa_validation.py -q
+
+# Nur Drift Detection
+.\.venv\Scripts\python.exe -m pytest tests/test_qa_drift_detection.py -q
+```
+
+---
+
 ### Gezielte Test-Dateien
 
 **Backtest & EOD-Pipeline:**
@@ -123,39 +149,6 @@ cd F:\Python_Projekt\Aktiengerüst
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -m "not external"
-```
-
----
-
-## Standard-Test-Profile (QoL)
-
-### 🚀 Schnell (für tägliche Arbeit)
-
-**Phase 4 + 6:** Backend Core + Event Features (~146 Tests, ~18s)
-```powershell
-.\.venv\Scripts\python.exe -m pytest -m "phase4 or phase6" -q
-```
-
-**Mit Warnings-Check:**
-```powershell
-.\.venv\Scripts\python.exe -m pytest -m "phase4 or phase6" -q -W error
-```
-
-### 🔬 Vollständig (inkl. Meta & Risk)
-
-**Alle Phasen:** Phase 4 + 6 + 7 + 8 (~206 Tests, ~19s)
-```powershell
-.\.venv\Scripts\python.exe -m pytest -m "phase4 or phase6 or phase7 or phase8" -q
-```
-
-**Mit Performance-Analyse:**
-```powershell
-.\.venv\Scripts\python.exe -m pytest -m "phase4 or phase6 or phase7 or phase8" -q --durations=10
-```
-
-**Mit harten Warnings-Check (0 Warnings erzwungen):**
-```powershell
-.\.venv\Scripts\python.exe -m pytest -m "phase4 or phase6 or phase7 or phase8" -W error --maxfail=1
 ```
 
 ---
@@ -226,6 +219,7 @@ pytest ... 2>&1 | Select-String -Pattern "..." | Select-Object -Last 2
 | Phase-6 (Event Features) | ~29 | < 2s | ✅ Grün |
 | Phase-7 (Labeling & ML Dataset) | ~22 | < 5s | ✅ Grün |
 | Phase-8 (Risk Engine) | ~39 | < 2s | ✅ Grün |
+| Phase-9 (Model Governance) | ~41 | < 2s | ✅ Grün |
 | test_run_backtest_strategy.py | 6 | ~1.4s | ✅ Grün |
 | test_run_eod_pipeline.py | 2 | < 0.1s | ✅ Grün |
 
@@ -268,9 +262,9 @@ pytest ... 2>&1 | Select-String -Pattern "..." | Select-Object -Last 2
 Die CI testet alle stabilen Phasen mit harten Warnings-Check:
 
 ```yaml
-- name: Run backend core tests (phase4 + phase6 + phase7 + phase8)
+- name: Run backend core tests (all phases)
   run: |
-    pytest -m "phase4 or phase6 or phase7 or phase8" -q --maxfail=1 -W error
+    pytest -m "phase4 or phase6 or phase7 or phase8 or phase9" -q --maxfail=1 -W error
 ```
 
 **Getestete Phasen:**
@@ -279,6 +273,7 @@ Die CI testet alle stabilen Phasen mit harten Warnings-Check:
 - ✅ Phase 6: Event Features (Insider, Shipping, etc.) – stabil und getestet
 - ✅ Phase 7: Labeling & ML Dataset Builder – stabil und getestet
 - ✅ Phase 8: Risk Engine & Scenario Analysis – stabil und getestet
+- ✅ Phase 9: Model Governance & Validation – stabil und getestet
 - 🔒 **-W error**: Erzwingt 0 Warnings im CI (keine neuen Warnings durchrutschen lassen)
 
 **Lokal alle Tests ausführen:**
