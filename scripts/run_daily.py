@@ -174,7 +174,9 @@ def run_daily_eod(
     top_n: int | None = None,
     ma_fast: int = 20,
     ma_slow: int = 50,
-    min_score: float = 0.0
+    min_score: float = 0.0,
+    disable_pre_trade_checks: bool = False,
+    ignore_kill_switch: bool = False
 ) -> Path:
     """Run daily EOD order generation.
     
@@ -402,6 +404,34 @@ def run_daily_eod(
         logger.error(f"Failed to generate orders: {e}", exc_info=True)
         sys.exit(1)
     
+    # Step 7.5: Apply risk controls (pre-trade checks + kill switch)
+    logger.info("Step 7: Applying risk controls...")
+    try:
+        from src.assembled_core.execution.risk_controls import filter_orders_with_risk_controls
+        
+        filtered_orders, risk_result = filter_orders_with_risk_controls(
+            orders,
+            portfolio=None,  # Portfolio snapshot not available in this flow
+            qa_status=None,  # QA status not available in this flow
+            enable_pre_trade_checks=not disable_pre_trade_checks,
+            enable_kill_switch=not ignore_kill_switch
+        )
+        
+        if len(filtered_orders) < len(orders):
+            logger.warning(
+                f"Risk controls filtered orders: {len(orders)} -> {len(filtered_orders)} "
+                f"({len(orders) - len(filtered_orders)} blocked)"
+            )
+        elif len(filtered_orders) == 0 and len(orders) > 0:
+            logger.warning("All orders blocked by risk controls - empty order file will be written")
+        
+        # Use filtered orders going forward
+        orders = filtered_orders
+        
+    except Exception as e:
+        logger.error(f"Failed to apply risk controls: {e}", exc_info=True)
+        sys.exit(1)
+    
     # Step 8: Write SAFE-Bridge CSV
     logger.info("Step 7: Writing SAFE-Bridge CSV...")
     try:
@@ -495,6 +525,18 @@ def main() -> None:
         default=0.0,
         help="Minimum signal score threshold (default: 0.0)"
     )
+    p.add_argument(
+        "--disable-pre-trade-checks",
+        action="store_true",
+        default=False,
+        help="Disable pre-trade checks (only for debugging/backtesting, default: checks enabled)"
+    )
+    p.add_argument(
+        "--ignore-kill-switch",
+        action="store_true",
+        default=False,
+        help="Ignore kill switch (only for offline backtests/dev, default: kill switch respected)"
+    )
     
     args = p.parse_args()
     
@@ -511,7 +553,9 @@ def main() -> None:
             top_n=args.top_n,
             ma_fast=args.ma_fast,
             ma_slow=args.ma_slow,
-            min_score=args.min_score
+            min_score=args.min_score,
+            disable_pre_trade_checks=args.disable_pre_trade_checks,
+            ignore_kill_switch=args.ignore_kill_switch
         )
         
         logger.info(f"Output file: {safe_path}")

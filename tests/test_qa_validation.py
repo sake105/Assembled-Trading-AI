@@ -137,6 +137,54 @@ class TestValidatePerformance:
         assert len(result.warnings) > 0
         assert all("not available" in warn.lower() or "missing" in warn.lower() for warn in result.warnings)
 
+    def test_validate_performance_abs_drawdown_without_start_capital(self):
+        """Test that absolute drawdown without start_capital generates appropriate warning."""
+        metrics = {
+            "sharpe_ratio": 1.5,
+            "max_drawdown": -1500.0,  # Absolute drawdown present
+            # start_capital missing
+            "total_trades": 100,
+        }
+        result = validate_performance(metrics, min_sharpe=1.0, max_drawdown=0.20, min_trades=30)
+        
+        # Should pass (no error) but with warning about missing start_capital
+        assert result.is_ok is True  # No hard errors
+        assert len(result.warnings) > 0
+        assert any("start_capital" in warn.lower() and "missing" in warn.lower() for warn in result.warnings)
+        assert any("cannot validate" in warn.lower() for warn in result.warnings)
+
+    def test_validate_performance_abs_drawdown_with_zero_start_capital(self):
+        """Test that absolute drawdown with zero start_capital generates appropriate warning."""
+        metrics = {
+            "sharpe_ratio": 1.5,
+            "max_drawdown": -1500.0,
+            "start_capital": 0.0,  # Zero start capital
+            "total_trades": 100,
+        }
+        result = validate_performance(metrics, min_sharpe=1.0, max_drawdown=0.20, min_trades=30)
+        
+        # Should pass (no error) but with warning about zero start_capital
+        assert result.is_ok is True  # No hard errors
+        assert len(result.warnings) > 0
+        assert any("start_capital" in warn.lower() and "zero" in warn.lower() for warn in result.warnings)
+        assert any("cannot validate" in warn.lower() for warn in result.warnings)
+
+    def test_validate_performance_abs_drawdown_with_start_capital(self):
+        """Test that absolute drawdown with start_capital validates correctly."""
+        metrics = {
+            "sharpe_ratio": 1.5,
+            "max_drawdown": -1500.0,  # -15% of 10000
+            "start_capital": 10000.0,
+            "total_trades": 100,
+        }
+        result = validate_performance(metrics, min_sharpe=1.0, max_drawdown=0.20, min_trades=30)
+        
+        # Should pass: -1500 / 10000 = 0.15 (15%) which is < 0.20 (20%) threshold
+        assert result.is_ok is True
+        assert len(result.errors) == 0
+        assert "max_drawdown_abs" in result.metadata
+        assert "max_drawdown_fraction" in result.metadata
+
 
 class TestValidateOverfitting:
     """Tests for validate_overfitting function."""

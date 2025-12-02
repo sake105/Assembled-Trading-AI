@@ -66,6 +66,23 @@ def test_cli_run_daily_help():
     assert "--freq" in result.stdout
     assert "--start-capital" in result.stdout
 
+@pytest.mark.phase10
+def test_cli_run_daily_pre_trade_flags():
+    """Test that run_daily subcommand has pre-trade check flags."""
+    # Test run_daily.py directly (not via cli.py which uses run_eod_pipeline)
+    script_path = ROOT / "scripts" / "run_daily.py"
+    result = subprocess.run(
+        [sys.executable, str(script_path), "--help"],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        timeout=10
+    )
+    
+    assert result.returncode == 0
+    assert "--disable-pre-trade-checks" in result.stdout
+    assert "--ignore-kill-switch" in result.stdout
+
 
 def test_cli_run_backtest_help():
     """Test that run_backtest subcommand help works."""

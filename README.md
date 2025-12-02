@@ -150,6 +150,8 @@ python scripts/cli.py run_daily --freq 1d --start-capital 50000
 python scripts/cli.py run_daily --freq 5min --price-file data/sample/eod_sample.parquet
 ```
 
+**Hinweis:** Alle generierten Orders durchlaufen automatisch Pre-Trade-Checks und Kill-Switch-Validierung (Phase 10). Siehe `docs/PHASE10_PAPER_OMS.md` für Details.
+
 #### 6. ML-Dataset-Export
 
 Exportiere Backtest-Ergebnisse als ML-ready Dataset mit Features und Labels:
@@ -247,6 +249,18 @@ pytest -m phase9
 
 **Weitere Details:** Siehe `docs/PHASE9_MODEL_GOVERNANCE.md`
 
+### Phase-10-Tests (Pre-Trade Checks & Kill-Switch)
+
+Phase-10-Tests für Pre-Trade-Kontrollen und Kill-Switch:
+
+```bash
+pytest -m phase10
+```
+
+**Erwartete Dauer:** < 1 Sekunde für ~26 Tests
+
+**Weitere Details:** Siehe `docs/PHASE10_PAPER_OMS.md`
+
 ### Langsame Backtest-Tests
 
 Backtest-Tests mit größeren Datensätzen sind mit `@pytest.mark.slow` markiert:
@@ -322,6 +336,7 @@ Aktiengerüst/
 - **Phase 6 Events:** `docs/PHASE6_EVENTS.md`
 - **Phase 8 Risk Engine:** `docs/PHASE8_RISK_ENGINE.md` (Portfolio Risk, Scenarios, Shipping Risk)
 - **Phase 9 Model Governance:** `docs/PHASE9_MODEL_GOVERNANCE.md` (Model Validation, Drift Detection)
+- **Phase 10 Paper-Trading & OMS:** `docs/PHASE10_PAPER_OMS.md` (Pre-Trade Checks, Kill-Switch)
 - **Legacy-Übersicht:** `docs/LEGACY_OVERVIEW.md`
 - **Legacy-Mapping:** `docs/LEGACY_TO_CORE_MAPPING.md`
 - **PowerShell-Wrapper:** `docs/POWERSHELL_WRAPPERS.md`
@@ -335,6 +350,7 @@ Aktiengerüst/
 - ✅ **Phase 6:** Event-Features Skeletons (Insider, Congress, Shipping, News)
 - ✅ **Phase 8:** Risk Engine & Scenario Analysis (39 Tests, <2s)
 - ✅ **Phase 9:** Model Governance & Validation (41 Tests, <2s)
+- ✅ **Phase 10:** Paper-Trading & OMS-Light (Pre-Trade Checks & Kill-Switch, 10.1 fertig)
 
 ---
 

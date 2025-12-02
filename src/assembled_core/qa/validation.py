@@ -127,21 +127,30 @@ def validate_performance(
             errors.append(
                 f"Max drawdown {max_dd_pct:.2f}% ({max_dd_fraction:.2%}) exceeds threshold {max_drawdown:.2%}"
             )
-    elif max_dd_abs is not None and "start_capital" in metrics:
+    elif max_dd_abs is not None:
         # Try to compute percentage if we have start_capital
-        start_capital = metrics.get("start_capital", 1.0)
-        if start_capital > 0:
-            max_dd_fraction = abs(max_dd_abs) / start_capital
-            metadata["max_drawdown_abs"] = max_dd_abs
-            metadata["max_drawdown_fraction"] = max_dd_fraction
-            if max_dd_fraction > max_drawdown:
-                errors.append(
-                    f"Max drawdown {max_dd_abs:.2f} ({max_dd_fraction:.2%}) exceeds threshold {max_drawdown:.2%}"
-                )
+        if "start_capital" in metrics:
+            start_capital = metrics.get("start_capital")
+            if start_capital is not None and start_capital > 0:
+                max_dd_fraction = abs(max_dd_abs) / start_capital
+                metadata["max_drawdown_abs"] = max_dd_abs
+                metadata["max_drawdown_fraction"] = max_dd_fraction
+                if max_dd_fraction > max_drawdown:
+                    errors.append(
+                        f"Max drawdown {max_dd_abs:.2f} ({max_dd_fraction:.2%}) exceeds threshold {max_drawdown:.2%}"
+                    )
+            else:
+                warnings.append("start_capital is zero - cannot validate max drawdown as fraction")
         else:
-            warnings.append("start_capital is zero or missing - cannot validate max drawdown as fraction")
+            warnings.append(
+                "Max drawdown (absolute) is available but start_capital is missing - "
+                "cannot validate max drawdown as fraction"
+            )
     else:
-        warnings.append("Max drawdown not available (max_drawdown_pct or max_drawdown missing) - cannot validate drawdown threshold")
+        warnings.append(
+            "Max drawdown not available (max_drawdown_pct or max_drawdown missing) - "
+            "cannot validate drawdown threshold"
+        )
         metadata["drawdown_checked"] = False
 
     # Check trade count
