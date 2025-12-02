@@ -204,20 +204,253 @@ pytest -m "phase4 or phase6 or phase7 or phase8 or phase9 or phase10" -W error
 
 ---
 
-## Sprint 10.2 – Paper-Trading-API (Platzhalter)
+## Sprint 10.2 – Paper-Trading-API
 
-**Status:** Geplant
+**Status:** ✅ Fertig
 
-**Ziele:**
-- FastAPI-Endpoints für Paper-Trading-Orders
-- Integration mit Pre-Trade-Checks und Kill-Switch
-- Order-Status-Tracking
-- Paper-Trading-Portfolio-Simulation
+### Ziele
 
-**Geplante Komponenten:**
-- `src/assembled_core/api/paper_trading.py`: Paper-Trading-Endpoints
-- `src/assembled_core/execution/paper_portfolio.py`: Paper-Portfolio-Simulation
-- Integration in bestehende FastAPI-Struktur
+Sprint 10.2 implementiert eine vollständige REST-API für Paper-Trading mit in-memory Engine. Die API ermöglicht:
+- Order-Submission über REST-Endpoints
+- Order-Status-Tracking (FILLED, REJECTED)
+- Position-Tracking und Portfolio-Simulation
+- Integration mit Pre-Trade-Checks und Kill-Switch (gleiche Risk Controls wie reguläre Pipeline)
+
+### Neue Module
+
+#### 1. `src/assembled_core/execution/paper_trading_engine.py`
+
+**Zweck:** In-memory Paper-Trading-Engine für Order-Simulation.
+
+**Hauptkomponenten:**
+- `PaperOrder` (Dataclass): Order-Repräsentation mit Status-Tracking
+- `PaperPosition` (Dataclass): Position-Repräsentation
+- `PaperTradingEngine` (Klasse): Zentrale Engine für Order-Verwaltung
+  - `submit_orders()`: Orders einreichen und sofort ausführen (FILLED)
+  - `list_orders()`: Orders auflisten (mit Limit)
+  - `get_positions()`: Aktuelle Positionen abrufen
+  - `reset()`: Engine zurücksetzen (für Tests)
+
+**Features:**
+- Alle Orders werden sofort als "FILLED" markiert
+- Positionen werden automatisch aggregiert (BUY = +, SELL = -)
+- Kein File-I/O, kein Netzwerk – alles in Memory
+- Thread-safe für Multi-User-Szenarien (über FastAPI-App-State)
+
+#### 2. `src/assembled_core/api/routers/paper_trading.py`
+
+**Zweck:** FastAPI-Router für Paper-Trading-Endpoints.
+
+**Endpoints:**
+
+##### POST `/api/v1/paper/orders`
+- **Zweck:** Orders einreichen
+- **Body:** `PaperOrderRequest` (einzelne Order) oder `list[PaperOrderRequest]`
+- **Response:** `list[PaperOrderResponse]`
+- **Status:**
+  - `FILLED`: Order hat Risk Controls bestanden und wurde ausgeführt
+  - `REJECTED`: Order wurde blockiert (Reason enthält Details)
+
+##### GET `/api/v1/paper/orders`
+- **Zweck:** Orders auflisten
+- **Query-Parameter:** `limit: int | None = 50`
+- **Response:** `list[PaperOrderResponse]` (neueste zuerst)
+
+##### GET `/api/v1/paper/positions`
+- **Zweck:** Aktuelle Positionen abrufen
+- **Response:** `list[PaperPosition]` (nur non-zero Positionen)
+
+##### POST `/api/v1/paper/reset`
+- **Zweck:** Engine zurücksetzen (für Tests/Dev)
+- **Response:** `PaperResetResponse`
+
+**Risk Controls Integration:**
+- Standard: Risk Controls aktiv (`_ENABLE_RISK_CONTROLS = True`)
+- Pre-Trade-Checks werden automatisch angewendet
+- Kill-Switch wird geprüft (höchste Priorität)
+- Portfolio-Snapshot wird automatisch aus aktuellen Positionen erstellt
+
+### Pydantic-Modelle
+
+Erweitert in `src/assembled_core/api/models.py`:
+
+- `PaperOrderRequest`: Request-Modell
+  - `symbol: str`
+  - `side: OrderSide` (BUY/SELL)
+  - `quantity: float` (> 0)
+  - `price: float | None` (optional)
+  - `client_order_id: str | None` (optional)
+- `PaperOrderResponse`: Response-Modell
+  - `order_id: str`
+  - `symbol, side, quantity, price`
+  - `status: Literal["NEW", "FILLED", "REJECTED"]`
+  - `reason: str | None`
+- `PaperPosition`: Position-Modell
+  - `symbol: str`
+  - `quantity: float` (positiv = long, negativ = short)
+- `PaperResetResponse`: Reset-Bestätigung
+
+### Beispiel-Requests
+
+#### Order-Submission (POST /api/v1/paper/orders)
+
+**Request:**
+```json
+[
+  {
+    "symbol": "AAPL",
+    "side": "BUY",
+    "quantity": 10.0,
+    "price": 150.0,
+    "client_order_id": "client-order-123"
+  },
+  {
+    "symbol": "GOOGL",
+    "side": "SELL",
+    "quantity": 5.0,
+    "price": 2500.0
+  }
+]
+```
+
+**Response (200 OK):**
+```json
+[
+  {
+    "order_id": "uuid-abc-123",
+    "symbol": "AAPL",
+    "side": "BUY",
+    "quantity": 10.0,
+    "price": 150.0,
+    "status": "FILLED",
+    "reason": null,
+    "client_order_id": "client-order-123"
+  },
+  {
+    "order_id": "uuid-def-456",
+    "symbol": "GOOGL",
+    "side": "SELL",
+    "quantity": 5.0,
+    "price": 2500.0,
+    "status": "FILLED",
+    "reason": null,
+    "client_order_id": null
+  }
+]
+```
+
+**Response bei Kill-Switch aktiv:**
+```json
+[
+  {
+    "order_id": "uuid-abc-123",
+    "symbol": "AAPL",
+    "side": "BUY",
+    "quantity": 10.0,
+    "price": 150.0,
+    "status": "REJECTED",
+    "reason": "KILL_SWITCH: Kill switch is engaged",
+    "client_order_id": "client-order-123"
+  }
+]
+```
+
+#### Positions-Abfrage (GET /api/v1/paper/positions)
+
+**Response (200 OK):**
+```json
+[
+  {
+    "symbol": "AAPL",
+    "quantity": 6.0
+  },
+  {
+    "symbol": "GOOGL",
+    "quantity": -5.0
+  }
+]
+```
+
+### Python-Client-Beispiel
+
+```python
+import requests
+
+BASE_URL = "http://localhost:8000/api/v1/paper"
+
+# Reset Engine
+response = requests.post(f"{BASE_URL}/reset")
+print(response.json())  # {"status": "ok"}
+
+# Submit Orders
+orders = [
+    {
+        "symbol": "AAPL",
+        "side": "BUY",
+        "quantity": 10.0,
+        "price": 150.0
+    },
+    {
+        "symbol": "AAPL",
+        "side": "SELL",
+        "quantity": 4.0,
+        "price": 151.0
+    }
+]
+response = requests.post(f"{BASE_URL}/orders", json=orders)
+filled_orders = response.json()
+
+# Check Positions
+response = requests.get(f"{BASE_URL}/positions")
+positions = response.json()
+# [{"symbol": "AAPL", "quantity": 6.0}]
+```
+
+### Integration mit Risk Controls
+
+Die Paper-Trading-API nutzt **exakt die gleichen Risk Controls** wie die reguläre Order-Pipeline:
+
+1. **Pre-Trade-Checks:**
+   - Position-Größen-Limits (`max_notional_per_symbol`)
+   - Gross Exposure Limits (`max_gross_exposure`)
+   - Portfolio-Snapshot wird automatisch aus aktuellen Positionen erstellt
+
+2. **Kill-Switch:**
+   - Wird automatisch geprüft (höchste Priorität)
+   - Wenn aktiv (`ASSEMBLED_KILL_SWITCH=1`), werden alle Orders blockiert
+
+3. **Order-Flow:**
+   ```
+   Order-Request (PaperOrderRequest)
+       ↓
+   Risk Controls (Pre-Trade + Kill-Switch)
+       ↓
+   Gefilterte Orders
+       ↓
+   Engine-Submission (nur FILLED Orders)
+       ↓
+   Position-Update
+   ```
+
+### Tests
+
+**Test-Datei:** `tests/test_api_paper_trading.py` (10 Tests, alle mit `@pytest.mark.phase10`)
+
+**Test-Kategorien:**
+- Basic API-Tests (Order-Submission, Listing, Positions)
+- Risk-Control-Integration:
+  - Kill-Switch-Tests
+  - Pre-Trade-Limits-Tests
+  - Position-Update-Verification (nur FILLED Orders)
+
+**Testlauf:**
+```bash
+# Nur Paper-Trading-API-Tests
+pytest -m "phase10" tests/test_api_paper_trading.py -q
+
+# Alle Phase-10-Tests (inkl. Pre-Trade & Kill-Switch)
+pytest -m "phase10" -q
+```
 
 ---
 

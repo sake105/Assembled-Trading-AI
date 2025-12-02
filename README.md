@@ -174,6 +174,46 @@ python scripts/cli.py build_ml_dataset --strategy trend_baseline --freq 1d --out
 
 **Weitere Details:** Siehe `docs/PHASE7_META_LAYER.md`
 
+#### 7. Paper-Trading-API
+
+Die Paper-Trading-API bietet REST-Endpoints für Paper-Trading-Orders mit in-memory Engine.
+
+**Verfügbare Endpoints:**
+- `POST /api/v1/paper/orders`: Orders einreichen
+- `GET /api/v1/paper/orders`: Orders auflisten
+- `GET /api/v1/paper/positions`: Aktuelle Positionen abrufen
+- `POST /api/v1/paper/reset`: Engine zurücksetzen (für Tests/Dev)
+
+**Python-Client-Beispiel:**
+```python
+import requests
+
+BASE_URL = "http://localhost:8000/api/v1/paper"
+
+# Orders einreichen
+orders = [
+    {
+        "symbol": "AAPL",
+        "side": "BUY",
+        "quantity": 10.0,
+        "price": 150.0
+    }
+]
+response = requests.post(f"{BASE_URL}/orders", json=orders)
+print(response.json())
+
+# Positionen abrufen
+response = requests.get(f"{BASE_URL}/positions")
+print(response.json())
+```
+
+**Hinweise:**
+- Alle Orders durchlaufen automatisch Pre-Trade-Checks und Kill-Switch (wie reguläre Pipeline)
+- Orders werden sofort als "FILLED" oder "REJECTED" zurückgegeben
+- Positionen werden automatisch aggregiert (BUY = +, SELL = -)
+
+**Weitere Details:** Siehe `docs/PHASE10_PAPER_OMS.md`
+
 ### Hilfe
 
 ```bash
@@ -249,15 +289,19 @@ pytest -m phase9
 
 **Weitere Details:** Siehe `docs/PHASE9_MODEL_GOVERNANCE.md`
 
-### Phase-10-Tests (Pre-Trade Checks & Kill-Switch)
+### Phase-10-Tests (Pre-Trade Checks, Kill-Switch & Paper-Trading-API)
 
-Phase-10-Tests für Pre-Trade-Kontrollen und Kill-Switch:
+Phase-10-Tests für Pre-Trade-Kontrollen, Kill-Switch und Paper-Trading-API:
 
 ```bash
+# Alle Phase-10-Tests
 pytest -m phase10
+
+# Nur Paper-Trading-API-Tests
+pytest -m phase10 tests/test_api_paper_trading.py
 ```
 
-**Erwartete Dauer:** < 1 Sekunde für ~26 Tests
+**Erwartete Dauer:** < 1 Sekunde für ~35 Tests (inkl. Paper-Trading-API)
 
 **Weitere Details:** Siehe `docs/PHASE10_PAPER_OMS.md`
 
@@ -350,7 +394,9 @@ Aktiengerüst/
 - ✅ **Phase 6:** Event-Features Skeletons (Insider, Congress, Shipping, News)
 - ✅ **Phase 8:** Risk Engine & Scenario Analysis (39 Tests, <2s)
 - ✅ **Phase 9:** Model Governance & Validation (41 Tests, <2s)
-- ✅ **Phase 10:** Paper-Trading & OMS-Light (Pre-Trade Checks & Kill-Switch, 10.1 fertig)
+- ✅ **Phase 10:** Paper-Trading & OMS-Light
+  - ✅ 10.1 – Pre-Trade Checks & Kill-Switch: fertig
+  - ✅ 10.2 – Paper-Trading-API: fertig (inkl. Pre-Trade & Kill-Switch)
 
 ---
 

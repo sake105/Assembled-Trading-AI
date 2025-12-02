@@ -126,7 +126,7 @@ cd F:\Python_Projekt\Aktiengerüst
 
 ---
 
-### Phase-10-Tests (Pre-Trade Checks & Kill-Switch)
+### Phase-10-Tests (Pre-Trade, Kill-Switch & Paper-Trading-API)
 
 **Phase-10-Suite:**
 ```powershell
@@ -134,16 +134,23 @@ cd F:\Python_Projekt\Aktiengerüst
 ```
 
 **Erwartete Ausgabe:**
-- ~26 Tests in < 1 Sekunde
+- ~35 Tests in < 1 Sekunde
 - Alle Tests sollten grün sein
 
 **Test-Dateien:**
 - `tests/test_execution_pre_trade_checks.py` - Pre-Trade Checks (13 Tests)
 - `tests/test_execution_kill_switch.py` - Kill-Switch (8 Tests)
 - `tests/test_execution_pre_trade_integration.py` - Integration Tests (5 Tests)
+- `tests/test_api_paper_trading.py` - Paper-Trading-API (10 Tests)
 
 **Gezielte Tests:**
 ```powershell
+# Nur Paper-Trading-API
+.\.venv\Scripts\python.exe -m pytest -m "phase10" tests/test_api_paper_trading.py -q
+
+# Execution + Paper-API (Pre-Trade, Kill-Switch, Paper-Trading)
+.\.venv\Scripts\python.exe -m pytest -m "phase10" tests/test_execution_pre_trade_checks.py tests/test_execution_kill_switch.py tests/test_api_paper_trading.py -q
+
 # Nur Pre-Trade-Checks
 .\.venv\Scripts\python.exe -m pytest tests/test_execution_pre_trade_checks.py -q
 
@@ -199,7 +206,7 @@ cd F:\Python_Projekt\Aktiengerüst
 
 ### 🔬 Vollständig (inkl. Meta & Risk)
 
-**Alle Phasen:** Phase 4 + 6 + 7 + 8 + 9 + 10 (~232 Tests, ~20s)
+**Alle Phasen:** Phase 4 + 6 + 7 + 8 + 9 + 10 (~241 Tests, ~20s)
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -m "phase4 or phase6 or phase7 or phase8 or phase9 or phase10" -q
 ```
@@ -250,7 +257,7 @@ pytest ... 2>&1 | Select-String -Pattern "..." | Select-Object -Last 2
 | Phase-7 (Labeling & ML Dataset) | ~22 | < 5s | ✅ Grün |
 | Phase-8 (Risk Engine) | ~39 | < 2s | ✅ Grün |
 | Phase-9 (Model Governance) | ~41 | < 2s | ✅ Grün |
-| Phase-10 (Pre-Trade & Kill-Switch) | ~26 | < 1s | ✅ Grün |
+| Phase-10 (Pre-Trade, Kill-Switch & Paper-Trading-API) | ~35 | < 1s | ✅ Grün |
 | test_run_backtest_strategy.py | 6 | ~1.4s | ✅ Grün |
 | test_run_eod_pipeline.py | 2 | < 0.1s | ✅ Grün |
 
@@ -305,7 +312,7 @@ Die CI testet alle stabilen Phasen mit harten Warnings-Check:
 - ✅ Phase 7: Labeling & ML Dataset Builder – stabil und getestet
 - ✅ Phase 8: Risk Engine & Scenario Analysis – stabil und getestet
 - ✅ Phase 9: Model Governance & Validation – stabil und getestet
-- ✅ Phase 10: Pre-Trade Checks & Kill-Switch – stabil und getestet
+- ✅ Phase 10: Pre-Trade Checks, Kill-Switch & Paper-Trading-API – stabil und getestet
 - 🔒 **-W error**: Erzwingt 0 Warnings im CI (keine neuen Warnings durchrutschen lassen)
 
 **Lokal alle Tests ausführen:**

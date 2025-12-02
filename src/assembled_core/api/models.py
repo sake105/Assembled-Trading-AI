@@ -422,3 +422,95 @@ class QAGatesSummaryResponse(BaseModel):
         }
     )
 
+
+# ============================================================================
+# Paper Trading Models
+# ============================================================================
+
+class PaperOrderRequest(BaseModel):
+    """Paper trading order request.
+    
+    Used for submitting orders to the paper trading engine.
+    """
+    symbol: str = Field(..., description="Ticker symbol")
+    side: OrderSide = Field(..., description="BUY or SELL")
+    quantity: float = Field(..., gt=0, description="Order quantity (must be positive)")
+    price: Optional[float] = Field(None, gt=0, description="Order price (optional, None = market order)")
+    client_order_id: Optional[str] = Field(None, description="Optional client-provided order ID")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "symbol": "AAPL",
+                "side": "BUY",
+                "quantity": 10.0,
+                "price": 150.0,
+                "client_order_id": "client-order-123"
+            }
+        }
+    )
+
+
+class PaperOrderResponse(BaseModel):
+    """Paper trading order response.
+    
+    Response after submitting an order to the paper trading engine.
+    """
+    order_id: str = Field(..., description="Unique order identifier")
+    symbol: str = Field(..., description="Ticker symbol")
+    side: OrderSide = Field(..., description="BUY or SELL")
+    quantity: float = Field(..., description="Order quantity")
+    price: Optional[float] = Field(None, description="Order price (None for market orders)")
+    status: str = Field(..., description="Order status: NEW, FILLED, or REJECTED")
+    reason: Optional[str] = Field(None, description="Reason for rejection (if status is REJECTED)")
+    client_order_id: Optional[str] = Field(None, description="Client-provided order ID (if provided)")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "order_id": "order-abc123",
+                "symbol": "AAPL",
+                "side": "BUY",
+                "quantity": 10.0,
+                "price": 150.0,
+                "status": "FILLED",
+                "reason": None,
+                "client_order_id": "client-order-123"
+            }
+        }
+    )
+
+
+class PaperPosition(BaseModel):
+    """Paper trading position.
+    
+    Current position in a symbol from the paper trading engine.
+    """
+    symbol: str = Field(..., description="Ticker symbol")
+    quantity: float = Field(..., description="Position quantity (positive = long, negative = short)")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "symbol": "AAPL",
+                "quantity": 6.0
+            }
+        }
+    )
+
+
+class PaperResetResponse(BaseModel):
+    """Paper trading reset response.
+    
+    Response after resetting the paper trading engine.
+    """
+    status: str = Field(..., description="Reset status (always 'ok')")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "status": "ok"
+            }
+        }
+    )
+
