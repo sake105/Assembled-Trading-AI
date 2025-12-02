@@ -40,6 +40,66 @@ cd F:\Python_Projekt\Aktiengerüst
 
 ---
 
+### Phase-7-Tests (Labeling & ML Dataset Builder)
+
+**Phase-7-Suite:**
+```powershell
+.\.venv\Scripts\python.exe -m pytest -m phase7
+```
+
+**Erwartete Ausgabe:**
+- ~22 Tests in < 5 Sekunden
+- Alle Tests sollten grün sein
+
+**Test-Dateien:**
+- `tests/test_qa_labeling.py` - Labeling-Funktionen (11 Tests)
+- `tests/test_qa_dataset_builder.py` - Dataset-Builder (9 Tests)
+- `tests/test_cli_ml_dataset.py` - CLI-Integration (2 Tests)
+
+**Gezielte Tests:**
+```powershell
+# Nur Labeling
+.\.venv\Scripts\python.exe -m pytest tests/test_qa_labeling.py -q
+
+# Nur Dataset-Builder
+.\.venv\Scripts\python.exe -m pytest tests/test_qa_dataset_builder.py -q
+
+# Nur CLI-Tests
+.\.venv\Scripts\python.exe -m pytest tests/test_cli_ml_dataset.py -q
+```
+
+---
+
+### Phase-8-Tests (Risk Engine & Scenario Analysis)
+
+**Phase-8-Suite:**
+```powershell
+.\.venv\Scripts\python.exe -m pytest -m phase8
+```
+
+**Erwartete Ausgabe:**
+- ~39 Tests in < 2 Sekunden
+- Alle Tests sollten grün sein
+
+**Test-Dateien:**
+- `tests/test_qa_risk_metrics.py` - Portfolio Risk Metrics (13 Tests)
+- `tests/test_qa_scenario_engine.py` - Scenario Engine (13 Tests)
+- `tests/test_qa_shipping_risk.py` - Shipping Risk (13 Tests)
+
+**Gezielte Tests:**
+```powershell
+# Nur Risk Metrics
+.\.venv\Scripts\python.exe -m pytest tests/test_qa_risk_metrics.py -q
+
+# Nur Scenario Engine
+.\.venv\Scripts\python.exe -m pytest tests/test_qa_scenario_engine.py -q
+
+# Nur Shipping Risk
+.\.venv\Scripts\python.exe -m pytest tests/test_qa_shipping_risk.py -q
+```
+
+---
+
 ### Gezielte Test-Dateien
 
 **Backtest & EOD-Pipeline:**
@@ -97,7 +157,9 @@ pytest ... 2>&1 | Select-String -Pattern "..." | Select-Object -Last 2
 | Test-Suite | Anzahl Tests | Dauer | Status |
 |------------|--------------|-------|--------|
 | Phase-4 (Backend Core) | ~117 | ~13-17s | ✅ Grün |
-| Phase-6 (Event Features) | ~11 | < 1s | ✅ Grün |
+| Phase-6 (Event Features) | ~29 | < 2s | ✅ Grün |
+| Phase-7 (Labeling & ML Dataset) | ~22 | < 5s | ✅ Grün |
+| Phase-8 (Risk Engine) | ~39 | < 2s | ✅ Grün |
 | test_run_backtest_strategy.py | 6 | ~1.4s | ✅ Grün |
 | test_run_eod_pipeline.py | 2 | < 0.1s | ✅ Grün |
 

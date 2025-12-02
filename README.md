@@ -150,6 +150,28 @@ python scripts/cli.py run_daily --freq 1d --start-capital 50000
 python scripts/cli.py run_daily --freq 5min --price-file data/sample/eod_sample.parquet
 ```
 
+#### 6. ML-Dataset-Export
+
+Exportiere Backtest-Ergebnisse als ML-ready Dataset mit Features und Labels:
+
+```bash
+# Standard-Dataset (Trend-Baseline, 10 Tage Horizon, 2% Threshold)
+python scripts/cli.py build_ml_dataset --strategy trend_baseline --freq 1d --price-file data/sample/eod_sample.parquet
+
+# Event-Strategie mit angepassten Parametern
+python scripts/cli.py build_ml_dataset --strategy event_insider_shipping --freq 1d --label-horizon-days 5 --success-threshold 0.03
+
+# Mit explizitem Output-Pfad
+python scripts/cli.py build_ml_dataset --strategy trend_baseline --freq 1d --out output/ml_datasets/my_dataset.parquet
+```
+
+**Output:**
+- Dataset wird als Parquet-Datei gespeichert (Standard: `output/ml_datasets/<strategy>_<freq>.parquet`)
+- Enthält: Labels (0/1), Trade-Metadaten (symbol, open_time, open_price), Feature-Spalten (ta_*, insider_*, shipping_*, etc.)
+- Labels basieren auf P&L-Performance innerhalb des angegebenen Horizonts
+
+**Weitere Details:** Siehe `docs/PHASE7_META_LAYER.md`
+
 ### Hilfe
 
 ```bash
@@ -200,6 +222,18 @@ pytest -m phase6
 ```
 
 **Erwartete Dauer:** < 1 Sekunde für ~11 Tests
+
+### Phase-8-Tests (Risk Engine)
+
+Phase-8-Tests für Risk-Engine-Komponenten (Portfolio Risk Metrics, Scenario Engine, Shipping Risk):
+
+```bash
+pytest -m phase8
+```
+
+**Erwartete Dauer:** < 2 Sekunden für ~39 Tests
+
+**Weitere Details:** Siehe `docs/PHASE8_RISK_ENGINE.md`
 
 ### Langsame Backtest-Tests
 
@@ -274,6 +308,7 @@ Aktiengerüst/
 - **CLI-Referenz:** `docs/CLI_REFERENCE.md`
 - **Testing-Commands:** `docs/TESTING_COMMANDS.md`
 - **Phase 6 Events:** `docs/PHASE6_EVENTS.md`
+- **Phase 8 Risk Engine:** `docs/PHASE8_RISK_ENGINE.md` (Portfolio Risk, Scenarios, Shipping Risk)
 - **Legacy-Übersicht:** `docs/LEGACY_OVERVIEW.md`
 - **Legacy-Mapping:** `docs/LEGACY_TO_CORE_MAPPING.md`
 - **PowerShell-Wrapper:** `docs/POWERSHELL_WRAPPERS.md`
@@ -285,6 +320,7 @@ Aktiengerüst/
 - ✅ **Phase 4:** Backend Core stabil (110+ Tests, ~17s)
 - ✅ **Phase 5:** Dokumentation & Legacy-Mapping
 - ✅ **Phase 6:** Event-Features Skeletons (Insider, Congress, Shipping, News)
+- ✅ **Phase 8:** Risk Engine & Scenario Analysis (39 Tests, <2s)
 
 ---
 

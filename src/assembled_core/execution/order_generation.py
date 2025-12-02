@@ -79,8 +79,11 @@ def generate_orders_from_targets(
     )
     
     # Fill NaN with 0.0 (symbols not in current or target)
-    merged["target_qty"] = merged["target_qty"].fillna(0.0)
-    merged["qty"] = merged["qty"].fillna(0.0)
+    # Ensure columns are float type before filling to avoid FutureWarning
+    if "target_qty" in merged.columns:
+        merged["target_qty"] = merged["target_qty"].astype(float).fillna(0.0)
+    if "qty" in merged.columns:
+        merged["qty"] = merged["qty"].astype(float).fillna(0.0)
     
     # Compute quantity delta
     merged["qty_delta"] = merged["target_qty"] - merged["qty"]

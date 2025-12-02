@@ -10,7 +10,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ============================================================================
@@ -60,8 +60,8 @@ class Signal(BaseModel):
     ema_fast: Optional[float] = Field(None, description="Fast EMA value")
     ema_slow: Optional[float] = Field(None, description="Slow EMA value")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "timestamp": "2025-11-28T14:30:00Z",
                 "symbol": "AAPL",
@@ -71,6 +71,7 @@ class Signal(BaseModel):
                 "ema_slow": 277.8
             }
         }
+    )
 
 
 # ============================================================================
@@ -102,8 +103,8 @@ class OrderPreview(BaseModel):
             notional=float(row["qty"]) * float(row["price"])
         )
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "timestamp": "2025-11-28T14:30:00Z",
                 "symbol": "AAPL",
@@ -113,6 +114,7 @@ class OrderPreview(BaseModel):
                 "notional": 278.58
             }
         }
+    )
 
 
 # ============================================================================
@@ -136,9 +138,9 @@ class PortfolioSnapshot(BaseModel):
     total_trades: int = Field(..., description="Total number of trades")
     start_capital: float = Field(..., description="Starting capital")
     
-    class Config:
-        populate_by_name = True
-        json_schema_extra = {
+    model_config = ConfigDict(
+        populate_by_name=True,
+        json_schema_extra={
             "example": {
                 "timestamp": "2025-11-28T16:00:00Z",
                 "equity": 10050.25,
@@ -150,6 +152,7 @@ class PortfolioSnapshot(BaseModel):
                 "start_capital": 10000.0
             }
         }
+    )
 
 
 class EquityPoint(BaseModel):
@@ -161,13 +164,14 @@ class EquityPoint(BaseModel):
     timestamp: datetime = Field(..., description="Timestamp (UTC)")
     equity: float = Field(..., description="Portfolio equity at this timestamp")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "timestamp": "2025-11-28T14:30:00Z",
                 "equity": 10000.0
             }
         }
+    )
 
 
 # ============================================================================
@@ -189,8 +193,8 @@ class RiskMetrics(BaseModel):
     current_drawdown: float = Field(..., description="Current drawdown from peak")
     var_95: Optional[float] = Field(None, description="Value at Risk (95% confidence)")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "sharpe_ratio": 0.1566,
                 "max_drawdown": -50.25,
@@ -200,6 +204,7 @@ class RiskMetrics(BaseModel):
                 "var_95": -100.0
             }
         }
+    )
 
 
 # ============================================================================
@@ -216,8 +221,8 @@ class QaCheck(BaseModel):
     message: str = Field(..., description="Check result message")
     details: Optional[dict] = Field(None, description="Additional check details")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "check_name": "schema_validation",
                 "status": "ok",
@@ -225,6 +230,7 @@ class QaCheck(BaseModel):
                 "details": {"columns": ["symbol", "timestamp", "close"]}
             }
         }
+    )
 
 
 class QaStatus(BaseModel):
@@ -237,8 +243,8 @@ class QaStatus(BaseModel):
     checks: list[QaCheck] = Field(..., description="List of individual checks")
     summary: dict[str, int] = Field(..., description="Summary: ok_count, warning_count, error_count")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "overall_status": "ok",
                 "timestamp": "2025-11-28T16:00:00Z",
@@ -252,6 +258,7 @@ class QaStatus(BaseModel):
                 "summary": {"ok": 5, "warning": 0, "error": 0}
             }
         }
+    )
 
 
 # ============================================================================
@@ -328,8 +335,8 @@ class PerformanceMetricsResponse(BaseModel):
     start_capital: float = Field(..., description="Starting capital")
     end_equity: float = Field(..., description="Ending equity")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "final_pf": 1.1250,
                 "total_return": 0.1250,
@@ -355,6 +362,7 @@ class PerformanceMetricsResponse(BaseModel):
                 "end_equity": 11250.0
             }
         }
+    )
 
 
 class QAGateResultModel(BaseModel):
@@ -367,8 +375,8 @@ class QAGateResultModel(BaseModel):
     reason: str = Field(..., description="Human-readable reason for the result")
     details: Optional[dict[str, Any]] = Field(None, description="Additional details (e.g., actual value, threshold)")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "gate_name": "sharpe_ratio",
                 "result": "OK",
@@ -380,6 +388,7 @@ class QAGateResultModel(BaseModel):
                 }
             }
         }
+    )
 
 
 class QAGatesSummaryResponse(BaseModel):
@@ -392,8 +401,8 @@ class QAGatesSummaryResponse(BaseModel):
     counts: dict[str, int] = Field(..., description="Gate counts: {'ok': N, 'warning': M, 'block': K}")
     gate_results: list[QAGateResultModel] = Field(..., description="List of individual gate results")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "overall_result": "OK",
                 "counts": {
@@ -411,4 +420,5 @@ class QAGatesSummaryResponse(BaseModel):
                 ]
             }
         }
+    )
 

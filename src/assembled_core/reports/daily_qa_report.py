@@ -17,6 +17,11 @@ import pandas as pd
 from src.assembled_core.config import OUTPUT_DIR
 from src.assembled_core.qa.metrics import PerformanceMetrics
 from src.assembled_core.qa.qa_gates import QAGatesSummary
+from src.assembled_core.qa.risk_metrics import compute_portfolio_risk_metrics
+from src.assembled_core.qa.shipping_risk import (
+    compute_shipping_exposure,
+    compute_systemic_risk_flags,
+)
 
 
 def generate_qa_report(
@@ -28,7 +33,10 @@ def generate_qa_report(
     data_start_date: pd.Timestamp | None = None,
     data_end_date: pd.Timestamp | None = None,
     config_info: dict[str, Any] | None = None,
-    output_dir: Path | None = None
+    output_dir: Path | None = None,
+    equity: pd.DataFrame | None = None,
+    portfolio_positions: pd.DataFrame | None = None,
+    shipping_features: pd.DataFrame | None = None
 ) -> Path:
     """Generate a daily QA report in Markdown format.
     
@@ -81,7 +89,10 @@ def generate_qa_report(
         equity_curve_path=equity_curve_path,
         data_start_date=data_start_date,
         data_end_date=data_end_date,
-        config_info=config_info
+        config_info=config_info,
+        equity=equity,
+        portfolio_positions=portfolio_positions,
+        shipping_features=shipping_features
     )
     
     # Write report
@@ -99,7 +110,10 @@ def _build_report_content(
     equity_curve_path: Path | str | None,
     data_start_date: pd.Timestamp | None,
     data_end_date: pd.Timestamp | None,
-    config_info: dict[str, Any] | None
+    config_info: dict[str, Any] | None,
+    equity: pd.DataFrame | None = None,
+    portfolio_positions: pd.DataFrame | None = None,
+    shipping_features: pd.DataFrame | None = None
 ) -> str:
     """Build Markdown report content.
     
@@ -156,7 +170,29 @@ def _build_report_content(
         lines.append(f"- **Volatility (annualized):** {metrics.volatility:.2%}")
     if metrics.var_95 is not None:
         lines.append(f"- **VaR (95%):** {metrics.var_95:.2f}")
+    
+    # Additional portfolio risk metrics from risk_metrics module (if equity provided)
+    if equity is not None and not equity.empty:
+        try:
+            risk_metrics = compute_portfolio_risk_metrics(equity, freq=freq)
+            
+            # Add daily volatility if available
+            if risk_metrics["daily_vol"] is not None:
+                lines.append(f"- **Daily Volatility:** {risk_metrics['daily_vol']:.4f}")
+            
+            # Add Expected Shortfall if available
+            if risk_metrics["es_95"] is not None:
+                lines.append(f"- **Expected Shortfall (95%):** {risk_metrics['es_95']:.2f}")
+        except Exception:
+            # Silently fail if risk metrics computation fails (backward compatibility)
+            pass
+    
     lines.append("")
+    
+    # Portfolio Risk Metrics Section (additional risk metrics)
+    # Note: This requires the equity DataFrame, which we don't have directly in metrics
+    # We'll add this section if/when we have access to the equity DataFrame
+    # For now, we keep the existing risk metrics section above
     
     # Trade Metrics (if available)
     if metrics.total_trades is not None and metrics.total_trades > 0:
@@ -180,6 +216,31 @@ def _build_report_content(
     lines.append("")
     lines.append("---")
     lines.append("")
+    
+    # Shipping Risk Section (optional, if portfolio and shipping features provided)
+    if portfolio_positions is not None and shipping_features is not None:
+        try:
+            shipping_exposure = compute_shipping_exposure(portfolio_positions, shipping_features)
+            risk_flags = compute_systemic_risk_flags(shipping_exposure)
+            
+            lines.append("## Shipping Risk")
+            lines.append("")
+            lines.append(f"- **Average Shipping Congestion:** {shipping_exposure['avg_shipping_congestion']:.2f}")
+            lines.append(f"- **High Congestion Weight:** {shipping_exposure['high_congestion_weight']:.2%}")
+            if shipping_exposure['exposed_symbols']:
+                lines.append(f"- **Exposed Symbols:** {', '.join(shipping_exposure['exposed_symbols'])}")
+            if shipping_exposure['top_routes']:
+                lines.append(f"- **Top Routes:** {', '.join(shipping_exposure['top_routes'][:5])}")
+            lines.append("")
+            lines.append("### Systemic Risk Flags")
+            lines.append(f"- **High Shipping Risk:** {risk_flags['high_shipping_risk']}")
+            lines.append(f"- **Exposed to Blockade Routes:** {risk_flags['exposed_to_blockade_routes']}")
+            lines.append(f"- **Risk Level:** {risk_flags['risk_level']}")
+            lines.append(f"- **Risk Reason:** {risk_flags['risk_reason']}")
+            lines.append("")
+        except Exception:
+            # Silently fail if shipping risk computation fails (backward compatibility)
+            pass
     
     # QA Gates Section
     if gate_result is not None:

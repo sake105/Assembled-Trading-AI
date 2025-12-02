@@ -92,8 +92,11 @@ def generate_event_signals(
     df = df.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
     
     # Fill NaN values with 0 for feature columns (no events = neutral)
-    df["insider_net_buy_20d"] = df["insider_net_buy_20d"].fillna(0.0)
-    df["shipping_congestion_score_7d"] = df["shipping_congestion_score_7d"].fillna(50.0)  # Neutral congestion
+    # Convert to numeric first, then fill NaN to avoid FutureWarning about downcasting
+    if "insider_net_buy_20d" in df.columns:
+        df["insider_net_buy_20d"] = pd.to_numeric(df["insider_net_buy_20d"], errors="coerce").fillna(0.0)
+    if "shipping_congestion_score_7d" in df.columns:
+        df["shipping_congestion_score_7d"] = pd.to_numeric(df["shipping_congestion_score_7d"], errors="coerce").fillna(50.0)  # Neutral congestion
     
     # Compute signal components
     # Insider component: positive for net buy, negative for net sell

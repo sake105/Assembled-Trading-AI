@@ -21,6 +21,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pandas as pd
+
 # Import core modules
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -130,6 +132,114 @@ def run_daily_subcommand(args: argparse.Namespace) -> int:
         return 1
 
 
+def build_ml_dataset_subcommand(args: argparse.Namespace) -> int:
+    """Build ML dataset from backtest results subcommand.
+    
+    Args:
+        args: Parsed command-line arguments for build_ml_dataset
+        
+    Returns:
+        Exit code (0 for success, 1 for failure)
+    """
+    logger.info("=" * 60)
+    logger.info("ML Dataset Builder (build_ml_dataset)")
+    logger.info("=" * 60)
+    
+    try:
+        import pandas as pd
+        from src.assembled_core.config import OUTPUT_DIR
+        from src.assembled_core.qa.dataset_builder import build_ml_dataset_from_backtest, save_ml_dataset
+        
+        # Set output path
+        if args.out:
+            output_path = Path(args.out)
+        else:
+            output_dir = OUTPUT_DIR / "ml_datasets"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            output_path = output_dir / f"{args.strategy}_{args.freq}.parquet"
+        
+        logger.info(f"Strategy: {args.strategy}")
+        logger.info(f"Frequency: {args.freq}")
+        logger.info(f"Label Horizon: {args.label_horizon_days} days")
+        logger.info(f"Success Threshold: {args.success_threshold:.2%}")
+        logger.info(f"Output Path: {output_path}")
+        
+        # Run backtest and get prices_with_features and trades
+        logger.info("")
+        logger.info("Running backtest...")
+        prices_with_features, trades = _run_backtest_for_ml_dataset(
+            strategy=args.strategy,
+            freq=args.freq,
+            price_file=args.price_file,
+            universe=args.universe,
+            start_capital=args.start_capital,
+            with_costs=args.with_costs,
+            output_dir=OUTPUT_DIR
+        )
+        
+        if prices_with_features.empty:
+            logger.error("No price data with features available")
+            return 1
+        
+        if trades.empty:
+            logger.error("No trades generated from backtest")
+            return 1
+        
+        logger.info(f"Prices with features: {len(prices_with_features)} rows, {prices_with_features['symbol'].nunique()} symbols")
+        logger.info(f"Trades: {len(trades)} trades")
+        
+        # Build ML dataset
+        logger.info("")
+        logger.info("Building ML dataset...")
+        ml_dataset = build_ml_dataset_from_backtest(
+            prices_with_features=prices_with_features,
+            trades=trades,
+            label_horizon_days=args.label_horizon_days,
+            success_threshold=args.success_threshold,
+            feature_prefixes=("ta_", "insider_", "congress_", "shipping_", "news_")
+        )
+        
+        if ml_dataset.empty:
+            logger.error("ML dataset is empty")
+            return 1
+        
+        logger.info(f"ML dataset built: {len(ml_dataset)} records, {len(ml_dataset.columns)} columns")
+        
+        # Count labels
+        if "label" in ml_dataset.columns:
+            label_counts = ml_dataset["label"].value_counts()
+            logger.info(f"Label distribution: {dict(label_counts)}")
+        
+        # Save dataset
+        logger.info("")
+        logger.info("Saving ML dataset...")
+        save_ml_dataset(ml_dataset, output_path)
+        
+        logger.info("")
+        logger.info("=" * 60)
+        logger.info("ML Dataset Build Complete")
+        logger.info("=" * 60)
+        logger.info(f"Output: {output_path}")
+        logger.info(f"Records: {len(ml_dataset)}")
+        logger.info(f"Features: {len([c for c in ml_dataset.columns if c not in ['label', 'open_time', 'symbol', 'open_price', 'close_time', 'pnl_pct', 'horizon_days']])}")
+        logger.info("=" * 60)
+        
+        return 0
+    
+    except FileNotFoundError as e:
+        logger.error(f"File not found: {e}")
+        return 1
+    except ValueError as e:
+        logger.error(f"Invalid input: {e}")
+        return 1
+    except KeyboardInterrupt:
+        logger.warning("Interrupted by user")
+        return 1
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        return 1
+
+
 def run_backtest_subcommand(args: argparse.Namespace) -> int:
     """Run strategy backtest subcommand.
     
@@ -151,6 +261,191 @@ def run_backtest_subcommand(args: argparse.Namespace) -> int:
     except Exception as e:
         logger.error(f"Backtest failed: {e}", exc_info=True)
         return 1
+
+
+def _run_backtest_for_ml_dataset(
+    strategy: str,
+    freq: str,
+    price_file: Path | None = None,
+    universe: Path | None = None,
+    start_capital: float = 10000.0,
+    with_costs: bool = True,
+    commission_bps: float | None = None,
+    spread_w: float | None = None,
+    impact_w: float | None = None,
+    output_dir: Path | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Run backtest and return prices_with_features and trades for ML dataset building.
+    
+    This is a helper function that runs a backtest and extracts the prices_with_features
+    and trades DataFrames needed for building ML datasets.
+    
+    Args:
+        strategy: Strategy name ("trend_baseline" or "event_insider_shipping")
+        freq: Trading frequency ("1d" or "5min")
+        price_file: Optional explicit path to price file
+        universe: Optional path to universe file
+        start_capital: Starting capital
+        with_costs: Whether to include transaction costs
+        commission_bps: Optional commission override
+        spread_w: Optional spread weight override
+        impact_w: Optional market impact weight override
+        output_dir: Optional output directory for price data loading
+    
+    Returns:
+        Tuple of (prices_with_features, trades) DataFrames
+    
+    Raises:
+        ValueError: If strategy is unknown or data loading fails
+        FileNotFoundError: If price file or universe file not found
+    """
+    import pandas as pd
+    from src.assembled_core.config import OUTPUT_DIR
+    from src.assembled_core.costs import CostModel, get_default_cost_model
+    from src.assembled_core.data.prices_ingest import load_eod_prices, load_eod_prices_for_universe
+    from src.assembled_core.ema_config import get_default_ema_config
+    from src.assembled_core.qa.backtest_engine import run_portfolio_backtest
+    from scripts.run_backtest_strategy import (
+        create_trend_baseline_signal_fn,
+        create_position_sizing_fn,
+        create_event_insider_shipping_signal_fn,
+        create_event_position_sizing_fn,
+        get_cost_model,
+    )
+    
+    # Set output directory
+    if output_dir is None:
+        output_dir = OUTPUT_DIR
+    
+    # Load price data
+    if price_file:
+        logger.info(f"Loading prices from explicit file: {price_file}")
+        prices = load_eod_prices(price_file=price_file, freq=freq)
+    elif universe:
+        logger.info(f"Loading prices for universe: {universe}")
+        prices = load_eod_prices_for_universe(
+            universe_file=universe,
+            data_dir=output_dir,
+            freq=freq
+        )
+    else:
+        # Default: use watchlist.txt
+        logger.info("Loading prices for default universe (watchlist.txt)")
+        prices = load_eod_prices_for_universe(
+            universe_file=None,
+            data_dir=output_dir,
+            freq=freq
+        )
+    
+    if prices.empty:
+        raise ValueError("No price data loaded")
+    
+    logger.info(f"Loaded {len(prices)} rows for {prices['symbol'].nunique()} symbols")
+    
+    # Get cost model
+    class CostArgs:
+        def __init__(self):
+            self.commission_bps = commission_bps
+            self.spread_w = spread_w
+            self.impact_w = impact_w
+    
+    cost_args = CostArgs()
+    cost_model = get_cost_model(cost_args)
+    
+    # Build prices_with_features by computing all features
+    from src.assembled_core.features.ta_features import add_all_features, add_log_returns, add_moving_averages
+    
+    # Add TA features
+    has_ohlc = all(col in prices.columns for col in ["high", "low", "open"])
+    if has_ohlc:
+        prices_with_features = add_all_features(
+            prices,
+            ma_windows=(20, 50, 200),
+            atr_window=14,
+            rsi_window=14,
+            include_rsi=True
+        )
+    else:
+        prices_with_features = add_log_returns(prices.copy())
+        prices_with_features = add_moving_averages(
+            prices_with_features,
+            windows=(20, 50, 200)
+        )
+    
+    # Add event features if event strategy
+    if strategy == "event_insider_shipping":
+        from src.assembled_core.features.insider_features import add_insider_features
+        from src.assembled_core.features.shipping_features import add_shipping_features
+        from src.assembled_core.data.insider_ingest import load_insider_sample
+        from src.assembled_core.data.shipping_routes_ingest import load_shipping_sample
+        from pathlib import Path as P
+        
+        ROOT = P(__file__).resolve().parents[1]
+        EVENT_DIR = ROOT / "data" / "sample" / "events"
+        
+        insider_file = EVENT_DIR / "insider_sample.parquet"
+        shipping_file = EVENT_DIR / "shipping_sample.parquet"
+        
+        if insider_file.exists():
+            insider_events = pd.read_parquet(insider_file)
+            if "timestamp" in insider_events.columns:
+                insider_events["timestamp"] = pd.to_datetime(insider_events["timestamp"], utc=True)
+        else:
+            insider_events = load_insider_sample()
+        
+        if shipping_file.exists():
+            shipping_events = pd.read_parquet(shipping_file)
+            if "timestamp" in shipping_events.columns:
+                shipping_events["timestamp"] = pd.to_datetime(shipping_events["timestamp"], utc=True)
+        else:
+            shipping_events = load_shipping_sample()
+        
+        prices_with_features = add_insider_features(prices_with_features, insider_events)
+        prices_with_features = add_shipping_features(prices_with_features, shipping_events)
+    
+    # Create signal and position sizing functions
+    if strategy == "trend_baseline":
+        ema_config = get_default_ema_config(freq)
+        signal_fn = create_trend_baseline_signal_fn(
+            ma_fast=ema_config.fast,
+            ma_slow=ema_config.slow
+        )
+        position_sizing_fn = create_position_sizing_fn()
+    elif strategy == "event_insider_shipping":
+        signal_fn = create_event_insider_shipping_signal_fn()
+        position_sizing_fn = create_event_position_sizing_fn()
+    else:
+        raise ValueError(f"Unknown strategy: {strategy}. Supported: trend_baseline, event_insider_shipping")
+    
+    # Run backtest to get trades
+    result = run_portfolio_backtest(
+        prices=prices_with_features,  # Use prices_with_features for signal generation
+        signal_fn=signal_fn,
+        position_sizing_fn=position_sizing_fn,
+        start_capital=start_capital,
+        commission_bps=cost_model.commission_bps,
+        spread_w=cost_model.spread_w,
+        impact_w=cost_model.impact_w,
+        include_costs=with_costs,
+        include_trades=True,
+        include_signals=False,
+        include_targets=False,
+        rebalance_freq=freq,
+        compute_features=False  # We already computed features above
+    )
+    
+    if result.trades is None or result.trades.empty:
+        logger.warning("No trades generated from backtest")
+        trades = pd.DataFrame()
+    else:
+        trades = result.trades.copy()
+        # Ensure trades have required columns for labeling
+        if "open_time" not in trades.columns and "timestamp" in trades.columns:
+            trades["open_time"] = trades["timestamp"]
+        if "open_price" not in trades.columns and "price" in trades.columns:
+            trades["open_price"] = trades["price"]
+    
+    return prices_with_features, trades
 
 
 def run_phase4_tests_subcommand(args: argparse.Namespace) -> int:
@@ -438,6 +733,90 @@ Examples:
         help="Generate QA report after backtest"
     )
     backtest_parser.set_defaults(func=run_backtest_subcommand)
+    
+    # build_ml_dataset subcommand
+    ml_dataset_parser = subparsers.add_parser(
+        "build_ml_dataset",
+        help="Build ML-ready dataset from backtest results",
+        description="Runs a strategy backtest and builds an ML-ready dataset with features and labels.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=""" 
+Examples:
+  python scripts/cli.py build_ml_dataset --strategy trend_baseline --freq 1d
+  python scripts/cli.py build_ml_dataset --strategy event_insider_shipping --freq 1d --price-file data/sample/eod_sample.parquet
+  python scripts/cli.py build_ml_dataset --strategy trend_baseline --freq 1d --label-horizon-days 5 --success-threshold 0.03
+        """
+    )
+    ml_dataset_parser.add_argument(
+        "--strategy",
+        type=str,
+        required=True,
+        choices=["trend_baseline", "event_insider_shipping"],
+        metavar="NAME",
+        help="Strategy name: 'trend_baseline' (EMA crossover) or 'event_insider_shipping' (Phase 6 event-based)"
+    )
+    ml_dataset_parser.add_argument(
+        "--freq",
+        type=str,
+        required=True,
+        choices=["1d", "5min"],
+        help="Trading frequency: '1d' for daily or '5min' for 5-minute bars"
+    )
+    ml_dataset_parser.add_argument(
+        "--price-file",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Explicit path to price file (overrides default path)"
+    )
+    ml_dataset_parser.add_argument(
+        "--universe",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Path to universe file (default: watchlist.txt in repo root)"
+    )
+    ml_dataset_parser.add_argument(
+        "--start-capital",
+        type=float,
+        default=10000.0,
+        metavar="AMOUNT",
+        help="Starting capital in USD (default: 10000.0)"
+    )
+    ml_dataset_parser.add_argument(
+        "--with-costs",
+        action="store_true",
+        default=True,
+        help="Include transaction costs in backtest (default: True)"
+    )
+    ml_dataset_parser.add_argument(
+        "--no-costs",
+        action="store_false",
+        dest="with_costs",
+        help="Disable transaction costs (use cost-free simulation)"
+    )
+    ml_dataset_parser.add_argument(
+        "--label-horizon-days",
+        type=int,
+        default=10,
+        metavar="DAYS",
+        help="Number of days to look forward for P&L calculation (default: 10)"
+    )
+    ml_dataset_parser.add_argument(
+        "--success-threshold",
+        type=float,
+        default=0.02,
+        metavar="THRESHOLD",
+        help="P&L percentage threshold for a successful trade (label=1) (default: 0.02 = 2%%)"
+    )
+    ml_dataset_parser.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Output path for ML dataset (default: output/ml_datasets/<strategy>_<freq>.parquet)"
+    )
+    ml_dataset_parser.set_defaults(func=build_ml_dataset_subcommand)
     
     # run_phase4_tests subcommand
     tests_parser = subparsers.add_parser(

@@ -276,16 +276,33 @@ def run_portfolio_backtest(
                 elif side == "SELL":
                     position_updates[symbol] -= qty
             
-            # Apply updates to current_positions
+            # Apply updates to current_positions (optimized: collect updates first, then apply)
+            position_updates_list = []
             for symbol, delta in position_updates.items():
                 if current_positions.empty or symbol not in current_positions["symbol"].values:
-                    # Add new position
-                    new_row = pd.DataFrame({"symbol": [symbol], "qty": [delta]})
-                    current_positions = pd.concat([current_positions, new_row], ignore_index=True)
+                    # Mark for addition
+                    position_updates_list.append({"symbol": symbol, "qty": delta, "action": "add"})
                 else:
-                    # Update existing position
+                    # Update existing position directly
                     idx = current_positions[current_positions["symbol"] == symbol].index[0]
                     current_positions.loc[idx, "qty"] += delta
+            
+            # Add new positions in batch (more efficient than concat in loop)
+            if position_updates_list:
+                new_positions = pd.DataFrame([
+                    {"symbol": item["symbol"], "qty": item["qty"]}
+                    for item in position_updates_list if item["action"] == "add"
+                ])
+                if not new_positions.empty:
+                    # Ensure consistent dtypes to avoid FutureWarning
+                    if current_positions.empty:
+                        current_positions = new_positions.copy()
+                    else:
+                        # Ensure new_positions has same dtypes as current_positions
+                        for col in current_positions.columns:
+                            if col in new_positions.columns:
+                                new_positions[col] = new_positions[col].astype(current_positions[col].dtype)
+                        current_positions = pd.concat([current_positions, new_positions], ignore_index=True)
             
             # Remove zero positions (optional, for cleanliness)
             current_positions = current_positions[current_positions["qty"].abs() > 1e-6].reset_index(drop=True)
