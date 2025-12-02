@@ -454,20 +454,209 @@ pytest -m "phase10" -q
 
 ---
 
-## Sprint 10.3 – OMS-Light (Platzhalter)
+## Sprint 10.3 – OMS-Light (Blotter & Routing)
 
-**Status:** Geplant
+**Status:** ✅ Fertig
 
-**Ziele:**
-- Minimales Order Management System
-- Order-Status-Tracking (PENDING, FILLED, REJECTED, CANCELLED)
-- Order-History und Audit-Log
-- Integration mit Live-Broker-APIs (später)
+### Ziele
 
-**Geplante Komponenten:**
-- `src/assembled_core/oms/order_manager.py`: Zentrale Order-Verwaltung
-- `src/assembled_core/oms/order_status.py`: Order-Status-Tracking
-- `src/assembled_core/oms/audit_log.py`: Audit-Log für Compliance
+OMS-Light baut auf der Paper-Trading-Engine auf und bietet eine minimale Order-Management-Schicht für:
+- **Blotter-View**: Übersicht aller Orders mit Filterung und Sortierung
+- **Executions-View**: Übersicht aller Fills/Executions
+- **Routing-Verwaltung**: Liste verfügbarer Routen (aktuell nur PAPER)
+
+OMS-Light spiegelt den Zustand der Paper-Trading-Engine wider und bietet eine operationale Sicht für Dashboard/Operator.
+
+### Neue Module
+
+#### 1. `src/assembled_core/api/routers/oms.py`
+
+**Zweck:** FastAPI-Router für OMS-Endpoints (Blotter, Executions, Routes).
+
+**Endpoints:**
+
+##### GET `/api/v1/oms/blotter`
+- **Zweck:** Blotter-View aller Orders mit Filterung
+- **Query-Parameter:**
+  - `symbol: str | None`: Filter nach Symbol (exact match)
+  - `status: str | None`: Filter nach Status ("FILLED", "REJECTED")
+  - `route: str | None`: Filter nach Route (z.B. "PAPER")
+  - `limit: int = 100`: Maximale Anzahl Orders (default: 100)
+- **Response:** `list[OmsOrderView]` (neueste zuerst, nach Filterung)
+- **Beispiel:**
+  ```
+  GET /api/v1/oms/blotter?symbol=AAPL&status=FILLED
+  ```
+
+##### GET `/api/v1/oms/executions`
+- **Zweck:** Execution-View (Fills) mit Filterung
+- **Query-Parameter:**
+  - `symbol: str | None`: Filter nach Symbol
+  - `route: str | None`: Filter nach Route
+  - `limit: int = 100`: Maximale Anzahl Executions (default: 100)
+- **Response:** `list[OmsExecution]` (neueste zuerst, nach Filterung)
+- **Hinweis:** Für OMS-Light wird jedes FILLED-Order als einzelne Execution betrachtet
+- **Beispiel:**
+  ```
+  GET /api/v1/oms/executions?symbol=MSFT
+  ```
+
+##### GET `/api/v1/oms/routes`
+- **Zweck:** Liste verfügbarer Routen
+- **Response:** `list[OmsRoute]`
+- **Aktuell:** Nur "PAPER" Route (mit `is_default=True`)
+- **Zukunft:** Platzhalter für Broker-Routen (IBKR, etc.)
+
+### Datenmodelle
+
+Erweitert in `src/assembled_core/api/models.py`:
+
+#### `OmsOrderView`
+- `order_id: str` - Unique order identifier
+- `symbol: str` - Ticker symbol
+- `side: OrderSide` - BUY or SELL
+- `quantity: float` - Order quantity
+- `price: float | None` - Order price (None for market orders)
+- `status: str` - Order status (NEW, FILLED, REJECTED)
+- `route: str | None` - Order route (e.g., "PAPER")
+- `source: str | None` - Order source (e.g., "CLI", "API", "BACKTEST")
+- `client_order_id: str | None` - Client-provided order ID
+- `created_at: datetime` - Order creation timestamp
+
+#### `OmsExecution`
+- `exec_id: str` - Unique execution identifier (Format: "EXEC-{order_id}")
+- `order_id: str` - Order ID this execution belongs to
+- `symbol: str` - Ticker symbol
+- `side: OrderSide` - BUY or SELL
+- `quantity: float` - Execution quantity
+- `price: float | None` - Execution price
+- `timestamp: datetime` - Execution timestamp
+- `route: str | None` - Order route
+
+#### `OmsRoute`
+- `route_id: str` - Route identifier (e.g., "PAPER", "IBKR")
+- `description: str` - Human-readable route description
+- `is_default: bool` - Whether this is the default route
+
+### Beispiel-Requests
+
+#### Blotter-Abfrage
+
+**Request:**
+```bash
+curl "http://localhost:8000/api/v1/oms/blotter?symbol=AAPL&status=FILLED&limit=20"
+```
+
+**Response (200 OK):**
+```json
+[
+  {
+    "order_id": "uuid-abc-123",
+    "symbol": "AAPL",
+    "side": "BUY",
+    "quantity": 10.0,
+    "price": 150.0,
+    "status": "FILLED",
+    "route": "PAPER",
+    "source": "API",
+    "client_order_id": "client-order-123",
+    "created_at": "2025-01-15T10:30:00Z"
+  },
+  {
+    "order_id": "uuid-def-456",
+    "symbol": "AAPL",
+    "side": "SELL",
+    "quantity": 5.0,
+    "price": 151.0,
+    "status": "FILLED",
+    "route": "PAPER",
+    "source": "CLI_EOD",
+    "client_order_id": null,
+    "created_at": "2025-01-15T09:15:00Z"
+  }
+]
+```
+
+#### Executions-Abfrage
+
+**Request:**
+```bash
+curl "http://localhost:8000/api/v1/oms/executions?symbol=MSFT&limit=10"
+```
+
+**Response (200 OK):**
+```json
+[
+  {
+    "exec_id": "EXEC-uuid-xyz-789",
+    "order_id": "uuid-xyz-789",
+    "symbol": "MSFT",
+    "side": "BUY",
+    "quantity": 20.0,
+    "price": 300.0,
+    "timestamp": "2025-01-15T11:00:00Z",
+    "route": "PAPER"
+  }
+]
+```
+
+#### Routes-Abfrage
+
+**Request:**
+```bash
+curl "http://localhost:8000/api/v1/oms/routes"
+```
+
+**Response (200 OK):**
+```json
+[
+  {
+    "route_id": "PAPER",
+    "description": "Internal paper trading route",
+    "is_default": true
+  }
+]
+```
+
+### Integration mit Paper-Trading-Engine
+
+OMS-Light nutzt dieselbe `PaperTradingEngine`-Instanz wie der Paper-Trading-Router (`_engine` aus `src/assembled_core/api/routers/paper_trading.py`). Dadurch:
+- **Konsistente Daten**: OMS-Views spiegeln immer den aktuellen Zustand der Engine
+- **Keine Duplikation**: Orders werden nicht doppelt gespeichert
+- **Echtzeit-Updates**: Neue Orders erscheinen sofort im Blotter
+
+### Risk Controls Integration
+
+**Wichtig:** Risk Controls (Pre-Trade-Checks, Kill-Switch) wirken **vor** der OMS-Schicht:
+- Geblockte Orders erscheinen als `REJECTED` im Blotter (mit `reason` in PaperOrderResponse)
+- Nur `FILLED` Orders erscheinen in der Executions-View
+- Status-Filterung im Blotter ermöglicht separate Ansichten für FILLED/REJECTED Orders
+
+### Source & Route Tagging
+
+Orders können mit `source` (z.B. "CLI_EOD", "CLI_BACKTEST", "API") und `route` (z.B. "PAPER", "PAPER_ALT") versehen werden:
+- **Source**: Identifiziert den Ursprung der Order (CLI, API, Dashboard, etc.)
+- **Route**: Identifiziert die Routing-Destination (aktuell nur "PAPER", später Broker-Routen)
+- Beide Felder werden im Blotter angezeigt und können gefiltert werden
+
+### Tests
+
+**Test-Datei:** `tests/test_api_oms.py` (11 Tests, alle mit `@pytest.mark.phase10`)
+
+**Test-Kategorien:**
+- Blotter-Tests: Filterung nach Symbol, Status, Route, Limit
+- Executions-Tests: Filterung nach Symbol, Route, Limit
+- Routes-Tests: Liste der verfügbaren Routen
+- Source-Tests: Verifizierung des Source-Felds im Blotter
+
+**Testlauf:**
+```bash
+# Nur OMS-Tests
+pytest -m "phase10" tests/test_api_oms.py -q
+
+# Alle Phase-10-Tests (inkl. Paper-Trading & OMS)
+pytest -m "phase10" tests/test_api_paper_trading.py tests/test_api_oms.py -q
+```
 
 ---
 

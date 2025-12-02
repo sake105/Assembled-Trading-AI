@@ -437,6 +437,8 @@ class PaperOrderRequest(BaseModel):
     quantity: float = Field(..., gt=0, description="Order quantity (must be positive)")
     price: Optional[float] = Field(None, gt=0, description="Order price (optional, None = market order)")
     client_order_id: Optional[str] = Field(None, description="Optional client-provided order ID")
+    route: Optional[str] = Field(None, description="Order route (e.g., 'PAPER', 'IBKR'). Default: 'PAPER'")
+    source: Optional[str] = Field(None, description="Order source (e.g., 'CLI', 'API', 'BACKTEST', 'DASHBOARD')")
     
     model_config = ConfigDict(
         json_schema_extra={
@@ -445,7 +447,9 @@ class PaperOrderRequest(BaseModel):
                 "side": "BUY",
                 "quantity": 10.0,
                 "price": 150.0,
-                "client_order_id": "client-order-123"
+                "client_order_id": "client-order-123",
+                "route": "PAPER",
+                "source": "API"
             }
         }
     )
@@ -510,6 +514,95 @@ class PaperResetResponse(BaseModel):
         json_schema_extra={
             "example": {
                 "status": "ok"
+            }
+        }
+    )
+
+
+# ============================================================================
+# OMS (Order Management System) Models
+# ============================================================================
+
+class OmsOrderView(BaseModel):
+    """OMS order view for blotter display.
+    
+    Represents an order in the OMS blotter view with all relevant details.
+    """
+    order_id: str = Field(..., description="Unique order identifier")
+    symbol: str = Field(..., description="Ticker symbol")
+    side: OrderSide = Field(..., description="BUY or SELL")
+    quantity: float = Field(..., description="Order quantity")
+    price: Optional[float] = Field(None, description="Order price (None for market orders)")
+    status: str = Field(..., description="Order status: NEW, FILLED, or REJECTED")
+    route: Optional[str] = Field(None, description="Order route (e.g., 'PAPER', 'IBKR', etc.)")
+    source: Optional[str] = Field(None, description="Order source (e.g., 'CLI', 'API', 'BACKTEST')")
+    client_order_id: Optional[str] = Field(None, description="Client-provided order ID")
+    created_at: datetime = Field(..., description="Order creation timestamp")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "order_id": "order-abc123",
+                "symbol": "AAPL",
+                "side": "BUY",
+                "quantity": 10.0,
+                "price": 150.0,
+                "status": "FILLED",
+                "route": "PAPER",
+                "source": "API",
+                "client_order_id": "client-order-123",
+                "created_at": "2025-01-15T10:30:00Z"
+            }
+        }
+    )
+
+
+class OmsExecution(BaseModel):
+    """OMS execution (fill) representation.
+    
+    Represents a single execution/fill of an order in the OMS.
+    For OMS-Light, each FILLED order is treated as a single execution.
+    """
+    exec_id: str = Field(..., description="Unique execution identifier")
+    order_id: str = Field(..., description="Order ID this execution belongs to")
+    symbol: str = Field(..., description="Ticker symbol")
+    side: OrderSide = Field(..., description="BUY or SELL")
+    quantity: float = Field(..., description="Execution quantity")
+    price: Optional[float] = Field(None, description="Execution price")
+    timestamp: datetime = Field(..., description="Execution timestamp")
+    route: Optional[str] = Field(None, description="Order route")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "exec_id": "EXEC-order-abc123",
+                "order_id": "order-abc123",
+                "symbol": "AAPL",
+                "side": "BUY",
+                "quantity": 10.0,
+                "price": 150.0,
+                "timestamp": "2025-01-15T10:30:00Z",
+                "route": "PAPER"
+            }
+        }
+    )
+
+
+class OmsRoute(BaseModel):
+    """OMS route configuration.
+    
+    Represents a routing destination for orders (e.g., paper trading, broker APIs).
+    """
+    route_id: str = Field(..., description="Route identifier (e.g., 'PAPER', 'IBKR')")
+    description: str = Field(..., description="Human-readable route description")
+    is_default: bool = Field(False, description="Whether this is the default route")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "route_id": "PAPER",
+                "description": "Internal paper trading route",
+                "is_default": True
             }
         }
     )

@@ -29,6 +29,8 @@ class PaperOrder:
         status: Order status (NEW, FILLED, REJECTED)
         reason: Optional reason for rejection
         client_order_id: Optional client-provided order ID
+        route: Optional routing information (default: "PAPER" for paper trading)
+        source: Optional source identifier (e.g., "CLI", "API", "BACKTEST", "DASHBOARD")
         created_at: Order creation timestamp
         filled_at: Order fill timestamp (if filled)
     """
@@ -40,6 +42,8 @@ class PaperOrder:
     status: Literal["NEW", "FILLED", "REJECTED"]
     reason: str | None = None
     client_order_id: str | None = None
+    route: str | None = "PAPER"
+    source: str | None = None
     created_at: datetime = field(default_factory=datetime.utcnow)
     filled_at: datetime | None = None
 

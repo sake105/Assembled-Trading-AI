@@ -237,6 +237,8 @@ def submit_paper_orders(
             price=req.price,
             status="NEW",
             client_order_id=req.client_order_id,
+            route=req.route if req.route is not None else "PAPER",  # Use provided route or default to "PAPER"
+            source=req.source,  # Pass through source from request
         )
         paper_orders.append(paper_order)
     

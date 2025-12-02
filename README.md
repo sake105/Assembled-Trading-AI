@@ -214,6 +214,38 @@ print(response.json())
 
 **Weitere Details:** Siehe `docs/PHASE10_PAPER_OMS.md`
 
+#### 8. OMS-Light (Blotter & Routing)
+
+OMS-Light bietet eine minimale Order-Management-Schicht für Dashboard/Operator-Views über der Paper-Trading-Engine.
+
+**Zweck:** Operative Übersicht über alle Orders mit Filterung und Sortierung.
+
+**Verfügbare Endpoints:**
+- `GET /api/v1/oms/blotter`: Blotter-View aller Orders (Filter: symbol, status, route, limit)
+- `GET /api/v1/oms/executions`: Execution-View (Fills) mit Filterung
+- `GET /api/v1/oms/routes`: Liste verfügbarer Routen
+
+**Beispiel-Usage:**
+
+```bash
+# Blotter abfragen
+curl "http://localhost:8000/api/v1/oms/blotter?limit=20"
+
+# Blotter nach Symbol und Status filtern
+curl "http://localhost:8000/api/v1/oms/blotter?symbol=AAPL&status=FILLED"
+
+# Executions abfragen
+curl "http://localhost:8000/api/v1/oms/executions?symbol=MSFT"
+```
+
+**Hinweise:**
+- OMS-Light spiegelt den Zustand der Paper-Trading-Engine wider (keine Duplikation)
+- Geblockte Orders (Pre-Trade-Checks/Kill-Switch) erscheinen als `REJECTED` im Blotter
+- Nur `FILLED` Orders erscheinen in der Executions-View
+- Orders können mit `source` (z.B. "CLI_EOD", "API") und `route` (z.B. "PAPER") versehen werden
+
+**Weitere Details:** Siehe `docs/PHASE10_PAPER_OMS.md`
+
 ### Hilfe
 
 ```bash
@@ -397,6 +429,7 @@ Aktiengerüst/
 - ✅ **Phase 10:** Paper-Trading & OMS-Light
   - ✅ 10.1 – Pre-Trade Checks & Kill-Switch: fertig
   - ✅ 10.2 – Paper-Trading-API: fertig (inkl. Pre-Trade & Kill-Switch)
+  - ✅ 10.3 – OMS-Light (Blotter & Routing): fertig
 
 ---
 
