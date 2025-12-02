@@ -29,8 +29,14 @@ cd F:\Python_Projekt\Aktiengerüst
 ```
 
 **Erwartete Ausgabe:**
-- ~11 Tests in < 1 Sekunde
+- ~29 Tests in < 2 Sekunden
 - Alle Tests sollten grün sein
+
+**Test-Dateien:**
+- `tests/test_features_events_phase6.py` - Event-Feature-Tests
+- `tests/test_signals_event_phase6.py` - Event-Signal-Tests
+- `tests/test_run_backtest_strategy.py` - Backtest-Integration (Event-Strategie)
+- `tests/test_compare_strategies_trend_vs_event.py` - Strategie-Vergleichs-Tests
 
 ---
 

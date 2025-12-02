@@ -191,6 +191,81 @@ python scripts/run_backtest_strategy.py --freq 1d --strategy event_insider_shipp
 
 ---
 
+## Sprint 6.3 – Vergleich Trend vs Event
+
+### Überblick
+
+Das Vergleichs-Tool (`scripts/compare_strategies_trend_vs_event.py`) ermöglicht es, die **Trend-Baseline-Strategie** und die **Event-Insider-Shipping-Strategie** direkt auf denselben Preisdaten zu vergleichen.
+
+### Vergleichte Strategien
+
+1. **Trend Baseline** (`trend_baseline`):
+   - EMA-basierte Trend-Strategie (Fast/Slow Moving Average Crossover)
+   - Standard-Strategie für Preis-/Volumen-basierte Signale
+
+2. **Event Insider Shipping** (`event_insider_shipping`):
+   - Event-basierte Strategie mit Insider-Trading und Shipping-Congestion-Daten
+   - Nutzt Phase-6-Features für alternative Signal-Generierung
+
+### Vergleichs-Kennzahlen
+
+Die Markdown-Tabelle (`comparison_summary.md`) enthält:
+
+**Performance-Metriken:**
+- Total Return (Gesamtrendite)
+- CAGR (Compound Annual Growth Rate)
+- Final PF (Final Performance Factor)
+- End Equity (Endkapital)
+
+**Risk-Metriken:**
+- Sharpe Ratio (Risiko-adjustierte Rendite)
+- Sortino Ratio (Downside-Risk-adjustierte Rendite)
+- Max Drawdown (Maximaler Verlust)
+- Volatility (Volatilität)
+
+**Trade-Metriken:**
+- Total Trades (Anzahl Trades)
+- Hit Rate (Gewinnrate)
+- Profit Factor (Gewinn-Faktor)
+- Turnover (Portfolio-Umschlag)
+
+### Ausführung
+
+**Voraussetzung**: Sample-Event-Daten generieren (falls noch nicht vorhanden):
+
+```bash
+python scripts/generate_sample_event_data.py
+```
+
+**Vergleichs-Run starten:**
+
+```bash
+# Standard-Vergleich
+python scripts/compare_strategies_trend_vs_event.py --freq 1d --price-file data/sample/eod_sample.parquet
+
+# Ohne Transaktionskosten
+python scripts/compare_strategies_trend_vs_event.py --freq 1d --price-file data/sample/eod_sample.parquet --no-costs
+
+# Mit angepasstem Startkapital
+python scripts/compare_strategies_trend_vs_event.py --freq 1d --price-file data/sample/eod_sample.parquet --start-capital 50000
+```
+
+**Output-Verzeichnis**: `output/strategy_compare/trend_vs_event/`
+
+**Erstellte Dateien:**
+- `comparison_summary.md`: Formatierte Markdown-Tabelle mit allen Metriken
+- `comparison_summary.csv`: CSV-Datei für weitere Analysen (Excel, Python, etc.)
+
+### Interpretation
+
+Das Vergleichs-Tool hilft dabei:
+- **Performance-Unterschiede** zwischen Preis-basierten und Event-basierten Strategien zu identifizieren
+- **Risiko-Profile** zu vergleichen (Sharpe, Drawdown, Volatility)
+- **Trade-Charakteristika** zu analysieren (Anzahl Trades, Hit Rate, Turnover)
+- **Strategie-Auswahl** zu optimieren basierend auf historischen Daten
+
+---
+
 ## Ausführung
 
 ### CLI-Beispiele

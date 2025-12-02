@@ -118,7 +118,26 @@ python scripts/cli.py run_backtest --freq 1d --universe watchlist.txt --strategy
   - **FLAT**: Sonst
 - Verwendet Dummy-Daten für Insider- und Shipping-Events (echte Datenquellen geplant)
 
-#### 4. EOD-Pipeline
+#### 4. Strategie-Vergleich
+
+Vergleiche Trend-Baseline vs Event-Insider-Shipping-Strategie auf denselben Preisdaten:
+
+```bash
+# Standard-Vergleich
+python scripts/compare_strategies_trend_vs_event.py --freq 1d --price-file data/sample/eod_sample.parquet
+
+# Ohne Transaktionskosten
+python scripts/compare_strategies_trend_vs_event.py --freq 1d --price-file data/sample/eod_sample.parquet --no-costs
+
+# Mit angepasstem Startkapital
+python scripts/compare_strategies_trend_vs_event.py --freq 1d --price-file data/sample/eod_sample.parquet --start-capital 50000
+```
+
+**Output-Dateien** (unter `output/strategy_compare/trend_vs_event/`):
+- `comparison_summary.md`: Markdown-Tabelle mit Performance-Metriken beider Strategien
+- `comparison_summary.csv`: CSV-Datei mit allen Metriken für weitere Analysen
+
+#### 5. EOD-Pipeline
 
 ```bash
 # Vollständiger Pipeline-Lauf (execute, backtest, portfolio, QA)
