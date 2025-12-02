@@ -99,15 +99,38 @@ def create_event_insider_shipping_signal_fn(
     """
     def signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
         """Generate event signals from prices with features."""
+        from pathlib import Path
         from src.assembled_core.features.insider_features import add_insider_features
         from src.assembled_core.features.shipping_features import add_shipping_features
         from src.assembled_core.data.insider_ingest import load_insider_sample
         from src.assembled_core.data.shipping_routes_ingest import load_shipping_sample
         
-        # Load event data (currently uses sample/dummy data)
+        # Try to load sample event data if available (matches price sample)
+        # Otherwise fall back to default dummy data
+        ROOT = Path(__file__).resolve().parents[1]
+        EVENT_DIR = ROOT / "data" / "sample" / "events"
+        
+        insider_file = EVENT_DIR / "insider_sample.parquet"
+        shipping_file = EVENT_DIR / "shipping_sample.parquet"
+        
         logger.debug("Loading insider and shipping event data...")
-        insider_events = load_insider_sample()
-        shipping_events = load_shipping_sample()
+        if insider_file.exists():
+            logger.info(f"Using sample insider events from {insider_file}")
+            insider_events = pd.read_parquet(insider_file)
+            if "timestamp" in insider_events.columns:
+                insider_events["timestamp"] = pd.to_datetime(insider_events["timestamp"], utc=True)
+        else:
+            logger.debug("No sample insider events found, using default dummy data")
+            insider_events = load_insider_sample()
+        
+        if shipping_file.exists():
+            logger.info(f"Using sample shipping events from {shipping_file}")
+            shipping_events = pd.read_parquet(shipping_file)
+            if "timestamp" in shipping_events.columns:
+                shipping_events["timestamp"] = pd.to_datetime(shipping_events["timestamp"], utc=True)
+        else:
+            logger.debug("No sample shipping events found, using default dummy data")
+            shipping_events = load_shipping_sample()
         
         # Add features to prices
         logger.debug("Adding insider and shipping features...")

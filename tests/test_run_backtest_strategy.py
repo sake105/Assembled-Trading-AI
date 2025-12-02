@@ -324,3 +324,100 @@ def test_run_backtest_event_insider_shipping(tmp_path: Path, sample_price_file: 
     finally:
         monkeypatch.setattr(config_module, "OUTPUT_DIR", original_output_dir)
 
+
+@pytest.mark.phase6
+def test_event_strategy_generates_trades_with_sample_events(tmp_path: Path, sample_price_file: Path, monkeypatch):
+    """Test that event strategy generates trades when sample events are available."""
+    import src.assembled_core.config as config_module
+    
+    original_output_dir = config_module.OUTPUT_DIR
+    monkeypatch.setattr(config_module, "OUTPUT_DIR", tmp_path)
+    
+    try:
+        # Create event data directory and generate sample events
+        event_dir = ROOT / "data" / "sample" / "events"
+        event_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Read price data to get symbols and dates
+        prices = pd.read_parquet(sample_price_file)
+        if prices["timestamp"].dtype != "datetime64[ns, UTC]":
+            prices["timestamp"] = pd.to_datetime(prices["timestamp"], utc=True)
+        
+        symbols = prices["symbol"].unique()
+        dates = prices["timestamp"].sort_values().unique()
+        first_symbol = symbols[0]
+        event_dates = dates[len(dates) // 2 : len(dates) // 2 + 5]
+        
+        # Generate insider events
+        from src.assembled_core.data.insider_ingest import normalize_insider
+        insider_raw = pd.DataFrame({
+            "timestamp": event_dates,
+            "symbol": [first_symbol] * len(event_dates),
+            "trades_count": [5, 3, 4, 6, 2],
+            "net_shares": [2000, -3000, 1500, -2500, 3000],  # Mix of buy/sell
+            "role": ["CEO", "CFO", "Director", "CEO", "Director"],
+        })
+        insider_events = normalize_insider(insider_raw)
+        insider_path = event_dir / "insider_sample.parquet"
+        insider_events.to_parquet(insider_path, index=False)
+        
+        # Generate shipping events
+        from src.assembled_core.data.shipping_routes_ingest import normalize_shipping
+        shipping_raw = pd.DataFrame({
+            "timestamp": event_dates,
+            "route_id": [f"R{i:03d}" for i in range(len(event_dates))],
+            "port_from": ["LAX"] * len(event_dates),
+            "port_to": ["SHG"] * len(event_dates),
+            "symbol": [first_symbol] * len(event_dates),
+            "ships": [10, 20, 5, 30, 15],
+            "congestion_score": [20, 80, 40, 90, 50],  # Low = bullish, High = bearish
+        })
+        shipping_events = normalize_shipping(shipping_raw)
+        shipping_path = event_dir / "shipping_sample.parquet"
+        shipping_events.to_parquet(shipping_path, index=False)
+        
+        # Create reports directory
+        (tmp_path / "reports").mkdir(parents=True, exist_ok=True)
+        
+        # Run backtest with event strategy
+        script_path = ROOT / "scripts" / "run_backtest_strategy.py"
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(script_path),
+                "--freq", "1d",
+                "--price-file", str(sample_price_file),
+                "--strategy", "event_insider_shipping",
+                "--start-capital", "10000",
+                "--out", str(tmp_path),
+            ],
+            cwd=str(ROOT),
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        
+        # Should succeed
+        assert result.returncode == 0, (
+            f"Script failed with exit code {result.returncode}. "
+            f"Output: {result.stdout}\nError: {result.stderr}"
+        )
+        
+        # Check that sample events were used
+        assert "Using sample insider events" in result.stdout or "Using sample shipping events" in result.stdout
+        
+        # Check that trades were generated (Total Trades > 0)
+        assert "Total Trades:" in result.stdout
+        # Extract trade count from output
+        import re
+        trades_match = re.search(r"Total Trades:\s*(\d+)", result.stdout)
+        if trades_match:
+            trade_count = int(trades_match.group(1))
+            assert trade_count > 0, f"Expected at least 1 trade, but got {trade_count}"
+        else:
+            # Fallback: check for "Backtest completed" which indicates successful run
+            assert "Backtest completed" in result.stdout
+    
+    finally:
+        monkeypatch.setattr(config_module, "OUTPUT_DIR", original_output_dir)
+
