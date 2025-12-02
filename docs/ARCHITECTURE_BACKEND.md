@@ -41,9 +41,9 @@ Das Backend von Assembled Trading AI ist ein modulares Trading-Core-System, das 
 
 ### 2. `assembled_core.features` - Feature-Engineering
 
-**Zweck**: Berechnung technischer Indikatoren für Trading-Strategien.
+**Zweck**: Berechnung technischer Indikatoren und Event-Features für Trading-Strategien.
 
-**Module**:
+**TA-Features** (Technical Analysis):
 - `ta_features.py`:
   - `add_log_returns()`: Logarithmische Renditen
   - `add_atr()`: Average True Range
@@ -51,7 +51,17 @@ Das Backend von Assembled Trading AI ist ein modulares Trading-Core-System, das 
   - `add_moving_averages()`: Gleitende Durchschnitte
   - `add_all_features()`: Alle TA-Features auf einmal
 
-**Verwendung**: Features werden typischerweise vor der Signal-Generierung berechnet.
+**Event-Features** (Phase 6):
+- `insider_features.py`:
+  - `add_insider_features()`: Insider-Trading-Features (Net-Buy, Trade-Count über 20d/60d)
+- `congress_features.py`:
+  - `add_congress_features()`: Congressional-Trading-Features (Trade-Count, Total-Amount über 60d/90d)
+- `shipping_features.py`:
+  - `add_shipping_features()`: Shipping-Route-Features (Congestion-Score, Ships-Count über 7d)
+- `news_features.py`:
+  - `add_news_features()`: News-Sentiment-Features (Sentiment-Score, News-Count über 7d/30d)
+
+**Verwendung**: Features werden typischerweise vor der Signal-Generierung berechnet. Event-Features erfordern Event-Daten aus den entsprechenden Ingest-Modulen.
 
 ---
 
@@ -59,14 +69,25 @@ Das Backend von Assembled Trading AI ist ein modulares Trading-Core-System, das 
 
 **Zweck**: Generierung von Trading-Signalen basierend auf Strategien.
 
-**Module**:
+**Trend-Strategien**:
 - `rules_trend.py`:
   - `generate_trend_signals_from_prices()`: Trend-Baseline-Strategie (EMA-basiert)
+  - `generate_trend_signals()`: Trend-Signale mit konfigurierbaren Moving-Average-Parametern
+
+**Event-Strategien** (Phase 6):
+- `rules_event_insider_shipping.py`:
+  - `generate_event_signals()`: Event-basierte Strategie mit Insider-Trading und Shipping-Daten
+  - **Strategie-Logik** (Proof-of-Concept):
+    - **LONG**: Starker Insider-Netto-Kauf (net_buy_20d > threshold) + niedrige Shipping-Congestion (< threshold)
+    - **SHORT**: Starker Insider-Netto-Verkauf (net_buy_20d < threshold) + hohe Shipping-Congestion (> threshold)
+    - **FLAT**: Sonst
+  - Nutzt Phase-6-Features: `insider_net_buy_20d`, `shipping_congestion_score_7d`
+  - Unterstützt konfigurierbare Gewichte und Thresholds
 
 **Signal-Typen**:
 - `LONG`: Kaufsignal
 - `FLAT`: Keine Position
-- `SHORT`: Verkaufssignal (geplant)
+- `SHORT`: Verkaufssignal (in Event-Strategien unterstützt)
 
 ---
 
@@ -189,13 +210,57 @@ python scripts/run_api.py
 
 ---
 
+### 10. Command Line Interface (CLI)
+
+**Zweck**: Einheitliche Schnittstelle für die wichtigsten Backend-Operationen.
+
+**Modul**: `scripts/cli.py`
+
+**Subcommands**:
+- `info`: Zeigt Projekt-Informationen und verfügbare Subcommands
+- `run_daily`: Führt die vollständige EOD-Pipeline aus (Execute → Backtest → Portfolio → QA)
+- `run_backtest`: Führt einen Strategy-Backtest mit dem Portfolio-Level-Backtest-Engine aus
+- `run_phase4_tests`: Führt die Phase-4-Regression-Test-Suite aus (~13s, 110 Tests)
+
+**Architektur-Prinzip**:
+- Das CLI ist eine **dünne Orchestrierungsschicht**
+- Die eigentliche Business-Logik lebt in den Modulen unter `src/assembled_core/`
+- Das CLI ruft Funktionen aus den bestehenden Scripts auf:
+  - `run_daily` → `scripts/run_eod_pipeline.run_eod_from_args()`
+  - `run_backtest` → `scripts/run_backtest_strategy.run_backtest_from_args()`
+  - `run_phase4_tests` → `pytest -m phase4` (via subprocess)
+
+**PowerShell-Wrapper**:
+- `scripts/run_phase4_tests.ps1` ist ein dünner Wrapper, der `python scripts/cli.py run_phase4_tests` aufruft
+- Weitere PowerShell-Wrapper können analog erstellt werden
+
+**Verwendung**:
+```bash
+# Projekt-Informationen
+python scripts/cli.py info
+
+# EOD-Pipeline
+python scripts/cli.py run_daily --freq 1d
+
+# Strategy-Backtest
+python scripts/cli.py run_backtest --freq 1d --universe watchlist.txt
+
+# Phase-4-Tests
+python scripts/cli.py run_phase4_tests
+```
+
+**Weitere Details**: Siehe `docs/CLI_REFERENCE.md`
+
+---
+
 ## Architektur-Diagramm (Text-basiert)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                    User-Facing Scripts                          │
 ├─────────────────────────────────────────────────────────────────┤
-│  run_backtest_strategy.py  │  run_eod_pipeline.py  │  run_api.py│
+│  cli.py (Central CLI)  │  run_backtest_strategy.py  │  run_api.py│
+│  run_eod_pipeline.py   │  run_phase4_tests.ps1      │            │
 └──────────────┬──────────────┴──────────┬───────────┴────────────┘
                │                          │
                ▼                          ▼
@@ -249,13 +314,67 @@ python scripts/run_api.py
 - **EMA-Config**: `ema_config.py` (Moving-Average-Parameter)
 - **Cost-Model**: `costs.py` (Commission, Spread, Impact)
 
-## Phase 6 Erweiterungen (geplant)
+## Test-Phasen
 
-Phase 6 wird zusätzliche Datenquellen hinzufügen:
+Das Projekt verwendet eine strukturierte Test-Phasen-Architektur:
 
-- **Insider-Trading-Daten**: `assembled_core.data.insider`
-- **Congress-Trading-Daten**: `assembled_core.data.congress`
-- **Shipping-Daten**: `assembled_core.data.shipping`
-- **News-Feeds**: `assembled_core.data.news`
+### Phase 4: Backend Core Tests
+
+**Umfang**: ~117 Tests in ~13-17 Sekunden
+
+**Abgedeckte Bereiche**:
+- TA-Features (Technical Analysis)
+- QA-Metriken (Performance-Metriken)
+- QA-Gates (Quality Assurance Checks)
+- Backtest-Engine (Portfolio-Level)
+- Reports (Daily QA Reports)
+- Pipelines (EOD-Pipeline, Backtest-Pipeline)
+
+**Ausführung**:
+```bash
+# Über CLI (empfohlen)
+python scripts/cli.py run_phase4_tests
+
+# Direkt mit pytest
+pytest -m phase4
+```
+
+**Marker**: `@pytest.mark.phase4`
+
+### Phase 6: Event Features Tests
+
+**Umfang**: ~11 Tests in < 1 Sekunde
+
+**Abgedeckte Bereiche**:
+- Insider-Trading-Features
+- Congress-Trading-Features
+- Shipping-Route-Features
+- News-Sentiment-Features
+
+**Ausführung**:
+```bash
+pytest -m phase6
+```
+
+**Marker**: `@pytest.mark.phase6`
+
+**Weitere Details**: Siehe `docs/TESTING_COMMANDS.md`
+
+---
+
+## Phase 6 Erweiterungen
+
+Phase 6 fügt zusätzliche Datenquellen hinzu:
+
+- **Insider-Trading-Daten**: `assembled_core.data.insider_ingest`
+- **Congress-Trading-Daten**: `assembled_core.data.congress_trades_ingest`
+- **Shipping-Daten**: `assembled_core.data.shipping_routes_ingest`
+- **News-Feeds**: `assembled_core.data.news_ingest`
+
+**Feature-Module**:
+- `assembled_core.features.insider_features`
+- `assembled_core.features.congress_features`
+- `assembled_core.features.shipping_features`
+- `assembled_core.features.news_features`
 
 Diese werden in die bestehende Pipeline-Architektur integriert.

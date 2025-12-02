@@ -280,3 +280,50 @@ def test_run_backtest_strategy_custom_costs(tmp_path: Path, sample_price_file: P
     finally:
         monkeypatch.setattr(config_module, "OUTPUT_DIR", original_output_dir)
 
+
+@pytest.mark.phase6
+def test_run_backtest_event_insider_shipping(tmp_path: Path, sample_price_file: Path, monkeypatch):
+    """Test backtest with event_insider_shipping strategy."""
+    import src.assembled_core.config as config_module
+    
+    original_output_dir = config_module.OUTPUT_DIR
+    monkeypatch.setattr(config_module, "OUTPUT_DIR", tmp_path)
+    
+    try:
+        # Create reports directory
+        (tmp_path / "reports").mkdir(parents=True, exist_ok=True)
+        
+        # Run script with event_insider_shipping strategy
+        script_path = ROOT / "scripts" / "run_backtest_strategy.py"
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(script_path),
+                "--freq", "1d",
+                "--price-file", str(sample_price_file),
+                "--strategy", "event_insider_shipping",
+                "--start-capital", "10000",
+                "--out", str(tmp_path),
+            ],
+            cwd=str(ROOT),
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        
+        # Should succeed
+        assert result.returncode == 0, (
+            f"Script failed with exit code {result.returncode}. "
+            f"Output: {result.stdout}\nError: {result.stderr}"
+        )
+        
+        # Check that event strategy was used
+        assert "event_insider_shipping" in result.stdout.lower() or "Event Strategy" in result.stdout
+        assert "Backtest completed" in result.stdout or "Final PF" in result.stdout
+        
+        # Verify that event features were loaded/used (should appear in logs)
+        assert "insider" in result.stdout.lower() or "shipping" in result.stdout.lower() or "event" in result.stdout.lower()
+    
+    finally:
+        monkeypatch.setattr(config_module, "OUTPUT_DIR", original_output_dir)
+

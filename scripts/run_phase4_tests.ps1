@@ -1,15 +1,26 @@
 # scripts/run_phase4_tests.ps1
-"""Run Phase-4 test suite (TA, QA-Metrics, Gates, Backtest, Reports, Pipelines).
+<#
+.SYNOPSIS
+    Thin wrapper around the central Python CLI to run Phase-4 test suite.
 
-This script runs the fast, reliable Phase-4 regression tests (~17s, 110 tests).
+.DESCRIPTION
+    This PowerShell script is a thin wrapper that calls:
+        python scripts/cli.py run_phase4_tests [--verbose] [--durations N]
 
-Usage:
+    The actual test execution logic lives in scripts/cli.py.
+
+.PARAMETER Verbose
+    Show detailed test output (maps to --verbose flag).
+
+.PARAMETER Durations
+    Show slowest tests (maps to --durations 10).
+
+.EXAMPLE
     .\scripts\run_phase4_tests.ps1
 
-Options:
-    -Verbose    Show detailed test output
-    -Durations  Show slowest tests
-"""
+.EXAMPLE
+    .\scripts\run_phase4_tests.ps1 -Verbose -Durations
+#>
 param(
     [switch]$Verbose,
     [switch]$Durations
@@ -28,29 +39,24 @@ if (-not (Test-Path $VenvPython)) {
     exit 1
 }
 
-# Build pytest command
-$PytestArgs = @(
-    "-m", "phase4"
-    "-q"
-    "--maxfail=1"
-    "--tb=short"
-)
+# Build CLI command arguments
+$CliArgs = @("scripts/cli.py", "run_phase4_tests")
 
 if ($Verbose) {
-    $PytestArgs = $PytestArgs | Where-Object { $_ -ne "-q" }
-    $PytestArgs += "-v"
+    $CliArgs += "--verbose"
 }
 
 if ($Durations) {
-    $PytestArgs += "--durations=10"
+    $CliArgs += "--durations"
+    $CliArgs += "10"
 }
 
-# Run tests
-Write-Host "Running Phase-4 test suite..." -ForegroundColor Cyan
-Write-Host "Command: pytest $($PytestArgs -join ' ')" -ForegroundColor Gray
+# Run CLI
+Write-Host "Running Phase-4 test suite via Python CLI..." -ForegroundColor Cyan
+Write-Host "Command: python $($CliArgs -join ' ')" -ForegroundColor Gray
 Write-Host ""
 
-& $VenvPython -m pytest @PytestArgs
+& $VenvPython @CliArgs
 
 $ExitCode = $LASTEXITCODE
 if ($ExitCode -eq 0) {

@@ -30,6 +30,7 @@ from src.assembled_core.qa.metrics import compute_all_metrics
 from src.assembled_core.qa.qa_gates import QAResult, evaluate_all_gates
 from src.assembled_core.reports.daily_qa_report import generate_qa_report
 from src.assembled_core.signals.rules_trend import generate_trend_signals_from_prices
+from src.assembled_core.signals.rules_event_insider_shipping import generate_event_signals
 
 logger = setup_logging(level="INFO")
 
@@ -73,6 +74,86 @@ def create_position_sizing_fn():
     return position_sizing_fn
 
 
+def create_event_insider_shipping_signal_fn(
+    insider_weight: float = 1.0,
+    shipping_weight: float = 1.0,
+    insider_net_buy_threshold: float = 1000.0,
+    insider_net_sell_threshold: float = -1000.0,
+    shipping_congestion_low_threshold: float = 30.0,
+    shipping_congestion_high_threshold: float = 70.0,
+):
+    """Create a signal function for event-based strategy (insider + shipping).
+    
+    This function will compute insider and shipping features and generate signals.
+    
+    Args:
+        insider_weight: Weight for insider signals (default: 1.0)
+        shipping_weight: Weight for shipping signals (default: 1.0)
+        insider_net_buy_threshold: Minimum net buy for LONG signal (default: 1000.0)
+        insider_net_sell_threshold: Maximum net buy (negative = sell) for SHORT signal (default: -1000.0)
+        shipping_congestion_low_threshold: Maximum congestion for LONG signal (default: 30.0)
+        shipping_congestion_high_threshold: Minimum congestion for SHORT signal (default: 70.0)
+    
+    Returns:
+        Callable that takes prices DataFrame and returns signals DataFrame
+    """
+    def signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
+        """Generate event signals from prices with features."""
+        from src.assembled_core.features.insider_features import add_insider_features
+        from src.assembled_core.features.shipping_features import add_shipping_features
+        from src.assembled_core.data.insider_ingest import load_insider_sample
+        from src.assembled_core.data.shipping_routes_ingest import load_shipping_sample
+        
+        # Load event data (currently uses sample/dummy data)
+        logger.debug("Loading insider and shipping event data...")
+        insider_events = load_insider_sample()
+        shipping_events = load_shipping_sample()
+        
+        # Add features to prices
+        logger.debug("Adding insider and shipping features...")
+        prices_with_features = add_insider_features(prices_df, insider_events)
+        prices_with_features = add_shipping_features(prices_with_features, shipping_events)
+        
+        # Generate signals
+        logger.debug("Generating event signals...")
+        return generate_event_signals(
+            prices_with_features,
+            insider_weight=insider_weight,
+            shipping_weight=shipping_weight,
+            insider_net_buy_threshold=insider_net_buy_threshold,
+            insider_net_sell_threshold=insider_net_sell_threshold,
+            shipping_congestion_low_threshold=shipping_congestion_low_threshold,
+            shipping_congestion_high_threshold=shipping_congestion_high_threshold,
+        )
+    
+    return signal_fn
+
+
+def create_event_position_sizing_fn():
+    """Create a position sizing function for event-based strategy.
+    
+    For event signals, we allow both LONG and SHORT positions.
+    This is a simplified version that treats SHORT as negative LONG.
+    
+    Returns:
+        Callable that takes signals DataFrame and capital, returns target positions DataFrame
+    """
+    def position_sizing_fn(signals_df: pd.DataFrame, capital: float) -> pd.DataFrame:
+        """Compute target positions from event signals (supports LONG and SHORT)."""
+        from src.assembled_core.portfolio.position_sizing import compute_target_positions_from_trend_signals
+        
+        # For now, only use LONG signals (SHORT support can be added later)
+        # This matches the behavior of trend_baseline
+        return compute_target_positions_from_trend_signals(
+            signals_df,
+            total_capital=capital,
+            top_n=None,
+            min_score=0.0
+        )
+    
+    return position_sizing_fn
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
@@ -88,6 +169,9 @@ Examples:
 
   # Backtest with custom price file and cost parameters
   python scripts/run_backtest_strategy.py --freq 1d --price-file data/sample/eod_sample.parquet --commission-bps 0.5 --spread-w 0.3
+
+  # Event-based strategy (Phase 6)
+  python scripts/run_backtest_strategy.py --freq 1d --strategy event_insider_shipping --generate-report
         """
     )
     
@@ -119,7 +203,8 @@ Examples:
         "--strategy",
         type=str,
         default="trend_baseline",
-        help="Strategy name (default: trend_baseline)"
+        choices=["trend_baseline", "event_insider_shipping"],
+        help="Strategy name: 'trend_baseline' (EMA crossover) or 'event_insider_shipping' (Phase 6 event-based)"
     )
     
     parser.add_argument(
@@ -246,11 +331,18 @@ def get_cost_model(args: argparse.Namespace) -> CostModel:
         return get_default_cost_model()
 
 
-def main() -> int:
-    """Main entry point for strategy backtest CLI."""
+def run_backtest_from_args(args: argparse.Namespace) -> int:
+    """Run backtest from parsed arguments.
+    
+    This function can be called from the central CLI or from the standalone script.
+    
+    Args:
+        args: Parsed command-line arguments
+        
+    Returns:
+        Exit code (0 for success, 1 for failure)
+    """
     try:
-        # Parse arguments
-        args = parse_args()
         
         # Set output directory
         output_dir = Path(args.out) if args.out else OUTPUT_DIR
@@ -292,9 +384,15 @@ def main() -> int:
                 ma_slow=ema_config.slow
             )
             position_sizing_fn = create_position_sizing_fn()
+        elif args.strategy == "event_insider_shipping":
+            logger.info("Event Strategy: Insider Trading + Shipping Congestion")
+            logger.info("Loading event data and computing features...")
+            
+            signal_fn = create_event_insider_shipping_signal_fn()
+            position_sizing_fn = create_event_position_sizing_fn()
         else:
             logger.error(f"Unknown strategy: {args.strategy}")
-            logger.info(f"Supported strategies: trend_baseline")
+            logger.info(f"Supported strategies: trend_baseline, event_insider_shipping")
             return 1
         
         # Run backtest
@@ -412,6 +510,12 @@ def main() -> int:
     except Exception as e:
         logger.error(f"Unexpected error: {e}", exc_info=True)
         return 1
+
+
+def main() -> int:
+    """Main entry point for strategy backtest CLI (standalone script)."""
+    args = parse_args()
+    return run_backtest_from_args(args)
 
 
 if __name__ == "__main__":
