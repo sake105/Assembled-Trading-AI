@@ -19,36 +19,49 @@ sys.path.insert(0, str(ROOT))
 from src.assembled_core.signals.rules_event_insider_shipping import generate_event_signals
 
 
-def main() -> None:
-    """Test generate_event_signals mit minimalen Dummy-Daten."""
-    # Minimaler Dummy-Input für die Event-Strategie
+def test_scenario(name: str, insider_net_buy: float, shipping_congestion: float) -> None:
+    """Test ein einzelnes Szenario."""
     df = pd.DataFrame(
         {
             "timestamp": [datetime.now(timezone.utc)],
             "symbol": ["AAPL"],
             "close": [100.0],
-            "insider_net_buy_20d": [2000.0],
-            "shipping_congestion_score_7d": [20.0],
+            "insider_net_buy_20d": [insider_net_buy],
+            "shipping_congestion_score_7d": [shipping_congestion],
         }
     )
     
-    # Safety: sicherstellen, dass Timestamp wirklich UTC-aware ist
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
-    
     result = generate_event_signals(df)
     
-    # Je nach Implementierung heißt die Spalte bei dir vermutlich "direction" und nicht mehr "signal"
     cols = [c for c in result.columns if c.lower() in ("direction", "signal")]
     col = cols[0] if cols else "direction"
     
     row = result.iloc[0]
-    print("=== Event-Signal-Debug ===")
+    print(f"\n=== {name} ===")
+    print(f"Input: insider_net_buy_20d={insider_net_buy:.1f}, shipping_congestion={shipping_congestion:.1f}")
     print(f"symbol    : {row['symbol']}")
     print(f"timestamp : {row['timestamp']}")
     print(f"{col:9}: {row[col]}")
     if "score" in result.columns:
         print(f"score     : {row['score']:.4f}")
-    print("===========================")
+    print("=" * 30)
+
+
+def main() -> None:
+    """Test generate_event_signals mit verschiedenen Szenarien."""
+    print("Event-Signal-Debug: Teste LONG, SHORT und FLAT Szenarien\n")
+    
+    # LONG: Starker Insider-Kauf + niedrige Congestion
+    test_scenario("LONG Szenario", insider_net_buy=2000.0, shipping_congestion=20.0)
+    
+    # SHORT: Starker Insider-Verkauf + hohe Congestion
+    test_scenario("SHORT Szenario", insider_net_buy=-3000.0, shipping_congestion=80.0)
+    
+    # FLAT: Neutrale Werte
+    test_scenario("FLAT Szenario", insider_net_buy=0.0, shipping_congestion=50.0)
+    
+    print("\n✅ Alle drei Szenarien getestet!")
 
 
 if __name__ == "__main__":
