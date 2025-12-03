@@ -55,6 +55,57 @@ pytest -m phase4
 
 ---
 
+## Usage & Workflows
+
+The `assembled-cli` command-line interface is the preferred entry point for all backend operations. All workflows support optional experiment tracking via `--track-experiment` flags.
+
+### Quick Links
+
+- **EOD Pipeline & QA** → [Workflows – Daily EOD Pipeline & QA](docs/WORKFLOWS_EOD_AND_QA.md)
+  - Run daily end-of-day pipeline
+  - Support for both local (historical) and live (Yahoo Finance) data sources
+  - Generate signals/orders (SAFE CSV)
+  - Review QA reports
+  - Logging and experiment tracking
+
+- **Backtests & Meta-Model Ensemble** → [Workflows – Backtests & Meta-Model Ensemble](docs/WORKFLOWS_BACKTEST_AND_ENSEMBLE.md)
+  - Run strategy backtests
+  - Use ML meta-model ensemble (filter or scaling mode)
+  - Track experiments for research
+  - Compare performance metrics
+
+- **ML Datasets, Meta-Models & Experiments** → [Workflows – ML Meta-Models & Experiments](docs/WORKFLOWS_ML_AND_EXPERIMENTS.md)
+  - Build ML-ready datasets from backtests
+  - Train meta-models for setup success prediction
+  - Evaluate model performance (ROC-AUC, Brier, Log Loss)
+  - Connect to research notebooks
+
+### Getting Started
+
+**Basic EOD Pipeline (with local data):**
+```bash
+python scripts/cli.py run_daily --freq 1d
+```
+
+**EOD Pipeline with live data (Yahoo Finance):**
+```bash
+python scripts/cli.py run_daily --freq 1d --data-source yahoo --symbols AAPL MSFT GOOGL --end-date today
+```
+
+**Basic Backtest:**
+```bash
+python scripts/cli.py run_backtest --freq 1d --strategy trend_baseline --generate-report
+```
+
+**Build ML Dataset:**
+```bash
+python scripts/cli.py build_ml_dataset --strategy trend_baseline --freq 1d
+```
+
+For detailed workflows, examples, and troubleshooting, see the workflow documentation linked above.
+
+---
+
 ## CLI (Command Line Interface)
 
 Das zentrale CLI (`scripts/cli.py`) bietet eine einheitliche Schnittstelle für die wichtigsten Backend-Operationen.
@@ -407,6 +458,68 @@ Verfügbare Marker:
 
 ---
 
+## Research & Experimente
+
+Das Projekt verfügt über eine strukturierte Research-Infrastruktur für die systematische Exploration neuer Trading-Ideen, Strategien und Datenquellen.
+
+**Research-Roadmap:** `docs/RESEARCH_ROADMAP.md`
+- Zielbild und aktueller Stand
+- Fokus 3–6 Monate (neue Strategien, Alt-Daten, ML-Experimente)
+- Konkreter Research-Backlog mit Prioritäten
+- Arbeitsweise für Research-Experimente
+
+**Research-Ordner:** `research/`
+- Strukturierte Experimente in Kategorien (trend/, meta/, altdata/, risk/)
+- Notebook-Templates für reproduzierbare Experimente
+- Best Practices für Research-Workflow
+
+**Typischer Research-Workflow:**
+1. **Hypothese formulieren**: Klare Frage, erwartetes Ergebnis
+2. **Setup definieren**: Daten, Strategie-Parameter, Backtest-Konfiguration
+3. **Experiment durchführen**: Code in `research/`, Backtest ausführen
+4. **Auswertung**: Performance-Metriken, Visualisierung, Vergleich mit Baseline
+5. **Dokumentation**: Ergebnisse, Fazit, nächste Schritte
+
+**Verfügbare Tools für Research:**
+- Backtest-Engine mit konfigurierbaren Kostenmodellen
+- ML-Dataset-Export für Meta-Model-Experimente
+- QA-Reports für Performance-Analysen
+- Monitoring-API für QA/Risk/Drift-Status
+- **Experiment-Tracking** (Sprint 12.2): Strukturiertes Tracking von Runs mit Config, Metriken und Artefakten
+
+**Experiment-Tracking:**
+- Runs werden in `experiments/` gespeichert (kein externer Service nötig)
+- Jeder Run enthält: `run.json` (Metadaten), `metrics.csv` (Zeitreihen-Metriken), `artifacts/` (Dateien)
+- Integration in CLI: `--track-experiment --experiment-name "..." --experiment-tags "tag1,tag2"`
+- Verfügbar für: Backtests (`run_backtest`), Meta-Model-Training (`train_meta_model`)
+
+**Weitere Details:** Siehe `docs/RESEARCH_ROADMAP.md` und `research/README.md`
+
+---
+
+## Reviews & Known Issues
+
+Das Backend ist **review-fähig** und bereit für externe Reviews.
+
+**Review Guide:** `docs/REVIEW_GUIDE_BACKEND.md`
+- Empfohlene Reihenfolge für Reviews
+- Praktische Einstiegspunkte (CLI-Kommandos, wichtige Module)
+- Checkliste für Reviews (Architektur, Tests, Logging, ML, Research)
+- Konkrete Review-Fragen
+- Feedback-Struktur
+
+**Known Issues:** `KNOWN_ISSUES.md`
+- Funktionale Open Points (Labeling, Trade-Metriken, Pre-Trade-Checks)
+- Technische Schulden (Legacy-Migration, Validation-Split)
+- Performance & Skalierung (Parallelisierung, Caching)
+- Nice-to-Haves (erweiterte Strategien, Alt-Daten, ML-Experimente)
+
+**Feedback abgeben:**
+- GitHub Issues mit Template: `.github/ISSUE_TEMPLATE/review_feedback.md`
+- Strukturiert nach Bereich, Schweregrad, Referenzen
+
+---
+
 ## Projekt-Struktur
 
 ```
@@ -431,7 +544,14 @@ Aktiengerüst/
 │   ├── ARCHITECTURE_BACKEND.md
 │   ├── CLI_REFERENCE.md
 │   ├── TESTING_COMMANDS.md
+│   ├── RESEARCH_ROADMAP.md      # Research-Roadmap (Phase 12)
 │   └── ...
+├── research/                    # Research-Experimente
+│   ├── README.md                # Research-Workflow & Best Practices
+│   ├── trend/                   # Trend-Strategie-Experimente
+│   ├── meta/                    # ML-Meta-Layer-Experimente
+│   ├── altdata/                 # Alternative-Daten-Experimente
+│   └── risk/                    # Risk-Engine-Experimente
 └── output/                      # Pipeline-Outputs
 ```
 
@@ -446,9 +566,29 @@ Aktiengerüst/
 - **Phase 8 Risk Engine:** `docs/PHASE8_RISK_ENGINE.md` (Portfolio Risk, Scenarios, Shipping Risk)
 - **Phase 9 Model Governance:** `docs/PHASE9_MODEL_GOVERNANCE.md` (Model Validation, Drift Detection)
 - **Phase 10 Paper-Trading & OMS:** `docs/PHASE10_PAPER_OMS.md` (Pre-Trade Checks, Kill-Switch)
+- **Phase 12 Research Roadmap:** `docs/RESEARCH_ROADMAP.md` (Research-Prozess, Backlog, Fokus)
+- **Review Guide:** `docs/REVIEW_GUIDE_BACKEND.md` (Anleitung für externe Reviewer)
+- **Known Issues:** `KNOWN_ISSUES.md` (Offene Punkte, technische Schulden, Nice-to-Haves)
 - **Legacy-Übersicht:** `docs/LEGACY_OVERVIEW.md`
 - **Legacy-Mapping:** `docs/LEGACY_TO_CORE_MAPPING.md`
 - **PowerShell-Wrapper:** `docs/POWERSHELL_WRAPPERS.md`
+
+---
+
+## CI / Continuous Integration
+
+[![Backend CI](https://github.com/sake105/Assembled-Trading-AI/actions/workflows/backend-ci.yml/badge.svg)](https://github.com/sake105/Assembled-Trading-AI/actions/workflows/backend-ci.yml)
+
+Die CI prüft bei jedem Push/PR auf `main` und `feature/*` Branches:
+
+- **Tests**: Alle Backend-Tests (Phase 4-11) mit `pytest -W error`
+- **Linting**: Code-Qualität mit `ruff check`
+- **Formatting**: Code-Format mit `black --check`
+- **Type Checking**: Statische Typprüfung mit `mypy` (optional, non-blocking)
+
+**Unterstützte Python-Versionen**: 3.10, 3.11
+
+**Workflow-Details**: Siehe [`.github/workflows/backend-ci.yml`](.github/workflows/backend-ci.yml)
 
 ---
 
@@ -457,12 +597,46 @@ Aktiengerüst/
 - ✅ **Phase 4:** Backend Core stabil (110+ Tests, ~17s)
 - ✅ **Phase 5:** Dokumentation & Legacy-Mapping
 - ✅ **Phase 6:** Event-Features Skeletons (Insider, Congress, Shipping, News)
+- ✅ **Phase 7:** ML-Meta-Layer
+  - ✅ 7.1 – Labeling & ML-Dataset: fertig
+  - ✅ 7.2 – Meta-Modelle (Confidence-Scores, ROC/AUC, Brier, Calibration): fertig
+  - ✅ 7.3 – Ensemble-Layer (Kombination Regel-Signale + Meta-Model): fertig
 - ✅ **Phase 8:** Risk Engine & Scenario Analysis (39 Tests, <2s)
 - ✅ **Phase 9:** Model Governance & Validation (41 Tests, <2s)
 - ✅ **Phase 10:** Paper-Trading & OMS-Light
   - ✅ 10.1 – Pre-Trade Checks & Kill-Switch: fertig
   - ✅ 10.2 – Paper-Trading-API: fertig (inkl. Pre-Trade & Kill-Switch)
   - ✅ 10.3 – OMS-Light (Blotter & Routing): fertig
+- ✅ **Phase 12:** "God-Level" Research & Evolution
+  - ✅ 12.1 – Research-Prozess & Roadmap: fertig (Research-Roadmap vorhanden)
+  - ✅ 12.2 – Experiment-Tracking: fertig (leichtgewichtiges Tracking ohne externe Services)
+  - ✅ 12.3 – Review-Vorbereitung: fertig (Known Issues, Review Guide, Issue-Template)
+
+---
+
+## Logging
+
+Das Backend verwendet ein zentrales Logging-System (`src/assembled_core/logging_config.py`):
+
+- **Log-Dateien**: Alle Logs werden in `logs/` geschrieben (Dateiname enthält Run-ID)
+- **Run-IDs**: Jede Ausführung erhält eine eindeutige Run-ID (z. B. `backtest_20250115_143022_abc12345`)
+- **Formate**:
+  - **Console**: `[LEVEL] message` (einfach, für CLI)
+  - **File**: `timestamp | level | logger | [run_id] message` (detailliert)
+- **Integration**: Automatisch in `scripts/cli.py`, `scripts/run_backtest_strategy.py`, `scripts/run_eod_pipeline.py`
+
+**Beispiel:**
+```python
+from src.assembled_core.logging_config import setup_logging, generate_run_id
+import logging
+
+run_id = generate_run_id(prefix="backtest")
+setup_logging(run_id=run_id, level="INFO")
+logger = logging.getLogger(__name__)
+logger.info("Pipeline started")
+```
+
+**Log-Dateien**: `logs/{run_id}.log` (z. B. `logs/backtest_20250115_143022_abc12345.log`)
 
 ---
 

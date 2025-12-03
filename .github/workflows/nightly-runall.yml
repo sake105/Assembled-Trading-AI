@@ -1,3 +1,9 @@
+# Nightly workflow for running full pipeline (run_all_sprint10.ps1)
+#
+# Purpose: Daily execution of complete pipeline on Windows (5min demo)
+# Triggers: Scheduled (03:00 UTC daily) + manual dispatch
+# Status: Active - but may be deprecated if run_all_sprint10.ps1 is replaced
+# TODO: Review if this workflow is still needed after Phase 11+ refactoring
 name: Nightly RunAll
 
 on:

@@ -338,15 +338,16 @@ def test_generate_qa_report_from_files_default_equity():
     """
     Test generate_qa_report_from_files with default equity file path.
     
-    In CI gibt es kein vorher erzeugtes output/portfolio_equity_1d.csv.
+    In CI gibt es kein vorher erzeugtes portfolio_equity_1d.csv.
     Deshalb erstellt der Test hier eine kleine Dummy-Equity-Kurve
-    genau an diesem Default-Pfad.
+    genau an diesem Default-Pfad (OUTPUT_DIR).
     """
-    # output/ Ordner sicherstellen
-    output_dir = Path("output")
-    output_dir.mkdir(parents=True, exist_ok=True)
+    from src.assembled_core.config import OUTPUT_DIR
     
-    equity_file = output_dir / "portfolio_equity_1d.csv"
+    # OUTPUT_DIR sicherstellen (kann src/output/ oder output/ sein, je nach config)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    
+    equity_file = OUTPUT_DIR / "portfolio_equity_1d.csv"
     
     # kleine synthetische Equity-Kurve
     df = pd.DataFrame(
@@ -371,6 +372,10 @@ def test_generate_qa_report_from_files_default_equity():
     
     assert report_path.exists()
     assert report_path.is_file()
+    
+    # Cleanup: Remove test file after test
+    if equity_file.exists():
+        equity_file.unlink()
 
 
 def test_generate_qa_report_from_files_missing_equity(tmp_path):

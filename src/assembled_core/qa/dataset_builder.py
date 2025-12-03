@@ -8,6 +8,10 @@ Key features:
 - Labels trades using qa.labeling.label_trades
 - Joins trades with features to create ML-ready dataset
 - Supports filtering by feature prefixes
+
+Sprint 7.1 additions:
+- build_ml_dataset_for_strategy(): High-level function to build datasets directly from strategy names
+- export_ml_dataset(): Export function supporting both Parquet and CSV formats
 """
 from __future__ import annotations
 
@@ -232,4 +236,287 @@ def save_ml_dataset(df: pd.DataFrame, path: Path | str) -> None:
     df.to_parquet(path, index=False)
     
     logger.info(f"Saved ML dataset to {path} ({len(df)} rows, {len(df.columns)} columns)")
+
+
+def build_ml_dataset_for_strategy(
+    strategy_name: str,
+    start_date: str,
+    end_date: str,
+    universe: list[str] | None = None,
+    universe_file: Path | str | None = None,
+    label_params: dict | None = None,
+    price_file: Path | str | None = None,
+    freq: str = "1d",
+) -> pd.DataFrame:
+    """Build ML dataset for a specific strategy by loading data, generating signals, and labeling.
+    
+    This function provides a high-level interface to build ML datasets directly from strategy names.
+    It handles the complete pipeline: data loading → feature computation → signal generation → labeling.
+    
+    Args:
+        strategy_name: Strategy name ("trend_baseline" or "event_insider_shipping")
+        start_date: Start date in format "YYYY-MM-DD"
+        end_date: End date in format "YYYY-MM-DD"
+        universe: Optional list of symbols to include. If None, uses universe_file or default watchlist.
+        universe_file: Optional path to universe file (text file with one symbol per line).
+            If both universe and universe_file are None, uses default watchlist.
+        label_params: Optional dictionary with labeling parameters:
+            - horizon_days: int (default: 10)
+            - threshold_pct: float (default: 0.05)
+            - label_type: str (default: "binary_absolute")
+            - benchmark_prices: pd.DataFrame | None (default: None)
+        price_file: Optional explicit path to price file. If None, loads from default location.
+        freq: Trading frequency ("1d" or "5min"), default "1d"
+    
+    Returns:
+        DataFrame with ML-ready dataset:
+            - Index: (timestamp, symbol) or flat index
+            - Columns:
+                - label: Binary or multi-class label
+                - realized_return: Actual return achieved
+                - entry_price, exit_price: Entry and exit prices
+                - All feature columns (with consistent prefix, e.g., feat_* or ta_*, insider_*, etc.)
+                - Signal metadata (direction, score, etc.)
+        
+        Sorted by timestamp, then symbol.
+    
+    Raises:
+        ValueError: If strategy_name is unknown or required data is missing
+        FileNotFoundError: If price file or universe file not found
+    
+    Example:
+        >>> from pathlib import Path
+        >>> 
+        >>> dataset = build_ml_dataset_for_strategy(
+        ...     strategy_name="trend_baseline",
+        ...     start_date="2024-01-01",
+        ...     end_date="2024-12-31",
+        ...     universe=["AAPL", "MSFT", "GOOGL"],
+        ...     label_params={
+        ...         "horizon_days": 10,
+        ...         "threshold_pct": 0.05,
+        ...         "label_type": "binary_absolute"
+        ...     }
+        ... )
+        >>> 
+        >>> assert "label" in dataset.columns
+        >>> assert len(dataset) > 0
+    """
+    # Default label parameters
+    if label_params is None:
+        label_params = {}
+    
+    horizon_days = label_params.get("horizon_days", 10)
+    threshold_pct = label_params.get("threshold_pct", 0.05)
+    label_type = label_params.get("label_type", "binary_absolute")
+    benchmark_prices = label_params.get("benchmark_prices", None)
+    
+    logger.info(f"Building ML dataset for strategy: {strategy_name}")
+    logger.info(f"Date range: {start_date} to {end_date}")
+    logger.info(f"Label params: horizon={horizon_days}d, threshold={threshold_pct:.2%}, type={label_type}")
+    
+    # Load price data
+    from src.assembled_core.data.prices_ingest import load_eod_prices, load_eod_prices_for_universe
+    from src.assembled_core.config.settings import get_settings
+    
+    settings = get_settings()
+    
+    if price_file:
+        logger.info(f"Loading prices from explicit file: {price_file}")
+        prices = load_eod_prices(price_file=price_file, freq=freq)
+    elif universe_file:
+        logger.info(f"Loading prices for universe file: {universe_file}")
+        prices = load_eod_prices_for_universe(
+            universe_file=Path(universe_file),
+            data_dir=settings.data_dir,
+            freq=freq
+        )
+    elif universe:
+        logger.info(f"Loading prices for {len(universe)} symbols")
+        prices = load_eod_prices(price_file=None, symbols=universe, freq=freq)
+    else:
+        # Default: use watchlist
+        logger.info("Loading prices for default universe (watchlist.txt)")
+        prices = load_eod_prices_for_universe(
+            universe_file=settings.watchlist_file,
+            data_dir=settings.data_dir,
+            freq=freq
+        )
+    
+    if prices.empty:
+        raise ValueError("No price data loaded")
+    
+    # Filter by date range
+    prices["timestamp"] = pd.to_datetime(prices["timestamp"], utc=True)
+    start_dt = pd.to_datetime(start_date, utc=True)
+    end_dt = pd.to_datetime(end_date, utc=True)
+    
+    prices = prices[(prices["timestamp"] >= start_dt) & (prices["timestamp"] <= end_dt)].copy()
+    
+    if prices.empty:
+        raise ValueError(f"No price data in date range {start_date} to {end_date}")
+    
+    logger.info(f"Loaded {len(prices)} price rows for {prices['symbol'].nunique()} symbols")
+    
+    # Compute features
+    logger.info("Computing features...")
+    from src.assembled_core.features.ta_features import add_all_features
+    
+    has_ohlc = all(col in prices.columns for col in ["high", "low", "open"])
+    if has_ohlc:
+        prices_with_features = add_all_features(
+            prices,
+            ma_windows=(20, 50, 200),
+            atr_window=14,
+            rsi_window=14,
+            include_rsi=True
+        )
+    else:
+        from src.assembled_core.features.ta_features import add_log_returns, add_moving_averages
+        prices_with_features = add_log_returns(prices.copy())
+        prices_with_features = add_moving_averages(
+            prices_with_features,
+            windows=(20, 50, 200)
+        )
+    
+    # Add event features if event strategy
+    if strategy_name == "event_insider_shipping":
+        logger.info("Adding event features (insider, shipping)...")
+        from src.assembled_core.features.insider_features import add_insider_features
+        from src.assembled_core.features.shipping_features import add_shipping_features
+        from src.assembled_core.data.insider_ingest import load_insider_sample
+        from src.assembled_core.data.shipping_routes_ingest import load_shipping_sample
+        
+        insider_events = load_insider_sample()
+        shipping_events = load_shipping_sample()
+        
+        prices_with_features = add_insider_features(prices_with_features, insider_events)
+        prices_with_features = add_shipping_features(prices_with_features, shipping_events)
+    
+    # Generate signals
+    logger.info(f"Generating signals for strategy: {strategy_name}")
+    
+    if strategy_name == "trend_baseline":
+        from src.assembled_core.signals.rules_trend import generate_trend_signals_from_prices
+        from src.assembled_core.ema_config import get_default_ema_config
+        
+        ema_config = get_default_ema_config(freq)
+        signals = generate_trend_signals_from_prices(
+            prices_with_features,
+            ma_fast=ema_config.fast,
+            ma_slow=ema_config.slow
+        )
+    
+    elif strategy_name == "event_insider_shipping":
+        from src.assembled_core.signals.rules_event_insider_shipping import generate_event_signals
+        
+        signals = generate_event_signals(prices_with_features)
+    
+    else:
+        raise ValueError(f"Unknown strategy: {strategy_name}. Supported: trend_baseline, event_insider_shipping")
+    
+    if signals.empty:
+        logger.warning("No signals generated")
+        return pd.DataFrame()
+    
+    # Filter to LONG signals only (for labeling)
+    if "direction" in signals.columns:
+        long_signals = signals[signals["direction"] == "LONG"].copy()
+    else:
+        long_signals = signals.copy()
+    
+    if long_signals.empty:
+        logger.warning("No LONG signals to label")
+        return pd.DataFrame()
+    
+    logger.info(f"Generated {len(long_signals)} LONG signals")
+    
+    # Generate labels
+    logger.info("Generating labels...")
+    from src.assembled_core.qa.labeling import generate_trade_labels
+    
+    labeled_signals = generate_trade_labels(
+        prices=prices_with_features,
+        signals=long_signals,
+        horizon_days=horizon_days,
+        threshold_pct=threshold_pct,
+        label_type=label_type,
+        benchmark_prices=benchmark_prices
+    )
+    
+    if labeled_signals.empty:
+        logger.warning("No labeled signals after labeling")
+        return pd.DataFrame()
+    
+    # Extract features and join with labeled signals
+    logger.info("Extracting features and building final dataset...")
+    
+    # Get feature columns (exclude standard price/volume columns)
+    feature_cols = [
+        col for col in prices_with_features.columns
+        if col not in ["timestamp", "symbol", "date", "open", "high", "low", "close", "volume"]
+        and not col.startswith("_")
+    ]
+    
+    # Rename features with consistent prefix (optional: can be configured)
+    # For now, keep original names but ensure they're identifiable
+    feature_subset = prices_with_features[["timestamp", "symbol"] + feature_cols].copy()
+    
+    # Join labeled signals with features
+    dataset = labeled_signals.merge(
+        feature_subset,
+        on=["timestamp", "symbol"],
+        how="inner",
+        suffixes=("", "_feature")
+    )
+    
+    # Remove duplicate columns
+    if dataset.columns.duplicated().any():
+        dataset = dataset.loc[:, ~dataset.columns.duplicated()]
+    
+    # Sort by timestamp, then symbol
+    dataset = dataset.sort_values(["timestamp", "symbol"]).reset_index(drop=True)
+    
+    logger.info(f"Built ML dataset: {len(dataset)} rows, {len(feature_cols)} features")
+    if "label" in dataset.columns:
+        label_counts = dataset["label"].value_counts().to_dict()
+        logger.info(f"Label distribution: {label_counts}")
+    
+    return dataset
+
+
+def export_ml_dataset(
+    df: pd.DataFrame,
+    output_path: str | Path,
+    format: str = "parquet",
+) -> None:
+    """Export ML dataset to file (Parquet or CSV).
+    
+    Args:
+        df: DataFrame with ML dataset
+        output_path: Path to output file
+        format: Export format ("parquet" or "csv"), default "parquet"
+    
+    Raises:
+        ValueError: If DataFrame is empty or format is invalid
+        IOError: If file cannot be written
+    
+    Example:
+        >>> export_ml_dataset(dataset, "output/ml_dataset.parquet", format="parquet")
+        >>> export_ml_dataset(dataset, "output/ml_dataset.csv", format="csv")
+    """
+    if df.empty:
+        raise ValueError("Cannot export empty DataFrame")
+    
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    if format.lower() == "parquet":
+        df.to_parquet(output_path, index=False)
+        logger.info(f"Exported ML dataset to Parquet: {output_path} ({len(df)} rows, {len(df.columns)} columns)")
+    elif format.lower() == "csv":
+        df.to_csv(output_path, index=False)
+        logger.info(f"Exported ML dataset to CSV: {output_path} ({len(df)} rows, {len(df.columns)} columns)")
+    else:
+        raise ValueError(f"Unsupported format: {format}. Supported: 'parquet', 'csv'")
 

@@ -55,6 +55,7 @@ Zukünftige Integration:
 """
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -66,6 +67,8 @@ from src.assembled_core.execution.order_generation import generate_orders_from_t
 from src.assembled_core.features.ta_features import add_all_features, add_log_returns, add_moving_averages
 from src.assembled_core.pipeline.backtest import compute_metrics, simulate_equity
 from src.assembled_core.pipeline.portfolio import simulate_with_costs
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -116,7 +119,13 @@ def run_portfolio_backtest(
     include_targets: bool = False,
     rebalance_freq: str = "1d",
     compute_features: bool = True,
-    feature_config: dict[str, Any] | None = None
+    feature_config: dict[str, Any] | None = None,
+    # Meta-model ensemble parameters
+    use_meta_model: bool = False,
+    meta_model: Any | None = None,
+    meta_model_path: str | None = None,
+    meta_min_confidence: float = 0.5,
+    meta_ensemble_mode: str = "filter",  # "filter" or "scaling"
 ) -> BacktestResult:
     """Run a portfolio-level backtest with configurable signal and position sizing functions.
     
@@ -242,6 +251,124 @@ def run_portfolio_backtest(
         raise KeyError(f"signal_fn must return DataFrame with columns: {required_signal_cols}. Missing: {missing_signal}")
     
     signals = signals.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
+    
+    # Step 2.5: Apply meta-model ensemble (if enabled)
+    if use_meta_model:
+        logger.info("Applying meta-model ensemble...")
+        
+        # Load meta-model if path provided
+        if meta_model is None and meta_model_path is not None:
+            try:
+                from src.assembled_core.signals.meta_model import load_meta_model
+                meta_model = load_meta_model(meta_model_path)
+                logger.info(f"Loaded meta-model from {meta_model_path}")
+            except Exception as e:
+                logger.error(f"Failed to load meta-model from {meta_model_path}: {e}")
+                raise ValueError(f"Failed to load meta-model: {e}") from e
+        
+        if meta_model is None:
+            raise ValueError("use_meta_model=True but no meta_model or meta_model_path provided")
+        
+        # Extract features for meta-model
+        # Features must match the feature_names used during training
+        feature_cols = meta_model.feature_names
+        
+        # Check which features are available in prices_with_features
+        available_features = [f for f in feature_cols if f in prices_with_features.columns]
+        missing_features = [f for f in feature_cols if f not in prices_with_features.columns]
+        
+        if missing_features:
+            logger.warning(f"Missing {len(missing_features)} features for meta-model: {missing_features[:5]}...")
+            logger.warning("Meta-model ensemble may not work correctly. Continuing anyway...")
+        
+        if not available_features:
+            logger.error("No features available for meta-model. Disabling ensemble.")
+            use_meta_model = False
+        else:
+            # Join signals with prices_with_features to get features
+            # Use timestamp and symbol as join keys
+            signals_with_features = signals.merge(
+                prices_with_features[["timestamp", "symbol"] + available_features],
+                on=["timestamp", "symbol"],
+                how="inner"
+            )
+            
+            if signals_with_features.empty:
+                logger.warning("No signals matched with features. Disabling meta-model ensemble.")
+                use_meta_model = False
+            else:
+                # Extract features DataFrame (only available features)
+                features_subset = signals_with_features[available_features].copy()
+                
+                # Fill missing features with 0 (for features not in prices_with_features)
+                if missing_features:
+                    for feat in missing_features:
+                        features_subset[feat] = 0.0
+                    # Reorder to match meta_model.feature_names
+                    features_subset = features_subset[meta_model.feature_names]
+                
+                # Apply ensemble layer
+                from src.assembled_core.signals.ensemble import apply_meta_filter, apply_meta_scaling
+                
+                original_signal_count = len(signals_with_features)
+                original_long_count = (signals_with_features["direction"] == "LONG").sum()
+                
+                if meta_ensemble_mode == "filter":
+                    signals_with_features = apply_meta_filter(
+                        signals=signals_with_features,
+                        meta_model=meta_model,
+                        features=features_subset,
+                        min_confidence=meta_min_confidence,
+                        join_keys=["timestamp", "symbol"]
+                    )
+                elif meta_ensemble_mode == "scaling":
+                    signals_with_features = apply_meta_scaling(
+                        signals=signals_with_features,
+                        meta_model=meta_model,
+                        features=features_subset,
+                        min_confidence=meta_min_confidence,
+                        max_scaling=1.0,
+                        join_keys=["timestamp", "symbol"],
+                        scale_score=True
+                    )
+                else:
+                    raise ValueError(f"Unsupported meta_ensemble_mode: {meta_ensemble_mode}. Supported: 'filter', 'scaling'")
+                
+                # Update signals with filtered/scaled results
+                # Keep original signals structure but update direction and add meta_confidence
+                meta_cols = ["timestamp", "symbol", "direction", "meta_confidence"]
+                if "final_score" in signals_with_features.columns:
+                    meta_cols.append("final_score")
+                
+                signals = signals.merge(
+                    signals_with_features[meta_cols],
+                    on=["timestamp", "symbol"],
+                    how="left",
+                    suffixes=("", "_meta")
+                )
+                
+                # Update direction from meta-filtered signals
+                if "direction_meta" in signals.columns:
+                    signals["direction"] = signals["direction_meta"].fillna(signals["direction"])
+                    signals = signals.drop(columns=["direction_meta"])
+                
+                # Update score if final_score is available (from scaling mode)
+                if "final_score" in signals.columns:
+                    if "score" not in signals.columns:
+                        signals["score"] = 0.0
+                    signals["score"] = signals["final_score"].fillna(signals["score"])
+                    signals = signals.drop(columns=["final_score"])
+                
+                # Log results
+                filtered_signal_count = len(signals_with_features)
+                filtered_long_count = (signals_with_features["direction"] == "LONG").sum()
+                dropped_count = original_long_count - filtered_long_count
+                
+                logger.info(f"Meta-model ensemble applied:")
+                logger.info(f"  Original signals: {original_signal_count} (LONG: {original_long_count})")
+                logger.info(f"  After filtering: {filtered_signal_count} (LONG: {filtered_long_count})")
+                logger.info(f"  Dropped signals: {dropped_count}")
+                logger.info(f"  Mode: {meta_ensemble_mode}, Min confidence: {meta_min_confidence}")
     
     # Step 3: Compute target positions (group by timestamp for rebalancing)
     all_targets = []

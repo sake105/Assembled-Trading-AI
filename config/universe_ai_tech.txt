@@ -1,0 +1,24 @@
+AMD
+NVIDIA
+ASML
+TSMC (ADR)
+Super Micro Computer
+Micron Technology
+Intel
+Palantir Technologies
+Qualcomm
+Alphabet (A)
+Meta Platforms (A)
+Adobe
+Oracle
+Accenture
+Unity Software
+Arista Networks
+Dell Technologies
+DropBox (A)
+IONOS Group
+Suess MicroTec
+MicroStrategy (A)
+Quantum Corporation
+D-Wave Quantum
+Broadcom

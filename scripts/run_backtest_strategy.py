@@ -29,7 +29,7 @@ from src.assembled_core.config.settings import get_settings
 from src.assembled_core.costs import CostModel, get_default_cost_model
 from src.assembled_core.data.prices_ingest import load_eod_prices, load_eod_prices_for_universe
 from src.assembled_core.ema_config import get_default_ema_config
-from src.assembled_core.logging_utils import setup_logging
+from src.assembled_core.logging_config import generate_run_id, setup_logging
 from src.assembled_core.portfolio.position_sizing import compute_target_positions_from_trend_signals
 from src.assembled_core.qa.backtest_engine import BacktestResult, run_portfolio_backtest
 from src.assembled_core.qa.metrics import compute_all_metrics
@@ -38,7 +38,8 @@ from src.assembled_core.reports.daily_qa_report import generate_qa_report
 from src.assembled_core.signals.rules_trend import generate_trend_signals_from_prices
 from src.assembled_core.signals.rules_event_insider_shipping import generate_event_signals
 
-logger = setup_logging(level="INFO")
+import logging
+logger = logging.getLogger(__name__)
 
 
 def create_trend_baseline_signal_fn(ma_fast: int, ma_slow: int):
@@ -120,6 +121,8 @@ def create_event_insider_shipping_signal_fn(
         logger.debug("Loading insider and shipping event data...")
         if insider_file.exists():
             logger.info(f"Using sample insider events from {insider_file}")
+            # Also print to stdout for subprocess capture (tests expect this)
+            print("Using sample insider events", flush=True)
             insider_events = pd.read_parquet(insider_file)
             if "timestamp" in insider_events.columns:
                 insider_events["timestamp"] = pd.to_datetime(insider_events["timestamp"], utc=True)
@@ -129,6 +132,8 @@ def create_event_insider_shipping_signal_fn(
         
         if shipping_file.exists():
             logger.info(f"Using sample shipping events from {shipping_file}")
+            # Also print to stdout for subprocess capture (tests expect this)
+            print("Using sample shipping events", flush=True)
             shipping_events = pd.read_parquet(shipping_file)
             if "timestamp" in shipping_events.columns:
                 shipping_events["timestamp"] = pd.to_datetime(shipping_events["timestamp"], utc=True)
@@ -223,7 +228,52 @@ Examples:
         "--universe",
         type=Path,
         default=None,
-        help="Path to universe file (default: from settings.watchlist_file, typically watchlist.txt)"
+        help="Path to universe file (default: from settings.watchlist_file, typically watchlist.txt). "
+             "Priority: --symbols > --symbols-file > --universe."
+    )
+    
+    parser.add_argument(
+        "--symbols",
+        type=str,
+        nargs="+",
+        default=None,
+        metavar="SYMBOL",
+        help="List of symbols to load (e.g., --symbols NVDA AAPL MSFT). "
+             "Priority: --symbols > --symbols-file > --universe."
+    )
+    
+    parser.add_argument(
+        "--symbols-file",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Path to text file with one symbol per line (e.g., config/universe_ai_tech_tickers.txt). "
+             "Priority: --symbols > --symbols-file > --universe."
+    )
+    
+    parser.add_argument(
+        "--data-source",
+        type=str,
+        choices=["local", "yahoo"],
+        default=None,
+        help="Data source type: 'local' (Parquet files) or 'yahoo' (Yahoo Finance API). "
+             "Default: from settings.data_source"
+    )
+    
+    parser.add_argument(
+        "--start-date",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Start date for data loading (default: use all available data)"
+    )
+    
+    parser.add_argument(
+        "--end-date",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="End date for data loading (default: use all available data)"
     )
     
     parser.add_argument(
@@ -290,11 +340,100 @@ Examples:
         help="Generate QA report after backtest"
     )
     
+    # Meta-model ensemble arguments
+    parser.add_argument(
+        "--use-meta-model",
+        action="store_true",
+        default=False,
+        help="Enable meta-model ensemble (filter signals by confidence score)"
+    )
+    
+    parser.add_argument(
+        "--meta-model-path",
+        type=Path,
+        default=None,
+        help="Path to trained meta-model file (required if --use-meta-model is set)"
+    )
+    
+    parser.add_argument(
+        "--meta-min-confidence",
+        type=float,
+        default=0.5,
+        help="Minimum confidence threshold for meta-model filter (default: 0.5)"
+    )
+    
+    parser.add_argument(
+        "--meta-ensemble-mode",
+        type=str,
+        choices=["filter", "scaling"],
+        default="filter",
+        help="Meta-model ensemble mode: 'filter' (remove low-confidence signals) or 'scaling' (scale positions by confidence, default: 'filter')"
+    )
+    
+    # Experiment tracking arguments
+    parser.add_argument(
+        "--track-experiment",
+        action="store_true",
+        default=False,
+        help="Enable experiment tracking (stores run config, metrics, and artifacts)"
+    )
+    
+    parser.add_argument(
+        "--experiment-name",
+        type=str,
+        default=None,
+        help="Name for the experiment run (required if --track-experiment is set)"
+    )
+    
+    parser.add_argument(
+        "--experiment-tags",
+        type=str,
+        default=None,
+        help="Comma-separated tags for the experiment (e.g., 'trend,baseline,ma20_50')"
+    )
+    
     return parser.parse_args()
+
+
+def load_symbols_from_file(symbols_file: str | Path | None) -> list[str]:
+    """Load symbols from a text file (one symbol per line).
+    
+    Args:
+        symbols_file: Path to text file with one symbol per line.
+            Lines starting with # are treated as comments and ignored.
+            Empty lines are ignored.
+    
+    Returns:
+        List of symbol strings (uppercase, stripped)
+    
+    Raises:
+        FileNotFoundError: If symbols_file does not exist
+        ValueError: If symbols_file is None or empty
+    """
+    if not symbols_file:
+        return []
+    
+    path = Path(symbols_file)
+    if not path.is_file():
+        raise FileNotFoundError(f"Symbols file not found: {path}")
+    
+    symbols = []
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#"):
+                symbols.append(line.upper())
+    
+    if not symbols:
+        raise ValueError(f"No symbols found in file: {path}")
+    
+    return symbols
 
 
 def load_price_data(args: argparse.Namespace, output_dir: Path | None = None) -> pd.DataFrame:
     """Load price data based on CLI arguments.
+    
+    Supports both old-style (price_file/universe) and new-style (data_source/symbols) loading.
     
     Args:
         args: Parsed command-line arguments
@@ -315,7 +454,86 @@ def load_price_data(args: argparse.Namespace, output_dir: Path | None = None) ->
             settings = get_settings()
             output_dir = settings.output_dir
     
-    if args.price_file:
+    # New-style: Use data_source abstraction if --data-source or --symbols is provided
+    if hasattr(args, 'data_source') and args.data_source is not None:
+        from src.assembled_core.data.data_source import get_price_data_source
+        
+        settings = get_settings()
+        
+        # Determine symbols (priority: --symbols > --symbols-file > --universe > default)
+        symbols = None
+        
+        # Check for conflicting symbol inputs
+        symbol_inputs = []
+        if hasattr(args, 'symbols') and args.symbols:
+            symbol_inputs.append("--symbols")
+        if hasattr(args, 'symbols_file') and args.symbols_file:
+            symbol_inputs.append("--symbols-file")
+        if args.universe:
+            symbol_inputs.append("--universe")
+        
+        if len(symbol_inputs) > 1:
+            logger.warning(
+                f"Multiple symbol inputs provided: {', '.join(symbol_inputs)}. "
+                f"Using priority: --symbols > --symbols-file > --universe"
+            )
+        
+        # Priority 1: --symbols (direct list)
+        if hasattr(args, 'symbols') and args.symbols:
+            symbols = args.symbols
+            logger.info(f"Using symbols from --symbols: {len(symbols)} symbols")
+        # Priority 2: --symbols-file
+        elif hasattr(args, 'symbols_file') and args.symbols_file:
+            symbols = load_symbols_from_file(args.symbols_file)
+            logger.info(f"Loaded {len(symbols)} symbols from file: {args.symbols_file}")
+        # Priority 3: --universe (legacy)
+        elif args.universe:
+            universe_path = Path(args.universe)
+            if not universe_path.exists():
+                raise FileNotFoundError(f"Universe file not found: {universe_path}")
+            symbols = []
+            with open(universe_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        symbols.append(line.upper())
+            logger.info(f"Loaded {len(symbols)} symbols from universe file: {args.universe}")
+        else:
+            # Use default from settings
+            symbols = settings.default_universe
+            if symbols:
+                logger.info(f"Using default universe from settings: {len(symbols)} symbols")
+        
+        if not symbols:
+            raise ValueError(
+                "No symbols specified. Use --symbols, --symbols-file, --universe, "
+                "or configure default_universe in settings."
+            )
+        
+        # Determine date range
+        start_date = getattr(args, 'start_date', None) or "2020-01-01"
+        end_date = getattr(args, 'end_date', None) or "today"
+        
+        # Get data source
+        price_source = get_price_data_source(
+            settings=settings,
+            data_source=args.data_source,
+            price_file=str(args.price_file) if args.price_file else None
+        )
+        
+        logger.info(f"Loading prices from {args.data_source} source...")
+        logger.info(f"Symbols: {symbols}")
+        logger.info(f"Date range: {start_date} to {end_date}")
+        
+        prices = price_source.get_history(
+            symbols=symbols,
+            start_date=start_date,
+            end_date=end_date,
+            freq=args.freq
+        )
+        
+    # Old-style: Use existing loaders (for backward compatibility)
+    elif args.price_file:
         logger.info(f"Loading prices from explicit file: {args.price_file}")
         prices = load_eod_prices(price_file=args.price_file, freq=args.freq)
     elif args.universe:
@@ -336,7 +554,8 @@ def load_price_data(args: argparse.Namespace, output_dir: Path | None = None) ->
         )
     
     logger.info(f"Loaded {len(prices)} rows for {prices['symbol'].nunique()} symbols")
-    logger.info(f"Date range: {prices['timestamp'].min()} to {prices['timestamp'].max()}")
+    if not prices.empty:
+        logger.info(f"Date range: {prices['timestamp'].min()} to {prices['timestamp'].max()}")
     
     return prices
 
@@ -374,6 +593,78 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
     Returns:
         Exit code (0 for success, 1 for failure)
     """
+    # Initialize experiment tracking if enabled
+    experiment_run = None
+    if args.track_experiment:
+        from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+        
+        if not args.experiment_name:
+            logger.error("--experiment-name is required when --track-experiment is set")
+            return 1
+        
+        settings = get_settings()
+        tracker = ExperimentTracker(settings.experiments_dir)
+        
+        # Parse tags
+        tags = []
+        if args.experiment_tags:
+            tags = [tag.strip() for tag in args.experiment_tags.split(",") if tag.strip()]
+        
+        # Determine symbols for config (if available)
+        symbols_list = None
+        if hasattr(args, 'symbols') and args.symbols:
+            symbols_list = args.symbols
+        elif hasattr(args, 'symbols_file') and args.symbols_file:
+            symbols_list = load_symbols_from_file(args.symbols_file)
+        elif args.universe:
+            symbols_list = load_symbols_from_file(args.universe)
+        
+        # Build config dict from args
+        config = {
+            "strategy": args.strategy,
+            "freq": args.freq,
+            "start_capital": args.start_capital,
+            "with_costs": args.with_costs,
+            "use_meta_model": args.use_meta_model,
+        }
+        
+        # Add symbols to config if available
+        if symbols_list:
+            config["symbols"] = symbols_list
+            config["symbol_count"] = len(symbols_list)
+        
+        # Add EMA config if trend strategy
+        if args.strategy == "trend_baseline":
+            ema_config = get_default_ema_config(args.freq)
+            config["ema_fast"] = ema_config.fast
+            config["ema_slow"] = ema_config.slow
+        
+        # Add meta-model config if enabled
+        if args.use_meta_model:
+            config["meta_model_path"] = str(args.meta_model_path) if args.meta_model_path else None
+            config["meta_min_confidence"] = args.meta_min_confidence
+            config["meta_ensemble_mode"] = args.meta_ensemble_mode
+        
+        # Add cost model config
+        cost_model = get_cost_model(args)
+        config["commission_bps"] = cost_model.commission_bps
+        config["spread_w"] = cost_model.spread_w
+        config["impact_w"] = cost_model.impact_w
+        
+        # Start run
+        experiment_run = tracker.start_run(
+            name=args.experiment_name,
+            config=config,
+            tags=tags
+        )
+        
+        logger.info("")
+        logger.info("Experiment Tracking: ENABLED")
+        logger.info(f"  Run-ID: {experiment_run.run_id}")
+        logger.info(f"  Name: {experiment_run.name}")
+        logger.info(f"  Tags: {', '.join(experiment_run.tags) if experiment_run.tags else 'none'}")
+        logger.info(f"  Run Directory: {settings.experiments_dir / experiment_run.run_id}")
+    
     try:
         
         # Set output directory
@@ -387,11 +678,16 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         logger.info("=" * 60)
         logger.info("Strategy Backtest CLI")
         logger.info("=" * 60)
+        if experiment_run:
+            logger.info(f"Experiment Run-ID: {experiment_run.run_id}")
         logger.info(f"Frequency: {args.freq}")
         logger.info(f"Strategy: {args.strategy}")
         logger.info(f"Start Capital: {args.start_capital:.2f}")
         logger.info(f"With Costs: {args.with_costs}")
         logger.info(f"Output Dir: {output_dir}")
+        
+        # Also print to stdout for subprocess capture (tests expect this)
+        print(f"With Costs: {args.with_costs}", flush=True)
         
         # Load price data
         logger.info("")
@@ -402,9 +698,18 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             logger.error("No price data loaded")
             return 1
         
+        # Log data size
+        logger.info(f"Loaded {len(prices)} price rows for {prices['symbol'].nunique()} symbols")
+        if not prices.empty:
+            logger.info(f"Date range: {prices['timestamp'].min()} to {prices['timestamp'].max()}")
+        
         # Get cost model
         cost_model = get_cost_model(args)
         logger.info(f"Cost Model: commission_bps={cost_model.commission_bps}, spread_w={cost_model.spread_w}, impact_w={cost_model.impact_w}")
+        
+        # Also print to stdout for subprocess capture (tests expect this)
+        if args.commission_bps is not None:
+            print(f"commission_bps={args.commission_bps}", flush=True)
         
         # Create signal and position sizing functions
         logger.info("")
@@ -424,12 +729,39 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             logger.info("Event Strategy: Insider Trading + Shipping Congestion")
             logger.info("Loading event data and computing features...")
             
+            # Also print to stdout for subprocess capture (tests expect this)
+            print("Event Strategy", flush=True)
+            
             signal_fn = create_event_insider_shipping_signal_fn()
             position_sizing_fn = create_event_position_sizing_fn()
         else:
             logger.error(f"Unknown strategy: {args.strategy}")
             logger.info("Supported strategies: trend_baseline, event_insider_shipping")
             return 1
+        
+        # Meta-model setup
+        if args.use_meta_model:
+            if args.meta_model_path is None:
+                # Try to infer model path from strategy
+                settings = get_settings()
+                model_dir = settings.models_dir / "meta"
+                default_model_path = model_dir / f"{args.strategy}_meta_model.joblib"
+                if default_model_path.exists():
+                    args.meta_model_path = default_model_path
+                    logger.info(f"Using default meta-model path: {args.meta_model_path}")
+                else:
+                    logger.error(f"Meta-model enabled but no model found. Expected: {default_model_path}")
+                    logger.error("Either provide --meta-model-path or train a model first with: python scripts/cli.py train_meta_model")
+                    return 1
+            
+            logger.info("")
+            logger.info("Meta-Model Ensemble: ENABLED")
+            logger.info(f"  Model Path: {args.meta_model_path}")
+            logger.info(f"  Min Confidence: {args.meta_min_confidence}")
+            logger.info(f"  Mode: {args.meta_ensemble_mode}")
+        else:
+            logger.info("")
+            logger.info("Meta-Model Ensemble: DISABLED (use --use-meta-model to enable)")
         
         # Run backtest
         logger.info("")
@@ -447,10 +779,17 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             include_signals=False,
             include_targets=False,
             rebalance_freq=args.freq,
-            compute_features=True
+            compute_features=True,
+            # Meta-model ensemble parameters
+            use_meta_model=args.use_meta_model,
+            meta_model_path=str(args.meta_model_path) if args.meta_model_path else None,
+            meta_min_confidence=args.meta_min_confidence,
+            meta_ensemble_mode=args.meta_ensemble_mode,
         )
         
         logger.info(f"Backtest completed: {len(result.equity)} equity points")
+        if result.trades is not None and not result.trades.empty:
+            logger.info(f"Generated {len(result.trades)} trades")
         
         # Compute comprehensive metrics using qa.metrics
         logger.info("")
@@ -468,6 +807,9 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         logger.info(f"Sharpe Ratio: {metrics.sharpe_ratio:.4f}" if metrics.sharpe_ratio else "Sharpe Ratio: N/A")
         logger.info(f"Max Drawdown: {metrics.max_drawdown_pct:.2f}%")
         logger.info(f"Total Trades: {metrics.total_trades if metrics.total_trades else 0}")
+        
+        # Also print to stdout for subprocess capture (tests expect this)
+        print(f"Total Trades: {metrics.total_trades if metrics.total_trades else 0}", flush=True)
         
         # Evaluate QA gates
         logger.info("")
@@ -532,19 +874,74 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         logger.info(f"QA Result: {gate_result.overall_result.value.upper()}")
         logger.info("=" * 60)
         
+        # Also print to stdout for subprocess capture (tests expect this)
+        print("Backtest completed", flush=True)
+        print(f"Final PF: {metrics.final_pf:.4f}", flush=True)
+        
+        # Log metrics to experiment tracking if enabled
+        if experiment_run:
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+            settings = get_settings()
+            tracker = ExperimentTracker(settings.experiments_dir)
+            
+            # Log performance metrics
+            metrics_dict = {
+                "final_pf": metrics.final_pf,
+                "total_return": metrics.total_return,
+                "max_drawdown_pct": metrics.max_drawdown_pct,
+                "total_trades": metrics.total_trades if metrics.total_trades else 0,
+            }
+            if metrics.cagr:
+                metrics_dict["cagr"] = metrics.cagr
+            if metrics.sharpe_ratio:
+                metrics_dict["sharpe_ratio"] = metrics.sharpe_ratio
+            
+            tracker.log_metrics(experiment_run, metrics_dict)
+            
+            # Log artifacts if report was generated
+            if args.generate_report:
+                report_path = output_dir / "reports" / f"performance_report_{args.freq}.md"
+                if report_path.exists():
+                    tracker.log_artifact(experiment_run, report_path, "qa_report.md")
+            
+            # Finish run
+            tracker.finish_run(experiment_run, status="finished")
+            logger.info("")
+            logger.info(f"Experiment run completed: {experiment_run.run_id}")
+        
         return 0
     
     except FileNotFoundError as e:
         logger.error(f"File not found: {e}")
+        if experiment_run:
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+            settings = get_settings()
+            tracker = ExperimentTracker(settings.experiments_dir)
+            tracker.finish_run(experiment_run, status="failed")
         return 1
     except ValueError as e:
         logger.error(f"Invalid input: {e}")
+        if experiment_run:
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+            settings = get_settings()
+            tracker = ExperimentTracker(settings.experiments_dir)
+            tracker.finish_run(experiment_run, status="failed")
         return 1
     except KeyboardInterrupt:
         logger.warning("Interrupted by user")
+        if experiment_run:
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+            settings = get_settings()
+            tracker = ExperimentTracker(settings.experiments_dir)
+            tracker.finish_run(experiment_run, status="failed")
         return 1
     except Exception as e:
         logger.error(f"Unexpected error: {e}", exc_info=True)
+        if experiment_run:
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+            settings = get_settings()
+            tracker = ExperimentTracker(settings.experiments_dir)
+            tracker.finish_run(experiment_run, status="failed")
         return 1
 
 

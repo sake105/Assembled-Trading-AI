@@ -1,3 +1,8 @@
+# Monthly repository health check workflow
+#
+# Purpose: Monthly smoke test to verify repository structure and basic imports
+# Triggers: Scheduled (1st of month, 02:00 UTC) + manual dispatch
+# Status: Active - lightweight health monitoring
 name: Monthly Repo Health Check + Discord Alert
 
 on:

@@ -238,7 +238,11 @@ def run_eod_pipeline(
     price_file: str | None = None,
     commission_bps: float | None = None,
     spread_w: float | None = None,
-    impact_w: float | None = None
+    impact_w: float | None = None,
+    data_source: str | None = None,
+    symbols: list[str] | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
 ) -> dict[str, Any]:
     """Run full EOD pipeline for a given frequency.
     
@@ -249,10 +253,14 @@ def run_eod_pipeline(
         skip_portfolio: If True, skip portfolio step
         skip_qa: If True, skip QA step
         output_dir: Base output directory (default: None, uses config.OUTPUT_DIR)
-        price_file: Optional explicit path to price file
+        price_file: Optional explicit path to price file (for local source only)
         commission_bps: Commission in basis points (default: from cost model)
         spread_w: Spread weight (default: from cost model)
         impact_w: Impact weight (default: from cost model)
+        data_source: Data source type ("local" or "yahoo"). If None, uses settings.data_source
+        symbols: List of symbols to load. If None, uses default_universe from settings or watchlist
+        start_date: Start date in format "YYYY-MM-DD" or "today". If None, uses all available data
+        end_date: End date in format "YYYY-MM-DD" or "today". If None, uses all available data
     
     Returns:
         Dictionary with run manifest data
@@ -269,16 +277,72 @@ def run_eod_pipeline(
     completed_steps = []
     failure_flag = False
     
-    # Step 1: Check price data exists
+    # Step 1: Load price data (using data source abstraction)
     try:
-        if price_file:
-            prices = load_prices(freq, price_file=price_file, output_dir=base)
-        else:
-            prices = load_prices_with_fallback(freq, output_dir=base)
+        from src.assembled_core.config.settings import get_settings
+        from src.assembled_core.data.data_source import get_price_data_source
+        
+        settings = get_settings()
+        
+        # Determine data source
+        source_type = data_source if data_source is not None else settings.data_source
+        
+        # Determine symbols
+        if symbols is None:
+            # Try to read from watchlist file if it exists
+            if settings.watchlist_file.exists():
+                symbols = []
+                with open(settings.watchlist_file, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#"):
+                            symbols.append(line.upper())
+                if not symbols:
+                    symbols = settings.default_universe
+            else:
+                symbols = settings.default_universe
+        
+        # Determine date range
+        if start_date is None:
+            start_date = "2020-01-01"  # Default: use all available data
+        if end_date is None:
+            end_date = "today"  # Default: use current date
+        
+        # Get data source and load prices
+        price_source = get_price_data_source(
+            settings=settings,
+            data_source=source_type,
+            price_file=price_file
+        )
+        
+        logger.info(f"Loading prices from {source_type} source...")
+        logger.info(f"Symbols: {symbols[:10]}{'...' if len(symbols) > 10 else ''} ({len(symbols)} total)")
+        logger.info(f"Date range: {start_date} to {end_date}")
+        
+        prices = price_source.get_history(
+            symbols=symbols,
+            start_date=start_date,
+            end_date=end_date,
+            freq=freq
+        )
+        
         logger.info(f"Price data OK: {len(prices)} rows, {prices['symbol'].nunique()} symbols")
+        
+        # If using online source, optionally save to local file for caching
+        if source_type == "yahoo" and len(prices) > 0:
+            cache_path = base / "aggregates" / f"{freq}_live_cache.parquet"
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            prices.to_parquet(cache_path, index=False)
+            logger.info(f"Cached live data to {cache_path}")
+            
     except FileNotFoundError as e:
         logger.error(f"Price data not found: {e}")
         failure_flag = True
+        prices = pd.DataFrame()  # Empty DataFrame to prevent downstream errors
+    except Exception as e:
+        logger.error(f"Failed to load price data: {e}", exc_info=True)
+        failure_flag = True
+        prices = pd.DataFrame()  # Empty DataFrame to prevent downstream errors
     
     # Step 2: Execute
     try:

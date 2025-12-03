@@ -1,3 +1,8 @@
+# Nightly heartbeat/sync workflow
+#
+# Purpose: Daily heartbeat commit to track repository activity
+# Triggers: Scheduled (01:30 UTC daily) + manual dispatch
+# Status: Active - lightweight maintenance workflow
 name: Nightly Auto Sync
 
 on:

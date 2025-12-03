@@ -259,13 +259,88 @@ Phase 4 implementiert eine integrierte QA- und Backtest-Infrastruktur, die es er
 
 ---
 
-## Aktueller Status
+## Phase 12: "God-Level" Research & Evolution
 
-**Phase 1 - Sprint 1 & 2:** ✅ Abgeschlossen
+**Ziel:** Kontinuierlich lernendes System mit strukturiertem Research-Prozess.
+
+**Status:** ✅ Sprint 12.1, 12.2 & 12.3 abgeschlossen (Review-fähig)
+
+### Sprint 12.1: Research-Prozess & Roadmap
+
+**Status:** ✅ Abgeschlossen
+
+**Aufgaben:**
+- [x] Bestandsaufnahme bestehender Research-Artefakte
+- [x] Research-Roadmap erstellt (`docs/RESEARCH_ROADMAP.md`)
+- [x] Research-Ordner-Struktur angelegt (`research/`)
+- [x] Notebook-Templates für Experimente erstellt
+- [x] Dokumentation in README integriert
+
+**Ergebnisse:**
+- Strukturierte Research-Roadmap mit Zielbild, aktuellem Stand, 3–6-Monats-Fokus und konkretem Backlog
+- Research-Ordner mit Kategorien (trend/, meta/, altdata/, risk/)
+- Klare Arbeitsweise für Research-Experimente (Hypothese → Setup → Run → Auswertung → Doku)
+
+### Sprint 12.2: Experiment-Tracking
+
+**Status:** ✅ Abgeschlossen
+
+**Aufgaben:**
+- [x] Experiment-Tracking-Modul erstellt (`qa/experiment_tracking.py`)
+- [x] Settings erweitert (`experiments_dir`)
+- [x] Integration in Backtest (`run_backtest_strategy.py`)
+- [x] Integration in Meta-Model-Training (`cli.py train_meta_model`)
+- [x] CLI-Argumente hinzugefügt (`--track-experiment`, `--experiment-name`, `--experiment-tags`)
+- [x] Tests erstellt (`tests/test_experiment_tracking.py`)
+- [x] Dokumentation aktualisiert
+
+**Ergebnisse:**
+- Leichtgewichtiges Experiment-Tracking ohne externe Services
+- Runs werden in `experiments/{run_id}/` gespeichert
+- Struktur: `run.json` (Metadaten), `metrics.csv` (Zeitreihen-Metriken), `artifacts/` (Dateien)
+- Integration in Backtests und Meta-Model-Training
+- Vollständige Test-Suite (10 Tests, alle grün)
+
+### Sprint 12.3: Review-Vorbereitung
+
+**Status:** ✅ Abgeschlossen
+
+**Aufgaben:**
+- [x] Known Issues & TODOs eingesammelt
+- [x] KNOWN_ISSUES.md erstellt (funktionale Open Points, technische Schulden, Performance, Nice-to-Haves)
+- [x] REVIEW_GUIDE_BACKEND.md erstellt (Review-Anleitung für externe Reviewer)
+- [x] Issue-Template für Review-Feedback erstellt (`.github/ISSUE_TEMPLATE/review_feedback.md`)
+- [x] README aktualisiert (Links zu Review Guide und Known Issues)
+
+**Ergebnisse:**
+- Strukturierte Übersicht aller bekannten offenen Punkte
+- Klare Anleitung für externe Reviewer
+- Issue-Template für strukturiertes Feedback
+- Backend ist review-fähig
 
 **Nächste Schritte:**
-- Phase 2 - Sprint 3: Data Ingestion
-- Phase 2 - Sprint 4: Technical Analysis Features
+- Erste Research-Experimente durchführen (geplant)
+- Externe Reviews einholen
+
+---
+
+## Aktueller Status
+
+**Phase 1 - Sprint 1 & 2:** ✅ Abgeschlossen  
+**Phase 4:** ✅ Abgeschlossen (Backend Core)  
+**Phase 6:** ✅ Abgeschlossen (Event Features)  
+**Phase 7:** ✅ Abgeschlossen (ML-Meta-Layer)  
+**Phase 8:** ✅ Abgeschlossen (Risk Engine)  
+**Phase 9:** ✅ Abgeschlossen (Model Governance)  
+**Phase 10:** ✅ Abgeschlossen (Paper-Trading & OMS)  
+**Phase 11:** ✅ Abgeschlossen (Packaging, CI, Logging)  
+**Phase 12 - Sprint 12.1:** ✅ Abgeschlossen (Research-Roadmap)
+**Phase 12 - Sprint 12.2:** ✅ Abgeschlossen (Experiment-Tracking)
+**Phase 12 - Sprint 12.3:** ✅ Abgeschlossen (Review-Vorbereitung)
+
+**Nächste Schritte:**
+- Externe Reviews einholen
+- Erste Research-Experimente durchführen (geplant)
 
 ---
 
@@ -274,4 +349,6 @@ Phase 4 implementiert eine integrierte QA- und Backtest-Infrastruktur, die es er
 - [Backend Architecture](ARCHITECTURE_BACKEND.md) - Gesamtarchitektur
 - [Backend Modules](BACKEND_MODULES.md) - Modulübersicht
 - [Data Sources](DATA_SOURCES_BACKEND.md) - Datenquellen-Übersicht
+- [Research Roadmap](RESEARCH_ROADMAP.md) - Research-Prozess, Backlog, Fokus (Phase 12)
+- [Review Guide](REVIEW_GUIDE_BACKEND.md) - Anleitung für externe Reviewer (Phase 12.3)
 

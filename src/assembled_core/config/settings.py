@@ -84,6 +84,16 @@ class Settings(BaseSettings):
         description="Directory for log files"
     )
     
+    models_dir: Path = Field(
+        default_factory=lambda: Path(__file__).resolve().parents[3] / "models",
+        description="Directory for trained models (meta-models, etc.)"
+    )
+    
+    experiments_dir: Path = Field(
+        default_factory=lambda: Path(__file__).resolve().parents[3] / "experiments",
+        description="Directory for experiment tracking runs"
+    )
+    
     # File paths
     watchlist_file: Path = Field(
         default_factory=lambda: Path(__file__).resolve().parents[3] / "watchlist.txt",
@@ -118,6 +128,29 @@ class Settings(BaseSettings):
         description="Default starting capital for backtests"
     )
     
+    # Data source configuration
+    data_source: Literal["local", "yahoo"] = Field(
+        default="local",
+        description="Data source type: 'local' (Parquet files) or 'yahoo' (Yahoo Finance API)"
+    )
+    
+    # Local data root for Alt-Daten snapshots (optional)
+    # If set, Parquet files are loaded from <local_data_root>/<freq>/<symbol>.parquet
+    # If None, uses default behavior (output/aggregates/{freq}.parquet)
+    local_data_root: Path | None = Field(
+        default=None,
+        description="Root directory for Alt-Daten snapshots. "
+                    "If set, loads from <local_data_root>/<freq>/<symbol>.parquet. "
+                    "If None, uses default behavior (output/aggregates/{freq}.parquet). "
+                    "Override via ASSEMBLED_LOCAL_DATA_ROOT environment variable."
+    )
+    
+    # Default universe (used if no universe file provided)
+    default_universe: list[str] = Field(
+        default_factory=lambda: ["AAPL", "MSFT", "GOOGL"],
+        description="Default list of symbols to use if no universe file is provided"
+    )
+    
     model_config = SettingsConfigDict(
         env_prefix="ASSEMBLED_",  # Environment variables: ASSEMBLED_ENVIRONMENT, ASSEMBLED_OUTPUT_DIR, etc.
         case_sensitive=False,
@@ -143,6 +176,15 @@ class Settings(BaseSettings):
                 kwargs["sample_events_dir"] = base / "data" / "sample" / "events"
             if "sample_eod_file" not in kwargs:
                 kwargs["sample_eod_file"] = base / "data" / "sample" / "eod_sample.parquet"
+            if "models_dir" not in kwargs:
+                kwargs["models_dir"] = base / "models"
+            if "experiments_dir" not in kwargs:
+                kwargs["experiments_dir"] = base / "experiments"
+        
+        # Handle local_data_root (can be string from env var)
+        if "local_data_root" in kwargs and kwargs["local_data_root"] is not None:
+            if isinstance(kwargs["local_data_root"], str):
+                kwargs["local_data_root"] = Path(kwargs["local_data_root"]).resolve()
         
         super().__init__(**kwargs)
     
@@ -157,10 +199,18 @@ class Settings(BaseSettings):
         self.sample_data_dir = self.sample_data_dir.resolve()
         self.sample_events_dir = self.sample_events_dir.resolve()
         self.sample_eod_file = self.sample_eod_file.resolve()
+        self.models_dir = self.models_dir.resolve()
+        self.experiments_dir = self.experiments_dir.resolve()
         
-        # Create directories if they don't exist (except base_dir)
+        # Resolve local_data_root if set
+        if self.local_data_root is not None:
+            self.local_data_root = Path(self.local_data_root).resolve()
+        
+        # Create directories if they don't exist (except base_dir and local_data_root)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.logs_dir.mkdir(parents=True, exist_ok=True)
+        self.models_dir.mkdir(parents=True, exist_ok=True)
+        self.experiments_dir.mkdir(parents=True, exist_ok=True)
 
 
 # Global settings instance (singleton pattern)

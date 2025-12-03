@@ -28,9 +28,14 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from src.assembled_core.config.settings import RuntimeProfile, get_runtime_profile
-from src.assembled_core.logging_utils import setup_logging
+from src.assembled_core.logging_config import generate_run_id, setup_logging
 
-logger = setup_logging(level="INFO")
+# Initialize logging with Run-ID at module level
+# Individual subcommands may override with their own Run-ID
+_run_id = generate_run_id(prefix="cli")
+setup_logging(run_id=_run_id, level="INFO")
+import logging
+logger = logging.getLogger(__name__)
 
 # Project version (from pyproject.toml / __init__.py)
 __version__ = "0.0.1"
@@ -120,6 +125,11 @@ def run_daily_subcommand(args: argparse.Namespace) -> int:
         If orders are later routed to the Paper-Trading-API (Phase 10), the source
         field should be set to "CLI_EOD" to identify the origin.
     """
+    # Generate Run-ID for this execution
+    run_id = generate_run_id(prefix="eod")
+    setup_logging(run_id=run_id, level="INFO")
+    logger = logging.getLogger(__name__)
+    
     # Determine runtime profile (from CLI arg or default: DEV)
     profile = get_runtime_profile(
         profile=getattr(args, "profile", None),
@@ -128,20 +138,114 @@ def run_daily_subcommand(args: argparse.Namespace) -> int:
     
     logger.info("=" * 60)
     logger.info("EOD Pipeline (run_daily)")
+    logger.info(f"Run-ID: {run_id}")
     logger.info(f"Runtime Profile: {profile.value}")
     logger.info("=" * 60)
+    
+    # Initialize experiment_run to None (will be set if tracking is enabled)
+    experiment_run = None
+    
+    # Setup experiment tracking if enabled
+    if getattr(args, "track_experiment", False):
+        if not getattr(args, "experiment_name", None):
+            logger.error("--experiment-name is required when --track-experiment is set")
+            return 1
+        
+        from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+        from src.assembled_core.config.settings import get_settings
+        
+        settings = get_settings()
+        tracker = ExperimentTracker(settings.experiments_dir)
+        tags = getattr(args, "experiment_tags", "").split(",") if getattr(args, "experiment_tags", None) else []
+        tags = [t.strip() for t in tags if t.strip()]
+        
+        config = {
+            "freq": args.freq,
+            "data_source": getattr(args, "data_source", None) or settings.data_source,
+            "start_capital": getattr(args, "start_capital", 10000.0),
+            "symbols": getattr(args, "symbols", None),
+            "start_date": getattr(args, "start_date", None),
+            "end_date": getattr(args, "end_date", None),
+        }
+        
+        experiment_run = tracker.start_run(
+            name=args.experiment_name,
+            config=config,
+            tags=tags
+        )
+        
+        logger.info("")
+        logger.info("Experiment Tracking: ENABLED")
+        logger.info(f"  Run-ID: {experiment_run.run_id}")
+        logger.info(f"  Name: {experiment_run.name}")
+        logger.info(f"  Tags: {', '.join(experiment_run.tags) if experiment_run.tags else 'none'}")
+        logger.info(f"  Run Directory: {settings.experiments_dir / experiment_run.run_id}")
+        logger.info("")
     
     # Import here to avoid circular imports
     from scripts.run_eod_pipeline import run_eod_from_args
     
     try:
-        run_eod_from_args(args)
+        manifest = run_eod_from_args(args)
+        
+        # Log metrics to experiment tracking if enabled
+        if experiment_run and manifest:
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+            from src.assembled_core.config.settings import get_settings
+            
+            settings = get_settings()
+            tracker = ExperimentTracker(settings.experiments_dir)
+            
+            # Log pipeline metrics from manifest
+            metrics_dict = {}
+            if manifest.get("qa_metrics"):
+                qa_metrics = manifest["qa_metrics"]
+                if isinstance(qa_metrics, dict):
+                    metrics_dict.update({
+                        "total_return": qa_metrics.get("total_return", 0.0),
+                        "cagr": qa_metrics.get("cagr", 0.0),
+                        "sharpe_ratio": qa_metrics.get("sharpe_ratio", 0.0),
+                        "max_drawdown_pct": qa_metrics.get("max_drawdown_pct", 0.0),
+                        "total_trades": qa_metrics.get("total_trades", 0),
+                    })
+            
+            if metrics_dict:
+                tracker.log_metrics(experiment_run, metrics_dict)
+                logger.info(f"Logged metrics to experiment run {experiment_run.run_id}")
+            
+            # Log QA report as artifact if available
+            if manifest.get("qa_report_path"):
+                from pathlib import Path
+                report_path = settings.output_dir / manifest["qa_report_path"]
+                if report_path.exists():
+                    tracker.log_artifact(experiment_run, report_path, "qa_report.md")
+                    logger.info(f"Logged QA report as artifact to experiment run {experiment_run.run_id}")
+            
+            # Determine final status
+            final_status = "finished" if not manifest.get("failure") else "failed"
+            
+            # Finish run
+            tracker.finish_run(experiment_run, status=final_status)
+            logger.info(f"Experiment run {experiment_run.run_id} finished with status '{final_status}'.")
+        
         return 0
     except RuntimeError:
         # Expected error from run_eod_from_args when pipeline fails
+        if experiment_run:
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+            from src.assembled_core.config.settings import get_settings
+            settings = get_settings()
+            tracker = ExperimentTracker(settings.experiments_dir)
+            tracker.finish_run(experiment_run, status="failed")
         return 1
     except Exception as e:
         logger.error(f"EOD pipeline failed: {e}", exc_info=True)
+        if experiment_run:
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+            from src.assembled_core.config.settings import get_settings
+            settings = get_settings()
+            tracker = ExperimentTracker(settings.experiments_dir)
+            tracker.finish_run(experiment_run, status="failed")
         return 1
 
 
@@ -154,11 +258,17 @@ def build_ml_dataset_subcommand(args: argparse.Namespace) -> int:
     Returns:
         Exit code (0 for success, 1 for failure)
     """
+    # Generate Run-ID for this execution
+    run_id = generate_run_id(prefix="ml_dataset")
+    setup_logging(run_id=run_id, level="INFO")
+    logger = logging.getLogger(__name__)
+    
     # ML dataset building always uses BACKTEST profile
     profile = RuntimeProfile.BACKTEST
     
     logger.info("=" * 60)
     logger.info("ML Dataset Builder (build_ml_dataset)")
+    logger.info(f"Run-ID: {run_id}")
     logger.info(f"Runtime Profile: {profile.value}")
     logger.info("=" * 60)
     
@@ -179,58 +289,127 @@ def build_ml_dataset_subcommand(args: argparse.Namespace) -> int:
         logger.info(f"Frequency: {args.freq}")
         logger.info(f"Label Horizon: {args.label_horizon_days} days")
         logger.info(f"Success Threshold: {args.success_threshold:.2%}")
+        logger.info(f"Label Type: {args.label_type}")
         logger.info(f"Output Path: {output_path}")
+        logger.info(f"Output Format: {args.format}")
         
-        # Run backtest and get prices_with_features and trades
-        logger.info("")
-        logger.info("Running backtest...")
-        prices_with_features, trades = _run_backtest_for_ml_dataset(
-            strategy=args.strategy,
-            freq=args.freq,
-            price_file=args.price_file,
-            universe=args.universe,
-            start_capital=args.start_capital,
-            with_costs=args.with_costs,
-            output_dir=OUTPUT_DIR
-        )
+        # Determine if we should use the new build_ml_dataset_for_strategy() function
+        # Use it if start-date/end-date are provided OR if symbols are provided
+        use_new_builder = (args.start_date is not None or args.end_date is not None or args.symbols is not None)
         
-        if prices_with_features.empty:
-            logger.error("No price data with features available")
-            return 1
+        if use_new_builder:
+            # Use new high-level builder function
+            logger.info("")
+            logger.info("Using strategy-based dataset builder (build_ml_dataset_for_strategy)...")
+            
+            from src.assembled_core.qa.dataset_builder import build_ml_dataset_for_strategy, export_ml_dataset
+            
+            # Determine date range
+            if args.start_date is None:
+                # Use earliest available date (will be determined from data)
+                args.start_date = "2020-01-01"  # Fallback, will be filtered by available data
+            if args.end_date is None:
+                # Use latest available date
+                args.end_date = "2099-12-31"  # Fallback, will be filtered by available data
+            
+            # Determine universe
+            universe_list = None
+            if args.symbols:
+                universe_list = args.symbols
+            elif args.universe:
+                # Read universe file
+                universe_list = [line.strip().upper() for line in open(args.universe, "r").readlines() if line.strip()]
+            
+            # Build label params
+            label_params = {
+                "horizon_days": args.label_horizon_days,
+                "threshold_pct": args.success_threshold,
+                "label_type": args.label_type,
+            }
+            
+            # Build dataset
+            ml_dataset = build_ml_dataset_for_strategy(
+                strategy_name=args.strategy,
+                start_date=args.start_date,
+                end_date=args.end_date,
+                universe=universe_list,
+                universe_file=args.universe if not args.symbols else None,
+                label_params=label_params,
+                price_file=args.price_file,
+                freq=args.freq
+            )
+            
+            if ml_dataset.empty:
+                logger.error("ML dataset is empty")
+                return 1
+            
+            logger.info(f"ML dataset built: {len(ml_dataset)} records, {len(ml_dataset.columns)} columns")
+            
+            # Count labels
+            if "label" in ml_dataset.columns:
+                label_counts = ml_dataset["label"].value_counts()
+                logger.info(f"Label distribution: {dict(label_counts)}")
+            
+            # Export dataset
+            logger.info("")
+            logger.info("Exporting ML dataset...")
+            export_ml_dataset(ml_dataset, output_path, format=args.format)
         
-        if trades.empty:
-            logger.error("No trades generated from backtest")
-            return 1
-        
-        logger.info(f"Prices with features: {len(prices_with_features)} rows, {prices_with_features['symbol'].nunique()} symbols")
-        logger.info(f"Trades: {len(trades)} trades")
-        
-        # Build ML dataset
-        logger.info("")
-        logger.info("Building ML dataset...")
-        ml_dataset = build_ml_dataset_from_backtest(
-            prices_with_features=prices_with_features,
-            trades=trades,
-            label_horizon_days=args.label_horizon_days,
-            success_threshold=args.success_threshold,
-            feature_prefixes=("ta_", "insider_", "congress_", "shipping_", "news_")
-        )
-        
-        if ml_dataset.empty:
-            logger.error("ML dataset is empty")
-            return 1
-        
-        logger.info(f"ML dataset built: {len(ml_dataset)} records, {len(ml_dataset.columns)} columns")
-        
-        # Count labels
-        if "label" in ml_dataset.columns:
-            label_counts = ml_dataset["label"].value_counts()
-            logger.info(f"Label distribution: {dict(label_counts)}")
-        
-        # Save dataset
-        logger.info("")
-        logger.info("Saving ML dataset...")
-        save_ml_dataset(ml_dataset, output_path)
+        else:
+            # Use existing backtest-based builder (for backward compatibility)
+            logger.info("")
+            logger.info("Using backtest-based dataset builder (build_ml_dataset_from_backtest)...")
+            
+            # Run backtest and get prices_with_features and trades
+            logger.info("Running backtest...")
+            prices_with_features, trades = _run_backtest_for_ml_dataset(
+                strategy=args.strategy,
+                freq=args.freq,
+                price_file=args.price_file,
+                universe=args.universe,
+                start_capital=args.start_capital,
+                with_costs=args.with_costs,
+                output_dir=OUTPUT_DIR
+            )
+            
+            if prices_with_features.empty:
+                logger.error("No price data with features available")
+                return 1
+            
+            if trades.empty:
+                logger.error("No trades generated from backtest")
+                return 1
+            
+            logger.info(f"Prices with features: {len(prices_with_features)} rows, {prices_with_features['symbol'].nunique()} symbols")
+            logger.info(f"Trades: {len(trades)} trades")
+            
+            # Build ML dataset
+            logger.info("")
+            logger.info("Building ML dataset...")
+            ml_dataset = build_ml_dataset_from_backtest(
+                prices_with_features=prices_with_features,
+                trades=trades,
+                label_horizon_days=args.label_horizon_days,
+                success_threshold=args.success_threshold,
+                feature_prefixes=("ta_", "insider_", "congress_", "shipping_", "news_")
+            )
+            
+            if ml_dataset.empty:
+                logger.error("ML dataset is empty")
+                return 1
+            
+            logger.info(f"ML dataset built: {len(ml_dataset)} records, {len(ml_dataset.columns)} columns")
+            
+            # Count labels
+            if "label" in ml_dataset.columns:
+                label_counts = ml_dataset["label"].value_counts()
+                logger.info(f"Label distribution: {dict(label_counts)}")
+            
+            # Save dataset (use export_ml_dataset for format support)
+            logger.info("")
+            logger.info("Saving ML dataset...")
+            from src.assembled_core.qa.dataset_builder import export_ml_dataset
+            export_ml_dataset(ml_dataset, output_path, format=args.format)
         
         logger.info("")
         logger.info("=" * 60)
@@ -273,18 +452,75 @@ def run_backtest_subcommand(args: argparse.Namespace) -> int:
         
         This command automatically sets runtime profile to BACKTEST.
     """
+    # Generate Run-ID for this execution
+    run_id = generate_run_id(prefix="backtest")
+    setup_logging(run_id=run_id, level="INFO")
+    logger = logging.getLogger(__name__)
+    
     # Backtest always uses BACKTEST profile
     profile = RuntimeProfile.BACKTEST
     
     logger.info("=" * 60)
     logger.info("Strategy Backtest (run_backtest)")
+    logger.info(f"Run-ID: {run_id}")
     logger.info(f"Runtime Profile: {profile.value}")
     logger.info("=" * 60)
     
     # Import here to avoid circular imports
     from scripts.run_backtest_strategy import run_backtest_from_args
     
+    # Initialize experiment_run to None (will be set if tracking is enabled)
+    experiment_run = None
+    
     try:
+        # Setup experiment tracking if enabled
+        if args.track_experiment:
+            if not args.experiment_name:
+                logger.error("--experiment-name is required when --track-experiment is set")
+                return 1
+            
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+            settings = get_settings()
+            tracker = ExperimentTracker(settings.experiments_dir)
+            tags = args.experiment_tags.split(",") if args.experiment_tags else []
+            tags = [t.strip() for t in tags if t.strip()]
+            
+            config = {
+                "freq": args.freq,
+                "strategy": args.strategy,
+                "start_capital": args.start_capital,
+                "with_costs": args.with_costs,
+                "use_meta_model": args.use_meta_model,
+                "meta_model_path": str(args.meta_model_path) if args.meta_model_path else None,
+                "meta_ensemble_mode": args.meta_ensemble_mode,
+                "meta_min_confidence": args.meta_min_confidence,
+            }
+            
+            experiment_run = tracker.start_run(
+                name=args.experiment_name,
+                config=config,
+                tags=tags
+            )
+            
+            logger.info("")
+            logger.info("Experiment Tracking: ENABLED")
+            logger.info(f"  Run-ID: {experiment_run.run_id}")
+            logger.info(f"  Name: {experiment_run.name}")
+            logger.info(f"  Tags: {', '.join(experiment_run.tags) if experiment_run.tags else 'none'}")
+            logger.info(f"  Run Directory: {settings.experiments_dir / experiment_run.run_id}")
+            logger.info("")
+        
+        # Log meta-model status if enabled
+        if args.use_meta_model:
+            logger.info("")
+            logger.info("Meta-Model Ensemble: ENABLED")
+            logger.info(f"  Model Path: {args.meta_model_path}")
+            logger.info(f"  Min Confidence: {args.meta_min_confidence}")
+            logger.info(f"  Mode: {args.meta_ensemble_mode}")
+        else:
+            logger.info("")
+            logger.info("Meta-Model Ensemble: DISABLED (use --use-meta-model to enable)")
+        
         return run_backtest_from_args(args)
     except Exception as e:
         logger.error(f"Backtest failed: {e}", exc_info=True)
@@ -346,6 +582,9 @@ def _run_backtest_for_ml_dataset(
         output_dir = OUTPUT_DIR
     
     # Load price data
+    import logging
+    logger = logging.getLogger(__name__)
+    
     if price_file:
         logger.info(f"Loading prices from explicit file: {price_file}")
         prices = load_eod_prices(price_file=price_file, freq=freq)
@@ -476,6 +715,266 @@ def _run_backtest_for_ml_dataset(
     return prices_with_features, trades
 
 
+def train_meta_model_subcommand(args: argparse.Namespace) -> int:
+    """Train meta-model subcommand.
+    
+    Args:
+        args: Parsed command-line arguments for train_meta_model
+        
+    Returns:
+        Exit code (0 for success, 1 for failure)
+    """
+    # Generate Run-ID for this execution
+    run_id = generate_run_id(prefix="meta_model")
+    setup_logging(run_id=run_id, level="INFO")
+    logger = logging.getLogger(__name__)
+    
+    # ML model training always uses BACKTEST profile
+    profile = RuntimeProfile.BACKTEST
+    
+    logger.info("=" * 60)
+    logger.info("Meta-Model Training (train_meta_model)")
+    logger.info(f"Run-ID: {run_id}")
+    logger.info(f"Runtime Profile: {profile.value}")
+    logger.info("=" * 60)
+    
+    # Initialize experiment_run to None (will be set if tracking is enabled)
+    experiment_run = None
+    
+    try:
+        import pandas as pd
+        from src.assembled_core.config.settings import get_settings
+        from src.assembled_core.qa.dataset_builder import build_ml_dataset_for_strategy, export_ml_dataset
+        from src.assembled_core.qa.ml_evaluation import evaluate_meta_model, plot_calibration_curve
+        from src.assembled_core.signals.meta_model import load_meta_model, save_meta_model, train_meta_model
+        
+        settings = get_settings()
+        
+        # Setup experiment tracking if enabled
+        if args.track_experiment:
+            if not args.experiment_name:
+                logger.error("--experiment-name is required when --track-experiment is set")
+                return 1
+            
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+            tracker = ExperimentTracker(settings.experiments_dir)
+            tags = args.experiment_tags.split(",") if args.experiment_tags else []
+            tags = [t.strip() for t in tags if t.strip()]
+            
+            config = {
+                "model_type": args.model_type,
+                "label_horizon_days": args.label_horizon_days,
+                "success_threshold": args.success_threshold,
+            }
+            
+            if args.dataset_path:
+                config["dataset_path"] = str(args.dataset_path)
+            else:
+                config["strategy"] = args.strategy
+                config["freq"] = args.freq
+                config["start_date"] = args.start_date
+                config["end_date"] = args.end_date
+                if args.symbols:
+                    config["symbols"] = args.symbols
+            
+            experiment_run = tracker.start_run(
+                name=args.experiment_name,
+                config=config,
+                tags=tags
+            )
+            
+            logger.info("")
+            logger.info("Experiment Tracking: ENABLED")
+            logger.info(f"  Run-ID: {experiment_run.run_id}")
+            logger.info(f"  Name: {experiment_run.name}")
+            logger.info(f"  Tags: {', '.join(experiment_run.tags) if experiment_run.tags else 'none'}")
+            logger.info(f"  Run Directory: {settings.experiments_dir / experiment_run.run_id}")
+            logger.info("")
+        
+        # Load or build dataset
+        if args.dataset_path:
+            logger.info(f"Loading dataset from: {args.dataset_path}")
+            if args.dataset_path.suffix == ".parquet":
+                df = pd.read_parquet(args.dataset_path)
+            elif args.dataset_path.suffix == ".csv":
+                df = pd.read_csv(args.dataset_path)
+            else:
+                logger.error(f"Unsupported file format: {args.dataset_path.suffix}")
+                return 1
+            logger.info(f"Loaded dataset: {len(df)} rows, {len(df.columns)} columns")
+        else:
+            # Build dataset on-the-fly
+            if not args.strategy or not args.freq or not args.start_date or not args.end_date:
+                logger.error("If --dataset-path is not provided, --strategy, --freq, --start-date, and --end-date are required")
+                return 1
+            
+            logger.info("Building ML dataset on-the-fly...")
+            logger.info(f"Strategy: {args.strategy}")
+            logger.info(f"Frequency: {args.freq}")
+            logger.info(f"Date range: {args.start_date} to {args.end_date}")
+            logger.info(f"Label Horizon: {args.label_horizon_days} days")
+            logger.info(f"Success Threshold: {args.success_threshold:.2%}")
+            
+            df = build_ml_dataset_for_strategy(
+                strategy_name=args.strategy,
+                start_date=args.start_date,
+                end_date=args.end_date,
+                universe=args.symbols,
+                label_params={
+                    "horizon_days": args.label_horizon_days,
+                    "threshold_pct": args.success_threshold,
+                    "label_type": "binary_absolute",
+                },
+                freq=args.freq
+            )
+            
+            if df.empty:
+                logger.error("ML dataset is empty")
+                return 1
+            
+            logger.info(f"Built dataset: {len(df)} rows, {len(df.columns)} columns")
+        
+        # Validate dataset
+        if "label" not in df.columns:
+            logger.error("Dataset must contain 'label' column")
+            return 1
+        
+        # Train model
+        logger.info("")
+        logger.info("Training meta-model...")
+        logger.info(f"Model Type: {args.model_type}")
+        
+        meta_model = train_meta_model(
+            df=df,
+            feature_cols=None,  # Auto-detect
+            label_col="label",
+            model_type=args.model_type,
+            random_state=42
+        )
+        
+        logger.info(f"Model trained with {len(meta_model.feature_names)} features")
+        
+        # Evaluate on training set
+        logger.info("")
+        logger.info("Evaluating model on training set...")
+        X = df[meta_model.feature_names]
+        y_prob = meta_model.predict_proba(X)
+        y_true = df["label"]
+        
+        metrics = evaluate_meta_model(y_true, y_prob)
+        
+        logger.info("=" * 60)
+        logger.info("Evaluation Metrics:")
+        logger.info(f"  ROC-AUC: {metrics['roc_auc']:.4f}" if not pd.isna(metrics['roc_auc']) else "  ROC-AUC: N/A")
+        logger.info(f"  Brier Score: {metrics['brier_score']:.4f}")
+        logger.info(f"  Log Loss: {metrics['log_loss']:.4f}" if not pd.isna(metrics['log_loss']) else "  Log Loss: N/A")
+        logger.info("=" * 60)
+        
+        # Save model
+        if args.output_model_path:
+            model_path = args.output_model_path
+        else:
+            # Default path based on strategy
+            strategy_name = args.strategy if args.strategy else "unknown"
+            model_dir = settings.models_dir / "meta"
+            model_dir.mkdir(parents=True, exist_ok=True)
+            model_path = model_dir / f"{strategy_name}_meta_model.joblib"
+        
+        logger.info("")
+        logger.info(f"Saving model to: {model_path}")
+        save_meta_model(meta_model, model_path)
+        
+        # Plot calibration curve
+        logger.info("")
+        logger.info("Generating calibration curve...")
+        calibration_dir = settings.output_dir / "reports" / "meta"
+        calibration_dir.mkdir(parents=True, exist_ok=True)
+        calibration_path = calibration_dir / f"{model_path.stem}_calibration.png"
+        plot_calibration_curve(y_true, y_prob, calibration_path)
+        logger.info(f"Calibration curve saved to: {calibration_path}")
+        
+        logger.info("")
+        logger.info("=" * 60)
+        logger.info("Meta-Model Training Complete")
+        logger.info("=" * 60)
+        logger.info(f"Model: {model_path}")
+        logger.info(f"Features: {len(meta_model.feature_names)}")
+        logger.info(f"Training Samples: {len(df)}")
+        logger.info("=" * 60)
+        
+        # Log metrics to experiment tracking if enabled
+        if experiment_run:
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+            settings = get_settings()
+            tracker = ExperimentTracker(settings.experiments_dir)
+            
+            # Log evaluation metrics
+            metrics_dict = {
+                "brier_score": metrics["brier_score"],
+            }
+            if not pd.isna(metrics["roc_auc"]):
+                metrics_dict["roc_auc"] = metrics["roc_auc"]
+            if not pd.isna(metrics["log_loss"]):
+                metrics_dict["log_loss"] = metrics["log_loss"]
+            
+            tracker.log_metrics(experiment_run, metrics_dict)
+            
+            # Log artifacts
+            if model_path.exists():
+                tracker.log_artifact(experiment_run, model_path, "meta_model.joblib")
+            if calibration_path.exists():
+                tracker.log_artifact(experiment_run, calibration_path, "calibration_curve.png")
+            
+            # Finish run
+            tracker.finish_run(experiment_run, status="finished")
+            logger.info("")
+            logger.info(f"Experiment run completed: {experiment_run.run_id}")
+        
+        return 0
+    
+    except FileNotFoundError as e:
+        logger.error(f"File not found: {e}")
+        if experiment_run:
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+            settings = get_settings()
+            tracker = ExperimentTracker(settings.experiments_dir)
+            tracker.finish_run(experiment_run, status="failed")
+        return 1
+    except ValueError as e:
+        logger.error(f"Invalid input: {e}")
+        if experiment_run:
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+            settings = get_settings()
+            tracker = ExperimentTracker(settings.experiments_dir)
+            tracker.finish_run(experiment_run, status="failed")
+        return 1
+    except ImportError as e:
+        logger.error(f"Missing dependency: {e}")
+        logger.error("Install scikit-learn with: pip install scikit-learn")
+        if experiment_run:
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+            settings = get_settings()
+            tracker = ExperimentTracker(settings.experiments_dir)
+            tracker.finish_run(experiment_run, status="failed")
+        return 1
+    except KeyboardInterrupt:
+        logger.warning("Interrupted by user")
+        if experiment_run:
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+            settings = get_settings()
+            tracker = ExperimentTracker(settings.experiments_dir)
+            tracker.finish_run(experiment_run, status="failed")
+        return 1
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        if experiment_run:
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+            settings = get_settings()
+            tracker = ExperimentTracker(settings.experiments_dir)
+            tracker.finish_run(experiment_run, status="failed")
+        return 1
+
+
 def run_phase4_tests_subcommand(args: argparse.Namespace) -> int:
     """Run Phase-4 test suite subcommand.
     
@@ -604,14 +1103,29 @@ Examples:
         type=str,
         default=None,
         metavar="YYYY-MM-DD",
-        help="Start date for price data filtering (optional)"
+        help="Start date for price data filtering (YYYY-MM-DD or 'today', optional)"
     )
     daily_parser.add_argument(
         "--end-date",
         type=str,
         default=None,
         metavar="YYYY-MM-DD",
-        help="End date for price data filtering (optional)"
+        help="End date for price data filtering (YYYY-MM-DD or 'today', optional). Use 'today' for live data."
+    )
+    daily_parser.add_argument(
+        "--data-source",
+        type=str,
+        choices=["local", "yahoo"],
+        default=None,
+        help="Data source type: 'local' (Parquet files) or 'yahoo' (Yahoo Finance API). Default: from settings.data_source"
+    )
+    daily_parser.add_argument(
+        "--symbols",
+        type=str,
+        nargs="+",
+        default=None,
+        metavar="SYMBOL",
+        help="List of symbols to load (e.g., --symbols AAPL MSFT GOOGL). Overrides universe file."
     )
     daily_parser.add_argument(
         "--start-capital",
@@ -671,6 +1185,27 @@ Examples:
         metavar="PROFILE",
         help="Runtime profile: BACKTEST (offline), PAPER (simulated), or DEV (development, default)"
     )
+    # Experiment tracking arguments
+    daily_parser.add_argument(
+        "--track-experiment",
+        action="store_true",
+        default=False,
+        help="Enable experiment tracking (stores run config, metrics, and artifacts)"
+    )
+    daily_parser.add_argument(
+        "--experiment-name",
+        type=str,
+        default=None,
+        metavar="NAME",
+        help="Name for the experiment run (required if --track-experiment is set)"
+    )
+    daily_parser.add_argument(
+        "--experiment-tags",
+        type=str,
+        default=None,
+        metavar="TAGS",
+        help="Comma-separated tags for the experiment (e.g., 'daily,live,yahoo')"
+    )
     daily_parser.set_defaults(func=run_daily_subcommand)
     
     # run_backtest subcommand
@@ -706,6 +1241,43 @@ Examples:
         default=None,
         metavar="FILE",
         help="Path to universe file (default: watchlist.txt in repo root)"
+    )
+    backtest_parser.add_argument(
+        "--symbols",
+        type=str,
+        nargs="+",
+        default=None,
+        metavar="SYMBOL",
+        help="List of symbols to load (e.g., --symbols NVDA AAPL MSFT). Priority: --symbols > --symbols-file > --universe."
+    )
+    backtest_parser.add_argument(
+        "--symbols-file",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Path to text file with one symbol per line (e.g., config/universe_ai_tech_tickers.txt). "
+             "Priority: --symbols > --symbols-file > --universe."
+    )
+    backtest_parser.add_argument(
+        "--data-source",
+        type=str,
+        choices=["local", "yahoo"],
+        default=None,
+        help="Data source type: 'local' (Parquet files) or 'yahoo' (Yahoo Finance API). Default: from settings.data_source"
+    )
+    backtest_parser.add_argument(
+        "--start-date",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Start date for data loading (default: use all available data)"
+    )
+    backtest_parser.add_argument(
+        "--end-date",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="End date for data loading (default: use all available data)"
     )
     backtest_parser.add_argument(
         "--strategy",
@@ -767,6 +1339,55 @@ Examples:
         action="store_true",
         default=False,
         help="Generate QA report after backtest"
+    )
+    # Meta-model ensemble arguments
+    backtest_parser.add_argument(
+        "--use-meta-model",
+        action="store_true",
+        default=False,
+        help="Enable meta-model ensemble (filter signals by confidence score)"
+    )
+    backtest_parser.add_argument(
+        "--meta-model-path",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Path to trained meta-model file (required if --use-meta-model is set)"
+    )
+    backtest_parser.add_argument(
+        "--meta-min-confidence",
+        type=float,
+        default=0.5,
+        metavar="THRESHOLD",
+        help="Minimum confidence threshold for meta-model filter (default: 0.5)"
+    )
+    backtest_parser.add_argument(
+        "--meta-ensemble-mode",
+        type=str,
+        choices=["filter", "scaling"],
+        default="filter",
+        help="Meta-model ensemble mode: 'filter' (remove low-confidence signals) or 'scaling' (scale positions by confidence, default: 'filter')"
+    )
+    # Experiment tracking arguments
+    backtest_parser.add_argument(
+        "--track-experiment",
+        action="store_true",
+        default=False,
+        help="Enable experiment tracking (stores run config, metrics, and artifacts)"
+    )
+    backtest_parser.add_argument(
+        "--experiment-name",
+        type=str,
+        default=None,
+        metavar="NAME",
+        help="Name for the experiment run (required if --track-experiment is set)"
+    )
+    backtest_parser.add_argument(
+        "--experiment-tags",
+        type=str,
+        default=None,
+        metavar="TAGS",
+        help="Comma-separated tags for the experiment (e.g., 'trend,baseline,ma20_50')"
     )
     backtest_parser.set_defaults(func=run_backtest_subcommand)
     
@@ -852,7 +1473,157 @@ Examples:
         metavar="FILE",
         help="Output path for ML dataset (default: output/ml_datasets/<strategy>_<freq>.parquet)"
     )
+    ml_dataset_parser.add_argument(
+        "--start-date",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Start date for dataset (default: use all available data)"
+    )
+    ml_dataset_parser.add_argument(
+        "--end-date",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="End date for dataset (default: use all available data)"
+    )
+    ml_dataset_parser.add_argument(
+        "--symbols",
+        type=str,
+        nargs="+",
+        default=None,
+        metavar="SYMBOL",
+        help="List of symbols to include (e.g., --symbols AAPL MSFT GOOGL). Overrides --universe."
+    )
+    ml_dataset_parser.add_argument(
+        "--label-type",
+        type=str,
+        choices=["binary_absolute", "binary_outperformance", "multi_class"],
+        default="binary_absolute",
+        help="Label type: binary_absolute (default), binary_outperformance, or multi_class"
+    )
+    ml_dataset_parser.add_argument(
+        "--format",
+        type=str,
+        choices=["parquet", "csv"],
+        default="parquet",
+        help="Output format: parquet (default) or csv"
+    )
     ml_dataset_parser.set_defaults(func=build_ml_dataset_subcommand)
+    
+    # train_meta_model subcommand
+    train_meta_parser = subparsers.add_parser(
+        "train_meta_model",
+        help="Train meta-model for setup success prediction",
+        description="Trains a meta-model that predicts the success probability (confidence_score) of trading setups.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Train from existing dataset
+  python scripts/cli.py train_meta_model --dataset-path output/ml_datasets/trend_baseline_1d.parquet
+  
+  # Build dataset and train in one step
+  python scripts/cli.py train_meta_model --strategy trend_baseline --freq 1d --start-date 2024-01-01 --end-date 2024-12-31
+  
+  # Train with custom model type
+  python scripts/cli.py train_meta_model --dataset-path output/ml_datasets/trend_baseline_1d.parquet --model-type random_forest
+        """
+    )
+    train_meta_parser.add_argument(
+        "--dataset-path",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Path to existing ML dataset (Parquet or CSV). If not provided, dataset will be built on-the-fly."
+    )
+    train_meta_parser.add_argument(
+        "--strategy",
+        type=str,
+        default=None,
+        choices=["trend_baseline", "event_insider_shipping"],
+        metavar="NAME",
+        help="Strategy name (required if --dataset-path is not provided): 'trend_baseline' or 'event_insider_shipping'"
+    )
+    train_meta_parser.add_argument(
+        "--freq",
+        type=str,
+        default=None,
+        choices=["1d", "5min"],
+        metavar="FREQ",
+        help="Trading frequency (required if --dataset-path is not provided): '1d' or '5min'"
+    )
+    train_meta_parser.add_argument(
+        "--start-date",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Start date for dataset (required if --dataset-path is not provided)"
+    )
+    train_meta_parser.add_argument(
+        "--end-date",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="End date for dataset (required if --dataset-path is not provided)"
+    )
+    train_meta_parser.add_argument(
+        "--symbols",
+        type=str,
+        nargs="+",
+        default=None,
+        metavar="SYMBOL",
+        help="List of symbols to include (optional, for on-the-fly dataset building)"
+    )
+    train_meta_parser.add_argument(
+        "--model-type",
+        type=str,
+        choices=["gradient_boosting", "random_forest"],
+        default="gradient_boosting",
+        help="Model type: 'gradient_boosting' (default) or 'random_forest'"
+    )
+    train_meta_parser.add_argument(
+        "--output-model-path",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Output path for trained model (default: models/meta/<strategy>_meta_model.joblib)"
+    )
+    train_meta_parser.add_argument(
+        "--label-horizon-days",
+        type=int,
+        default=10,
+        metavar="DAYS",
+        help="Label horizon in days (for on-the-fly dataset building, default: 10)"
+    )
+    train_meta_parser.add_argument(
+        "--success-threshold",
+        type=float,
+        default=0.05,
+        metavar="THRESHOLD",
+        help="Success threshold (for on-the-fly dataset building, default: 0.05 = 5%%)"
+    )
+    # Experiment tracking arguments
+    train_meta_parser.add_argument(
+        "--track-experiment",
+        action="store_true",
+        default=False,
+        help="Enable experiment tracking (stores run config, metrics, and artifacts)"
+    )
+    train_meta_parser.add_argument(
+        "--experiment-name",
+        type=str,
+        default=None,
+        metavar="NAME",
+        help="Name for the experiment run (required if --track-experiment is set)"
+    )
+    train_meta_parser.add_argument(
+        "--experiment-tags",
+        type=str,
+        default=None,
+        metavar="TAGS",
+        help="Comma-separated tags for the experiment (e.g., 'meta_model,gradient_boosting')"
+    )
+    train_meta_parser.set_defaults(func=train_meta_model_subcommand)
     
     # run_phase4_tests subcommand
     tests_parser = subparsers.add_parser(
