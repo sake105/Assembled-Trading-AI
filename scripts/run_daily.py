@@ -33,6 +33,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from src.assembled_core.config import OUTPUT_DIR
+from src.assembled_core.config.settings import get_settings
 from src.assembled_core.data.prices_ingest import load_eod_prices, load_eod_prices_for_universe
 from src.assembled_core.execution.order_generation import generate_orders_from_signals
 from src.assembled_core.execution.safe_bridge import write_safe_orders_csv
@@ -225,20 +226,27 @@ def run_daily_eod(
         logger.error(f"Invalid date format: {e}")
         sys.exit(1)
     
-    # Determine output directory
-    out_dir = Path(output_dir) if output_dir else OUTPUT_DIR
+    # Determine output directory (use settings if not provided)
+    if output_dir:
+        out_dir = Path(output_dir)
+    else:
+        settings = get_settings()
+        out_dir = settings.output_dir
     out_dir.mkdir(parents=True, exist_ok=True)
     
     logger.info(f"Starting EOD-MVP for {target_date.strftime('%Y-%m-%d')}")
     logger.info(f"Output directory: {out_dir}")
     
-    # Step 1: Load universe symbols (if universe_file provided)
+    # Step 1: Load universe symbols (if universe_file provided, else use default from settings)
     universe_symbols = []
     if universe_file:
         universe_path = Path(universe_file)
-        if not universe_path.exists():
-            logger.error(f"Universe file not found: {universe_path}")
-            sys.exit(1)
+    else:
+        # Use default watchlist from settings
+        settings = get_settings()
+        universe_path = settings.watchlist_file
+    
+    if universe_path and universe_path.exists():
         
         # Read symbols from universe file
         try:
@@ -486,7 +494,7 @@ def main() -> None:
         "--universe",
         type=str,
         default=None,
-        help="Path to universe file (default: watchlist.txt)"
+        help="Path to universe file (default: from settings.watchlist_file, typically watchlist.txt)"
     )
     p.add_argument(
         "--price-file",
@@ -497,8 +505,8 @@ def main() -> None:
     p.add_argument(
         "--out",
         type=str,
-        default=str(OUTPUT_DIR),
-        help="Output directory (default: from config)"
+        default=None,
+        help="Output directory (default: from settings.output_dir)"
     )
     p.add_argument(
         "--total-capital",
@@ -553,7 +561,7 @@ def main() -> None:
             date_str=args.date,
             universe_file=Path(args.universe) if args.universe else None,
             price_file=Path(args.price_file) if args.price_file else None,
-            output_dir=Path(args.out),
+            output_dir=Path(args.out) if args.out else None,
             total_capital=args.total_capital,
             top_n=args.top_n,
             ma_fast=args.ma_fast,

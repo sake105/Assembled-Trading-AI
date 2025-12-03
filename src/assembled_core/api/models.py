@@ -74,6 +74,36 @@ class Signal(BaseModel):
     )
 
 
+class SignalsResponse(BaseModel):
+    """Signals response with list of signals and summary."""
+    frequency: str = Field(..., description="Trading frequency")
+    signals: list[Signal] = Field(..., description="List of signals")
+    count: int = Field(..., description="Total number of signals")
+    first_timestamp: Optional[datetime] = Field(None, description="First signal timestamp")
+    last_timestamp: Optional[datetime] = Field(None, description="Last signal timestamp")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "frequency": "1d",
+                "signals": [
+                    {
+                        "timestamp": "2025-11-28T14:30:00Z",
+                        "symbol": "AAPL",
+                        "signal_type": "BUY",
+                        "price": 278.58,
+                        "ema_fast": 279.2,
+                        "ema_slow": 277.8
+                    }
+                ],
+                "count": 1,
+                "first_timestamp": "2025-11-28T14:30:00Z",
+                "last_timestamp": "2025-11-28T14:30:00Z"
+            }
+        }
+    )
+
+
 # ============================================================================
 # Order Models
 # ============================================================================
@@ -109,9 +139,44 @@ class OrderPreview(BaseModel):
                 "timestamp": "2025-11-28T14:30:00Z",
                 "symbol": "AAPL",
                 "side": "BUY",
-                "qty": 1.0,
+                "qty": 10.0,
                 "price": 278.58,
-                "notional": 278.58
+                "notional": 2785.80
+            }
+        }
+    )
+
+
+class OrdersResponse(BaseModel):
+    """Orders response with list of orders and summary.
+    
+    Response from GET /api/v1/orders/{freq} endpoint.
+    """
+    frequency: str = Field(..., description="Trading frequency ('1d' or '5min')")
+    orders: list[OrderPreview] = Field(..., description="List of orders")
+    count: int = Field(..., description="Total number of orders")
+    total_notional: float = Field(..., description="Total notional value of all orders")
+    first_timestamp: Optional[datetime] = Field(None, description="First order timestamp")
+    last_timestamp: Optional[datetime] = Field(None, description="Last order timestamp")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "frequency": "1d",
+                "orders": [
+                    {
+                        "timestamp": "2025-11-28T14:30:00Z",
+                        "symbol": "AAPL",
+                        "side": "BUY",
+                        "qty": 10.0,
+                        "price": 278.58,
+                        "notional": 2785.80
+                    }
+                ],
+                "count": 1,
+                "total_notional": 2785.80,
+                "first_timestamp": "2025-11-28T14:30:00Z",
+                "last_timestamp": "2025-11-28T14:30:00Z"
             }
         }
     )
@@ -122,53 +187,51 @@ class OrderPreview(BaseModel):
 # ============================================================================
 
 class PortfolioSnapshot(BaseModel):
-    """Current portfolio state snapshot.
+    """Portfolio snapshot at a given point in time.
     
     Derived from:
-    - output/portfolio_equity_{freq}.csv (latest row)
     - output/portfolio_report.md (metrics)
-    - output/orders_{freq}.csv (position calculation)
+    - output/portfolio_equity_{freq}.csv (equity curve)
+    - output/orders_{freq}.csv (current positions inferred from orders)
     """
     timestamp: datetime = Field(..., description="Snapshot timestamp (UTC)")
-    equity: float = Field(..., description="Total portfolio equity")
-    cash: float = Field(..., description="Cash position")
-    positions: dict[str, float] = Field(..., description="Symbol -> quantity mapping")
+    total_equity: float = Field(..., description="Total portfolio equity")
+    cash: Optional[float] = Field(None, description="Cash balance")
+    positions: dict[str, float] = Field(..., description="Position sizes by symbol (quantity)")
     performance_factor: float = Field(..., alias="pf", description="Final PF from portfolio_report.md")
-    sharpe: Optional[float] = Field(None, description="Sharpe ratio")
-    total_trades: int = Field(..., description="Total number of trades")
-    start_capital: float = Field(..., description="Starting capital")
-    
-    model_config = ConfigDict(
-        populate_by_name=True,
-        json_schema_extra={
-            "example": {
-                "timestamp": "2025-11-28T16:00:00Z",
-                "equity": 10050.25,
-                "cash": 9721.67,
-                "positions": {"AAPL": 1.0, "MSFT": 0.0},
-                "pf": 1.0050,
-                "sharpe": 0.1566,
-                "total_trades": 2,
-                "start_capital": 10000.0
-            }
-        }
-    )
-
-
-class EquityPoint(BaseModel):
-    """Single point in equity curve.
-    
-    Derived from: output/equity_curve_{freq}.csv or output/portfolio_equity_{freq}.csv
-    Schema: timestamp, equity
-    """
-    timestamp: datetime = Field(..., description="Timestamp (UTC)")
-    equity: float = Field(..., description="Portfolio equity at this timestamp")
     
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "timestamp": "2025-11-28T14:30:00Z",
-                "equity": 10000.0
+                "total_equity": 11250.50,
+                "cash": 250.50,
+                "positions": {"AAPL": 10.0, "MSFT": 5.0},
+                "pf": 1.12505
+            }
+        }
+    )
+
+
+# ============================================================================
+# Performance Models
+# ============================================================================
+
+class PerformanceSummary(BaseModel):
+    """Simplified performance summary.
+    
+    Derived from:
+    - output/performance_report_{freq}.md (Sharpe)
+    - output/portfolio_report.md (PF, trades)
+    """
+    performance_factor: float = Field(..., alias="pf", description="Final PF from portfolio_report.md")
+    sharpe_ratio: Optional[float] = Field(None, description="Sharpe ratio from performance_report")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "pf": 1.1250,
+                "sharpe_ratio": 1.2345
             }
         }
     )
@@ -179,80 +242,72 @@ class EquityPoint(BaseModel):
 # ============================================================================
 
 class RiskMetrics(BaseModel):
-    """Risk metrics for portfolio.
+    """Risk metrics summary.
     
-    Derived from:
-    - output/equity_curve_{freq}.csv (drawdown calculation)
-    - output/portfolio_equity_{freq}.csv (volatility)
-    - output/performance_report_{freq}.md (Sharpe)
+    Derived from: portfolio equity curve and risk_metrics module.
     """
-    sharpe_ratio: Optional[float] = Field(None, description="Sharpe ratio from performance_report")
-    max_drawdown: float = Field(..., description="Maximum drawdown (negative value)")
-    max_drawdown_pct: float = Field(..., description="Maximum drawdown in percent")
+    sharpe_ratio: Optional[float] = Field(None, description="Sharpe ratio (annualized)")
+    max_drawdown: float = Field(..., description="Maximum drawdown (absolute, negative value)")
+    max_drawdown_pct: float = Field(..., description="Maximum drawdown (percent, negative value)")
     volatility: Optional[float] = Field(None, description="Volatility (annualized)")
-    current_drawdown: float = Field(..., description="Current drawdown from peak")
+    current_drawdown: float = Field(..., description="Current drawdown (absolute)")
     var_95: Optional[float] = Field(None, description="Value at Risk (95% confidence)")
     
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "sharpe_ratio": 0.1566,
-                "max_drawdown": -50.25,
-                "max_drawdown_pct": -0.5025,
-                "volatility": 0.15,
-                "current_drawdown": -25.0,
-                "var_95": -100.0
+                "sharpe_ratio": 1.2345,
+                "max_drawdown": -150.25,
+                "max_drawdown_pct": -15.025,
+                "volatility": 0.18,
+                "current_drawdown": -50.0,
+                "var_95": -200.0
             }
         }
     )
 
 
 # ============================================================================
-# QA/QC Models
+# QA Models
 # ============================================================================
 
 class QaCheck(BaseModel):
-    """Individual QA/QC check result.
-    
-    Derived from: QC checks on output/aggregates/{freq}.parquet
-    """
+    """Individual QA check result."""
     check_name: str = Field(..., description="Name of the check")
-    status: QaStatusEnum = Field(..., description="OK, WARNING, or ERROR")
-    message: str = Field(..., description="Check result message")
-    details: Optional[dict] = Field(None, description="Additional check details")
+    status: QaStatusEnum = Field(..., description="Check status")
+    message: str = Field(..., description="Check message")
+    details: Optional[dict[str, Any]] = Field(None, description="Additional check details")
     
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "check_name": "schema_validation",
+                "check_name": "data_quality",
                 "status": "ok",
-                "message": "Schema correct: symbol, timestamp, close",
-                "details": {"columns": ["symbol", "timestamp", "close"]}
+                "message": "All data checks passed",
+                "details": {"missing_values": 0, "outliers": 0}
             }
         }
     )
 
 
 class QaStatus(BaseModel):
-    """Overall QA/QC status for pipeline outputs.
-    
-    Derived from: QC checks on all pipeline outputs
-    """
-    overall_status: QaStatusEnum = Field(..., description="Overall status")
-    timestamp: datetime = Field(..., description="QC check timestamp")
+    """QA/Health check status."""
+    overall_status: QaStatusEnum = Field(..., description="Overall QA status")
+    timestamp: datetime = Field(..., description="Status timestamp (UTC)")
     checks: list[QaCheck] = Field(..., description="List of individual checks")
-    summary: dict[str, int] = Field(..., description="Summary: ok_count, warning_count, error_count")
+    summary: dict[str, int] = Field(..., description="Summary counts: {'ok': N, 'warning': M, 'error': K}")
     
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "overall_status": "ok",
-                "timestamp": "2025-11-28T16:00:00Z",
+                "timestamp": "2025-11-28T14:30:00Z",
                 "checks": [
                     {
-                        "check_name": "schema_validation",
+                        "check_name": "data_quality",
                         "status": "ok",
-                        "message": "Schema correct"
+                        "message": "All data checks passed",
+                        "details": {}
                     }
                 ],
                 "summary": {"ok": 5, "warning": 0, "error": 0}
@@ -262,40 +317,47 @@ class QaStatus(BaseModel):
 
 
 # ============================================================================
-# Response Wrappers
+# Performance Metrics Models
 # ============================================================================
 
-class SignalsResponse(BaseModel):
-    """Response for signals endpoint."""
-    frequency: Frequency = Field(..., description="Trading frequency")
-    signals: list[Signal] = Field(..., description="List of signals")
-    count: int = Field(..., description="Total number of signals")
-    first_timestamp: Optional[datetime] = Field(None, description="First signal timestamp")
-    last_timestamp: Optional[datetime] = Field(None, description="Last signal timestamp")
-
-
-class OrdersResponse(BaseModel):
-    """Response for orders endpoint."""
-    frequency: Frequency = Field(..., description="Trading frequency")
-    orders: list[OrderPreview] = Field(..., description="List of orders")
-    count: int = Field(..., description="Total number of orders")
-    total_notional: float = Field(..., description="Total notional value")
-    first_timestamp: Optional[datetime] = Field(None, description="First order timestamp")
-    last_timestamp: Optional[datetime] = Field(None, description="Last order timestamp")
+class EquityPoint(BaseModel):
+    """Single equity curve point."""
+    timestamp: datetime = Field(..., description="Timestamp")
+    equity: float = Field(..., description="Equity value")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "timestamp": "2023-01-01T00:00:00Z",
+                "equity": 10000.0
+            }
+        }
+    )
 
 
 class EquityCurveResponse(BaseModel):
-    """Response for equity curve endpoint."""
-    frequency: Frequency = Field(..., description="Trading frequency")
-    points: list[EquityPoint] = Field(..., description="Equity curve points")
+    """Equity curve response."""
+    frequency: str = Field(..., description="Trading frequency")
+    points: list[EquityPoint] = Field(..., description="List of equity curve points")
     count: int = Field(..., description="Number of points")
     start_equity: float = Field(..., description="Starting equity")
     end_equity: float = Field(..., description="Ending equity")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "frequency": "1d",
+                "points": [
+                    {"timestamp": "2023-01-01T00:00:00Z", "equity": 10000.0},
+                    {"timestamp": "2023-01-02T00:00:00Z", "equity": 10100.0}
+                ],
+                "count": 2,
+                "start_equity": 10000.0,
+                "end_equity": 11250.0
+            }
+        }
+    )
 
-
-# ============================================================================
-# QA Performance & Gates Models
-# ============================================================================
 
 class PerformanceMetricsResponse(BaseModel):
     """Performance metrics response.
@@ -418,6 +480,232 @@ class QAGatesSummaryResponse(BaseModel):
                         "details": {"sharpe_ratio": 1.2345, "min_sharpe": 1.0}
                     }
                 ]
+            }
+        }
+    )
+
+
+# ============================================================================
+# Monitoring Models
+# ============================================================================
+
+class QAStatusSummary(BaseModel):
+    """Simplified QA status summary for monitoring.
+    
+    Provides a quick overview of QA gate results and key metrics.
+    """
+    overall_result: str = Field(..., description="Overall QA gate result: 'OK', 'WARNING', or 'BLOCK'")
+    gate_counts: dict[str, int] = Field(..., description="Gate counts: {'ok': N, 'warning': M, 'block': K}")
+    key_metrics: dict[str, Optional[float]] = Field(
+        ...,
+        description="Key performance metrics: sharpe_ratio, max_drawdown_pct, total_return, cagr"
+    )
+    last_updated: Optional[datetime] = Field(None, description="Timestamp of last QA evaluation")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "overall_result": "OK",
+                "gate_counts": {"ok": 5, "warning": 1, "block": 0},
+                "key_metrics": {
+                    "sharpe_ratio": 1.2345,
+                    "max_drawdown_pct": -15.025,
+                    "total_return": 0.1250,
+                    "cagr": 0.1523
+                },
+                "last_updated": "2025-11-28T14:30:00Z"
+            }
+        }
+    )
+
+
+class RiskStatusSummary(BaseModel):
+    """Simplified risk status summary for monitoring.
+    
+    Provides a quick overview of risk metrics from the last portfolio report.
+    """
+    sharpe_ratio: Optional[float] = Field(None, description="Sharpe ratio (annualized)")
+    max_drawdown_pct: Optional[float] = Field(None, description="Maximum drawdown (percent, negative value)")
+    volatility: Optional[float] = Field(None, description="Volatility (annualized)")
+    var_95: Optional[float] = Field(None, description="Value at Risk (95% confidence)")
+    current_drawdown: Optional[float] = Field(None, description="Current drawdown (absolute)")
+    last_updated: Optional[datetime] = Field(None, description="Timestamp of last risk evaluation")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "sharpe_ratio": 1.2345,
+                "max_drawdown_pct": -15.025,
+                "volatility": 0.18,
+                "var_95": -200.0,
+                "current_drawdown": -50.0,
+                "last_updated": "2025-11-28T14:30:00Z"
+            }
+        }
+    )
+
+
+class FeatureDriftItem(BaseModel):
+    """Single feature drift item."""
+    feature: str = Field(..., description="Feature name")
+    psi: float = Field(..., description="Population Stability Index")
+    drift_flag: str = Field(..., description="Drift severity: 'NONE', 'MODERATE', or 'SEVERE'")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "feature": "ta_ema_20",
+                "psi": 0.25,
+                "drift_flag": "MODERATE"
+            }
+        }
+    )
+
+
+class DriftStatusSummary(BaseModel):
+    """Drift status summary for monitoring.
+    
+    Provides a quick overview of feature drift detection results.
+    """
+    overall_severity: str = Field(..., description="Worst-case drift severity: 'NONE', 'MODERATE', or 'SEVERE'")
+    features_with_drift: list[FeatureDriftItem] = Field(
+        ...,
+        description="Top features with drift (sorted by PSI, descending)"
+    )
+    total_features_checked: int = Field(..., description="Total number of features checked")
+    last_updated: Optional[datetime] = Field(None, description="Timestamp of last drift analysis")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "overall_severity": "MODERATE",
+                "features_with_drift": [
+                    {
+                        "feature": "ta_ema_20",
+                        "psi": 0.25,
+                        "drift_flag": "MODERATE"
+                    },
+                    {
+                        "feature": "insider_net_buy",
+                        "psi": 0.15,
+                        "drift_flag": "NONE"
+                    }
+                ],
+                "total_features_checked": 10,
+                "last_updated": "2025-11-28T14:30:00Z"
+            }
+        }
+    )
+
+
+# ============================================================================
+# Monitoring Models
+# ============================================================================
+
+class QAStatusSummary(BaseModel):
+    """Simplified QA status summary for monitoring.
+    
+    Provides a quick overview of QA gate results and key metrics.
+    """
+    overall_result: str = Field(..., description="Overall QA gate result: 'OK', 'WARNING', or 'BLOCK'")
+    gate_counts: dict[str, int] = Field(..., description="Gate counts: {'ok': N, 'warning': M, 'block': K}")
+    key_metrics: dict[str, Optional[float]] = Field(
+        ...,
+        description="Key performance metrics: sharpe_ratio, max_drawdown_pct, total_return, cagr"
+    )
+    last_updated: Optional[datetime] = Field(None, description="Timestamp of last QA evaluation")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "overall_result": "OK",
+                "gate_counts": {"ok": 5, "warning": 1, "block": 0},
+                "key_metrics": {
+                    "sharpe_ratio": 1.2345,
+                    "max_drawdown_pct": -15.025,
+                    "total_return": 0.1250,
+                    "cagr": 0.1523
+                },
+                "last_updated": "2025-11-28T14:30:00Z"
+            }
+        }
+    )
+
+
+class RiskStatusSummary(BaseModel):
+    """Simplified risk status summary for monitoring.
+    
+    Provides a quick overview of risk metrics from the last portfolio report.
+    """
+    sharpe_ratio: Optional[float] = Field(None, description="Sharpe ratio (annualized)")
+    max_drawdown_pct: Optional[float] = Field(None, description="Maximum drawdown (percent, negative value)")
+    volatility: Optional[float] = Field(None, description="Volatility (annualized)")
+    var_95: Optional[float] = Field(None, description="Value at Risk (95% confidence)")
+    current_drawdown: Optional[float] = Field(None, description="Current drawdown (absolute)")
+    last_updated: Optional[datetime] = Field(None, description="Timestamp of last risk evaluation")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "sharpe_ratio": 1.2345,
+                "max_drawdown_pct": -15.025,
+                "volatility": 0.18,
+                "var_95": -200.0,
+                "current_drawdown": -50.0,
+                "last_updated": "2025-11-28T14:30:00Z"
+            }
+        }
+    )
+
+
+class FeatureDriftItem(BaseModel):
+    """Single feature drift item."""
+    feature: str = Field(..., description="Feature name")
+    psi: float = Field(..., description="Population Stability Index")
+    drift_flag: str = Field(..., description="Drift severity: 'NONE', 'MODERATE', or 'SEVERE'")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "feature": "ta_ema_20",
+                "psi": 0.25,
+                "drift_flag": "MODERATE"
+            }
+        }
+    )
+
+
+class DriftStatusSummary(BaseModel):
+    """Drift status summary for monitoring.
+    
+    Provides a quick overview of feature drift detection results.
+    """
+    overall_severity: str = Field(..., description="Worst-case drift severity: 'NONE', 'MODERATE', or 'SEVERE'")
+    features_with_drift: list[FeatureDriftItem] = Field(
+        ...,
+        description="Top features with drift (sorted by PSI, descending)"
+    )
+    total_features_checked: int = Field(..., description="Total number of features checked")
+    last_updated: Optional[datetime] = Field(None, description="Timestamp of last drift analysis")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "overall_severity": "MODERATE",
+                "features_with_drift": [
+                    {
+                        "feature": "ta_ema_20",
+                        "psi": 0.25,
+                        "drift_flag": "MODERATE"
+                    },
+                    {
+                        "feature": "insider_net_buy",
+                        "psi": 0.15,
+                        "drift_flag": "NONE"
+                    }
+                ],
+                "total_features_checked": 10,
+                "last_updated": "2025-11-28T14:30:00Z"
             }
         }
     )
@@ -606,4 +894,3 @@ class OmsRoute(BaseModel):
             }
         }
     )
-

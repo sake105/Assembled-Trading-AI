@@ -171,18 +171,22 @@ def run_eod_from_args(args: argparse.Namespace) -> None:
         raise RuntimeError("Pipeline steps failed")
 
 
-def main() -> None:
-    """Main entry point for EOD pipeline CLI (standalone script)."""
+def main() -> int:
+    """Main entry point for EOD pipeline CLI (standalone script).
+    
+    Returns:
+        Exit code (0 for success, 1 for failure)
+    """
     try:
         args = parse_eod_args()
         run_eod_from_args(args)
-        sys.exit(0)
+        return 0
     except Exception as e:
         logger = setup_logging(level="INFO")
         logger.error(f"FATAL ERROR: {e}", exc_info=True)
-        sys.exit(1)
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
 

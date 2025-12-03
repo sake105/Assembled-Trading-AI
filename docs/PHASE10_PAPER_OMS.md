@@ -660,10 +660,517 @@ pytest -m "phase10" tests/test_api_paper_trading.py tests/test_api_oms.py -q
 
 ---
 
+## Use-Case: Vom Signal zur Order im Paper-OMS
+
+Dieser Use-Case beschreibt den vollständigen Flow von der Signal-Generierung bis zur Sichtbarkeit im OMS-Blotter. Er zeigt Schritt für Schritt, wie Orders erzeugt, validiert, eingereicht und im OMS sichtbar gemacht werden.
+
+### Übersicht des Flows
+
+```
+Backtest / Signal-Generierung
+    ↓
+Position-Sizing (compute_target_positions)
+    ↓
+Order-Generierung (generate_orders_from_signals)
+    ↓
+Risk Controls (Pre-Trade-Checks + Kill-Switch)
+    ↓
+Paper-Trading-API Submission (POST /api/v1/paper/orders)
+    ↓
+OMS-Blotter (GET /api/v1/oms/blotter)
+```
+
+### Schritt 1: Backtest / Signal-Generierung
+
+Zunächst werden Signale generiert, entweder aus einem Backtest oder direkt aus Price-Daten.
+
+**Beispiel: Signal-Generierung aus Backtest**
+
+```python
+from src.assembled_core.qa.backtest_engine import run_portfolio_backtest
+from scripts.run_backtest_strategy import create_trend_baseline_signal_fn, create_position_sizing_fn
+
+# 1. Load price data
+prices = load_eod_prices(price_file="data/sample/eod_sample.parquet", freq="1d")
+
+# 2. Create signal function
+signal_fn = create_trend_baseline_signal_fn(ma_fast=20, ma_slow=50)
+
+# 3. Create position sizing function
+position_sizing_fn = create_position_sizing_fn()
+
+# 4. Run backtest (or generate signals directly)
+result = run_portfolio_backtest(
+    prices=prices,
+    signal_fn=signal_fn,
+    position_sizing_fn=position_sizing_fn,
+    start_capital=10000.0
+)
+
+# Signals are in result.signals DataFrame
+signals = result.signals  # Columns: timestamp, symbol, direction, score, ...
+```
+
+**Signal-DataFrame Format:**
+
+```
+timestamp              symbol  direction  score
+2025-01-15 10:00:00Z   AAPL    BUY        0.75
+2025-01-15 10:00:00Z   GOOGL   BUY        0.65
+2025-01-15 10:00:00Z   MSFT    SELL       0.30
+```
+
+### Schritt 2: Ableitung von Orders (Position-Sizing)
+
+Aus den Signalen werden Target-Positionen berechnet und anschließend in Orders umgewandelt.
+
+**Beispiel: Orders aus Signalen generieren**
+
+```python
+from src.assembled_core.execution.order_generation import generate_orders_from_signals
+from datetime import datetime
+
+# 1. Generate orders from signals
+orders = generate_orders_from_signals(
+    signals=signals,
+    total_capital=10000.0,
+    top_n=10,  # Maximum 10 positions
+    timestamp=datetime.utcnow(),
+    prices=prices  # For price lookup
+)
+
+# Orders DataFrame Format:
+# timestamp, symbol, side, qty, price
+```
+
+**Orders-DataFrame Format:**
+
+```
+timestamp              symbol  side   qty    price
+2025-01-15 10:00:00Z   AAPL    BUY    10.0   150.25
+2025-01-15 10:00:00Z   GOOGL   BUY    5.0    2500.50
+2025-01-15 10:00:00Z   MSFT    SELL   15.0   300.75
+```
+
+### Schritt 3: Anwendung der Risk Controls
+
+Bevor Orders an die Paper-Trading-API gesendet werden, müssen sie die Risk Controls passieren.
+
+**Beispiel: Risk Controls anwenden**
+
+```python
+from src.assembled_core.execution.risk_controls import filter_orders_with_risk_controls
+from src.assembled_core.execution.pre_trade_checks import PreTradeConfig
+
+# 1. Define Pre-Trade-Config
+config = PreTradeConfig(
+    max_notional_per_symbol=50000.0,  # Max $50k per symbol
+    max_gross_exposure=100000.0,      # Max $100k total exposure
+)
+
+# 2. Apply risk controls
+filtered_orders, risk_result = filter_orders_with_risk_controls(
+    orders=orders,
+    portfolio=None,  # Can provide current portfolio snapshot
+    qa_status=None,  # Can provide QA gate status
+    pre_trade_config=config,
+    enable_pre_trade_checks=True,
+    enable_kill_switch=True
+)
+
+# 3. Check results
+if not risk_result.summary:
+    print("All orders passed risk controls")
+else:
+    print(f"Blocked orders: {risk_result.summary.get('blocked_orders', 0)}")
+    print(f"Reasons: {risk_result.summary.get('blocked_reasons', [])}")
+
+# filtered_orders contains only orders that passed all checks
+```
+
+**Risk Control Result:**
+
+- **Geblockte Orders** werden aus dem DataFrame entfernt
+- **Grund für Blockierung** wird in `risk_result.summary['blocked_reasons']` geloggt
+- **Kill-Switch** hat höchste Priorität (blockiert alle Orders, wenn aktiv)
+
+### Schritt 4: Submission an Paper-Trading-API
+
+Die gefilterten Orders werden nun an die Paper-Trading-API gesendet. Dabei werden `source` und `route` gesetzt, um die Herkunft zu identifizieren.
+
+**Beispiel: Orders an Paper-API senden**
+
+```python
+import requests
+from src.assembled_core.api.models import PaperOrderRequest, OrderSide
+
+BASE_URL = "http://localhost:8000/api/v1/paper"
+
+# 1. Convert DataFrame to PaperOrderRequest list
+paper_orders = []
+for _, row in filtered_orders.iterrows():
+    paper_orders.append({
+        "symbol": row["symbol"],
+        "side": row["side"],  # "BUY" or "SELL"
+        "quantity": float(row["qty"]),
+        "price": float(row["price"]) if pd.notna(row["price"]) else None,
+        "source": "CLI_BACKTEST",  # Identifies origin
+        "route": "PAPER",           # Routing destination
+        "client_order_id": f"BACKTEST_{row['symbol']}_{row['timestamp'].isoformat()}"
+    })
+
+# 2. Submit orders
+response = requests.post(
+    f"{BASE_URL}/orders",
+    json=paper_orders,
+    headers={"Content-Type": "application/json"}
+)
+
+# 3. Check response
+if response.status_code == 200:
+    order_responses = response.json()
+    for order_resp in order_responses:
+        if order_resp["status"] == "FILLED":
+            print(f"✓ Order {order_resp['order_id']} filled: {order_resp['side']} {order_resp['quantity']} {order_resp['symbol']}")
+        elif order_resp["status"] == "REJECTED":
+            print(f"✗ Order {order_resp['order_id']} rejected: {order_resp['reason']}")
+else:
+    print(f"Error: {response.status_code} - {response.text}")
+```
+
+**Beispiel-JSON-Payload für Order-Submission:**
+
+```json
+[
+  {
+    "symbol": "AAPL",
+    "side": "BUY",
+    "quantity": 10.0,
+    "price": 150.25,
+    "source": "CLI_BACKTEST",
+    "route": "PAPER",
+    "client_order_id": "BACKTEST_AAPL_2025-01-15T10:00:00Z"
+  },
+  {
+    "symbol": "GOOGL",
+    "side": "BUY",
+    "quantity": 5.0,
+    "price": 2500.50,
+    "source": "CLI_BACKTEST",
+    "route": "PAPER",
+    "client_order_id": "BACKTEST_GOOGL_2025-01-15T10:00:00Z"
+  }
+]
+```
+
+**Beispiel-Response (200 OK):**
+
+```json
+[
+  {
+    "order_id": "550e8400-e29b-41d4-a716-446655440000",
+    "symbol": "AAPL",
+    "side": "BUY",
+    "quantity": 10.0,
+    "price": 150.25,
+    "status": "FILLED",
+    "reason": null,
+    "client_order_id": "BACKTEST_AAPL_2025-01-15T10:00:00Z"
+  },
+  {
+    "order_id": "550e8400-e29b-41d4-a716-446655440001",
+    "symbol": "GOOGL",
+    "side": "BUY",
+    "quantity": 5.0,
+    "price": 2500.50,
+    "status": "FILLED",
+    "reason": null,
+    "client_order_id": "BACKTEST_GOOGL_2025-01-15T10:00:00Z"
+  }
+]
+```
+
+**Response bei Blockierung (z.B. Kill-Switch aktiv):**
+
+```json
+[
+  {
+    "order_id": "550e8400-e29b-41d4-a716-446655440000",
+    "symbol": "AAPL",
+    "side": "BUY",
+    "quantity": 10.0,
+    "price": 150.25,
+    "status": "REJECTED",
+    "reason": "KILL_SWITCH: Kill switch is engaged",
+    "client_order_id": "BACKTEST_AAPL_2025-01-15T10:00:00Z"
+  }
+]
+```
+
+### Schritt 5: Sichtbarkeit im OMS-Blotter
+
+Nach der Submission sind die Orders sofort im OMS-Blotter sichtbar.
+
+**Beispiel: Blotter-Abfrage**
+
+```python
+# 1. Get blotter (all orders)
+response = requests.get(f"http://localhost:8000/api/v1/oms/blotter")
+blotter = response.json()
+
+# 2. Filter by source
+backtest_orders = [o for o in blotter if o.get("source") == "CLI_BACKTEST"]
+
+# 3. Filter by status
+filled_orders = [o for o in blotter if o["status"] == "FILLED"]
+rejected_orders = [o for o in blotter if o["status"] == "REJECTED"]
+
+# 4. Filter by symbol
+aapl_orders = requests.get(
+    f"http://localhost:8000/api/v1/oms/blotter?symbol=AAPL"
+).json()
+
+# 5. Filter by route
+paper_orders = requests.get(
+    f"http://localhost:8000/api/v1/oms/blotter?route=PAPER"
+).json()
+```
+
+**Beispiel-Response: GET /api/v1/oms/blotter**
+
+```json
+[
+  {
+    "order_id": "550e8400-e29b-41d4-a716-446655440000",
+    "symbol": "AAPL",
+    "side": "BUY",
+    "quantity": 10.0,
+    "price": 150.25,
+    "status": "FILLED",
+    "route": "PAPER",
+    "source": "CLI_BACKTEST",
+    "client_order_id": "BACKTEST_AAPL_2025-01-15T10:00:00Z",
+    "created_at": "2025-01-15T10:00:05Z"
+  },
+  {
+    "order_id": "550e8400-e29b-41d4-a716-446655440001",
+    "symbol": "GOOGL",
+    "side": "BUY",
+    "quantity": 5.0,
+    "price": 2500.50,
+    "status": "FILLED",
+    "route": "PAPER",
+    "source": "CLI_BACKTEST",
+    "client_order_id": "BACKTEST_GOOGL_2025-01-15T10:00:00Z",
+    "created_at": "2025-01-15T10:00:05Z"
+  }
+]
+```
+
+**Beispiel-Response: GET /api/v1/oms/blotter?symbol=AAPL&status=FILLED**
+
+```json
+[
+  {
+    "order_id": "550e8400-e29b-41d4-a716-446655440000",
+    "symbol": "AAPL",
+    "side": "BUY",
+    "quantity": 10.0,
+    "price": 150.25,
+    "status": "FILLED",
+    "route": "PAPER",
+    "source": "CLI_BACKTEST",
+    "client_order_id": "BACKTEST_AAPL_2025-01-15T10:00:00Z",
+    "created_at": "2025-01-15T10:00:05Z"
+  }
+]
+```
+
+**Beispiel-Response: GET /api/v1/oms/executions**
+
+```json
+[
+  {
+    "exec_id": "EXEC-550e8400-e29b-41d4-a716-446655440000",
+    "order_id": "550e8400-e29b-41d4-a716-446655440000",
+    "symbol": "AAPL",
+    "side": "BUY",
+    "quantity": 10.0,
+    "price": 150.25,
+    "timestamp": "2025-01-15T10:00:05Z",
+    "route": "PAPER"
+  },
+  {
+    "exec_id": "EXEC-550e8400-e29b-41d4-a716-446655440001",
+    "order_id": "550e8400-e29b-41d4-a716-446655440001",
+    "symbol": "GOOGL",
+    "side": "BUY",
+    "quantity": 5.0,
+    "price": 2500.50,
+    "timestamp": "2025-01-15T10:00:05Z",
+    "route": "PAPER"
+  }
+]
+```
+
+### Source- und Route-Tagging
+
+**Source-Feld:** Identifiziert den Ursprung der Order
+
+- `"CLI_BACKTEST"`: Orders aus Backtest-Skripten (z.B. `run_backtest_strategy.py`)
+- `"CLI_EOD"`: Orders aus EOD-Pipeline (z.B. `run_daily.py`)
+- `"API"`: Orders direkt über API-Submission
+- `"DASHBOARD"`: Orders aus Frontend-Dashboard (zukünftig)
+
+**Route-Feld:** Identifiziert die Routing-Destination
+
+- `"PAPER"`: Standard Paper-Trading-Route (default)
+- `"PAPER_ALT"`: Alternative Paper-Trading-Route (für Testing)
+- `"IBKR"`: Interactive Brokers Route (zukünftig)
+- `"ALPACA"`: Alpaca Route (zukünftig)
+
+**Beispiel für verschiedene Sources:**
+
+```python
+# Orders aus Backtest
+orders_backtest = generate_orders_from_backtest(...)
+for order in orders_backtest:
+    order["source"] = "CLI_BACKTEST"
+    order["route"] = "PAPER"
+
+# Orders aus EOD-Pipeline
+orders_eod = generate_orders_from_eod_pipeline(...)
+for order in orders_eod:
+    order["source"] = "CLI_EOD"
+    order["route"] = "PAPER"
+
+# Orders direkt via API
+order_api = {
+    "symbol": "AAPL",
+    "side": "BUY",
+    "quantity": 10.0,
+    "source": "API",      # Manual API submission
+    "route": "PAPER"
+}
+```
+
+### Vollständiges Beispiel (Python)
+
+```python
+"""Complete example: From signals to OMS blotter."""
+import pandas as pd
+import requests
+from datetime import datetime
+from src.assembled_core.execution.order_generation import generate_orders_from_signals
+from src.assembled_core.execution.risk_controls import filter_orders_with_risk_controls
+from src.assembled_core.execution.pre_trade_checks import PreTradeConfig
+
+# Step 1: Generate signals (example)
+signals = pd.DataFrame({
+    "timestamp": [datetime.utcnow()] * 2,
+    "symbol": ["AAPL", "GOOGL"],
+    "direction": ["BUY", "BUY"],
+    "score": [0.75, 0.65]
+})
+
+# Step 2: Generate orders
+orders = generate_orders_from_signals(
+    signals=signals,
+    total_capital=10000.0,
+    top_n=10,
+    timestamp=datetime.utcnow(),
+    prices=None  # Prices would be loaded from file
+)
+
+# Step 3: Apply risk controls
+config = PreTradeConfig(
+    max_notional_per_symbol=50000.0,
+    max_gross_exposure=100000.0
+)
+filtered_orders, risk_result = filter_orders_with_risk_controls(
+    orders=orders,
+    pre_trade_config=config,
+    enable_pre_trade_checks=True,
+    enable_kill_switch=True
+)
+
+# Step 4: Prepare orders for API
+BASE_URL = "http://localhost:8000/api/v1/paper"
+paper_orders = []
+for _, row in filtered_orders.iterrows():
+    paper_orders.append({
+        "symbol": row["symbol"],
+        "side": row["side"],
+        "quantity": float(row["qty"]),
+        "price": float(row["price"]) if pd.notna(row["price"]) else None,
+        "source": "CLI_BACKTEST",
+        "route": "PAPER"
+    })
+
+# Step 5: Submit to Paper-API
+response = requests.post(f"{BASE_URL}/orders", json=paper_orders)
+order_responses = response.json()
+
+# Step 6: Verify in OMS Blotter
+blotter = requests.get(f"http://localhost:8000/api/v1/oms/blotter").json()
+backtest_orders_in_blotter = [
+    o for o in blotter 
+    if o.get("source") == "CLI_BACKTEST"
+]
+
+print(f"Submitted {len(paper_orders)} orders")
+print(f"Found {len(backtest_orders_in_blotter)} orders in blotter with source='CLI_BACKTEST'")
+```
+
+### Vollständiges Beispiel (curl)
+
+```bash
+# 1. Reset Paper Trading Engine
+curl -X POST "http://localhost:8000/api/v1/paper/reset"
+
+# 2. Submit Orders
+curl -X POST "http://localhost:8000/api/v1/paper/orders" \
+  -H "Content-Type: application/json" \
+  -d '[
+    {
+      "symbol": "AAPL",
+      "side": "BUY",
+      "quantity": 10.0,
+      "price": 150.25,
+      "source": "CLI_BACKTEST",
+      "route": "PAPER",
+      "client_order_id": "BACKTEST_AAPL_2025-01-15"
+    },
+    {
+      "symbol": "GOOGL",
+      "side": "BUY",
+      "quantity": 5.0,
+      "price": 2500.50,
+      "source": "CLI_BACKTEST",
+      "route": "PAPER",
+      "client_order_id": "BACKTEST_GOOGL_2025-01-15"
+    }
+  ]'
+
+# 3. Check Blotter (all orders)
+curl "http://localhost:8000/api/v1/oms/blotter"
+
+# 4. Check Blotter (filtered by source)
+curl "http://localhost:8000/api/v1/oms/blotter?source=CLI_BACKTEST"
+
+# 5. Check Executions
+curl "http://localhost:8000/api/v1/oms/executions"
+
+# 6. Check Positions
+curl "http://localhost:8000/api/v1/paper/positions"
+```
+
+---
+
 ## Nächste Schritte
 
-1. **Sprint 10.2**: Paper-Trading-API implementieren
-2. **Sprint 10.3**: OMS-Light aufbauen
+1. **Sprint 10.2**: Paper-Trading-API implementieren ✅
+2. **Sprint 10.3**: OMS-Light aufbauen ✅
 3. **Integration**: Pre-Trade-Checks in alle Order-Flows integrieren (auch `run_eod_pipeline.py`)
 4. **Monitoring**: Metriken zu geblockten Orders tracken
 5. **Configuration**: Pre-Trade-Config aus YAML/JSON laden
@@ -675,6 +1182,9 @@ pytest -m "phase10" tests/test_api_paper_trading.py tests/test_api_oms.py -q
 - **Pre-Trade-Checks Module**: `src/assembled_core/execution/pre_trade_checks.py`
 - **Kill-Switch Module**: `src/assembled_core/execution/kill_switch.py`
 - **Risk Controls Integration**: `src/assembled_core/execution/risk_controls.py`
+- **Paper-Trading Engine**: `src/assembled_core/execution/paper_trading_engine.py`
+- **Paper-Trading API**: `src/assembled_core/api/routers/paper_trading.py`
+- **OMS API**: `src/assembled_core/api/routers/oms.py`
 - **Pre-Trade-Checks Tests**: `tests/test_execution_pre_trade_checks.py`
 - **Kill-Switch Tests**: `tests/test_execution_kill_switch.py`
 - **Integration Tests**: `tests/test_execution_pre_trade_integration.py`

@@ -214,6 +214,39 @@ print(response.json())
 
 **Weitere Details:** Siehe `docs/PHASE10_PAPER_OMS.md`
 
+**Use-Case: Vom Signal zur Order im Paper-OMS**
+
+Ein vollständiger Flow-Beispiel zeigt, wie Orders von der Signal-Generierung bis zur Sichtbarkeit im OMS-Blotter gelangen:
+
+1. **Signal-Generierung**: Aus Backtest oder Price-Daten
+2. **Position-Sizing**: Ableitung von Target-Positionen
+3. **Order-Generierung**: Umwandlung in Orders (symbol, side, qty, price)
+4. **Risk Controls**: Pre-Trade-Checks + Kill-Switch
+5. **Paper-API Submission**: POST `/api/v1/paper/orders` mit `source` und `route`
+6. **OMS-Blotter**: GET `/api/v1/oms/blotter` zur Überprüfung
+
+**Beispiel-JSON-Payload:**
+
+```json
+[
+  {
+    "symbol": "AAPL",
+    "side": "BUY",
+    "quantity": 10.0,
+    "price": 150.25,
+    "source": "CLI_BACKTEST",
+    "route": "PAPER",
+    "client_order_id": "BACKTEST_AAPL_2025-01-15"
+  }
+]
+```
+
+**Source- und Route-Tagging:**
+- **Source**: Identifiziert Ursprung (`CLI_BACKTEST`, `CLI_EOD`, `API`, `DASHBOARD`)
+- **Route**: Identifiziert Destination (`PAPER`, `PAPER_ALT`, zukünftig `IBKR`, `ALPACA`)
+
+**Vollständige Dokumentation:** Siehe `docs/PHASE10_PAPER_OMS.md` → "Use-Case: Vom Signal zur Order im Paper-OMS"
+
 #### 8. OMS-Light (Blotter & Routing)
 
 OMS-Light bietet eine minimale Order-Management-Schicht für Dashboard/Operator-Views über der Paper-Trading-Engine.

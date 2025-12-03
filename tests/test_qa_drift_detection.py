@@ -94,6 +94,44 @@ class TestComputePSI:
         assert psi >= 0.0
         assert not np.isnan(psi)
 
+    def test_compute_psi_zero_bins_edge_case(self):
+        """Test PSI calculation when one distribution has zero bins.
+        
+        This tests the bug fix where renormalized frequencies were incorrectly
+        used in edge-case calculations for zero bins.
+        """
+        # Base: values only in lower range (will have empty bins in upper range)
+        base = pd.Series([1, 2, 3, 4, 5] * 20)  # 100 values, all low
+        
+        # Current: values only in upper range (will have empty bins in lower range)
+        current = pd.Series([50, 60, 70, 80, 90] * 20)  # 100 values, all high
+        
+        psi = compute_psi(base, current)
+        
+        # Should detect significant drift (complete separation of distributions)
+        assert psi > 0.2  # Significant drift
+        
+        # PSI should be reasonably large (not artificially small due to bug)
+        # With complete separation, PSI should be substantial
+        assert psi > 0.5  # Should indicate severe drift
+        
+    def test_compute_psi_zero_bins_reverse(self):
+        """Test PSI calculation with zero bins in reverse direction.
+        
+        Similar to test_compute_psi_zero_bins_edge_case but reversed.
+        """
+        # Base: values only in upper range
+        base = pd.Series([50, 60, 70, 80, 90] * 20)
+        
+        # Current: values only in lower range
+        current = pd.Series([1, 2, 3, 4, 5] * 20)
+        
+        psi = compute_psi(base, current)
+        
+        # Should detect significant drift
+        assert psi > 0.2
+        assert psi > 0.5  # Should be substantial
+
 
 class TestDetectFeatureDrift:
     """Tests for detect_feature_drift function."""

@@ -474,3 +474,128 @@ def test_oms_blotter_includes_source_field(client: TestClient):
     assert first_order.get("source") == "MANUAL_TEST"
     assert first_order["symbol"] == "AAPL"
 
+
+def test_smoke_signal_to_oms_flow(client: TestClient):
+    """Smoke test: Complete flow from signals to OMS blotter.
+    
+    This test simulates the complete flow:
+    1. Generate orders from signals (simulated)
+    2. Apply risk controls (simulated)
+    3. Submit to Paper-Trading-API with source/route tags
+    4. Verify orders appear in OMS blotter with correct source/route
+    """
+    # Reset engine
+    response = client.post("/api/v1/paper/reset")
+    assert response.status_code == 200
+    
+    # Step 1: Simulate order generation from signals
+    # In a real scenario, this would come from generate_orders_from_signals()
+    orders_from_signals = [
+        {
+            "symbol": "AAPL",
+            "side": "BUY",
+            "quantity": 10.0,
+            "price": 150.25
+        },
+        {
+            "symbol": "GOOGL",
+            "side": "BUY",
+            "quantity": 5.0,
+            "price": 2500.50
+        },
+        {
+            "symbol": "MSFT",
+            "side": "SELL",
+            "quantity": 15.0,
+            "price": 300.75
+        }
+    ]
+    
+    # Step 2: Apply risk controls (simulated - in real flow, this happens before API)
+    # Here we just prepare orders with source/route tags
+    paper_orders = []
+    for order in orders_from_signals:
+        paper_orders.append({
+            **order,
+            "source": "CLI_BACKTEST",  # Tag orders with source
+            "route": "PAPER",          # Tag orders with route
+            "client_order_id": f"BACKTEST_{order['symbol']}_2025-01-15"
+        })
+    
+    # Step 3: Submit to Paper-Trading-API
+    response = client.post("/api/v1/paper/orders", json=paper_orders)
+    assert response.status_code == 200
+    order_responses = response.json()
+    
+    # Verify all orders were processed
+    assert len(order_responses) == len(paper_orders)
+    
+    # At least some should be filled (unless risk controls block them)
+    filled_orders = [o for o in order_responses if o["status"] == "FILLED"]
+    assert len(filled_orders) > 0, "At least some orders should be filled"
+    
+    # Step 4: Verify orders appear in OMS blotter
+    response = client.get("/api/v1/oms/blotter")
+    assert response.status_code == 200
+    blotter = response.json()
+    
+    assert isinstance(blotter, list)
+    assert len(blotter) >= len(filled_orders)
+    
+    # Step 5: Filter blotter by source
+    response = client.get("/api/v1/oms/blotter?source=CLI_BACKTEST")
+    assert response.status_code == 200
+    backtest_orders = response.json()
+    
+    assert isinstance(backtest_orders, list)
+    assert len(backtest_orders) >= len(filled_orders)
+    
+    # All orders should have correct source and route
+    for order in backtest_orders[:len(filled_orders)]:  # Check first N orders
+        assert order.get("source") == "CLI_BACKTEST", f"Order {order.get('order_id')} should have source=CLI_BACKTEST"
+        assert order.get("route") == "PAPER", f"Order {order.get('order_id')} should have route=PAPER"
+        assert "order_id" in order
+        assert "symbol" in order
+        assert "side" in order
+        assert "status" in order
+        assert order["status"] in ["FILLED", "REJECTED"]
+    
+    # Step 6: Filter blotter by route
+    response = client.get("/api/v1/oms/blotter?route=PAPER")
+    assert response.status_code == 200
+    paper_route_orders = response.json()
+    
+    assert isinstance(paper_route_orders, list)
+    assert len(paper_route_orders) >= len(filled_orders)
+    
+    # All should have route=PAPER
+    for order in paper_route_orders[:len(filled_orders)]:
+        assert order.get("route") == "PAPER"
+    
+    # Step 7: Verify executions (only filled orders should appear)
+    response = client.get("/api/v1/oms/executions")
+    assert response.status_code == 200
+    executions = response.json()
+    
+    assert isinstance(executions, list)
+    assert len(executions) >= len(filled_orders)
+    
+    # All executions should have route=PAPER
+    for exec in executions[:len(filled_orders)]:
+        assert exec.get("route") == "PAPER"
+        assert exec["symbol"] in ["AAPL", "GOOGL", "MSFT"]
+    
+    # Step 8: Verify positions are updated
+    response = client.get("/api/v1/paper/positions")
+    assert response.status_code == 200
+    positions = response.json()
+    
+    assert isinstance(positions, list)
+    
+    # Should have positions for filled orders
+    position_symbols = {pos["symbol"] for pos in positions}
+    filled_symbols = {o["symbol"] for o in filled_orders}
+    
+    # At least some filled symbols should have positions
+    assert len(position_symbols.intersection(filled_symbols)) > 0
+

@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from src.assembled_core.config import OUTPUT_DIR, SUPPORTED_FREQS
+from src.assembled_core.config.settings import get_settings
 from src.assembled_core.costs import CostModel, get_default_cost_model
 from src.assembled_core.data.prices_ingest import load_eod_prices, load_eod_prices_for_universe
 from src.assembled_core.ema_config import get_default_ema_config
@@ -112,11 +113,9 @@ def create_event_insider_shipping_signal_fn(
         
         # Try to load sample event data if available (matches price sample)
         # Otherwise fall back to default dummy data
-        ROOT = Path(__file__).resolve().parents[1]
-        EVENT_DIR = ROOT / "data" / "sample" / "events"
-        
-        insider_file = EVENT_DIR / "insider_sample.parquet"
-        shipping_file = EVENT_DIR / "shipping_sample.parquet"
+        settings = get_settings()
+        insider_file = settings.sample_events_dir / "insider_sample.parquet"
+        shipping_file = settings.sample_events_dir / "shipping_sample.parquet"
         
         logger.debug("Loading insider and shipping event data...")
         if insider_file.exists():
@@ -224,7 +223,7 @@ Examples:
         "--universe",
         type=Path,
         default=None,
-        help="Path to universe file (default: watchlist.txt in repo root)"
+        help="Path to universe file (default: from settings.watchlist_file, typically watchlist.txt)"
     )
     
     parser.add_argument(
@@ -281,7 +280,7 @@ Examples:
         "--out",
         type=Path,
         default=None,
-        help="Output directory (default: config.OUTPUT_DIR)"
+        help="Output directory (default: from settings.output_dir)"
     )
     
     parser.add_argument(
@@ -310,7 +309,11 @@ def load_price_data(args: argparse.Namespace, output_dir: Path | None = None) ->
     """
     # Get output directory for price data loading
     if output_dir is None:
-        output_dir = Path(args.out) if args.out else OUTPUT_DIR
+        if args.out:
+            output_dir = Path(args.out)
+        else:
+            settings = get_settings()
+            output_dir = settings.output_dir
     
     if args.price_file:
         logger.info(f"Loading prices from explicit file: {args.price_file}")
@@ -323,8 +326,9 @@ def load_price_data(args: argparse.Namespace, output_dir: Path | None = None) ->
             freq=args.freq
         )
     else:
-        # Default: use watchlist.txt
-        logger.info("Loading prices for default universe (watchlist.txt)")
+        # Default: use watchlist from settings
+        settings = get_settings()
+        logger.info(f"Loading prices for default universe ({settings.watchlist_file.name})")
         prices = load_eod_prices_for_universe(
             universe_file=None, 
             data_dir=output_dir,
@@ -373,7 +377,11 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
     try:
         
         # Set output directory
-        output_dir = Path(args.out) if args.out else OUTPUT_DIR
+        if args.out:
+            output_dir = Path(args.out)
+        else:
+            settings = get_settings()
+            output_dir = settings.output_dir
         
         # Log start
         logger.info("=" * 60)

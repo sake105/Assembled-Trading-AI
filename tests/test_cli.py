@@ -131,3 +131,88 @@ def test_cli_run_phase4_tests_smoke(tmp_path: Path):
     # Should have some output
     assert len(result.stdout) > 0 or len(result.stderr) > 0
 
+
+@pytest.mark.phase10
+def test_cli_runtime_profile_backtest():
+    """Test that run_backtest automatically sets profile=BACKTEST."""
+    script_path = ROOT / "scripts" / "cli.py"
+    result = subprocess.run(
+        [sys.executable, str(script_path), "run_backtest", "--freq", "1d", "--help"],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        timeout=10
+    )
+    
+    assert result.returncode == 0
+    # Check that profile is logged (we'll check this via actual run with sample data)
+    
+    # Test with a minimal run that should log the profile
+    # Use --price-file with a non-existent file to trigger early exit but still log profile
+    result = subprocess.run(
+        [sys.executable, str(script_path), "run_backtest", "--freq", "1d", "--price-file", "nonexistent.parquet"],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        timeout=10
+    )
+    
+    # Should log "Runtime Profile: BACKTEST"
+    assert "Runtime Profile: BACKTEST" in result.stdout or "Runtime Profile: BACKTEST" in result.stderr
+
+
+@pytest.mark.phase10
+def test_cli_runtime_profile_build_ml_dataset():
+    """Test that build_ml_dataset automatically sets profile=BACKTEST."""
+    script_path = ROOT / "scripts" / "cli.py"
+    
+    # Test with a minimal run that should log the profile
+    # Use --price-file with a non-existent file to trigger early exit but still log profile
+    result = subprocess.run(
+        [sys.executable, str(script_path), "build_ml_dataset", "--strategy", "trend_baseline", "--freq", "1d", "--price-file", "nonexistent.parquet"],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        timeout=10
+    )
+    
+    # Should log "Runtime Profile: BACKTEST"
+    assert "Runtime Profile: BACKTEST" in result.stdout or "Runtime Profile: BACKTEST" in result.stderr
+
+
+@pytest.mark.phase10
+def test_cli_runtime_profile_run_daily_default():
+    """Test that run_daily uses DEV profile by default."""
+    script_path = ROOT / "scripts" / "cli.py"
+    
+    # Test with a minimal run that should log the profile
+    # Use --price-file with a non-existent file to trigger early exit but still log profile
+    result = subprocess.run(
+        [sys.executable, str(script_path), "run_daily", "--freq", "1d", "--price-file", "nonexistent.parquet"],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        timeout=10
+    )
+    
+    # Should log "Runtime Profile: DEV" (default)
+    assert "Runtime Profile: DEV" in result.stdout or "Runtime Profile: DEV" in result.stderr
+
+
+@pytest.mark.phase10
+def test_cli_runtime_profile_run_daily_explicit():
+    """Test that run_daily accepts --profile argument."""
+    script_path = ROOT / "scripts" / "cli.py"
+    
+    # Test with explicit BACKTEST profile
+    result = subprocess.run(
+        [sys.executable, str(script_path), "run_daily", "--freq", "1d", "--profile", "BACKTEST", "--price-file", "nonexistent.parquet"],
+        cwd=str(ROOT),
+        capture_output=True,
+        text=True,
+        timeout=10
+    )
+    
+    # Should log "Runtime Profile: BACKTEST"
+    assert "Runtime Profile: BACKTEST" in result.stdout or "Runtime Profile: BACKTEST" in result.stderr
+

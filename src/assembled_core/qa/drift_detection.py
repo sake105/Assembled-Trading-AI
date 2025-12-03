@@ -129,42 +129,32 @@ def compute_psi(
     base_freq = base_counts / len(base_clean)
     current_freq = current_counts / len(current_clean)
 
-    # Avoid division by zero: add small epsilon to frequencies for PSI calculation
-    epsilon = 1e-10
-    base_freq_adj = base_freq.copy()
-    current_freq_adj = current_freq.copy()
-    
-    # Add epsilon only where frequency is zero
-    base_freq_adj[base_freq_adj == 0] = epsilon
-    current_freq_adj[current_freq_adj == 0] = epsilon
-    
-    # Renormalize
-    base_freq_adj = base_freq_adj / base_freq_adj.sum()
-    current_freq_adj = current_freq_adj / current_freq_adj.sum()
-
     # Compute PSI: sum over bins of (current_freq - base_freq) * ln(current_freq / base_freq)
-    # Include all bins, even if one frequency is zero (this indicates drift)
+    # Use original frequencies consistently, with epsilon protection only where needed for division by zero
+    # This maintains mathematical consistency: all bins use the same frequency basis
+    epsilon = 1e-10
     psi = 0.0
-    for i in range(len(base_freq_adj)):
-        # Check original frequencies to detect zero bins
+    for i in range(len(base_freq)):
         base_is_zero = base_freq[i] == 0
         current_is_zero = current_freq[i] == 0
         
         if base_is_zero and current_is_zero:
-            # Both zero: skip this bin
+            # Both zero: skip this bin (no contribution to PSI)
             continue
         elif base_is_zero:
             # All current in this bin, none in base → high drift
-            # Use: current_freq * ln(current_freq / epsilon)
-            psi += current_freq_adj[i] * np.log(current_freq_adj[i] / epsilon)
+            # Formula: current_freq * ln(current_freq / epsilon)
+            # Use epsilon in denominator to avoid ln(infinity), but use original current_freq
+            psi += current_freq[i] * np.log(current_freq[i] / epsilon)
         elif current_is_zero:
             # All base in this bin, none in current → high drift
-            # Use: base_freq * ln(epsilon / base_freq) = -base_freq * ln(base_freq / epsilon)
-            # But we want positive contribution, so use absolute value
-            psi += base_freq_adj[i] * abs(np.log(epsilon / base_freq_adj[i]))
+            # Formula: base_freq * ln(epsilon / base_freq)
+            # Use epsilon in numerator, but use original base_freq
+            # We want positive contribution, so use absolute value
+            psi += base_freq[i] * abs(np.log(epsilon / base_freq[i]))
         else:
-            # Both non-zero: standard PSI formula
-            psi += (current_freq_adj[i] - base_freq_adj[i]) * np.log(current_freq_adj[i] / base_freq_adj[i])
+            # Both non-zero: standard PSI formula using original frequencies
+            psi += (current_freq[i] - base_freq[i]) * np.log(current_freq[i] / base_freq[i])
 
     return max(0.0, psi)  # Ensure non-negative
 
