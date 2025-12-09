@@ -129,9 +129,23 @@ class Settings(BaseSettings):
     )
     
     # Data source configuration
-    data_source: Literal["local", "yahoo"] = Field(
+    data_source: Literal["local", "yahoo", "finnhub", "twelve_data"] = Field(
         default="local",
-        description="Data source type: 'local' (Parquet files) or 'yahoo' (Yahoo Finance API)"
+        description="Data source type: 'local' (Parquet files), 'yahoo' (Yahoo Finance API), "
+                    "'finnhub' (Finnhub API), or 'twelve_data' (Twelve Data API)"
+    )
+    
+    # API Keys for data providers
+    finnhub_api_key: str | None = Field(
+        default=None,
+        description="Finnhub API key (required for finnhub data source). "
+                    "Set via ASSEMBLED_FINNHUB_API_KEY environment variable."
+    )
+    
+    twelve_data_api_key: str | None = Field(
+        default=None,
+        description="Twelve Data API key (required for twelve_data data source). "
+                    "Set via ASSEMBLED_TWELVE_DATA_API_KEY environment variable."
     )
     
     # Local data root for Alt-Daten snapshots (optional)

@@ -61,6 +61,328 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def download_symbol_history_finnhub(
+    symbol: str,
+    start_date: str,
+    end_date: str | None,
+    interval: str,
+    api_key: str,
+    max_retries: int = 3,
+    retry_delay: int = 5,
+) -> pd.DataFrame:
+    """Download historical OHLCV data for a single symbol from Finnhub API.
+    
+    This function downloads the raw data and returns it as a DataFrame.
+    It does NOT save the data - use store_symbol_df() for that.
+    
+    Args:
+        symbol: Stock ticker symbol (e.g., "NVDA")
+        start_date: Start date in format "YYYY-MM-DD" (e.g., "2000-01-01")
+        end_date: End date in format "YYYY-MM-DD" (e.g., "2025-12-03") or None for today
+        interval: Data interval ("1d" for daily, "5min" for 5-minute bars)
+        api_key: Finnhub API key
+        max_retries: Maximum number of retry attempts (default: 3)
+        retry_delay: Initial delay in seconds before retrying (default: 5)
+    
+    Returns:
+        DataFrame with OHLCV data (columns: timestamp, open, high, low, close, volume)
+        Empty DataFrame if no data available
+    
+    Raises:
+        RuntimeError: If download fails after all retries
+        ValueError: If dates are invalid or symbol is empty
+        ImportError: If requests is not installed
+    """
+    if not symbol or not symbol.strip():
+        raise ValueError("Symbol cannot be empty")
+    
+    symbol = symbol.strip().upper()
+    
+    # Validate dates
+    try:
+        start_dt = pd.to_datetime(start_date)
+        if end_date:
+            end_dt = pd.to_datetime(end_date)
+            if end_dt < start_dt:
+                raise ValueError(f"End date {end_date} is before start date {start_date}")
+    except Exception as e:
+        raise ValueError(f"Invalid date format: {e}") from e
+    
+    # Import requests
+    try:
+        import requests
+    except ImportError as e:
+        raise ImportError(
+            "requests is not installed. Install it with: pip install requests"
+        ) from e
+    
+    # Map interval to Finnhub resolution
+    resolution_map = {
+        "1d": "D",
+        "5min": "5",
+    }
+    if interval not in resolution_map:
+        raise ValueError(f"Unsupported interval for Finnhub: {interval}. Supported: 1d, 5min")
+    
+    resolution = resolution_map[interval]
+    
+    # Convert dates to Unix timestamps
+    start_dt = pd.to_datetime(start_date, utc=True)
+    end_dt = pd.to_datetime(end_date, utc=True) if end_date else pd.Timestamp.now(tz="UTC")
+    from_timestamp = int(start_dt.timestamp())
+    to_timestamp = int(end_dt.timestamp())
+    
+    # Download data from Finnhub API with retry logic
+    base_url = "https://finnhub.io/api/v1/stock/candle"
+    current_delay = retry_delay
+    
+    for attempt in range(1, max_retries + 1):
+        try:
+            params = {
+                "symbol": symbol,
+                "resolution": resolution,
+                "from": from_timestamp,
+                "to": to_timestamp,
+                "token": api_key,
+            }
+            
+            response = requests.get(base_url, params=params, timeout=30)
+            response.raise_for_status()
+            
+            data = response.json()
+            
+            # Check for errors in response
+            if data.get("s") == "no_data":
+                logger.warning(
+                    f"No data returned for {symbol} from {start_date} to {end_date}. "
+                    f"Symbol may be invalid or date range contains no trading days."
+                )
+                return pd.DataFrame()
+            
+            if data.get("s") != "ok":
+                error_msg = data.get("s", "unknown error")
+                raise RuntimeError(f"Finnhub API error: {error_msg}")
+            
+            # Extract data arrays
+            timestamps = data.get("t", [])
+            opens = data.get("o", [])
+            highs = data.get("h", [])
+            lows = data.get("l", [])
+            closes = data.get("c", [])
+            volumes = data.get("v", [])
+            
+            if not timestamps:
+                logger.warning(f"No timestamps in response for {symbol}")
+                return pd.DataFrame()
+            
+            # Create DataFrame
+            df = pd.DataFrame({
+                "Date": pd.to_datetime(timestamps, unit="s", utc=True),
+                "Open": opens,
+                "High": highs,
+                "Low": lows,
+                "Close": closes,
+                "Volume": volumes,
+            })
+            
+            # Set Date as index (to match yfinance format)
+            df = df.set_index("Date")
+            
+            logger.info(f"Downloaded {len(df)} rows for {symbol} from Finnhub (attempt {attempt}/{max_retries})")
+            return df
+            
+        except requests.exceptions.RequestException as e:
+            if attempt < max_retries:
+                logger.warning(
+                    f"Request failed for {symbol} (attempt {attempt}/{max_retries}): {e}. "
+                    f"Waiting {current_delay} seconds before retry..."
+                )
+                time.sleep(current_delay)
+                current_delay *= 2  # Exponential backoff
+                continue
+            else:
+                raise RuntimeError(f"Failed to download {symbol} from Finnhub after {max_retries} attempts: {e}") from e
+        except Exception as e:
+            if attempt < max_retries:
+                logger.warning(
+                    f"Error downloading {symbol} (attempt {attempt}/{max_retries}): {e}. "
+                    f"Waiting {current_delay} seconds before retry..."
+                )
+                time.sleep(current_delay)
+                current_delay *= 2
+                continue
+            else:
+                raise RuntimeError(f"Failed to download {symbol} from Finnhub after {max_retries} attempts: {e}") from e
+    
+    return pd.DataFrame()
+
+
+def download_symbol_history_twelve_data(
+    symbol: str,
+    start_date: str,
+    end_date: str | None,
+    interval: str,
+    api_key: str,
+    max_retries: int = 3,
+    retry_delay: int = 5,
+) -> pd.DataFrame:
+    """Download historical OHLCV data for a single symbol from Twelve Data API.
+    
+    This function downloads the raw data and returns it as a DataFrame.
+    It does NOT save the data - use store_symbol_df() for that.
+    
+    Args:
+        symbol: Stock ticker symbol (e.g., "NVDA")
+        start_date: Start date in format "YYYY-MM-DD" (e.g., "2000-01-01")
+        end_date: End date in format "YYYY-MM-DD" (e.g., "2025-12-03") or None for today
+        interval: Data interval ("1d" for daily, "5min" for 5-minute bars)
+        api_key: Twelve Data API key
+        max_retries: Maximum number of retry attempts (default: 3)
+        retry_delay: Initial delay in seconds before retrying (default: 5)
+    
+    Returns:
+        DataFrame with OHLCV data (columns: Date index, Open, High, Low, Close, Volume)
+        Empty DataFrame if no data available
+    
+    Raises:
+        RuntimeError: If download fails after all retries
+        ValueError: If dates are invalid or symbol is empty
+        ImportError: If requests is not installed
+    """
+    if not symbol or not symbol.strip():
+        raise ValueError("Symbol cannot be empty")
+    
+    symbol = symbol.strip().upper()
+    
+    # Validate dates
+    try:
+        start_dt = pd.to_datetime(start_date)
+        if end_date:
+            end_dt = pd.to_datetime(end_date)
+            if end_dt < start_dt:
+                raise ValueError(f"End date {end_date} is before start date {start_date}")
+    except Exception as e:
+        raise ValueError(f"Invalid date format: {e}") from e
+    
+    # Import requests
+    try:
+        import requests
+    except ImportError as e:
+        raise ImportError(
+            "requests is not installed. Install it with: pip install requests"
+        ) from e
+    
+    # Map interval to Twelve Data interval
+    interval_map = {
+        "1d": "1day",
+        "5min": "5min",
+    }
+    if interval not in interval_map:
+        raise ValueError(f"Unsupported interval for Twelve Data: {interval}. Supported: 1d, 5min")
+    
+    twelve_interval = interval_map[interval]
+    
+    # Convert end_date
+    if end_date is None:
+        end_date = pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d")
+    
+    # Download data from Twelve Data API with retry logic
+    base_url = "https://api.twelvedata.com/time_series"
+    current_delay = retry_delay
+    
+    for attempt in range(1, max_retries + 1):
+        try:
+            params = {
+                "symbol": symbol,
+                "interval": twelve_interval,
+                "start_date": start_date,
+                "end_date": end_date,
+                "apikey": api_key,
+                "outputsize": 5000,  # Maximum for free tier
+            }
+            
+            response = requests.get(base_url, params=params, timeout=30)
+            response.raise_for_status()
+            
+            data = response.json()
+            
+            # Check for errors in response
+            if "status" in data and data["status"] == "error":
+                error_msg = data.get("message", "unknown error")
+                logger.warning(f"Twelve Data API error for {symbol}: {error_msg}")
+                if attempt < max_retries:
+                    time.sleep(current_delay)
+                    current_delay *= 2
+                    continue
+                else:
+                    raise RuntimeError(f"Twelve Data API error: {error_msg}")
+            
+            # Extract values array
+            values = data.get("values", [])
+            if not values:
+                logger.warning(
+                    f"No data returned for {symbol} from {start_date} to {end_date}. "
+                    f"Symbol may be invalid or date range contains no trading days."
+                )
+                return pd.DataFrame()
+            
+            # Create DataFrame from values
+            # Twelve Data returns: datetime, open, high, low, close, volume
+            df = pd.DataFrame(values)
+            
+            if df.empty:
+                logger.warning(f"Empty DataFrame for {symbol}")
+                return pd.DataFrame()
+            
+            # Rename datetime to Date and set as index (to match yfinance format)
+            if "datetime" in df.columns:
+                df = df.rename(columns={"datetime": "Date"})
+                df["Date"] = pd.to_datetime(df["Date"], utc=True)
+                df = df.set_index("Date")
+            else:
+                # Fallback: if no datetime column, create one from index
+                logger.warning(f"No datetime column in response for {symbol}")
+                return pd.DataFrame()
+            
+            # Ensure column names match yfinance format (capitalized)
+            column_mapping = {
+                "open": "Open",
+                "high": "High",
+                "low": "Low",
+                "close": "Close",
+                "volume": "Volume",
+            }
+            df = df.rename(columns=column_mapping)
+            
+            logger.info(f"Downloaded {len(df)} rows for {symbol} from Twelve Data (attempt {attempt}/{max_retries})")
+            return df
+            
+        except requests.exceptions.RequestException as e:
+            if attempt < max_retries:
+                logger.warning(
+                    f"Request failed for {symbol} (attempt {attempt}/{max_retries}): {e}. "
+                    f"Waiting {current_delay} seconds before retry..."
+                )
+                time.sleep(current_delay)
+                current_delay *= 2  # Exponential backoff
+                continue
+            else:
+                raise RuntimeError(f"Failed to download {symbol} from Twelve Data after {max_retries} attempts: {e}") from e
+        except Exception as e:
+            if attempt < max_retries:
+                logger.warning(
+                    f"Error downloading {symbol} (attempt {attempt}/{max_retries}): {e}. "
+                    f"Waiting {current_delay} seconds before retry..."
+                )
+                time.sleep(current_delay)
+                current_delay *= 2
+                continue
+            else:
+                raise RuntimeError(f"Failed to download {symbol} from Twelve Data after {max_retries} attempts: {e}") from e
+    
+    return pd.DataFrame()
+
+
 def download_symbol_history(
     symbol: str,
     start_date: str,
@@ -308,6 +630,9 @@ def download_single_symbol_snapshot(
     end_date: Optional[str],
     interval: str,
     target_root: Path,
+    provider: str = "yahoo",
+    finnhub_api_key: str | None = None,
+    twelve_data_api_key: str | None = None,
 ) -> Path:
     """Download and save historical OHLCV data for a single symbol.
     
@@ -330,9 +655,31 @@ def download_single_symbol_snapshot(
     """
     logger.info(f"Downloading {symbol} from {start_date} to {end_date or 'today'}")
     logger.info(f"Interval: {interval}")
+    logger.info(f"Provider: {provider}")
     
     # Download raw data
-    hist = download_symbol_history(symbol, start_date, end_date, interval)
+    if provider == "finnhub":
+        if not finnhub_api_key:
+            raise ValueError("finnhub_api_key is required when using provider='finnhub'")
+        hist = download_symbol_history_finnhub(
+            symbol, 
+            start_date, 
+            end_date, 
+            interval,
+            finnhub_api_key
+        )
+    elif provider == "twelve_data":
+        if not twelve_data_api_key:
+            raise ValueError("twelve_data_api_key is required when using provider='twelve_data'")
+        hist = download_symbol_history_twelve_data(
+            symbol, 
+            start_date, 
+            end_date, 
+            interval,
+            twelve_data_api_key
+        )
+    else:  # yahoo (default)
+        hist = download_symbol_history(symbol, start_date, end_date, interval)
     
     if hist.empty:
         raise RuntimeError(
@@ -390,6 +737,9 @@ def download_universe_snapshot(
     sleep_seconds: float = 2.0,
     max_retries_per_symbol: int = 5,
     retry_delay_base: float = 60.0,
+    provider: str = "yahoo",
+    finnhub_api_key: str | None = None,
+    twelve_data_api_key: str | None = None,
 ) -> dict[str, str]:
     """Download historical data for multiple symbols.
     
@@ -416,6 +766,7 @@ def download_universe_snapshot(
     logger.info(f"  Date range: {start_date} to {end_date or 'today'}")
     logger.info(f"  Interval: {interval}")
     logger.info(f"  Target root: {target_root}")
+    logger.info(f"  Provider: {provider}")
     logger.info(f"  Sleep between downloads: {sleep_seconds}s")
     logger.info("=" * 60)
     
@@ -441,14 +792,39 @@ def download_universe_snapshot(
         for retry_attempt in range(1, max_retries_per_symbol + 1):
             try:
                 # Download raw data with retry logic
-                hist = download_symbol_history(
-                    symbol, 
-                    start_date, 
-                    end_date, 
-                    interval,
-                    max_retries=3,  # Internal retries
-                    retry_delay=5
-                )
+                if provider == "finnhub":
+                    if not finnhub_api_key:
+                        raise ValueError("finnhub_api_key is required when using provider='finnhub'")
+                    hist = download_symbol_history_finnhub(
+                        symbol, 
+                        start_date, 
+                        end_date, 
+                        interval,
+                        finnhub_api_key,
+                        max_retries=3,  # Internal retries
+                        retry_delay=5
+                    )
+                elif provider == "twelve_data":
+                    if not twelve_data_api_key:
+                        raise ValueError("twelve_data_api_key is required when using provider='twelve_data'")
+                    hist = download_symbol_history_twelve_data(
+                        symbol, 
+                        start_date, 
+                        end_date, 
+                        interval,
+                        twelve_data_api_key,
+                        max_retries=3,  # Internal retries
+                        retry_delay=5
+                    )
+                else:  # yahoo (default)
+                    hist = download_symbol_history(
+                        symbol, 
+                        start_date, 
+                        end_date, 
+                        interval,
+                        max_retries=3,  # Internal retries
+                        retry_delay=5
+                    )
                 
                 if hist.empty:
                     logger.warning(f"[{idx}/{total}] No data for {symbol}, skipping.")
@@ -704,7 +1080,19 @@ Examples:
         "--interval",
         type=str,
         default="1d",
-        help="Data interval for yfinance: '1d' for daily, '1h' for hourly, etc. (default: 1d).",
+        help="Data interval: '1d' for daily, '5min' for 5-minute bars, etc. (default: 1d).",
+    )
+    
+    # Data provider
+    parser.add_argument(
+        "--provider",
+        type=str,
+        choices=["yahoo", "finnhub", "twelve_data"],
+        default="yahoo",
+        help="Data provider to use: 'yahoo' (Yahoo Finance, default), 'finnhub' (Finnhub API), "
+             "or 'twelve_data' (Twelve Data API, recommended). "
+             "For Finnhub, set ASSEMBLED_FINNHUB_API_KEY. "
+             "For Twelve Data, set ASSEMBLED_TWELVE_DATA_API_KEY.",
     )
     
     # Target directory
@@ -762,6 +1150,31 @@ Examples:
     if end_date.lower() == "today":
         end_date = None
     
+    # Load API keys if needed
+    finnhub_api_key = None
+    twelve_data_api_key = None
+    
+    if args.provider == "finnhub":
+        import os
+        finnhub_api_key = os.environ.get("ASSEMBLED_FINNHUB_API_KEY")
+        if not finnhub_api_key:
+            logger.error(
+                "Finnhub API key not found. "
+                "Set ASSEMBLED_FINNHUB_API_KEY environment variable."
+            )
+            exit(1)
+        logger.info(f"Using Finnhub provider with API key: {finnhub_api_key[:8]}...")
+    elif args.provider == "twelve_data":
+        import os
+        twelve_data_api_key = os.environ.get("ASSEMBLED_TWELVE_DATA_API_KEY")
+        if not twelve_data_api_key:
+            logger.error(
+                "Twelve Data API key not found. "
+                "Set ASSEMBLED_TWELVE_DATA_API_KEY environment variable."
+            )
+            exit(1)
+        logger.info(f"Using Twelve Data provider with API key: {twelve_data_api_key[:8]}...")
+    
     try:
         # Single symbol (backward compatible)
         if len(symbols) == 1:
@@ -772,6 +1185,9 @@ Examples:
                 end_date=end_date,
                 interval=args.interval,
                 target_root=target_root,
+                provider=args.provider,
+                finnhub_api_key=finnhub_api_key,
+                twelve_data_api_key=twelve_data_api_key,
             )
             
             # Read back and show summary
@@ -799,6 +1215,9 @@ Examples:
                 sleep_seconds=args.sleep_seconds,
                 max_retries_per_symbol=5,
                 retry_delay_base=60.0,  # 60 seconds base delay for rate limits
+                provider=args.provider,
+                finnhub_api_key=finnhub_api_key,
+                twelve_data_api_key=twelve_data_api_key,
             )
             
             # Exit with error code if all failed

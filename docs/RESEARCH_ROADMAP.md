@@ -347,9 +347,25 @@ Ein leichtgewichtiges Experiment-Tracking-System wurde in Sprint 12.2 implementi
 
 ---
 
-## 6. Verknüpfungen
+## 6. Advanced Analytics & Factor Labs
+
+For a comprehensive roadmap on advanced factor development, technical analysis indicators, alternative data integration, and factor research tools, see:
+
+- **[Advanced Analytics & Factor Labs Roadmap](ADVANCED_ANALYTICS_FACTOR_LABS.md)** - Extended roadmap for Phase A–E (Technical Analysis Factors, Alt-Data Factors 2.0, Factor Analysis, Regime Models, ML Validation & Explainability)
+
+The Factor Labs roadmap extends the research capabilities described in this document with systematic tools for:
+- Technical analysis factor library development
+- Enhanced alternative data integration (congressional trading, news sentiment)
+- Factor evaluation and selection frameworks
+- Regime-aware risk modeling
+- Model explainability and transaction cost analysis
+
+---
+
+## 7. Verknüpfungen
 
 - **Backend-Roadmap**: `docs/BACKEND_ROADMAP.md` (Phase 12)
+- **Advanced Analytics & Factor Labs**: `docs/ADVANCED_ANALYTICS_FACTOR_LABS.md` (Phases A–E)
 - **Architektur**: `docs/ARCHITECTURE_BACKEND.md`
 - **Model-Inventory**: `docs/MODEL_INVENTORY.md`
 - **Research-Ordner**: `research/README.md`

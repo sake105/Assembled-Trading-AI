@@ -90,6 +90,7 @@ def info_subcommand(args: argparse.Namespace) -> int:
     print("Main Subcommands:")
     print("  run_daily          - Run daily EOD pipeline (execute, backtest, portfolio, QA)")
     print("  run_backtest       - Run strategy backtest with portfolio-level engine")
+    print("  factor_report      - Generate factor analysis report (IC/IR statistics)")
     print("  run_phase4_tests   - Run Phase-4 regression test suite (~13s, 110 tests)")
     print("  info               - Show this information")
     print()
@@ -433,6 +434,35 @@ def build_ml_dataset_subcommand(args: argparse.Namespace) -> int:
         return 1
     except Exception as e:
         logger.error(f"Unexpected error: {e}", exc_info=True)
+        return 1
+
+
+def factor_report_subcommand(args: argparse.Namespace) -> int:
+    """Run factor analysis report subcommand.
+    
+    Args:
+        args: Parsed command-line arguments for factor_report
+        
+    Returns:
+        Exit code (0 for success, 1 for failure)
+    """
+    # Generate Run-ID for this execution
+    run_id = generate_run_id(prefix="factor_report")
+    setup_logging(run_id=run_id, level="INFO")
+    logger = logging.getLogger(__name__)
+    
+    logger.info("=" * 60)
+    logger.info("Factor Analysis Report")
+    logger.info(f"Run-ID: {run_id}")
+    logger.info("=" * 60)
+    
+    # Import here to avoid circular imports
+    from scripts.cli_factor_report import run_factor_report_from_args
+    
+    try:
+        return run_factor_report_from_args(args)
+    except Exception as e:
+        logger.error(f"Factor report failed: {e}", exc_info=True)
         return 1
 
 
@@ -1624,6 +1654,81 @@ Examples:
         help="Comma-separated tags for the experiment (e.g., 'meta_model,gradient_boosting')"
     )
     train_meta_parser.set_defaults(func=train_meta_model_subcommand)
+    
+    # factor_report subcommand
+    factor_report_parser = subparsers.add_parser(
+        "factor_report",
+        help="Run a factor analysis report on a given universe and date range",
+        description="Generates a comprehensive factor analysis report with IC/IR statistics.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Factor report for AI Tech universe (local alt-data)
+  $env:ASSEMBLED_DATA_SOURCE = "local"
+  $env:ASSEMBLED_LOCAL_DATA_ROOT = "F:\\Python_Projekt\\Aktiengerüst\\datensammlungen\\altdaten\\stand 3-12-2025"
+  python scripts/cli.py factor_report --freq 1d --symbols-file config/universe_ai_tech_tickers.txt --start-date 2005-01-01 --end-date 2025-12-02 --factor-set core --fwd-horizon-days 5
+  
+  # Factor report with all factors and CSV output
+  python scripts/cli.py factor_report --freq 1d --symbols-file config/universe_ai_tech_tickers.txt --start-date 2005-01-01 --end-date 2025-12-02 --factor-set all --fwd-horizon-days 21 --output-csv output/factor_reports/ai_tech_all_21d_ic.csv
+        """
+    )
+    factor_report_parser.add_argument(
+        "--freq",
+        type=str,
+        required=True,
+        choices=["1d", "5min"],
+        help="Frequency, e.g. 1d"
+    )
+    factor_report_parser.add_argument(
+        "--symbols-file",
+        type=Path,
+        required=True,
+        metavar="FILE",
+        help="Path to a text file with one symbol per line (e.g., config/universe_ai_tech_tickers.txt)"
+    )
+    factor_report_parser.add_argument(
+        "--start-date",
+        type=str,
+        required=True,
+        metavar="YYYY-MM-DD",
+        help="Start date for data loading (e.g., 2005-01-01)"
+    )
+    factor_report_parser.add_argument(
+        "--end-date",
+        type=str,
+        required=True,
+        metavar="YYYY-MM-DD",
+        help="End date for data loading (e.g., 2025-12-02)"
+    )
+    factor_report_parser.add_argument(
+        "--factor-set",
+        type=str,
+        choices=["core", "vol_liquidity", "all"],
+        default="core",
+        help="Which factors to compute: 'core' (TA/Price factors, default), 'vol_liquidity' (volatility/liquidity), or 'all' (both)"
+    )
+    factor_report_parser.add_argument(
+        "--fwd-horizon-days",
+        type=int,
+        default=5,
+        metavar="DAYS",
+        help="Forward return horizon in days (default: 5)"
+    )
+    factor_report_parser.add_argument(
+        "--data-source",
+        type=str,
+        choices=["local", "yahoo"],
+        default=None,
+        help="Data source type: 'local' (Parquet files) or 'yahoo' (Yahoo Finance API). Default: from settings.data_source"
+    )
+    factor_report_parser.add_argument(
+        "--output-csv",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Optional path for summary CSV output (e.g., output/factor_reports/ai_tech_core_5d_ic.csv)"
+    )
+    factor_report_parser.set_defaults(func=factor_report_subcommand)
     
     # run_phase4_tests subcommand
     tests_parser = subparsers.add_parser(

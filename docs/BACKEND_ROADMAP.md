@@ -226,6 +226,8 @@ Phase 4 implementiert eine integrierte QA- und Backtest-Infrastruktur, die es er
 - Markdown-Reports mit Metriken, QA-Gates, Equity-Curve-Link, Config-Info
 - Integration in EOD-Pipeline (optional)
 
+**Extended Roadmap:** For advanced factor evaluation and event study frameworks, see [Advanced Analytics & Factor Labs](ADVANCED_ANALYTICS_FACTOR_LABS.md) - Phase A (TA/Price Factor Library) and Phase C (Factor Analysis & Event Study Engine).
+
 ---
 
 ## Phase 5: Production-Ready (Geplant)
@@ -350,5 +352,6 @@ Phase 4 implementiert eine integrierte QA- und Backtest-Infrastruktur, die es er
 - [Backend Modules](BACKEND_MODULES.md) - Modulübersicht
 - [Data Sources](DATA_SOURCES_BACKEND.md) - Datenquellen-Übersicht
 - [Research Roadmap](RESEARCH_ROADMAP.md) - Research-Prozess, Backlog, Fokus (Phase 12)
+- [Advanced Analytics & Factor Labs](ADVANCED_ANALYTICS_FACTOR_LABS.md) - Extended roadmap for advanced factor development (Phases A–E)
 - [Review Guide](REVIEW_GUIDE_BACKEND.md) - Anleitung für externe Reviewer (Phase 12.3)
 

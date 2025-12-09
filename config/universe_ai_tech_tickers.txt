@@ -8,6 +8,7 @@ DBX
 DELL
 GOOGL
 INTC
+# MISSING: Not available in Twelve Data Free-Tier - TODO: Add later with alternative provider
 IOS.DE
 META
 MSTR
@@ -19,6 +20,7 @@ QBTS
 QCOM
 QMCO
 SMCI
+# MISSING: Not available in Twelve Data Free-Tier - TODO: Add later with alternative provider
 SMHN.DE
 TSM
 U

@@ -468,6 +468,14 @@ Das Projekt verfügt über eine strukturierte Research-Infrastruktur für die sy
 - Konkreter Research-Backlog mit Prioritäten
 - Arbeitsweise für Research-Experimente
 
+**Advanced Analytics & Factor Labs:** `docs/ADVANCED_ANALYTICS_FACTOR_LABS.md`
+- Extended roadmap for advanced factor development (Phases A–E)
+- Technical analysis factor library (Phase A)
+- Alternative data factors 2.0 (Phase B)
+- Factor analysis & event study engine (Phase C)
+- Regime models & risk 2.0 (Phase D)
+- ML validation, explainability & TCA (Phase E)
+
 **Research-Ordner:** `research/`
 - Strukturierte Experimente in Kategorien (trend/, meta/, altdata/, risk/)
 - Notebook-Templates für reproduzierbare Experimente

@@ -1,11 +1,18 @@
 AXON
 BA
+# MISSING: Not available in Twelve Data Free-Tier - TODO: Add later with alternative provider
 BA.L
+# MISSING: Not available in Twelve Data Free-Tier - TODO: Add later with alternative provider
 DRO.AX
+# MISSING: Not available in Twelve Data Free-Tier - TODO: Add later with alternative provider
 HAG.DE
 LMT
 NOC
+# MISSING: Not available in Twelve Data Free-Tier - TODO: Add later with alternative provider
 R3NK.DE
+# MISSING: Not available in Twelve Data Free-Tier - TODO: Add later with alternative provider
 RHM.DE
+# MISSING: Not available in Twelve Data Free-Tier - TODO: Add later with alternative provider
 RR.L
+# MISSING: Not available in Twelve Data Free-Tier - TODO: Add later with alternative provider
 TKA.DE

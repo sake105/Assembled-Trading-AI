@@ -1,4 +1,6 @@
+# MISSING: Not available in Twelve Data Free-Tier - TODO: Add later with alternative provider
 BAVA.CO
+# MISSING: Not available in Twelve Data Free-Tier - TODO: Add later with alternative provider
 EUZ.DE
 SRT3.DE
 VRNA
