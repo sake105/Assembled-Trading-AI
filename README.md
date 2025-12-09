@@ -470,9 +470,10 @@ Das Projekt verfügt über eine strukturierte Research-Infrastruktur für die sy
 
 **Advanced Analytics & Factor Labs:** `docs/ADVANCED_ANALYTICS_FACTOR_LABS.md`
 - Extended roadmap for advanced factor development (Phases A–E)
-- Technical analysis factor library (Phase A)
+- Technical analysis factor library (Phase A) ✅
 - Alternative data factors 2.0 (Phase B)
-- Factor analysis & event study engine (Phase C)
+- Factor analysis & event study engine (Phase C) ✅
+- **Factor Analysis Workflows:** `docs/WORKFLOWS_FACTOR_ANALYSIS.md` - Comprehensive guide for factor evaluation using IC/IR (C1) and portfolio-based metrics (C2)
 - Regime models & risk 2.0 (Phase D)
 - ML validation, explainability & TCA (Phase E)
 

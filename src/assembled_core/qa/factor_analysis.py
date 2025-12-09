@@ -1,17 +1,29 @@
 """Factor Analysis and Information Coefficient (IC) Engine.
 
-This module implements Phase C, Sprint C1 from the Advanced Analytics & Factor Labs roadmap.
+This module implements Phase C, Sprints C1 and C2 from the Advanced Analytics & Factor Labs roadmap.
 It provides tools for evaluating factor effectiveness:
 
+Phase C1 - IC Engine:
 - Forward Returns Computation
 - Cross-Sectional IC (Information Coefficient)
 - Rank-IC (Spearman correlation)
 - IC Aggregation and Summary Statistics (IC-IR, hit ratio, etc.)
 
+Phase C2 - Factor Portfolio Returns:
+- Quantile-based portfolio returns
+- Long/Short portfolio returns
+- Portfolio performance metrics (Sharpe, t-stat, drawdown)
+- Deflated Sharpe Ratio (multiple testing adjustment)
+
 The IC Engine measures how well factors predict future returns:
 - IC = correlation(factor, forward_return) at each timestamp (cross-sectional)
 - IC-IR = mean(IC) / std(IC) (Information Ratio)
 - Hit Ratio = percentage of days with positive IC
+
+The Portfolio Engine measures actual portfolio returns when investing based on factor values:
+- Quantile portfolios: Sort by factor, invest in quantiles
+- Long/Short: Top quantile - Bottom quantile
+- Performance metrics: Sharpe, t-stat, drawdown, win ratio
 
 Integration:
 - Works with factors from Phase A (ta_factors_core, ta_liquidity_vol_factors)
@@ -1302,4 +1314,562 @@ def example_factor_analysis_workflow(
         "summary_rank_ic": summary_rank_ic_df,
         "rolling_ic": rolling_ic_df,
     }
+
+
+# ============================================================================
+# Phase C2: Factor Portfolio Returns & Ranking
+# ============================================================================
+
+
+def build_factor_portfolio_returns(
+    data: pd.DataFrame,
+    factor_cols: str | list[str],
+    forward_returns_col: str,
+    group_col: str = "symbol",
+    timestamp_col: str = "timestamp",
+    quantiles: int = 5,
+    min_obs: int = 10,
+) -> pd.DataFrame:
+    """
+    Build factor portfolio returns based on quantile sorting.
+    
+    For each factor and each timestamp:
+    1. Sort all symbols by factor value
+    2. Divide into quantiles (e.g., 5 → quintiles)
+    3. Compute equal-weighted portfolio return per quantile
+    
+    This function implements Phase C2 from the Advanced Analytics & Factor Labs roadmap.
+    It complements IC-based evaluation (C1) with portfolio-based evaluation.
+    
+    Args:
+        data: Panel DataFrame with columns:
+            - timestamp_col: Timestamp (datetime)
+            - group_col: Symbol/group identifier (string)
+            - factor_cols: One or more factor columns to evaluate
+            - forward_returns_col: Forward return column (e.g., "fwd_return_20d")
+        factor_cols: Column name(s) of factor(s) to rank by
+            Can be a single string or list of strings
+        forward_returns_col: Column name of forward returns
+        group_col: Column name for grouping (default: "symbol")
+        timestamp_col: Column name for timestamp (default: "timestamp")
+        quantiles: Number of quantiles (default: 5, i.e., quintiles)
+        min_obs: Minimum number of valid observations per timestamp/factor
+            Days with fewer than min_obs valid observations are skipped (default: 10)
+    
+    Returns:
+        DataFrame in long format with columns:
+        - timestamp: Timestamp
+        - factor: Factor name
+        - quantile: Quantile number (1, 2, ..., quantiles)
+        - mean_return: Equal-weighted portfolio return for this quantile
+        - n: Number of symbols in this quantile
+        
+        Example:
+            timestamp              factor          quantile  mean_return  n
+            2020-01-01 00:00:00+00:00  returns_12m     1        0.01        10
+            2020-01-01 00:00:00+00:00  returns_12m     2        0.02        10
+            ...
+            2020-01-01 00:00:00+00:00  returns_12m     5        0.05        10
+    
+    Raises:
+        KeyError: If required columns are missing
+        ValueError: If DataFrame is empty or invalid
+    
+    Note:
+        - Quantile 1 = lowest factor values (bottom quantile)
+        - Quantile quantiles = highest factor values (top quantile)
+        - Days with insufficient data (< min_obs) are skipped
+        - NaN values in factor or forward return are excluded from quantile assignment
+    """
+    # Validate input
+    if data.empty:
+        raise ValueError("Input DataFrame is empty")
+    
+    # Normalize factor_cols to list
+    if isinstance(factor_cols, str):
+        factor_cols = [factor_cols]
+    
+    # Validate columns
+    required_cols = {timestamp_col, group_col, forward_returns_col}
+    missing_cols = required_cols - set(data.columns)
+    if missing_cols:
+        raise KeyError(f"Missing required columns: {missing_cols}")
+    
+    missing_factors = set(factor_cols) - set(data.columns)
+    if missing_factors:
+        raise KeyError(f"Missing factor columns: {missing_factors}")
+    
+    # Make a copy to avoid modifying original
+    df = data[[timestamp_col, group_col, forward_returns_col] + factor_cols].copy()
+    
+    # Ensure timestamp is datetime
+    if not pd.api.types.is_datetime64_any_dtype(df[timestamp_col]):
+        df[timestamp_col] = pd.to_datetime(df[timestamp_col], utc=True)
+    
+    # Sort by timestamp, then by group_col for consistent processing
+    df = df.sort_values([timestamp_col, group_col]).reset_index(drop=True)
+    
+    results = []
+    
+    # Process each timestamp
+    for timestamp, group_df in df.groupby(timestamp_col):
+        # Process each factor
+        for factor_col in factor_cols:
+            # Filter valid observations (non-NaN in both factor and forward return)
+            valid_mask = (
+                group_df[factor_col].notna() & 
+                group_df[forward_returns_col].notna()
+            )
+            valid_df = group_df[valid_mask].copy()
+            
+            # Skip if insufficient observations
+            if len(valid_df) < min_obs:
+                continue
+            
+            # Sort by factor value (ascending: lowest = Q1, highest = Qquantiles)
+            valid_df = valid_df.sort_values(factor_col).reset_index(drop=True)
+            
+            # Assign quantiles (1-based: 1 = lowest, quantiles = highest)
+            # Use qcut for equal-sized groups, but handle edge cases
+            try:
+                valid_df["quantile"] = pd.qcut(
+                    valid_df[factor_col].rank(method="first"),
+                    q=quantiles,
+                    labels=False,
+                    duplicates="drop"
+                ) + 1  # Convert to 1-based
+            except ValueError:
+                # If qcut fails (e.g., too many duplicates), use manual binning
+                n_valid = len(valid_df)
+                quantile_size = n_valid / quantiles
+                valid_df["quantile"] = (
+                    (np.arange(n_valid) / quantile_size).astype(int) + 1
+                ).clip(1, quantiles)
+            
+            # Compute mean return per quantile
+            quantile_returns = (
+                valid_df.groupby("quantile")[forward_returns_col]
+                .agg(["mean", "count"])
+                .reset_index()
+            )
+            quantile_returns.columns = ["quantile", "mean_return", "n"]
+            
+            # Add metadata
+            quantile_returns["timestamp"] = timestamp
+            quantile_returns["factor"] = factor_col
+            
+            # Reorder columns
+            quantile_returns = quantile_returns[
+                ["timestamp", "factor", "quantile", "mean_return", "n"]
+            ]
+            
+            results.append(quantile_returns)
+    
+    if not results:
+        # Return empty DataFrame with correct structure
+        return pd.DataFrame(
+            columns=["timestamp", "factor", "quantile", "mean_return", "n"]
+        )
+    
+    # Combine all results
+    result_df = pd.concat(results, ignore_index=True)
+    
+    # Ensure quantile is integer
+    result_df["quantile"] = result_df["quantile"].astype(int)
+    
+    # Sort by timestamp, factor, quantile
+    result_df = result_df.sort_values(
+        [timestamp_col, "factor", "quantile"]
+    ).reset_index(drop=True)
+    
+    logger.info(
+        f"Built factor portfolio returns for {len(factor_cols)} factor(s), "
+        f"{result_df[timestamp_col].nunique()} timestamps, "
+        f"{quantiles} quantiles"
+    )
+    
+    return result_df
+
+
+def build_long_short_portfolio_returns(
+    portfolios_df: pd.DataFrame,
+    low_quantile: int = 1,
+    high_quantile: int | None = None,
+    timestamp_col: str = "timestamp",
+    quantile_col: str = "quantile",
+    return_col: str = "mean_return",
+    factor_col: str = "factor",
+) -> pd.DataFrame:
+    """
+    Build Long/Short portfolio returns from quantile portfolio returns.
+    
+    For each factor and timestamp:
+    - Long: Top quantile (high_quantile, default: highest quantile)
+    - Short: Bottom quantile (low_quantile, default: 1)
+    - Long/Short Return = High Quantile Return - Low Quantile Return
+    
+    Args:
+        portfolios_df: DataFrame from build_factor_portfolio_returns()
+            Must have columns: timestamp_col, factor_col, quantile_col, return_col
+        low_quantile: Bottom quantile for short position (default: 1)
+        high_quantile: Top quantile for long position (default: None = highest available)
+        timestamp_col: Column name for timestamp (default: "timestamp")
+        quantile_col: Column name for quantile (default: "quantile")
+        return_col: Column name for portfolio return (default: "mean_return")
+        factor_col: Column name for factor (default: "factor")
+    
+    Returns:
+        DataFrame with columns:
+        - timestamp: Timestamp
+        - factor: Factor name
+        - ls_return: Long/Short return (high_quantile - low_quantile)
+        - gross_exposure: Gross exposure (2.0 for long/short, 1.0 for long-only)
+        - n_long: Number of symbols in long quantile
+        - n_short: Number of symbols in short quantile
+        
+        Example:
+            timestamp              factor          ls_return  gross_exposure  n_long  n_short
+            2020-01-01 00:00:00+00:00  returns_12m     0.04        2.0         10     10
+            ...
+    
+    Raises:
+        KeyError: If required columns are missing
+        ValueError: If DataFrame is empty or invalid
+    """
+    # Validate input
+    if portfolios_df.empty:
+        raise ValueError("Input DataFrame is empty")
+    
+    required_cols = {timestamp_col, factor_col, quantile_col, return_col}
+    missing_cols = required_cols - set(portfolios_df.columns)
+    if missing_cols:
+        raise KeyError(f"Missing required columns: {missing_cols}")
+    
+    # Determine high_quantile if not provided
+    if high_quantile is None:
+        high_quantile = int(portfolios_df[quantile_col].max())
+    
+    # Validate quantiles
+    if low_quantile < 1 or high_quantile < low_quantile:
+        raise ValueError(
+            f"Invalid quantiles: low={low_quantile}, high={high_quantile}. "
+            f"Must satisfy 1 <= low <= high"
+        )
+    
+    results = []
+    
+    # Process each timestamp and factor combination
+    for (timestamp, factor), group_df in portfolios_df.groupby([timestamp_col, factor_col]):
+        # Get returns for low and high quantiles
+        low_row = group_df[group_df[quantile_col] == low_quantile]
+        high_row = group_df[group_df[quantile_col] == high_quantile]
+        
+        # Skip if either quantile is missing
+        if low_row.empty or high_row.empty:
+            continue
+        
+        # Extract values
+        low_return = low_row[return_col].iloc[0]
+        high_return = high_row[return_col].iloc[0]
+        
+        # Get n values if available
+        n_col = "n" if "n" in group_df.columns else None
+        n_long = int(high_row[n_col].iloc[0]) if n_col and not high_row[n_col].isna().iloc[0] else None
+        n_short = int(low_row[n_col].iloc[0]) if n_col and not low_row[n_col].isna().iloc[0] else None
+        
+        # Compute Long/Short return
+        ls_return = high_return - low_return
+        
+        # Build result row
+        result_row = {
+            timestamp_col: timestamp,
+            factor_col: factor,
+            "ls_return": ls_return,
+            "gross_exposure": 2.0,  # Long + Short
+            "n_long": n_long,
+            "n_short": n_short,
+        }
+        
+        results.append(result_row)
+    
+    if not results:
+        # Return empty DataFrame with correct structure
+        return pd.DataFrame(
+            columns=[timestamp_col, factor_col, "ls_return", "gross_exposure", "n_long", "n_short"]
+        )
+    
+    # Combine results
+    result_df = pd.DataFrame(results)
+    
+    # Sort by timestamp, factor
+    result_df = result_df.sort_values([timestamp_col, factor_col]).reset_index(drop=True)
+    
+    logger.info(
+        f"Built Long/Short portfolio returns for {result_df[factor_col].nunique()} factor(s), "
+        f"{result_df[timestamp_col].nunique()} timestamps"
+    )
+    
+    return result_df
+
+
+def summarize_factor_portfolios(
+    ls_returns_df: pd.DataFrame,
+    risk_free_rate: float = 0.0,
+    periods_per_year: int = 252,
+    timestamp_col: str = "timestamp",
+    factor_col: str = "factor",
+    return_col: str = "ls_return",
+) -> pd.DataFrame:
+    """
+    Summarize factor portfolio performance metrics.
+    
+    Aggregates Long/Short returns per factor and computes:
+    - Annualized return and volatility
+    - Sharpe Ratio
+    - t-statistic (for mean return significance)
+    - Win ratio (percentage of positive returns)
+    - Maximum drawdown (simple rolling max drawdown on cumulative returns)
+    
+    Args:
+        ls_returns_df: DataFrame from build_long_short_portfolio_returns()
+            Must have columns: timestamp_col, factor_col, return_col
+        risk_free_rate: Risk-free rate (annualized, default: 0.0)
+        periods_per_year: Trading periods per year (default: 252 for daily)
+        timestamp_col: Column name for timestamp (default: "timestamp")
+        factor_col: Column name for factor (default: "factor")
+        return_col: Column name for Long/Short return (default: "ls_return")
+    
+    Returns:
+        DataFrame with one row per factor, columns:
+        - factor: Factor name
+        - annualized_return: Mean return (annualized)
+        - annualized_vol: Standard deviation of returns (annualized)
+        - sharpe: Sharpe Ratio (annualized)
+        - t_stat: t-statistic for mean return (H0: mean = 0)
+        - p_value: p-value for t-test (two-sided)
+        - win_ratio: Percentage of positive returns (0.0 to 1.0)
+        - max_drawdown: Maximum drawdown (negative value)
+        - n_periods: Number of periods
+        - n_positive: Number of positive returns
+        - n_negative: Number of negative returns
+        
+        Sorted by Sharpe Ratio (descending).
+        
+        Example:
+            factor          annualized_return  annualized_vol  sharpe  t_stat  ...
+            returns_12m     0.15               0.12            1.25    3.45   ...
+            trend_strength_200  0.10           0.10            1.00    2.50   ...
+    
+    Raises:
+        KeyError: If required columns are missing
+        ValueError: If DataFrame is empty or invalid
+    """
+    # Validate input
+    if ls_returns_df.empty:
+        raise ValueError("Input DataFrame is empty")
+    
+    required_cols = {timestamp_col, factor_col, return_col}
+    missing_cols = required_cols - set(ls_returns_df.columns)
+    if missing_cols:
+        raise KeyError(f"Missing required columns: {missing_cols}")
+    
+    # Ensure timestamp is datetime
+    df = ls_returns_df.copy()
+    if not pd.api.types.is_datetime64_any_dtype(df[timestamp_col]):
+        df[timestamp_col] = pd.to_datetime(df[timestamp_col], utc=True)
+    
+    # Sort by timestamp
+    df = df.sort_values([timestamp_col, factor_col]).reset_index(drop=True)
+    
+    results = []
+    
+    # Process each factor
+    for factor, factor_df in df.groupby(factor_col):
+        # Extract returns
+        returns = factor_df[return_col].dropna()
+        
+        if len(returns) < 2:
+            # Insufficient data
+            continue
+        
+        # Basic statistics
+        mean_return = float(returns.mean())
+        std_return = float(returns.std())
+        n_periods = len(returns)
+        
+        # Annualize
+        annualized_return = mean_return * periods_per_year
+        annualized_vol = std_return * np.sqrt(periods_per_year)
+        
+        # Sharpe Ratio
+        if annualized_vol > 0:
+            sharpe = (annualized_return - risk_free_rate) / annualized_vol
+        else:
+            sharpe = np.nan
+        
+        # t-statistic (H0: mean = 0)
+        if std_return > 0 and n_periods > 1:
+            t_stat = mean_return / (std_return / np.sqrt(n_periods))
+            # Simple p-value approximation (two-sided t-test)
+            # For large n, t ~ N(0,1), so p ≈ 2 * (1 - Φ(|t|))
+            # We'll use a simple approximation
+            abs_t = abs(t_stat)
+            # For large n, use normal approximation
+            if n_periods > 30:
+                # Approximate p-value using normal CDF
+                # p = 2 * (1 - norm.cdf(abs_t))
+                # Without scipy, we use a simple approximation
+                # For |t| > 3, p is very small; for |t| < 1, p is large
+                if abs_t > 3:
+                    p_value = 0.002  # Very significant
+                elif abs_t > 2:
+                    p_value = 0.05  # Significant
+                elif abs_t > 1:
+                    p_value = 0.3  # Not significant
+                else:
+                    p_value = 0.5  # Not significant
+            else:
+                # For small n, use conservative estimate
+                p_value = 0.1 if abs_t > 2 else 0.5
+        else:
+            t_stat = np.nan
+            p_value = np.nan
+        
+        # Win ratio
+        n_positive = int((returns > 0).sum())
+        n_negative = int((returns < 0).sum())
+        win_ratio = n_positive / n_periods if n_periods > 0 else 0.0
+        
+        # Maximum drawdown (simple rolling max drawdown)
+        # Compute cumulative returns
+        cum_returns = (1 + returns).cumprod()
+        # Running maximum
+        running_max = cum_returns.expanding().max()
+        # Drawdown
+        drawdown = (cum_returns - running_max) / running_max
+        max_drawdown = float(drawdown.min())  # Negative value
+        
+        # Build result row
+        result_row = {
+            factor_col: factor,
+            "annualized_return": annualized_return,
+            "annualized_vol": annualized_vol,
+            "sharpe": sharpe,
+            "t_stat": t_stat,
+            "p_value": p_value,
+            "win_ratio": win_ratio,
+            "max_drawdown": max_drawdown,
+            "n_periods": n_periods,
+            "n_positive": n_positive,
+            "n_negative": n_negative,
+        }
+        
+        results.append(result_row)
+    
+    if not results:
+        # Return empty DataFrame with correct structure
+        return pd.DataFrame(
+            columns=[
+                factor_col,
+                "annualized_return",
+                "annualized_vol",
+                "sharpe",
+                "t_stat",
+                "p_value",
+                "win_ratio",
+                "max_drawdown",
+                "n_periods",
+                "n_positive",
+                "n_negative",
+            ]
+        )
+    
+    # Combine results
+    result_df = pd.DataFrame(results)
+    
+    # Sort by Sharpe Ratio (descending)
+    result_df = result_df.sort_values("sharpe", ascending=False).reset_index(drop=True)
+    
+    logger.info(
+        f"Summarized factor portfolios for {len(result_df)} factor(s)"
+    )
+    
+    return result_df
+
+
+def compute_deflated_sharpe_ratio(
+    sharpe: float,
+    n_obs: int,
+    n_trials: int = 1,
+    skew: float = 0.0,
+    kurt: float = 3.0,
+) -> float:
+    """
+    Compute Deflated Sharpe Ratio (DSR) to adjust for multiple testing.
+    
+    The Deflated Sharpe Ratio adjusts the observed Sharpe Ratio for:
+    - Multiple testing (False Discovery Rate)
+    - Non-normal return distributions (skewness, kurtosis)
+    
+    Formula (simplified, based on Bailey et al. 2014):
+        DSR = (SR - E[SR]) / std(SR)
+        where:
+        - E[SR] = expected Sharpe under null (accounting for multiple testing)
+        - std(SR) = standard deviation of Sharpe (accounting for distribution)
+    
+    This is a simplified implementation. For full accuracy, see:
+    Bailey, D. H., & López de Prado, M. (2014). The deflated Sharpe ratio:
+    Correcting for selection bias, backtest overfitting and non-normality.
+    Journal of Portfolio Management, 40(5), 94-107.
+    
+    Args:
+        sharpe: Observed Sharpe Ratio
+        n_obs: Number of observations (time periods)
+        n_trials: Number of factors/trials tested (for multiple testing adjustment)
+            Default: 1 (no multiple testing adjustment)
+        skew: Skewness of returns (default: 0.0, assumes normal)
+        kurt: Kurtosis of returns (default: 3.0, assumes normal)
+            Excess kurtosis = kurt - 3.0
+    
+    Returns:
+        Deflated Sharpe Ratio (float)
+        - Positive DSR indicates significant Sharpe after adjustment
+        - Negative DSR indicates Sharpe may be due to luck/multiple testing
+    
+    Note:
+        - This is a simplified implementation using pure numpy
+        - For production use, consider using scipy.stats.norm.cdf if available
+        - The formula assumes independence between trials (may not hold for correlated factors)
+    """
+    if n_obs < 2:
+        return np.nan
+    
+    if np.isnan(sharpe) or np.isinf(sharpe):
+        return np.nan
+    
+    # Expected Sharpe under null (multiple testing adjustment)
+    # For n_trials independent tests, expected max Sharpe ≈ sqrt(2 * log(n_trials))
+    # This is a simplified approximation
+    if n_trials > 1:
+        # Expected maximum Sharpe under null (Bonferroni-like adjustment)
+        # E[max_SR] ≈ sqrt(2 * log(n_trials)) / sqrt(n_obs)
+        # But we use a simpler approximation
+        expected_max_sharpe = np.sqrt(2 * np.log(n_trials)) / np.sqrt(n_obs)
+    else:
+        expected_max_sharpe = 0.0
+    
+    # Standard deviation of Sharpe (distribution adjustment)
+    # For normal returns: std(SR) ≈ sqrt((1 + SR^2/2) / n_obs)
+    # For non-normal: adjust for skewness and kurtosis
+    excess_kurt = kurt - 3.0
+    variance_term = 1.0 + (sharpe**2 / 2.0) + (skew * sharpe) + (excess_kurt * sharpe**2 / 4.0)
+    std_sharpe = np.sqrt(variance_term / n_obs)
+    
+    # Deflated Sharpe Ratio
+    if std_sharpe > 0:
+        dsr = (sharpe - expected_max_sharpe) / std_sharpe
+    else:
+        dsr = np.nan
+    
+    return float(dsr)
 

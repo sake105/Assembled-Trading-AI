@@ -24,6 +24,17 @@ from src.assembled_core.qa.factor_analysis import (
     summarize_ic_series,
     compute_rolling_ic,
     example_factor_analysis_workflow,
+    # Phase C2 functions
+    build_factor_portfolio_returns,
+    build_long_short_portfolio_returns,
+    summarize_factor_portfolios,
+    compute_deflated_sharpe_ratio,
+)
+
+from src.assembled_core.qa.event_study import (
+    build_event_window_prices,
+    compute_event_returns,
+    aggregate_event_study,
 )
 
 # Legacy alias for backward compatibility
@@ -43,4 +54,13 @@ __all__ = [
     "summarize_ic_series",
     "compute_rolling_ic",
     "example_factor_analysis_workflow",
+    # Phase C2 functions
+    "build_factor_portfolio_returns",
+    "build_long_short_portfolio_returns",
+    "summarize_factor_portfolios",
+    "compute_deflated_sharpe_ratio",
+    # Phase C3 functions (Event Study)
+    "build_event_window_prices",
+    "compute_event_returns",
+    "aggregate_event_study",
 ]

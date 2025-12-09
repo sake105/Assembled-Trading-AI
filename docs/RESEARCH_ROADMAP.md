@@ -83,9 +83,9 @@ Phase 12 ("God-Level" Research & Evolution) zielt darauf ab, das System zu einem
 
 **Event-Strategien:**
 - ✅ Event Insider Shipping (Insider + Shipping)
+- ✅ Earnings & Insider Alt-Data Factors (Phase B1) - Earnings Surprise & Insider Activity Faktoren verfügbar
+- ✅ News & Macro Alt-Data Factors (Phase B2) - News Sentiment & Macro Regime Faktoren verfügbar
 - ⏳ Congress-Trading (geplant)
-- ⏳ News-Sentiment (geplant)
-- ⏳ Earnings-Events (geplant)
 
 **ML-Layer:**
 - ✅ Meta-Modelle (Confidence-Score-Prediction)
@@ -157,7 +157,21 @@ Phase 12 ("God-Level" Research & Evolution) zielt darauf ab, das System zu einem
 
 ### 3.2 Neue Alt-Daten & Faktoren
 
-**Erweiterte Insider-Daten:**
+**Alt-Data-Faktoren (Phase B1 - ✅ Completed):**
+- **Earnings Surprise Faktoren**: `earnings_eps_surprise_last`, `earnings_revenue_surprise_last`, `post_earnings_drift_return_{window_days}d`
+- **Insider Activity Faktoren**: `insider_net_notional_{lookback_days}d`, `insider_buy_count_{lookback_days}d`, `insider_sell_count_{lookback_days}d`, `insider_buy_sell_ratio_{lookback_days}d`
+- **Integration mit Phase C1/C2**: Alt-Data-Faktoren können mit `analyze_factors --factor-set core+alt` evaluiert werden
+- **Integration mit Phase C3**: Events können für Event-Studies verwendet werden (`research/events/event_study_template_core.py`)
+- **Dokumentation**: Siehe `docs/ADVANCED_ANALYTICS_FACTOR_LABS.md` (Phase B1) und `docs/WORKFLOWS_FACTOR_ANALYSIS.md`
+
+**Alt-Data-Faktoren 2.0 (Phase B2 - ✅ Completed):**
+- **News Sentiment Faktoren**: `news_sentiment_mean_{lookback_days}d`, `news_sentiment_trend_{lookback_days}d`, `news_sentiment_shock_flag`, `news_sentiment_volume_{lookback_days}d`
+- **Macro Regime Faktoren**: `macro_growth_regime`, `macro_inflation_regime`, `macro_risk_aversion_proxy`
+- **Integration mit Phase C1/C2**: News/Macro-Faktoren können mit `analyze_factors --factor-set core+alt_news` oder `core+alt_full` evaluiert werden
+- **Integration mit Phase D**: Macro-Regime-Faktoren werden für Regime-Modelle verwendet
+- **Dokumentation**: Siehe `docs/ADVANCED_ANALYTICS_FACTOR_LABS.md` (Phase B2) und `docs/WORKFLOWS_FACTOR_ANALYSIS.md`
+
+**Erweiterte Insider-Daten (Zukunft - B2):**
 - Insider-Transaction-Types (Buy/Sell, Open-Market, etc.)
 - Insider-Cluster-Analysen (mehrere Insiders gleichzeitig)
 - Insider-Historie (wie oft hat dieser Insider erfolgreich getradet?)
@@ -168,14 +182,15 @@ Phase 12 ("God-Level" Research & Evolution) zielt darauf ab, das System zu einem
 - Sector-Exposure-Analysen
 
 **News & Sentiment:**
-- News-Sentiment-Scoring (z.B. FinBERT)
-- News-Volume-Spikes
-- Earnings-Announcements (Pre/Post-Earnings-Drifts)
+- ✅ News-Sentiment-Faktoren (Phase B2) - `news_sentiment_mean_{lookback_days}d`, `news_sentiment_trend_{lookback_days}d`, `news_sentiment_shock_flag`
+- News-Volume-Spikes (kann über `news_sentiment_volume_{lookback_days}d` analysiert werden)
+- Earnings-Announcements (Pre/Post-Earnings-Drifts) ✅ Implementiert in Phase B1
 
 **Makro-Daten:**
-- Economic-Indicators (z.B. CPI, Unemployment)
-- Fed-Announcements (FOMC-Meetings)
-- Sector-Rotation-Indikatoren
+- ✅ Macro-Regime-Faktoren (Phase B2) - `macro_growth_regime`, `macro_inflation_regime`, `macro_risk_aversion_proxy`
+- Economic-Indicators (z.B. CPI, Unemployment) - Verfügbar über `fetch_macro_series()` und `build_macro_regime_factors()`
+- Fed-Announcements (FOMC-Meetings) - Kann über Macro-Series integriert werden
+- Sector-Rotation-Indikatoren (geplant)
 
 **Vol-Daten:**
 - VIX-Term-Structure
@@ -252,7 +267,7 @@ Phase 12 ("God-Level" Research & Evolution) zielt darauf ab, das System zu einem
 | R-011 | Adaptive-Position-Sizing | Portfolio | Low | Kelly-Criterion oder ähnliches für Position-Sizing |
 | R-012 | Options-Vol-Strategien | Strategie | Low | Implied-Volatility-basierte Strategien (falls Daten verfügbar) |
 | R-013 | Pairs-Trading | Strategie | Low | Korrelations-basierte Pairs-Trading-Strategie |
-| R-014 | Earnings-Events | Daten | Medium | Earnings-Announcements als Feature/Event integrieren |
+| R-014 | Earnings-Events | Daten | ✅ Completed (B1) | Earnings-Announcements als Feature/Event integriert (Phase B1: Alt-Data Factors) |
 | R-015 | XGBoost-Meta-Model | ML | Low | XGBoost als Alternative zu GradientBoosting testen |
 
 ---

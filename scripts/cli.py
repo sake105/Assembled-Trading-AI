@@ -91,6 +91,7 @@ def info_subcommand(args: argparse.Namespace) -> int:
     print("  run_daily          - Run daily EOD pipeline (execute, backtest, portfolio, QA)")
     print("  run_backtest       - Run strategy backtest with portfolio-level engine")
     print("  factor_report      - Generate factor analysis report (IC/IR statistics)")
+    print("  analyze_factors    - Comprehensive factor analysis (IC + Portfolio evaluation)")
     print("  run_phase4_tests   - Run Phase-4 regression test suite (~13s, 110 tests)")
     print("  info               - Show this information")
     print()
@@ -434,6 +435,30 @@ def build_ml_dataset_subcommand(args: argparse.Namespace) -> int:
         return 1
     except Exception as e:
         logger.error(f"Unexpected error: {e}", exc_info=True)
+        return 1
+
+
+def analyze_factors_subcommand(args: argparse.Namespace) -> int:
+    """Run comprehensive factor analysis subcommand.
+    
+    Args:
+        args: Parsed command-line arguments for analyze_factors
+        
+    Returns:
+        Exit code (0 for success, 1 for failure)
+    """
+    # Generate unique Run-ID for this execution
+    run_id = generate_run_id(prefix="analyze_factors")
+    setup_logging(run_id=run_id, level="INFO")
+    
+    logger.info("Comprehensive Factor Analysis (analyze_factors)")
+    
+    from scripts.run_factor_analysis import run_factor_analysis_from_args
+    
+    try:
+        return run_factor_analysis_from_args(args)
+    except Exception as e:
+        logger.error(f"Factor analysis failed: {e}", exc_info=True)
         return 1
 
 
@@ -1729,6 +1754,101 @@ Examples:
         help="Optional path for summary CSV output (e.g., output/factor_reports/ai_tech_core_5d_ic.csv)"
     )
     factor_report_parser.set_defaults(func=factor_report_subcommand)
+    
+    # analyze_factors subcommand
+    analyze_factors_parser = subparsers.add_parser(
+        "analyze_factors",
+        help="Comprehensive factor analysis (IC + Portfolio evaluation)",
+        description="Run comprehensive factor analysis including IC-based evaluation (C1) and portfolio-based evaluation (C2).",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Analyze factors for ETF universe
+  python scripts/cli.py analyze_factors --freq 1d --symbols-file config/macro_world_etfs_tickers.txt --data-source local --start-date 2010-01-01 --end-date 2025-12-03 --factor-set core+vol_liquidity --horizon-days 20
+
+  # Analyze with custom quantiles and output directory
+  python scripts/cli.py analyze_factors --freq 1d --universe config/universe_ai_tech_tickers.txt --start-date 2005-01-01 --end-date 2025-12-02 --factor-set all --horizon-days 21 --quantiles 10 --output-dir output/custom_analysis
+        """
+    )
+    
+    analyze_factors_parser.add_argument(
+        "--freq",
+        type=str,
+        required=True,
+        choices=["1d", "5min"],
+        help="Frequency (1d or 5min)"
+    )
+    
+    # Symbol input (priority: symbols > symbols-file > universe)
+    symbol_group = analyze_factors_parser.add_mutually_exclusive_group(required=False)
+    symbol_group.add_argument(
+        "--symbols",
+        type=str,
+        nargs="+",
+        help="List of symbols (e.g., --symbols AAPL MSFT GOOG)"
+    )
+    symbol_group.add_argument(
+        "--symbols-file",
+        type=str,
+        help="Path to file with symbols (one per line)"
+    )
+    symbol_group.add_argument(
+        "--universe",
+        type=str,
+        help="Path to universe file (alias for --symbols-file)"
+    )
+    
+    analyze_factors_parser.add_argument(
+        "--data-source",
+        type=str,
+        default="local",
+        choices=["local", "yahoo", "finnhub", "twelve_data"],
+        help="Data source (default: local)"
+    )
+    
+    analyze_factors_parser.add_argument(
+        "--start-date",
+        type=str,
+        required=True,
+        help="Start date (YYYY-MM-DD)"
+    )
+    
+    analyze_factors_parser.add_argument(
+        "--end-date",
+        type=str,
+        required=True,
+        help="End date (YYYY-MM-DD)"
+    )
+    
+    analyze_factors_parser.add_argument(
+        "--factor-set",
+        type=str,
+        default="core",
+        choices=["core", "vol_liquidity", "core+vol_liquidity", "all", "alt_earnings_insider", "core+alt", "alt_news_macro", "core+alt_news", "core+alt_full"],
+        help="Factor set: core (TA/Price), vol_liquidity (Volatility/Liquidity), core+vol_liquidity, all, alt_earnings_insider (Alt-Data B1 only), core+alt (Core + Alt-Data B1), alt_news_macro (Alt-Data B2 only), core+alt_news (Core + Alt-Data B2), or core+alt_full (Core + B1 + B2) (default: core)"
+    )
+    
+    analyze_factors_parser.add_argument(
+        "--horizon-days",
+        type=int,
+        default=20,
+        help="Forward return horizon in days (default: 20)"
+    )
+    
+    analyze_factors_parser.add_argument(
+        "--quantiles",
+        type=int,
+        default=5,
+        help="Number of quantiles for portfolio analysis (default: 5)"
+    )
+    
+    analyze_factors_parser.add_argument(
+        "--output-dir",
+        type=str,
+        help="Output directory (default: output/factor_analysis)"
+    )
+    
+    analyze_factors_parser.set_defaults(func=analyze_factors_subcommand)
     
     # run_phase4_tests subcommand
     tests_parser = subparsers.add_parser(

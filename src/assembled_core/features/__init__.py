@@ -30,6 +30,16 @@ from src.assembled_core.features.market_breadth import (
     compute_risk_on_off_indicator,
 )
 
+# Alt-Data Factors: Earnings & Insider (Phase B1)
+from src.assembled_core.features.altdata_earnings_insider_factors import (
+    build_earnings_surprise_factors,
+    build_insider_activity_factors,
+)
+from src.assembled_core.features.altdata_news_macro_factors import (
+    build_macro_regime_factors,
+    build_news_sentiment_factors,
+)
+
 __all__ = [
     "build_core_ta_factors",
     "add_realized_volatility",
@@ -38,5 +48,9 @@ __all__ = [
     "compute_market_breadth_ma",
     "compute_advance_decline_line",
     "compute_risk_on_off_indicator",
+    "build_earnings_surprise_factors",
+    "build_insider_activity_factors",
+    "build_news_sentiment_factors",
+    "build_macro_regime_factors",
 ]
 

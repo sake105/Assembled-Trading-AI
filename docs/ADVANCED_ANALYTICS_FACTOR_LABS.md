@@ -184,14 +184,179 @@ market_state = breadth.merge(ad_line, on="timestamp").merge(risk_indicator, on="
 
 **Sprints:**
 
-#### B1: Insider Trading 2.0
+#### B1: Earnings & Insider Alt-Data ✅ (Completed)
+
+**Module:** `src/assembled_core/features/altdata_earnings_insider_factors.py`  
+**API:** 
+- `build_earnings_surprise_factors(events_earnings, prices, window_days=20)`
+- `build_insider_activity_factors(events_insider, prices, lookback_days=60)`
+
+**Implementation:**
+- **Earnings Surprise Factors**: Transform earnings events into time-series factors
+  - `earnings_eps_surprise_last`: Last EPS surprise percentage (most recent earnings event)
+  - `earnings_revenue_surprise_last`: Last revenue surprise percentage
+  - `earnings_positive_surprise_flag`: Binary flag (1 if last surprise was positive)
+  - `earnings_negative_surprise_flag`: Binary flag (1 if last surprise was negative)
+  - `post_earnings_drift_return_{window_days}d`: Forward return after earnings announcement
+  
+- **Insider Activity Factors**: Aggregate insider transactions over rolling windows
+  - `insider_net_notional_{lookback_days}d`: Net insider notional (buy - sell) over lookback window
+  - `insider_buy_count_{lookback_days}d`: Number of insider buy transactions
+  - `insider_sell_count_{lookback_days}d`: Number of insider sell transactions
+  - `insider_buy_sell_ratio_{lookback_days}d`: Ratio of buys to sells (count-based)
+  - `insider_net_notional_normalized_{lookback_days}d`: Net notional normalized by market cap proxy
+
+**Data Contracts:**
+- **events_earnings_df**: `timestamp`, `symbol`, `event_type`, `event_id`, `eps_actual`, `eps_estimate`, `revenue_actual`, `revenue_estimate`
+- **events_insider_df**: `timestamp`, `symbol`, `event_type`, `event_id`, `usd_notional`, `direction`, `shares`, `price`
+
+**Integration:**
+- Compatible with `build_core_ta_factors()` and other Phase A factors
+- Can be merged with price DataFrame using `timestamp` & `symbol`
+- Designed for use in Phase C1/C2 factor analysis workflows
+- Price data comes from `LocalParquetPriceDataSource` (not Finnhub)
+- Events loaded from `output/altdata/events_earnings.parquet` and `events_insider.parquet`
+
+**Finnhub Events Client:**
+- **Module:** `src/assembled_core/data/altdata/finnhub_events.py`
+- **Functions:** `fetch_earnings_events()`, `fetch_insider_events()`
+- Robust error handling (4xx/5xx → empty DataFrame, no crash)
+- Rate limit handling (60 calls/minute for free tier)
+- Data contract compliance (normalized to events_earnings_df/events_insider_df)
+
+**Download Script:**
+- **Module:** `scripts/download_altdata_finnhub_events.py`
+- CLI interface for downloading events from Finnhub
+- Supports `--symbols-file`, `--event-types` (earnings, insider), `--start-date`, `--end-date`
+- Stores raw events in `data/raw/altdata/finnhub/` and cleaned events in `output/altdata/`
+
+**Factor Columns Summary:**
+
+| Factor Name | Category | Description |
+|------------|----------|-------------|
+| `earnings_eps_surprise_last` | Earnings | Last EPS surprise percentage (forward-filled until next event) |
+| `earnings_revenue_surprise_last` | Earnings | Last revenue surprise percentage |
+| `earnings_positive_surprise_flag` | Earnings | Binary flag (1 if last EPS surprise > 0) |
+| `earnings_negative_surprise_flag` | Earnings | Binary flag (1 if last EPS surprise < 0) |
+| `post_earnings_drift_return_{window_days}d` | Earnings | Forward return after earnings announcement |
+| `insider_net_notional_{lookback_days}d` | Insider | Net insider notional (buy - sell) over rolling window |
+| `insider_buy_count_{lookback_days}d` | Insider | Number of buy transactions in window |
+| `insider_sell_count_{lookback_days}d` | Insider | Number of sell transactions in window |
+| `insider_buy_sell_ratio_{lookback_days}d` | Insider | Ratio of buys to sells (count-based) |
+| `insider_net_notional_normalized_{lookback_days}d` | Insider | Net notional normalized by market cap proxy (if volume available) |
+
+**Tests:**
+- `tests/test_features_altdata_earnings_insider_factors.py`: Factor computation tests (marked with `@pytest.mark.advanced`)
+- `tests/test_data_finnhub_events_client.py`: API client tests with mocks (marked with `@pytest.mark.advanced`)
+
+**Usage Example:**
+```python
+from src.assembled_core.features.altdata_earnings_insider_factors import (
+    build_earnings_surprise_factors,
+    build_insider_activity_factors,
+)
+import pandas as pd
+
+# Load prices (from LocalParquetPriceDataSource)
+prices = price_source.get_history(...)
+
+# Load events (from Parquet files)
+events_earnings = pd.read_parquet("output/altdata/events_earnings.parquet")
+events_insider = pd.read_parquet("output/altdata/events_insider.parquet")
+
+# Build factors
+earnings_factors = build_earnings_surprise_factors(events_earnings, prices, window_days=20)
+insider_factors = build_insider_activity_factors(events_insider, prices, lookback_days=60)
+
+# Merge with other factors
+from src.assembled_core.features import build_core_ta_factors
+ta_factors = build_core_ta_factors(prices)
+
+all_factors = ta_factors.merge(
+    earnings_factors[["timestamp", "symbol", "earnings_eps_surprise_last", ...]],
+    on=["timestamp", "symbol"],
+    how="left"
+).merge(
+    insider_factors[["timestamp", "symbol", "insider_net_notional_60d", ...]],
+    on=["timestamp", "symbol"],
+    how="left"
+)
+```
+
+**CLI Integration:**
+- Factor analysis workflow supports `--factor-set alt_earnings_insider` and `--factor-set core+alt`
+- See `docs/WORKFLOWS_FACTOR_ANALYSIS.md` for usage examples
+
+#### B2: News, Sentiment & Macro Alt-Data ✅ (Completed)
+
+**Design Document:** `docs/ALT_DATA_FACTORS_B2_DESIGN.md`
+
+**Module:** `src/assembled_core/features/altdata_news_macro_factors.py`  
+**API:**
+- `build_news_sentiment_factors(news_sentiment_daily, prices, lookback_days=20)`
+- `build_macro_regime_factors(macro_series, prices, country_filter=None)`
+
+**Implementation:**
+- **News Sentiment Factors**: Transform daily sentiment data into time-series factors
+  - `news_sentiment_mean_{lookback_days}d`: Rolling mean of daily sentiment scores
+  - `news_sentiment_trend_{lookback_days}d`: Trend in sentiment (slope over lookback window)
+  - `news_sentiment_shock_flag`: Binary flag (1 if sentiment change exceeds threshold)
+  - `news_sentiment_volume_{lookback_days}d`: Rolling mean of news volume
+  
+- **Macro Regime Factors**: Transform macro-economic indicators into regime indicators
+  - `macro_growth_regime`: Growth regime (+1 = expansion, -1 = recession, 0 = neutral)
+  - `macro_inflation_regime`: Inflation regime (+1 = high inflation, -1 = low/deflation, 0 = neutral)
+  - `macro_risk_aversion_proxy`: Risk-on/risk-off indicator (+1 = risk-off, -1 = risk-on, 0 = neutral)
+
+**Data Contracts:**
+- **news_events_df**: `timestamp`, `symbol` (or None for market-wide), `source`, `headline`, `news_id`, `event_type="news"`, optional `sentiment_score`, `category`
+- **news_sentiment_daily_df**: `timestamp`, `symbol` (or `"__MARKET__"`), `sentiment_score`, `sentiment_volume`
+- **macro_series_df**: `timestamp`, `macro_code`, `value`, `country`, `release_time`
+
+**Client Module:** `src/assembled_core/data/altdata/finnhub_news_macro.py`
+- `fetch_news()`: Fetches company news or market-wide news from Finnhub
+- `fetch_news_sentiment()`: Aggregates news sentiment on daily basis
+- `fetch_macro_series()`: Fetches economic calendar and indicator values
+
+**Download Script:** `scripts/download_altdata_finnhub_news_macro.py`
+- CLI for downloading news, news sentiment, and macro data
+- Supports symbol lists and macro code lists
+- Saves raw data to `data/raw/altdata/finnhub/` and cleaned data to `output/altdata/`
+
+**Integration:**
+- Integrated into `analyze_factors` CLI workflow
+- Factor sets: `alt_news_macro`, `core+alt_news`, `core+alt_full`
+- Compatible with Phase C1/C2 factor analysis workflows
+- Macro factors are market-wide (same value for all symbols on same date)
+
+**Storage:**
+- Raw: `data/raw/altdata/finnhub/news_raw.parquet`, `news_sentiment_raw.parquet`, `macro_raw.parquet`
+- Clean: `output/altdata/news_events.parquet`, `news_sentiment_daily.parquet`, `macro_series.parquet`
+
+**Tests:**
+- `tests/test_features_altdata_news_macro_factors.py` (marked with `@pytest.mark.advanced`)
+- `tests/test_data_finnhub_news_macro_client.py` (marked with `@pytest.mark.advanced`)
+
+**Factor Table:**
+
+| Factor Name | Category | Description |
+|------------|----------|-------------|
+| `news_sentiment_mean_{lookback_days}d` | News Sentiment | Rolling mean of daily sentiment scores over lookback window |
+| `news_sentiment_trend_{lookback_days}d` | News Sentiment | Trend in sentiment (slope over lookback window) |
+| `news_sentiment_shock_flag` | News Sentiment | Binary flag (1 if sentiment change > 1.5 std) |
+| `news_sentiment_volume_{lookback_days}d` | News Sentiment | Rolling mean of news volume |
+| `macro_growth_regime` | Macro Regime | Growth regime indicator (+1 = expansion, -1 = recession, 0 = neutral) |
+| `macro_inflation_regime` | Macro Regime | Inflation regime indicator (+1 = high inflation, -1 = low/deflation, 0 = neutral) |
+| `macro_risk_aversion_proxy` | Macro Regime | Risk-on/risk-off indicator (+1 = risk-off, -1 = risk-on, 0 = neutral) |
+
+#### B3: Insider Trading 2.0 (Future)
 - Enhanced insider transaction types classification (Open Market, Private Placement, Exercise, etc.)
 - Insider clustering analysis (multiple insiders trading simultaneously)
 - Insider historical performance tracking (success rate of individual insiders)
 - Insider sentiment scoring (aggregate buy/sell signals with confidence weights)
 - Integration with Phase 6 existing insider features
 
-#### B2: Congressional Trading & Public Disclosures
+#### B4: Congressional Trading & Public Disclosures
 - STOCK Act data integration (congressional member trades)
 - Timing analysis (trades before important policy decisions/announcements)
 - Sector exposure analysis (which sectors do members trade most?)
@@ -519,12 +684,585 @@ python scripts/cli.py factor_report `
 
 **Note:** Event Study Framework (original C2) will be implemented in a future sprint as C3 or later.
 
-#### C3: Event Study Framework (Renumbered)
-- Event definition and matching (earnings, insider trades, news events)
-- Pre/post event return analysis (cumulative abnormal returns, CAR)
-- Statistical significance testing (t-tests, bootstrap methods)
-- Event clustering detection (multiple events in short time windows)
-- Integration with backtest engine for event-driven strategy testing
+---
+
+#### C2: Factor Ranking & Selection ✅ (Completed)
+
+**Status:** ✅ Completed  
+**Module:** `src/assembled_core/qa/factor_analysis.py`
+
+##### C2 – Factor Ranking & Selection: Implementation
+
+**Ziel:**
+Erweitere die IC-Engine (C1) um Portfolio-basierte Faktor-Evaluierung. Während IC die Korrelation zwischen Faktor und Forward-Return misst, evaluiert C2 die tatsächlichen Portfolio-Returns, wenn man nach Faktor-Werten sortiert und in Quantilen investiert.
+
+**Input-Format:**
+- **Panel-DataFrame** (gleiches Format wie C1):
+  - **Spalten:** `timestamp`, `symbol`, `factor_*`, `fwd_return_*`
+  - **Format:** Kein MultiIndex, sortiert nach `symbol`, dann `timestamp`
+  - **Beispiel:**
+    ```
+    timestamp              symbol  returns_12m  trend_strength_200  fwd_return_20d
+    2020-01-01 00:00:00+00:00  AAPL      0.15             0.5           0.02
+    2020-01-01 00:00:00+00:00  MSFT      0.12             0.3           0.01
+    2020-01-01 00:00:00+00:00  GOOG      0.18             0.7           0.03
+    ...
+    ```
+
+**Zusätzliche Kennzahlen (C2):**
+
+1. **Factor-Portfolio-Returns (Quantil-basiert):**
+   - Pro Timestamp: Sortiere Symbole nach Faktor-Wert
+   - Teile in Quantile (z.B. Q1–Q5, Q1 = niedrigster Faktor-Wert, Q5 = höchster)
+   - Berechne gleichgewichtete Portfolio-Returns pro Quantil
+   - Output: Zeitreihe der Portfolio-Returns pro Quantil
+
+2. **Long/Short-Portfolio:**
+   - Long: Top-Quantil (Q5) – höchste Faktor-Werte
+   - Short: Bottom-Quantil (Q1) – niedrigste Faktor-Werte
+   - Portfolio-Return = Q5-Return - Q1-Return
+   - Output: Zeitreihe der Long/Short-Returns
+
+3. **Performance-Kennzahlen:**
+   - **Sharpe Ratio:** Annualisiert, basierend auf Portfolio-Returns
+   - **t-Statistik:** t-Test für Signifikanz (H0: Mean Return = 0)
+   - **Deflated Sharpe Ratio:** Sharpe Ratio adjustiert für Multiple Testing (False Discovery Rate)
+   - **CAGR:** Compound Annual Growth Rate (für Long/Short-Portfolio)
+   - **Max Drawdown:** Maximum Drawdown (für Long/Short-Portfolio)
+   - **Win Rate:** Anteil positiver Perioden
+
+**Implementierte Funktionen:**
+
+| Funktion | Beschreibung | Output |
+|----------|-------------|--------|
+| `build_factor_portfolio_returns()` | Erstellt Quantil-basierte Portfolio-Returns | DataFrame: `timestamp`, `factor`, `quantile`, `mean_return`, `n` |
+| `build_long_short_portfolio_returns()` | Berechnet Long/Short-Portfolio-Returns (Q5 - Q1) | DataFrame: `timestamp`, `factor`, `ls_return`, `gross_exposure`, `n_long`, `n_short` |
+| `summarize_factor_portfolios()` | Aggregiert Portfolio-Performance-Metriken | DataFrame: `factor`, `annualized_return`, `annualized_vol`, `sharpe`, `t_stat`, `p_value`, `win_ratio`, `max_drawdown`, `n_periods` |
+| `compute_deflated_sharpe_ratio()` | Berechnet Deflated Sharpe Ratio (Multiple Testing Adjustment) | Float: Deflated Sharpe Ratio |
+
+**Wichtigste Kennzahlen (C2):**
+
+1. **Sharpe Ratio** (annualisiert)
+   - Maß für risikoadjustierte Rendite
+   - Sharpe > 1.0 gilt als gut, > 2.0 als sehr gut
+
+2. **t-Statistik** (t-Test für Mean Return)
+   - Testet Signifikanz: H0: Mean Return = 0
+   - |t| > 2.0 deutet auf statistische Signifikanz hin (p < 0.05)
+
+3. **Deflated Sharpe Ratio (DSR)**
+   - Adjustiert für Multiple Testing (False Discovery Rate)
+   - DSR > 0: Faktor ist signifikant nach Adjustierung
+   - DSR < 0: Faktor könnte durch Overfitting/Multiple Testing entstanden sein
+
+4. **Long/Short-Returns**
+   - Q5 (Top-Quantil) - Q1 (Bottom-Quantil)
+   - Zeigt Spread zwischen besten und schlechtesten Faktor-Werten
+
+5. **Max Drawdown**
+   - Größter Rückgang vom Peak
+   - Negativer Wert, kleiner ist besser
+
+6. **Win Ratio**
+   - Anteil positiver Perioden (0.0 bis 1.0)
+   - Win Ratio > 0.5 ist wünschenswert
+
+**Funktions-Signaturen:**
+
+```python
+def build_factor_portfolio_returns(
+    data: pd.DataFrame,
+    factor_cols: str | list[str],
+    forward_returns_col: str,
+    group_col: str = "symbol",
+    timestamp_col: str = "timestamp",
+    quantiles: int = 5,
+    min_obs: int = 10,
+) -> pd.DataFrame:
+    """
+    Build factor portfolio returns based on quantile sorting.
+    
+    Args:
+        factor_df: Panel DataFrame with timestamp, symbol, factor_col, forward_returns_col
+        factor_col: Column name of the factor to rank by
+        forward_returns_col: Column name of forward returns (e.g., "fwd_return_20d")
+        quantiles: Number of quantiles (default: 5, i.e., Q1-Q5)
+        group_col: Column name for grouping (default: "symbol")
+        timestamp_col: Column name for timestamp (default: "timestamp")
+        rebalance_freq: Rebalancing frequency (default: "1d")
+        equal_weight: Whether to use equal weights (default: True)
+    
+    Returns:
+        DataFrame with columns:
+        - timestamp: Timestamp
+        - quantile: Quantile number (1, 2, ..., quantiles)
+        - portfolio_return: Equal-weighted portfolio return for this quantile
+        - n_symbols: Number of symbols in this quantile
+        - long_short_return: Q5 - Q1 return (only for Q5 rows)
+    
+    Example:
+        timestamp              quantile  portfolio_return  n_symbols  long_short_return
+        2020-01-01 00:00:00+00:00  1        0.01            10         NaN
+        2020-01-01 00:00:00+00:00  2        0.02            10         NaN
+        ...
+        2020-01-01 00:00:00+00:00  5        0.05            10         0.04
+    """
+    pass
+
+
+def summarize_factor_portfolios(
+    portfolio_returns_df: pd.DataFrame,
+    risk_free_rate: float = 0.0,
+    periods_per_year: int = 252,
+    quantile_col: str = "quantile",
+    return_col: str = "portfolio_return",
+    timestamp_col: str = "timestamp",
+) -> pd.DataFrame:
+    """
+    Summarize factor portfolio performance metrics.
+    
+    Args:
+        portfolio_returns_df: DataFrame from build_factor_portfolio_returns()
+        risk_free_rate: Risk-free rate (annualized, default: 0.0)
+        periods_per_year: Trading periods per year (default: 252 for daily)
+        quantile_col: Column name for quantile (default: "quantile")
+        return_col: Column name for portfolio return (default: "portfolio_return")
+        timestamp_col: Column name for timestamp (default: "timestamp")
+    
+    Returns:
+        DataFrame with one row per quantile, columns:
+        - quantile: Quantile number
+        - mean_return: Mean portfolio return (annualized)
+        - std_return: Standard deviation of returns (annualized)
+        - sharpe_ratio: Sharpe Ratio (annualized)
+        - t_stat: t-statistic for mean return (H0: mean = 0)
+        - p_value: p-value for t-test
+        - cagr: Compound Annual Growth Rate
+        - max_drawdown: Maximum drawdown
+        - win_rate: Percentage of positive returns
+        - n_periods: Number of periods
+        - n_symbols_avg: Average number of symbols per period
+    
+    For Long/Short (Q5 - Q1):
+        - Additional row with quantile="long_short"
+        - Same metrics computed for long_short_return
+    """
+    pass
+
+
+def compute_deflated_sharpe_ratio(
+    sharpe_ratio: float,
+    n_observations: int,
+    n_factors_tested: int = 1,
+    skewness: float | None = None,
+    kurtosis: float | None = None,
+) -> float:
+    """
+    Compute Deflated Sharpe Ratio (DSR) to adjust for multiple testing.
+    
+    The Deflated Sharpe Ratio adjusts the observed Sharpe Ratio for:
+    - Multiple testing (False Discovery Rate)
+    - Non-normal return distributions (skewness, kurtosis)
+    
+    Formula (simplified):
+        DSR = (SR - E[SR]) / std(SR)
+        where E[SR] and std(SR) account for multiple testing and distribution
+    
+    Args:
+        sharpe_ratio: Observed Sharpe Ratio
+        n_observations: Number of observations (time periods)
+        n_factors_tested: Number of factors tested (for multiple testing adjustment)
+        skewness: Optional skewness of returns (for distribution adjustment)
+        kurtosis: Optional kurtosis of returns (for distribution adjustment)
+    
+    Returns:
+        Deflated Sharpe Ratio (float)
+    
+    References:
+        - Bailey, D. H., & López de Prado, M. (2014). The deflated Sharpe ratio:
+          Correcting for selection bias, backtest overfitting and non-normality.
+          Journal of Portfolio Management, 40(5), 94-107.
+    """
+    pass
+```
+
+**Workflow-Beispiel:**
+
+```python
+from src.assembled_core.qa.factor_analysis import (
+    build_factor_portfolio_returns,
+    build_long_short_portfolio_returns,
+    summarize_factor_portfolios,
+    compute_deflated_sharpe_ratio,
+)
+
+# 1. Build factor portfolios (Q1-Q5)
+portfolio_returns = build_factor_portfolio_returns(
+    data=factors_with_returns,
+    factor_cols="returns_12m",  # Can be list of factors
+    forward_returns_col="fwd_return_20d",
+    quantiles=5,
+    min_obs=10
+)
+
+# 2. Build Long/Short portfolios
+ls_returns = build_long_short_portfolio_returns(
+    portfolio_returns,
+    low_quantile=1,
+    high_quantile=5  # Default: highest quantile
+)
+
+# 3. Summarize portfolio performance
+summary = summarize_factor_portfolios(
+    ls_returns,
+    risk_free_rate=0.02,  # 2% risk-free rate
+    periods_per_year=252
+)
+
+# 4. Display results
+print(summary[["factor", "annualized_return", "sharpe", "t_stat", "win_ratio"]].head(10))
+
+# 5. Compute Deflated Sharpe (if testing multiple factors)
+if len(factor_cols) > 1:
+    summary["deflated_sharpe"] = summary.apply(
+        lambda row: compute_deflated_sharpe_ratio(
+            sharpe=row["sharpe"],
+            n_obs=row["n_periods"],
+            n_trials=len(factor_cols),
+        ),
+        axis=1
+    )
+```
+
+**CLI-Integration:**
+
+Der neue `analyze_factors`-Command kombiniert C1 (IC-Analyse) und C2 (Portfolio-Analyse) in einem Workflow:
+
+```powershell
+python scripts/cli.py analyze_factors `
+  --freq 1d `
+  --symbols-file config/macro_world_etfs_tickers.txt `
+  --data-source local `
+  --start-date 2010-01-01 `
+  --end-date 2025-12-03 `
+  --factor-set core+vol_liquidity `
+  --horizon-days 20 `
+  --quantiles 5
+```
+
+**Integration mit C1:**
+- Nutzt gleiches Input-Format wie C1 (Panel-DF mit `timestamp`, `symbol`, `factor_*`, `fwd_return_*`)
+- Ergänzt IC-basierte Evaluierung um Portfolio-basierte Evaluierung
+- Kombiniert IC-IR (C1) und Portfolio-Sharpe (C2) für umfassende Faktor-Rankings
+- Beide Metriken werden im `analyze_factors`-Workflow parallel berechnet
+
+**Tests:** 
+- `tests/test_qa_factor_analysis_c2.py` (21 Tests, marked with `@pytest.mark.advanced`)
+- `tests/test_cli_analyze_factors.py` (3 Tests, marked with `@pytest.mark.advanced`)
+
+#### C3: Event Study Framework ✅ (Completed)
+
+**Status:** ✅ Completed  
+**Module:** `src/assembled_core/qa/event_study.py`
+
+##### C3 – Event-Study-Engine: Zielbild & Data Contract
+
+**Ziel:**
+Systematische Analyse von Preisreaktionen auf Events (Earnings, Insider-Trades, News, etc.) durch Berechnung von Abnormal Returns, Cumulative Abnormal Returns (CAR) und statistische Signifikanz-Tests.
+
+**Anwendungsfälle:**
+- **Earnings Announcements**: Wie reagieren Preise auf Earnings-Releases?
+- **Insider Trading**: Gibt es signifikante Preismuster nach Insider-Käufen/Verkäufen?
+- **News Events**: Welche News-Typen führen zu abnormalen Returns?
+- **Regulatory Events**: Wie wirken sich regulatorische Änderungen aus?
+
+---
+
+**Input-Format für Events:**
+
+**DataFrame-Struktur:**
+```python
+events_df: pd.DataFrame
+    - timestamp: pd.Timestamp (UTC-aware) - Event-Zeitpunkt
+    - symbol: str - Ticker-Symbol
+    - event_type: str - Event-Kategorie (z.B. "earnings", "insider_buy", "insider_sell", "news", "regulatory")
+    - event_id: str - Eindeutige Event-ID (z.B. "earnings_2024Q1_AAPL", "insider_12345")
+    - payload: dict | str | None - Zusätzliche Event-Metadaten (JSON-serialisierbar)
+        ODER: Zusätzliche Spalten je nach event_type (z.B. "earnings_surprise", "insider_role", "news_sentiment")
+```
+
+**Beispiel:**
+```
+timestamp              symbol  event_type    event_id                    payload
+2024-01-15 16:00:00+00:00  AAPL   earnings      earnings_2024Q1_AAPL      {"surprise": 0.05, "eps": 2.10}
+2024-01-20 09:30:00+00:00  MSFT   insider_buy   insider_12345             {"role": "CEO", "shares": 10000}
+2024-02-01 10:00:00+00:00  GOOG   news          news_67890                {"sentiment": "positive", "source": "Reuters"}
+```
+
+**Hinweise:**
+- `payload` kann ein dict sein (wird als JSON gespeichert) oder als separate Spalten (`earnings_surprise`, `insider_role`, etc.)
+- `event_id` muss eindeutig sein (kann später für Deduplizierung verwendet werden)
+- `event_type` sollte konsistent sein (empfohlene Werte: `earnings`, `insider_buy`, `insider_sell`, `news`, `regulatory`, `custom`)
+- Events können **provider-agnostisch** sein (später aus Finnhub/Fundamentals, jetzt erstmal synthetisch oder CSV)
+
+---
+
+**Input-Format für Preise/Faktoren:**
+
+**Gleiches Panel-Format wie C1/C2:**
+```python
+prices_df: pd.DataFrame
+    - timestamp: pd.Timestamp (UTC-aware)
+    - symbol: str
+    - close: float (oder price_col)
+    - Optional: open, high, low, volume
+    - Optional: factor_* Spalten (falls Faktor-basierte Abnormal-Return-Berechnung gewünscht)
+```
+
+**Sortierung:** Nach `symbol`, dann `timestamp` (aufsteigend)
+
+**Hinweise:**
+- Gleicher Data Contract wie bei Factor Analysis (C1/C2)
+- Kann direkt aus `LocalParquetPriceDataSource` oder anderen Data Sources geladen werden
+- Forward-Returns werden intern berechnet (analog zu C1)
+
+---
+
+**Kern-Funktionen (geplante Interfaces):**
+
+**1. `build_event_window_prices()`**
+```python
+def build_event_window_prices(
+    events_df: pd.DataFrame,
+    prices_df: pd.DataFrame,
+    window_pre: int = 20,  # Tage vor Event
+    window_post: int = 40,  # Tage nach Event
+    price_col: str = "close",
+    timestamp_col: str = "timestamp",
+    symbol_col: str = "symbol",
+) -> pd.DataFrame:
+    """
+    Extrahiert Preis- und Return-Windows um Events.
+    
+    Args:
+        events_df: Events DataFrame (timestamp, symbol, event_type, event_id, ...)
+        prices_df: Panel mit Preisen (timestamp, symbol, close, ...)
+        window_pre: Anzahl Tage vor Event (default: 20)
+        window_post: Anzahl Tage nach Event (default: 40)
+        price_col: Spaltenname für Preis (default: "close")
+        timestamp_col: Spaltenname für Timestamp (default: "timestamp")
+        symbol_col: Spaltenname für Symbol (default: "symbol")
+    
+    Returns:
+        DataFrame mit Spalten:
+        - event_id: Event-ID
+        - event_type: Event-Typ
+        - symbol: Symbol
+        - event_timestamp: Event-Zeitpunkt
+        - relative_day: Relativer Tag (-window_pre bis +window_post, 0 = Event-Tag)
+        - timestamp: Tatsächlicher Timestamp
+        - price: Preis an diesem Tag
+        - return: Tages-Return (log oder simple)
+        - forward_return_*: Forward-Returns für verschiedene Horizonte (optional)
+    
+    Beispiel:
+        event_id              event_type  symbol  relative_day  timestamp              price   return
+        earnings_2024Q1_AAPL  earnings    AAPL   -20           2023-12-26 00:00:00+00:00  150.0   0.01
+        earnings_2024Q1_AAPL  earnings    AAPL   -19           2023-12-27 00:00:00+00:00  151.5   0.01
+        ...
+        earnings_2024Q1_AAPL  earnings    AAPL    0            2024-01-15 00:00:00+00:00  160.0   0.02
+        ...
+        earnings_2024Q1_AAPL  earnings    AAPL    +40           2024-02-24 00:00:00+00:00  165.0   0.01
+    """
+    pass
+```
+
+**2. `compute_event_returns()`**
+```python
+def compute_event_returns(
+    event_windows_df: pd.DataFrame,
+    benchmark: str | pd.DataFrame | None = None,  # "market", "sector", oder custom DataFrame
+    method: str = "market_model",  # "market_model", "mean_adjust", "factor_model"
+    estimation_window: int = 250,  # Tage für Beta-Schätzung (market model)
+    risk_free_rate: float = 0.0,
+    return_type: str = "log",  # "log" oder "simple"
+) -> pd.DataFrame:
+    """
+    Berechnet Normal- und Abnormal-Returns für Event-Windows.
+    
+    Args:
+        event_windows_df: Output von build_event_window_prices()
+        benchmark: Benchmark für Normal-Return-Berechnung
+            - "market": Markt-Return (z.B. SPY)
+            - "sector": Sektor-Return (falls verfügbar)
+            - pd.DataFrame: Custom Benchmark (timestamp, return)
+            - None: Mean-Adjustment (Durchschnitts-Return als Normal-Return)
+        method: Berechnungsmethode
+            - "market_model": CAPM-basiert (R_i = alpha + beta * R_m + epsilon)
+            - "mean_adjust": Normal-Return = Durchschnitts-Return (estimation window)
+            - "factor_model": Multi-Factor-Modell (falls factor_cols vorhanden)
+        estimation_window: Anzahl Tage für Beta-Schätzung (nur bei market_model)
+        risk_free_rate: Risk-free Rate (annualisiert, default: 0.0)
+        return_type: "log" oder "simple" (default: "log")
+    
+    Returns:
+        DataFrame mit Spalten:
+        - event_id, event_type, symbol, event_timestamp, relative_day (wie Input)
+        - price, return (wie Input)
+        - normal_return: Erwarteter Normal-Return (basierend auf Benchmark/Methode)
+        - abnormal_return: Abnormal Return = return - normal_return
+        - cumulative_abnormal_return: Kumulierter Abnormal Return (CAR) ab Event-Tag
+        - beta: Beta (falls market_model verwendet)
+        - alpha: Alpha (falls market_model verwendet)
+    
+    Beispiel:
+        event_id              relative_day  return  normal_return  abnormal_return  cumulative_abnormal_return
+        earnings_2024Q1_AAPL  -1            0.01    0.005          0.005           0.005
+        earnings_2024Q1_AAPL   0            0.02    0.005          0.015           0.020
+        earnings_2024Q1_AAPL  +1            0.01    0.005          0.005           0.025
+        ...
+    """
+    pass
+```
+
+**3. `aggregate_event_study()`**
+```python
+def aggregate_event_study(
+    event_returns_df: pd.DataFrame,
+    group_by: str | list[str] | None = None,  # "event_type", ["event_type", "symbol"], etc.
+    confidence_level: float = 0.95,  # Für Konfidenzintervalle
+    test_method: str = "t_test",  # "t_test", "bootstrap", "wilcoxon"
+) -> pd.DataFrame:
+    """
+    Aggregiert Event-Returns über Events hinweg.
+    
+    Args:
+        event_returns_df: Output von compute_event_returns()
+        group_by: Gruppierung für Aggregation
+            - None: Aggregation über alle Events
+            - "event_type": Separate Aggregation pro Event-Typ
+            - ["event_type", "symbol"]: Separate Aggregation pro Event-Typ und Symbol
+        confidence_level: Konfidenzniveau für Konfidenzintervalle (default: 0.95)
+        test_method: Statistische Test-Methode
+            - "t_test": t-Test für Mean Abnormal Return (H0: mean = 0)
+            - "bootstrap": Bootstrap-basierter Test (robust gegen Non-Normalität)
+            - "wilcoxon": Wilcoxon Signed-Rank Test (non-parametric)
+    
+    Returns:
+        DataFrame mit Spalten:
+        - group_key: Gruppierungsschlüssel (z.B. event_type oder Kombination)
+        - relative_day: Relativer Tag (-window_pre bis +window_post)
+        - mean_abnormal_return: Durchschnittlicher Abnormal Return (AAR)
+        - std_abnormal_return: Standardabweichung der Abnormal Returns
+        - cumulative_abnormal_return: Kumulierter AAR (CAAR)
+        - std_caar: Standardabweichung des CAAR
+        - n_events: Anzahl Events in dieser Gruppe
+        - t_stat: t-Statistik (falls t_test)
+        - p_value: p-Wert (Signifikanz-Test)
+        - ci_lower: Untere Grenze des Konfidenzintervalls
+        - ci_upper: Obere Grenze des Konfidenzintervalls
+        - is_significant: Boolean (p < 0.05)
+    
+    Beispiel:
+        group_key    relative_day  mean_abnormal_return  cumulative_abnormal_return  t_stat  p_value  is_significant
+        earnings     -1            0.002                0.002                        1.5     0.13     False
+        earnings      0            0.015                0.017                        3.2     0.001    True
+        earnings     +1            0.003                0.020                        2.1     0.04     True
+        ...
+    """
+    pass
+```
+
+**4. Zusätzliche Utility-Funktionen (optional):**
+```python
+def detect_event_clustering(
+    events_df: pd.DataFrame,
+    max_window_days: int = 5,
+) -> pd.DataFrame:
+    """
+    Erkennt Event-Clustering (mehrere Events in kurzem Zeitfenster).
+    
+    Returns DataFrame mit event_id, cluster_id, cluster_size, etc.
+    """
+
+def compute_event_correlation(
+    event_returns_df: pd.DataFrame,
+    event_types: list[str],
+) -> pd.DataFrame:
+    """
+    Berechnet Korrelation zwischen verschiedenen Event-Typen.
+    """
+```
+
+---
+
+**Integration mit bestehenden Modulen:**
+
+**Events können aus verschiedenen Quellen kommen:**
+- **Synthetisch**: Für Testing/Development
+- **CSV/Parquet**: Manuell erstellte Event-Dateien
+- **Finnhub API**: Earnings, Insider Trades, News (später)
+- **Fundamentals**: Earnings-Daten aus Fundamentals-Datenbanken (später)
+- **Bestehende Features**: `insider_features.py`, `shipping_features.py` können als Event-Quellen dienen
+
+**Preise/Faktoren:**
+- Gleicher Data Contract wie C1/C2
+- Kann direkt aus `LocalParquetPriceDataSource` geladen werden
+- Forward-Returns werden intern berechnet (analog zu `add_forward_returns()`)
+
+---
+
+**Workflow-Beispiel (geplant):**
+
+```python
+from src.assembled_core.qa.event_study import (
+    build_event_window_prices,
+    compute_event_returns,
+    aggregate_event_study,
+)
+
+# 1. Events laden (z.B. aus CSV oder API)
+events_df = pd.read_csv("data/events/earnings_2024.csv")
+
+# 2. Preise laden (gleicher Data Contract wie C1/C2)
+prices_df = load_prices_from_local(...)
+
+# 3. Event-Windows extrahieren
+event_windows = build_event_window_prices(
+    events_df,
+    prices_df,
+    window_pre=20,
+    window_post=40
+)
+
+# 4. Abnormal Returns berechnen
+event_returns = compute_event_returns(
+    event_windows,
+    benchmark="market",  # oder custom DataFrame
+    method="market_model"
+)
+
+# 5. Aggregieren und statistische Tests
+aggregated = aggregate_event_study(
+    event_returns,
+    group_by="event_type",
+    test_method="t_test"
+)
+
+# 6. Ergebnisse analysieren
+print(aggregated[aggregated["relative_day"] == 0])  # Event-Tag
+print(aggregated[aggregated["relative_day"].between(0, 5)])  # Erste 5 Tage nach Event
+```
+
+---
+
+**Nächste Schritte:**
+1. Implementierung von `build_event_window_prices()`
+2. Implementierung von `compute_event_returns()` (mit market_model, mean_adjust, factor_model)
+3. Implementierung von `aggregate_event_study()` (mit t_test, bootstrap, wilcoxon)
+4. Tests für alle drei Funktionen
+5. Integration mit bestehenden Event-Features (`insider_features`, `shipping_features`)
+6. CLI-Integration (optional, z.B. `analyze_events` Command)
 
 #### C4: Factor Correlation & Selection Tools (Renumbered)
 - Factor correlation matrix computation (pairwise correlations)
@@ -697,6 +1435,7 @@ python scripts/cli.py factor_report `
 3. ✅ Phase A3 (Market Breadth & Risk-On/Risk-Off Indicators) - **Completed**
 4. ✅ Phase C1 (Information Coefficient Engine) - **Completed**
 5. ✅ Phase C2 (Factor Report Workflow) - **Completed**
-6. ⏳ Start with Phase C3 (Event Study Framework, renumbered) or Factor Engineering Pipeline (A3 extension)
-7. ⏳ Enhance alternative data sources (Phase B1/B2)
+6. ✅ Phase C3 (Event Study Framework) - **Completed**
+7. ⏳ Start with Phase C4 (Factor Correlation & Selection Tools) or Factor Engineering Pipeline (A3 extension)
+8. ⏳ Enhance alternative data sources (Phase B1/B2)
 
