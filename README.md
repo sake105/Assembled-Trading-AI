@@ -1,4 +1,4 @@
-# Assembled Trading AI - Backend
+  # Assembled Trading AI - Backend
 
 **Ein modulares Trading-Core-System für Daten-Ingest, Signal-Generierung, Backtesting und Portfolio-Simulation.**
 
@@ -76,9 +76,35 @@ The `assembled-cli` command-line interface is the preferred entry point for all 
 
 - **ML Datasets, Meta-Models & Experiments** → [Workflows – ML Meta-Models & Experiments](docs/WORKFLOWS_ML_AND_EXPERIMENTS.md)
   - Build ML-ready datasets from backtests
+
+- **ML Validation & Model Comparison** → [Workflows – ML Validation & Model Comparison](docs/WORKFLOWS_ML_VALIDATION_AND_MODEL_COMPARISON.md)
+  - Validate ML models on factor panels
+  - **ML Model Zoo** – Compare multiple ML models automatically on same panel
+  - Compare model performance (Linear, Ridge, Lasso, Random Forest)
+  - Time-series cross-validation with IC/Rank-IC and portfolio metrics
+  - **Feature Importance & Explainability (E2)** – Understand which factors drive ML predictions, compare with classical factor rankings
   - Train meta-models for setup success prediction
   - Evaluate model performance (ROC-AUC, Brier, Log Loss)
   - Connect to research notebooks
+
+- **Multi-Factor Long/Short Strategy** → [Workflows – Multi-Factor Long/Short Strategy](docs/WORKFLOWS_STRATEGIES_MULTIFACTOR.md)
+  - Factor-based long/short trading strategy
+  - Uses factor bundles and local alt-data snapshots
+  - Quantile-based position selection (top/bottom quantiles)
+  - Configurable rebalancing frequencies (daily, weekly, monthly)
+
+- **Regime Models & Risk Overlay** → [Workflows – Regime Models & Risk Overlay](docs/WORKFLOWS_REGIME_MODELS_AND_RISK.md)
+  - Market regime detection (bull, bear, sideways, crisis, reflation)
+  - Adaptive risk management with regime-based exposure control
+  - Factor performance evaluation by regime
+  - Integration with multi-factor strategies
+
+- **Risk Metrics & Attribution** → [Workflows – Risk Metrics & Attribution](docs/WORKFLOWS_RISK_METRICS_AND_ATTRIBUTION.md)
+  - Extended risk metrics (Sharpe, Sortino, VaR, ES, Skewness, Kurtosis)
+  - Exposure analysis (Gross/Net Exposure, HHI Concentration)
+  - Risk segmentation by market regime
+  - Performance attribution by factor groups
+  - Comprehensive risk reports from backtest results
 
 ### Getting Started
 

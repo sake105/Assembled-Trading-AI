@@ -1,0 +1,24 @@
+universe: "universe_ai_tech"
+factor_set: "core+alt_full+ml"
+horizon_days: 20
+
+factors:
+  - name: "ml_alpha_ridge_20d"
+    weight: 0.40
+    direction: "positive"
+  - name: "momentum_12m_excl_1m"
+    weight: 0.25
+    direction: "positive"
+  - name: "trend_strength_50"
+    weight: 0.20
+    direction: "positive"
+  - name: "rv_20"
+    weight: 0.15
+    direction: "negative"
+
+options:
+  winsorize: true
+  winsorize_limits: [0.01, 0.99]
+  zscore: true
+  neutralize_by: null
+

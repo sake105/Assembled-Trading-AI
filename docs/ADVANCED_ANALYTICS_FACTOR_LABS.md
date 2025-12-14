@@ -960,6 +960,16 @@ python scripts/cli.py analyze_factors `
 - `tests/test_qa_factor_analysis_c2.py` (21 Tests, marked with `@pytest.mark.advanced`)
 - `tests/test_cli_analyze_factors.py` (3 Tests, marked with `@pytest.mark.advanced`)
 
+**Beispiel-Strategie auf Basis der Factor-Rankings:**
+
+Die Ergebnisse von C1/C2 werden in der **Multi-Factor Long/Short Strategy** genutzt:
+- **Factor Bundles**: Vordefinierte Kombinationen von Faktoren mit Gewichten basierend auf IC-IR und DSR
+- **Multi-Factor Scores**: Gewichtete, normalisierte Faktor-Kombinationen
+- **Quantil-basierte Auswahl**: Top/Bottom-Quantile für Long/Short-Positionen
+- **Rebalancing**: Konfigurierbare Rebalancing-Frequenzen (täglich, wöchentlich, monatlich)
+
+Siehe [Workflows – Multi-Factor Long/Short Strategy](WORKFLOWS_STRATEGIES_MULTIFACTOR.md) für vollständige Dokumentation des Strategie-Workflows.
+
 #### C3: Event Study Framework ✅ (Completed)
 
 **Status:** ✅ Completed  
@@ -1280,30 +1290,117 @@ print(aggregated[aggregated["relative_day"].between(0, 5)])  # Erste 5 Tage nach
 
 ### Phase D: Regime Models & Risk 2.0
 
-**Goal:** Advanced risk modeling with market regime detection and adaptive risk management.
+**Goal:** Build advanced risk modeling capabilities with market regime detection and adaptive risk management. Regime-aware strategies can adjust exposure, position sizing, and factor selection based on market conditions.
 
 **Sprints:**
 
-#### D1: Market Regime Detection
-- Regime classification (Bull, Bear, High Volatility, Low Volatility)
-- Hidden Markov Models (HMM) for regime identification
-- Macro indicators integration (VIX, yield curve, economic indicators)
-- Regime transition probabilities and persistence
-- Regime-aware performance attribution (strategy performance by regime)
+#### D1: Regime Models & Risk Overlay (Design) 📋
 
-#### D2: Adaptive Risk Models
+**Status:** 📋 Design Phase  
+**Design Document:** [Regime Models D1 Design](REGIME_MODELS_D1_DESIGN.md)
+
+**Goal:** Develop a regime detection system that identifies market regimes (bull, bear, sideways, crisis, reflation) and provides a risk overlay for adaptive strategies.
+
+**Scope:**
+- **No new APIs**: Uses existing local alt-data snapshots and factors
+- **Regime Detection**: Daily regime labels based on macro factors, market breadth, and volatility
+- **Risk Overlay**: Regime → risk parameter mapping (exposure limits, net exposure targets, position sizing)
+
+**Available Inputs:**
+- Macro factors: `macro_growth_regime`, `macro_inflation_regime`, `macro_risk_aversion_proxy`
+- Market breadth: `fraction_above_ma_50`, `ad_line`, `risk_on_off_score`
+- Volatility: `rv_20`, `vov_20_60`
+- Trend indicators: `trend_strength_50`, `trend_strength_200` (optional)
+
+**Planned Functions:**
+- `build_regime_state()`: Compute daily regime labels and sub-scores
+- `compute_regime_transition_stats()`: Analyze regime transitions and durations
+- `evaluate_factor_by_regime()`: Evaluate factor effectiveness (IC, Sharpe) by regime
+- `apply_risk_overlay()`: Adjust positions based on regime-specific risk limits
+
+**Risk Overlay Concept:**
+- Mapping from regime to risk parameters:
+  - `max_gross_exposure`: Maximum gross exposure (long + short)
+  - `target_net_exposure`: Target net exposure (long - short)
+  - `max_single_position_weight`: Maximum weight per position
+  - `allow_trading`: Whether to allow new positions
+- Example: `bull` regime → high exposure, net long; `crisis` regime → minimal exposure, defensive
+
+**Integration Points:**
+1. **Multi-Factor Strategy**: Regime-adaptive exposure control and position sizing
+2. **Event Studies**: CAAR analysis separated by regime (e.g., earnings events in bull vs. bear markets)
+3. **Factor Analysis**: IC/Sharpe evaluation by regime (which factors work in which regimes?)
+
+**Implementation Steps (D1.1-D1.4):**
+- D1.1: Core regime module + data contracts ✅
+- D1.2: Regime evaluation vs. factors ✅
+- D1.3: Integration in multi-factor strategy as risk overlay ✅
+- D1.4: Tests + documentation ✅
+
+**See:**
+- [Regime Models D1 Design Document](REGIME_MODELS_D1_DESIGN.md) – Detailed design, data contracts, and implementation plan
+- [Regime Models & Risk Overlay Workflow](WORKFLOWS_REGIME_MODELS_AND_RISK.md) – Step-by-step workflow guide with examples
+
+#### D2: Risk 2.0 & Attribution ✅ (Completed)
+
+**Status:** ✅ Completed  
+**Design Document:** [Risk 2.0 & Attribution D2 Design](RISK_2_0_D2_DESIGN.md)  
+**Workflow Guide:** [Risk Metrics & Attribution Workflows](WORKFLOWS_RISK_METRICS_AND_ATTRIBUTION.md)
+
+**Goal:** Erweiterte Risk-Analyse und Performance-Attribution für Backtests mit Segmentierung nach Regime, Faktor-Gruppen und Universes.
+
+**Scope:**
+- **Erweiterte Risk-Metriken**: Skewness, Kurtosis, Expected Shortfall (ES), Tail Ratio (zusätzlich zu bestehenden Metriken in `qa/metrics.py`)
+- **Exposure-Analyse**: Gross/Net Exposure-Zeitreihen, HHI Concentration, Turnover über Zeit
+- **Risiko nach Regime**: Sharpe, Volatilität, Max Drawdown, Calmar pro identifiziertem Regime (Verknüpfung mit `regime_state_df` aus D1)
+- **Risiko nach Faktor-Gruppen**: Performance-Attribution nach Faktor-Kategorien (Trend, Vol/Liq, Earnings, Insider, News/Macro)
+- **Risk Report**: Zentrale Sammlung aller Risk-Analysen als Markdown-Report und CSVs
+
+**Data Contracts:**
+- Input: `equity_curve_df`, `positions_df`, `trades_df` (optional), `regime_state_df` (optional), `factor_panel_df` (optional)
+- Output: `exposure_timeseries_df`, `risk_by_regime_df`, `risk_by_factor_group_df`, Risk-Report (Markdown + CSVs)
+
+**Planned Functions:**
+- `compute_basic_risk_metrics()`: Erweiterte Risk-Metriken (Skewness, Kurtosis, ES, Tail Ratio)
+- `compute_exposure_timeseries()`: Exposure-Zeitreihen (Gross/Net Exposure, HHI, Turnover)
+- `compute_risk_by_regime()`: Risk-Metriken pro Regime
+- `compute_risk_by_factor_group()`: Performance-Attribution nach Faktor-Gruppen
+- `generate_risk_report()`: Zentrale Report-Generierung
+
+**Integration:**
+- Post-Processing-Schritt nach `run_backtest_strategy.py` (optionaler CLI-Flag `--with-risk-report`)
+- Separates Script `scripts/generate_risk_report.py` für nachträgliche Analyse
+- Erweiterung von `BacktestResult` um optionales `risk_report`-Feld
+
+**Implementation Steps (D2.1-D2.4):**
+- D2.1: Risk-Metrics-Core-Modul (`risk_metrics_advanced.py`)
+- D2.2: Risk-by-Regime & Risk-by-Factor-Group
+- D2.3: Risk-Report-Generierung (`generate_risk_report()`, `scripts/generate_risk_report.py`)
+- D2.4: CLI-Integration & Workflows
+
+**Implementation:**
+- ✅ D2.1: Risk-Metrics-Core-Modul (`src/assembled_core/risk/risk_metrics.py`)
+- ✅ D2.2: Risk-by-Regime & Risk-by-Factor-Group
+- ✅ D2.3: Risk-Report-Generierung (`scripts/generate_risk_report.py`, CLI-Integration)
+- ✅ D2.4: Tests (`tests/test_risk_risk_metrics.py`, `tests/test_cli_risk_report.py`)
+
+**See:**
+- [Risk 2.0 & Attribution D2 Design Document](RISK_2_0_D2_DESIGN.md) for detailed design, data contracts, and implementation plan.
+- [Risk Metrics & Attribution Workflows](WORKFLOWS_RISK_METRICS_AND_ATTRIBUTION.md) for usage guide and examples.
+
+#### D3: Adaptive Factor Selection (Future)
+
+- Select factors based on current regime
+- Regime-specific factor bundles
+- Dynamic factor weighting by regime
+
+#### D4: Regime-Aware Risk Models (Future)
+
 - Regime-conditional VaR/CVaR (different risk models per regime)
 - Dynamic position sizing based on regime (higher risk in low-vol regimes)
 - Regime-aware portfolio constraints (reduce leverage in high-vol regimes)
 - Stress testing with regime-specific scenarios
 - Integration with existing risk engine (`qa/risk_metrics.py`, `qa/scenario_engine.py`)
-
-#### D3: Risk Attribution & Decomposition
-- Factor-based risk attribution (which factors drive portfolio risk?)
-- Sector risk attribution (concentration risk analysis)
-- Time-varying risk decomposition (risk changes over time)
-- Risk budgeting tools (allocate risk budget across factors/strategies)
-- Risk-adjusted performance metrics (Information Ratio, Risk-Adjusted Returns)
 
 **Integration with Existing Backend:**
 - Extends Phase 8 (Risk Engine) with regime-aware modeling
@@ -1318,22 +1415,166 @@ print(aggregated[aggregated["relative_day"].between(0, 5)])  # Erste 5 Tage nach
 
 **Sprints:**
 
-#### E1: Advanced Model Validation
+#### E1: ML Validation & Model Comparison ✅ (Completed)
+
+**Status:** Implemented and tested
+
+**Module:** `src/assembled_core/ml/factor_models.py`  
+**CLI:** `scripts/cli.py ml_validate_factors`
+
+**Implementation:**
+- **Time-Series Cross-Validation:** Expanding and rolling window splits to prevent data leakage
+- **Model Types:** Linear, Ridge, Lasso, Random Forest regression models
+- **Comprehensive Metrics:**
+  - Classical ML metrics (MSE, MAE, R², Directional Accuracy)
+  - Factor-specific metrics (IC, Rank-IC, IC-IR, Rank-IC-IR)
+  - Portfolio metrics (Long/Short Sharpe, Return, Volatility)
+- **Auto Feature Detection:** Automatically detects `factor_*` columns from factor panels
+- **Robust Error Handling:** Clear error messages for missing data, invalid configurations
+
+**Integration:**
+- Works with factor panels from Phase C1/C2 (factor analysis workflows)
+- Supports all factor types (Core TA/Price, Vol/Liquidity, Alt-Data)
+- Outputs standardized CSV and Markdown reports for easy comparison
+
+**Usage:**
+```powershell
+python scripts/cli.py ml_validate_factors `
+  --factor-panel-file output/factor_analysis/core_20d_factors.parquet `
+  --label-col fwd_return_20d `
+  --model-type ridge `
+  --n-splits 5
+```
+
+**Documentation:**
+- Design document: [ML Validation E1 Design](ML_VALIDATION_E1_DESIGN.md)
+- Workflow guide: [Workflows – ML Validation & Model Comparison](WORKFLOWS_ML_VALIDATION_AND_MODEL_COMPARISON.md)
+- Tests: `tests/test_ml_factor_models.py`, `tests/test_cli_ml_validation.py`
+
+**Next Steps (Future):**
 - Walk-forward analysis framework (rolling window validation)
-- Time-series cross-validation (avoiding data leakage)
 - Out-of-sample testing protocols (strict train/test separation)
 - Overfitting detection (performance degradation on OOS data)
 - Model stability metrics (performance consistency over time)
+- Automated model ranking and selection
 
-#### E2: Model Explainability
-- SHAP values integration for meta-models (feature importance, interaction effects)
-- Partial dependence plots (marginal effect of individual features)
-- Feature importance rankings (which features drive predictions?)
-- Model decision trees visualization (for tree-based models)
-- Counterfactual analysis (what would prediction be if feature X changed?)
+#### E2: Explainability & Feature Importance ✅ (Completed)
 
-#### E3: Transaction Cost Analysis (TCA)
+**Status:** Implemented and integrated with E1
+
+**Module:** `src/assembled_core/ml/explainability.py`
+
+**Features:**
+- Model-based feature importance (coefficients for linear models, `feature_importances_` for tree models)
+- Permutation importance (model-agnostic)
+- Global feature importance aggregation across multiple models
+- Automatic integration in ML validation reports
+
+**Integration:**
+- Automatically computed after `run_time_series_cv()` in `run_ml_factor_validation.py`
+- Included in Model Zoo comparisons
+- Outputs: Feature importance CSV, permutation importance CSV, enhanced Markdown reports
+
+**References:**
+- Design: [ML Validation & Model Comparison Design (E1)](ML_VALIDATION_E1_DESIGN.md) (E2 section)
+- Workflows: [ML Validation & Model Comparison Workflows](WORKFLOWS_ML_VALIDATION_AND_MODEL_COMPARISON.md) (Feature Importance section)
+
+#### E3: ML Alpha Factor & Strategy Integration ✅ (Completed)
+
+**Status:** Implemented and tested
+
+**Scope:**
+- Generate ML alpha factors (`ml_alpha_{model_type}_{horizon}d`) from trained ML models
+- Integrate ML alpha factors into factor bundles
+- Enable ML alpha factors in multi-factor strategies
+
+**Module:** `research/ml/export_ml_alpha_factor.py`  
+**Bundles:** `config/factor_bundles/ai_tech_ml_alpha_bundle.yaml`, `config/factor_bundles/ai_tech_core_ml_bundle.yaml`
+
+**Features:**
+- Trains ML models via time-series cross-validation (reuses E1 infrastructure)
+- Merges predictions (`y_pred`) back into factor panels as `ml_alpha_*` columns
+- Supports all model types: Linear, Ridge, Lasso, Random Forest
+- Preserves original factor columns (enables mixed bundles)
+- Only test samples have predictions (training samples remain NaN to prevent look-ahead bias)
+
+**Integration:**
+- Uses factor panels from `export_factor_panel_for_ml.py`
+- Uses ML models and validation from `run_ml_factor_validation.py` / `model_zoo_factor_validation.py`
+- Factor bundles work with existing `multifactor_long_short` strategy (no code changes)
+- Pure ML bundles (100% ML alpha) and mixed bundles (Core + ML alpha) available
+
+**Usage:**
+```bash
+# Export ML alpha factor
+python research/ml/export_ml_alpha_factor.py \
+  --factor-panel-file output/factor_panels/factor_panel_ai_tech_core_20d_1d.parquet \
+  --label-col fwd_return_20d \
+  --model-type ridge \
+  --model-param alpha=0.1
+
+# Use in strategy
+python scripts/run_backtest_strategy.py \
+  --strategy multifactor_long_short \
+  --bundle-path config/factor_bundles/ai_tech_ml_alpha_bundle.yaml \
+  --factor-file output/ml_alpha_factors/ml_alpha_panel_ridge_20d.parquet
+```
+
+**References:**
+- Design: [ML Alpha Factor & Strategy Integration Design (E3)](ML_ALPHA_E3_DESIGN.md)
+- ML Validation Workflows: [ML Validation & Model Comparison Workflows](WORKFLOWS_ML_VALIDATION_AND_MODEL_COMPARISON.md) (includes ML Alpha export workflow)
+- Strategy Workflows: [Multi-Factor Strategy Workflows](WORKFLOWS_STRATEGIES_MULTIFACTOR.md) (includes ML Alpha usage section)
+
+#### E4: Transaction Cost Analysis (TCA) (Future)
 - Execution cost modeling (slippage, market impact, spread costs)
+
+---
+
+### Research Playbooks
+
+#### R1: AI/Tech Multi-Factor + ML Alpha + Regime + Risk – End-to-End Research Playbook ✅ (Completed)
+
+**Status:** Implemented and tested
+
+**Module:** `research/playbooks/ai_tech_multifactor_mlalpha_regime_playbook.py`
+
+**Goal:** Automatisiert den vollständigen Research-Workflow von der Factor-Panel-Erstellung bis zum Risk-Report für AI/Tech-Universe mit ML-Alpha-Integration und Regime-Analyse.
+
+**Workflow:**
+1. Factor Panel Export (mit Forward-Returns)
+2. ML Model Zoo Comparison (systematischer Modellvergleich)
+3. Best Model Selection (basierend auf IC-IR, Test-R²)
+4. ML Alpha Factor Export (mit bestem Modell)
+5. Backtests mit Multiple Bundles (Core-only, Core+ML, ML-only)
+6. Risk Reports Generation (mit optionaler Regime-Attribution)
+7. Research Summary (konsolidierter Markdown-Report)
+
+**Features:**
+- Vollständige Automatisierung des Research-Prozesses
+- Konfigurierbar via `PlaybookConfig` Dataclass
+- Robustes Error-Handling und Logging
+- Unterstützt Regime-Attribution (optional)
+- Generiert konsolidierten Research-Summary-Report
+
+**Usage:**
+```python
+from research.playbooks.ai_tech_multifactor_mlalpha_regime_playbook import main
+
+# Run with default config (AI/Tech universe)
+main()
+```
+
+**Outputs:**
+- Factor Panel: `output/factor_panels/factor_panel_*.parquet`
+- ML Model Zoo: `output/ml_validation/model_zoo/ml_model_zoo_summary.csv`
+- ML Alpha Panel: `output/ml_alpha_factors/ml_alpha_panel_*.parquet`
+- Backtest Results: `output/backtests/{bundle_name}_{timestamp}/`
+- Risk Reports: `output/backtests/{bundle_name}_{timestamp}/risk_report.md`
+- Research Summary: `output/risk_reports/research_summaries/research_summary_*.md`
+
+**References:**
+- Implementation: `research/playbooks/ai_tech_multifactor_mlalpha_regime_playbook.py`
+- Tests: `tests/test_research_playbook_ai_tech.py`
 - Real-time TCA (estimate costs before placing orders)
 - Historical TCA analysis (analyze actual execution costs)
 - Cost-aware position sizing (reduce position size if costs are high)

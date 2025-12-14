@@ -37,6 +37,8 @@ from src.assembled_core.qa.event_study import (
     aggregate_event_study,
 )
 
+from src.assembled_core.qa.factor_ranking import build_factor_ranking
+
 # Legacy alias for backward compatibility
 compute_rank_ic_legacy = compute_factor_rank_ic
 
@@ -63,4 +65,6 @@ __all__ = [
     "build_event_window_prices",
     "compute_event_returns",
     "aggregate_event_study",
+    # Factor Ranking
+    "build_factor_ranking",
 ]

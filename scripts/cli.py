@@ -20,6 +20,7 @@ import argparse
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -90,8 +91,11 @@ def info_subcommand(args: argparse.Namespace) -> int:
     print("Main Subcommands:")
     print("  run_daily          - Run daily EOD pipeline (execute, backtest, portfolio, QA)")
     print("  run_backtest       - Run strategy backtest with portfolio-level engine")
+    print("  risk_report        - Generate comprehensive risk report from backtest results")
     print("  factor_report      - Generate factor analysis report (IC/IR statistics)")
     print("  analyze_factors    - Comprehensive factor analysis (IC + Portfolio evaluation)")
+    print("  ml_validate_factors - ML validation on factor panels (predict forward returns)")
+    print("  ml_model_zoo       - Compare multiple ML models on factor panels (model zoo)")
     print("  run_phase4_tests   - Run Phase-4 regression test suite (~13s, 110 tests)")
     print("  info               - Show this information")
     print()
@@ -459,6 +463,159 @@ def analyze_factors_subcommand(args: argparse.Namespace) -> int:
         return run_factor_analysis_from_args(args)
     except Exception as e:
         logger.error(f"Factor analysis failed: {e}", exc_info=True)
+        return 1
+
+
+def risk_report_subcommand(args: argparse.Namespace) -> int:
+    """Generate risk report from backtest results subcommand.
+    
+    Args:
+        args: Parsed command-line arguments
+        
+    Returns:
+        Exit code (0 = success, 1 = error)
+    """
+    from scripts.generate_risk_report import generate_risk_report
+    
+    # Resolve paths
+    backtest_dir = args.backtest_dir
+    if not backtest_dir.is_absolute():
+        backtest_dir = ROOT / backtest_dir
+    backtest_dir = backtest_dir.resolve()
+    
+    regime_file = None
+    if args.regime_file:
+        regime_file = args.regime_file if args.regime_file.is_absolute() else ROOT / args.regime_file
+        regime_file = regime_file.resolve()
+    
+    factor_panel_file = None
+    if args.factor_panel_file:
+        factor_panel_file = args.factor_panel_file if args.factor_panel_file.is_absolute() else ROOT / args.factor_panel_file
+        factor_panel_file = factor_panel_file.resolve()
+    
+    output_dir = None
+    if args.output_dir:
+        output_dir = args.output_dir if args.output_dir.is_absolute() else ROOT / args.output_dir
+        output_dir = output_dir.resolve()
+    
+    logger.info(f"Generating risk report for backtest: {backtest_dir}")
+    if regime_file:
+        logger.info(f"Using regime file: {regime_file}")
+    if factor_panel_file:
+        logger.info(f"Using factor panel file: {factor_panel_file}")
+    
+    return generate_risk_report(
+        backtest_dir=backtest_dir,
+        regime_file=regime_file,
+        factor_panel_file=factor_panel_file,
+        output_dir=output_dir,
+    )
+
+
+def ml_validate_factors_subcommand(args: argparse.Namespace) -> int:
+    """Run ML validation on factor panels subcommand.
+    
+    Args:
+        args: Parsed command-line arguments
+        
+    Returns:
+        Exit code (0 = success, 1 = error)
+    """
+    from scripts.run_ml_factor_validation import run_ml_validation
+    
+    # Resolve paths
+    factor_panel_file = args.factor_panel_file
+    if not factor_panel_file.is_absolute():
+        factor_panel_file = ROOT / factor_panel_file
+    
+    output_dir = None
+    if args.output_dir:
+        output_dir = args.output_dir if args.output_dir.is_absolute() else ROOT / args.output_dir
+    
+    # Parse model parameters (parse_model_params is a function inside run_ml_validation module)
+    model_params = None
+    if args.model_param:
+        from scripts.run_ml_factor_validation import parse_model_params
+        model_params = parse_model_params(args.model_param)
+    
+    logger.info(f"Running ML validation on factor panel: {factor_panel_file}")
+    
+    return run_ml_validation(
+        factor_panel_file=factor_panel_file,
+        label_col=args.label_col,
+        model_type=args.model_type,
+        model_params=model_params,
+        n_splits=args.n_splits,
+        test_start=args.test_start,
+        test_end=args.test_end,
+        output_dir=output_dir,
+    )
+
+
+def ml_model_zoo_subcommand(args: argparse.Namespace) -> int:
+    """Run model zoo comparison on factor panels subcommand.
+    
+    Args:
+        args: Parsed command-line arguments
+        
+    Returns:
+        Exit code (0 = success, 1 = error)
+    """
+    from research.ml.model_zoo_factor_validation import run_model_zoo_for_panel, write_model_zoo_summary
+    
+    # Generate Run-ID for this execution
+    run_id = generate_run_id(prefix="ml_model_zoo")
+    setup_logging(run_id=run_id, level="INFO")
+    
+    # Resolve paths
+    factor_panel_file = args.factor_panel_file
+    if not factor_panel_file.is_absolute():
+        factor_panel_file = ROOT / factor_panel_file
+    
+    output_dir = None
+    if args.output_dir:
+        output_dir = args.output_dir if args.output_dir.is_absolute() else ROOT / args.output_dir
+    else:
+        output_dir = ROOT / "output" / "ml_model_zoo"
+    
+    logger.info(f"Running model zoo comparison on factor panel: {factor_panel_file}")
+    
+    # Build experiment_cfg_kwargs from args
+    experiment_cfg_kwargs: dict[str, Any] = {}
+    if args.n_splits is not None:
+        experiment_cfg_kwargs["n_splits"] = args.n_splits
+    if args.train_size is not None:
+        experiment_cfg_kwargs["train_size"] = args.train_size
+    if args.standardize is not None:
+        experiment_cfg_kwargs["standardize"] = args.standardize
+    if args.min_train_samples is not None:
+        experiment_cfg_kwargs["min_train_samples"] = args.min_train_samples
+    if args.test_start:
+        experiment_cfg_kwargs["test_start"] = pd.to_datetime(args.test_start, utc=True)
+    if args.test_end:
+        experiment_cfg_kwargs["test_end"] = pd.to_datetime(args.test_end, utc=True)
+    
+    try:
+        # Run model zoo
+        summary_df = run_model_zoo_for_panel(
+            factor_panel_path=factor_panel_file,
+            label_col=args.label_col,
+            output_dir=output_dir,
+            experiment_cfg_kwargs=experiment_cfg_kwargs if experiment_cfg_kwargs else None,
+        )
+        
+        # Write summary
+        write_model_zoo_summary(
+            summary_df=summary_df,
+            output_dir=output_dir,
+            write_markdown=not args.no_markdown,
+        )
+        
+        logger.info("Model zoo comparison completed successfully")
+        return 0
+        
+    except Exception as e:
+        logger.error(f"Model zoo comparison failed: {e}", exc_info=True)
         return 1
 
 
@@ -1820,11 +1977,14 @@ Examples:
         help="End date (YYYY-MM-DD)"
     )
     
+    # Import factor set utility function
+    from scripts.run_factor_analysis import list_available_factor_sets
+    
     analyze_factors_parser.add_argument(
         "--factor-set",
         type=str,
         default="core",
-        choices=["core", "vol_liquidity", "core+vol_liquidity", "all", "alt_earnings_insider", "core+alt", "alt_news_macro", "core+alt_news", "core+alt_full"],
+        choices=list_available_factor_sets(),
         help="Factor set: core (TA/Price), vol_liquidity (Volatility/Liquidity), core+vol_liquidity, all, alt_earnings_insider (Alt-Data B1 only), core+alt (Core + Alt-Data B1), alt_news_macro (Alt-Data B2 only), core+alt_news (Core + Alt-Data B2), or core+alt_full (Core + B1 + B2) (default: core)"
     )
     
@@ -1849,6 +2009,239 @@ Examples:
     )
     
     analyze_factors_parser.set_defaults(func=analyze_factors_subcommand)
+    
+    # ml_validate_factors subcommand
+    ml_validate_parser = subparsers.add_parser(
+        "ml_validate_factors",
+        help="Run ML validation on factor panels",
+        description="Trains ML models to predict forward returns from factor panels and evaluates them using time-series cross-validation.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Basic validation with Ridge model
+  python scripts/cli.py ml_validate_factors \\
+    --factor-panel-file output/factor_analysis/ai_tech_factors.parquet \\
+    --label-col fwd_return_20d \\
+    --model-type ridge
+  
+  # With custom parameters
+  python scripts/cli.py ml_validate_factors \\
+    --factor-panel-file output/factor_analysis/ai_tech_factors.parquet \\
+    --label-col fwd_return_20d \\
+    --model-type ridge \\
+    --model-param alpha=0.1 \\
+    --model-param max_iter=1000
+  
+  # Random Forest with time filter
+  python scripts/cli.py ml_validate_factors \\
+    --factor-panel-file output/factor_analysis/ai_tech_factors.parquet \\
+    --label-col fwd_return_20d \\
+    --model-type random_forest \\
+    --n-splits 10 \\
+    --test-start 2020-01-01 \\
+    --test-end 2024-12-31
+        """
+    )
+    ml_validate_parser.add_argument(
+        "--factor-panel-file",
+        type=Path,
+        required=True,
+        metavar="FILE",
+        help="Path to factor panel file (Parquet or CSV) with factors and forward returns"
+    )
+    ml_validate_parser.add_argument(
+        "--label-col",
+        type=str,
+        required=True,
+        metavar="COL",
+        help="Name of label column (e.g., 'fwd_return_20d')"
+    )
+    ml_validate_parser.add_argument(
+        "--model-type",
+        type=str,
+        required=True,
+        choices=["linear", "ridge", "lasso", "random_forest"],
+        metavar="TYPE",
+        help="Model type: 'linear', 'ridge', 'lasso', or 'random_forest'"
+    )
+    ml_validate_parser.add_argument(
+        "--model-param",
+        type=str,
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="Model hyperparameter in format 'key=value' (can be specified multiple times)"
+    )
+    ml_validate_parser.add_argument(
+        "--n-splits",
+        type=int,
+        default=5,
+        metavar="N",
+        help="Number of time-series CV splits (default: 5)"
+    )
+    ml_validate_parser.add_argument(
+        "--test-start",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Test start date (YYYY-MM-DD, optional)"
+    )
+    ml_validate_parser.add_argument(
+        "--test-end",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Test end date (YYYY-MM-DD, optional)"
+    )
+    ml_validate_parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        metavar="DIR",
+        help="Output directory (default: output/ml_validation)"
+    )
+    ml_validate_parser.set_defaults(func=ml_validate_factors_subcommand)
+    
+    # ml_model_zoo subcommand
+    ml_model_zoo_parser = subparsers.add_parser(
+        "ml_model_zoo",
+        help="Compare multiple ML models on factor panels (model zoo)",
+        description="Runs a predefined set of ML models (linear, ridge, lasso, random forest) on a factor panel and compares their performance.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Basic model zoo comparison
+  python scripts/cli.py ml_model_zoo \\
+    --factor-panel-file output/factor_panels/core_20d_factors.parquet \\
+    --label-col fwd_return_20d
+  
+  # With custom CV splits
+  python scripts/cli.py ml_model_zoo \\
+    --factor-panel-file output/factor_panels/core_20d_factors.parquet \\
+    --label-col fwd_return_20d \\
+    --n-splits 10 \\
+    --output-dir output/ml_validation/custom_zoo
+        """
+    )
+    ml_model_zoo_parser.add_argument(
+        "--factor-panel-file",
+        type=Path,
+        required=True,
+        metavar="FILE",
+        help="Path to factor panel file (Parquet or CSV) with factors and forward returns"
+    )
+    ml_model_zoo_parser.add_argument(
+        "--label-col",
+        type=str,
+        required=True,
+        metavar="COL",
+        help="Name of label column (e.g., 'fwd_return_20d')"
+    )
+    ml_model_zoo_parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        metavar="DIR",
+        help="Output directory (default: output/ml_model_zoo)"
+    )
+    ml_model_zoo_parser.add_argument(
+        "--n-splits",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Number of CV splits (default: 5)"
+    )
+    ml_model_zoo_parser.add_argument(
+        "--train-size",
+        type=int,
+        default=None,
+        metavar="DAYS",
+        help="Training window size in days (default: None = expanding window)"
+    )
+    ml_model_zoo_parser.add_argument(
+        "--standardize",
+        type=bool,
+        default=None,
+        help="Whether to standardize features (default: True)"
+    )
+    ml_model_zoo_parser.add_argument(
+        "--min-train-samples",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Minimum training samples (default: 252)"
+    )
+    ml_model_zoo_parser.add_argument(
+        "--test-start",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Test start date (YYYY-MM-DD, optional)"
+    )
+    ml_model_zoo_parser.add_argument(
+        "--test-end",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Test end date (YYYY-MM-DD, optional)"
+    )
+    ml_model_zoo_parser.add_argument(
+        "--no-markdown",
+        action="store_true",
+        help="Skip Markdown report generation"
+    )
+    ml_model_zoo_parser.set_defaults(func=ml_model_zoo_subcommand)
+    
+    # risk_report subcommand
+    risk_report_parser = subparsers.add_parser(
+        "risk_report",
+        help="Generate risk report from backtest results",
+        description="Generates comprehensive risk reports from backtest outputs, including risk metrics, exposure analysis, regime segmentation, and factor attribution.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Basic risk report from backtest directory
+  python scripts/cli.py risk_report --backtest-dir output/backtests/experiment_123/
+  
+  # With regime data
+  python scripts/cli.py risk_report --backtest-dir output/backtests/experiment_123/ --regime-file output/regime/regime_state.parquet
+  
+  # With factor attribution
+  python scripts/cli.py risk_report --backtest-dir output/backtests/experiment_123/ --factor-panel-file output/factor_analysis/factors.parquet
+  
+  # Custom output directory
+  python scripts/cli.py risk_report --backtest-dir output/backtests/experiment_123/ --output-dir output/risk_reports/
+        """
+    )
+    risk_report_parser.add_argument(
+        "--backtest-dir",
+        type=Path,
+        required=True,
+        metavar="DIR",
+        help="Path to backtest output directory (should contain equity_curve.csv/parquet, positions.csv/parquet, etc.)"
+    )
+    risk_report_parser.add_argument(
+        "--regime-file",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Optional path to regime state file (parquet or csv) for regime-based risk analysis"
+    )
+    risk_report_parser.add_argument(
+        "--factor-panel-file",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Optional path to factor panel file (parquet or csv) for factor attribution analysis"
+    )
+    risk_report_parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        metavar="DIR",
+        help="Output directory for risk report files (default: same as --backtest-dir)"
+    )
+    risk_report_parser.set_defaults(func=risk_report_subcommand)
     
     # run_phase4_tests subcommand
     tests_parser = subparsers.add_parser(

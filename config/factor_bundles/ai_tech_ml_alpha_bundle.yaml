@@ -1,0 +1,15 @@
+universe: "universe_ai_tech"
+factor_set: "ml_alpha_only"
+horizon_days: 20
+
+factors:
+  - name: "ml_alpha_ridge_20d"
+    weight: 1.0
+    direction: "positive"
+
+options:
+  winsorize: false
+  winsorize_limits: [0.01, 0.99]
+  zscore: true
+  neutralize_by: null
+

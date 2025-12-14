@@ -32,5 +32,24 @@ __all__ = [
     "get_runtime_profile",
     "get_settings",
     "reset_settings",
+    # Factor bundles exports
+    "FactorBundleConfig",
+    "FactorConfig",
+    "FactorBundleOptions",
+    "load_factor_bundle",
+    "list_available_factor_bundles",
 ]
+
+# Import factor bundles (optional, to avoid circular imports)
+try:
+    from src.assembled_core.config.factor_bundles import (
+        FactorBundleConfig,
+        FactorConfig,
+        FactorBundleOptions,
+        load_factor_bundle,
+        list_available_factor_bundles,
+    )
+except ImportError:
+    # Factor bundles module may not be available in all contexts
+    pass
 

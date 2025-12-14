@@ -1,0 +1,30 @@
+universe: "universe_ai_tech"
+factor_set: "core+alt_full"
+horizon_days: 20
+
+factors:
+  - name: "momentum_12m_excl_1m"
+    weight: 0.25
+    direction: "positive"
+  - name: "trend_strength_50"
+    weight: 0.20
+    direction: "positive"
+  - name: "earnings_eps_surprise_last"
+    weight: 0.20
+    direction: "positive"
+  - name: "insider_net_notional_60d"
+    weight: 0.15
+    direction: "positive"
+  - name: "news_sentiment_trend_20d"
+    weight: 0.10
+    direction: "positive"
+  - name: "rv_20"
+    weight: 0.10
+    direction: "negative"
+
+options:
+  winsorize: true
+  winsorize_limits: [0.01, 0.99]
+  zscore: true
+  neutralize_by: null
+

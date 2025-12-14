@@ -64,6 +64,37 @@ Die folgenden Factor-Sets sind verfügbar:
 
 **Hinweis:** Die Factor-Set-Namen sind historisch gewachsen. Eine spätere Umbenennung für bessere UX ist möglich (z.B. `core+alt_b1`, `core+alt_b2`, `core+alt_all`).
 
+**Single Source of Truth:** Die Factor-Set-Namen werden zentral in `scripts/run_factor_analysis.py` durch die Funktion `list_available_factor_sets()` definiert. Diese Funktion wird automatisch von der CLI verwendet (`scripts/cli.py`), um die gültigen `--factor-set` Werte zu validieren.
+
+**Tabelle automatisch generieren:**
+
+Die obige Tabelle kann mit folgendem Python-Snippet automatisch generiert werden:
+
+```python
+from scripts.run_factor_analysis import list_available_factor_sets
+
+factor_sets = list_available_factor_sets(with_descriptions=True)
+
+# Mapping von Factor-Set zu Phase
+phase_mapping = {
+    "core": "Phase A1",
+    "vol_liquidity": "Phase A2",
+    "core+vol_liquidity": "Phase A1 + A2",
+    "all": "Phase A",
+    "alt_earnings_insider": "Phase B1",
+    "alt_news_macro": "Phase B2",
+    "core+alt": "Phase A1 + B1",
+    "core+alt_news": "Phase A1 + B2",
+    "core+alt_full": "Phase A1 + B1 + B2",
+}
+
+print("| Factor-Set | Inhalt | Phase |")
+print("|------------|--------|-------|")
+for name, desc in factor_sets.items():
+    phase = phase_mapping.get(name, "N/A")
+    print(f"| `{name}` | {desc} | {phase} |")
+```
+
 ---
 
 ## End-to-End Smoketests
@@ -166,6 +197,38 @@ python scripts/cli.py analyze_factors `
 - Alle Alt-Data-Faktoren sollten in den Reports sichtbar sein
 
 **Wenn alle drei Reports erfolgreich generiert werden:** Das System ist faktisch "Research-ready" und kann für systematische Factor-Evaluation verwendet werden.
+
+### Smoketests automatisiert
+
+Ein automatisiertes Smoketest-Script führt alle drei Tests nacheinander aus:
+
+```powershell
+# Alle drei Tests ausführen
+python scripts/run_factor_analysis_smoketests.py
+```
+
+**Optionen:**
+```powershell
+# Einzelne Tests überspringen
+python scripts/run_factor_analysis_smoketests.py --skip-test-1
+python scripts/run_factor_analysis_smoketests.py --skip-test-2 --skip-test-3
+
+# Custom output directory
+python scripts/run_factor_analysis_smoketests.py --output-dir output/custom_smoketests
+```
+
+**Das Script:**
+- Führt die drei Tests nacheinander aus
+- Prüft Exit-Codes
+- Validiert, dass alle erwarteten Report-Dateien erstellt wurden
+- Gibt eine Zusammenfassung aus
+
+**Voraussetzungen:**
+- `ASSEMBLED_LOCAL_DATA_ROOT` Umgebungsvariable gesetzt
+- Universe-Dateien vorhanden (`config/macro_world_etfs_tickers.txt`, `config/universe_ai_tech_tickers.txt`)
+- Für Tests 2 & 3: Alt-Data-Dateien in `output/altdata/` (falls nicht vorhanden, werden Warnungen geloggt, aber Tests laufen weiter)
+
+**Wichtig:** Das Script verwendet **nur lokale Parquet-Daten** (`data_source="local"`) und macht **keine direkten API-Calls**.
 
 ---
 

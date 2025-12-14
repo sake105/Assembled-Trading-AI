@@ -1,0 +1,27 @@
+universe: "macro_world_etfs"
+factor_set: "core+vol_liquidity"
+horizon_days: 20
+
+factors:
+  - name: "momentum_12m_excl_1m"
+    weight: 0.30
+    direction: "positive"
+  - name: "trend_strength_200"
+    weight: 0.25
+    direction: "positive"
+  - name: "trend_strength_50"
+    weight: 0.20
+    direction: "positive"
+  - name: "rv_20"
+    weight: 0.15
+    direction: "negative"
+  - name: "returns_12m"
+    weight: 0.10
+    direction: "positive"
+
+options:
+  winsorize: true
+  winsorize_limits: [0.01, 0.99]
+  zscore: true
+  neutralize_by: null
+

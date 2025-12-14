@@ -37,6 +37,11 @@ from src.assembled_core.qa.qa_gates import QAResult, evaluate_all_gates
 from src.assembled_core.reports.daily_qa_report import generate_qa_report
 from src.assembled_core.signals.rules_trend import generate_trend_signals_from_prices
 from src.assembled_core.signals.rules_event_insider_shipping import generate_event_signals
+from src.assembled_core.strategies.multifactor_long_short import (
+    MultiFactorStrategyConfig,
+    generate_multifactor_long_short_signals,
+    compute_multifactor_long_short_positions,
+)
 
 import logging
 logger = logging.getLogger(__name__)
@@ -186,6 +191,70 @@ def create_event_position_sizing_fn():
     return position_sizing_fn
 
 
+def create_multifactor_long_short_signal_fn(
+    bundle_path: str,
+    top_quantile: float = 0.2,
+    bottom_quantile: float = 0.2,
+    rebalance_freq: str = "M",
+):
+    """Create a signal function for multi-factor long/short strategy.
+    
+    Args:
+        bundle_path: Path to factor bundle YAML file
+        top_quantile: Top quantile threshold for long positions (default: 0.2)
+        bottom_quantile: Bottom quantile threshold for short positions (default: 0.2)
+        rebalance_freq: Rebalancing frequency ("M" for monthly, "W" for weekly, "D" for daily)
+    
+    Returns:
+        Callable that takes prices DataFrame and returns signals DataFrame
+    """
+    config = MultiFactorStrategyConfig(
+        bundle_path=bundle_path,
+        top_quantile=top_quantile,
+        bottom_quantile=bottom_quantile,
+        rebalance_freq=rebalance_freq,
+    )
+    
+    def signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
+        """Generate multi-factor long/short signals from prices."""
+        return generate_multifactor_long_short_signals(
+            prices=prices_df,
+            factors=None,  # Will be computed from prices
+            config=config,
+        )
+    
+    return signal_fn
+
+
+def create_multifactor_long_short_position_sizing_fn(
+    bundle_path: str,
+    max_gross_exposure: float = 1.0,
+):
+    """Create a position sizing function for multi-factor long/short strategy.
+    
+    Args:
+        bundle_path: Path to factor bundle YAML file (for config, though not strictly needed here)
+        max_gross_exposure: Maximum gross exposure (default: 1.0)
+    
+    Returns:
+        Callable that takes signals DataFrame and capital, returns target positions DataFrame
+    """
+    config = MultiFactorStrategyConfig(
+        bundle_path=bundle_path,
+        max_gross_exposure=max_gross_exposure,
+    )
+    
+    def position_sizing_fn(signals_df: pd.DataFrame, capital: float) -> pd.DataFrame:
+        """Compute target positions from multi-factor signals (supports LONG and SHORT)."""
+        return compute_multifactor_long_short_positions(
+            signals=signals_df,
+            capital=capital,
+            config=config,
+        )
+    
+    return position_sizing_fn
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
@@ -280,8 +349,8 @@ Examples:
         "--strategy",
         type=str,
         default="trend_baseline",
-        choices=["trend_baseline", "event_insider_shipping"],
-        help="Strategy name: 'trend_baseline' (EMA crossover) or 'event_insider_shipping' (Phase 6 event-based)"
+        choices=["trend_baseline", "event_insider_shipping", "multifactor_long_short"],
+        help="Strategy name: 'trend_baseline' (EMA crossover), 'event_insider_shipping' (Phase 6 event-based), or 'multifactor_long_short' (multi-factor long/short)"
     )
     
     parser.add_argument(
@@ -390,6 +459,58 @@ Examples:
         type=str,
         default=None,
         help="Comma-separated tags for the experiment (e.g., 'trend,baseline,ma20_50')"
+    )
+    
+    # Multi-factor strategy arguments
+    parser.add_argument(
+        "--bundle-path",
+        type=str,
+        default=None,
+        help="Path to factor bundle YAML file (required for multifactor_long_short strategy)"
+    )
+    
+    parser.add_argument(
+        "--top-quantile",
+        type=float,
+        default=0.2,
+        help="Top quantile threshold for long positions (default: 0.2, i.e., top 20%%)"
+    )
+    
+    parser.add_argument(
+        "--bottom-quantile",
+        type=float,
+        default=0.2,
+        help="Bottom quantile threshold for short positions (default: 0.2, i.e., bottom 20%%)"
+    )
+    
+    parser.add_argument(
+        "--rebalance-freq",
+        type=str,
+        default="M",
+        choices=["D", "W", "M"],
+        help="Rebalancing frequency: 'D' for daily, 'W' for weekly, 'M' for monthly (default: M)"
+    )
+    
+    parser.add_argument(
+        "--max-gross-exposure",
+        type=float,
+        default=1.0,
+        help="Maximum gross exposure (long + short) as fraction of capital (default: 1.0)"
+    )
+    
+    # Regime overlay arguments
+    parser.add_argument(
+        "--use-regime-overlay",
+        action="store_true",
+        default=False,
+        help="Enable regime-based risk overlay (adjusts exposure based on market regime)"
+    )
+    
+    parser.add_argument(
+        "--regime-config-file",
+        type=Path,
+        default=None,
+        help="Path to YAML/JSON file with regime configuration and risk_map (optional)"
     )
     
     return parser.parse_args()
@@ -734,9 +855,125 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             
             signal_fn = create_event_insider_shipping_signal_fn()
             position_sizing_fn = create_event_position_sizing_fn()
+        elif args.strategy == "multifactor_long_short":
+            logger.info("Multi-Factor Long/Short Strategy")
+            
+            # Validate bundle path
+            if args.bundle_path is None:
+                logger.error("--bundle-path is required for multifactor_long_short strategy")
+                logger.info("Example: --bundle-path config/factor_bundles/macro_world_etfs_core_bundle.yaml")
+                return 1
+            
+            bundle_path = Path(args.bundle_path)
+            if not bundle_path.exists():
+                # Try relative to project root
+                bundle_path = ROOT / args.bundle_path
+                if not bundle_path.exists():
+                    logger.error(f"Factor bundle file not found: {args.bundle_path}")
+                    return 1
+            
+            logger.info(f"Bundle Path: {bundle_path}")
+            logger.info(f"Top Quantile: {args.top_quantile:.1%}")
+            logger.info(f"Bottom Quantile: {args.bottom_quantile:.1%}")
+            logger.info(f"Rebalance Frequency: {args.rebalance_freq}")
+            logger.info(f"Max Gross Exposure: {args.max_gross_exposure:.1%}")
+            
+            # Regime overlay setup
+            regime_config = None
+            regime_risk_map = None
+            
+            if args.use_regime_overlay:
+                logger.info("Regime Overlay: ENABLED")
+                
+                # Try to load regime config from file if provided
+                if args.regime_config_file is not None:
+                    import yaml
+                    import json
+                    
+                    config_file = Path(args.regime_config_file)
+                    if not config_file.is_absolute():
+                        config_file = ROOT / config_file
+                    
+                    if not config_file.exists():
+                        logger.warning(f"Regime config file not found: {config_file}. Using defaults.")
+                    else:
+                        try:
+                            with config_file.open("r", encoding="utf-8") as f:
+                                if config_file.suffix in [".yaml", ".yml"]:
+                                    config_data = yaml.safe_load(f)
+                                elif config_file.suffix == ".json":
+                                    config_data = json.load(f)
+                                else:
+                                    logger.warning(f"Unknown config file format: {config_file.suffix}. Using defaults.")
+                                    config_data = None
+                            
+                            if config_data:
+                                # Extract regime_risk_map
+                                if "regime_risk_map" in config_data:
+                                    regime_risk_map = config_data["regime_risk_map"]
+                                    logger.info(f"Loaded regime_risk_map from {config_file}")
+                                
+                                # Extract regime_config if present
+                                if "regime_config" in config_data:
+                                    from src.assembled_core.risk.regime_models import RegimeStateConfig
+                                    regime_cfg_data = config_data["regime_config"]
+                                    regime_config = RegimeStateConfig(
+                                        trend_ma_windows=tuple(regime_cfg_data.get("trend_ma_windows", (50, 200))),
+                                        vol_window=regime_cfg_data.get("vol_window", 20),
+                                        vov_window=regime_cfg_data.get("vov_window", 60),
+                                        breadth_ma_window=regime_cfg_data.get("breadth_ma_window", 50),
+                                        combine_macro_and_market=regime_cfg_data.get("combine_macro_and_market", True),
+                                    )
+                                    logger.info(f"Loaded regime_config from {config_file}")
+                        except Exception as e:
+                            logger.warning(f"Failed to load regime config from {config_file}: {e}. Using defaults.")
+                
+                # Use default regime_risk_map if not loaded from file
+                if regime_risk_map is None:
+                    regime_risk_map = {
+                        "bull": {"max_gross_exposure": 1.2, "target_net_exposure": 0.6},
+                        "neutral": {"max_gross_exposure": 1.0, "target_net_exposure": 0.2},
+                        "sideways": {"max_gross_exposure": 0.8, "target_net_exposure": 0.0},
+                        "bear": {"max_gross_exposure": 0.6, "target_net_exposure": 0.0},
+                        "crisis": {"max_gross_exposure": 0.3, "target_net_exposure": 0.0},
+                        "reflation": {"max_gross_exposure": 1.1, "target_net_exposure": 0.3},
+                    }
+                    logger.info("Using default regime_risk_map")
+            else:
+                logger.info("Regime Overlay: DISABLED")
+            
+            # Create strategy config
+            strategy_config = MultiFactorStrategyConfig(
+                bundle_path=str(bundle_path),
+                top_quantile=args.top_quantile,
+                bottom_quantile=args.bottom_quantile,
+                rebalance_freq=args.rebalance_freq,
+                max_gross_exposure=args.max_gross_exposure,
+                use_regime_overlay=args.use_regime_overlay,
+                regime_config=regime_config,
+                regime_risk_map=regime_risk_map,
+            )
+            
+            # Also print to stdout for subprocess capture
+            print(f"Multi-Factor Strategy: {bundle_path.name}", flush=True)
+            if args.use_regime_overlay:
+                print(f"Regime Overlay: ENABLED", flush=True)
+            
+            signal_fn = create_multifactor_long_short_signal_fn(
+                bundle_path=str(bundle_path),
+                top_quantile=args.top_quantile,
+                bottom_quantile=args.bottom_quantile,
+                rebalance_freq=args.rebalance_freq,
+                config=strategy_config,
+            )
+            position_sizing_fn = create_multifactor_long_short_position_sizing_fn(
+                bundle_path=str(bundle_path),
+                max_gross_exposure=args.max_gross_exposure,
+                config=strategy_config,
+            )
         else:
             logger.error(f"Unknown strategy: {args.strategy}")
-            logger.info("Supported strategies: trend_baseline, event_insider_shipping")
+            logger.info("Supported strategies: trend_baseline, event_insider_shipping, multifactor_long_short")
             return 1
         
         # Meta-model setup
@@ -778,8 +1015,8 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             include_trades=True,  # Always include trades for QA
             include_signals=False,
             include_targets=False,
-            rebalance_freq=args.freq,
-            compute_features=True,
+            rebalance_freq=args.freq if args.strategy != "multifactor_long_short" else args.rebalance_freq,
+            compute_features=args.strategy != "multifactor_long_short",  # Multi-factor strategy computes factors internally
             # Meta-model ensemble parameters
             use_meta_model=args.use_meta_model,
             meta_model_path=str(args.meta_model_path) if args.meta_model_path else None,

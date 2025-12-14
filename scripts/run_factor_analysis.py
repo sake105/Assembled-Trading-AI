@@ -51,6 +51,37 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def list_available_factor_sets(with_descriptions: bool = False) -> list[str] | dict[str, str]:
+    """List all available factor set names.
+    
+    This is the single source of truth for factor set names used across the codebase.
+    
+    Args:
+        with_descriptions: If True, return a dict mapping factor set names to descriptions.
+                          If False, return a list of factor set names only.
+    
+    Returns:
+        If with_descriptions=False: List of factor set names (e.g., ["core", "vol_liquidity", ...])
+        If with_descriptions=True: Dict mapping factor set names to descriptions
+    """
+    factor_sets = {
+        "core": "TA/Price Factors (Multi-Horizon Returns, Trend Strength, Reversal)",
+        "vol_liquidity": "Volatility & Liquidity Factors (RV, Vol-of-Vol, Turnover, Spread Proxies)",
+        "core+vol_liquidity": "Core TA/Price + Volatility/Liquidity",
+        "all": "Alle TA/Price/Vol/Liquidity Factors (inkl. Market Breadth)",
+        "alt_earnings_insider": "Nur Earnings/Insider Factors (Earnings Surprise, Insider Activity)",
+        "alt_news_macro": "Nur News/Macro Factors (News Sentiment, Macro Regime)",
+        "core+alt": "Core TA/Price + Earnings/Insider (B1)",
+        "core+alt_news": "Core TA/Price + News/Macro (B2)",
+        "core+alt_full": "Core TA/Price + Earnings/Insider (B1) + News/Macro (B2)",
+    }
+    
+    if with_descriptions:
+        return factor_sets
+    else:
+        return list(factor_sets.keys())
+
+
 def load_symbols_from_file(symbols_file: Path) -> list[str]:
     """Load symbols from a text file (one per line).
     
@@ -268,7 +299,7 @@ def compute_factors(
     factors_df = prices.copy()
     
     # Compute core TA/Price factors
-    if factor_set in ("core", "core+vol_liquidity", "all", "core+alt"):
+    if factor_set in ("core", "core+vol_liquidity", "all", "core+alt", "core+alt_news", "core+alt_full"):
         logger.info("Computing core TA/Price factors...")
         factors_df = build_core_ta_factors(factors_df)
     
@@ -733,7 +764,7 @@ Examples:
     parser.add_argument("--data-source", type=str, default="local", choices=["local", "yahoo", "finnhub", "twelve_data"], help="Data source")
     parser.add_argument("--start-date", type=str, required=True, help="Start date (YYYY-MM-DD)")
     parser.add_argument("--end-date", type=str, required=True, help="End date (YYYY-MM-DD)")
-    parser.add_argument("--factor-set", type=str, default="core", choices=["core", "vol_liquidity", "core+vol_liquidity", "all"], help="Factor set")
+    parser.add_argument("--factor-set", type=str, default="core", choices=list_available_factor_sets(), help="Factor set")
     parser.add_argument("--horizon-days", type=int, default=20, help="Forward return horizon in days")
     parser.add_argument("--quantiles", type=int, default=5, help="Number of quantiles for portfolio analysis")
     parser.add_argument("--output-dir", type=str, help="Output directory (default: output/factor_analysis)")
