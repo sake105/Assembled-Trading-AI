@@ -34,6 +34,7 @@ from src.assembled_core.ml.factor_models import (
     evaluate_ml_predictions,
     run_time_series_cv,
 )
+from src.assembled_core.qa.metrics import deflated_sharpe_ratio
 from src.assembled_core.ml.explainability import (
     compute_model_feature_importance,
     compute_permutation_importance,
@@ -195,10 +196,18 @@ def write_ml_validation_report(
         f.write("- **Rank-IC**: Spearman correlation (robust to outliers).\n")
         f.write("  - Higher Rank-IC than IC suggests non-linear relationships.\n\n")
         
-        if ls_sharpe is not None:
+        ls_sharpe_raw = metrics.get("ls_sharpe_raw")  # B4: Updated key
+        ls_sharpe_deflated = metrics.get("ls_sharpe_deflated")  # B4: New metric
+        n_tests = metrics.get("n_tests", 1)
+        
+        if ls_sharpe_raw is not None:
             f.write("### Portfolio Performance\n")
-            f.write("- **L/S Sharpe**: Sharpe ratio of long/short portfolio (Top vs. Bottom quintile based on predictions).\n")
-            f.write(f"  - Current value: {ls_sharpe:.4f} ({'Good' if ls_sharpe > 1.0 else 'Moderate' if ls_sharpe > 0.5 else 'Weak'} signal)\n\n")
+            f.write("- **L/S Sharpe (Raw)**: Sharpe ratio of long/short portfolio (Top vs. Bottom quintile based on predictions).\n")
+            f.write(f"  - Current value: {ls_sharpe_raw:.4f} ({'Good' if ls_sharpe_raw > 1.0 else 'Moderate' if ls_sharpe_raw > 0.5 else 'Weak'} signal)\n")
+            if ls_sharpe_deflated is not None:
+                f.write(f"- **L/S Sharpe (Deflated)**: Deflated Sharpe ratio adjusted for multiple testing (n_tests={n_tests}).\n")
+                f.write(f"  - Current value: {ls_sharpe_deflated:.4f} ({'Significant' if ls_sharpe_deflated > 0 else 'May be due to luck/multiple testing'})\n")
+            f.write("\n")
         
         # Feature Importance Section
         if feature_importance_df is not None and not feature_importance_df.empty:
@@ -488,11 +497,11 @@ def run_ml_validation(
     logger.info(f"Evaluation completed:")
     logger.info(f"  R²: {eval_metrics.get('r2', 0):.4f}")
     logger.info(f"  IC-IR: {eval_metrics.get('ic_ir', 0):.4f}")
-    ls_sharpe = eval_metrics.get('ls_sharpe')
-    if ls_sharpe is not None:
-        logger.info(f"  L/S Sharpe: {ls_sharpe:.4f}")
+    ls_sharpe_raw = eval_metrics.get('ls_sharpe')
+    if ls_sharpe_raw is not None:
+        logger.info(f"  L/S Sharpe (Raw): {ls_sharpe_raw:.4f}")
     else:
-        logger.info("  L/S Sharpe: N/A")
+        logger.info("  L/S Sharpe (Raw): N/A")
     
     # Log feature info
     try:
@@ -528,18 +537,45 @@ def run_ml_validation(
         f"Saved predictions sample ({len(predictions_sample)} rows) to {predictions_sample_file}"
     )
     
-    # 3. Portfolio metrics CSV (extract relevant metrics)
+    # 3. Portfolio metrics CSV (extract relevant metrics) - B4: Add deflated Sharpe
+    ls_sharpe_raw = eval_metrics.get("ls_sharpe")
+    n_samples = eval_metrics.get("n_predictions", len(predictions_df) if predictions_df is not None else 0)
+    n_tests = 1  # Single model validation (conservative: assume this is part of a larger experiment)
+    
+    # Compute deflated Sharpe if we have a valid Sharpe
+    ls_sharpe_deflated = None
+    if ls_sharpe_raw is not None and not np.isnan(ls_sharpe_raw) and n_samples >= 2:
+        # n_obs: Use number of unique timestamps if available, else n_samples
+        n_obs_eff = n_samples  # Conservative: assume one observation per prediction
+        if predictions_df is not None and "timestamp" in predictions_df.columns:
+            n_obs_eff = predictions_df["timestamp"].nunique()
+        
+        try:
+            ls_sharpe_deflated = deflated_sharpe_ratio(
+                sharpe_annual=ls_sharpe_raw,
+                n_obs=n_obs_eff,
+                n_tests=n_tests,
+                skew=0.0,  # Default: assume normal
+                kurtosis=3.0,  # Default: assume normal
+            )
+        except Exception as e:
+            logger.warning(f"Failed to compute deflated Sharpe: {e}")
+            ls_sharpe_deflated = None
+    
     portfolio_metrics = {
         "model_name": model_name,
         "label_col": label_col,
         "horizon_days": horizon_days,
-        "ls_sharpe": eval_metrics.get("ls_sharpe"),
+        "ls_sharpe_raw": ls_sharpe_raw,  # B4: Renamed from ls_sharpe
+        "ls_sharpe_deflated": ls_sharpe_deflated,  # B4: New deflated Sharpe
         "ls_return_mean": eval_metrics.get("ls_return_mean"),
         "ls_return_std": eval_metrics.get("ls_return_std"),
         "ic_mean": eval_metrics.get("ic_mean"),
         "ic_ir": eval_metrics.get("ic_ir"),
         "rank_ic_mean": eval_metrics.get("rank_ic_mean"),
         "rank_ic_ir": eval_metrics.get("rank_ic_ir"),
+        "n_tests": n_tests,  # B4: Number of tests (conservative: 1 for single model)
+        "n_samples": n_samples,  # B4: Number of observations
     }
     
     portfolio_metrics_file = output_dir / f"ml_portfolio_metrics_{model_type}_{label_col}.csv"

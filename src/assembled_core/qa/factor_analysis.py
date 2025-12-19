@@ -1749,12 +1749,35 @@ def summarize_factor_portfolios(
         drawdown = (cum_returns - running_max) / running_max
         max_drawdown = float(drawdown.min())  # Negative value
         
+        # Compute deflated Sharpe (B4)
+        # n_tests: Conservative estimate = number of factors being tested
+        # This will be set later when we know the total number of factors
+        deflated_sharpe = None
+        if sharpe is not None and not np.isnan(sharpe) and n_periods >= 2:
+            # For now, we'll compute it with n_tests=1 (conservative)
+            # The actual n_tests will be set after we know the total number of factors
+            # This is a placeholder that will be updated later
+            try:
+                from src.assembled_core.qa.metrics import deflated_sharpe_ratio
+                # Use n_tests=1 as placeholder (will be updated after we know total factor count)
+                deflated_sharpe = deflated_sharpe_ratio(
+                    sharpe_annual=sharpe,
+                    n_obs=n_periods,
+                    n_tests=1,  # Placeholder, will be updated
+                    skew=0.0,  # Default: assume normal
+                    kurtosis=3.0,  # Default: assume normal
+                )
+            except Exception as e:
+                logger.warning(f"Failed to compute deflated Sharpe for factor {factor}: {e}")
+                deflated_sharpe = None
+        
         # Build result row
         result_row = {
             factor_col: factor,
             "annualized_return": annualized_return,
             "annualized_vol": annualized_vol,
             "sharpe": sharpe,
+            "deflated_sharpe": deflated_sharpe,  # B4: Deflated Sharpe (n_tests will be updated)
             "t_stat": t_stat,
             "p_value": p_value,
             "win_ratio": win_ratio,
@@ -1771,9 +1794,11 @@ def summarize_factor_portfolios(
         return pd.DataFrame(
             columns=[
                 factor_col,
+                factor_col,
                 "annualized_return",
                 "annualized_vol",
                 "sharpe",
+                "deflated_sharpe",  # B4: Added deflated_sharpe column
                 "t_stat",
                 "p_value",
                 "win_ratio",
@@ -1786,6 +1811,28 @@ def summarize_factor_portfolios(
     
     # Combine results
     result_df = pd.DataFrame(results)
+    
+    # B4: Update deflated_sharpe with correct n_tests (number of factors tested)
+    if not result_df.empty and "deflated_sharpe" in result_df.columns:
+        n_tests_actual = len(result_df)  # Number of factors being tested
+        if n_tests_actual > 1:
+            # Recompute deflated Sharpe with correct n_tests
+            from src.assembled_core.qa.metrics import deflated_sharpe_ratio
+            for idx, row in result_df.iterrows():
+                sharpe_val = row.get("sharpe")
+                n_periods_val = row.get("n_periods", 0)
+                if sharpe_val is not None and not np.isnan(sharpe_val) and n_periods_val >= 2:
+                    try:
+                        result_df.at[idx, "deflated_sharpe"] = deflated_sharpe_ratio(
+                            sharpe_annual=sharpe_val,
+                            n_obs=n_periods_val,
+                            n_tests=n_tests_actual,
+                            skew=0.0,
+                            kurtosis=3.0,
+                        )
+                    except Exception:
+                        # Keep existing value (or NaN)
+                        pass
     
     # Sort by Sharpe Ratio (descending)
     result_df = result_df.sort_values("sharpe", ascending=False).reset_index(drop=True)

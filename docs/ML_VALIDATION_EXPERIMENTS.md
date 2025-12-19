@@ -49,6 +49,29 @@ python scripts/cli.py ml_validate_factors `
 
 **Note:** Adjust file path to your actual panel file.
 
+### Dealing with the Factor Zoo
+
+When testing multiple models, parameter combinations, or factors, you need to account for multiple testing bias. The "Factor Zoo" problem occurs when many variants are tested, and some appear good by chance alone.
+
+**Always check:**
+- `n_tests`: Number of variants tested (models, parameters, factors)
+- `ls_sharpe_raw`: Raw Sharpe Ratio (before adjustment)
+- `ls_sharpe_deflated`: Deflated Sharpe Ratio (adjusted for multiple testing)
+
+**Guidelines:**
+- `sharpe_deflated < 0.5`: Likely a gimmick, do not pursue further
+- `0.5 <= sharpe_deflated < 1.0`: Only pursue with additional evidence (Walk-Forward, Regime Analysis)
+- `sharpe_deflated >= 1.0`: Serious candidate for further research rounds
+
+**Additional Validation:**
+- Walk-Forward Analysis (B3): Out-of-sample stability across multiple time windows
+- Regime Analysis (B3): Consistent performance across different market regimes
+- Transaction Cost Analysis (E4): Ensure costs do not destroy performance
+
+**References:**
+- [Deflated Sharpe B4 Design](../docs/DEFLATED_SHARPE_B4_DESIGN.md)
+- [Walk-Forward & Regime Analysis B3 Design](../docs/WALK_FORWARD_AND_REGIME_B3_DESIGN.md)
+
 ### What to Look For
 
 **ML Metrics:**

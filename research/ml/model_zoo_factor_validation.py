@@ -75,6 +75,7 @@ from src.assembled_core.ml.factor_models import (
     prepare_ml_dataset,
     run_time_series_cv,
 )
+from src.assembled_core.qa.metrics import deflated_sharpe_ratio
 from src.assembled_core.ml.explainability import (
     compute_model_feature_importance,
     summarize_feature_importance_global,
@@ -242,6 +243,33 @@ def run_model_zoo_for_panel(
             test_r2 = global_metrics.get("r2")
             train_r2 = global_metrics.get("r2_train")
             
+            # Extract Sharpe and compute deflated Sharpe (B4)
+            ls_sharpe_raw = eval_metrics.get("ls_sharpe")
+            n_samples = eval_metrics.get("n_predictions", len(predictions_df))
+            n_tests = len(model_configs)  # Total number of models tested in this zoo
+            
+            # Compute deflated Sharpe if we have a valid Sharpe
+            ls_sharpe_deflated = None
+            if ls_sharpe_raw is not None and not np.isnan(ls_sharpe_raw) and n_samples >= 2:
+                # n_obs: Use number of unique timestamps if available, else n_samples
+                # For daily data, n_samples ≈ n_obs (one prediction per day)
+                # For intraday, we'd need to adjust, but for factor panels it's usually daily
+                n_obs_eff = n_samples  # Conservative: assume one observation per prediction
+                if "timestamp" in predictions_df.columns:
+                    n_obs_eff = predictions_df["timestamp"].nunique()
+                
+                try:
+                    ls_sharpe_deflated = deflated_sharpe_ratio(
+                        sharpe_annual=ls_sharpe_raw,
+                        n_obs=n_obs_eff,
+                        n_tests=n_tests,
+                        skew=0.0,  # Default: assume normal (could be computed from returns if available)
+                        kurtosis=3.0,  # Default: assume normal
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to compute deflated Sharpe for {model_cfg.name}: {e}")
+                    ls_sharpe_deflated = None
+            
             result_row = {
                 "model_name": model_cfg.name,
                 "model_type": model_cfg.model_type,
@@ -256,11 +284,13 @@ def run_model_zoo_for_panel(
                 "ic_ir": eval_metrics.get("ic_ir"),
                 "rank_ic_mean": eval_metrics.get("rank_ic_mean"),
                 "rank_ic_ir": eval_metrics.get("rank_ic_ir"),
-                "ls_sharpe": eval_metrics.get("ls_sharpe"),
+                "ls_sharpe_raw": ls_sharpe_raw,  # B4: Renamed from ls_sharpe
+                "ls_sharpe_deflated": ls_sharpe_deflated,  # B4: New deflated Sharpe
                 "ls_return_mean": eval_metrics.get("ls_return_mean"),
                 "directional_accuracy": eval_metrics.get("directional_accuracy"),
                 "n_splits": len(metrics_df) if not metrics_df.empty else 0,
-                "n_samples": eval_metrics.get("n_predictions", len(predictions_df)),
+                "n_samples": n_samples,
+                "n_tests": n_tests,  # B4: Number of models tested in this zoo
             }
             
             results.append(result_row)
@@ -278,7 +308,8 @@ def run_model_zoo_for_panel(
                 **{k: None for k in [
                     "test_r2_mean", "test_mse_mean", "test_mae_mean", "train_r2_mean",
                     "train_test_gap_r2", "ic_mean", "ic_ir", "rank_ic_mean", "rank_ic_ir",
-                    "ls_sharpe", "ls_return_mean", "directional_accuracy", "n_splits", "n_samples"
+                    "ls_sharpe_raw", "ls_sharpe_deflated", "ls_return_mean", "directional_accuracy",
+                    "n_splits", "n_samples", "n_tests"
                 ]}
             })
             continue
@@ -361,21 +392,22 @@ def write_model_zoo_summary(
                     best_r2 = successful_df.loc[successful_df["test_r2_mean"].idxmax()]
                     f.write(f"**Best R²:** {best_r2['model_name']} (R²={best_r2['test_r2_mean']:.4f})\n\n")
                 
-                # Comparison table
+                # Comparison table (B4: Include deflated Sharpe)
                 f.write("## Model Comparison\n\n")
-                f.write("| Model | Type | Test R² | IC-IR | L/S Sharpe | Train/Test Gap | N Samples |\n")
-                f.write("|-------|------|---------|-------|------------|----------------|----------|\n")
+                f.write("| Model | Type | Test R² | IC-IR | L/S Sharpe (Raw) | L/S Sharpe (Deflated) | N Tests | N Samples |\n")
+                f.write("|-------|------|---------|-------|------------------|----------------------|---------|----------|\n")
                 
                 for _, row in successful_df.iterrows():
                     r2_str = f"{row['test_r2_mean']:.4f}" if pd.notna(row.get('test_r2_mean')) else "N/A"
                     ic_ir_str = f"{row['ic_ir']:.4f}" if pd.notna(row.get('ic_ir')) else "N/A"
-                    sharpe_str = f"{row['ls_sharpe']:.4f}" if pd.notna(row.get('ls_sharpe')) else "N/A"
-                    gap_str = f"{row['train_test_gap_r2']:.4f}" if pd.notna(row.get('train_test_gap_r2')) else "N/A"
+                    sharpe_raw_str = f"{row['ls_sharpe_raw']:.4f}" if pd.notna(row.get('ls_sharpe_raw')) else "N/A"
+                    sharpe_deflated_str = f"{row['ls_sharpe_deflated']:.4f}" if pd.notna(row.get('ls_sharpe_deflated')) else "N/A"
+                    n_tests_str = f"{int(row['n_tests'])}" if pd.notna(row.get('n_tests')) else "N/A"
                     n_samples_str = f"{int(row['n_samples'])}" if pd.notna(row.get('n_samples')) else "N/A"
                     
                     f.write(
                         f"| {row['model_name']} | {row['model_type']} | {r2_str} | "
-                        f"{ic_ir_str} | {sharpe_str} | {gap_str} | {n_samples_str} |\n"
+                        f"{ic_ir_str} | {sharpe_raw_str} | {sharpe_deflated_str} | {n_tests_str} | {n_samples_str} |\n"
                     )
                 
                 f.write("\n")

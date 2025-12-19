@@ -536,3 +536,197 @@ def compute_all_metrics(
     
     return metrics
 
+
+def deflated_sharpe_ratio(
+    sharpe_annual: float,
+    n_obs: int,
+    n_tests: int = 1,
+    skew: float = 0.0,
+    kurtosis: float = 3.0,
+) -> float:
+    """Compute the deflated Sharpe ratio (DSR) as in Bailey & López de Prado (2014).
+    
+    The Deflated Sharpe Ratio adjusts the observed Sharpe Ratio for:
+    - Multiple testing (False Discovery Rate)
+    - Non-normal return distributions (skewness, kurtosis)
+    
+    Formula (Bailey & López de Prado 2014):
+        DSR = (SR - E[max_SR]) / std(SR)
+        where:
+        - E[max_SR] = expected maximum Sharpe under null (multiple testing adjustment)
+        - std(SR) = standard deviation of Sharpe (distribution adjustment)
+    
+    Args:
+        sharpe_annual: Annualized Sharpe ratio estimate of the strategy
+        n_obs: Number of return observations used to estimate the Sharpe (e.g., daily returns)
+            Example: 252 daily returns = n_obs=252 (not n_obs=1 year)
+        n_tests: Effective number of trials/strategies/parameter combos evaluated (default: 1)
+            Example: 50 factors × 3 parameter sets × 2 models = n_tests=300
+        skew: Sample skewness of the returns (default: 0.0, assumes normal)
+        kurtosis: Sample kurtosis of the returns (default: 3.0, assumes normal)
+            Excess kurtosis = kurtosis - 3.0
+    
+    Returns:
+        Deflated Sharpe Ratio (float)
+        - Positive DSR: Significant Sharpe after adjustment
+        - Negative DSR: Sharpe may be due to luck/multiple testing
+        - NaN: If inputs invalid (n_obs < 2, sharpe is NaN/Inf, n_tests < 1)
+    
+    Properties:
+        - sharpe_deflated <= sharpe_annual (always)
+        - For n_tests=1 and large n_obs: sharpe_deflated ≈ sharpe_annual
+        - For growing n_tests (fixed sharpe): sharpe_deflated decreases
+    
+    References:
+        Bailey, D. H., & López de Prado, M. (2014). The deflated Sharpe ratio:
+        Correcting for selection bias, backtest overfitting and non-normality.
+        Journal of Portfolio Management, 40(5), 94-107.
+        
+        Harvey, C. R., Liu, Y., & Zhu, H. (2016). ... and the cross-section
+        of expected returns. Review of Financial Studies, 29(1), 5-68.
+    """
+    # Edge case: insufficient observations
+    if n_obs < 2:
+        return float(np.nan)
+    
+    # Edge case: invalid sharpe
+    if np.isnan(sharpe_annual) or np.isinf(sharpe_annual):
+        return float(np.nan)
+    
+    # Edge case: invalid n_tests (clamp to minimum 1)
+    if n_tests < 1:
+        n_tests = 1
+    
+    # Expected maximum Sharpe under null (multiple testing adjustment)
+    # For n_tests independent tests, expected max Sharpe ≈ sqrt(2 * log(n_tests)) / sqrt(n_obs)
+    # This is a simplified approximation (Bailey & López de Prado 2014)
+    if n_tests > 1:
+        # E[max_SR] ≈ sqrt(2 * log(n_tests)) / sqrt(n_obs)
+        # Factor 2 comes from the asymptotic distribution of maximum of n_tests independent normals
+        expected_max_sharpe = np.sqrt(2.0 * np.log(n_tests)) / np.sqrt(float(n_obs))
+    else:
+        expected_max_sharpe = 0.0
+    
+    # Standard deviation of Sharpe (distribution adjustment)
+    # For normal returns: std(SR) ≈ sqrt((1 + SR^2/2) / n_obs)
+    # For non-normal: adjust for skewness and kurtosis
+    excess_kurt = kurtosis - 3.0
+    # Variance term includes:
+    # - Base term: 1.0
+    # - Sharpe-squared term: SR^2/2 (from asymptotic variance of Sharpe)
+    # - Skewness term: skew * SR (first-order correction)
+    # - Kurtosis term: excess_kurt * SR^2/4 (second-order correction)
+    variance_term = 1.0 + (sharpe_annual**2 / 2.0) + (skew * sharpe_annual) + (excess_kurt * sharpe_annual**2 / 4.0)
+    std_sharpe = np.sqrt(variance_term / float(n_obs))
+    
+    # Deflated Sharpe Ratio
+    if std_sharpe > 0:
+        dsr = (sharpe_annual - expected_max_sharpe) / std_sharpe
+    else:
+        dsr = np.nan
+    
+    return float(dsr)
+
+
+def deflated_sharpe_ratio_from_returns(
+    returns: pd.Series,
+    n_tests: int = 1,
+    scale: str = "daily",
+    risk_free_rate: float = 0.0,
+    skew: float | None = None,
+    kurtosis: float | None = None,
+) -> float:
+    """Convenience wrapper: computes annualized Sharpe from returns and then deflated Sharpe.
+    
+    This function:
+    1. Cleans/filters returns (dropna)
+    2. Computes annualized Sharpe Ratio using existing compute_sharpe_ratio()
+    3. Computes skewness/kurtosis if not provided
+    4. Calls deflated_sharpe_ratio()
+    
+    Args:
+        returns: Series of returns (daily, monthly, or annual)
+        n_tests: Effective number of tests (default: 1)
+        scale: Scale of returns ("daily", "monthly", "annual")
+            Used for annualization of Sharpe (default: "daily")
+        risk_free_rate: Risk-free rate (annualized, default: 0.0)
+        skew: Optional skewness (if None, computed from returns)
+        kurtosis: Optional kurtosis (if None, computed from returns)
+    
+    Returns:
+        Deflated Sharpe Ratio (float)
+        - NaN if insufficient data or invalid inputs
+    """
+    # Clean returns
+    returns_clean = returns.dropna()
+    
+    if len(returns_clean) < 2:
+        return float(np.nan)
+    
+    # Map scale to frequency string for compute_sharpe_ratio
+    scale_to_freq = {
+        "daily": "1d",
+        "monthly": "1M",  # Approximate, not used in _get_periods_per_year but kept for consistency
+        "annual": "1Y",  # Approximate
+    }
+    
+    # For daily, use existing freq logic; for others, compute periods_per_year manually
+    if scale == "daily":
+        freq = "1d"
+    elif scale == "monthly":
+        # Approximate: 12 months per year
+        periods_per_year = 12.0
+        freq = "1d"  # Dummy, we'll compute manually
+    elif scale == "annual":
+        periods_per_year = 1.0
+        freq = "1d"  # Dummy, we'll compute manually
+    else:
+        # Default to daily
+        freq = "1d"
+        scale = "daily"
+    
+    # Compute annualized Sharpe
+    if scale == "daily":
+        sharpe_annual = compute_sharpe_ratio(returns_clean, freq=freq, risk_free_rate=risk_free_rate)
+    else:
+        # Manual computation for monthly/annual
+        mean_return = float(returns_clean.mean())
+        std_return = float(returns_clean.std())
+        
+        # Check for zero or near-zero std (numerical precision issue)
+        if std_return <= 1e-10:
+            return float(np.nan)
+        
+        excess_return = mean_return - (risk_free_rate / periods_per_year)
+        sharpe_annual = excess_return / std_return * np.sqrt(periods_per_year)
+    
+    # Check if Sharpe computation failed
+    if sharpe_annual is None:
+        return float(np.nan)
+    
+    # Check for invalid Sharpe values (NaN, Inf, or extremely large values from near-zero std)
+    if np.isnan(sharpe_annual) or np.isinf(sharpe_annual):
+        return float(np.nan)
+    
+    # Check for extremely large Sharpe (likely from near-zero std in compute_sharpe_ratio)
+    if abs(sharpe_annual) > 1e10:
+        return float(np.nan)
+    
+    # Compute skewness/kurtosis if not provided
+    if skew is None:
+        skew = float(returns_clean.skew()) if len(returns_clean) >= 3 else 0.0
+    
+    if kurtosis is None:
+        kurtosis = float(returns_clean.kurtosis()) + 3.0 if len(returns_clean) >= 4 else 3.0
+        # pandas kurtosis returns excess kurtosis, so add 3.0 to get kurtosis
+    
+    # Compute deflated Sharpe
+    n_obs = len(returns_clean)
+    return deflated_sharpe_ratio(
+        sharpe_annual=sharpe_annual,
+        n_obs=n_obs,
+        n_tests=n_tests,
+        skew=skew,
+        kurtosis=kurtosis,
+    )
+

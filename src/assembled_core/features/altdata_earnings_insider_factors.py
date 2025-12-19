@@ -48,6 +48,7 @@ def build_earnings_surprise_factors(
     group_col: str = "symbol",
     timestamp_col: str = "timestamp",
     price_col: str = "close",
+    as_of: pd.Timestamp | None = None,
 ) -> pd.DataFrame:
     """Build earnings surprise factors from earnings events and price data.
     
@@ -113,6 +114,28 @@ def build_earnings_surprise_factors(
         if not pd.api.types.is_datetime64_any_dtype(events_earnings[timestamp_col]):
             events_earnings = events_earnings.copy()
             events_earnings[timestamp_col] = pd.to_datetime(events_earnings[timestamp_col], utc=True)
+        
+        # Point-in-time handling: ensure event_date / disclosure_date exist.
+        # For now we treat the event timestamp as both event_date and disclosure_date.
+        if "event_date" not in events_earnings.columns:
+            events_earnings["event_date"] = events_earnings[timestamp_col].dt.normalize()
+        if "disclosure_date" not in events_earnings.columns:
+            events_earnings["disclosure_date"] = events_earnings["event_date"]
+        
+        # If as_of is provided, drop events that were not yet disclosed.
+        if as_of is not None:
+            as_of_ts = pd.to_datetime(as_of, utc=True)
+            before_filter = len(events_earnings)
+            events_earnings = events_earnings[
+                events_earnings["disclosure_date"] <= as_of_ts.normalize()
+            ].copy()
+            if len(events_earnings) < before_filter:
+                logger.debug(
+                    "Filtered earnings events by as_of=%s: %d -> %d",
+                    as_of_ts,
+                    before_filter,
+                    len(events_earnings),
+                )
     
     # Sort by symbol and timestamp (required for merge_asof later)
     result = result.sort_values([group_col, timestamp_col]).reset_index(drop=True)
@@ -292,7 +315,21 @@ def build_earnings_surprise_factors(
         f"{len(result)} rows. {n_earnings_dates} earnings event dates found."
     )
     
-    return result.sort_values([group_col, timestamp_col]).reset_index(drop=True)
+    result = result.sort_values([group_col, timestamp_col]).reset_index(drop=True)
+    
+    # Optional PIT safety check (only in strict QA mode)
+    # This can be enabled via environment variable or settings
+    import os
+    if os.getenv("ASSEMBLED_STRICT_PIT_CHECKS", "false").lower() == "true":
+        from src.assembled_core.qa.point_in_time_checks import validate_feature_builder_pit_safe
+        validate_feature_builder_pit_safe(
+            features_df=result,
+            as_of=as_of,
+            builder_name="build_earnings_surprise_factors",
+            strict=True,
+        )
+    
+    return result
 
 
 def build_insider_activity_factors(
@@ -302,6 +339,7 @@ def build_insider_activity_factors(
     group_col: str = "symbol",
     timestamp_col: str = "timestamp",
     price_col: str = "close",
+    as_of: pd.Timestamp | None = None,
 ) -> pd.DataFrame:
     """Build insider activity factors from insider events and price data.
     
@@ -367,6 +405,28 @@ def build_insider_activity_factors(
         if not pd.api.types.is_datetime64_any_dtype(events_insider[timestamp_col]):
             events_insider = events_insider.copy()
             events_insider[timestamp_col] = pd.to_datetime(events_insider[timestamp_col], utc=True)
+        
+        # Point-in-time handling: ensure event_date / disclosure_date exist.
+        # Default: use timestamp date as both event and disclosure date.
+        if "event_date" not in events_insider.columns:
+            events_insider["event_date"] = events_insider[timestamp_col].dt.normalize()
+        if "disclosure_date" not in events_insider.columns:
+            events_insider["disclosure_date"] = events_insider["event_date"]
+        
+        # If as_of is provided, discard events not yet disclosed.
+        if as_of is not None:
+            as_of_ts = pd.to_datetime(as_of, utc=True)
+            before_filter = len(events_insider)
+            events_insider = events_insider[
+                events_insider["disclosure_date"] <= as_of_ts.normalize()
+            ].copy()
+            if len(events_insider) < before_filter:
+                logger.debug(
+                    "Filtered insider events by as_of=%s: %d -> %d",
+                    as_of_ts,
+                    before_filter,
+                    len(events_insider),
+                )
     
     # Sort by symbol and timestamp
     result = result.sort_values([group_col, timestamp_col]).reset_index(drop=True)
@@ -577,6 +637,17 @@ def build_insider_activity_factors(
         f"Built insider activity factors for {result[group_col].nunique()} symbols, "
         f"{len(result)} rows. Lookback window: {lookback_days} days."
     )
+    
+    # Optional PIT safety check (only in strict QA mode)
+    import os
+    if os.getenv("ASSEMBLED_STRICT_PIT_CHECKS", "false").lower() == "true":
+        from src.assembled_core.qa.point_in_time_checks import validate_feature_builder_pit_safe
+        validate_feature_builder_pit_safe(
+            features_df=result,
+            as_of=as_of,
+            builder_name="build_insider_activity_factors",
+            strict=True,
+        )
     
     return result
 

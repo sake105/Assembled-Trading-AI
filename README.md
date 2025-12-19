@@ -104,7 +104,25 @@ The `assembled-cli` command-line interface is the preferred entry point for all 
   - Exposure analysis (Gross/Net Exposure, HHI Concentration)
   - Risk segmentation by market regime
   - Performance attribution by factor groups
+  - Factor exposure analysis (optional: rolling regression of strategy returns vs. factor returns)
   - Comprehensive risk reports from backtest results
+
+- **Batch Backtests & Parallelization (P4)** → [Workflows – Batch Backtests & Parallelization](docs/WORKFLOWS_BATCH_BACKTESTS_AND_PARALLELIZATION.md)
+  - Run multiple backtests from a single YAML/JSON config
+  - Parameter sweeps (risk parameters, rebalancing, costs)
+  - Strategy comparisons (Core vs. ML vs. ML-only)
+  - Clean output structure with batch summaries (CSV/Markdown)
+
+- **Walk-Forward & Regime Analysis** → [Factor Analysis Workflows](docs/WORKFLOWS_FACTOR_ANALYSIS.md) and [Walk-Forward & Regime B3 Design](docs/WALK_FORWARD_AND_REGIME_B3_DESIGN.md)
+  - Walk-Forward analysis for out-of-sample validation (rolling/expanding windows)
+  - Regime-based performance evaluation (Bull, Bear, Crisis, Sideways, Reflation)
+  - Integration with risk reports for regime-aware performance analysis
+  - Research tool for strategy stability testing
+
+- **Use Cases & Roles** → [Use Cases & Roles](docs/USE_CASES_AND_ROLES_A1.md)
+  - Overview of backend capabilities by role (Quant PM, Quant Researcher, Quant Dev/Backend, Data Engineer)
+  - Use cases per role with CLI commands and expected outputs
+  - Component map linking roles to workflows, scripts, and documentation
 
 ### Getting Started
 

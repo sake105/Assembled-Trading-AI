@@ -439,10 +439,234 @@ python scripts/cli.py risk_report `
 
 ---
 
+## Transaction Cost Analysis (E4)
+
+### Overview
+
+**Transaction Cost Analysis (TCA)** ermöglicht die Analyse von Execution-Kosten in Backtest-Strategien und deren Auswirkung auf die Net-Performance. TCA schätzt Kosten pro Trade (Commission, Spread, Slippage) und berechnet Net-Returns sowie Cost-adjusted Risk Metrics.
+
+**Ziel:** Identifikation von Strategien, die nach Kosten noch profitabel sind, und Optimierung der Rebalancing-Frequenz basierend auf Cost-Impact.
+
+### Inputs & Voraussetzungen
+
+**Erforderlich:**
+- **Backtest-Output-Verzeichnis** mit `trades.csv` oder `trades.parquet`
+  - Spalten: `timestamp`, `symbol`, `side` (BUY/SELL), `qty`, `price`
+
+**Optional:**
+- **Equity-Kurve** (`equity_curve.csv` oder `equity_curve.parquet`)
+  - Für Cost-adjusted Risk Metrics (Net Sharpe, Net Sortino, etc.)
+  - Spalten: `timestamp`, `equity`
+
+### Standard-Workflow
+
+**1. Basic TCA Report:**
+
+```powershell
+python scripts/cli.py tca_report --backtest-dir output/backtests/experiment_123/
+```
+
+**2. TCA Report mit Custom Cost-Parametern:**
+
+```powershell
+python scripts/cli.py tca_report `
+  --backtest-dir output/backtests/experiment_123/ `
+  --commission-bps 1.0 `
+  --spread-bps 10.0 `
+  --slippage-bps 5.0 `
+  --output-dir output/tca_reports/
+```
+
+**3. TCA Report für Strategie-Vergleich:**
+
+Führe TCA für mehrere Backtests durch und vergleiche:
+- Total Costs vs. Gross Returns
+- Net Sharpe vs. Gross Sharpe
+- Cost Ratio (Costs / Gross Return)
+
+### Outputs
+
+**CSV-Dateien:**
+- `tca_trades.csv`: Detaillierte Kosten pro Trade (Commission, Spread, Slippage, Total Cost)
+- `tca_summary.csv`: Tägliche Aggregation (Total Cost, N Trades, Avg Cost/Trade)
+- `tca_risk_summary.csv`: Cost-adjusted Risk Metrics (falls Equity-Kurve vorhanden)
+
+**Markdown-Report:**
+- `tca_report.md`: Übersicht mit:
+  - Summary Statistics (Total Costs, Avg Cost/Trade)
+  - Daily TCA Summary Tabelle
+  - Cost-Adjusted Risk Metrics (Gross vs. Net Comparison)
+  - Output Files Liste
+
+### Interpretation: Gross vs. Net Performance
+
+**Kosteneinfluss verstehen:**
+- **Net Sharpe < Gross Sharpe**: Kosten reduzieren die Sharpe Ratio
+- **Cost Impact Sharpe**: Differenz zwischen Gross und Net Sharpe zeigt den Kosten-Einfluss
+- **Cost Ratio**: Costs / Gross Return zeigt, welcher Anteil der Returns durch Kosten verloren geht
+
+**Typische Werte:**
+- **Cost Ratio < 10%**: Kosten sind moderat, Strategie bleibt attraktiv
+- **Cost Ratio 10-30%**: Kosten sind signifikant, aber akzeptabel
+- **Cost Ratio > 30%**: Hohe Kosten, Strategie sollte optimiert werden (selteneres Rebalancing, größere Positionen)
+
+**Optimierung:**
+- Wenn Cost Ratio zu hoch: Rebalancing-Frequenz reduzieren (z.B. monatlich statt täglich)
+- Wenn Cost Impact Sharpe groß: Strategie-Parameter anpassen (z.B. größere Min-Position-Size, Filter für kleine Signale)
+
+### Integration mit Risk Reports
+
+TCA kann als ergänzende Analyse zu Risk Reports verwendet werden:
+1. Risk Report generieren: `python scripts/cli.py risk_report --backtest-dir ...`
+2. TCA Report generieren: `python scripts/cli.py tca_report --backtest-dir ...`
+3. Kombinierte Analyse: Risk-Metriken (Sharpe, Max DD) mit Cost-Impact vergleichen
+
+---
+
+## Factor Exposures for Strategies
+
+### Overview
+
+**Factor Exposure Analysis** regressiert Strategie-Returns gegen Factor-Returns, um zu verstehen, welche Faktoren die Strategie-Performance treiben. Dies ist eine Form der Performance-Attribution auf Faktor-Ebene.
+
+**Ziel:** Identifikation der dominanten Faktoren, die die Strategie-Performance erklaren, und Quantifizierung der Exposure-Betas uber Zeit.
+
+### Inputs
+
+**Erforderlich:**
+- **Backtest-Verzeichnis**: Enthalt `equity_curve.csv` oder `equity_curve.parquet` (mit `timestamp`, `equity`)
+- **Factor-Returns-Datei**: CSV oder Parquet mit Factor-Returns (Index oder Spalte `timestamp`, Spalten pro Faktor)
+
+**Factor-Returns-Format:**
+- Index: `timestamp` (pd.DatetimeIndex, UTC-aware)
+- Spalten: Eine Spalte pro Faktor (z.B. `value`, `quality`, `momentum`, `ml_alpha`, `market`, `size`)
+- Werte: Returns pro Periode (z.B. daily returns fur freq="1d")
+- Beispiel:
+```
+timestamp              value  quality  momentum  market
+2025-01-15 00:00:00+00:00  0.001   0.002     -0.001    0.001
+2025-01-16 00:00:00+00:00  0.002   0.001      0.002     0.002
+```
+
+**Quellen fur Factor Returns:**
+- Factor Store (P2): Factor-Panels konnen zu Factor-Returns aggregiert werden
+- Factor Analysis (C1/C2): Long/Short-Portfolio-Returns aus `summarize_factor_portfolios()`
+- ML Alpha: ML-Model-Predictions als Factor-Returns
+- Market Factors: Market-Returns (SPY), Size-Factor (SMB), etc.
+
+### Workflow
+
+**1. Basic Factor Exposure Analysis:**
+
+```powershell
+python scripts/cli.py risk_report `
+  --backtest-dir output/backtests/experiment_123 `
+  --enable-factor-exposures `
+  --factor-returns-file output/factor_returns/market_factors.parquet `
+  --factor-exposures-window 252
+```
+
+**Parameter:**
+- `--enable-factor-exposures`: Aktiviert Factor-Exposure-Analyse
+- `--factor-returns-file PATH`: Pfad zur Factor-Returns-Datei (CSV/Parquet)
+- `--factor-exposures-window INT`: Rolling-Window-Groese in Perioden (default: 252 = 1 Jahr bei daily)
+
+**Outputs:**
+- `factor_exposures_detail.csv`: Zeitreihe der Factor-Betas pro Window
+  - Spalten: `timestamp` (Window-Ende), `beta_<factor>` (pro Faktor), `intercept`, `r2`, `residual_vol`, `n_obs`
+- `factor_exposures_summary.csv`: Aggregierte Statistiken pro Faktor
+  - Spalten: `factor`, `mean_beta`, `std_beta`, `mean_r2`, `median_r2`, `mean_residual_vol`, `n_windows`, `n_windows_total`
+- `risk_report.md`: Erweitert um Sektion "Factor Exposures"
+  - Tabelle mit Top 5 Faktoren (nach |mean_beta|)
+  - Verbale Zusammenfassung (starkste positive/negative Exposures, Durchschnitts-R²)
+
+### Interpretation
+
+**factor_exposures_detail.csv:**
+- **Beta-Werte**: Zeigen die Sensitivitat der Strategie-Returns zu jedem Faktor uber Zeit
+  - Beta > 0: Strategie profitiert von positiven Faktor-Returns
+  - Beta < 0: Strategie profitiert von negativen Faktor-Returns (inverse Exposure)
+  - Beta nahe 0: Strategie ist unempfindlich gegen Faktor-Returns
+- **R²**: Erklarte Varianz pro Window (hohes R² = Faktoren erklaren Strategie-Returns gut)
+- **Residual Vol**: Annualisierte Rest-Volatilitat (unerklarter Anteil)
+
+**factor_exposures_summary.csv:**
+- **mean_beta**: Durchschnittliche Beta uber alle Windows
+  - Starkste positive: Dominanter Faktor (z.B. mean_beta = 0.8 fur `momentum`)
+  - Starkste negative: Inverse Exposure (z.B. mean_beta = -0.5 fur `value`)
+- **std_beta**: Variabilitat der Beta uber Zeit (hohe std_beta = instabile Exposure)
+- **mean_r2**: Durchschnittliche erklarte Varianz (z.B. mean_r2 = 0.6 = 60% erklart)
+
+**Beispiel-Interpretation:**
+```
+Factor      | Mean Beta | Std Beta | Mean R² | Interpretation
+------------|-----------|----------|---------|----------------
+momentum    | 0.75      | 0.15     | 0.65    | Starke positive Exposure, stabil, hohe Erklarung
+value       | -0.30     | 0.20     | 0.40    | Moderate inverse Exposure, etwas instabil
+market      | 0.50      | 0.10     | 0.55    | Moderate Market-Exposure, stabil
+quality     | 0.10      | 0.05     | 0.15    | Schwache Exposure, geringe Erklarung
+```
+
+**Action Items:**
+- Wenn eine Faktor-Exposure zu dominant ist (z.B. mean_beta > 0.8): Strategie ist sehr fokussiert, Diversifikation erwagen
+- Wenn std_beta hoch ist: Exposure ist instabil, Strategie-Parameter uberprufen
+- Wenn mean_r2 niedrig ist (< 0.3): Faktoren erklaren Strategie-Returns schlecht, andere Faktoren erwagen
+
+### Configuration
+
+**FactorExposureConfig (defaults in `generate_risk_report.py`):**
+- `freq`: "1d" (for daily strategies)
+- `window_size`: 252 (1 Jahr bei daily, konfigurierbar via `--factor-exposures-window`)
+- `min_obs`: 60 (minimum observations for regression)
+- `mode`: "rolling" (fixed-size window)
+- `add_constant`: True (intercept term in regression)
+- `standardize_factors`: True (standardize factor returns before regression)
+- `regression_method`: "ols" (Ordinary Least Squares)
+
+**Alternative Configuration (programmatic):**
+```python
+from src.assembled_core.risk.factor_exposures import (
+    FactorExposureConfig,
+    compute_factor_exposures,
+    summarize_factor_exposures,
+)
+
+config = FactorExposureConfig(
+    freq="1d",
+    window_size=252,
+    min_obs=60,
+    mode="rolling",
+    regression_method="ridge",  # Use Ridge regression instead of OLS
+    ridge_alpha=1.0,
+)
+
+exposures = compute_factor_exposures(
+    strategy_returns=returns_series,
+    factor_returns=factor_returns_df,
+    config=config,
+)
+
+summary = summarize_factor_exposures(exposures, config=config)
+```
+
+### Module Reference
+
+**Core Module:**
+- `src/assembled_core/risk/factor_exposures.py`
+  - `FactorExposureConfig`: Configuration dataclass
+  - `compute_factor_exposures()`: Main regression function
+  - `summarize_factor_exposures()`: Aggregation function
+
+**Design Document:**
+- [Signal API & Factor Exposures A2 Design](SIGNAL_API_AND_FACTOR_EXPOSURES_A2_DESIGN.md)
+
+---
+
 ## Weitere Ressourcen
 
 - [Risk 2.0 & Attribution D2 Design Document](RISK_2_0_D2_DESIGN.md): Detaillierte Design-Spezifikation
 - [Regime Models Workflow](WORKFLOWS_REGIME_MODELS_AND_RISK.md): Wie man Regime-State erzeugt
 - [Advanced Analytics Factor Labs](ADVANCED_ANALYTICS_FACTOR_LABS.md): Gesamte Roadmap
-- [Factor Ranking Overview](FACTOR_RANKING_OVERVIEW.md): Wie Factor-Rankings mit Risk-Attribution kombiniert werden können
+- [Factor Ranking Overview](FACTOR_RANKING_OVERVIEW.md): Wie Factor-Rankings mit Risk-Attribution kombiniert werden konnen
+- [Signal API & Factor Exposures A2 Design](SIGNAL_API_AND_FACTOR_EXPOSURES_A2_DESIGN.md): Design-Dokument fur Signal-API und Factor-Exposures
 

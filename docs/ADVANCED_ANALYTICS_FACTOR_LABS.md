@@ -116,6 +116,39 @@ df_final = add_turnover_and_liquidity_proxies(df_vov, freefloat_col="freefloat")
 
 **Note:** Sprint A2 focuses on volatility and liquidity factors. Additional advanced price factors (multi-timeframe, adaptive indicators, pattern recognition) will be added in Sprint A3.
 
+#### A4: Signal API & Factor Exposures ✅ (Completed)
+
+**Module:** 
+- `src/assembled_core/signals/signal_api.py` (Signal API)
+- `src/assembled_core/risk/factor_exposures.py` (Factor Exposure Analysis)
+
+**Implementation:**
+- **Signal API**: Unified SignalFrame contract for strategy signals
+  - `SignalMetadata` dataclass for strategy metadata (name, freq, universe, as_of, etc.)
+  - `normalize_signals()`: Z-score, rank, or none normalization (cross-sectional per timestamp)
+  - `make_signal_frame()`: Create standardized SignalFrame from raw scores
+  - `validate_signal_frame()`: PIT-safety checks and structural validation
+  
+- **Factor Exposure Analysis**: Rolling regression of strategy returns against factor returns
+  - `FactorExposureConfig`: Configuration for regression (window_size, mode, regression_method, etc.)
+  - `compute_factor_exposures()`: Rolling/expanding window OLS or Ridge regression
+  - `summarize_factor_exposures()`: Aggregate statistics (mean_beta, std_beta, mean_r2, etc.)
+
+**Integration:**
+- Signal API integrates with PIT-checks from `qa/point_in_time_checks.py`
+- Factor Exposures integrated into Risk Reports via `scripts/generate_risk_report.py`
+- CLI arguments: `--enable-factor-exposures`, `--factor-returns-file`, `--factor-exposures-window`
+- Outputs: `factor_exposures_detail.csv`, `factor_exposures_summary.csv`, extended `risk_report.md`
+
+**Tests:**
+- `tests/test_signals_signal_api.py` (10 tests)
+- `tests/test_risk_factor_exposures.py` (9 tests)
+- `tests/test_cli_risk_report_factor_exposures.py` (3 tests)
+
+**Documentation:**
+- Design Document: `docs/SIGNAL_API_AND_FACTOR_EXPOSURES_A2_DESIGN.md`
+- Workflow Integration: `docs/WORKFLOWS_RISK_METRICS_AND_ATTRIBUTION.md` (Factor Exposures section)
+
 #### A3: Market Breadth & Risk-On/Risk-Off Indicators ✅ (Completed)
 
 **Module:** `src/assembled_core/features/market_breadth.py`
@@ -176,6 +209,19 @@ market_state = breadth.merge(ad_line, on="timestamp").merge(risk_indicator, on="
 - Enhances Phase 7 (ML Meta-Layer) with additional predictive features
 - Complements existing trend baseline strategy in `signals/rules_trend.py`
 
+#### A1: Use Cases & Roles Documentation ✅ (Completed)
+
+**Document:** [Use Cases & Roles](USE_CASES_AND_ROLES_A1.md)
+
+**Description:** Comprehensive documentation of backend capabilities organized by user roles (Quant PM, Quant Researcher, Quant Dev/Backend, Data Engineer). Includes use cases with CLI commands, component map, and references to design documents.
+
+**Content:**
+- Overview of backend from different role perspectives
+- Role-specific goals and key artifacts
+- Use cases per role (3-6 per role) with inputs, CLI actions, and outputs
+- Component map linking roles to workflows, scripts, and documentation
+- Open questions and future work
+
 ---
 
 ### Phase B: Alt-Data Factors 2.0
@@ -186,10 +232,12 @@ market_state = breadth.merge(ad_line, on="timestamp").merge(risk_indicator, on="
 
 #### B1: Earnings & Insider Alt-Data ✅ (Completed)
 
+**Status:** Implemented and tested
+
 **Module:** `src/assembled_core/features/altdata_earnings_insider_factors.py`  
 **API:** 
-- `build_earnings_surprise_factors(events_earnings, prices, window_days=20)`
-- `build_insider_activity_factors(events_insider, prices, lookback_days=60)`
+- `build_earnings_surprise_factors(events_earnings, prices, window_days=20, as_of=None)`
+- `build_insider_activity_factors(events_insider, prices, lookback_days=60, as_of=None)`
 
 **Implementation:**
 - **Earnings Surprise Factors**: Transform earnings events into time-series factors
@@ -223,6 +271,11 @@ market_state = breadth.merge(ad_line, on="timestamp").merge(risk_indicator, on="
 - Robust error handling (4xx/5xx → empty DataFrame, no crash)
 - Rate limit handling (60 calls/minute for free tier)
 - Data contract compliance (normalized to events_earnings_df/events_insider_df)
+
+**Point-in-Time Safety (B2):**
+- All Alt-Data feature builders support `as_of` parameter for PIT-safe factor computation
+- Events are filtered by `disclosure_date <= as_of` to prevent look-ahead bias
+- See [Point-in-Time and Latency Documentation](POINT_IN_TIME_AND_LATENCY.md) for details
 
 **Download Script:**
 - **Module:** `scripts/download_altdata_finnhub_events.py`
@@ -289,11 +342,13 @@ all_factors = ta_factors.merge(
 
 #### B2: News, Sentiment & Macro Alt-Data ✅ (Completed)
 
+**Status:** Implemented and tested
+
 **Design Document:** `docs/ALT_DATA_FACTORS_B2_DESIGN.md`
 
 **Module:** `src/assembled_core/features/altdata_news_macro_factors.py`  
 **API:**
-- `build_news_sentiment_factors(news_sentiment_daily, prices, lookback_days=20)`
+- `build_news_sentiment_factors(news_sentiment_daily, prices, lookback_days=20, as_of=None)`
 - `build_macro_regime_factors(macro_series, prices, country_filter=None)`
 
 **Implementation:**
@@ -333,9 +388,15 @@ all_factors = ta_factors.merge(
 - Raw: `data/raw/altdata/finnhub/news_raw.parquet`, `news_sentiment_raw.parquet`, `macro_raw.parquet`
 - Clean: `output/altdata/news_events.parquet`, `news_sentiment_daily.parquet`, `macro_series.parquet`
 
+**Point-in-Time Safety (B2):**
+- All Alt-Data feature builders support `as_of` parameter for PIT-safe factor computation
+- Events are filtered by `disclosure_date <= as_of` to prevent look-ahead bias
+- See [Point-in-Time and Latency Documentation](POINT_IN_TIME_AND_LATENCY.md) for details
+
 **Tests:**
 - `tests/test_features_altdata_news_macro_factors.py` (marked with `@pytest.mark.advanced`)
 - `tests/test_data_finnhub_news_macro_client.py` (marked with `@pytest.mark.advanced`)
+- `tests/test_point_in_time_altdata.py` (PIT safety tests, marked with `@pytest.mark.advanced`)
 
 **Factor Table:**
 
@@ -1525,8 +1586,236 @@ python scripts/run_backtest_strategy.py \
 - ML Validation Workflows: [ML Validation & Model Comparison Workflows](WORKFLOWS_ML_VALIDATION_AND_MODEL_COMPARISON.md) (includes ML Alpha export workflow)
 - Strategy Workflows: [Multi-Factor Strategy Workflows](WORKFLOWS_STRATEGIES_MULTIFACTOR.md) (includes ML Alpha usage section)
 
-#### E4: Transaction Cost Analysis (TCA) (Future)
-- Execution cost modeling (slippage, market impact, spread costs)
+#### E4: Transaction Cost Analysis (TCA) ✅ (Completed)
+
+**Status:** Implemented and tested
+
+**Module:** `src/assembled_core/risk/transaction_costs.py`
+
+**Goal:** Einfache Transaction Cost Analysis für Backtest-Strategien mit Schätzung von Execution-Kosten und deren Auswirkung auf Net-Returns und Performance-Metriken.
+
+**Features:**
+- Per-Trade Cost Estimation (Commission + Spread/2 + Slippage)
+- Cost aggregation per period (daily, weekly, monthly)
+- Cost-adjusted risk metrics (net returns, net Sharpe, net Sortino)
+- Comparison of gross vs. net performance metrics
+- Integration with backtest outputs (trades.csv/parquet)
+- Integration with equity curves for net return calculation
+
+**Integration:**
+- Uses trades from `backtest_engine.py` (BacktestResult.trades)
+- Integrates with `risk_metrics.py` for net return metrics
+- CLI script: `scripts/generate_tca_report.py` / `scripts/cli.py tca_report`
+
+**Usage:**
+```bash
+# Generate TCA report
+python scripts/cli.py tca_report --backtest-dir output/backtests/experiment_123/
+```
+
+**Outputs:**
+- `tca_trades.csv`: Detailed TCA for each trade
+- `tca_summary.csv`: Daily aggregated TCA metrics
+- `tca_risk_summary.csv`: Cost-adjusted risk metrics (if equity curve available)
+- `tca_report.md`: Comprehensive Markdown report
+
+**References:**
+- Design: [Transaction Cost Analysis Design (E4)](TRANSACTION_COSTS_E4_DESIGN.md)
+- Workflows: [Risk Metrics & Attribution Workflows](WORKFLOWS_RISK_METRICS_AND_ATTRIBUTION.md) (includes TCA section)
+
+**Future Enhancements:**
+- Adaptive cost models based on volatility/liquidity factors
+- Regime-specific cost estimates
+- Market impact models (based on trade size relative to volume)
+- Integration with live execution layer (post-trade TCA)
+
+#### P4: Batch Runner & Parallelisierung ✅ (Design implemented, Runner available)
+
+**Status:** Design und erste Implementierung abgeschlossen, Batch-Runner produktiv nutzbar (seriell), Parallelisierung vorbereitet.
+
+**Module / Scripts:**
+- Batch-Runner Script: `scripts/batch_backtest.py`
+- CLI-Subcommand: `python scripts/cli.py batch_backtest --config-file <config.yaml>`
+- Profiling-Integration: `scripts/profile_jobs.py` (Job `BATCH_BACKTEST`)
+
+**Goal:** Viele Backtests (Parameter-Sweeps, Bundle-/Universe-Vergleiche, Regime-On/Off) systematisch und reproduzierbar ausführen, basierend auf einer YAML/JSON-Config.
+
+**Features:**
+- YAML/JSON Batch-Config mit Defaults + Liste von Runs (Strategie, Bundle, Zeitraum, Universe).
+- Serieller Batch-Runner mit vorbereitetem Interface für spätere Parallelisierung (P4+).
+- Saubere Output-Struktur je Run (`runs/{run_id}/backtest/...`) und zentrale Summary:
+  - `batch_summary.csv`
+  - `batch_summary.md`
+- Integration mit optimierter Backtest-Engine (P3) und Risiko-/TCA-Workflows (D2/E4).
+
+**Workflow-Dokumentation:**
+- [Batch Backtests & Parallelization Workflow](WORKFLOWS_BATCH_BACKTESTS_AND_PARALLELIZATION.md)
+
+---
+
+#### B1: Deterministic Backtests & Seeds ✅ (Completed)
+
+**Status:** Implemented and tested
+
+**Goal:** Sicherstellen, dass Backtests bei gleicher Codebasis, gleichen Daten und gleicher Konfiguration vollständig reproduzierbar sind.
+
+**Features:**
+- Zentrales Seed-Management in `src/assembled_core/utils/random_state.py`
+- Utilities: `set_global_seed(seed: int)` und `seed_context(seed: int)`
+- Deterministische Backtests für gegebene Seeds:
+  - Wiederholte Runs mit gleichem Seed liefern identische Equity-Kurven und Trades
+  - Verschiedene Seeds können unterschiedliche Pfade erzeugen, sind aber jeweils deterministisch
+- Integration mit der optimierten Backtest-Engine (P3) und Batch-Runner (P4)
+
+**Testing:**
+- `tests/test_utils_random_state.py`: Verifiziert deterministische Zufallsfolgen für `random` und `numpy`
+- `tests/test_backtest_determinism.py`: Verifiziert deterministische Backtests für feste Seeds
+
+**Guarantee:**
+- Gleiches Repo + gleiche Daten + gleiche Backtest-Konfiguration + gleicher Seed ⇒ reproduzierbarer Backtest (Equity, Trades, Metriken)
+
+**References:**
+- Design: [Backtest B1 Unified Pipeline Design](BACKTEST_B1_UNIFIED_PIPELINE_DESIGN.md)
+
+---
+
+#### B2: Point-in-Time Safety & Latency for Alt-Data ✅ (Completed)
+
+**Status:** Implemented and tested
+
+**Goal:** Sicherstellen, dass Alt-Data-Faktoren nur Informationen verwenden, die zum jeweiligen Backtest-Datum tatsächlich verfügbar waren, um Look-Ahead-Bias zu verhindern.
+
+**Features:**
+- Explizite `event_date` und `disclosure_date` Felder in allen Alt-Data-Event-Contracts
+- Feature-Builder unterstützen `as_of` Parameter für PIT-sichere Faktor-Berechnung
+- Automatische Filterung: Events mit `disclosure_date > as_of` werden ausgeschlossen
+- Konservative Defaults: Falls `disclosure_date` fehlt, wird `event_date` verwendet (kein Look-Ahead, aber möglicherweise keine echte Latenz-Modellierung)
+
+**Implementation:**
+- Daten-Layer: `src/assembled_core/data/altdata/finnhub_events.py`, `finnhub_news_macro.py`
+  - Erzeugen `event_date` und `disclosure_date` Spalten in Event-DataFrames
+- Feature-Builder: `src/assembled_core/features/altdata_earnings_insider_factors.py`, `altdata_news_macro_factors.py`
+  - `build_earnings_surprise_factors(..., as_of=None)`
+  - `build_insider_activity_factors(..., as_of=None)`
+  - `build_news_sentiment_factors(..., as_of=None)`
+  - Alle Builder filtern Events nach `disclosure_date <= as_of`, falls `as_of` gesetzt ist
+
+**Latency Models:**
+- Insider Trades: `disclosure_date` = Form 4 filing date (typisch T+2 nach Trade)
+- Earnings: `disclosure_date` = Announcement timestamp (meist same day)
+- News Sentiment: `disclosure_date` = Daily aggregation date (end-of-day snapshot)
+- Congress Trades: `disclosure_date` = PTR publication date (kann Wochen dauern)
+
+**Testing:**
+- `tests/test_point_in_time_altdata.py`: Umfassende PIT-Tests für alle Alt-Data-Kategorien
+  - Verifiziert, dass Events vor `disclosure_date` nicht in Faktoren auftauchen
+  - Verhindert Look-Ahead-Bias durch Vergleich mit/ohne verzögerte Events
+  - Mini-Backtest-Szenario: Faktoren erscheinen erst nach `disclosure_date`
+
+**Guarantee:**
+- Features berechnet mit `as_of=T` enthalten keine Informationen von Events mit `disclosure_date > T`
+- Gleiche Events + gleicher `as_of` = identische Faktoren (deterministisch)
+
+**References:**
+- Design: [Point-in-Time and Latency B2 Design](POINT_IN_TIME_AND_LATENCY_B2_DESIGN.md)
+- Workflow: [Point-in-Time and Latency Documentation](POINT_IN_TIME_AND_LATENCY.md)
+- Tests: `tests/test_point_in_time_altdata.py`
+
+---
+
+#### B3: Walk-Forward Analysis & Regime-Based Performance Evaluation ✅ (Completed)
+
+**Status:** ✅ Completed  
+**Design Document:** [Walk-Forward & Regime Analysis B3 Design](WALK_FORWARD_AND_REGIME_B3_DESIGN.md)
+
+#### B4: Deflated Sharpe & Factor-Zoo Protection ✅ (Completed)
+
+**Status:** ✅ Completed  
+**Design Document:** [Deflated Sharpe B4 Design](DEFLATED_SHARPE_B4_DESIGN.md)
+
+**Goal:** Protect against the "Factor Zoo" problem by adjusting Sharpe Ratios for multiple testing and selection bias.
+
+**Implementation:**
+- **Core Functions:** `deflated_sharpe_ratio()` and `deflated_sharpe_ratio_from_returns()` in `src/assembled_core/qa/metrics.py`
+- **Formula:** Based on Bailey & Lopez de Prado (2014), adjusts observed Sharpe for:
+  - Multiple testing (False Discovery Rate)
+  - Non-normal return distributions (skewness, kurtosis)
+- **Integration:** All experiment pipelines now compute and report `n_tests`, `sharpe_raw`, and `sharpe_deflated`
+
+**Experiment Pipelines with Deflated Sharpe:**
+1. **ML Model Zoo** (`research/ml/model_zoo_factor_validation.py`):
+   - `ml_model_zoo_summary.csv`: Contains `n_tests`, `ls_sharpe_raw`, `ls_sharpe_deflated`
+   - `n_tests` = number of models tested in the zoo
+   - `n_obs` = number of unique timestamps in predictions (or `n_samples` as fallback)
+
+2. **ML Factor Validation** (`scripts/run_ml_factor_validation.py`):
+   - `ml_portfolio_metrics_*.csv`: Contains `n_tests`, `ls_sharpe_raw`, `ls_sharpe_deflated`
+   - `n_tests` = 1 (conservative, single model validation)
+   - `n_obs` = number of unique timestamps in predictions (or `n_samples` as fallback)
+
+3. **Factor Portfolio Summaries** (`src/assembled_core/qa/factor_analysis.py::summarize_factor_portfolios`):
+   - Portfolio summary DataFrames contain `deflated_sharpe` column
+   - `n_tests` = number of factors tested (computed after aggregation)
+   - `n_obs` = `n_periods` (number of periods per factor)
+
+**Tests:**
+- `tests/test_qa_deflated_sharpe.py`: 8 comprehensive tests covering edge cases, monotonicity, and integration
+- All tests marked with `@pytest.mark.advanced`
+
+**References:**
+- Bailey, D. H., & Lopez de Prado, M. (2014). The deflated Sharpe ratio: Correcting for selection bias, backtest overfitting and non-normality. Journal of Portfolio Management, 40(5), 94-107.
+- Harvey, C. R., Liu, Y., & Zhu, H. (2016). ... and the cross-section of expected returns. Review of Financial Studies, 29(1), 5-68.
+
+**Goal:** Out-of-sample stability testing (Walk-Forward) and regime-aware performance evaluation to ensure strategies work across different market conditions.
+
+**Features:**
+- **Walk-Forward Framework:**
+  - Rolling and expanding window strategies
+  - Train/test split generation with configurable step sizes
+  - Aggregated summary metrics (OOS Sharpe, win rate, stability measures)
+  - Integration with `backtest_engine.py`
+- **Regime-Based Analysis (Skeleton):**
+  - Simplified regime classification from index returns
+  - Extended metrics summarization by regime (including trade-level metrics)
+  - Regime transition analysis
+
+**Implementation:**
+- Walk-Forward Module: `src/assembled_core/qa/walk_forward.py` (fully implemented)
+  - `WalkForwardConfig`: Configuration dataclass
+  - `run_walk_forward_backtest()`: Main execution function
+  - `WalkForwardResult`: Aggregated results with summary metrics
+- Regime Analysis Module: `src/assembled_core/risk/regime_analysis.py` (skeleton)
+  - `RegimeConfig`: Configuration for simplified regime classification
+  - `classify_regimes_from_index()`: TODO - Simplified regime detection
+  - `summarize_metrics_by_regime()`: TODO - Extended metrics by regime
+  - `compute_regime_transitions()`: TODO - Transition analysis
+- Existing Integration:
+  - `build_regime_state()` in `regime_models.py` (D1) - Full regime detection
+  - `compute_risk_by_regime()` in `risk_metrics.py` (D2) - Basic regime metrics
+
+**Usage:**
+```python
+from src.assembled_core.qa.walk_forward import WalkForwardConfig, run_walk_forward_backtest
+
+cfg = WalkForwardConfig(
+    train_size=252,  # 1 year
+    test_size=63,    # 1 quarter
+    step_size=21,    # 1 month
+    window_type="rolling",
+)
+
+result = run_walk_forward_backtest(
+    prices=prices,
+    signal_fn=my_signal_fn,
+    position_sizing_fn=my_sizing_fn,
+    config=cfg,
+    start_capital=100000.0,
+)
+```
+
+**Testing:**
+- Walk-Forward: Unit tests for window generation, integration tests with backtest engine
+- Regime Analysis: Tests for regime classification and metrics summarization
 
 ---
 

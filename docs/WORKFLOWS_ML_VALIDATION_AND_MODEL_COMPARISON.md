@@ -77,7 +77,8 @@ This document describes workflows for ML validation and model comparison on fact
    - Export to Parquet format for ML validation
 
 3. **Dedicated Panel Export Scripts:**
-   - Future: Automated export of factor panels from factor analysis workflows
+   - `research/factors/export_factor_panel_for_ml.py`: Export factor panels for ML experiments
+   - Once integrated, factor panels can also be loaded from the factor store (P2) using `load_factors()` from `src.assembled_core.data.factor_store`, avoiding recomputation of factors for ML validation runs. See [Factor Store P2 Design](FACTOR_STORE_P2_DESIGN.md) for details.
 
 ### Important: Only Local Data
 

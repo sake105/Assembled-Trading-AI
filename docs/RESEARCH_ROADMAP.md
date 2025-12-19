@@ -260,15 +260,16 @@ Phase 12 ("God-Level" Research & Evolution) zielt darauf ab, das System zu einem
 | R-004 | News-Sentiment-Scoring | Daten | Medium | FinBERT oder ähnliches für News-Sentiment verwenden |
 | R-005 | Binary-Outperformance-Labeling | ML | High | Outperformance-Labeling vs. SPY/Sector implementieren |
 | R-006 | SHAP-Explainability | ML | Medium | SHAP-Values für Meta-Modelle berechnen und visualisieren |
-| R-007 | Walk-Forward-Analyse | Infra | High | Walk-Forward-Analyse-Tool für robuste Validierung |
+| R-007 | Walk-Forward-Analyse | Infra | ✅ Completed (B3) | Walk-Forward-Analyse-Tool implementiert (Phase B3: Walk-Forward & Regime Analysis) |
 | R-008 | Strategy-Comparison-Reports | Infra | Medium | Reports für Vergleich mehrerer Strategien |
 | R-009 | Feature-Selection-Pipeline | ML | Medium | Automatische Feature-Selection für Meta-Modelle |
-| R-010 | Regime-Analysis | Risk | Medium | Markt-Regime-Erkennung und Regime-spezifische Performance |
+| R-010 | Regime-Analysis | Risk | ✅ Completed (B3) | Markt-Regime-Erkennung und Regime-spezifische Performance implementiert (Phase B3) |
 | R-011 | Adaptive-Position-Sizing | Portfolio | Low | Kelly-Criterion oder ähnliches für Position-Sizing |
 | R-012 | Options-Vol-Strategien | Strategie | Low | Implied-Volatility-basierte Strategien (falls Daten verfügbar) |
 | R-013 | Pairs-Trading | Strategie | Low | Korrelations-basierte Pairs-Trading-Strategie |
 | R-014 | Earnings-Events | Daten | ✅ Completed (B1) | Earnings-Announcements als Feature/Event integriert (Phase B1: Alt-Data Factors) |
 | R-015 | XGBoost-Meta-Model | ML | Low | XGBoost als Alternative zu GradientBoosting testen |
+| R-016 | Deflated-Sharpe-Integration | Infra | ✅ Completed (B4) | Deflated Sharpe Ratio für Multiple-Testing-Adjustierung implementiert (Phase B4) |
 
 ---
 

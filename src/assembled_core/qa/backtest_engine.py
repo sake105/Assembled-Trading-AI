@@ -60,6 +60,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from src.assembled_core.costs import CostModel, get_default_cost_model
@@ -67,6 +68,7 @@ from src.assembled_core.execution.order_generation import generate_orders_from_t
 from src.assembled_core.features.ta_features import add_all_features, add_log_returns, add_moving_averages
 from src.assembled_core.pipeline.backtest import compute_metrics, simulate_equity
 from src.assembled_core.pipeline.portfolio import simulate_with_costs
+from src.assembled_core.utils.timing import timed_block
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +104,132 @@ class BacktestResult:
     trades: pd.DataFrame | None = None
     signals: pd.DataFrame | None = None
     target_positions: pd.DataFrame | None = None
+
+
+def _update_positions_vectorized(
+    orders: pd.DataFrame,
+    current_positions: pd.DataFrame,
+    use_numba: bool = True,
+) -> pd.DataFrame:
+    """Update positions DataFrame from orders using vectorized operations.
+    
+    This function replaces the iterative order execution logic with vectorized
+    pandas operations (optionally accelerated with Numba) for better performance.
+    
+    Args:
+        orders: DataFrame with columns: timestamp, symbol, side, qty, price
+            Orders to execute (side is "BUY" or "SELL", qty is always positive)
+        current_positions: DataFrame with columns: symbol, qty
+            Current portfolio positions
+        use_numba: If True, attempt to use Numba-accelerated path (default: True)
+            Falls back to pure pandas if numba is not available
+    
+    Returns:
+        Updated DataFrame with columns: symbol, qty
+        Positions after executing all orders, with zero positions removed
+    
+    Note:
+        This function preserves exact numerical behavior of the original
+        iterative implementation by using the same logic (BUY adds qty,
+        SELL subtracts qty), just with vectorized operations.
+    """
+    if orders.empty:
+        return current_positions.copy()
+    
+    # Try Numba-accelerated path if available and requested
+    if use_numba:
+        try:
+            from src.assembled_core.qa.backtest_engine_numba import (
+                NUMBA_AVAILABLE,
+                compute_position_deltas_numba,
+                aggregate_position_deltas_numba,
+            )
+            
+            if NUMBA_AVAILABLE:
+                # Convert to numpy arrays for Numba
+                symbols_list = orders["symbol"].unique().tolist()
+                symbol_to_idx = {sym: idx for idx, sym in enumerate(symbols_list)}
+                
+                # Map sides to integers (0=BUY, 1=SELL)
+                side_map = {"BUY": 0, "SELL": 1}
+                sides = orders["side"].map(side_map).values.astype(np.int32)
+                qtys = orders["qty"].values.astype(np.float64)
+                symbol_indices = orders["symbol"].map(symbol_to_idx).values.astype(np.int32)
+                
+                # Compute deltas with Numba
+                deltas = compute_position_deltas_numba(sides, qtys)
+                
+                # Aggregate by symbol with Numba
+                unique_indices, aggregated_deltas = aggregate_position_deltas_numba(
+                    symbol_indices, deltas
+                )
+                
+                # Convert back to DataFrame
+                unique_symbols = [symbols_list[i] for i in unique_indices]
+                position_deltas = pd.DataFrame({
+                    "symbol": unique_symbols,
+                    "qty_delta": aggregated_deltas
+                })
+                
+                # Merge with current positions (pandas merge is still efficient)
+                if current_positions.empty:
+                    updated_positions = position_deltas.rename(columns={"qty_delta": "qty"})
+                else:
+                    merged = current_positions.merge(
+                        position_deltas,
+                        on="symbol",
+                        how="outer"
+                    )
+                    merged["qty"] = merged["qty"].fillna(0.0).astype(float)
+                    merged["qty_delta"] = merged["qty_delta"].fillna(0.0).astype(float)
+                    merged["qty"] = merged["qty"] + merged["qty_delta"]
+                    updated_positions = merged[["symbol", "qty"]].copy()
+                
+                # Remove zero positions
+                updated_positions = updated_positions[
+                    updated_positions["qty"].abs() > 1e-6
+                ].reset_index(drop=True)
+                
+                return updated_positions
+        except (ImportError, AttributeError):
+            # Fall through to pandas implementation
+            pass
+    
+    # Pure pandas implementation (fallback or if use_numba=False)
+    # Use vectorized numpy operations instead of apply
+    # Note: np is already imported at module level
+    position_delta_sign = np.where(orders["side"] == "BUY", 1.0, -1.0)
+    orders_copy = orders.copy()
+    orders_copy["position_delta"] = orders_copy["qty"].values * position_delta_sign
+    
+    # Aggregate deltas by symbol (multiple orders for same symbol are summed)
+    position_deltas = (
+        orders_copy.groupby("symbol")["position_delta"]
+        .sum()
+        .reset_index()
+        .rename(columns={"position_delta": "qty_delta"})
+    )
+    
+    # Merge with current positions
+    if current_positions.empty:
+        updated_positions = position_deltas.rename(columns={"qty_delta": "qty"})
+    else:
+        merged = current_positions.merge(
+            position_deltas,
+            on="symbol",
+            how="outer"
+        )
+        merged["qty"] = merged["qty"].fillna(0.0).astype(float)
+        merged["qty_delta"] = merged["qty_delta"].fillna(0.0).astype(float)
+        merged["qty"] = merged["qty"] + merged["qty_delta"]
+        updated_positions = merged[["symbol", "qty"]].copy()
+    
+    # Remove zero positions (same threshold as original: 1e-6)
+    updated_positions = updated_positions[
+        updated_positions["qty"].abs() > 1e-6
+    ].reset_index(drop=True)
+    
+    return updated_positions
 
 
 def run_portfolio_backtest(
@@ -218,31 +346,33 @@ def run_portfolio_backtest(
     prices = prices.sort_values(["symbol", "timestamp"]).reset_index(drop=True).copy()
     
     # Step 1: Compute features (optional)
-    # Only compute features if prices is not empty (features require data)
-    if compute_features and len(prices) > 0:
-        config = feature_config or {}
-        # Check if we have required columns for features (ATR needs high/low)
-        has_ohlc = all(col in prices.columns for col in ["high", "low", "open"])
-        if has_ohlc:
-            prices_with_features = add_all_features(
-                prices,
-                ma_windows=config.get("ma_windows", (20, 50, 200)),
-                atr_window=config.get("atr_window", 14),
-                rsi_window=config.get("rsi_window", 14),
-                include_rsi=config.get("include_rsi", True)
-            )
+    with timed_block("backtest_step1_features"):
+        # Only compute features if prices is not empty (features require data)
+        if compute_features and len(prices) > 0:
+            config = feature_config or {}
+            # Check if we have required columns for features (ATR needs high/low)
+            has_ohlc = all(col in prices.columns for col in ["high", "low", "open"])
+            if has_ohlc:
+                prices_with_features = add_all_features(
+                    prices,
+                    ma_windows=config.get("ma_windows", (20, 50, 200)),
+                    atr_window=config.get("atr_window", 14),
+                    rsi_window=config.get("rsi_window", 14),
+                    include_rsi=config.get("include_rsi", True)
+                )
+            else:
+                # If OHLC not available, only compute features that don't need them
+                prices_with_features = add_log_returns(prices.copy())
+                prices_with_features = add_moving_averages(
+                    prices_with_features,
+                    windows=config.get("ma_windows", (20, 50, 200))
+                )
         else:
-            # If OHLC not available, only compute features that don't need them
-            prices_with_features = add_log_returns(prices.copy())
-            prices_with_features = add_moving_averages(
-                prices_with_features,
-                windows=config.get("ma_windows", (20, 50, 200))
-            )
-    else:
-        prices_with_features = prices.copy()
+            prices_with_features = prices.copy()
     
     # Step 2: Generate signals
-    signals = signal_fn(prices_with_features)
+    with timed_block("backtest_step2_signal_generation"):
+        signals = signal_fn(prices_with_features)
     
     # Validate signals
     required_signal_cols = ["timestamp", "symbol", "direction"]
@@ -250,7 +380,7 @@ def run_portfolio_backtest(
     if missing_signal:
         raise KeyError(f"signal_fn must return DataFrame with columns: {required_signal_cols}. Missing: {missing_signal}")
     
-    signals = signals.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
+        signals = signals.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
     
     # Step 2.5: Apply meta-model ensemble (if enabled)
     if use_meta_model:
@@ -371,148 +501,109 @@ def run_portfolio_backtest(
                 logger.info(f"  Mode: {meta_ensemble_mode}, Min confidence: {meta_min_confidence}")
     
     # Step 3: Compute target positions (group by timestamp for rebalancing)
-    all_targets = []
-    all_orders = []
-    current_positions = pd.DataFrame(columns=["symbol", "qty"])
-    
-    # Group signals by timestamp for rebalancing
-    for timestamp, signal_group in signals.groupby("timestamp"):
-        # Compute target positions for this timestamp
-        targets = position_sizing_fn(signal_group, start_capital)
+    with timed_block("backtest_step3_position_sizing"):
+        all_targets = []
+        all_orders = []
+        current_positions = pd.DataFrame(columns=["symbol", "qty"])
         
-        # Generate orders to transition from current to target positions
-        orders = generate_orders_from_targets(
-            target_positions=targets,
-            current_positions=current_positions,
-            timestamp=timestamp,
-            prices=prices[prices["timestamp"] == timestamp] if len(prices[prices["timestamp"] == timestamp]) > 0 else None
-        )
-        
-        # Update current positions (simple: assume all orders execute at order price)
-        if not orders.empty:
-            # Build position updates from orders
-            position_updates = {}
-            for _, order in orders.iterrows():
-                symbol = order["symbol"]
-                side = order["side"]
-                qty = order["qty"]
-                if symbol not in position_updates:
-                    position_updates[symbol] = 0.0
-                if side == "BUY":
-                    position_updates[symbol] += qty
-                elif side == "SELL":
-                    position_updates[symbol] -= qty
+        # Group signals by timestamp for rebalancing
+        for timestamp, signal_group in signals.groupby("timestamp"):
+            # Compute target positions for this timestamp
+            targets = position_sizing_fn(signal_group, start_capital)
             
-            # Apply updates to current_positions (optimized: collect updates first, then apply)
-            position_updates_list = []
-            for symbol, delta in position_updates.items():
-                if current_positions.empty or symbol not in current_positions["symbol"].values:
-                    # Mark for addition
-                    position_updates_list.append({"symbol": symbol, "qty": delta, "action": "add"})
-                else:
-                    # Update existing position directly
-                    idx = current_positions[current_positions["symbol"] == symbol].index[0]
-                    current_positions.loc[idx, "qty"] += delta
+            # Generate orders to transition from current to target positions
+            orders = generate_orders_from_targets(
+                target_positions=targets,
+                current_positions=current_positions,
+                timestamp=timestamp,
+                prices=prices[prices["timestamp"] == timestamp] if len(prices[prices["timestamp"] == timestamp]) > 0 else None
+            )
             
-            # Add new positions in batch (more efficient than concat in loop)
-            if position_updates_list:
-                new_positions = pd.DataFrame([
-                    {"symbol": item["symbol"], "qty": item["qty"]}
-                    for item in position_updates_list if item["action"] == "add"
-                ])
-                if not new_positions.empty:
-                    # Ensure consistent dtypes to avoid FutureWarning
-                    if current_positions.empty:
-                        current_positions = new_positions.copy()
-                    else:
-                        # Ensure new_positions has same dtypes as current_positions
-                        for col in current_positions.columns:
-                            if col in new_positions.columns:
-                                new_positions[col] = new_positions[col].astype(current_positions[col].dtype)
-                        current_positions = pd.concat([current_positions, new_positions], ignore_index=True)
+            # Update current positions using vectorized operations
+            if not orders.empty:
+                current_positions = _update_positions_vectorized(orders, current_positions)
             
-            # Remove zero positions (optional, for cleanliness)
-            current_positions = current_positions[current_positions["qty"].abs() > 1e-6].reset_index(drop=True)
+            # Store targets and orders
+            if include_targets and not targets.empty:
+                targets_copy = targets.copy()
+                targets_copy["timestamp"] = timestamp
+                all_targets.append(targets_copy)
+            
+            if not orders.empty:
+                all_orders.append(orders)
         
-        # Store targets and orders
-        if include_targets and not targets.empty:
-            targets_copy = targets.copy()
-            targets_copy["timestamp"] = timestamp
-            all_targets.append(targets_copy)
-        
-        if not orders.empty:
-            all_orders.append(orders)
-    
-    # Combine all orders
-    if all_orders:
-        orders_df = pd.concat(all_orders, ignore_index=True)
-        orders_df = orders_df.sort_values("timestamp").reset_index(drop=True)
-    else:
-        orders_df = pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
+        # Combine all orders
+        if all_orders:
+            orders_df = pd.concat(all_orders, ignore_index=True)
+            orders_df = orders_df.sort_values("timestamp").reset_index(drop=True)
+        else:
+            orders_df = pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
     
     # Step 4: Simulate equity
-    # Get cost parameters
-    if cost_model is not None:
-        commission_bps = commission_bps if commission_bps is not None else cost_model.commission_bps
-        spread_w = spread_w if spread_w is not None else cost_model.spread_w
-        impact_w = impact_w if impact_w is not None else cost_model.impact_w
-    else:
-        default_costs = get_default_cost_model()
-        commission_bps = commission_bps if commission_bps is not None else default_costs.commission_bps
-        spread_w = spread_w if spread_w is not None else default_costs.spread_w
-        impact_w = impact_w if impact_w is not None else default_costs.impact_w
-    
-    if include_costs:
-        equity, metrics = simulate_with_costs(
-            orders=orders_df,
-            start_capital=start_capital,
-            commission_bps=commission_bps,
-            spread_w=spread_w,
-            impact_w=impact_w,
-            freq=rebalance_freq
-        )
-        # Add trades count to metrics
-        metrics["trades"] = len(orders_df)
-    else:
-        equity = simulate_equity(prices, orders_df, start_capital)
-        metrics = compute_metrics(equity)
-        metrics["trades"] = len(orders_df)
+    with timed_block("backtest_step4_equity_simulation"):
+        # Get cost parameters
+        if cost_model is not None:
+            commission_bps = commission_bps if commission_bps is not None else cost_model.commission_bps
+            spread_w = spread_w if spread_w is not None else cost_model.spread_w
+            impact_w = impact_w if impact_w is not None else cost_model.impact_w
+        else:
+            default_costs = get_default_cost_model()
+            commission_bps = commission_bps if commission_bps is not None else default_costs.commission_bps
+            spread_w = spread_w if spread_w is not None else default_costs.spread_w
+            impact_w = impact_w if impact_w is not None else default_costs.impact_w
+        
+        if include_costs:
+            equity, metrics = simulate_with_costs(
+                orders=orders_df,
+                start_capital=start_capital,
+                commission_bps=commission_bps,
+                spread_w=spread_w,
+                impact_w=impact_w,
+                freq=rebalance_freq
+            )
+            # Add trades count to metrics
+            metrics["trades"] = len(orders_df)
+        else:
+            equity = simulate_equity(prices, orders_df, start_capital)
+            metrics = compute_metrics(equity)
+            metrics["trades"] = len(orders_df)
     
     # Step 5: Enhance equity DataFrame with daily_return
-    # Ensure equity has timestamp column (rename if needed)
-    if "timestamp" in equity.columns:
-        equity = equity.copy()
-        # Add date column (date part of timestamp)
-        equity["date"] = pd.to_datetime(equity["timestamp"]).dt.date
-        # Compute daily return
-        equity["daily_return"] = equity["equity"].pct_change().fillna(0.0)
-        # Ensure columns are in correct order: date, timestamp, equity, daily_return
-        equity = equity[["date", "timestamp", "equity", "daily_return"]].copy()
-    elif "date" in equity.columns:
-        # If already has date, add daily_return
-        equity = equity.copy()
-        equity["daily_return"] = equity["equity"].pct_change().fillna(0.0)
-        # Ensure columns are in correct order: date, equity, daily_return
-        if "timestamp" not in equity.columns:
-            equity = equity[["date", "equity", "daily_return"]].copy()
-        else:
+    with timed_block("backtest_step5_equity_enhancement"):
+        # Ensure equity has timestamp column (rename if needed)
+        if "timestamp" in equity.columns:
+            equity = equity.copy()
+            # Add date column (date part of timestamp)
+            equity["date"] = pd.to_datetime(equity["timestamp"]).dt.date
+            # Compute daily return
+            equity["daily_return"] = equity["equity"].pct_change().fillna(0.0)
+            # Ensure columns are in correct order: date, timestamp, equity, daily_return
             equity = equity[["date", "timestamp", "equity", "daily_return"]].copy()
-    else:
-        # Fallback: create date from index or use timestamp
-        equity = equity.copy()
-        if equity.index.dtype == "datetime64[ns]":
-            equity["date"] = equity.index.date
-            equity["timestamp"] = equity.index
-        else:
-            # Try to infer from timestamp column
-            if "timestamp" in equity.columns:
-                equity["date"] = pd.to_datetime(equity["timestamp"]).dt.date
+        elif "date" in equity.columns:
+            # If already has date, add daily_return
+            equity = equity.copy()
+            equity["daily_return"] = equity["equity"].pct_change().fillna(0.0)
+            # Ensure columns are in correct order: date, equity, daily_return
+            if "timestamp" not in equity.columns:
+                equity = equity[["date", "equity", "daily_return"]].copy()
             else:
-                # Last resort: use row number as date surrogate
-                equity["date"] = pd.date_range(start="2000-01-01", periods=len(equity), freq="D").date
-                equity["timestamp"] = pd.to_datetime(equity["date"])
-        equity["daily_return"] = equity["equity"].pct_change().fillna(0.0)
-        equity = equity[["date", "timestamp", "equity", "daily_return"]].copy()
+                equity = equity[["date", "timestamp", "equity", "daily_return"]].copy()
+        else:
+            # Fallback: create date from index or use timestamp
+            equity = equity.copy()
+            if equity.index.dtype == "datetime64[ns]":
+                equity["date"] = equity.index.date
+                equity["timestamp"] = equity.index
+            else:
+                # Try to infer from timestamp column
+                if "timestamp" in equity.columns:
+                    equity["date"] = pd.to_datetime(equity["timestamp"]).dt.date
+                else:
+                    # Last resort: use row number as date surrogate
+                    equity["date"] = pd.date_range(start="2000-01-01", periods=len(equity), freq="D").date
+                    equity["timestamp"] = pd.to_datetime(equity["date"])
+            equity["daily_return"] = equity["equity"].pct_change().fillna(0.0)
+            equity = equity[["date", "timestamp", "equity", "daily_return"]].copy()
     
     # Step 6: Build result
     result = BacktestResult(

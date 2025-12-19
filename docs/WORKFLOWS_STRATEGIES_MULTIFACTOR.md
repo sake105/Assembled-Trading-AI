@@ -150,6 +150,8 @@ Siehe `docs/FACTOR_RANKING_OVERVIEW.md` Abschnitt "Configured Factor Bundles" f�
 
 ### Schritt 4: Backtest der Strategie
 
+**Hinweis:** Die Backtest-Engine verwendet jetzt optimierte, vektorisierte Operationen und optionale Numba-Beschleunigung (P3), was zu deutlich schnelleren Backtest-Laufzeiten führt. Die Optimierungen sind vollständig transparent – alle bestehenden Workflows und Scripts nutzen automatisch die optimierte Engine. Siehe [Backtest Optimization P3 Design](BACKTEST_OPTIMIZATION_P3_DESIGN.md) für Details.
+
 **Basis-Backtest:**
 
 ```powershell
@@ -206,6 +208,7 @@ python scripts/cli.py run_backtest `
 
 **1. Multi-Factor Score Berechnung:**
 - Faktoren werden aus Preisen (und optional Alt-Data) berechnet
+- **Point-in-Time Safety:** Alt-Data-Faktoren (Earnings, Insider, News) respektieren `disclosure_date` - Events werden nur verwendet, wenn sie zum Backtest-Datum bereits bekannt waren (siehe [Point-in-Time and Latency](POINT_IN_TIME_AND_LATENCY.md))
 - Faktoren werden optional winsorisiert (Clipping von Extremwerten)
 - Faktoren werden cross-sectional z-gescored (pro Timestamp über alle Symbole)
 - Negativ-Richtung-Faktoren werden invertiert
@@ -274,6 +277,7 @@ python scripts/cli.py run_backtest `
 **Lösungen:**
 - Selteneres Rebalancing
 - Factor-Bundle mit stabileren Faktoren (z.B. längerfristiges Momentum statt kurzfristiges)
+- **Transaction Cost Analysis:** Führe einen TCA-Report aus, um den tatsächlichen Kosten-Einfluss zu quantifizieren (siehe [Risk Metrics & Attribution Workflows](WORKFLOWS_RISK_METRICS_AND_ATTRIBUTION.md) – TCA Section)
 
 **Problem: Faktoren nicht verfügbar**
 
@@ -302,6 +306,30 @@ python scripts/cli.py run_backtest `
 - Vergleiche Strategie-Performance mit Factor-Analyse (Phase C2)
 - Wenn Strategie schlechter als einzelne Faktoren: Position-Sizing oder Rebalancing anpassen
 - Wenn Strategie besser: Good! Robustere Factor-Kombination
+
+**Transaction Cost Impact prüfen:**
+Nach jedem Backtest sollte ein **Transaction Cost Analysis (TCA) Report** generiert werden, um zu prüfen:
+- **Kosten vs. Brutto-PnL:** Wie viel der Brutto-Returns gehen durch Kosten verloren?
+- **Net-Performance:** Ist die Strategie nach Kosten noch attraktiv (Net Sharpe > 1.0)?
+- **Cost Ratio:** Costs / Gross Return sollte < 30% sein
+
+**TCA-Report generieren:**
+```powershell
+python scripts/cli.py tca_report --backtest-dir output/backtests/experiment_123/
+```
+
+Siehe auch: [Risk Metrics & Attribution Workflows – Transaction Cost Analysis](WORKFLOWS_RISK_METRICS_AND_ATTRIBUTION.md#transaction-cost-analysis-e4)
+
+**Batch-Backtests:**
+
+Für systematische Strategie-Vergleiche (z.B. Core vs. Core+ML vs. ML-only, verschiedene Rebalancing-Frequenzen oder Universes) empfiehlt sich der Batch-Runner:
+
+```powershell
+python scripts/cli.py batch_backtest `
+  --config-file configs/batch_backtests/ai_tech_core_vs_mlalpha.yaml
+```
+
+Details zum Batch-Config-Format und zu Best Practices: [Batch Backtests & Parallelization Workflow](WORKFLOWS_BATCH_BACKTESTS_AND_PARALLELIZATION.md)
 
 ---
 

@@ -1,0 +1,23 @@
+batch_name: test_batch
+description: Simple test batch for CLI
+output_root: output/batch_backtests
+defaults:
+  freq: "1d"
+  data_source: "local"
+  strategy: "multifactor_long_short"
+  rebalance_freq: "M"
+  max_gross_exposure: 1.0
+  start_capital: 100000.0
+  generate_report: false
+  generate_risk_report: false
+  generate_tca_report: false
+  symbols_file: "config/macro_world_etfs_tickers.txt"
+runs:
+  - id: "run1_core"
+    bundle_path: "config/factor_bundles/macro_world_etfs_core_bundle.yaml"
+    start_date: "2015-01-01"
+    end_date: "2015-01-10"
+  - id: "run2_core"
+    bundle_path: "config/factor_bundles/macro_world_etfs_core_bundle.yaml"
+    start_date: "2015-01-11"
+    end_date: "2015-01-20"

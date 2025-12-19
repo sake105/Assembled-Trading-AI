@@ -26,12 +26,23 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from src.assembled_core.config.settings import get_settings
+from src.assembled_core.data.prices_ingest import load_eod_prices
 from src.assembled_core.qa.metrics import _compute_returns
+from src.assembled_core.risk.regime_analysis import (
+    RegimeConfig,
+    classify_regimes_from_index,
+    summarize_metrics_by_regime,
+)
 from src.assembled_core.risk.risk_metrics import (
     compute_basic_risk_metrics,
     compute_exposure_timeseries,
     compute_risk_by_factor_group,
     compute_risk_by_regime,
+)
+from src.assembled_core.risk.factor_exposures import (
+    FactorExposureConfig,
+    compute_factor_exposures,
+    summarize_factor_exposures,
 )
 
 logging.basicConfig(
@@ -216,6 +227,8 @@ def write_risk_report_markdown(
     risk_by_factor_group: pd.DataFrame | None = None,
     output_path: Path | None = None,
     backtest_dir: Path | None = None,
+    regime_metrics: pd.DataFrame | None = None,
+    factor_exposures_summary: pd.DataFrame | None = None,
 ) -> None:
     """Write comprehensive risk report as Markdown.
     
@@ -299,8 +312,62 @@ def write_risk_report_markdown(
             f.write(f"| Average HHI Concentration | {avg_hhi:.4f} |\n")
             f.write("\n")
         
-        # Risk by Regime (if available)
-        if risk_by_regime is not None and not risk_by_regime.empty:
+        # Performance by Regime (if available, from extended regime analysis)
+        if regime_metrics is not None and not regime_metrics.empty:
+            f.write("## Performance by Regime\n\n")
+            
+            f.write("| Regime | Periods | Sharpe | Volatility | MaxDD | CAGR | Total Return | Sortino |\n")
+            f.write("|--------|---------|--------|------------|-------|------|--------------|----------|\n")
+            
+            for _, row in regime_metrics.iterrows():
+                regime = row["regime_label"]
+                n_periods = int(row["n_periods"])
+                sharpe = row.get("sharpe")
+                vol = row.get("volatility")
+                max_dd = row.get("max_drawdown")
+                cagr = row.get("cagr")
+                total_ret = row.get("total_return")
+                sortino = row.get("sortino")
+                
+                sharpe_str = f"{sharpe:.4f}" if sharpe is not None and not pd.isna(sharpe) else "N/A"
+                vol_str = f"{vol:.2%}" if vol is not None and not pd.isna(vol) else "N/A"
+                max_dd_str = f"{max_dd:.2f}%" if max_dd is not None and not pd.isna(max_dd) else "N/A"
+                cagr_str = f"{cagr:.2%}" if cagr is not None and not pd.isna(cagr) else "N/A"
+                total_ret_str = f"{total_ret:.2%}" if total_ret is not None and not pd.isna(total_ret) else "N/A"
+                sortino_str = f"{sortino:.4f}" if sortino is not None and not pd.isna(sortino) else "N/A"
+                
+                f.write(f"| {regime} | {n_periods} | {sharpe_str} | {vol_str} | {max_dd_str} | {cagr_str} | {total_ret_str} | {sortino_str} |\n")
+            
+            f.write("\n")
+            
+            # Add verbal summary
+            f.write("### Regime Performance Summary\n\n")
+            
+            # Find best and worst performing regimes
+            sharpe_col = "sharpe"
+            if sharpe_col in regime_metrics.columns:
+                regime_metrics_clean = regime_metrics.dropna(subset=[sharpe_col])
+                if not regime_metrics_clean.empty:
+                    best_regime = regime_metrics_clean.loc[regime_metrics_clean[sharpe_col].idxmax()]
+                    worst_regime = regime_metrics_clean.loc[regime_metrics_clean[sharpe_col].idxmin()]
+                    
+                    best_name = best_regime["regime_label"]
+                    worst_name = worst_regime["regime_label"]
+                    best_sharpe = best_regime[sharpe_col]
+                    worst_sharpe = worst_regime[sharpe_col]
+                    
+                    f.write(f"- **Best Performing Regime**: {best_name} (Sharpe: {best_sharpe:.4f})\n")
+                    f.write(f"- **Worst Performing Regime**: {worst_name} (Sharpe: {worst_sharpe:.4f})\n")
+                    
+                    if worst_name.lower() in ["crisis", "bear"]:
+                        f.write(f"- **Note**: Strategy performs significantly worse in {worst_name} regimes.\n")
+                    elif best_name.lower() in ["bull", "reflation"]:
+                        f.write(f"- **Note**: Strategy performs best in {best_name} regimes.\n")
+            
+            f.write("\n")
+        
+        # Risk by Regime (if available, legacy format)
+        elif risk_by_regime is not None and not risk_by_regime.empty:
             f.write("## Risk by Regime\n\n")
             
             f.write("| Regime | Periods | Mean Return | Volatility | Sharpe | MaxDD | Total Return |\n")
@@ -359,16 +426,70 @@ def write_risk_report_markdown(
         f.write("- **VaR (95%)**: Value at Risk (worst 5% of outcomes, as return percentile)\n")
         f.write("- **CVaR / ES (95%)**: Expected Shortfall (average loss in worst 5% scenarios)\n\n")
         
-        if risk_by_regime is not None and not risk_by_regime.empty:
+        if regime_metrics is not None and not regime_metrics.empty or (risk_by_regime is not None and not risk_by_regime.empty):
             f.write("### Risk by Regime\n")
             f.write("- Risk metrics segmented by identified market regimes.\n")
-            f.write("- Compare Sharpe, Volatility, and Max Drawdown across regimes to identify regime-specific risks.\n\n")
+            f.write("- Compare Sharpe, Volatility, and Max Drawdown across regimes to identify regime-specific risks.\n")
+            f.write("- **Bull**: Positive trend, moderate volatility\n")
+            f.write("- **Bear**: Negative trend, elevated volatility\n")
+            f.write("- **Crisis**: Deep drawdown or very high volatility\n")
+            f.write("- **Sideways**: Moderate trend, moderate volatility\n")
+            f.write("- **Reflation**: Strong recovery after crisis\n\n")
         
         if risk_by_factor_group is not None and not risk_by_factor_group.empty:
             f.write("### Factor Attribution\n")
             f.write("- **Correlation**: Correlation between portfolio factor scores and portfolio returns.\n")
             f.write("- **Avg Exposure**: Average portfolio exposure to factors in this group.\n")
             f.write("- Positive correlation suggests the factor group contributes positively to returns.\n\n")
+        
+        # Factor Exposures (if available)
+        if factor_exposures_summary is not None and not factor_exposures_summary.empty:
+            f.write("## Factor Exposures\n\n")
+            
+            # Show top 5 factors by |mean_beta|
+            top_factors = factor_exposures_summary.head(5).copy()
+            
+            f.write("| Factor | Mean Beta | Std Beta | Mean R² | Mean Residual Vol | Windows |\n")
+            f.write("|--------|-----------|----------|---------|-------------------|----------|\n")
+            
+            for _, row in top_factors.iterrows():
+                factor = row["factor"]
+                mean_beta = row["mean_beta"]
+                std_beta = row["std_beta"]
+                mean_r2 = row["mean_r2"]
+                mean_residual_vol = row["mean_residual_vol"]
+                n_windows = int(row["n_windows"])
+                
+                mean_beta_str = f"{mean_beta:.4f}" if not pd.isna(mean_beta) else "N/A"
+                std_beta_str = f"{std_beta:.4f}" if not pd.isna(std_beta) else "N/A"
+                mean_r2_str = f"{mean_r2:.4f}" if not pd.isna(mean_r2) else "N/A"
+                mean_residual_vol_str = f"{mean_residual_vol:.2%}" if not pd.isna(mean_residual_vol) else "N/A"
+                
+                f.write(f"| {factor} | {mean_beta_str} | {std_beta_str} | {mean_r2_str} | {mean_residual_vol_str} | {n_windows} |\n")
+            
+            f.write("\n")
+            
+            # Verbal summary
+            f.write("### Factor Exposure Summary\n\n")
+            
+            # Find strongest positive and negative exposures
+            pos_exposures = factor_exposures_summary[factor_exposures_summary["mean_beta"] > 0].copy()
+            neg_exposures = factor_exposures_summary[factor_exposures_summary["mean_beta"] < 0].copy()
+            
+            if not pos_exposures.empty:
+                strongest_pos = pos_exposures.loc[pos_exposures["mean_beta"].idxmax()]
+                f.write(f"- **Strongest Positive Exposure**: {strongest_pos['factor']} (beta: {strongest_pos['mean_beta']:.4f}, R²: {strongest_pos['mean_r2']:.4f})\n")
+            
+            if not neg_exposures.empty:
+                strongest_neg = neg_exposures.loc[neg_exposures["mean_beta"].idxmin()]
+                f.write(f"- **Strongest Negative Exposure**: {strongest_neg['factor']} (beta: {strongest_neg['mean_beta']:.4f}, R²: {strongest_neg['mean_r2']:.4f})\n")
+            
+            # Average R²
+            avg_r2 = factor_exposures_summary["mean_r2"].mean()
+            if not pd.isna(avg_r2):
+                f.write(f"- **Average R²**: {avg_r2:.4f} (explained variance across factors)\n")
+            
+            f.write("\n")
 
 
 def generate_risk_report(
@@ -376,6 +497,12 @@ def generate_risk_report(
     regime_file: Path | None = None,
     factor_panel_file: Path | None = None,
     output_dir: Path | None = None,
+    benchmark_symbol: str | None = None,
+    benchmark_file: Path | None = None,
+    enable_regime_analysis: bool = False,
+    enable_factor_exposures: bool = False,
+    factor_returns_file: Path | None = None,
+    factor_exposures_window: int = 252,
 ) -> int:
     """Generate comprehensive risk report from backtest results.
     
@@ -472,8 +599,11 @@ def generate_risk_report(
         except Exception as e:
             logger.warning(f"Failed to compute exposure time-series: {e}")
     
-    # Step 5: Compute risk by regime (if regime file available)
-    risk_by_regime = None
+    # Step 5: Compute risk by regime
+    risk_by_regime = None  # Legacy format (from regime_file)
+    regime_metrics = None  # Extended format (from classify_regimes_from_index)
+    
+    # Option 1: Load regime state from file (legacy)
     if regime_file is not None and regime_file.exists():
         logger.info(f"Loading regime state from {regime_file}...")
         try:
@@ -486,11 +616,169 @@ def generate_risk_report(
                     freq=freq,
                     risk_free_rate=0.0,
                 )
-                logger.info(f"Computed risk by regime: {len(risk_by_regime)} regimes")
+                logger.info(f"Computed risk by regime (legacy): {len(risk_by_regime)} regimes")
         except Exception as e:
-            logger.warning(f"Failed to compute risk by regime: {e}")
+            logger.warning(f"Failed to compute risk by regime from file: {e}")
     
-    # Step 6: Compute risk by factor group (if factor file available)
+    # Option 2: Classify regimes from benchmark/index (extended analysis)
+    if enable_regime_analysis and (benchmark_symbol is not None or benchmark_file is not None):
+        logger.info("Computing regime classification from benchmark...")
+        try:
+            benchmark_returns = None
+            
+            # Load benchmark returns
+            if benchmark_file is not None and benchmark_file.exists():
+                logger.info(f"Loading benchmark from file: {benchmark_file}")
+                benchmark_df = load_dataframe(benchmark_file)
+                if benchmark_df is not None:
+                    if "returns" in benchmark_df.columns:
+                        benchmark_returns = pd.Series(
+                            benchmark_df["returns"].values,
+                            index=pd.to_datetime(benchmark_df["timestamp"], utc=True),
+                        )
+                    elif "close" in benchmark_df.columns:
+                        # Compute returns from prices
+                        benchmark_prices = pd.Series(
+                            benchmark_df["close"].values,
+                            index=pd.to_datetime(benchmark_df["timestamp"], utc=True),
+                        ).sort_index()
+                        benchmark_returns = benchmark_prices.pct_change().dropna()
+            
+            elif benchmark_symbol is not None:
+                logger.info(f"Loading benchmark prices for symbol: {benchmark_symbol}")
+                try:
+                    settings = get_settings()
+                    # Try to load benchmark prices (assuming daily frequency for regime classification)
+                    benchmark_prices_df = load_eod_prices(
+                        freq="1d",
+                        symbols=[benchmark_symbol],
+                        data_source="local",
+                        start_date=equity_df["timestamp"].min(),
+                        end_date=equity_df["timestamp"].max(),
+                        settings=settings,
+                    )
+                    if benchmark_prices_df is not None and not benchmark_prices_df.empty:
+                        # Filter to benchmark symbol and compute returns
+                        benchmark_symbol_data = benchmark_prices_df[
+                            benchmark_prices_df["symbol"] == benchmark_symbol
+                        ].sort_values("timestamp")
+                        if not benchmark_symbol_data.empty:
+                            benchmark_prices = pd.Series(
+                                benchmark_symbol_data["close"].values,
+                                index=pd.to_datetime(benchmark_symbol_data["timestamp"], utc=True),
+                            )
+                            benchmark_returns = benchmark_prices.pct_change().dropna()
+                except Exception as e:
+                    logger.warning(f"Failed to load benchmark prices for {benchmark_symbol}: {e}")
+            
+            # Classify regimes if we have benchmark returns
+            if benchmark_returns is not None and not benchmark_returns.empty:
+                # Align benchmark returns with equity timestamps
+                common_index = equity_df["timestamp"].intersection(benchmark_returns.index)
+                if len(common_index) > 0:
+                    benchmark_returns_aligned = benchmark_returns.loc[common_index]
+                    
+                    # Classify regimes
+                    regime_config = RegimeConfig(
+                        vol_window=20,
+                        trend_ma_window=200,
+                        drawdown_threshold=-0.20,
+                        vol_threshold_high=0.30,
+                        vol_threshold_low=0.15,
+                    )
+                    regimes = classify_regimes_from_index(benchmark_returns_aligned, regime_config)
+                    
+                    # Compute extended metrics by regime
+                    equity_series = pd.Series(
+                        equity_df["equity"].values,
+                        index=pd.to_datetime(equity_df["timestamp"], utc=True),
+                    )
+                    
+                    # Align equity with regimes
+                    equity_aligned = equity_series.loc[equity_series.index.intersection(regimes.index)]
+                    regimes_aligned = regimes.loc[equity_aligned.index]
+                    
+                    if len(equity_aligned) > 0 and len(regimes_aligned) > 0:
+                        regime_metrics = summarize_metrics_by_regime(
+                            equity=equity_aligned,
+                            regimes=regimes_aligned,
+                            trades=trades_df,
+                            freq=freq,
+                        )
+                        logger.info(f"Computed extended regime metrics: {len(regime_metrics)} regimes")
+                    else:
+                        logger.warning("Could not align equity with regimes for extended analysis")
+                else:
+                    logger.warning("No overlapping timestamps between equity and benchmark")
+            else:
+                logger.warning("Could not load benchmark returns for regime classification")
+                
+        except Exception as e:
+            logger.warning(f"Failed to compute regime analysis from benchmark: {e}", exc_info=True)
+    
+    # Step 6: Compute factor exposures (if enabled)
+    factor_exposures_detail = None
+    factor_exposures_summary = None
+    if enable_factor_exposures and factor_returns_file is not None and factor_returns_file.exists():
+        logger.info(f"Loading factor returns from {factor_returns_file}...")
+        try:
+            factor_returns_df = load_dataframe(factor_returns_file)
+            if factor_returns_df is not None:
+                # Ensure timestamp is index or column
+                if "timestamp" in factor_returns_df.columns and not isinstance(factor_returns_df.index, pd.DatetimeIndex):
+                    factor_returns_df["timestamp"] = pd.to_datetime(factor_returns_df["timestamp"], utc=True)
+                    factor_returns_df = factor_returns_df.set_index("timestamp")
+                elif not isinstance(factor_returns_df.index, pd.DatetimeIndex):
+                    logger.warning("Factor returns file must have timestamp as index or column")
+                    factor_returns_df = None
+                
+                if factor_returns_df is not None and not factor_returns_df.empty:
+                    # Get factor columns (exclude timestamp if it's a column)
+                    factor_cols = [col for col in factor_returns_df.columns if col != "timestamp"]
+                    if len(factor_cols) > 0:
+                        # Create config
+                        # Map freq from "1d"/"5min" to "1d"/"1w"/"1m" (factor_exposures uses "1d", "1w", "1m")
+                        freq_for_exposures = "1d"  # Default to daily
+                        if freq == "1d":
+                            freq_for_exposures = "1d"
+                        elif freq == "5min":
+                            # For intraday, use daily aggregation or assume daily factors
+                            freq_for_exposures = "1d"
+                        
+                        exposure_config = FactorExposureConfig(
+                            freq=freq_for_exposures,
+                            window_size=factor_exposures_window,
+                            min_obs=60,
+                            mode="rolling",
+                            add_constant=True,
+                            standardize_factors=True,
+                            regression_method="ols",
+                        )
+                        
+                        # Compute exposures
+                        factor_exposures_detail = compute_factor_exposures(
+                            strategy_returns=returns_series,
+                            factor_returns=factor_returns_df[factor_cols],
+                            config=exposure_config,
+                        )
+                        
+                        if factor_exposures_detail is not None and not factor_exposures_detail.empty:
+                            logger.info(f"Computed factor exposures: {len(factor_exposures_detail)} windows")
+                            
+                            # Summarize
+                            factor_exposures_summary = summarize_factor_exposures(
+                                exposures=factor_exposures_detail,
+                                config=exposure_config,
+                            )
+                            logger.info(f"Summarized factor exposures: {len(factor_exposures_summary)} factors")
+                        else:
+                            logger.warning("Factor exposure computation returned empty result")
+                    else:
+                        logger.warning("No factor columns found in factor returns file")
+        except Exception as e:
+            logger.warning(f"Failed to compute factor exposures: {e}", exc_info=True)
+    
+    # Step 7: Compute risk by factor group (if factor file available)
     risk_by_factor_group = None
     if factor_panel_file is not None and factor_panel_file.exists() and positions_df is not None:
         logger.info(f"Loading factor panel from {factor_panel_file}...")
@@ -516,18 +804,24 @@ def generate_risk_report(
         except Exception as e:
             logger.warning(f"Failed to compute risk by factor group: {e}")
     
-    # Step 7: Write outputs
+    # Step 8: Write outputs
     logger.info("Writing risk report outputs...")
     
     # Risk summary CSV
     summary_csv_path = output_dir / "risk_summary.csv"
     write_risk_summary_csv(risk_metrics, summary_csv_path)
     
-    # Risk by regime CSV (if available)
+    # Risk by regime CSV (if available, legacy format)
     if risk_by_regime is not None:
         regime_csv_path = output_dir / "risk_by_regime.csv"
         risk_by_regime.to_csv(regime_csv_path, index=False)
-        logger.info(f"Saved risk by regime to {regime_csv_path}")
+        logger.info(f"Saved risk by regime (legacy) to {regime_csv_path}")
+    
+    # Extended regime metrics CSV (if available)
+    if regime_metrics is not None:
+        regime_metrics_csv_path = output_dir / "risk_by_regime_extended.csv"
+        regime_metrics.to_csv(regime_metrics_csv_path, index=False)
+        logger.info(f"Saved extended regime metrics to {regime_metrics_csv_path}")
     
     # Risk by factor group CSV (if available)
     if risk_by_factor_group is not None:
@@ -541,6 +835,18 @@ def generate_risk_report(
         exposure_timeseries.to_csv(exposure_csv_path, index=False)
         logger.info(f"Saved exposure time-series to {exposure_csv_path}")
     
+    # Factor exposures detail CSV (if available)
+    if factor_exposures_detail is not None and not factor_exposures_detail.empty:
+        factor_exposures_detail_csv_path = output_dir / "factor_exposures_detail.csv"
+        factor_exposures_detail.to_csv(factor_exposures_detail_csv_path)
+        logger.info(f"Saved factor exposures detail to {factor_exposures_detail_csv_path}")
+    
+    # Factor exposures summary CSV (if available)
+    if factor_exposures_summary is not None and not factor_exposures_summary.empty:
+        factor_exposures_summary_csv_path = output_dir / "factor_exposures_summary.csv"
+        factor_exposures_summary.to_csv(factor_exposures_summary_csv_path, index=False)
+        logger.info(f"Saved factor exposures summary to {factor_exposures_summary_csv_path}")
+    
     # Markdown report
     report_md_path = output_dir / "risk_report.md"
     write_risk_report_markdown(
@@ -550,6 +856,8 @@ def generate_risk_report(
         risk_by_factor_group=risk_by_factor_group,
         output_path=report_md_path,
         backtest_dir=backtest_dir,
+        regime_metrics=regime_metrics,
+        factor_exposures_summary=factor_exposures_summary,
     )
     logger.info(f"Saved risk report to {report_md_path}")
     
@@ -603,6 +911,46 @@ Examples:
         help="Output directory (default: same as --backtest-dir)"
     )
     
+    parser.add_argument(
+        "--benchmark-symbol",
+        type=str,
+        default=None,
+        help="Benchmark symbol (e.g., 'SPY', 'QQQ') for regime classification. Requires --enable-regime-analysis."
+    )
+    
+    parser.add_argument(
+        "--benchmark-file",
+        type=Path,
+        default=None,
+        help="Path to benchmark file (CSV/Parquet) with timestamp and returns/close columns. Requires --enable-regime-analysis."
+    )
+    
+    parser.add_argument(
+        "--enable-regime-analysis",
+        action="store_true",
+        help="Enable extended regime analysis from benchmark/index. Classifies regimes and computes performance by regime."
+    )
+    
+    parser.add_argument(
+        "--enable-factor-exposures",
+        action="store_true",
+        help="Enable factor exposure analysis. Requires --factor-returns-file."
+    )
+    
+    parser.add_argument(
+        "--factor-returns-file",
+        type=Path,
+        default=None,
+        help="Path to factor returns file (CSV/Parquet) with timestamp and factor columns. Required if --enable-factor-exposures is set."
+    )
+    
+    parser.add_argument(
+        "--factor-exposures-window",
+        type=int,
+        default=252,
+        help="Rolling window size for factor exposure regression (default: 252 periods)"
+    )
+    
     args = parser.parse_args()
     
     # Resolve paths
@@ -620,11 +968,29 @@ Examples:
     if args.output_dir:
         output_dir = args.output_dir.resolve() if args.output_dir.is_absolute() else (ROOT / args.output_dir).resolve()
     
+    benchmark_file = None
+    if args.benchmark_file:
+        benchmark_file = args.benchmark_file.resolve() if args.benchmark_file.is_absolute() else (ROOT / args.benchmark_file).resolve()
+    
+    factor_returns_file = None
+    if args.factor_returns_file:
+        factor_returns_file = args.factor_returns_file.resolve() if args.factor_returns_file.is_absolute() else (ROOT / args.factor_returns_file).resolve()
+    
+    if args.enable_factor_exposures and factor_returns_file is None:
+        logger.error("--enable-factor-exposures requires --factor-returns-file")
+        return 1
+    
     return generate_risk_report(
         backtest_dir=backtest_dir,
         regime_file=regime_file,
         factor_panel_file=factor_panel_file,
         output_dir=output_dir,
+        benchmark_symbol=args.benchmark_symbol,
+        benchmark_file=benchmark_file,
+        enable_regime_analysis=args.enable_regime_analysis,
+        enable_factor_exposures=args.enable_factor_exposures,
+        factor_returns_file=factor_returns_file,
+        factor_exposures_window=args.factor_exposures_window,
     )
 
 

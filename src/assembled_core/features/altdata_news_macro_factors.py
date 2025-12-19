@@ -48,6 +48,7 @@ def build_news_sentiment_factors(
     group_col: str = "symbol",
     timestamp_col: str = "timestamp",
     price_col: str = "close",
+    as_of: pd.Timestamp | None = None,
 ) -> pd.DataFrame:
     """Build news sentiment factors from daily sentiment data and price data.
     
@@ -113,6 +114,28 @@ def build_news_sentiment_factors(
         if not pd.api.types.is_datetime64_any_dtype(news_sentiment_daily[timestamp_col]):
             news_sentiment_daily = news_sentiment_daily.copy()
             news_sentiment_daily[timestamp_col] = pd.to_datetime(news_sentiment_daily[timestamp_col], utc=True)
+        
+        # Point-in-time handling: ensure event_date / disclosure_date exist.
+        # For daily sentiment panels we treat the daily timestamp as both.
+        if "event_date" not in news_sentiment_daily.columns:
+            news_sentiment_daily["event_date"] = news_sentiment_daily[timestamp_col].dt.normalize()
+        if "disclosure_date" not in news_sentiment_daily.columns:
+            news_sentiment_daily["disclosure_date"] = news_sentiment_daily["event_date"]
+        
+        # If as_of is provided, restrict to sentiment that was disclosed by as_of.
+        if as_of is not None:
+            as_of_ts = pd.to_datetime(as_of, utc=True)
+            before_filter = len(news_sentiment_daily)
+            news_sentiment_daily = news_sentiment_daily[
+                news_sentiment_daily["disclosure_date"] <= as_of_ts.normalize()
+            ].copy()
+            if len(news_sentiment_daily) < before_filter:
+                logger.debug(
+                    "Filtered news_sentiment_daily by as_of=%s: %d -> %d",
+                    as_of_ts,
+                    before_filter,
+                    len(news_sentiment_daily),
+                )
     
     # Sort by symbol and timestamp
     result = result.sort_values([group_col, timestamp_col]).reset_index(drop=True)
@@ -332,6 +355,17 @@ def build_news_sentiment_factors(
         f"Built news sentiment factors for {len(result[group_col].unique())} symbols, "
         f"{len(result)} rows. Lookback window: {lookback_days} days."
     )
+    
+    # Optional PIT safety check (only in strict QA mode)
+    import os
+    if os.getenv("ASSEMBLED_STRICT_PIT_CHECKS", "false").lower() == "true":
+        from src.assembled_core.qa.point_in_time_checks import validate_feature_builder_pit_safe
+        validate_feature_builder_pit_safe(
+            features_df=result,
+            as_of=as_of,
+            builder_name="build_news_sentiment_factors",
+            strict=True,
+        )
     
     return result
 
