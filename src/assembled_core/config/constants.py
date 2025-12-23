@@ -27,5 +27,5 @@ DEFAULT_IMPACT_W = 0.5  # Default market impact weight (50% of impact)
 MAX_ORDERS_PER_RESPONSE = 10000  # Maximum number of orders in API response
 
 # Paper track constants
-PAPER_TRACK_STATE_VERSION = "1.0"  # Current state format version
+PAPER_TRACK_STATE_VERSION = "2.0"  # Current state format version
 

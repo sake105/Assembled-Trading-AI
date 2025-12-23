@@ -1,3 +1,9 @@
+# Paper Track Playbook
+
+> **Quickstart verfügbar:** Siehe [PAPER_TRACK_QUICKSTART.md](PAPER_TRACK_QUICKSTART.md) für eine 5-Minuten-Anleitung.
+
+---
+
 # Paper Track Playbook - Backtest to Paper to Live
 
 **Phase:** Advanced Analytics & Factor Labs - Track A (Anwendung & Produktisierung)  
@@ -129,7 +135,113 @@ Vor dem Start des Paper-Tracks mussen folgende Artefakte vorhanden sein:
 - **Backtest-Config:** Parameter aus Backtest (Rebalance-Frequenz, Max Exposure, Start-Kapital)
 - **Universe-Definition:** Liste der Symbole (z.B. `config/universe_ai_tech_tickers.txt`)
 
-### 3.2 Technisches Setup
+### 3.2 Config Examples
+
+#### 3.2.1 Trend Baseline Strategy Config
+
+Example config file: `configs/paper_track/trend_baseline_example.yaml`
+
+```yaml
+strategy_name: "trend_baseline_example"
+strategy_type: "trend_baseline"
+
+universe:
+  file: "watchlist.txt"
+
+trading:
+  freq: "1d"
+
+strategy:
+  params:
+    ma_fast: 20
+    ma_slow: 50
+    top_n: 5
+    min_score: 0.0
+
+capital:
+  seed_capital: 100000.0
+
+costs:
+  commission_bps: 0.5
+  spread_w: 0.25
+  impact_w: 0.5
+
+output:
+  output_root: null  # null = default: output/paper_track/{strategy_name}/
+```
+
+#### 3.2.2 Multi-Factor Long/Short Strategy Config
+
+Example config file: `configs/paper_track/multifactor_long_short_example.yaml`
+
+```yaml
+strategy_name: "multifactor_long_short_example"
+strategy_type: "multifactor_long_short"
+
+universe:
+  file: "watchlist.txt"
+
+trading:
+  freq: "1d"
+
+strategy:
+  params:
+    bundle_path: "configs/factor_bundles/example_bundle.yaml"
+    top_quantile: 0.2
+    bottom_quantile: 0.2
+    max_gross_exposure: 1.0
+
+capital:
+  seed_capital: 100000.0
+
+costs:
+  commission_bps: 0.5
+  spread_w: 0.25
+  impact_w: 0.5
+```
+
+**Usage:**
+
+List available strategies:
+```bash
+# List all available paper track configs/strategies
+python scripts/cli.py paper_track --list
+```
+
+Run with strategy name (auto-discover config):
+```bash
+# Run with strategy name (config auto-discovered from configs/paper_track/{name}.yaml)
+python scripts/cli.py paper_track \
+    --strategy-name trend_baseline_example \
+    --as-of 2025-01-15
+
+# Run with multi-factor strategy name
+python scripts/cli.py paper_track \
+    --strategy-name multifactor_long_short_example \
+    --as-of 2025-01-15
+```
+
+Run with explicit config file:
+```bash
+# Run with explicit config file path
+python scripts/cli.py paper_track \
+    --config-file configs/paper_track/trend_baseline_example.yaml \
+    --as-of 2025-01-15
+
+# Run with multi-factor config
+python scripts/cli.py paper_track \
+    --config-file configs/paper_track/multifactor_long_short_example.yaml \
+    --as-of 2025-01-15
+```
+
+**Config Discovery:**
+The `--list` flag searches for configs in:
+1. `configs/paper_track/*.{yaml,yml,json}`
+2. `output/paper_track/*/config.{yaml,yml,json}`
+
+When using `--strategy-name`, the system will automatically search these locations to find the matching config file.
+
+### 3.3 Technisches Setup
 
 #### 3.2.1 EOD-Pipeline Integration
 
@@ -229,6 +341,32 @@ python scripts/cli.py paper_track \
     --config-file configs/paper_track/strategy_core_ai_tech.yaml \
     --as-of 2025-01-15 \
     --dry-run
+
+# Catch-up mode: automatically run from last_run_date+1 to today (or --as-of)
+python scripts/cli.py paper_track \
+    --config-file configs/paper_track/strategy_core_ai_tech.yaml \
+    --catch-up
+
+# Catch-up mode with explicit end date
+python scripts/cli.py paper_track \
+    --config-file configs/paper_track/strategy_core_ai_tech.yaml \
+    --catch-up \
+    --as-of 2025-01-20
+
+# Generate risk reports (weekly, on Friday or end_date)
+python scripts/cli.py paper_track \
+    --config-file configs/paper_track/strategy_core_ai_tech.yaml \
+    --start-date 2025-01-15 \
+    --end-date 2025-01-20 \
+    --generate-risk-report
+
+# Generate risk reports monthly with benchmark
+python scripts/cli.py paper_track \
+    --config-file configs/paper_track/strategy_core_ai_tech.yaml \
+    --catch-up \
+    --generate-risk-report \
+    --risk-report-frequency monthly \
+    --benchmark-symbol SPY
 
 # Fail fast on errors
 python scripts/cli.py paper_track \
@@ -406,7 +544,38 @@ Die folgenden Metriken werden **kontinuierlich** im Paper-Track beobachtet:
 
 ---
 
-## 5. Phase 3 - Go/No-Go Richtung Live
+## 5. Environment Variables
+
+### 5.1 PIT Safety Checks
+
+**Environment Variable:** `PAPER_TRACK_STRICT_PIT_CHECKS`
+
+**Purpose:** Enable strict Point-in-Time (PIT) safety checks to detect look-ahead bias.
+
+**Values:**
+- `true`, `1`, `yes`, `on` - Enable strict PIT checks (raises error on violations)
+- `false`, `0`, `no`, `off` - Disable strict PIT checks (default: uses config value)
+
+**Legacy Support:**
+- The old env var `PAPER_TRACK_STRICT_PIT` is still supported but deprecated. A warning will be logged when used.
+- If both env vars are set, `PAPER_TRACK_STRICT_PIT_CHECKS` takes precedence.
+
+**Example:**
+```bash
+# Enable strict PIT checks
+export PAPER_TRACK_STRICT_PIT_CHECKS=true
+python scripts/cli.py paper_track --config-file configs/paper_track/strategy.yaml --as-of 2025-01-15
+
+# Disable strict PIT checks (use config default)
+export PAPER_TRACK_STRICT_PIT_CHECKS=false
+python scripts/cli.py paper_track --config-file configs/paper_track/strategy.yaml --as-of 2025-01-15
+```
+
+**Note:** PIT checks are also controlled by `enable_pit_checks` in the config file. The env var overrides the config value.
+
+---
+
+## 6. Phase 3 - Go/No-Go Richtung Live
 
 ### 5.1 Klarstellung: Live-Betrieb erfordert zusatzliche Checks
 

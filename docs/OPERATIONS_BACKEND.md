@@ -9,6 +9,8 @@ This runbook provides daily and weekly operational procedures for monitoring the
 
 ## 1. Daily Checklist
 
+**Note:** For Paper Track, you can enable strict PIT checks by setting the `PAPER_TRACK_STRICT_PIT_CHECKS=true` environment variable. This helps detect look-ahead bias in feature computation.
+
 ### Step-by-Step Procedure
 
 1. **Check EOD-Runs Status**

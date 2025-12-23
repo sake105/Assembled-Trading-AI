@@ -11,6 +11,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from src.assembled_core.config.constants import PAPER_TRACK_STATE_VERSION
 from src.assembled_core.paper.paper_track import (
     PaperTrackState,
     load_paper_state,
@@ -26,7 +27,7 @@ def sample_state() -> PaperTrackState:
     return PaperTrackState(
         strategy_name="test_strategy",
         last_run_date=pd.Timestamp("2025-01-15", tz="UTC"),
-        version="1.0",
+        version=PAPER_TRACK_STATE_VERSION,
         positions=pd.DataFrame(
             {
                 "symbol": ["AAPL", "MSFT"],
@@ -40,6 +41,8 @@ def sample_state() -> PaperTrackState:
         updated_at=pd.Timestamp("2025-01-15", tz="UTC"),
         total_trades=5,
         total_pnl=50000.0,
+        last_equity=140000.0,
+        last_positions_value=100000.0,
     )
 
 
@@ -68,11 +71,16 @@ def test_save_paper_state_creates_file(
     assert data["cash"] == 50000.0
     assert data["equity"] == 150000.0
     assert data["seed_capital"] == 100000.0
-    assert data["version"] == "1.0"
+    assert data["version"] == PAPER_TRACK_STATE_VERSION
     assert data["total_trades"] == 5
     assert data["total_pnl"] == 50000.0
     assert data["last_run_date"] == "2025-01-15T00:00:00+00:00"
     assert len(data["positions"]) == 2
+    # v2.0+ fields
+    assert "last_equity" in data
+    assert "last_positions_value" in data
+    assert data["last_equity"] == 140000.0
+    assert data["last_positions_value"] == 100000.0
 
 
 @pytest.mark.advanced

@@ -249,6 +249,7 @@ def test_paper_track_cli_single_day_dry_run(tmp_path: Path, monkeypatch):
         as_of=args.as_of,
         start_date=args.start_date,
         end_date=args.end_date,
+        catch_up=getattr(args, "catch_up", False),
         dry_run=args.dry_run,
         fail_fast=args.fail_fast,
     )
@@ -293,6 +294,7 @@ def test_paper_track_cli_single_day_writes_outputs(tmp_path: Path, monkeypatch):
         as_of=args.as_of,
         start_date=args.start_date,
         end_date=args.end_date,
+        catch_up=getattr(args, "catch_up", False),
         dry_run=args.dry_run,
         fail_fast=args.fail_fast,
     )
@@ -346,6 +348,7 @@ def test_paper_track_cli_range_creates_multiple_run_dirs(tmp_path: Path, monkeyp
         as_of=args.as_of,
         start_date=args.start_date,
         end_date=args.end_date,
+        catch_up=getattr(args, "catch_up", False),
         dry_run=args.dry_run,
         fail_fast=args.fail_fast,
     )

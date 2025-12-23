@@ -1,0 +1,53 @@
+# Paper Track Config - Trend Baseline Strategy Example
+#
+# This config demonstrates a simple trend-following strategy with moving averages.
+# This is an EXAMPLE config (not a template). For a template, see trend_baseline.yaml.
+#
+# Usage:
+#   python scripts/cli.py paper_track --strategy-name trend_baseline_example --as-of 2025-01-15
+#   python scripts/cli.py paper_track --config-file configs/paper_track/trend_baseline_example.yaml --as-of 2025-01-15
+#
+# Or list all available strategies:
+#   python scripts/cli.py paper_track --list
+#
+# Or via run_paper_track.py directly:
+#   python scripts/run_paper_track.py --config-file configs/paper_track/trend_baseline_example.yaml --as-of 2025-01-15
+
+strategy_name: "trend_baseline_example"
+strategy_type: "trend_baseline"
+
+# Universe: Symbols to trade
+universe:
+  file: "watchlist.txt"  # Relative to repo root or config file directory
+
+# Trading parameters
+trading:
+  freq: "1d"  # "1d" or "5min"
+
+# Strategy parameters
+strategy:
+  params:
+    ma_fast: 20      # Fast moving average window
+    ma_slow: 50      # Slow moving average window
+    top_n: 5         # Maximum number of positions
+    min_score: 0.0   # Minimum signal score to enter position
+
+# Capital and costs
+portfolio:
+  seed_capital: 100000.0  # Starting capital (also accepts "capital.seed_capital")
+
+costs:
+  commission_bps: 0.5     # Commission in basis points (0.5 = 0.005%)
+  spread_w: 0.25          # Spread weight (0.25 = 0.0025%)
+  impact_w: 0.5           # Market impact weight (0.5 = 0.005%)
+
+# Output settings
+output:
+  output_root: null  # null = use default: output/paper_track/{strategy_name}/
+
+# Optional: Random seed for reproducibility
+# random_seed: 42
+
+# Optional: PIT checks (default: true, can be overridden by env var)
+# enable_pit_checks: true
+

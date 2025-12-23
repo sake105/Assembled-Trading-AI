@@ -1,0 +1,55 @@
+# Paper Track Config - Multi-Factor Long/Short Strategy Example
+#
+# This config demonstrates a multi-factor strategy with long/short positions.
+# This is an EXAMPLE config (not a template). For a template, see multifactor_long_short.yaml.
+# Note: This requires a factor bundle file. For now, this is a template.
+#
+# Usage:
+#   python scripts/cli.py paper_track --strategy-name multifactor_long_short_example --as-of 2025-01-15
+#   python scripts/cli.py paper_track --config-file configs/paper_track/multifactor_long_short_example.yaml --as-of 2025-01-15
+#
+# Or list all available strategies:
+#   python scripts/cli.py paper_track --list
+#
+# Prerequisites:
+#   - Factor bundle file must exist (see bundle_path below)
+#   - Universe file must contain symbols available in the factor bundle
+
+strategy_name: "multifactor_long_short_example"
+strategy_type: "multifactor_long_short"
+
+# Universe: Symbols to trade
+universe:
+  file: "watchlist.txt"  # Relative to repo root or config file directory
+
+# Trading parameters
+trading:
+  freq: "1d"  # "1d" or "5min"
+
+# Strategy parameters
+strategy:
+  params:
+    bundle_path: "configs/factor_bundles/example_bundle.yaml"  # Path to factor bundle config
+    top_quantile: 0.2      # Top quantile for long positions
+    bottom_quantile: 0.2   # Bottom quantile for short positions
+    max_gross_exposure: 1.0  # Maximum gross exposure (1.0 = 100%)
+
+# Capital and costs
+portfolio:
+  seed_capital: 100000.0  # Starting capital (also accepts "capital.seed_capital")
+
+costs:
+  commission_bps: 0.5     # Commission in basis points
+  spread_w: 0.25          # Spread weight
+  impact_w: 0.5           # Market impact weight
+
+# Output settings
+output:
+  output_root: null  # null = use default: output/paper_track/{strategy_name}/
+
+# Optional: Random seed for reproducibility
+# random_seed: 42
+
+# Optional: PIT checks (default: true, can be overridden by env var)
+# enable_pit_checks: true
+

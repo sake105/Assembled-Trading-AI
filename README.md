@@ -93,6 +93,14 @@ The `assembled-cli` command-line interface is the preferred entry point for all 
   - Quantile-based position selection (top/bottom quantiles)
   - Configurable rebalancing frequencies (daily, weekly, monthly)
 
+- **Paper-Track Runner** → [Paper-Track Quickstart](docs/PAPER_TRACK_QUICKSTART.md)
+  - Simulate trading strategies with real market data (no real capital at risk)
+  - Daily execution workflow: load state → signals → positions → fills → update state
+  - Aggregated equity curve, trades, and positions history
+  - Catch-up mode, skip/resume logic, risk reports
+  - Standard config templates: `configs/paper_track/trend_baseline.yaml`, `configs/paper_track/multifactor_long_short.yaml`
+  - List available strategies: `python scripts/cli.py paper_track --list`
+
 - **Regime Models & Risk Overlay** → [Workflows – Regime Models & Risk Overlay](docs/WORKFLOWS_REGIME_MODELS_AND_RISK.md)
   - Market regime detection (bull, bear, sideways, crisis, reflation)
   - Adaptive risk management with regime-based exposure control

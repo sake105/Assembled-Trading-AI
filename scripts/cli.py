@@ -607,16 +607,51 @@ def paper_track_subcommand(args: argparse.Namespace) -> int:
     Returns:
         Exit code (0 = success, 1 = error)
     """
-    from scripts.run_paper_track import run_paper_track_from_cli
+    from scripts.run_paper_track import (
+        find_config_by_strategy_name,
+        list_paper_track_configs,
+        run_paper_track_from_cli,
+    )
+
+    # Handle --list flag
+    if args.list:
+        return list_paper_track_configs()
+
+    # Determine config file
+    config_file = None
+    if args.strategy_name:
+        # Auto-discover config from strategy name
+        config_file = find_config_by_strategy_name(args.strategy_name)
+        if config_file is None:
+            logger.error(
+                f"Config not found for strategy '{args.strategy_name}'. "
+                "Run with --list to see available strategies."
+            )
+            return 1
+        logger.info(f"Auto-discovered config for '{args.strategy_name}': {config_file}")
+    elif args.config_file:
+        config_file = args.config_file
+    else:
+        logger.error(
+            "Either --config-file or --strategy-name must be provided. "
+            "Run with --list to see available strategies."
+        )
+        return 1
 
     try:
         return run_paper_track_from_cli(
-            config_file=args.config_file,
+            config_file=config_file,
             as_of=args.as_of,
             start_date=args.start_date,
             end_date=args.end_date,
+            catch_up=getattr(args, "catch_up", False),
             dry_run=args.dry_run,
             fail_fast=args.fail_fast,
+            rerun=getattr(args, "rerun", False),
+            generate_risk_report=getattr(args, "generate_risk_report", False),
+            risk_report_frequency=getattr(args, "risk_report_frequency", "weekly"),
+            benchmark_symbol=getattr(args, "benchmark_symbol", None),
+            factor_returns_file=getattr(args, "factor_returns_file", None),
         )
     except Exception as e:
         logger.error(f"Paper track failed: {e}", exc_info=True)
@@ -2786,25 +2821,49 @@ Examples:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Run for single day
+  # List available strategies
+  python scripts/cli.py paper_track --list
+  
+  # Run for single day (with strategy name)
+  python scripts/cli.py paper_track --strategy-name trend_baseline_example --as-of 2025-01-15
+  
+  # Run for single day (with config file)
   python scripts/cli.py paper_track --config-file configs/paper_track/strategy.yaml --as-of 2025-01-15
   
   # Run for date range
-  python scripts/cli.py paper_track --config-file configs/paper_track/strategy.yaml --start-date 2025-01-15 --end-date 2025-01-20
+  python scripts/cli.py paper_track --strategy-name trend_baseline_example --start-date 2025-01-15 --end-date 2025-01-20
+  
+  # Catch-up mode: automatically run from last_run_date+1 to today (or --as-of)
+  python scripts/cli.py paper_track --strategy-name trend_baseline_example --catch-up
+  python scripts/cli.py paper_track --strategy-name trend_baseline_example --catch-up --as-of 2025-01-20
   
   # Dry run (no files written)
-  python scripts/cli.py paper_track --config-file configs/paper_track/strategy.yaml --as-of 2025-01-15 --dry-run
+  python scripts/cli.py paper_track --strategy-name trend_baseline_example --as-of 2025-01-15 --dry-run
   
   # Fail fast on errors
-  python scripts/cli.py paper_track --config-file configs/paper_track/strategy.yaml --start-date 2025-01-15 --end-date 2025-01-20 --fail-fast
+  python scripts/cli.py paper_track --strategy-name trend_baseline_example --start-date 2025-01-15 --end-date 2025-01-20 --fail-fast
         """,
     )
 
     paper_track_parser.add_argument(
+        "--list",
+        action="store_true",
+        default=False,
+        help="List all available paper track configs and strategies (exits immediately)",
+    )
+
+    config_group = paper_track_parser.add_mutually_exclusive_group(required=False)
+    config_group.add_argument(
         "--config-file",
         type=Path,
-        required=True,
+        default=None,
         help="Path to paper track config file (YAML/JSON)",
+    )
+    config_group.add_argument(
+        "--strategy-name",
+        type=str,
+        default=None,
+        help="Strategy name (will auto-discover config from configs/paper_track/{name}.yaml or output/paper_track/{name}/config.yaml)",
     )
 
     paper_track_parser.add_argument(
@@ -2829,6 +2888,17 @@ Examples:
     )
 
     paper_track_parser.add_argument(
+        "--catch-up",
+        action="store_true",
+        default=False,
+        help=(
+            "Catch-up mode: automatically compute date range from state last_run_date. "
+            "If no --start-date/--end-date specified, starts from last_run_date+1 and ends at --as-of (or today). "
+            "If no state exists, falls back to --as-of (single day) or errors."
+        ),
+    )
+
+    paper_track_parser.add_argument(
         "--dry-run", action="store_true", help="Dry run mode: don't write any files"
     )
 
@@ -2836,6 +2906,12 @@ Examples:
         "--fail-fast",
         action="store_true",
         help="Stop on first error (default: continue and log errors)",
+    )
+
+    paper_track_parser.add_argument(
+        "--rerun",
+        action="store_true",
+        help="Re-run days even if run directory already exists (default: skip existing days)",
     )
 
     paper_track_parser.add_argument(

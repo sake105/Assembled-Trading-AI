@@ -1,0 +1,90 @@
+# GitHub Actions CI Workflow - Minimal
+#
+# Purpose: Minimal CI workflow to prevent PR regressions
+# Triggers: Push/PR to main and feature/* branches
+# Status: Active - fast feedback for PRs
+name: CI
+
+on:
+  push:
+    branches: [main, "feature/*"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: 'pip'
+      
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt', '**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      
+      - name: Run ruff (linting)
+        run: |
+          ruff check src tests scripts --exclude scripts/tools --exclude scripts/00_seed_demo_data.py
+      
+      - name: Check Python syntax (py_compile)
+        run: |
+          python -c "
+          import py_compile
+          import sys
+          from pathlib import Path
+          errors = []
+          checked = 0
+          max_check = 50
+          for pattern in ['src/**/*.py', 'scripts/**/*.py', 'tests/**/*.py']:
+              for p in sorted(Path('.').glob(pattern)):
+                  if 'scripts/tools' in str(p) or p.name == '00_seed_demo_data.py':
+                      continue
+                  if checked >= max_check:
+                      break
+                  try:
+                      py_compile.compile(str(p), doraise=True)
+                      checked += 1
+                  except py_compile.PyCompileError as e:
+                      errors.append(f'{p}: {e}')
+                      checked += 1
+                  except Exception as e:
+                      errors.append(f'{p}: Unexpected error: {e}')
+                      checked += 1
+              if checked >= max_check:
+                  break
+          if errors:
+              print(f'Syntax errors found ({len(errors)}):')
+              for e in errors[:10]:
+                  print(f'  {e}')
+              if len(errors) > 10:
+                  print(f'  ... and {len(errors) - 10} more')
+              sys.exit(1)
+          print(f'Syntax check passed (checked {checked} files)')
+          "
+      
+      - name: Run fast tests (excluding advanced marker)
+        run: |
+          pytest -m "not advanced" -q --maxfail=3 --tb=short
+      
+      - name: Run advanced tests (optional, non-blocking)
+        continue-on-error: true
+        run: |
+          pytest -m "advanced" -q --maxfail=1 --tb=short || echo "Advanced tests skipped or failed (non-blocking)"
+

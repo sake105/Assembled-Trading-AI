@@ -1,0 +1,103 @@
+# Paper Track Config - Trend Baseline Strategy Template
+#
+# This is a standard template for trend-following strategies using moving averages.
+# This config demonstrates a simple trend-following strategy that enters long positions
+# when fast MA crosses above slow MA.
+#
+# Usage:
+#   python scripts/cli.py paper_track --strategy-name trend_baseline --as-of 2025-01-15
+#   python scripts/cli.py paper_track --config-file configs/paper_track/trend_baseline.yaml --as-of 2025-01-15
+#
+# Or list all available strategies:
+#   python scripts/cli.py paper_track --list
+#
+# Strategy Logic:
+#   - Computes fast and slow moving averages (EMA)
+#   - Generates buy signals when fast MA > slow MA (momentum)
+#   - Sizes positions equally across top N symbols
+#   - No short positions (long-only strategy)
+#
+# Configuration Fields:
+#   - strategy_name: Unique identifier for this strategy instance
+#   - strategy_type: Must be "trend_baseline" for this template
+#   - universe: File containing list of symbols to trade (one symbol per line)
+#   - trading.freq: "1d" for daily or "5min" for intraday
+#   - strategy.params: Strategy-specific parameters (see below)
+#   - portfolio.seed_capital: Starting capital in USD
+#   - costs: Transaction cost model parameters
+#   - output: Output directory and format settings
+#   - health_checks: Optional thresholds for health check monitoring
+
+strategy_name: "trend_baseline"
+strategy_type: "trend_baseline"
+
+# Universe: Symbols to trade
+# The universe file should contain one symbol per line (e.g., AAPL, MSFT, GOOGL).
+# Path is relative to repo root or config file directory (searched in that order).
+universe:
+  file: "watchlist.txt"  # Path to universe file (relative to repo root or config file directory)
+
+# Trading parameters
+trading:
+  freq: "1d"  # Trading frequency: "1d" (daily) or "5min" (intraday 5-minute bars)
+
+# Strategy parameters
+# These parameters control the trend-following logic:
+#   - ma_fast: Fast moving average window (smaller = more sensitive to recent price changes)
+#   - ma_slow: Slow moving average window (larger = smoother, less noisy)
+#   - top_n: Maximum number of positions to hold simultaneously (None = no limit)
+#   - min_score: Minimum signal score to enter a position (0.0 = no minimum threshold)
+strategy:
+  params:
+    ma_fast: 20      # Fast EMA window (periods)
+    ma_slow: 50      # Slow EMA window (periods)
+    top_n: 5         # Maximum number of positions (None = unlimited)
+    min_score: 0.0   # Minimum signal score to enter position (0.0 = no threshold)
+
+# Portfolio settings
+# seed_capital: Starting capital in USD (default: 100000.0)
+portfolio:
+  seed_capital: 100000.0  # Starting capital in USD
+
+# Transaction cost model
+# These parameters simulate realistic trading costs:
+#   - commission_bps: Commission fee in basis points (1 bps = 0.01%, 0.5 bps = 0.005%)
+#   - spread_w: Bid-ask spread weight in basis points (applied to fill price)
+#   - impact_w: Market impact weight in basis points (simulates price impact of large orders)
+# Example: For a $100 stock with commission_bps=0.5, spread_w=0.25, impact_w=0.5:
+#   - Commission: $100 * 0.5 / 10000 = $0.005 per share
+#   - Buy fill price: $100 * (1 + 0.25/10000 + 0.5/10000) ≈ $100.0075
+#   - Sell fill price: $100 * (1 - 0.25/10000 - 0.5/10000) ≈ $99.9925
+costs:
+  commission_bps: 0.5     # Commission in basis points (0.5 = 0.005% per trade)
+  spread_w: 0.25          # Spread weight in basis points (0.25 = 0.0025% on fill price)
+  impact_w: 0.5           # Market impact weight in basis points (0.5 = 0.005% on fill price)
+
+# Output settings
+# output_root: Root directory for strategy outputs (null = use default: output/paper_track/{strategy_name}/)
+# output.format: Format for aggregated artifacts ("csv" for human-readable, "parquet" for efficient storage)
+output:
+  output_root: null       # null = use default: output/paper_track/{strategy_name}/
+  format: "csv"           # Output format: "csv" (default, human-readable) or "parquet" (efficient)
+
+# Optional: Random seed for reproducibility
+# Set this to ensure deterministic runs (useful for testing and debugging).
+# If not set, results may vary slightly due to numerical rounding.
+# random_seed: 42
+
+# Optional: Integration settings
+# enable_pit_checks: Enable Point-in-Time (PIT) safety checks (default: true)
+# These checks ensure no look-ahead bias (using future data to make past decisions).
+# Can be overridden by environment variable: PAPER_TRACK_STRICT_PIT_CHECKS=true
+integration:
+  enable_pit_checks: true  # Enable PIT-safety checks (default: true)
+
+# Optional: Health check thresholds
+# These thresholds are used by scripts/check_health.py to monitor strategy health.
+# If not specified, default thresholds are used.
+# health_checks:
+#   days: 3                  # Maximum age of last run in days (freshness check)
+#   max_daily_pnl_pct: 10.0  # Maximum acceptable daily P&L percentage (spike detection)
+#   max_drawdown_min: -0.25  # Minimum acceptable max drawdown (-0.25 = -25%)
+#   max_gap_days: 5          # Maximum gap in business days for equity curve continuity
+

@@ -177,6 +177,13 @@ Examples:
         help="Minimum acceptable max drawdown for paper track (default: -0.25 = -25%%)",
     )
 
+    parser.add_argument(
+        "--paper-track-max-gap-days",
+        type=int,
+        default=5,
+        help="Maximum allowed gap in business days for paper track equity curve (default: 5)",
+    )
+
     return parser.parse_args()
 
 
@@ -291,6 +298,81 @@ def load_risk_summary(backtest_dir: Path) -> pd.DataFrame | None:
 
     logger.warning(f"No risk summary file found for {backtest_dir}")
     return None
+
+
+def load_strategy_thresholds(strategy_dir: Path) -> dict[str, Any]:
+    """Load health check thresholds from paper track config file (if available).
+
+    Attempts to find config file in:
+    1. configs/paper_track/{strategy_name}.yaml (or .yml, .json)
+    2. {strategy_dir}/config.yaml (or .yml, .json)
+
+    Args:
+        strategy_dir: Strategy directory (e.g., output/paper_track/{strategy_name})
+
+    Returns:
+        Dictionary with thresholds:
+        - max_daily_pnl_pct: float | None
+        - max_drawdown_min: float | None
+        - max_gap_days: int | None
+        - days: int | None (freshness threshold)
+        If config not found or thresholds not set, returns empty dict (None values)
+    """
+    strategy_name = strategy_dir.name
+    thresholds: dict[str, Any] = {}
+
+    # Try to find config file
+    config_candidates = [
+        ROOT / "configs" / "paper_track" / f"{strategy_name}.yaml",
+        ROOT / "configs" / "paper_track" / f"{strategy_name}.yml",
+        ROOT / "configs" / "paper_track" / f"{strategy_name}.json",
+        strategy_dir / "config.yaml",
+        strategy_dir / "config.yml",
+        strategy_dir / "config.json",
+    ]
+
+    config_path = None
+    for candidate in config_candidates:
+        if candidate.exists():
+            config_path = candidate
+            break
+
+    if config_path is None:
+        logger.debug(f"No config file found for strategy {strategy_name}")
+        return thresholds
+
+    try:
+        # Load config (YAML or JSON)
+        import yaml
+
+        suffix = config_path.suffix.lower()
+        if suffix in {".yml", ".yaml"}:
+            with open(config_path, "r", encoding="utf-8") as f:
+                config_dict = yaml.safe_load(f)
+        elif suffix == ".json":
+            import json
+
+            with open(config_path, "r", encoding="utf-8") as f:
+                config_dict = json.load(f)
+        else:
+            return thresholds
+
+        # Extract thresholds from health_checks section (if present)
+        health_checks = config_dict.get("health_checks", {})
+        if isinstance(health_checks, dict):
+            thresholds["max_daily_pnl_pct"] = health_checks.get("max_daily_pnl_pct")
+            thresholds["max_drawdown_min"] = health_checks.get("max_drawdown_min")
+            thresholds["max_gap_days"] = health_checks.get("max_gap_days")
+            thresholds["days"] = health_checks.get("days")  # Freshness threshold
+
+        logger.debug(
+            f"Loaded thresholds from {config_path} for strategy {strategy_name}: {thresholds}"
+        )
+
+    except Exception as e:
+        logger.warning(f"Failed to load thresholds from {config_path}: {e}")
+
+    return thresholds
 
 
 def find_paper_track_strategies(paper_track_root: Path) -> list[Path]:
@@ -777,12 +859,64 @@ def run_paper_track_health_checks(
     for strategy_dir in strategies:
         strategy_name = strategy_dir.name
 
+        # Load thresholds from config (if available)
+        config_thresholds = load_strategy_thresholds(strategy_dir)
+
+        # Apply precedence: CLI args override config thresholds
+        # Use CLI value if provided, otherwise use config value, otherwise use default
+        days_threshold = (
+            args.paper_track_days
+            if args.paper_track_days is not None
+            else (config_thresholds.get("days") if config_thresholds.get("days") is not None else 3)
+        )
+        max_daily_pnl_pct = (
+            args.paper_track_max_daily_pnl_pct
+            if args.paper_track_max_daily_pnl_pct is not None
+            else (
+                config_thresholds.get("max_daily_pnl_pct")
+                if config_thresholds.get("max_daily_pnl_pct") is not None
+                else 10.0
+            )
+        )
+        max_drawdown_min = (
+            args.paper_track_max_drawdown_min
+            if args.paper_track_max_drawdown_min is not None
+            else (
+                config_thresholds.get("max_drawdown_min")
+                if config_thresholds.get("max_drawdown_min") is not None
+                else -0.25
+            )
+        )
+        max_gap_days = (
+            args.paper_track_max_gap_days
+            if args.paper_track_max_gap_days is not None
+            else (
+                config_thresholds.get("max_gap_days")
+                if config_thresholds.get("max_gap_days") is not None
+                else 5
+            )
+        )
+
+        # Build threshold details for reporting
+        threshold_details = {
+            "days": days_threshold,
+            "max_daily_pnl_pct": max_daily_pnl_pct,
+            "max_drawdown_min": max_drawdown_min,
+            "max_gap_days": max_gap_days,
+            "source": "CLI" if args.paper_track_days is not None else ("config" if config_thresholds else "default"),
+        }
+
         # Find latest run
         latest_run = find_latest_paper_track_run(strategy_dir)
 
         # Freshness check
-        freshness_check = check_paper_track_freshness(latest_run, args.paper_track_days)
+        freshness_check = check_paper_track_freshness(latest_run, days_threshold)
         freshness_check.name = f"paper_track_freshness_{strategy_name}"
+        # Add threshold details to freshness check
+        if freshness_check.details:
+            freshness_check.details = f"{freshness_check.details} (thresholds: {threshold_details})"
+        else:
+            freshness_check.details = f"thresholds: {threshold_details}"
         checks.append(freshness_check)
 
         # Artifact checks
@@ -795,11 +929,19 @@ def run_paper_track_health_checks(
         metrics_checks = check_paper_track_metrics_plausible(
             strategy_dir,
             latest_run,
-            args.paper_track_max_daily_pnl_pct,
-            args.paper_track_max_drawdown_min,
+            max_daily_pnl_pct,
+            max_drawdown_min,
         )
         for check in metrics_checks:
             check.name = f"{check.name}_{strategy_name}"
+            # Add threshold details to metrics checks
+            if check.details:
+                if isinstance(check.details, str):
+                    check.details = f"{check.details} (thresholds: {threshold_details})"
+                elif isinstance(check.details, dict):
+                    check.details["thresholds"] = threshold_details
+            else:
+                check.details = f"thresholds: {threshold_details}"
         checks.extend(metrics_checks)
 
     return checks

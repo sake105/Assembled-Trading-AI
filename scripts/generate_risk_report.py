@@ -247,6 +247,8 @@ def write_risk_report_markdown(
     backtest_dir: Path | None = None,
     regime_metrics: pd.DataFrame | None = None,
     factor_exposures_summary: pd.DataFrame | None = None,
+    paper_track_mode: bool = False,
+    equity_df: pd.DataFrame | None = None,
 ) -> None:
     """Write comprehensive risk report as Markdown.
 
@@ -268,6 +270,68 @@ def write_risk_report_markdown(
 
         if backtest_dir:
             f.write(f"**Backtest Directory:** `{backtest_dir}`\n\n")
+
+        # Paper Track: Performance Since Inception Section
+        if paper_track_mode and equity_df is not None and not equity_df.empty:
+            f.write("## Performance Since Inception\n\n")
+            try:
+                # Get first and last date
+                if "date" in equity_df.columns:
+                    equity_df_sorted = equity_df.sort_values("date")
+                    dates = equity_df_sorted["date"]
+                    first_date = pd.to_datetime(dates.iloc[0])
+                    last_date = pd.to_datetime(dates.iloc[-1])
+                    equity_series = equity_df_sorted["equity"].values
+                elif "timestamp" in equity_df.columns:
+                    equity_df_sorted = equity_df.sort_values("timestamp")
+                    dates = equity_df_sorted["timestamp"]
+                    first_date = pd.to_datetime(dates.iloc[0], utc=True)
+                    last_date = pd.to_datetime(dates.iloc[-1], utc=True)
+                    equity_series = equity_df_sorted["equity"].values
+                else:
+                    first_date = None
+                    last_date = None
+                    equity_series = equity_df["equity"].values if "equity" in equity_df.columns else None
+
+                if first_date is not None and last_date is not None and equity_series is not None and len(equity_series) >= 2:
+                    # Compute since inception metrics
+                    start_equity = float(equity_series[0])
+                    end_equity = float(equity_series[-1])
+                    total_return = (end_equity / start_equity - 1.0) * 100.0 if start_equity > 0 else 0.0
+
+                    # Compute returns for volatility and Sharpe
+                    returns = pd.Series(equity_series).pct_change().dropna()
+                    vol_annualized = float(returns.std() * (252**0.5)) * 100.0 if len(returns) > 1 else None
+                    sharpe_since_inception = (
+                        float(returns.mean() / returns.std() * (252**0.5))
+                        if len(returns) > 1 and returns.std() > 0
+                        else None
+                    )
+
+                    # Compute max drawdown since inception
+                    cumulative = pd.Series(equity_series) / equity_series[0]
+                    running_max = cumulative.expanding().max()
+                    drawdown = (cumulative - running_max) / running_max * 100.0
+                    max_dd_since_inception = float(drawdown.min()) if len(drawdown) > 0 else None
+
+                    # Compute days since inception
+                    days_since_inception = (last_date - first_date).days
+
+                    f.write("| Metric | Value |\n")
+                    f.write("|--------|-------|\n")
+                    f.write(f"| **Inception Date** | {first_date.strftime('%Y-%m-%d')} |\n")
+                    f.write(f"| **Days Since Inception** | {days_since_inception} |\n")
+                    f.write(f"| **Total Return** | {total_return:.2f}% |\n")
+                    if vol_annualized is not None:
+                        f.write(f"| **Volatility (Annualized)** | {vol_annualized:.2f}% |\n")
+                    if sharpe_since_inception is not None:
+                        f.write(f"| **Sharpe Ratio** | {sharpe_since_inception:.4f} |\n")
+                    if max_dd_since_inception is not None:
+                        f.write(f"| **Max Drawdown** | {max_dd_since_inception:.2f}% |\n")
+                    f.write("\n")
+            except Exception as e:
+                logger.warning(f"Failed to compute 'since inception' metrics: {e}", exc_info=True)
+                f.write("*Could not compute 'since inception' metrics.*\n\n")
 
         # Global Risk Metrics
         f.write("## Global Risk Metrics\n\n")
@@ -1024,6 +1088,11 @@ def generate_risk_report(
             f"Saved factor exposures summary to {factor_exposures_summary_csv_path}"
         )
 
+    # Detect if this is paper track mode (check if backtest_dir is aggregates dir)
+    is_paper_track = "aggregates" in str(backtest_dir) or (
+        backtest_dir.parent.name != "backtests" if backtest_dir.parent else False
+    )
+
     # Markdown report
     report_md_path = output_dir / "risk_report.md"
     write_risk_report_markdown(
@@ -1035,6 +1104,8 @@ def generate_risk_report(
         backtest_dir=backtest_dir,
         regime_metrics=regime_metrics,
         factor_exposures_summary=factor_exposures_summary,
+        paper_track_mode=is_paper_track,
+        equity_df=equity_df,
     )
     logger.info(f"Saved risk report to {report_md_path}")
 

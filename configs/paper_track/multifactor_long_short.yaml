@@ -1,0 +1,114 @@
+# Paper Track Config - Multi-Factor Long/Short Strategy Template
+#
+# This is a standard template for multi-factor long/short strategies.
+# This config demonstrates a factor-based strategy that goes long on high-scoring
+# stocks and short on low-scoring stocks based on a multi-factor model.
+#
+# Usage:
+#   python scripts/cli.py paper_track --strategy-name multifactor_long_short --as-of 2025-01-15
+#   python scripts/cli.py paper_track --config-file configs/paper_track/multifactor_long_short.yaml --as-of 2025-01-15
+#
+# Or list all available strategies:
+#   python scripts/cli.py paper_track --list
+#
+# Prerequisites:
+#   - Factor bundle file must exist (see bundle_path below)
+#   - Universe file must contain symbols available in the factor bundle
+#   - Factor bundle should define factor weights and calculation methods
+#
+# Strategy Logic:
+#   - Loads factor bundle configuration (multiple factors with weights)
+#   - Computes composite factor scores for all symbols in universe
+#   - Ranks symbols by factor score
+#   - Goes long on top quantile (e.g., top 20%) of symbols
+#   - Goes short on bottom quantile (e.g., bottom 20%) of symbols
+#   - Sizes positions to respect max_gross_exposure limit
+#
+# Configuration Fields:
+#   - strategy_name: Unique identifier for this strategy instance
+#   - strategy_type: Must be "multifactor_long_short" for this template
+#   - universe: File containing list of symbols to trade (one symbol per line)
+#   - trading.freq: "1d" for daily or "5min" for intraday
+#   - strategy.params: Strategy-specific parameters (see below)
+#   - portfolio.seed_capital: Starting capital in USD
+#   - costs: Transaction cost model parameters
+#   - output: Output directory and format settings
+#   - health_checks: Optional thresholds for health check monitoring
+
+strategy_name: "multifactor_long_short"
+strategy_type: "multifactor_long_short"
+
+# Universe: Symbols to trade
+# The universe file should contain one symbol per line (e.g., AAPL, MSFT, GOOGL).
+# Path is relative to repo root or config file directory (searched in that order).
+# IMPORTANT: Universe symbols must be available in the factor bundle data.
+universe:
+  file: "watchlist.txt"  # Path to universe file (relative to repo root or config file directory)
+
+# Trading parameters
+trading:
+  freq: "1d"  # Trading frequency: "1d" (daily) or "5min" (intraday 5-minute bars)
+
+# Strategy parameters
+# These parameters control the multi-factor long/short logic:
+#   - bundle_path: Path to factor bundle YAML file (defines factors and weights)
+#   - top_quantile: Fraction of universe to go long (0.2 = top 20% by factor score)
+#   - bottom_quantile: Fraction of universe to go short (0.2 = bottom 20% by factor score)
+#   - max_gross_exposure: Maximum gross exposure (1.0 = 100% of equity, 2.0 = 200% for long+short)
+#
+# Example: With top_quantile=0.2, bottom_quantile=0.2, max_gross_exposure=1.0:
+#   - Universe has 100 symbols
+#   - Long positions: Top 20 symbols (20% of equity allocated)
+#   - Short positions: Bottom 20 symbols (20% of equity allocated)
+#   - Total gross exposure: 40% (well below max_gross_exposure=1.0)
+strategy:
+  params:
+    bundle_path: "configs/factor_bundles/example_bundle.yaml"  # Path to factor bundle config (relative to repo root)
+    top_quantile: 0.2      # Top quantile for long positions (0.2 = top 20%)
+    bottom_quantile: 0.2   # Bottom quantile for short positions (0.2 = bottom 20%)
+    max_gross_exposure: 1.0  # Maximum gross exposure (1.0 = 100% of equity)
+
+# Portfolio settings
+# seed_capital: Starting capital in USD (default: 100000.0)
+portfolio:
+  seed_capital: 100000.0  # Starting capital in USD
+
+# Transaction cost model
+# These parameters simulate realistic trading costs:
+#   - commission_bps: Commission fee in basis points (1 bps = 0.01%, 0.5 bps = 0.005%)
+#   - spread_w: Bid-ask spread weight in basis points (applied to fill price)
+#   - impact_w: Market impact weight in basis points (simulates price impact of large orders)
+# Note: For long/short strategies, costs are applied to both long and short positions.
+costs:
+  commission_bps: 0.5     # Commission in basis points (0.5 = 0.005% per trade)
+  spread_w: 0.25          # Spread weight in basis points (0.25 = 0.0025% on fill price)
+  impact_w: 0.5           # Market impact weight in basis points (0.5 = 0.005% on fill price)
+
+# Output settings
+# output_root: Root directory for strategy outputs (null = use default: output/paper_track/{strategy_name}/)
+# output.format: Format for aggregated artifacts ("csv" for human-readable, "parquet" for efficient storage)
+output:
+  output_root: null       # null = use default: output/paper_track/{strategy_name}/
+  format: "csv"           # Output format: "csv" (default, human-readable) or "parquet" (efficient)
+
+# Optional: Random seed for reproducibility
+# Set this to ensure deterministic runs (useful for testing and debugging).
+# If not set, results may vary slightly due to numerical rounding.
+# random_seed: 42
+
+# Optional: Integration settings
+# enable_pit_checks: Enable Point-in-Time (PIT) safety checks (default: true)
+# These checks ensure no look-ahead bias (using future data to make past decisions).
+# Can be overridden by environment variable: PAPER_TRACK_STRICT_PIT_CHECKS=true
+integration:
+  enable_pit_checks: true  # Enable PIT-safety checks (default: true)
+
+# Optional: Health check thresholds
+# These thresholds are used by scripts/check_health.py to monitor strategy health.
+# If not specified, default thresholds are used.
+# health_checks:
+#   days: 3                  # Maximum age of last run in days (freshness check)
+#   max_daily_pnl_pct: 10.0  # Maximum acceptable daily P&L percentage (spike detection)
+#   max_drawdown_min: -0.25  # Minimum acceptable max drawdown (-0.25 = -25%)
+#   max_gap_days: 5          # Maximum gap in business days for equity curve continuity
+
