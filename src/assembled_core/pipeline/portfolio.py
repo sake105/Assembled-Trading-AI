@@ -1,5 +1,6 @@
 # src/assembled_core/pipeline/portfolio.py
 """Portfolio simulation with cost model."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -19,7 +20,7 @@ def simulate_with_costs(
     freq: str,
 ) -> tuple[pd.DataFrame, dict[str, float | int]]:
     """Simulate portfolio equity with transaction costs.
-    
+
     Args:
         orders: DataFrame with columns: timestamp, symbol, side, qty, price
         start_capital: Starting capital
@@ -27,12 +28,12 @@ def simulate_with_costs(
         spread_w: Spread weight (multiplier for bid/ask spread)
         impact_w: Market impact weight (multiplier for price impact)
         freq: Frequency string ("1d" or "5min") for timeline generation
-    
+
     Returns:
         Tuple of (equity DataFrame, metrics dict)
         equity: DataFrame with columns: timestamp, equity
         metrics: Dictionary with keys: final_pf, sharpe, trades
-    
+
     Side effects:
         None (pure function)
     """
@@ -59,10 +60,11 @@ def simulate_with_costs(
     # Gruppiere Orders je Zeitstempel, summiere Cash-Delta
     orders = orders.copy()
     orders["sign"] = np.where(
-        orders["side"].eq("BUY"), +1.0,
-        np.where(orders["side"].eq("SELL"), -1.0, 0.0)
+        orders["side"].eq("BUY"), +1.0, np.where(orders["side"].eq("SELL"), -1.0, 0.0)
     )
-    orders["notional"] = (orders["qty"].abs() * orders["price"].abs()).astype(np.float64)
+    orders["notional"] = (orders["qty"].abs() * orders["price"].abs()).astype(
+        np.float64
+    )
 
     # effektiver Preisaufschlag/-abschlag
     # BUY zahlt: price * (1 + s + im) + kommission
@@ -70,7 +72,10 @@ def simulate_with_costs(
     orders["cash_delta"] = np.where(
         orders["sign"] > 0,
         -(orders["qty"] * orders["price"] * (1.0 + s + im) + k * orders["notional"]),
-        +(orders["qty"].abs() * orders["price"] * (1.0 - s - im) - k * orders["notional"])
+        +(
+            orders["qty"].abs() * orders["price"] * (1.0 - s - im)
+            - k * orders["notional"]
+        ),
     )
 
     ts_to_delta = (
@@ -108,16 +113,16 @@ def write_portfolio_report(
     output_dir: Path | str | None = None,
 ) -> tuple[Path, Path]:
     """Write portfolio results to CSV and Markdown report.
-    
+
     Args:
         equity: DataFrame with columns: timestamp, equity
         metrics: Dictionary with performance metrics (final_pf, sharpe, trades)
         freq: Frequency string ("1d" or "5min")
         output_dir: Base output directory (default: None, uses config.OUTPUT_DIR)
-    
+
     Returns:
         Tuple of (equity_path, report_path)
-    
+
     Side effects:
         Creates output directory if it doesn't exist
         Writes CSV file: output_dir/portfolio_equity_{freq}.csv
@@ -125,16 +130,15 @@ def write_portfolio_report(
     """
     out_dir = Path(output_dir) if output_dir else OUTPUT_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
-    
+
     eq_path = out_dir / f"portfolio_equity_{freq}.csv"
     rep_path = out_dir / f"portfolio_report_{freq}.md"
-    
+
     equity.to_csv(eq_path, index=False)
     with open(rep_path, "w", encoding="utf-8") as f:
         f.write(f"# Portfolio Report ({freq})\n\n")
         f.write(f"- Final PF: {metrics['final_pf']:.4f}\n")
         f.write(f"- Sharpe: {metrics['sharpe']}\n")
         f.write(f"- Trades: {metrics['trades']}\n")
-    
-    return eq_path, rep_path
 
+    return eq_path, rep_path

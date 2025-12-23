@@ -9,4 +9,3 @@ This package handles:
 Note: Current order generation is in pipeline.orders.signals_to_orders.
 This package will provide more sophisticated execution logic.
 """
-

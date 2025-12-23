@@ -124,6 +124,18 @@ The `assembled-cli` command-line interface is the preferred entry point for all 
   - Use cases per role with CLI commands and expected outputs
   - Component map linking roles to workflows, scripts, and documentation
 
+- **Operations & Monitoring** → [Operations Backend Runbook](docs/OPERATIONS_BACKEND.md)
+  - Daily and weekly health check procedures
+  - Health check CLI usage and status interpretation
+  - Troubleshooting guide for common operational issues
+  - Automation recommendations for daily health checks
+
+- **Paper-Track Playbook** → [Paper Track Playbook](docs/PAPER_TRACK_PLAYBOOK.md)
+  - Kriterien & Checklisten fur Backtest → Paper → (spater) Live
+  - Gate-Kriterien (Mindest-Backtestdauer, Regime-Coverage, Deflated Sharpe, Max Drawdown, PIT-Sicherheit)
+  - Paper-Track-Ablauf (Dauer, Metriken, akzeptable Abweichungen vs. Backtest)
+  - Go/No-Go-Kriterien fur Live-Trading-Vorbereitung
+
 ### Getting Started
 
 **Basic EOD Pipeline (with local data):**

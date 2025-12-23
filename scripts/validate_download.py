@@ -1,4 +1,5 @@
 """Quick validation script for downloaded Parquet files."""
+
 import sys
 from pathlib import Path
 
@@ -8,16 +9,16 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: python scripts/validate_download.py <path_to_parquet>")
         sys.exit(1)
-    
+
     file_path = Path(sys.argv[1])
-    
+
     if not file_path.exists():
         print(f"ERROR: File does not exist: {file_path}")
         sys.exit(1)
-    
+
     try:
         df = pd.read_parquet(file_path)
-        
+
         print("=" * 60)
         print("Download Validation Report")
         print("=" * 60)
@@ -36,7 +37,7 @@ if __name__ == "__main__":
         if missing.sum() > 0:
             print("  Missing values:")
             for col, count in missing[missing > 0].items():
-                print(f"    {col}: {count} ({count/len(df)*100:.1f}%)")
+                print(f"    {col}: {count} ({count / len(df) * 100:.1f}%)")
         else:
             print("  No missing values ✓")
         print()
@@ -48,18 +49,22 @@ if __name__ == "__main__":
         print()
         print("Statistics:")
         print(f"  Symbol: {df['symbol'].unique()}")
-        if 'close' in df.columns:
-            print(f"  Close price range: ${df['close'].min():.2f} - ${df['close'].max():.2f}")
-        if 'volume' in df.columns:
-            print(f"  Volume range: {df['volume'].min():,.0f} - {df['volume'].max():,.0f}")
+        if "close" in df.columns:
+            print(
+                f"  Close price range: ${df['close'].min():.2f} - ${df['close'].max():.2f}"
+            )
+        if "volume" in df.columns:
+            print(
+                f"  Volume range: {df['volume'].min():,.0f} - {df['volume'].max():,.0f}"
+            )
         print()
         print("=" * 60)
         print("✓ Validation complete - File looks good!")
         print("=" * 60)
-        
+
     except Exception as e:
         print(f"ERROR: Failed to read or validate file: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
-

@@ -196,9 +196,7 @@ def load_batch_config(path: Path) -> BatchConfig:
         symbols_file_raw = merged.get("symbols_file")
         universe_raw = merged.get("universe")
 
-        symbols_file = (
-            (ROOT / symbols_file_raw).resolve() if symbols_file_raw else None
-        )
+        symbols_file = (ROOT / symbols_file_raw).resolve() if symbols_file_raw else None
         universe = (ROOT / universe_raw).resolve() if universe_raw else None
 
         bundle_path = (ROOT / bundle_path_raw).resolve()
@@ -351,7 +349,9 @@ def run_single_backtest(
             error = f"Backtest exited with code {proc.returncode}"
             logger.warning("Run %s failed: %s", run_cfg.id, error)
         else:
-            logger.info("Run %s completed successfully in %.2f sec", run_cfg.id, runtime_sec)
+            logger.info(
+                "Run %s completed successfully in %.2f sec", run_cfg.id, runtime_sec
+            )
 
         return SingleRunResult(
             run_id=run_cfg.id,
@@ -422,7 +422,9 @@ def run_batch(
         results.append(result)
 
         if fail_fast and result.status == "failed":
-            logger.warning("Fail-fast enabled and run %s failed – aborting batch.", run_cfg.id)
+            logger.warning(
+                "Fail-fast enabled and run %s failed – aborting batch.", run_cfg.id
+            )
             break
 
     # Write detailed summary CSV
@@ -449,9 +451,13 @@ def run_batch(
                 ]
             )
             for cfg, r in zip(batch_cfg.runs, results):
-                backtest_dir = r.backtest_dir or (runs_output_root / cfg.id / "backtest")
+                backtest_dir = r.backtest_dir or (
+                    runs_output_root / cfg.id / "backtest"
+                )
                 equity_curve_path = backtest_dir / "equity_curve.parquet"
-                performance_report_path = backtest_dir / f"performance_report_{cfg.freq}.md"
+                performance_report_path = (
+                    backtest_dir / f"performance_report_{cfg.freq}.md"
+                )
                 writer.writerow(
                     [
                         r.run_id,
@@ -478,8 +484,12 @@ def run_batch(
         with summary_md.open("w", encoding="utf-8") as f_md:
             f_md.write(f"# Batch Summary: {batch_cfg.batch_name}\n\n")
             f_md.write(f"**Description:** {batch_cfg.description}\n\n")
-            f_md.write("| run_id | strategy | bundle | start_date | end_date | status | runtime_sec |\n")
-            f_md.write("|--------|----------|--------|------------|----------|--------|-------------|\n")
+            f_md.write(
+                "| run_id | strategy | bundle | start_date | end_date | status | runtime_sec |\n"
+            )
+            f_md.write(
+                "|--------|----------|--------|------------|----------|--------|-------------|\n"
+            )
             for cfg, r in zip(batch_cfg.runs, results):
                 f_md.write(
                     f"| {r.run_id} | {cfg.strategy} | {cfg.bundle_path.name} | "
@@ -597,5 +607,3 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-

@@ -14,4 +14,3 @@ __all__ = [
     "generate_multifactor_long_short_signals",
     "compute_multifactor_long_short_positions",
 ]
-

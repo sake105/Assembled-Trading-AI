@@ -9,10 +9,11 @@ Risk Controls:
 - Kill switch: Emergency block via ASSEMBLED_KILL_SWITCH environment variable
 - Default: Both checks are enabled (safe by default)
 """
+
 from __future__ import annotations
 
 import uuid
-from typing import Any, Union
+from typing import Union
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException
@@ -49,7 +50,7 @@ _DEFAULT_PRE_TRADE_CONFIG: PreTradeConfig | None = None  # None = no limits by d
 def _convert_order_to_response(order: PaperOrder) -> PaperOrderResponse:
     """Convert PaperOrder to PaperOrderResponse."""
     from src.assembled_core.api.models import OrderSide
-    
+
     return PaperOrderResponse(
         order_id=order.order_id,
         symbol=order.symbol,
@@ -64,37 +65,39 @@ def _convert_order_to_response(order: PaperOrder) -> PaperOrderResponse:
 
 def _build_portfolio_snapshot_from_engine() -> pd.DataFrame | None:
     """Build portfolio snapshot from current paper trading positions.
-    
+
     Returns:
         DataFrame with columns: symbol, qty (or None if no positions)
     """
     positions = _engine.get_positions()
     if not positions:
         return None
-    
-    return pd.DataFrame({
-        "symbol": [pos.symbol for pos in positions],
-        "qty": [pos.quantity for pos in positions]
-    })
+
+    return pd.DataFrame(
+        {
+            "symbol": [pos.symbol for pos in positions],
+            "qty": [pos.quantity for pos in positions],
+        }
+    )
 
 
 def _apply_risk_controls_to_paper_orders(
     paper_orders: list[PaperOrder],
     enable_pre_trade_checks: bool = True,
     enable_kill_switch: bool = True,
-    pre_trade_config: PreTradeConfig | None = None
+    pre_trade_config: PreTradeConfig | None = None,
 ) -> tuple[list[PaperOrder], list[PaperOrder]]:
     """Apply risk controls to paper orders.
-    
+
     This function converts paper orders to DataFrame format, applies risk controls,
     and returns filtered orders (passed) and rejected orders (blocked).
-    
+
     Args:
         paper_orders: List of PaperOrder objects to validate
         enable_pre_trade_checks: Enable pre-trade checks (default: True)
         enable_kill_switch: Enable kill switch (default: True)
         pre_trade_config: Optional PreTradeConfig (default: None = no limits)
-    
+
     Returns:
         Tuple of (passed_orders, rejected_orders):
         - passed_orders: Orders that passed risk controls (will be FILLED)
@@ -102,18 +105,23 @@ def _apply_risk_controls_to_paper_orders(
     """
     if not paper_orders:
         return [], []
-    
+
     # Convert paper orders to DataFrame
-    orders_df = pd.DataFrame({
-        "symbol": [order.symbol for order in paper_orders],
-        "side": [order.side for order in paper_orders],
-        "qty": [order.quantity for order in paper_orders],
-        "price": [order.price if order.price is not None else 0.0 for order in paper_orders]
-    })
-    
+    orders_df = pd.DataFrame(
+        {
+            "symbol": [order.symbol for order in paper_orders],
+            "side": [order.side for order in paper_orders],
+            "qty": [order.quantity for order in paper_orders],
+            "price": [
+                order.price if order.price is not None else 0.0
+                for order in paper_orders
+            ],
+        }
+    )
+
     # Build portfolio snapshot from current positions
     portfolio = _build_portfolio_snapshot_from_engine()
-    
+
     # Apply risk controls
     try:
         filtered_df, risk_result = filter_orders_with_risk_controls(
@@ -123,7 +131,7 @@ def _apply_risk_controls_to_paper_orders(
             risk_summary=None,
             pre_trade_config=pre_trade_config or _DEFAULT_PRE_TRADE_CONFIG,
             enable_pre_trade_checks=enable_pre_trade_checks,
-            enable_kill_switch=enable_kill_switch
+            enable_kill_switch=enable_kill_switch,
         )
     except Exception as e:
         logger.error(f"Error applying risk controls: {e}", exc_info=True)
@@ -133,11 +141,11 @@ def _apply_risk_controls_to_paper_orders(
             order.status = "REJECTED"
             order.reason = f"Risk control error: {str(e)}"
         return [], rejected
-    
+
     # Determine which orders passed and which were rejected
     passed_orders = []
     rejected_orders = []
-    
+
     # Check kill switch first (before matching)
     if enable_kill_switch and is_kill_switch_engaged():
         # All orders rejected due to kill switch
@@ -146,7 +154,7 @@ def _apply_risk_controls_to_paper_orders(
             order.status = "REJECTED"
             order.reason = "KILL_SWITCH: Kill switch is engaged"
         return [], rejected
-    
+
     # Create a mapping from (symbol, side, qty, price) to order index in filtered_df
     # Use a more robust matching approach: match by symbol, side, qty, and approximate price
     filtered_set = set()
@@ -157,7 +165,7 @@ def _apply_risk_controls_to_paper_orders(
         qty = float(row["qty"])
         price = float(row["price"])
         filtered_set.add((symbol, side, qty, price))
-    
+
     # Categorize orders
     for order in paper_orders:
         # Normalize for matching
@@ -165,20 +173,22 @@ def _apply_risk_controls_to_paper_orders(
         side = order.side.upper()
         qty = order.quantity
         price = order.price if order.price is not None else 0.0
-        
+
         key = (symbol, side, qty, price)
-        
+
         if key in filtered_set:
             # Order passed risk controls
             passed_orders.append(order)
         else:
             # Order was blocked
             order.status = "REJECTED"
-            
+
             # Determine reason from risk result
             if risk_result.kill_switch_engaged:
                 order.reason = "KILL_SWITCH: Kill switch is engaged"
-            elif risk_result.pre_trade_result and not risk_result.pre_trade_result.is_ok:
+            elif (
+                risk_result.pre_trade_result and not risk_result.pre_trade_result.is_ok
+            ):
                 # Use first blocked reason (or generic message)
                 if risk_result.pre_trade_result.blocked_reasons:
                     reason_text = risk_result.pre_trade_result.blocked_reasons[0]
@@ -187,36 +197,38 @@ def _apply_risk_controls_to_paper_orders(
                         reason_text = reason_text[:197] + "..."
                     order.reason = f"PRE_TRADE_CHECK_FAILED: {reason_text}"
                 else:
-                    order.reason = "PRE_TRADE_CHECK_FAILED: Order blocked by pre-trade checks"
+                    order.reason = (
+                        "PRE_TRADE_CHECK_FAILED: Order blocked by pre-trade checks"
+                    )
             else:
                 order.reason = "PRE_TRADE_CHECK_FAILED: Order blocked by risk controls"
-            
+
             rejected_orders.append(order)
-    
+
     return passed_orders, rejected_orders
 
 
 @router.post("/orders", response_model=list[PaperOrderResponse])
 def submit_paper_orders(
-    orders: Union[PaperOrderRequest, list[PaperOrderRequest]]
+    orders: Union[PaperOrderRequest, list[PaperOrderRequest]],
 ) -> list[PaperOrderResponse]:
     """Submit orders to paper trading engine.
-    
+
     Accepts either a single order or a list of orders. Orders are validated through
     risk controls (pre-trade checks and kill switch) before execution. Orders that
     pass risk controls are immediately filled and positions are updated.
-    
+
     **Risk Controls (enabled by default):**
     - Pre-trade checks: Position size limits, gross exposure limits
     - Kill switch: Emergency block via ASSEMBLED_KILL_SWITCH environment variable
-    
+
     **Order Status:**
     - FILLED: Order passed risk controls and was executed
     - REJECTED: Order was blocked by risk controls (reason provided)
-    
+
     Args:
         orders: Single PaperOrderRequest or list of PaperOrderRequest objects
-    
+
     Returns:
         List of PaperOrderResponse objects with status updated (FILLED or REJECTED)
     """
@@ -225,7 +237,7 @@ def submit_paper_orders(
         order_list = [orders]
     else:
         order_list = orders
-    
+
     # Convert requests to PaperOrder objects
     paper_orders = []
     for req in order_list:
@@ -237,20 +249,22 @@ def submit_paper_orders(
             price=req.price,
             status="NEW",
             client_order_id=req.client_order_id,
-            route=req.route if req.route is not None else "PAPER",  # Use provided route or default to "PAPER"
+            route=req.route
+            if req.route is not None
+            else "PAPER",  # Use provided route or default to "PAPER"
             source=req.source,  # Pass through source from request
         )
         paper_orders.append(paper_order)
-    
+
     # Apply risk controls (if enabled)
     if _ENABLE_RISK_CONTROLS:
         passed_orders, rejected_orders = _apply_risk_controls_to_paper_orders(
             paper_orders,
             enable_pre_trade_checks=True,
             enable_kill_switch=True,
-            pre_trade_config=_DEFAULT_PRE_TRADE_CONFIG
+            pre_trade_config=_DEFAULT_PRE_TRADE_CONFIG,
         )
-        
+
         # Only submit orders that passed risk controls
         if passed_orders:
             try:
@@ -263,10 +277,12 @@ def submit_paper_orders(
                 filled_orders = []
                 rejected_orders.extend(passed_orders)
             except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Error submitting orders: {e}")
+                raise HTTPException(
+                    status_code=500, detail=f"Error submitting orders: {e}"
+                )
         else:
             filled_orders = []
-        
+
         # Combine filled and rejected orders
         all_orders = filled_orders + rejected_orders
     else:
@@ -277,7 +293,7 @@ def submit_paper_orders(
             raise HTTPException(status_code=400, detail=str(e))
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error submitting orders: {e}")
-    
+
     # Convert to responses
     responses = [_convert_order_to_response(order) for order in all_orders]
     return responses
@@ -286,21 +302,21 @@ def submit_paper_orders(
 @router.get("/orders", response_model=list[PaperOrderResponse])
 def list_paper_orders(limit: int | None = 50) -> list[PaperOrderResponse]:
     """List recent paper trading orders.
-    
+
     Args:
         limit: Maximum number of orders to return (default: 50)
-    
+
     Returns:
         List of PaperOrderResponse objects (newest first)
     """
     if limit is not None and limit < 0:
         raise HTTPException(status_code=400, detail="limit must be >= 0")
-    
+
     try:
         orders = _engine.list_orders(limit=limit)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error listing orders: {e}")
-    
+
     responses = [_convert_order_to_response(order) for order in orders]
     return responses
 
@@ -308,7 +324,7 @@ def list_paper_orders(limit: int | None = 50) -> list[PaperOrderResponse]:
 @router.get("/positions", response_model=list[PaperPosition])
 def get_paper_positions() -> list[PaperPosition]:
     """Get current paper trading positions.
-    
+
     Returns:
         List of PaperPosition objects (only non-zero positions)
     """
@@ -316,19 +332,18 @@ def get_paper_positions() -> list[PaperPosition]:
         positions = _engine.get_positions()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting positions: {e}")
-    
+
     return [
-        PaperPosition(symbol=pos.symbol, quantity=pos.quantity)
-        for pos in positions
+        PaperPosition(symbol=pos.symbol, quantity=pos.quantity) for pos in positions
     ]
 
 
 @router.post("/reset", response_model=PaperResetResponse)
 def reset_paper_trading() -> PaperResetResponse:
     """Reset paper trading engine (clear all orders and positions).
-    
+
     This endpoint is primarily for testing and development purposes.
-    
+
     Returns:
         PaperResetResponse with status
     """
@@ -336,6 +351,5 @@ def reset_paper_trading() -> PaperResetResponse:
         _engine.reset()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error resetting engine: {e}")
-    
-    return PaperResetResponse(status="ok")
 
+    return PaperResetResponse(status="ok")

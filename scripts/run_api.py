@@ -1,5 +1,6 @@
 # scripts/run_api.py
 """CLI entry point for FastAPI server."""
+
 from __future__ import annotations
 
 import sys
@@ -16,4 +17,3 @@ from src.assembled_core.api.app import create_app
 if __name__ == "__main__":
     app = create_app()
     uvicorn.run(app, host="0.0.0.0", port=8000)
-

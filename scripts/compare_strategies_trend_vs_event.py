@@ -6,6 +6,7 @@ Example usage:
     python scripts/compare_strategies_trend_vs_event.py --freq 1d
     python scripts/compare_strategies_trend_vs_event.py --freq 1d --price-file data/sample/eod_sample.parquet --no-costs
 """
+
 from __future__ import annotations
 
 import argparse
@@ -24,7 +25,6 @@ from src.assembled_core.costs import CostModel, get_default_cost_model
 from src.assembled_core.data.prices_ingest import load_eod_prices
 from src.assembled_core.ema_config import get_default_ema_config
 from src.assembled_core.logging_utils import setup_logging
-from src.assembled_core.portfolio.position_sizing import compute_target_positions_from_trend_signals
 from src.assembled_core.qa.backtest_engine import BacktestResult, run_portfolio_backtest
 from src.assembled_core.qa.metrics import PerformanceMetrics, compute_all_metrics
 
@@ -52,7 +52,7 @@ def run_strategy_backtest(
     with_costs: bool = True,
 ) -> dict[str, Any]:
     """Run a single strategy backtest and return key metrics.
-    
+
     Args:
         strategy_name: Strategy name ("trend_baseline" or "event_insider_shipping")
         prices: Price DataFrame with columns: timestamp, symbol, open, high, low, close, volume
@@ -60,7 +60,7 @@ def run_strategy_backtest(
         start_capital: Starting capital
         cost_model: Cost model configuration
         with_costs: Whether to include transaction costs
-    
+
     Returns:
         Dictionary with key metrics:
         - strategy: Strategy name
@@ -78,13 +78,12 @@ def run_strategy_backtest(
         - end_equity: Ending equity (as float)
     """
     logger.info(f"Running {strategy_name} strategy...")
-    
+
     # Create signal and position sizing functions
     if strategy_name == "trend_baseline":
         ema_config = get_default_ema_config(freq)
         signal_fn = create_trend_baseline_signal_fn(
-            ma_fast=ema_config.fast,
-            ma_slow=ema_config.slow
+            ma_fast=ema_config.fast, ma_slow=ema_config.slow
         )
         position_sizing_fn = create_position_sizing_fn()
     elif strategy_name == "event_insider_shipping":
@@ -92,7 +91,7 @@ def run_strategy_backtest(
         position_sizing_fn = create_event_position_sizing_fn()
     else:
         raise ValueError(f"Unknown strategy: {strategy_name}")
-    
+
     # Run backtest
     result: BacktestResult = run_portfolio_backtest(
         prices=prices,
@@ -107,18 +106,18 @@ def run_strategy_backtest(
         include_signals=False,
         include_targets=False,
         rebalance_freq=freq,
-        compute_features=True
+        compute_features=True,
     )
-    
+
     # Compute metrics
     metrics: PerformanceMetrics = compute_all_metrics(
         equity=result.equity,
         trades=result.trades,
         start_capital=start_capital,
         freq=freq,
-        risk_free_rate=0.0
+        risk_free_rate=0.0,
     )
-    
+
     # Extract key metrics into dictionary
     return {
         "strategy": strategy_name,
@@ -139,17 +138,17 @@ def run_strategy_backtest(
 
 def format_metric(value: float | None, format_type: str = "percent") -> str:
     """Format a metric value for display.
-    
+
     Args:
         value: Metric value (may be None)
         format_type: Format type ("percent", "float", "int")
-    
+
     Returns:
         Formatted string (or "N/A" if None)
     """
     if value is None:
         return "N/A"
-    
+
     if format_type == "percent":
         # Handle very large or negative percentages
         if abs(value) > 1000:
@@ -171,7 +170,7 @@ def write_comparison_markdown(
     start_capital: float,
 ) -> None:
     """Write comparison results to Markdown file.
-    
+
     Args:
         trend_metrics: Metrics dictionary for trend_baseline strategy
         event_metrics: Metrics dictionary for event_insider_shipping strategy
@@ -212,7 +211,7 @@ def write_comparison_markdown(
         f"| **Profit Factor** | {format_metric(event_metrics['profit_factor'], 'float')} | {format_metric(event_metrics['profit_factor'], 'float')} |",
         f"| **Turnover** | {format_metric(trend_metrics['turnover'], 'float')} | {format_metric(event_metrics['turnover'], 'float')} |",
     ]
-    
+
     output_path.write_text("\n".join(lines), encoding="utf-8")
     logger.info(f"Comparison summary written: {output_path}")
 
@@ -223,7 +222,7 @@ def write_comparison_csv(
     output_path: Path,
 ) -> None:
     """Write comparison results to CSV file.
-    
+
     Args:
         trend_metrics: Metrics dictionary for trend_baseline strategy
         event_metrics: Metrics dictionary for event_insider_shipping strategy
@@ -239,7 +238,7 @@ def print_comparison_table(
     event_metrics: dict[str, Any],
 ) -> None:
     """Print formatted comparison table to console.
-    
+
     Args:
         trend_metrics: Metrics dictionary for trend_baseline strategy
         event_metrics: Metrics dictionary for event_insider_shipping strategy
@@ -250,22 +249,46 @@ def print_comparison_table(
     logger.info("=" * 80)
     logger.info("")
     logger.info("Performance Metrics:")
-    logger.info(f"  Total Return:     Trend={format_metric(trend_metrics['total_return']):>10}  Event={format_metric(event_metrics['total_return']):>10}")
-    logger.info(f"  CAGR:             Trend={format_metric(trend_metrics['cagr']):>10}  Event={format_metric(event_metrics['cagr']):>10}")
-    logger.info(f"  Final PF:         Trend={format_metric(trend_metrics['final_pf'], 'float'):>10}  Event={format_metric(event_metrics['final_pf'], 'float'):>10}")
-    logger.info(f"  End Equity:       Trend=${format_metric(trend_metrics['end_equity'], 'float'):>9}  Event=${format_metric(event_metrics['end_equity'], 'float'):>9}")
+    logger.info(
+        f"  Total Return:     Trend={format_metric(trend_metrics['total_return']):>10}  Event={format_metric(event_metrics['total_return']):>10}"
+    )
+    logger.info(
+        f"  CAGR:             Trend={format_metric(trend_metrics['cagr']):>10}  Event={format_metric(event_metrics['cagr']):>10}"
+    )
+    logger.info(
+        f"  Final PF:         Trend={format_metric(trend_metrics['final_pf'], 'float'):>10}  Event={format_metric(event_metrics['final_pf'], 'float'):>10}"
+    )
+    logger.info(
+        f"  End Equity:       Trend=${format_metric(trend_metrics['end_equity'], 'float'):>9}  Event=${format_metric(event_metrics['end_equity'], 'float'):>9}"
+    )
     logger.info("")
     logger.info("Risk Metrics:")
-    logger.info(f"  Sharpe Ratio:     Trend={format_metric(trend_metrics['sharpe_ratio'], 'float'):>10}  Event={format_metric(event_metrics['sharpe_ratio'], 'float'):>10}")
-    logger.info(f"  Sortino Ratio:    Trend={format_metric(trend_metrics['sortino_ratio'], 'float'):>10}  Event={format_metric(event_metrics['sortino_ratio'], 'float'):>10}")
-    logger.info(f"  Max Drawdown:     Trend={format_metric(trend_metrics['max_drawdown_pct']):>10}  Event={format_metric(event_metrics['max_drawdown_pct']):>10}")
-    logger.info(f"  Volatility:       Trend={format_metric(trend_metrics['volatility']):>10}  Event={format_metric(event_metrics['volatility']):>10}")
+    logger.info(
+        f"  Sharpe Ratio:     Trend={format_metric(trend_metrics['sharpe_ratio'], 'float'):>10}  Event={format_metric(event_metrics['sharpe_ratio'], 'float'):>10}"
+    )
+    logger.info(
+        f"  Sortino Ratio:    Trend={format_metric(trend_metrics['sortino_ratio'], 'float'):>10}  Event={format_metric(event_metrics['sortino_ratio'], 'float'):>10}"
+    )
+    logger.info(
+        f"  Max Drawdown:     Trend={format_metric(trend_metrics['max_drawdown_pct']):>10}  Event={format_metric(event_metrics['max_drawdown_pct']):>10}"
+    )
+    logger.info(
+        f"  Volatility:       Trend={format_metric(trend_metrics['volatility']):>10}  Event={format_metric(event_metrics['volatility']):>10}"
+    )
     logger.info("")
     logger.info("Trade Metrics:")
-    logger.info(f"  Total Trades:     Trend={format_metric(trend_metrics['total_trades'], 'int'):>10}  Event={format_metric(event_metrics['total_trades'], 'int'):>10}")
-    logger.info(f"  Hit Rate:         Trend={format_metric(trend_metrics['hit_rate']):>10}  Event={format_metric(event_metrics['hit_rate']):>10}")
-    logger.info(f"  Profit Factor:    Trend={format_metric(trend_metrics['profit_factor'], 'float'):>10}  Event={format_metric(event_metrics['profit_factor'], 'float'):>10}")
-    logger.info(f"  Turnover:         Trend={format_metric(trend_metrics['turnover'], 'float'):>10}  Event={format_metric(event_metrics['turnover'], 'float'):>10}")
+    logger.info(
+        f"  Total Trades:     Trend={format_metric(trend_metrics['total_trades'], 'int'):>10}  Event={format_metric(event_metrics['total_trades'], 'int'):>10}"
+    )
+    logger.info(
+        f"  Hit Rate:         Trend={format_metric(trend_metrics['hit_rate']):>10}  Event={format_metric(event_metrics['hit_rate']):>10}"
+    )
+    logger.info(
+        f"  Profit Factor:    Trend={format_metric(trend_metrics['profit_factor'], 'float'):>10}  Event={format_metric(event_metrics['profit_factor'], 'float'):>10}"
+    )
+    logger.info(
+        f"  Turnover:         Trend={format_metric(trend_metrics['turnover'], 'float'):>10}  Event={format_metric(event_metrics['turnover'], 'float'):>10}"
+    )
     logger.info("")
     logger.info("=" * 80)
 
@@ -280,52 +303,52 @@ Examples:
   python scripts/compare_strategies_trend_vs_event.py --freq 1d
   python scripts/compare_strategies_trend_vs_event.py --freq 1d --price-file data/sample/eod_sample.parquet
   python scripts/compare_strategies_trend_vs_event.py --freq 1d --no-costs --start-capital 50000
-        """
+        """,
     )
-    
+
     parser.add_argument(
         "--freq",
         type=str,
         default="1d",
         choices=SUPPORTED_FREQS,
-        help=f"Trading frequency ({'/'.join(SUPPORTED_FREQS)}, default: 1d)"
+        help=f"Trading frequency ({'/'.join(SUPPORTED_FREQS)}, default: 1d)",
     )
-    
+
     parser.add_argument(
         "--price-file",
         type=Path,
         default=None,
-        help="Path to price file (default: data/sample/eod_sample.parquet)"
+        help="Path to price file (default: data/sample/eod_sample.parquet)",
     )
-    
+
     parser.add_argument(
         "--start-capital",
         type=float,
         default=10000.0,
-        help="Starting capital (default: 10000.0)"
+        help="Starting capital (default: 10000.0)",
     )
-    
+
     parser.add_argument(
         "--with-costs",
         action="store_true",
         default=True,
-        help="Include transaction costs (default: True)"
+        help="Include transaction costs (default: True)",
     )
-    
+
     parser.add_argument(
         "--no-costs",
         action="store_false",
         dest="with_costs",
-        help="Disable transaction costs"
+        help="Disable transaction costs",
     )
-    
+
     parser.add_argument(
         "--out",
         type=Path,
         default=None,
-        help="Output directory (default: output/strategy_compare/trend_vs_event)"
+        help="Output directory (default: output/strategy_compare/trend_vs_event)",
     )
-    
+
     return parser.parse_args()
 
 
@@ -333,25 +356,27 @@ def main() -> int:
     """Main entry point."""
     try:
         args = parse_args()
-        
+
         # Determine output directory
         if args.out:
             output_dir = Path(args.out)
         else:
             output_dir = OUTPUT_DIR / "strategy_compare" / "trend_vs_event"
         output_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Determine price file
         if args.price_file:
             price_file = args.price_file
         else:
             price_file = ROOT / "data" / "sample" / "eod_sample.parquet"
-        
+
         if not price_file.exists():
             logger.error(f"Price file not found: {price_file}")
-            logger.info("Please provide --price-file or ensure data/sample/eod_sample.parquet exists")
+            logger.info(
+                "Please provide --price-file or ensure data/sample/eod_sample.parquet exists"
+            )
             sys.exit(1)
-        
+
         logger.info("=" * 80)
         logger.info("Strategy Comparison: Trend Baseline vs Event Insider Shipping")
         logger.info("=" * 80)
@@ -361,28 +386,34 @@ def main() -> int:
         logger.info(f"With Costs: {args.with_costs}")
         logger.info(f"Output Dir: {output_dir}")
         logger.info("")
-        
+
         # Load price data
         logger.info("Loading price data...")
         prices = load_eod_prices(price_file=price_file, freq=args.freq)
-        
+
         if prices.empty:
             logger.error("No price data loaded")
             sys.exit(1)
-        
-        logger.info(f"Loaded {len(prices)} rows for {prices['symbol'].nunique()} symbols")
-        logger.info(f"Date range: {prices['timestamp'].min()} to {prices['timestamp'].max()}")
+
+        logger.info(
+            f"Loaded {len(prices)} rows for {prices['symbol'].nunique()} symbols"
+        )
+        logger.info(
+            f"Date range: {prices['timestamp'].min()} to {prices['timestamp'].max()}"
+        )
         logger.info("")
-        
+
         # Get cost model
         cost_model = get_default_cost_model()
-        logger.info(f"Cost Model: commission_bps={cost_model.commission_bps}, spread_w={cost_model.spread_w}, impact_w={cost_model.impact_w}")
+        logger.info(
+            f"Cost Model: commission_bps={cost_model.commission_bps}, spread_w={cost_model.spread_w}, impact_w={cost_model.impact_w}"
+        )
         logger.info("")
-        
+
         # Run both strategies
         logger.info("Running backtests...")
         logger.info("")
-        
+
         trend_metrics = run_strategy_backtest(
             strategy_name="trend_baseline",
             prices=prices,
@@ -391,9 +422,9 @@ def main() -> int:
             cost_model=cost_model,
             with_costs=args.with_costs,
         )
-        
+
         logger.info("")
-        
+
         event_metrics = run_strategy_backtest(
             strategy_name="event_insider_shipping",
             prices=prices,
@@ -402,11 +433,11 @@ def main() -> int:
             cost_model=cost_model,
             with_costs=args.with_costs,
         )
-        
+
         # Write comparison files
         logger.info("")
         logger.info("Writing comparison files...")
-        
+
         markdown_path = output_dir / "comparison_summary.md"
         write_comparison_markdown(
             trend_metrics=trend_metrics,
@@ -415,19 +446,19 @@ def main() -> int:
             freq=args.freq,
             start_capital=args.start_capital,
         )
-        
+
         csv_path = output_dir / "comparison_summary.csv"
         write_comparison_csv(
             trend_metrics=trend_metrics,
             event_metrics=event_metrics,
             output_path=csv_path,
         )
-        
+
         # Print comparison table
         print_comparison_table(trend_metrics, event_metrics)
-        
+
         return 0
-    
+
     except FileNotFoundError as e:
         logger.error(f"File not found: {e}")
         sys.exit(1)
@@ -444,4 +475,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

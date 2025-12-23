@@ -14,13 +14,13 @@ Usage:
       --start-date 2010-01-01 \
       --end-date 2025-12-03
 """
+
 from __future__ import annotations
 
 import argparse
 import logging
 import sys
 from pathlib import Path
-from typing import Sequence
 
 import pandas as pd
 
@@ -28,7 +28,6 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from src.assembled_core.config.settings import get_settings
 from src.assembled_core.qa.factor_analysis import add_forward_returns
 
 # Reuse existing logic from run_factor_analysis
@@ -225,7 +224,9 @@ def _merge_factors_with_forward_returns(
         # Keep close_x (from panel_with_fwd, which has forward returns)
         merged["close"] = merged["close_x"]
         merged = merged.drop(columns=["close_x", "close_y"])
-        logger.info("Removed duplicate close columns (close_x, close_y) → kept as 'close'")
+        logger.info(
+            "Removed duplicate close columns (close_x, close_y) → kept as 'close'"
+        )
     elif "close_x" in merged.columns:
         # Only close_x exists, rename to close
         merged = merged.rename(columns={"close_x": "close"})
@@ -250,7 +251,9 @@ def export_factor_panel_for_ml(args: argparse.Namespace) -> Path:
             args.data_source,
         )
 
-    logger.info("Lade Preise (data_source=%s, freq=%s) ...", args.data_source, args.freq)
+    logger.info(
+        "Lade Preise (data_source=%s, freq=%s) ...", args.data_source, args.freq
+    )
 
     prices = load_price_data(
         freq=args.freq,
@@ -299,8 +302,7 @@ def export_factor_panel_for_ml(args: argparse.Namespace) -> Path:
     panel.to_parquet(out_path, index=False)
 
     logger.info(
-        "Fertig. Factor-Panel: %d Zeilen, %d Spalten. "
-        "Spaltenbeispiele: %s",
+        "Fertig. Factor-Panel: %d Zeilen, %d Spalten. Spaltenbeispiele: %s",
         len(panel),
         panel.shape[1],
         ", ".join(list(panel.columns[:10])),
@@ -323,4 +325,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

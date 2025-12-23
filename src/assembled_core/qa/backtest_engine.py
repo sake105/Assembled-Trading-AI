@@ -19,18 +19,18 @@ Example usage:
     >>> from src.assembled_core.data.prices_ingest import load_eod_prices
     >>> from src.assembled_core.signals.rules_trend import generate_trend_signals_from_prices
     >>> from src.assembled_core.portfolio.position_sizing import compute_target_positions
-    >>> 
+    >>>
     >>> # Load prices
     >>> prices = load_eod_prices(freq="1d")
-    >>> 
+    >>>
     >>> # Define signal function
     >>> def my_signal_fn(prices_df):
     ...     return generate_trend_signals_from_prices(prices_df, ma_fast=20, ma_slow=50)
-    >>> 
+    >>>
     >>> # Define position sizing function
     >>> def my_sizing_fn(signals_df, capital):
     ...     return compute_target_positions(signals_df, total_capital=capital, equal_weight=True)
-    >>> 
+    >>>
     >>> # Run backtest
     >>> result = run_portfolio_backtest(
     ...     prices=prices,
@@ -42,7 +42,7 @@ Example usage:
     ...     impact_w=0.5,
     ...     include_trades=True
     ... )
-    >>> 
+    >>>
     >>> equity = result["equity"]
     >>> metrics = result["metrics"]
     >>> trades = result["trades"]  # Optional
@@ -53,6 +53,7 @@ Zukünftige Integration:
 - Nutzt execution.order_generation für Order-Generierung
 - Erweitert um Walk-Forward-Analyse, Monte-Carlo-Simulation, etc.
 """
+
 from __future__ import annotations
 
 import logging
@@ -65,7 +66,11 @@ import pandas as pd
 
 from src.assembled_core.costs import CostModel, get_default_cost_model
 from src.assembled_core.execution.order_generation import generate_orders_from_targets
-from src.assembled_core.features.ta_features import add_all_features, add_log_returns, add_moving_averages
+from src.assembled_core.features.ta_features import (
+    add_all_features,
+    add_log_returns,
+    add_moving_averages,
+)
 from src.assembled_core.pipeline.backtest import compute_metrics, simulate_equity
 from src.assembled_core.pipeline.portfolio import simulate_with_costs
 from src.assembled_core.utils.timing import timed_block
@@ -76,7 +81,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class BacktestResult:
     """Result of a portfolio-level backtest.
-    
+
     Attributes:
         equity: DataFrame with columns: date, timestamp, equity, daily_return
             Equity curve over time with daily returns
@@ -99,6 +104,7 @@ class BacktestResult:
             Target positions computed at each rebalancing point
             Only present if include_targets=True in run_portfolio_backtest
     """
+
     equity: pd.DataFrame
     metrics: dict[str, float | int]
     trades: pd.DataFrame | None = None
@@ -112,10 +118,10 @@ def _update_positions_vectorized(
     use_numba: bool = True,
 ) -> pd.DataFrame:
     """Update positions DataFrame from orders using vectorized operations.
-    
+
     This function replaces the iterative order execution logic with vectorized
     pandas operations (optionally accelerated with Numba) for better performance.
-    
+
     Args:
         orders: DataFrame with columns: timestamp, symbol, side, qty, price
             Orders to execute (side is "BUY" or "SELL", qty is always positive)
@@ -123,11 +129,11 @@ def _update_positions_vectorized(
             Current portfolio positions
         use_numba: If True, attempt to use Numba-accelerated path (default: True)
             Falls back to pure pandas if numba is not available
-    
+
     Returns:
         Updated DataFrame with columns: symbol, qty
         Positions after executing all orders, with zero positions removed
-    
+
     Note:
         This function preserves exact numerical behavior of the original
         iterative implementation by using the same logic (BUY adds qty,
@@ -135,7 +141,7 @@ def _update_positions_vectorized(
     """
     if orders.empty:
         return current_positions.copy()
-    
+
     # Try Numba-accelerated path if available and requested
     if use_numba:
         try:
@@ -144,64 +150,65 @@ def _update_positions_vectorized(
                 compute_position_deltas_numba,
                 aggregate_position_deltas_numba,
             )
-            
+
             if NUMBA_AVAILABLE:
                 # Convert to numpy arrays for Numba
                 symbols_list = orders["symbol"].unique().tolist()
                 symbol_to_idx = {sym: idx for idx, sym in enumerate(symbols_list)}
-                
+
                 # Map sides to integers (0=BUY, 1=SELL)
                 side_map = {"BUY": 0, "SELL": 1}
                 sides = orders["side"].map(side_map).values.astype(np.int32)
                 qtys = orders["qty"].values.astype(np.float64)
-                symbol_indices = orders["symbol"].map(symbol_to_idx).values.astype(np.int32)
-                
+                symbol_indices = (
+                    orders["symbol"].map(symbol_to_idx).values.astype(np.int32)
+                )
+
                 # Compute deltas with Numba
                 deltas = compute_position_deltas_numba(sides, qtys)
-                
+
                 # Aggregate by symbol with Numba
                 unique_indices, aggregated_deltas = aggregate_position_deltas_numba(
                     symbol_indices, deltas
                 )
-                
+
                 # Convert back to DataFrame
                 unique_symbols = [symbols_list[i] for i in unique_indices]
-                position_deltas = pd.DataFrame({
-                    "symbol": unique_symbols,
-                    "qty_delta": aggregated_deltas
-                })
-                
+                position_deltas = pd.DataFrame(
+                    {"symbol": unique_symbols, "qty_delta": aggregated_deltas}
+                )
+
                 # Merge with current positions (pandas merge is still efficient)
                 if current_positions.empty:
-                    updated_positions = position_deltas.rename(columns={"qty_delta": "qty"})
+                    updated_positions = position_deltas.rename(
+                        columns={"qty_delta": "qty"}
+                    )
                 else:
                     merged = current_positions.merge(
-                        position_deltas,
-                        on="symbol",
-                        how="outer"
+                        position_deltas, on="symbol", how="outer"
                     )
                     merged["qty"] = merged["qty"].fillna(0.0).astype(float)
                     merged["qty_delta"] = merged["qty_delta"].fillna(0.0).astype(float)
                     merged["qty"] = merged["qty"] + merged["qty_delta"]
                     updated_positions = merged[["symbol", "qty"]].copy()
-                
+
                 # Remove zero positions
                 updated_positions = updated_positions[
                     updated_positions["qty"].abs() > 1e-6
                 ].reset_index(drop=True)
-                
+
                 return updated_positions
         except (ImportError, AttributeError):
             # Fall through to pandas implementation
             pass
-    
+
     # Pure pandas implementation (fallback or if use_numba=False)
     # Use vectorized numpy operations instead of apply
     # Note: np is already imported at module level
     position_delta_sign = np.where(orders["side"] == "BUY", 1.0, -1.0)
     orders_copy = orders.copy()
     orders_copy["position_delta"] = orders_copy["qty"].values * position_delta_sign
-    
+
     # Aggregate deltas by symbol (multiple orders for same symbol are summed)
     position_deltas = (
         orders_copy.groupby("symbol")["position_delta"]
@@ -209,26 +216,22 @@ def _update_positions_vectorized(
         .reset_index()
         .rename(columns={"position_delta": "qty_delta"})
     )
-    
+
     # Merge with current positions
     if current_positions.empty:
         updated_positions = position_deltas.rename(columns={"qty_delta": "qty"})
     else:
-        merged = current_positions.merge(
-            position_deltas,
-            on="symbol",
-            how="outer"
-        )
+        merged = current_positions.merge(position_deltas, on="symbol", how="outer")
         merged["qty"] = merged["qty"].fillna(0.0).astype(float)
         merged["qty_delta"] = merged["qty_delta"].fillna(0.0).astype(float)
         merged["qty"] = merged["qty"] + merged["qty_delta"]
         updated_positions = merged[["symbol", "qty"]].copy()
-    
+
     # Remove zero positions (same threshold as original: 1e-6)
     updated_positions = updated_positions[
         updated_positions["qty"].abs() > 1e-6
     ].reset_index(drop=True)
-    
+
     return updated_positions
 
 
@@ -256,7 +259,7 @@ def run_portfolio_backtest(
     meta_ensemble_mode: str = "filter",  # "filter" or "scaling"
 ) -> BacktestResult:
     """Run a portfolio-level backtest with configurable signal and position sizing functions.
-    
+
     This is the main entry point for portfolio-level backtesting. It orchestrates:
     1. Feature computation (optional)
     2. Signal generation (via signal_fn)
@@ -264,7 +267,7 @@ def run_portfolio_backtest(
     4. Order generation
     5. Equity simulation (with or without costs)
     6. Performance metrics computation
-    
+
     Args:
         prices: DataFrame with columns: timestamp, symbol, close (and optionally open, high, low, volume)
             Price data for backtesting. Must be sorted by symbol, then timestamp.
@@ -293,7 +296,7 @@ def run_portfolio_backtest(
             - atr_window: int = 14
             - rsi_window: int = 14
             - include_rsi: bool = True
-    
+
     Returns:
         BacktestResult with:
         - equity: DataFrame with columns: date, timestamp, equity, daily_return
@@ -301,25 +304,25 @@ def run_portfolio_backtest(
         - trades: Optional DataFrame with all trades (if include_trades=True)
         - signals: Optional DataFrame with all signals (if include_signals=True)
         - target_positions: Optional DataFrame with target positions (if include_targets=True)
-    
+
     Raises:
         ValueError: If required columns are missing in prices
         KeyError: If signal_fn or position_sizing_fn return invalid DataFrames
-    
+
     Example:
         >>> # Simple trend-following backtest
         >>> from src.assembled_core.data.prices_ingest import load_eod_prices
         >>> from src.assembled_core.signals.rules_trend import generate_trend_signals_from_prices
         >>> from src.assembled_core.portfolio.position_sizing import compute_target_positions
-        >>> 
+        >>>
         >>> prices = load_eod_prices(freq="1d")
-        >>> 
+        >>>
         >>> def signal_fn(prices_df):
         ...     return generate_trend_signals_from_prices(prices_df, ma_fast=20, ma_slow=50)
-        >>> 
+        >>>
         >>> def sizing_fn(signals_df, capital):
         ...     return compute_target_positions(signals_df, total_capital=capital, equal_weight=True)
-        >>> 
+        >>>
         >>> result = run_portfolio_backtest(
         ...     prices=prices,
         ...     signal_fn=signal_fn,
@@ -328,7 +331,7 @@ def run_portfolio_backtest(
         ...     include_costs=True,
         ...     include_trades=True
         ... )
-        >>> 
+        >>>
         >>> print(f"Final PF: {result.metrics['final_pf']:.4f}")
         >>> print(f"Sharpe: {result.metrics['sharpe']:.4f}")
         >>> print(f"Trades: {result.metrics['trades']}")
@@ -336,15 +339,15 @@ def run_portfolio_backtest(
     # Validate input
     if prices is None or prices.empty:
         raise ValueError("Missing required columns: prices DataFrame is None or empty")
-    
+
     required_cols = ["timestamp", "symbol", "close"]
     missing = [c for c in required_cols if c not in prices.columns]
     if missing:
         raise ValueError(f"Missing required columns: {', '.join(missing)}")
-    
+
     # Ensure prices are sorted
     prices = prices.sort_values(["symbol", "timestamp"]).reset_index(drop=True).copy()
-    
+
     # Step 1: Compute features (optional)
     with timed_block("backtest_step1_features"):
         # Only compute features if prices is not empty (features require data)
@@ -358,59 +361,72 @@ def run_portfolio_backtest(
                     ma_windows=config.get("ma_windows", (20, 50, 200)),
                     atr_window=config.get("atr_window", 14),
                     rsi_window=config.get("rsi_window", 14),
-                    include_rsi=config.get("include_rsi", True)
+                    include_rsi=config.get("include_rsi", True),
                 )
             else:
                 # If OHLC not available, only compute features that don't need them
                 prices_with_features = add_log_returns(prices.copy())
                 prices_with_features = add_moving_averages(
                     prices_with_features,
-                    windows=config.get("ma_windows", (20, 50, 200))
+                    windows=config.get("ma_windows", (20, 50, 200)),
                 )
         else:
             prices_with_features = prices.copy()
-    
+
     # Step 2: Generate signals
     with timed_block("backtest_step2_signal_generation"):
         signals = signal_fn(prices_with_features)
-    
+
     # Validate signals
     required_signal_cols = ["timestamp", "symbol", "direction"]
     missing_signal = [c for c in required_signal_cols if c not in signals.columns]
     if missing_signal:
-        raise KeyError(f"signal_fn must return DataFrame with columns: {required_signal_cols}. Missing: {missing_signal}")
-    
+        raise KeyError(
+            f"signal_fn must return DataFrame with columns: {required_signal_cols}. Missing: {missing_signal}"
+        )
+
         signals = signals.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
-    
+
     # Step 2.5: Apply meta-model ensemble (if enabled)
     if use_meta_model:
         logger.info("Applying meta-model ensemble...")
-        
+
         # Load meta-model if path provided
         if meta_model is None and meta_model_path is not None:
             try:
                 from src.assembled_core.signals.meta_model import load_meta_model
+
                 meta_model = load_meta_model(meta_model_path)
                 logger.info(f"Loaded meta-model from {meta_model_path}")
             except Exception as e:
                 logger.error(f"Failed to load meta-model from {meta_model_path}: {e}")
                 raise ValueError(f"Failed to load meta-model: {e}") from e
-        
+
         if meta_model is None:
-            raise ValueError("use_meta_model=True but no meta_model or meta_model_path provided")
-        
+            raise ValueError(
+                "use_meta_model=True but no meta_model or meta_model_path provided"
+            )
+
         # Extract features for meta-model
         # Features must match the feature_names used during training
         feature_cols = meta_model.feature_names
-        
+
         # Check which features are available in prices_with_features
-        available_features = [f for f in feature_cols if f in prices_with_features.columns]
-        missing_features = [f for f in feature_cols if f not in prices_with_features.columns]
-        
+        available_features = [
+            f for f in feature_cols if f in prices_with_features.columns
+        ]
+        missing_features = [
+            f for f in feature_cols if f not in prices_with_features.columns
+        ]
+
         if missing_features:
-            logger.warning(f"Missing {len(missing_features)} features for meta-model: {missing_features[:5]}...")
-            logger.warning("Meta-model ensemble may not work correctly. Continuing anyway...")
-        
+            logger.warning(
+                f"Missing {len(missing_features)} features for meta-model: {missing_features[:5]}..."
+            )
+            logger.warning(
+                "Meta-model ensemble may not work correctly. Continuing anyway..."
+            )
+
         if not available_features:
             logger.error("No features available for meta-model. Disabling ensemble.")
             use_meta_model = False
@@ -420,36 +436,43 @@ def run_portfolio_backtest(
             signals_with_features = signals.merge(
                 prices_with_features[["timestamp", "symbol"] + available_features],
                 on=["timestamp", "symbol"],
-                how="inner"
+                how="inner",
             )
-            
+
             if signals_with_features.empty:
-                logger.warning("No signals matched with features. Disabling meta-model ensemble.")
+                logger.warning(
+                    "No signals matched with features. Disabling meta-model ensemble."
+                )
                 use_meta_model = False
             else:
                 # Extract features DataFrame (only available features)
                 features_subset = signals_with_features[available_features].copy()
-                
+
                 # Fill missing features with 0 (for features not in prices_with_features)
                 if missing_features:
                     for feat in missing_features:
                         features_subset[feat] = 0.0
                     # Reorder to match meta_model.feature_names
                     features_subset = features_subset[meta_model.feature_names]
-                
+
                 # Apply ensemble layer
-                from src.assembled_core.signals.ensemble import apply_meta_filter, apply_meta_scaling
-                
+                from src.assembled_core.signals.ensemble import (
+                    apply_meta_filter,
+                    apply_meta_scaling,
+                )
+
                 original_signal_count = len(signals_with_features)
-                original_long_count = (signals_with_features["direction"] == "LONG").sum()
-                
+                original_long_count = (
+                    signals_with_features["direction"] == "LONG"
+                ).sum()
+
                 if meta_ensemble_mode == "filter":
                     signals_with_features = apply_meta_filter(
                         signals=signals_with_features,
                         meta_model=meta_model,
                         features=features_subset,
                         min_confidence=meta_min_confidence,
-                        join_keys=["timestamp", "symbol"]
+                        join_keys=["timestamp", "symbol"],
                     )
                 elif meta_ensemble_mode == "scaling":
                     signals_with_features = apply_meta_scaling(
@@ -459,99 +482,125 @@ def run_portfolio_backtest(
                         min_confidence=meta_min_confidence,
                         max_scaling=1.0,
                         join_keys=["timestamp", "symbol"],
-                        scale_score=True
+                        scale_score=True,
                     )
                 else:
-                    raise ValueError(f"Unsupported meta_ensemble_mode: {meta_ensemble_mode}. Supported: 'filter', 'scaling'")
-                
+                    raise ValueError(
+                        f"Unsupported meta_ensemble_mode: {meta_ensemble_mode}. Supported: 'filter', 'scaling'"
+                    )
+
                 # Update signals with filtered/scaled results
                 # Keep original signals structure but update direction and add meta_confidence
                 meta_cols = ["timestamp", "symbol", "direction", "meta_confidence"]
                 if "final_score" in signals_with_features.columns:
                     meta_cols.append("final_score")
-                
+
                 signals = signals.merge(
                     signals_with_features[meta_cols],
                     on=["timestamp", "symbol"],
                     how="left",
-                    suffixes=("", "_meta")
+                    suffixes=("", "_meta"),
                 )
-                
+
                 # Update direction from meta-filtered signals
                 if "direction_meta" in signals.columns:
-                    signals["direction"] = signals["direction_meta"].fillna(signals["direction"])
+                    signals["direction"] = signals["direction_meta"].fillna(
+                        signals["direction"]
+                    )
                     signals = signals.drop(columns=["direction_meta"])
-                
+
                 # Update score if final_score is available (from scaling mode)
                 if "final_score" in signals.columns:
                     if "score" not in signals.columns:
                         signals["score"] = 0.0
                     signals["score"] = signals["final_score"].fillna(signals["score"])
                     signals = signals.drop(columns=["final_score"])
-                
+
                 # Log results
                 filtered_signal_count = len(signals_with_features)
-                filtered_long_count = (signals_with_features["direction"] == "LONG").sum()
+                filtered_long_count = (
+                    signals_with_features["direction"] == "LONG"
+                ).sum()
                 dropped_count = original_long_count - filtered_long_count
-                
-                logger.info(f"Meta-model ensemble applied:")
-                logger.info(f"  Original signals: {original_signal_count} (LONG: {original_long_count})")
-                logger.info(f"  After filtering: {filtered_signal_count} (LONG: {filtered_long_count})")
+
+                logger.info("Meta-model ensemble applied:")
+                logger.info(
+                    f"  Original signals: {original_signal_count} (LONG: {original_long_count})"
+                )
+                logger.info(
+                    f"  After filtering: {filtered_signal_count} (LONG: {filtered_long_count})"
+                )
                 logger.info(f"  Dropped signals: {dropped_count}")
-                logger.info(f"  Mode: {meta_ensemble_mode}, Min confidence: {meta_min_confidence}")
-    
+                logger.info(
+                    f"  Mode: {meta_ensemble_mode}, Min confidence: {meta_min_confidence}"
+                )
+
     # Step 3: Compute target positions (group by timestamp for rebalancing)
     with timed_block("backtest_step3_position_sizing"):
         all_targets = []
         all_orders = []
         current_positions = pd.DataFrame(columns=["symbol", "qty"])
-        
+
         # Group signals by timestamp for rebalancing
         for timestamp, signal_group in signals.groupby("timestamp"):
             # Compute target positions for this timestamp
             targets = position_sizing_fn(signal_group, start_capital)
-            
+
             # Generate orders to transition from current to target positions
             orders = generate_orders_from_targets(
                 target_positions=targets,
                 current_positions=current_positions,
                 timestamp=timestamp,
-                prices=prices[prices["timestamp"] == timestamp] if len(prices[prices["timestamp"] == timestamp]) > 0 else None
+                prices=prices[prices["timestamp"] == timestamp]
+                if len(prices[prices["timestamp"] == timestamp]) > 0
+                else None,
             )
-            
+
             # Update current positions using vectorized operations
             if not orders.empty:
-                current_positions = _update_positions_vectorized(orders, current_positions)
-            
+                current_positions = _update_positions_vectorized(
+                    orders, current_positions
+                )
+
             # Store targets and orders
             if include_targets and not targets.empty:
                 targets_copy = targets.copy()
                 targets_copy["timestamp"] = timestamp
                 all_targets.append(targets_copy)
-            
+
             if not orders.empty:
                 all_orders.append(orders)
-        
+
         # Combine all orders
         if all_orders:
             orders_df = pd.concat(all_orders, ignore_index=True)
             orders_df = orders_df.sort_values("timestamp").reset_index(drop=True)
         else:
-            orders_df = pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
-    
+            orders_df = pd.DataFrame(
+                columns=["timestamp", "symbol", "side", "qty", "price"]
+            )
+
     # Step 4: Simulate equity
     with timed_block("backtest_step4_equity_simulation"):
         # Get cost parameters
         if cost_model is not None:
-            commission_bps = commission_bps if commission_bps is not None else cost_model.commission_bps
+            commission_bps = (
+                commission_bps
+                if commission_bps is not None
+                else cost_model.commission_bps
+            )
             spread_w = spread_w if spread_w is not None else cost_model.spread_w
             impact_w = impact_w if impact_w is not None else cost_model.impact_w
         else:
             default_costs = get_default_cost_model()
-            commission_bps = commission_bps if commission_bps is not None else default_costs.commission_bps
+            commission_bps = (
+                commission_bps
+                if commission_bps is not None
+                else default_costs.commission_bps
+            )
             spread_w = spread_w if spread_w is not None else default_costs.spread_w
             impact_w = impact_w if impact_w is not None else default_costs.impact_w
-        
+
         if include_costs:
             equity, metrics = simulate_with_costs(
                 orders=orders_df,
@@ -559,7 +608,7 @@ def run_portfolio_backtest(
                 commission_bps=commission_bps,
                 spread_w=spread_w,
                 impact_w=impact_w,
-                freq=rebalance_freq
+                freq=rebalance_freq,
             )
             # Add trades count to metrics
             metrics["trades"] = len(orders_df)
@@ -567,7 +616,7 @@ def run_portfolio_backtest(
             equity = simulate_equity(prices, orders_df, start_capital)
             metrics = compute_metrics(equity)
             metrics["trades"] = len(orders_df)
-    
+
     # Step 5: Enhance equity DataFrame with daily_return
     with timed_block("backtest_step5_equity_enhancement"):
         # Ensure equity has timestamp column (rename if needed)
@@ -600,18 +649,22 @@ def run_portfolio_backtest(
                     equity["date"] = pd.to_datetime(equity["timestamp"]).dt.date
                 else:
                     # Last resort: use row number as date surrogate
-                    equity["date"] = pd.date_range(start="2000-01-01", periods=len(equity), freq="D").date
+                    equity["date"] = pd.date_range(
+                        start="2000-01-01", periods=len(equity), freq="D"
+                    ).date
                     equity["timestamp"] = pd.to_datetime(equity["date"])
             equity["daily_return"] = equity["equity"].pct_change().fillna(0.0)
             equity = equity[["date", "timestamp", "equity", "daily_return"]].copy()
-    
+
     # Step 6: Build result
     result = BacktestResult(
         equity=equity,
         metrics=metrics,
         trades=orders_df if include_trades else None,
         signals=signals if include_signals else None,
-        target_positions=pd.concat(all_targets, ignore_index=True) if include_targets and all_targets else None
+        target_positions=pd.concat(all_targets, ignore_index=True)
+        if include_targets and all_targets
+        else None,
     )
-    
+
     return result

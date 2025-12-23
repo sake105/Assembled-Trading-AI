@@ -74,6 +74,7 @@ class FactorExposureConfig:
         ridge_alpha: Ridge shrinkage parameter (only used if regression_method="ridge", default: 1.0)
         min_r2_for_report: Minimum R² to include in summary report (default: 0.0)
     """
+
     freq: Literal["1d", "1w", "1m"] = "1d"
     window_size: int = 252
     min_obs: int = 60
@@ -132,7 +133,9 @@ def compute_factor_exposures(
     )
 
     if aligned.empty:
-        logger.warning("No overlapping timestamps between strategy_returns and factor_returns")
+        logger.warning(
+            "No overlapping timestamps between strategy_returns and factor_returns"
+        )
         return pd.DataFrame()
 
     # Get factor column names
@@ -196,7 +199,9 @@ def compute_factor_exposures(
 
         # Fit regression model
         if config.regression_method == "ols":
-            model = LinearRegression(fit_intercept=False)  # We already added constant if needed
+            model = LinearRegression(
+                fit_intercept=False
+            )  # We already added constant if needed
         else:  # ridge
             model = Ridge(alpha=config.ridge_alpha, fit_intercept=False)
 
@@ -342,4 +347,3 @@ def summarize_factor_exposures(
     ).reset_index(drop=True)
 
     return summary_df
-

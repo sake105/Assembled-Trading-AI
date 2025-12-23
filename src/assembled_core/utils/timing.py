@@ -26,12 +26,12 @@ def timed_block(name: str):
     Examples
     --------
     >>> from src.assembled_core.utils.timing import timed_block
-    >>> 
+    >>>
     >>> with timed_block("build_factors"):
     ...     factors_df = compute_factors(...)
-    ... 
+    ...
     >>> # Log output: TIMING | build_factors | 1.234 sec
-    >>> 
+    >>>
     >>> with timed_block("run_backtest"):
     ...     result = run_backtest(...)
     """
@@ -41,4 +41,3 @@ def timed_block(name: str):
     finally:
         duration = time.perf_counter() - start
         logger.info("TIMING | %s | %.3f sec", name, duration)
-

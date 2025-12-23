@@ -1,5 +1,6 @@
 # tests/test_io_smoke.py
 """Smoke tests for I/O functions using existing output files."""
+
 from __future__ import annotations
 
 import sys
@@ -12,7 +13,11 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.assembled_core.pipeline.io import load_orders, load_prices, load_prices_with_fallback
+from src.assembled_core.pipeline.io import (
+    load_orders,
+    load_prices,
+    load_prices_with_fallback,
+)
 
 
 def test_load_prices_1d_if_exists():
@@ -86,4 +91,3 @@ def test_load_orders_5min_if_exists():
             assert "price" in df.columns
     except FileNotFoundError:
         pytest.skip("output/orders_5min.csv not found (skip if no orders)")
-

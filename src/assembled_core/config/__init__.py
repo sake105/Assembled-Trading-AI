@@ -4,10 +4,16 @@ This package provides:
 - `config.py`: Legacy configuration (OUTPUT_DIR, SUPPORTED_FREQS)
 - `settings.py`: New Pydantic Settings-based configuration (environment modes, paths)
 """
+
 from __future__ import annotations
 
 # Import legacy config for backward compatibility
-from src.assembled_core.config.config import OUTPUT_DIR, SUPPORTED_FREQS, get_base_dir, get_output_path
+from src.assembled_core.config.config import (
+    OUTPUT_DIR,
+    SUPPORTED_FREQS,
+    get_base_dir,
+    get_output_path,
+)
 
 # Import new settings
 from src.assembled_core.config.settings import (
@@ -52,4 +58,3 @@ try:
 except ImportError:
     # Factor bundles module may not be available in all contexts
     pass
-

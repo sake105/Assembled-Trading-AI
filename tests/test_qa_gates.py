@@ -1,4 +1,5 @@
 """Tests for qa.qa_gates module."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -30,11 +31,8 @@ def equity_strong_positive() -> pd.DataFrame:
     np.random.seed(42)
     returns = np.random.normal(0.003, 0.015, 252)
     equity = 10000.0 * (1 + returns).cumprod()
-    
-    return pd.DataFrame({
-        "timestamp": dates,
-        "equity": equity
-    })
+
+    return pd.DataFrame({"timestamp": dates, "equity": equity})
 
 
 @pytest.fixture
@@ -45,11 +43,8 @@ def equity_negative() -> pd.DataFrame:
     np.random.seed(43)
     returns = np.random.normal(-0.003, 0.015, 252)
     equity = 10000.0 * (1 + returns).cumprod()
-    
-    return pd.DataFrame({
-        "timestamp": dates,
-        "equity": equity
-    })
+
+    return pd.DataFrame({"timestamp": dates, "equity": equity})
 
 
 @pytest.fixture
@@ -63,18 +58,18 @@ def equity_sideways() -> pd.DataFrame:
     start_capital = 10000.0
     n = len(dates)
     equity_values = [start_capital]
-    
+
     # Generate random returns with small positive drift and moderate volatility
     # Drift of 0.0018 (0.18% daily) with volatility 0.018 (1.8%) should give:
     # - Sharpe around 0.5-0.7 (WARNING range, not BLOCK, >= 0.5)
     # - Volatility 25-30% (WARNING range, not BLOCK, <= 30%)
     # - Small total return (sideways)
     returns = np.random.normal(0.0018, 0.018, n - 1)
-    
+
     # Build equity curve
     for r in returns:
         equity_values.append(equity_values[-1] * (1 + r))
-    
+
     # Scale so it ends close to start_capital (sideways, but with small positive return)
     # This gives positive Sharpe but small total return
     end_value = equity_values[-1]
@@ -83,11 +78,8 @@ def equity_sideways() -> pd.DataFrame:
         target_end = start_capital * 1.02
         scale = target_end / end_value
         equity_values = [v * scale for v in equity_values]
-    
-    return pd.DataFrame({
-        "timestamp": dates,
-        "equity": equity_values
-    })
+
+    return pd.DataFrame({"timestamp": dates, "equity": equity_values})
 
 
 @pytest.fixture
@@ -97,14 +89,16 @@ def trades_high_turnover() -> pd.DataFrame:
     trades = []
     for i, date in enumerate(dates):
         # Trade every day
-        trades.append({
-            "timestamp": date,
-            "symbol": f"SYM{i % 5}",
-            "side": "BUY" if i % 2 == 0 else "SELL",
-            "qty": 100.0,
-            "price": 100.0 + i * 0.1
-        })
-    
+        trades.append(
+            {
+                "timestamp": date,
+                "symbol": f"SYM{i % 5}",
+                "side": "BUY" if i % 2 == 0 else "SELL",
+                "qty": 100.0,
+                "price": 100.0 + i * 0.1,
+            }
+        )
+
     return pd.DataFrame(trades)
 
 
@@ -114,14 +108,16 @@ def trades_low_turnover() -> pd.DataFrame:
     dates = pd.date_range("2020-01-01", periods=10, freq="D")
     trades = []
     for i, date in enumerate(dates):
-        trades.append({
-            "timestamp": date,
-            "symbol": "AAPL",
-            "side": "BUY" if i % 2 == 0 else "SELL",
-            "qty": 10.0,
-            "price": 100.0 + i * 0.5
-        })
-    
+        trades.append(
+            {
+                "timestamp": date,
+                "symbol": "AAPL",
+                "side": "BUY" if i % 2 == 0 else "SELL",
+                "qty": 10.0,
+                "price": 100.0 + i * 0.5,
+            }
+        )
+
     return pd.DataFrame(trades)
 
 
@@ -150,7 +146,7 @@ def metrics_good() -> PerformanceMetrics:
         end_date=pd.Timestamp("2020-12-31"),
         periods=252,
         start_capital=10000.0,
-        end_equity=12000.0
+        end_equity=12000.0,
     )
 
 
@@ -179,7 +175,7 @@ def metrics_warning() -> PerformanceMetrics:
         end_date=pd.Timestamp("2020-12-31"),
         periods=252,
         start_capital=10000.0,
-        end_equity=10500.0
+        end_equity=10500.0,
     )
 
 
@@ -208,7 +204,7 @@ def metrics_block() -> PerformanceMetrics:
         end_date=pd.Timestamp("2020-12-31"),
         periods=252,
         start_capital=10000.0,
-        end_equity=9500.0
+        end_equity=9500.0,
     )
 
 
@@ -237,7 +233,7 @@ def metrics_no_trades() -> PerformanceMetrics:
         end_date=pd.Timestamp("2020-12-31"),
         periods=252,
         start_capital=10000.0,
-        end_equity=11500.0
+        end_equity=11500.0,
     )
 
 
@@ -245,12 +241,9 @@ def metrics_no_trades() -> PerformanceMetrics:
 def test_metrics_strong_positive_scenario(equity_strong_positive):
     """Test metrics computation for strong positive scenario."""
     metrics = compute_all_metrics(
-        equity=equity_strong_positive,
-        trades=None,
-        start_capital=10000.0,
-        freq="1d"
+        equity=equity_strong_positive, trades=None, start_capital=10000.0, freq="1d"
     )
-    
+
     # Strong positive should have:
     assert metrics.final_pf > 1.5  # At least 50% return
     assert metrics.total_return > 0.5
@@ -267,12 +260,9 @@ def test_metrics_strong_positive_scenario(equity_strong_positive):
 def test_metrics_negative_scenario(equity_negative):
     """Test metrics computation for negative scenario."""
     metrics = compute_all_metrics(
-        equity=equity_negative,
-        trades=None,
-        start_capital=10000.0,
-        freq="1d"
+        equity=equity_negative, trades=None, start_capital=10000.0, freq="1d"
     )
-    
+
     # Negative should have:
     assert metrics.final_pf < 1.0  # Loss
     assert metrics.total_return < 0
@@ -287,12 +277,9 @@ def test_metrics_negative_scenario(equity_negative):
 def test_metrics_sideways_scenario(equity_sideways):
     """Test metrics computation for sideways scenario."""
     metrics = compute_all_metrics(
-        equity=equity_sideways,
-        trades=None,
-        start_capital=10000.0,
-        freq="1d"
+        equity=equity_sideways, trades=None, start_capital=10000.0, freq="1d"
     )
-    
+
     # Sideways should have:
     assert abs(metrics.total_return) < 0.2  # Small total return
     assert metrics.volatility is not None
@@ -308,9 +295,9 @@ def test_metrics_high_turnover_scenario(equity_strong_positive, trades_high_turn
         equity=equity_strong_positive,
         trades=trades_high_turnover,
         start_capital=10000.0,
-        freq="1d"
+        freq="1d",
     )
-    
+
     # High turnover should be reflected:
     assert metrics.turnover is not None
     assert metrics.turnover > 30.0  # High turnover
@@ -321,25 +308,25 @@ def test_metrics_high_turnover_scenario(equity_strong_positive, trades_high_turn
 def test_gates_strong_positive_scenario(equity_strong_positive):
     """Test QA gates for strong positive scenario (should pass)."""
     metrics = compute_all_metrics(
-        equity=equity_strong_positive,
-        trades=None,
-        start_capital=10000.0,
-        freq="1d"
+        equity=equity_strong_positive, trades=None, start_capital=10000.0, freq="1d"
     )
-    
+
     summary = evaluate_all_gates(metrics)
-    
+
     # Strong positive should pass most gates
-    assert summary.overall_result in [QAResult.OK, QAResult.WARNING]  # May have warnings for trade metrics
+    assert summary.overall_result in [
+        QAResult.OK,
+        QAResult.WARNING,
+    ]  # May have warnings for trade metrics
     assert summary.blocked_gates == 0
-    
+
     # Check specific gates
     sharpe_gate = next(g for g in summary.gate_results if g.gate_name == "sharpe_ratio")
     assert sharpe_gate.result == QAResult.OK
-    
+
     cagr_gate = next(g for g in summary.gate_results if g.gate_name == "cagr")
     assert cagr_gate.result == QAResult.OK
-    
+
     max_dd_gate = next(g for g in summary.gate_results if g.gate_name == "max_drawdown")
     assert max_dd_gate.result == QAResult.OK
 
@@ -348,25 +335,22 @@ def test_gates_strong_positive_scenario(equity_strong_positive):
 def test_gates_negative_scenario(equity_negative):
     """Test QA gates for negative scenario (should block)."""
     metrics = compute_all_metrics(
-        equity=equity_negative,
-        trades=None,
-        start_capital=10000.0,
-        freq="1d"
+        equity=equity_negative, trades=None, start_capital=10000.0, freq="1d"
     )
-    
+
     summary = evaluate_all_gates(metrics)
-    
+
     # Negative should block
     assert summary.overall_result == QAResult.BLOCK
     assert summary.blocked_gates > 0
-    
+
     # Check specific gates
     sharpe_gate = next(g for g in summary.gate_results if g.gate_name == "sharpe_ratio")
     assert sharpe_gate.result == QAResult.BLOCK
-    
+
     cagr_gate = next(g for g in summary.gate_results if g.gate_name == "cagr")
     assert cagr_gate.result == QAResult.BLOCK
-    
+
     max_dd_gate = next(g for g in summary.gate_results if g.gate_name == "max_drawdown")
     assert max_dd_gate.result == QAResult.BLOCK
 
@@ -375,23 +359,22 @@ def test_gates_negative_scenario(equity_negative):
 def test_gates_sideways_scenario(equity_sideways):
     """Test QA gates for sideways scenario (should warn)."""
     metrics = compute_all_metrics(
-        equity=equity_sideways,
-        trades=None,
-        start_capital=10000.0,
-        freq="1d"
+        equity=equity_sideways, trades=None, start_capital=10000.0, freq="1d"
     )
-    
+
     summary = evaluate_all_gates(metrics)
-    
+
     # Sideways should warn
     assert summary.overall_result == QAResult.WARNING
     assert summary.warning_gates > 0
-    
+
     # Check specific gates
     sharpe_gate = next(g for g in summary.gate_results if g.gate_name == "sharpe_ratio")
     assert sharpe_gate.result in [QAResult.WARNING, QAResult.BLOCK]
-    
-    volatility_gate = next(g for g in summary.gate_results if g.gate_name == "volatility")
+
+    volatility_gate = next(
+        g for g in summary.gate_results if g.gate_name == "volatility"
+    )
     assert volatility_gate.result in [QAResult.WARNING, QAResult.BLOCK]
 
 
@@ -402,15 +385,15 @@ def test_gates_high_turnover_scenario(equity_strong_positive, trades_high_turnov
         equity=equity_strong_positive,
         trades=trades_high_turnover,
         start_capital=10000.0,
-        freq="1d"
+        freq="1d",
     )
-    
+
     summary = evaluate_all_gates(metrics)
-    
+
     # High turnover should trigger warning or block
     turnover_gate = next(g for g in summary.gate_results if g.gate_name == "turnover")
     assert turnover_gate.result in [QAResult.WARNING, QAResult.BLOCK]
-    
+
     # Overall result should reflect turnover issue
     assert summary.overall_result in [QAResult.WARNING, QAResult.BLOCK]
 
@@ -422,11 +405,11 @@ def test_gates_low_turnover_scenario(equity_strong_positive, trades_low_turnover
         equity=equity_strong_positive,
         trades=trades_low_turnover,
         start_capital=10000.0,
-        freq="1d"
+        freq="1d",
     )
-    
+
     summary = evaluate_all_gates(metrics)
-    
+
     # Low turnover should pass
     turnover_gate = next(g for g in summary.gate_results if g.gate_name == "turnover")
     assert turnover_gate.result == QAResult.OK
@@ -436,7 +419,7 @@ def test_gates_low_turnover_scenario(equity_strong_positive, trades_low_turnover
 def test_check_sharpe_ratio_ok(metrics_good):
     """Test Sharpe ratio gate with good metrics."""
     result = check_sharpe_ratio(metrics_good)
-    
+
     assert result.gate_name == "sharpe_ratio"
     assert result.result == QAResult.OK
     assert "meets minimum threshold" in result.reason.lower()
@@ -448,7 +431,7 @@ def test_check_sharpe_ratio_ok(metrics_good):
 def test_check_sharpe_ratio_warning(metrics_warning):
     """Test Sharpe ratio gate with warning metrics."""
     result = check_sharpe_ratio(metrics_warning)
-    
+
     assert result.result == QAResult.WARNING
     assert "below minimum threshold" in result.reason.lower()
     assert result.details["sharpe_ratio"] == 0.6
@@ -458,7 +441,7 @@ def test_check_sharpe_ratio_warning(metrics_warning):
 def test_check_sharpe_ratio_block(metrics_block):
     """Test Sharpe ratio gate with block metrics."""
     result = check_sharpe_ratio(metrics_block)
-    
+
     assert result.result == QAResult.BLOCK
     assert "below warning threshold" in result.reason.lower()
     assert result.details["sharpe_ratio"] == 0.3
@@ -489,11 +472,11 @@ def test_check_sharpe_ratio_none():
         end_date=pd.Timestamp("2020-01-02"),
         periods=2,
         start_capital=10000.0,
-        end_equity=10000.0
+        end_equity=10000.0,
     )
-    
+
     result = check_sharpe_ratio(metrics)
-    
+
     assert result.result == QAResult.WARNING
     assert "cannot be computed" in result.reason.lower()
 
@@ -502,7 +485,7 @@ def test_check_sharpe_ratio_none():
 def test_check_max_drawdown_ok(metrics_good):
     """Test max drawdown gate with good metrics."""
     result = check_max_drawdown(metrics_good)
-    
+
     assert result.result == QAResult.OK
     assert "within acceptable limits" in result.reason.lower()
 
@@ -511,7 +494,7 @@ def test_check_max_drawdown_ok(metrics_good):
 def test_check_max_drawdown_warning(metrics_warning):
     """Test max drawdown gate with warning metrics."""
     result = check_max_drawdown(metrics_warning)
-    
+
     assert result.result == QAResult.WARNING
     assert "exceeds warning threshold" in result.reason.lower()
 
@@ -520,7 +503,7 @@ def test_check_max_drawdown_warning(metrics_warning):
 def test_check_max_drawdown_block(metrics_block):
     """Test max drawdown gate with block metrics."""
     result = check_max_drawdown(metrics_block)
-    
+
     assert result.result == QAResult.BLOCK
     assert "exceeds limit" in result.reason.lower()
 
@@ -529,7 +512,7 @@ def test_check_max_drawdown_block(metrics_block):
 def test_check_turnover_ok(metrics_good):
     """Test turnover gate with good metrics."""
     result = check_turnover(metrics_good)
-    
+
     assert result.result == QAResult.OK
     assert "within acceptable limits" in result.reason.lower()
 
@@ -538,7 +521,7 @@ def test_check_turnover_ok(metrics_good):
 def test_check_turnover_warning(metrics_warning):
     """Test turnover gate with warning metrics."""
     result = check_turnover(metrics_warning)
-    
+
     assert result.result == QAResult.WARNING
     assert "exceeds warning threshold" in result.reason.lower()
 
@@ -547,7 +530,7 @@ def test_check_turnover_warning(metrics_warning):
 def test_check_turnover_block(metrics_block):
     """Test turnover gate with block metrics."""
     result = check_turnover(metrics_block)
-    
+
     assert result.result == QAResult.BLOCK
     assert "exceeds maximum limit" in result.reason.lower()
 
@@ -556,7 +539,7 @@ def test_check_turnover_block(metrics_block):
 def test_check_turnover_none(metrics_no_trades):
     """Test turnover gate with None turnover."""
     result = check_turnover(metrics_no_trades)
-    
+
     assert result.result == QAResult.WARNING
     assert "cannot be computed" in result.reason.lower()
 
@@ -565,7 +548,7 @@ def test_check_turnover_none(metrics_no_trades):
 def test_check_cagr_ok(metrics_good):
     """Test CAGR gate with good metrics."""
     result = check_cagr(metrics_good)
-    
+
     assert result.result == QAResult.OK
     assert "meets minimum threshold" in result.reason.lower()
 
@@ -574,7 +557,7 @@ def test_check_cagr_ok(metrics_good):
 def test_check_cagr_warning(metrics_warning):
     """Test CAGR gate with warning metrics."""
     result = check_cagr(metrics_warning)
-    
+
     assert result.result == QAResult.WARNING
     assert "below minimum threshold" in result.reason.lower()
 
@@ -583,7 +566,7 @@ def test_check_cagr_warning(metrics_warning):
 def test_check_cagr_block(metrics_block):
     """Test CAGR gate with block metrics."""
     result = check_cagr(metrics_block)
-    
+
     assert result.result == QAResult.BLOCK
     assert "below warning threshold" in result.reason.lower()
 
@@ -592,7 +575,7 @@ def test_check_cagr_block(metrics_block):
 def test_check_volatility_ok(metrics_good):
     """Test volatility gate with good metrics."""
     result = check_volatility(metrics_good)
-    
+
     assert result.result == QAResult.OK
     assert "within acceptable limits" in result.reason.lower()
 
@@ -601,7 +584,7 @@ def test_check_volatility_ok(metrics_good):
 def test_check_volatility_warning(metrics_warning):
     """Test volatility gate with warning metrics."""
     result = check_volatility(metrics_warning)
-    
+
     assert result.result == QAResult.WARNING
     assert "exceeds warning threshold" in result.reason.lower()
 
@@ -610,7 +593,7 @@ def test_check_volatility_warning(metrics_warning):
 def test_check_volatility_block(metrics_block):
     """Test volatility gate with block metrics."""
     result = check_volatility(metrics_block)
-    
+
     assert result.result == QAResult.BLOCK
     assert "exceeds maximum limit" in result.reason.lower()
 
@@ -619,7 +602,7 @@ def test_check_volatility_block(metrics_block):
 def test_check_hit_rate_ok(metrics_good):
     """Test hit rate gate with good metrics."""
     result = check_hit_rate(metrics_good)
-    
+
     assert result.result == QAResult.OK
     assert "meets minimum threshold" in result.reason.lower()
 
@@ -628,7 +611,7 @@ def test_check_hit_rate_ok(metrics_good):
 def test_check_hit_rate_warning(metrics_warning):
     """Test hit rate gate with warning metrics."""
     result = check_hit_rate(metrics_warning)
-    
+
     assert result.result == QAResult.WARNING
     assert "below minimum threshold" in result.reason.lower()
 
@@ -637,7 +620,7 @@ def test_check_hit_rate_warning(metrics_warning):
 def test_check_hit_rate_block(metrics_block):
     """Test hit rate gate with block metrics."""
     result = check_hit_rate(metrics_block)
-    
+
     assert result.result == QAResult.BLOCK
     assert "below warning threshold" in result.reason.lower()
 
@@ -646,7 +629,7 @@ def test_check_hit_rate_block(metrics_block):
 def test_check_hit_rate_none(metrics_no_trades):
     """Test hit rate gate with None hit rate."""
     result = check_hit_rate(metrics_no_trades)
-    
+
     assert result.result == QAResult.WARNING
     assert "cannot be computed" in result.reason.lower()
 
@@ -655,7 +638,7 @@ def test_check_hit_rate_none(metrics_no_trades):
 def test_check_profit_factor_ok(metrics_good):
     """Test profit factor gate with good metrics."""
     result = check_profit_factor(metrics_good)
-    
+
     assert result.result == QAResult.OK
     assert "meets minimum threshold" in result.reason.lower()
 
@@ -664,7 +647,7 @@ def test_check_profit_factor_ok(metrics_good):
 def test_check_profit_factor_warning(metrics_warning):
     """Test profit factor gate with warning metrics."""
     result = check_profit_factor(metrics_warning)
-    
+
     assert result.result == QAResult.WARNING
     assert "below minimum threshold" in result.reason.lower()
 
@@ -673,7 +656,7 @@ def test_check_profit_factor_warning(metrics_warning):
 def test_check_profit_factor_block(metrics_block):
     """Test profit factor gate with block metrics."""
     result = check_profit_factor(metrics_block)
-    
+
     assert result.result == QAResult.BLOCK
     assert "below warning threshold" in result.reason.lower()
 
@@ -682,7 +665,7 @@ def test_check_profit_factor_block(metrics_block):
 def test_evaluate_all_gates_ok(metrics_good):
     """Test evaluate_all_gates with good metrics."""
     summary = evaluate_all_gates(metrics_good)
-    
+
     assert isinstance(summary, QAGatesSummary)
     assert summary.overall_result == QAResult.OK
     assert summary.passed_gates > 0
@@ -694,7 +677,7 @@ def test_evaluate_all_gates_ok(metrics_good):
 def test_evaluate_all_gates_warning(metrics_warning):
     """Test evaluate_all_gates with warning metrics."""
     summary = evaluate_all_gates(metrics_warning)
-    
+
     assert summary.overall_result == QAResult.WARNING
     assert summary.warning_gates > 0
     assert summary.blocked_gates == 0
@@ -704,7 +687,7 @@ def test_evaluate_all_gates_warning(metrics_warning):
 def test_evaluate_all_gates_block(metrics_block):
     """Test evaluate_all_gates with block metrics."""
     summary = evaluate_all_gates(metrics_block)
-    
+
     assert summary.overall_result == QAResult.BLOCK
     assert summary.blocked_gates > 0
 
@@ -715,11 +698,11 @@ def test_evaluate_all_gates_custom_config(metrics_good):
     custom_config = {
         "sharpe": {"min": 2.0, "warning": 1.5},
         "max_drawdown": {"max": -15.0, "warning": -10.0},
-        "turnover": {"max": 30.0, "warning": 20.0}
+        "turnover": {"max": 30.0, "warning": 20.0},
     }
-    
+
     summary = evaluate_all_gates(metrics_good, gate_config=custom_config)
-    
+
     assert isinstance(summary, QAGatesSummary)
     # With stricter thresholds, some gates might now fail
     assert summary.overall_result in [QAResult.OK, QAResult.WARNING, QAResult.BLOCK]
@@ -729,8 +712,12 @@ def test_evaluate_all_gates_custom_config(metrics_good):
 def test_evaluate_all_gates_no_trades(metrics_no_trades):
     """Test evaluate_all_gates without trade data."""
     summary = evaluate_all_gates(metrics_no_trades)
-    
+
     assert isinstance(summary, QAGatesSummary)
     # Trade-based gates should return WARNING (cannot compute)
-    trade_gates = [r for r in summary.gate_results if r.gate_name in ["turnover", "hit_rate", "profit_factor"]]
+    trade_gates = [
+        r
+        for r in summary.gate_results
+        if r.gate_name in ["turnover", "hit_rate", "profit_factor"]
+    ]
     assert all(r.result == QAResult.WARNING for r in trade_gates)

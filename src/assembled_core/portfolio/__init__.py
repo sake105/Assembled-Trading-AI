@@ -9,4 +9,3 @@ This package handles:
 Note: Current portfolio simulation is in pipeline.portfolio.simulate_with_costs.
 This package will provide higher-level portfolio management functionality.
 """
-

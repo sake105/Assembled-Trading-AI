@@ -1,5 +1,6 @@
 # src/assembled_core/config.py
 """Central configuration for the trading pipeline."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -17,13 +18,13 @@ SUPPORTED_FREQS = ("1d", "5min")
 
 def get_output_path(*parts: str) -> Path:
     """Get a path within the output directory.
-    
+
     Args:
         *parts: Path components relative to output directory
-    
+
     Returns:
         Path object: OUTPUT_DIR / part1 / part2 / ...
-    
+
     Examples:
         >>> get_output_path("aggregates", "5min.parquet")
         Path("output/aggregates/5min.parquet")
@@ -35,9 +36,8 @@ def get_output_path(*parts: str) -> Path:
 
 def get_base_dir() -> Path:
     """Get the repository root directory.
-    
+
     Returns:
         Path to repository root
     """
     return _BASE_DIR
-

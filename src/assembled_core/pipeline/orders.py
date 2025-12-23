@@ -1,5 +1,6 @@
 # src/assembled_core/pipeline/orders.py
 """Order generation from trading signals."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -13,11 +14,11 @@ from src.assembled_core.pipeline.io import ensure_cols
 
 def signals_to_orders(signals: pd.DataFrame) -> pd.DataFrame:
     """Convert signals to orders (on signal changes).
-    
+
     Args:
         signals: DataFrame with columns: timestamp, symbol, sig, price
         sig: -1 (SELL), 0 (neutral), +1 (BUY)
-    
+
     Returns:
         DataFrame with columns: timestamp, symbol, side, qty, price
         side: "BUY" or "SELL"
@@ -29,7 +30,7 @@ def signals_to_orders(signals: pd.DataFrame) -> pd.DataFrame:
         .apply(_gen_orders_for_symbol, include_groups=False)
         .reset_index(drop=True)
     )
-    
+
     # Validate and normalize
     for c in ["timestamp", "symbol", "side", "qty", "price"]:
         if c not in orders.columns:
@@ -47,10 +48,10 @@ def signals_to_orders(signals: pd.DataFrame) -> pd.DataFrame:
 
 def _gen_orders_for_symbol(d: pd.DataFrame) -> pd.DataFrame:
     """Generate orders for a single symbol from signals.
-    
+
     Args:
         d: DataFrame with columns: timestamp, symbol, sig, price
-    
+
     Returns:
         DataFrame with columns: timestamp, symbol, side, qty, price
     """
@@ -71,17 +72,19 @@ def _gen_orders_for_symbol(d: pd.DataFrame) -> pd.DataFrame:
     return chg[["timestamp", "symbol", "side", "qty", "price"]].reset_index(drop=True)
 
 
-def write_orders(orders: pd.DataFrame, freq: str, output_dir: Path | str | None = None) -> Path:
+def write_orders(
+    orders: pd.DataFrame, freq: str, output_dir: Path | str | None = None
+) -> Path:
     """Write orders to CSV file.
-    
+
     Args:
         orders: DataFrame with columns: timestamp, symbol, side, qty, price
         freq: Frequency string ("1d" or "5min")
         output_dir: Base output directory (default: None, uses config.OUTPUT_DIR)
-    
+
     Returns:
         Path to written CSV file
-    
+
     Side effects:
         Creates output directory if it doesn't exist
         Writes CSV file: output_dir/orders_{freq}.csv
@@ -91,4 +94,3 @@ def write_orders(orders: pd.DataFrame, freq: str, output_dir: Path | str | None 
     path = out_dir / f"orders_{freq}.csv"
     orders.to_csv(path, index=False)
     return path
-

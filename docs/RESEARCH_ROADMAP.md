@@ -329,6 +329,17 @@ Ein typisches Research-Experiment sollte folgende Abschnitte haben:
 [Was sollte als nächstes getestet werden?]
 ```
 
+### 5.3 Paper-Track-Playbook Integration
+
+**Wichtig:** Jeder ernstzunehmende Kandidat sollte vor Live-Trading zunachst die Kriterien aus dem [Paper-Track-Playbook](PAPER_TRACK_PLAYBOOK.md) erfullen und eine Paper-Phase durchlaufen.
+
+Das Paper-Track-Playbook definiert:
+- Gate-Kriterien fur Backtest → Paper (Mindest-Backtestdauer, Regime-Coverage, Deflated Sharpe, Max Drawdown, PIT-Sicherheit)
+- Paper-Track-Ablauf (Mindestdauer, zu beobachtende Metriken, akzeptable Abweichungen vs. Backtest)
+- Go/No-Go-Kriterien fur Paper → Live (zusatzlich zu regulatorischen und professionellen Checks)
+
+**Details:** Siehe `docs/PAPER_TRACK_PLAYBOOK.md`
+
 ### 5.3 Experiment-Tracking (Sprint 12.2, ✅ fertig)
 
 **Status:** ✅ Implementiert

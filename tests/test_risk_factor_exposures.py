@@ -49,7 +49,9 @@ def sample_factor_returns() -> pd.DataFrame:
 
 
 @pytest.mark.advanced
-def test_compute_factor_exposures_basic_ols(sample_strategy_returns, sample_factor_returns):
+def test_compute_factor_exposures_basic_ols(
+    sample_strategy_returns, sample_factor_returns
+):
     """Test basic OLS factor exposure computation with known linear relationship."""
     # Create strategy returns as linear combination of factors
     true_beta1 = 0.5
@@ -73,7 +75,9 @@ def test_compute_factor_exposures_basic_ols(sample_strategy_returns, sample_fact
         regression_method="ols",
     )
 
-    exposures = compute_factor_exposures(strategy_returns, sample_factor_returns, config)
+    exposures = compute_factor_exposures(
+        strategy_returns, sample_factor_returns, config
+    )
 
     # Check that we got results
     assert not exposures.empty, "Exposures should not be empty"
@@ -94,12 +98,18 @@ def test_compute_factor_exposures_basic_ols(sample_strategy_returns, sample_fact
     mean_beta2 = recent_exposures["beta_factor2"].mean()
 
     # Allow some tolerance due to noise
-    assert abs(mean_beta1 - true_beta1) < 0.3, f"Beta1 should be close to {true_beta1}, got {mean_beta1}"
-    assert abs(mean_beta2 - true_beta2) < 0.3, f"Beta2 should be close to {true_beta2}, got {mean_beta2}"
+    assert abs(mean_beta1 - true_beta1) < 0.3, (
+        f"Beta1 should be close to {true_beta1}, got {mean_beta1}"
+    )
+    assert abs(mean_beta2 - true_beta2) < 0.3, (
+        f"Beta2 should be close to {true_beta2}, got {mean_beta2}"
+    )
 
 
 @pytest.mark.advanced
-def test_compute_factor_exposures_rolling_vs_expanding(sample_strategy_returns, sample_factor_returns):
+def test_compute_factor_exposures_rolling_vs_expanding(
+    sample_strategy_returns, sample_factor_returns
+):
     """Test that rolling and expanding modes produce different number of windows."""
     config_rolling = FactorExposureConfig(
         freq="1d",
@@ -162,7 +172,9 @@ def test_compute_factor_exposures_min_obs():
 
     # Should still return DataFrame, but all betas should be NaN
     assert not exposures.empty
-    assert exposures["beta_factor1"].isna().all(), "All betas should be NaN when min_obs not met"
+    assert exposures["beta_factor1"].isna().all(), (
+        "All betas should be NaN when min_obs not met"
+    )
 
 
 @pytest.mark.advanced
@@ -210,15 +222,21 @@ def test_compute_factor_exposures_ridge(sample_strategy_returns, sample_factor_r
     # Ridge betas should generally be smaller in absolute value (shrinkage)
     # But sign should be the same
     if abs(mean_beta1_ols) > 0.1:
-        assert np.sign(mean_beta1_ols) == np.sign(mean_beta1_ridge), "Sign should be same"
+        assert np.sign(mean_beta1_ols) == np.sign(mean_beta1_ridge), (
+            "Sign should be same"
+        )
 
 
 @pytest.mark.advanced
-def test_summarize_factor_exposures_basic(sample_strategy_returns, sample_factor_returns):
+def test_summarize_factor_exposures_basic(
+    sample_strategy_returns, sample_factor_returns
+):
     """Test summarization of factor exposures."""
     config = FactorExposureConfig(freq="1d", window_size=60, min_obs=30)
 
-    exposures = compute_factor_exposures(sample_strategy_returns, sample_factor_returns, config)
+    exposures = compute_factor_exposures(
+        sample_strategy_returns, sample_factor_returns, config
+    )
 
     summary = summarize_factor_exposures(exposures, config)
 
@@ -293,7 +311,9 @@ def test_summarize_factor_exposures_min_r2_filter():
         index=dates,
     )
 
-    config = FactorExposureConfig(freq="1d", window_size=60, min_obs=30, min_r2_for_report=0.5)
+    config = FactorExposureConfig(
+        freq="1d", window_size=60, min_obs=30, min_r2_for_report=0.5
+    )
 
     exposures = compute_factor_exposures(strategy_returns, factor_returns, config)
 
@@ -314,7 +334,9 @@ def test_compute_factor_exposures_no_constant():
         index=dates,
     )
 
-    config = FactorExposureConfig(freq="1d", window_size=60, min_obs=30, add_constant=False)
+    config = FactorExposureConfig(
+        freq="1d", window_size=60, min_obs=30, add_constant=False
+    )
 
     exposures = compute_factor_exposures(strategy_returns, factor_returns, config)
 
@@ -324,4 +346,3 @@ def test_compute_factor_exposures_no_constant():
     # Should still have other columns
     assert "beta_factor1" in exposures.columns
     assert "r2" in exposures.columns
-

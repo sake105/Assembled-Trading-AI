@@ -1,5 +1,6 @@
 # scripts/run_eod_pipeline.py
 """EOD pipeline orchestration script."""
+
 from __future__ import annotations
 
 import argparse
@@ -20,117 +21,102 @@ import logging
 
 def parse_eod_args() -> argparse.Namespace:
     """Parse command-line arguments for EOD pipeline.
-    
+
     Returns:
         Parsed arguments
     """
     # Get default cost model for help text
     default_costs = get_default_cost_model()
-    
+
     p = argparse.ArgumentParser(
         description="EOD Pipeline Orchestration - Runs full pipeline (execute, backtest, portfolio, QA)"
     )
     p.add_argument(
-        "--freq",
-        choices=SUPPORTED_FREQS,
-        required=True,
-        help="Trading frequency"
+        "--freq", choices=SUPPORTED_FREQS, required=True, help="Trading frequency"
     )
     p.add_argument(
         "--start-capital",
         type=float,
         default=10000.0,
-        help="Starting capital (default: 10000.0)"
+        help="Starting capital (default: 10000.0)",
     )
-    p.add_argument(
-        "--skip-backtest",
-        action="store_true",
-        help="Skip backtest step"
-    )
-    p.add_argument(
-        "--skip-portfolio",
-        action="store_true",
-        help="Skip portfolio step"
-    )
-    p.add_argument(
-        "--skip-qa",
-        action="store_true",
-        help="Skip QA step"
-    )
+    p.add_argument("--skip-backtest", action="store_true", help="Skip backtest step")
+    p.add_argument("--skip-portfolio", action="store_true", help="Skip portfolio step")
+    p.add_argument("--skip-qa", action="store_true", help="Skip QA step")
     p.add_argument(
         "--universe",
         type=Path,
         default=None,
-        help="Path to universe file (default: watchlist.txt in repo root)"
+        help="Path to universe file (default: watchlist.txt in repo root)",
     )
     p.add_argument(
         "--price-file",
         type=str,
         default=None,
-        help="Optional explicit path to price file"
+        help="Optional explicit path to price file",
     )
     p.add_argument(
         "--start-date",
         type=str,
         default=None,
-        help="Start date for price data (YYYY-MM-DD or 'today', optional)"
+        help="Start date for price data (YYYY-MM-DD or 'today', optional)",
     )
     p.add_argument(
         "--end-date",
         type=str,
         default=None,
-        help="End date for price data (YYYY-MM-DD or 'today', optional). Use 'today' for live data."
+        help="End date for price data (YYYY-MM-DD or 'today', optional). Use 'today' for live data.",
     )
     p.add_argument(
         "--data-source",
         type=str,
         choices=["local", "yahoo"],
         default=None,
-        help="Data source type: 'local' (Parquet files) or 'yahoo' (Yahoo Finance API). Default: from settings.data_source"
+        help="Data source type: 'local' (Parquet files) or 'yahoo' (Yahoo Finance API). Default: from settings.data_source",
     )
     p.add_argument(
         "--symbols",
         type=str,
         nargs="+",
         default=None,
-        help="List of symbols to load (e.g., --symbols AAPL MSFT GOOGL). Overrides universe file."
+        help="List of symbols to load (e.g., --symbols AAPL MSFT GOOGL). Overrides universe file.",
     )
     p.add_argument(
         "--commission-bps",
         type=float,
         default=None,
-        help=f"Commission in basis points (default: {default_costs.commission_bps} from cost model)"
+        help=f"Commission in basis points (default: {default_costs.commission_bps} from cost model)",
     )
     p.add_argument(
         "--spread-w",
         type=float,
         default=None,
-        help=f"Spread weight (default: {default_costs.spread_w} from cost model)"
+        help=f"Spread weight (default: {default_costs.spread_w} from cost model)",
     )
     p.add_argument(
         "--impact-w",
         type=float,
         default=None,
-        help=f"Impact weight (default: {default_costs.impact_w} from cost model)"
+        help=f"Impact weight (default: {default_costs.impact_w} from cost model)",
     )
     p.add_argument(
         "--out",
         type=str,
         default=str(OUTPUT_DIR),
-        help="Output directory (default: from config)"
+        help="Output directory (default: from config)",
     )
-    
+
     return p.parse_args()
 
 
 def run_eod_from_args(args: argparse.Namespace) -> dict:
     """Run EOD pipeline from parsed arguments.
-    
+
     This function can be called from the central CLI or from the standalone script.
-    
+
     Args:
         args: Parsed command-line arguments
-    
+
     Returns:
         Dictionary with run manifest data
     """
@@ -138,20 +124,21 @@ def run_eod_from_args(args: argparse.Namespace) -> dict:
     run_id = generate_run_id(prefix="eod")
     setup_logging(run_id=run_id, level="INFO")
     logger = logging.getLogger(__name__)
-    
+
     logger.info("=" * 60)
     logger.info("EOD Pipeline")
     logger.info(f"Run-ID: {run_id}")
     logger.info("=" * 60)
     logger.info(f"Frequency: {args.freq}")
     logger.info(f"Start capital: {args.start_capital}")
-    
+
     # Determine output directory (use settings if not provided)
     from src.assembled_core.config.settings import get_settings
+
     settings = get_settings()
     output_dir = args.out if args.out else settings.output_dir
     logger.info(f"Output directory: {output_dir}")
-    
+
     # Handle --price-file as Path or str
     price_file = args.price_file
     if price_file and isinstance(price_file, str):
@@ -160,7 +147,7 @@ def run_eod_from_args(args: argparse.Namespace) -> dict:
         price_file = price_file
     else:
         price_file = None
-    
+
     # Handle universe file and symbols
     symbols = getattr(args, "symbols", None)
     if symbols:
@@ -174,11 +161,13 @@ def run_eod_from_args(args: argparse.Namespace) -> dict:
                     line = line.strip()
                     if line and not line.startswith("#"):
                         symbols.append(line.upper())
-            logger.info(f"Loaded {len(symbols)} symbols from universe file: {args.universe}")
+            logger.info(
+                f"Loaded {len(symbols)} symbols from universe file: {args.universe}"
+            )
         except Exception as e:
             logger.warning(f"Failed to read universe file {args.universe}: {e}")
             symbols = None
-    
+
     manifest = run_eod_pipeline(
         freq=args.freq,
         start_capital=args.start_capital,
@@ -195,36 +184,36 @@ def run_eod_from_args(args: argparse.Namespace) -> dict:
         start_date=getattr(args, "start_date", None),
         end_date=getattr(args, "end_date", None),
     )
-    
+
     logger.info("=" * 60)
     logger.info("Pipeline completed")
     logger.info(f"Completed steps: {', '.join(manifest['completed_steps'])}")
     logger.info("=" * 60)
-    
+
     if manifest.get("qa_overall_status"):
         qa_status = manifest["qa_overall_status"]
         logger.info(f"QA overall_status: {qa_status}")
-        
+
         if qa_status == "error":
             logger.error("QA overall_status is 'error' - pipeline may have issues")
         elif qa_status == "warning":
             logger.warning("QA overall_status is 'warning' - some checks failed")
-    
+
     # Log QA report path if available
     if manifest.get("qa_report_path"):
         logger.info(f"QA Report: {manifest['qa_report_path']}")
-    
+
     if manifest.get("failure"):
         logger.error("Some pipeline steps failed")
         # Don't raise here - return manifest so caller can handle it
         # raise RuntimeError("Pipeline steps failed")
-    
+
     return manifest
 
 
 def main() -> int:
     """Main entry point for EOD pipeline CLI (standalone script).
-    
+
     Returns:
         Exit code (0 for success, 1 for failure)
     """
@@ -232,7 +221,7 @@ def main() -> int:
     run_id = generate_run_id(prefix="eod")
     setup_logging(run_id=run_id, level="INFO")
     logger = logging.getLogger(__name__)
-    
+
     try:
         args = parse_eod_args()
         run_eod_from_args(args)
@@ -247,4 +236,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

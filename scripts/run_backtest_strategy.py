@@ -12,6 +12,7 @@ Note on Source Tagging (Phase 10):
     If orders are later routed to the Paper-Trading-API, the source field should
     be set to "CLI_BACKTEST" to identify the origin (e.g., in PaperOrderRequest.source).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -24,19 +25,25 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.assembled_core.config import OUTPUT_DIR, SUPPORTED_FREQS
+from src.assembled_core.config import SUPPORTED_FREQS
 from src.assembled_core.config.settings import get_settings
 from src.assembled_core.costs import CostModel, get_default_cost_model
-from src.assembled_core.data.prices_ingest import load_eod_prices, load_eod_prices_for_universe
+from src.assembled_core.data.prices_ingest import (
+    load_eod_prices,
+    load_eod_prices_for_universe,
+)
 from src.assembled_core.ema_config import get_default_ema_config
-from src.assembled_core.logging_config import generate_run_id, setup_logging
-from src.assembled_core.portfolio.position_sizing import compute_target_positions_from_trend_signals
+from src.assembled_core.portfolio.position_sizing import (
+    compute_target_positions_from_trend_signals,
+)
 from src.assembled_core.qa.backtest_engine import BacktestResult, run_portfolio_backtest
 from src.assembled_core.qa.metrics import compute_all_metrics
 from src.assembled_core.qa.qa_gates import QAResult, evaluate_all_gates
 from src.assembled_core.reports.daily_qa_report import generate_qa_report
 from src.assembled_core.signals.rules_trend import generate_trend_signals_from_prices
-from src.assembled_core.signals.rules_event_insider_shipping import generate_event_signals
+from src.assembled_core.signals.rules_event_insider_shipping import (
+    generate_event_signals,
+)
 from src.assembled_core.strategies.multifactor_long_short import (
     MultiFactorStrategyConfig,
     generate_multifactor_long_short_signals,
@@ -44,45 +51,46 @@ from src.assembled_core.strategies.multifactor_long_short import (
 )
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
 def create_trend_baseline_signal_fn(ma_fast: int, ma_slow: int):
     """Create a signal function for trend baseline strategy.
-    
+
     Args:
         ma_fast: Fast moving average window
         ma_slow: Slow moving average window
-    
+
     Returns:
         Callable that takes prices DataFrame and returns signals DataFrame
     """
+
     def signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
         """Generate trend signals from prices."""
         return generate_trend_signals_from_prices(
-            prices_df,
-            ma_fast=ma_fast,
-            ma_slow=ma_slow
+            prices_df, ma_fast=ma_fast, ma_slow=ma_slow
         )
-    
+
     return signal_fn
 
 
 def create_position_sizing_fn():
     """Create a position sizing function for trend baseline strategy.
-    
+
     Returns:
         Callable that takes signals DataFrame and capital, returns target positions DataFrame
     """
+
     def position_sizing_fn(signals_df: pd.DataFrame, capital: float) -> pd.DataFrame:
         """Compute target positions from trend signals."""
         return compute_target_positions_from_trend_signals(
             signals_df,
             total_capital=capital,
             top_n=None,  # No limit on number of positions
-            min_score=0.0  # Accept all signals
+            min_score=0.0,  # Accept all signals
         )
-    
+
     return position_sizing_fn
 
 
@@ -95,9 +103,9 @@ def create_event_insider_shipping_signal_fn(
     shipping_congestion_high_threshold: float = 70.0,
 ):
     """Create a signal function for event-based strategy (insider + shipping).
-    
+
     This function will compute insider and shipping features and generate signals.
-    
+
     Args:
         insider_weight: Weight for insider signals (default: 1.0)
         shipping_weight: Weight for shipping signals (default: 1.0)
@@ -105,24 +113,24 @@ def create_event_insider_shipping_signal_fn(
         insider_net_sell_threshold: Maximum net buy (negative = sell) for SHORT signal (default: -1000.0)
         shipping_congestion_low_threshold: Maximum congestion for LONG signal (default: 30.0)
         shipping_congestion_high_threshold: Minimum congestion for SHORT signal (default: 70.0)
-    
+
     Returns:
         Callable that takes prices DataFrame and returns signals DataFrame
     """
+
     def signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
         """Generate event signals from prices with features."""
-        from pathlib import Path
         from src.assembled_core.features.insider_features import add_insider_features
         from src.assembled_core.features.shipping_features import add_shipping_features
         from src.assembled_core.data.insider_ingest import load_insider_sample
         from src.assembled_core.data.shipping_routes_ingest import load_shipping_sample
-        
+
         # Try to load sample event data if available (matches price sample)
         # Otherwise fall back to default dummy data
         settings = get_settings()
         insider_file = settings.sample_events_dir / "insider_sample.parquet"
         shipping_file = settings.sample_events_dir / "shipping_sample.parquet"
-        
+
         logger.debug("Loading insider and shipping event data...")
         if insider_file.exists():
             logger.info(f"Using sample insider events from {insider_file}")
@@ -130,27 +138,33 @@ def create_event_insider_shipping_signal_fn(
             print("Using sample insider events", flush=True)
             insider_events = pd.read_parquet(insider_file)
             if "timestamp" in insider_events.columns:
-                insider_events["timestamp"] = pd.to_datetime(insider_events["timestamp"], utc=True)
+                insider_events["timestamp"] = pd.to_datetime(
+                    insider_events["timestamp"], utc=True
+                )
         else:
             logger.debug("No sample insider events found, using default dummy data")
             insider_events = load_insider_sample()
-        
+
         if shipping_file.exists():
             logger.info(f"Using sample shipping events from {shipping_file}")
             # Also print to stdout for subprocess capture (tests expect this)
             print("Using sample shipping events", flush=True)
             shipping_events = pd.read_parquet(shipping_file)
             if "timestamp" in shipping_events.columns:
-                shipping_events["timestamp"] = pd.to_datetime(shipping_events["timestamp"], utc=True)
+                shipping_events["timestamp"] = pd.to_datetime(
+                    shipping_events["timestamp"], utc=True
+                )
         else:
             logger.debug("No sample shipping events found, using default dummy data")
             shipping_events = load_shipping_sample()
-        
+
         # Add features to prices
         logger.debug("Adding insider and shipping features...")
         prices_with_features = add_insider_features(prices_df, insider_events)
-        prices_with_features = add_shipping_features(prices_with_features, shipping_events)
-        
+        prices_with_features = add_shipping_features(
+            prices_with_features, shipping_events
+        )
+
         # Generate signals
         logger.debug("Generating event signals...")
         return generate_event_signals(
@@ -162,32 +176,32 @@ def create_event_insider_shipping_signal_fn(
             shipping_congestion_low_threshold=shipping_congestion_low_threshold,
             shipping_congestion_high_threshold=shipping_congestion_high_threshold,
         )
-    
+
     return signal_fn
 
 
 def create_event_position_sizing_fn():
     """Create a position sizing function for event-based strategy.
-    
+
     For event signals, we allow both LONG and SHORT positions.
     This is a simplified version that treats SHORT as negative LONG.
-    
+
     Returns:
         Callable that takes signals DataFrame and capital, returns target positions DataFrame
     """
+
     def position_sizing_fn(signals_df: pd.DataFrame, capital: float) -> pd.DataFrame:
         """Compute target positions from event signals (supports LONG and SHORT)."""
-        from src.assembled_core.portfolio.position_sizing import compute_target_positions_from_trend_signals
-        
+        from src.assembled_core.portfolio.position_sizing import (
+            compute_target_positions_from_trend_signals,
+        )
+
         # For now, only use LONG signals (SHORT support can be added later)
         # This matches the behavior of trend_baseline
         return compute_target_positions_from_trend_signals(
-            signals_df,
-            total_capital=capital,
-            top_n=None,
-            min_score=0.0
+            signals_df, total_capital=capital, top_n=None, min_score=0.0
         )
-    
+
     return position_sizing_fn
 
 
@@ -198,13 +212,13 @@ def create_multifactor_long_short_signal_fn(
     rebalance_freq: str = "M",
 ):
     """Create a signal function for multi-factor long/short strategy.
-    
+
     Args:
         bundle_path: Path to factor bundle YAML file
         top_quantile: Top quantile threshold for long positions (default: 0.2)
         bottom_quantile: Bottom quantile threshold for short positions (default: 0.2)
         rebalance_freq: Rebalancing frequency ("M" for monthly, "W" for weekly, "D" for daily)
-    
+
     Returns:
         Callable that takes prices DataFrame and returns signals DataFrame
     """
@@ -214,7 +228,7 @@ def create_multifactor_long_short_signal_fn(
         bottom_quantile=bottom_quantile,
         rebalance_freq=rebalance_freq,
     )
-    
+
     def signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
         """Generate multi-factor long/short signals from prices."""
         return generate_multifactor_long_short_signals(
@@ -222,7 +236,7 @@ def create_multifactor_long_short_signal_fn(
             factors=None,  # Will be computed from prices
             config=config,
         )
-    
+
     return signal_fn
 
 
@@ -231,11 +245,11 @@ def create_multifactor_long_short_position_sizing_fn(
     max_gross_exposure: float = 1.0,
 ):
     """Create a position sizing function for multi-factor long/short strategy.
-    
+
     Args:
         bundle_path: Path to factor bundle YAML file (for config, though not strictly needed here)
         max_gross_exposure: Maximum gross exposure (default: 1.0)
-    
+
     Returns:
         Callable that takes signals DataFrame and capital, returns target positions DataFrame
     """
@@ -243,7 +257,7 @@ def create_multifactor_long_short_position_sizing_fn(
         bundle_path=bundle_path,
         max_gross_exposure=max_gross_exposure,
     )
-    
+
     def position_sizing_fn(signals_df: pd.DataFrame, capital: float) -> pd.DataFrame:
         """Compute target positions from multi-factor signals (supports LONG and SHORT)."""
         return compute_multifactor_long_short_positions(
@@ -251,7 +265,7 @@ def create_multifactor_long_short_position_sizing_fn(
             capital=capital,
             config=config,
         )
-    
+
     return position_sizing_fn
 
 
@@ -273,34 +287,34 @@ Examples:
 
   # Event-based strategy (Phase 6)
   python scripts/run_backtest_strategy.py --freq 1d --strategy event_insider_shipping --generate-report
-        """
+        """,
     )
-    
+
     # Required arguments
     parser.add_argument(
         "--freq",
         type=str,
         required=True,
         choices=SUPPORTED_FREQS,
-        help=f"Trading frequency ({'/'.join(SUPPORTED_FREQS)})"
+        help=f"Trading frequency ({'/'.join(SUPPORTED_FREQS)})",
     )
-    
+
     # Optional arguments
     parser.add_argument(
         "--price-file",
         type=Path,
         default=None,
-        help="Explicit path to price file (overrides default path)"
+        help="Explicit path to price file (overrides default path)",
     )
-    
+
     parser.add_argument(
         "--universe",
         type=Path,
         default=None,
         help="Path to universe file (default: from settings.watchlist_file, typically watchlist.txt). "
-             "Priority: --symbols > --symbols-file > --universe."
+        "Priority: --symbols > --symbols-file > --universe.",
     )
-    
+
     parser.add_argument(
         "--symbols",
         type=str,
@@ -308,261 +322,263 @@ Examples:
         default=None,
         metavar="SYMBOL",
         help="List of symbols to load (e.g., --symbols NVDA AAPL MSFT). "
-             "Priority: --symbols > --symbols-file > --universe."
+        "Priority: --symbols > --symbols-file > --universe.",
     )
-    
+
     parser.add_argument(
         "--symbols-file",
         type=Path,
         default=None,
         metavar="FILE",
         help="Path to text file with one symbol per line (e.g., config/universe_ai_tech_tickers.txt). "
-             "Priority: --symbols > --symbols-file > --universe."
+        "Priority: --symbols > --symbols-file > --universe.",
     )
-    
+
     parser.add_argument(
         "--data-source",
         type=str,
         choices=["local", "yahoo"],
         default=None,
         help="Data source type: 'local' (Parquet files) or 'yahoo' (Yahoo Finance API). "
-             "Default: from settings.data_source"
+        "Default: from settings.data_source",
     )
-    
+
     parser.add_argument(
         "--start-date",
         type=str,
         default=None,
         metavar="YYYY-MM-DD",
-        help="Start date for data loading (default: use all available data)"
+        help="Start date for data loading (default: use all available data)",
     )
-    
+
     parser.add_argument(
         "--end-date",
         type=str,
         default=None,
         metavar="YYYY-MM-DD",
-        help="End date for data loading (default: use all available data)"
+        help="End date for data loading (default: use all available data)",
     )
-    
+
     parser.add_argument(
         "--strategy",
         type=str,
         default="trend_baseline",
         choices=["trend_baseline", "event_insider_shipping", "multifactor_long_short"],
-        help="Strategy name: 'trend_baseline' (EMA crossover), 'event_insider_shipping' (Phase 6 event-based), or 'multifactor_long_short' (multi-factor long/short)"
+        help="Strategy name: 'trend_baseline' (EMA crossover), 'event_insider_shipping' (Phase 6 event-based), or 'multifactor_long_short' (multi-factor long/short)",
     )
-    
+
     parser.add_argument(
         "--start-capital",
         type=float,
         default=10000.0,
-        help="Starting capital (default: 10000.0)"
+        help="Starting capital (default: 10000.0)",
     )
-    
+
     parser.add_argument(
         "--with-costs",
         action="store_true",
         default=True,
-        help="Include transaction costs in backtest (default: True)"
+        help="Include transaction costs in backtest (default: True)",
     )
-    
+
     parser.add_argument(
         "--no-costs",
         action="store_false",
         dest="with_costs",
-        help="Disable transaction costs (use cost-free simulation)"
+        help="Disable transaction costs (use cost-free simulation)",
     )
-    
+
     parser.add_argument(
         "--commission-bps",
         type=float,
         default=None,
-        help="Commission in basis points (overrides default cost model)"
+        help="Commission in basis points (overrides default cost model)",
     )
-    
+
     parser.add_argument(
         "--spread-w",
         type=float,
         default=None,
-        help="Spread weight (overrides default cost model)"
+        help="Spread weight (overrides default cost model)",
     )
-    
+
     parser.add_argument(
         "--impact-w",
         type=float,
         default=None,
-        help="Market impact weight (overrides default cost model)"
+        help="Market impact weight (overrides default cost model)",
     )
-    
+
     parser.add_argument(
         "--out",
         type=Path,
         default=None,
-        help="Output directory (default: from settings.output_dir)"
+        help="Output directory (default: from settings.output_dir)",
     )
-    
+
     parser.add_argument(
         "--generate-report",
         action="store_true",
         default=False,
-        help="Generate QA report after backtest"
+        help="Generate QA report after backtest",
     )
-    
+
     # Meta-model ensemble arguments
     parser.add_argument(
         "--use-meta-model",
         action="store_true",
         default=False,
-        help="Enable meta-model ensemble (filter signals by confidence score)"
+        help="Enable meta-model ensemble (filter signals by confidence score)",
     )
-    
+
     parser.add_argument(
         "--meta-model-path",
         type=Path,
         default=None,
-        help="Path to trained meta-model file (required if --use-meta-model is set)"
+        help="Path to trained meta-model file (required if --use-meta-model is set)",
     )
-    
+
     parser.add_argument(
         "--meta-min-confidence",
         type=float,
         default=0.5,
-        help="Minimum confidence threshold for meta-model filter (default: 0.5)"
+        help="Minimum confidence threshold for meta-model filter (default: 0.5)",
     )
-    
+
     parser.add_argument(
         "--meta-ensemble-mode",
         type=str,
         choices=["filter", "scaling"],
         default="filter",
-        help="Meta-model ensemble mode: 'filter' (remove low-confidence signals) or 'scaling' (scale positions by confidence, default: 'filter')"
+        help="Meta-model ensemble mode: 'filter' (remove low-confidence signals) or 'scaling' (scale positions by confidence, default: 'filter')",
     )
-    
+
     # Experiment tracking arguments
     parser.add_argument(
         "--track-experiment",
         action="store_true",
         default=False,
-        help="Enable experiment tracking (stores run config, metrics, and artifacts)"
+        help="Enable experiment tracking (stores run config, metrics, and artifacts)",
     )
-    
+
     parser.add_argument(
         "--experiment-name",
         type=str,
         default=None,
-        help="Name for the experiment run (required if --track-experiment is set)"
+        help="Name for the experiment run (required if --track-experiment is set)",
     )
-    
+
     parser.add_argument(
         "--experiment-tags",
         type=str,
         default=None,
-        help="Comma-separated tags for the experiment (e.g., 'trend,baseline,ma20_50')"
+        help="Comma-separated tags for the experiment (e.g., 'trend,baseline,ma20_50')",
     )
-    
+
     # Multi-factor strategy arguments
     parser.add_argument(
         "--bundle-path",
         type=str,
         default=None,
-        help="Path to factor bundle YAML file (required for multifactor_long_short strategy)"
+        help="Path to factor bundle YAML file (required for multifactor_long_short strategy)",
     )
-    
+
     parser.add_argument(
         "--top-quantile",
         type=float,
         default=0.2,
-        help="Top quantile threshold for long positions (default: 0.2, i.e., top 20%%)"
+        help="Top quantile threshold for long positions (default: 0.2, i.e., top 20%%)",
     )
-    
+
     parser.add_argument(
         "--bottom-quantile",
         type=float,
         default=0.2,
-        help="Bottom quantile threshold for short positions (default: 0.2, i.e., bottom 20%%)"
+        help="Bottom quantile threshold for short positions (default: 0.2, i.e., bottom 20%%)",
     )
-    
+
     parser.add_argument(
         "--rebalance-freq",
         type=str,
         default="M",
         choices=["D", "W", "M"],
-        help="Rebalancing frequency: 'D' for daily, 'W' for weekly, 'M' for monthly (default: M)"
+        help="Rebalancing frequency: 'D' for daily, 'W' for weekly, 'M' for monthly (default: M)",
     )
-    
+
     parser.add_argument(
         "--max-gross-exposure",
         type=float,
         default=1.0,
-        help="Maximum gross exposure (long + short) as fraction of capital (default: 1.0)"
+        help="Maximum gross exposure (long + short) as fraction of capital (default: 1.0)",
     )
-    
+
     # Regime overlay arguments
     parser.add_argument(
         "--use-regime-overlay",
         action="store_true",
         default=False,
-        help="Enable regime-based risk overlay (adjusts exposure based on market regime)"
+        help="Enable regime-based risk overlay (adjusts exposure based on market regime)",
     )
-    
+
     parser.add_argument(
         "--regime-config-file",
         type=Path,
         default=None,
-        help="Path to YAML/JSON file with regime configuration and risk_map (optional)"
+        help="Path to YAML/JSON file with regime configuration and risk_map (optional)",
     )
-    
+
     return parser.parse_args()
 
 
 def load_symbols_from_file(symbols_file: str | Path | None) -> list[str]:
     """Load symbols from a text file (one symbol per line).
-    
+
     Args:
         symbols_file: Path to text file with one symbol per line.
             Lines starting with # are treated as comments and ignored.
             Empty lines are ignored.
-    
+
     Returns:
         List of symbol strings (uppercase, stripped)
-    
+
     Raises:
         FileNotFoundError: If symbols_file does not exist
         ValueError: If symbols_file is None or empty
     """
     if not symbols_file:
         return []
-    
+
     path = Path(symbols_file)
     if not path.is_file():
         raise FileNotFoundError(f"Symbols file not found: {path}")
-    
+
     symbols = []
     with open(path, "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if line and not line.startswith("#"):
                 symbols.append(line.upper())
-    
+
     if not symbols:
         raise ValueError(f"No symbols found in file: {path}")
-    
+
     return symbols
 
 
-def load_price_data(args: argparse.Namespace, output_dir: Path | None = None) -> pd.DataFrame:
+def load_price_data(
+    args: argparse.Namespace, output_dir: Path | None = None
+) -> pd.DataFrame:
     """Load price data based on CLI arguments.
-    
+
     Supports both old-style (price_file/universe) and new-style (data_source/symbols) loading.
-    
+
     Args:
         args: Parsed command-line arguments
         output_dir: Output directory for price data (default: None, uses args.out or OUTPUT_DIR)
-    
+
     Returns:
         DataFrame with price data (timestamp, symbol, open, high, low, close, volume)
-    
+
     Raises:
         FileNotFoundError: If price file or universe file not found
         ValueError: If no data found for universe symbols
@@ -574,37 +590,37 @@ def load_price_data(args: argparse.Namespace, output_dir: Path | None = None) ->
         else:
             settings = get_settings()
             output_dir = settings.output_dir
-    
+
     # New-style: Use data_source abstraction if --data-source or --symbols is provided
-    if hasattr(args, 'data_source') and args.data_source is not None:
+    if hasattr(args, "data_source") and args.data_source is not None:
         from src.assembled_core.data.data_source import get_price_data_source
-        
+
         settings = get_settings()
-        
+
         # Determine symbols (priority: --symbols > --symbols-file > --universe > default)
         symbols = None
-        
+
         # Check for conflicting symbol inputs
         symbol_inputs = []
-        if hasattr(args, 'symbols') and args.symbols:
+        if hasattr(args, "symbols") and args.symbols:
             symbol_inputs.append("--symbols")
-        if hasattr(args, 'symbols_file') and args.symbols_file:
+        if hasattr(args, "symbols_file") and args.symbols_file:
             symbol_inputs.append("--symbols-file")
         if args.universe:
             symbol_inputs.append("--universe")
-        
+
         if len(symbol_inputs) > 1:
             logger.warning(
                 f"Multiple symbol inputs provided: {', '.join(symbol_inputs)}. "
                 f"Using priority: --symbols > --symbols-file > --universe"
             )
-        
+
         # Priority 1: --symbols (direct list)
-        if hasattr(args, 'symbols') and args.symbols:
+        if hasattr(args, "symbols") and args.symbols:
             symbols = args.symbols
             logger.info(f"Using symbols from --symbols: {len(symbols)} symbols")
         # Priority 2: --symbols-file
-        elif hasattr(args, 'symbols_file') and args.symbols_file:
+        elif hasattr(args, "symbols_file") and args.symbols_file:
             symbols = load_symbols_from_file(args.symbols_file)
             logger.info(f"Loaded {len(symbols)} symbols from file: {args.symbols_file}")
         # Priority 3: --universe (legacy)
@@ -618,41 +634,42 @@ def load_price_data(args: argparse.Namespace, output_dir: Path | None = None) ->
                     line = line.strip()
                     if line and not line.startswith("#"):
                         symbols.append(line.upper())
-            logger.info(f"Loaded {len(symbols)} symbols from universe file: {args.universe}")
+            logger.info(
+                f"Loaded {len(symbols)} symbols from universe file: {args.universe}"
+            )
         else:
             # Use default from settings
             symbols = settings.default_universe
             if symbols:
-                logger.info(f"Using default universe from settings: {len(symbols)} symbols")
-        
+                logger.info(
+                    f"Using default universe from settings: {len(symbols)} symbols"
+                )
+
         if not symbols:
             raise ValueError(
                 "No symbols specified. Use --symbols, --symbols-file, --universe, "
                 "or configure default_universe in settings."
             )
-        
+
         # Determine date range
-        start_date = getattr(args, 'start_date', None) or "2020-01-01"
-        end_date = getattr(args, 'end_date', None) or "today"
-        
+        start_date = getattr(args, "start_date", None) or "2020-01-01"
+        end_date = getattr(args, "end_date", None) or "today"
+
         # Get data source
         price_source = get_price_data_source(
             settings=settings,
             data_source=args.data_source,
-            price_file=str(args.price_file) if args.price_file else None
+            price_file=str(args.price_file) if args.price_file else None,
         )
-        
+
         logger.info(f"Loading prices from {args.data_source} source...")
         logger.info(f"Symbols: {symbols}")
         logger.info(f"Date range: {start_date} to {end_date}")
-        
+
         prices = price_source.get_history(
-            symbols=symbols,
-            start_date=start_date,
-            end_date=end_date,
-            freq=args.freq
+            symbols=symbols, start_date=start_date, end_date=end_date, freq=args.freq
         )
-        
+
     # Old-style: Use existing loaders (for backward compatibility)
     elif args.price_file:
         logger.info(f"Loading prices from explicit file: {args.price_file}")
@@ -660,43 +677,49 @@ def load_price_data(args: argparse.Namespace, output_dir: Path | None = None) ->
     elif args.universe:
         logger.info(f"Loading prices for universe: {args.universe}")
         prices = load_eod_prices_for_universe(
-            universe_file=args.universe, 
-            data_dir=output_dir,
-            freq=args.freq
+            universe_file=args.universe, data_dir=output_dir, freq=args.freq
         )
     else:
         # Default: use watchlist from settings
         settings = get_settings()
-        logger.info(f"Loading prices for default universe ({settings.watchlist_file.name})")
-        prices = load_eod_prices_for_universe(
-            universe_file=None, 
-            data_dir=output_dir,
-            freq=args.freq
+        logger.info(
+            f"Loading prices for default universe ({settings.watchlist_file.name})"
         )
-    
+        prices = load_eod_prices_for_universe(
+            universe_file=None, data_dir=output_dir, freq=args.freq
+        )
+
     logger.info(f"Loaded {len(prices)} rows for {prices['symbol'].nunique()} symbols")
     if not prices.empty:
-        logger.info(f"Date range: {prices['timestamp'].min()} to {prices['timestamp'].max()}")
-    
+        logger.info(
+            f"Date range: {prices['timestamp'].min()} to {prices['timestamp'].max()}"
+        )
+
     return prices
 
 
 def get_cost_model(args: argparse.Namespace) -> CostModel:
     """Get cost model from CLI arguments or defaults.
-    
+
     Args:
         args: Parsed command-line arguments
-    
+
     Returns:
         CostModel instance
     """
-    if args.commission_bps is not None or args.spread_w is not None or args.impact_w is not None:
+    if (
+        args.commission_bps is not None
+        or args.spread_w is not None
+        or args.impact_w is not None
+    ):
         # Use CLI overrides
         default = get_default_cost_model()
         return CostModel(
-            commission_bps=args.commission_bps if args.commission_bps is not None else default.commission_bps,
+            commission_bps=args.commission_bps
+            if args.commission_bps is not None
+            else default.commission_bps,
             spread_w=args.spread_w if args.spread_w is not None else default.spread_w,
-            impact_w=args.impact_w if args.impact_w is not None else default.impact_w
+            impact_w=args.impact_w if args.impact_w is not None else default.impact_w,
         )
     else:
         # Use default cost model
@@ -705,12 +728,12 @@ def get_cost_model(args: argparse.Namespace) -> CostModel:
 
 def run_backtest_from_args(args: argparse.Namespace) -> int:
     """Run backtest from parsed arguments.
-    
+
     This function can be called from the central CLI or from the standalone script.
-    
+
     Args:
         args: Parsed command-line arguments
-        
+
     Returns:
         Exit code (0 for success, 1 for failure)
     """
@@ -718,28 +741,30 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
     experiment_run = None
     if args.track_experiment:
         from src.assembled_core.qa.experiment_tracking import ExperimentTracker
-        
+
         if not args.experiment_name:
             logger.error("--experiment-name is required when --track-experiment is set")
             return 1
-        
+
         settings = get_settings()
         tracker = ExperimentTracker(settings.experiments_dir)
-        
+
         # Parse tags
         tags = []
         if args.experiment_tags:
-            tags = [tag.strip() for tag in args.experiment_tags.split(",") if tag.strip()]
-        
+            tags = [
+                tag.strip() for tag in args.experiment_tags.split(",") if tag.strip()
+            ]
+
         # Determine symbols for config (if available)
         symbols_list = None
-        if hasattr(args, 'symbols') and args.symbols:
+        if hasattr(args, "symbols") and args.symbols:
             symbols_list = args.symbols
-        elif hasattr(args, 'symbols_file') and args.symbols_file:
+        elif hasattr(args, "symbols_file") and args.symbols_file:
             symbols_list = load_symbols_from_file(args.symbols_file)
         elif args.universe:
             symbols_list = load_symbols_from_file(args.universe)
-        
+
         # Build config dict from args
         config = {
             "strategy": args.strategy,
@@ -748,53 +773,56 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             "with_costs": args.with_costs,
             "use_meta_model": args.use_meta_model,
         }
-        
+
         # Add symbols to config if available
         if symbols_list:
             config["symbols"] = symbols_list
             config["symbol_count"] = len(symbols_list)
-        
+
         # Add EMA config if trend strategy
         if args.strategy == "trend_baseline":
             ema_config = get_default_ema_config(args.freq)
             config["ema_fast"] = ema_config.fast
             config["ema_slow"] = ema_config.slow
-        
+
         # Add meta-model config if enabled
         if args.use_meta_model:
-            config["meta_model_path"] = str(args.meta_model_path) if args.meta_model_path else None
+            config["meta_model_path"] = (
+                str(args.meta_model_path) if args.meta_model_path else None
+            )
             config["meta_min_confidence"] = args.meta_min_confidence
             config["meta_ensemble_mode"] = args.meta_ensemble_mode
-        
+
         # Add cost model config
         cost_model = get_cost_model(args)
         config["commission_bps"] = cost_model.commission_bps
         config["spread_w"] = cost_model.spread_w
         config["impact_w"] = cost_model.impact_w
-        
+
         # Start run
         experiment_run = tracker.start_run(
-            name=args.experiment_name,
-            config=config,
-            tags=tags
+            name=args.experiment_name, config=config, tags=tags
         )
-        
+
         logger.info("")
         logger.info("Experiment Tracking: ENABLED")
         logger.info(f"  Run-ID: {experiment_run.run_id}")
         logger.info(f"  Name: {experiment_run.name}")
-        logger.info(f"  Tags: {', '.join(experiment_run.tags) if experiment_run.tags else 'none'}")
-        logger.info(f"  Run Directory: {settings.experiments_dir / experiment_run.run_id}")
-    
+        logger.info(
+            f"  Tags: {', '.join(experiment_run.tags) if experiment_run.tags else 'none'}"
+        )
+        logger.info(
+            f"  Run Directory: {settings.experiments_dir / experiment_run.run_id}"
+        )
+
     try:
-        
         # Set output directory
         if args.out:
             output_dir = Path(args.out)
         else:
             settings = get_settings()
             output_dir = settings.output_dir
-        
+
         # Log start
         logger.info("=" * 60)
         logger.info("Strategy Backtest CLI")
@@ -806,64 +834,73 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         logger.info(f"Start Capital: {args.start_capital:.2f}")
         logger.info(f"With Costs: {args.with_costs}")
         logger.info(f"Output Dir: {output_dir}")
-        
+
         # Also print to stdout for subprocess capture (tests expect this)
         print(f"With Costs: {args.with_costs}", flush=True)
-        
+
         # Load price data
         logger.info("")
         logger.info("Loading price data...")
         prices = load_price_data(args)
-        
+
         if prices.empty:
             logger.error("No price data loaded")
             return 1
-        
+
         # Log data size
-        logger.info(f"Loaded {len(prices)} price rows for {prices['symbol'].nunique()} symbols")
+        logger.info(
+            f"Loaded {len(prices)} price rows for {prices['symbol'].nunique()} symbols"
+        )
         if not prices.empty:
-            logger.info(f"Date range: {prices['timestamp'].min()} to {prices['timestamp'].max()}")
-        
+            logger.info(
+                f"Date range: {prices['timestamp'].min()} to {prices['timestamp'].max()}"
+            )
+
         # Get cost model
         cost_model = get_cost_model(args)
-        logger.info(f"Cost Model: commission_bps={cost_model.commission_bps}, spread_w={cost_model.spread_w}, impact_w={cost_model.impact_w}")
-        
+        logger.info(
+            f"Cost Model: commission_bps={cost_model.commission_bps}, spread_w={cost_model.spread_w}, impact_w={cost_model.impact_w}"
+        )
+
         # Also print to stdout for subprocess capture (tests expect this)
         if args.commission_bps is not None:
             print(f"commission_bps={args.commission_bps}", flush=True)
-        
+
         # Create signal and position sizing functions
         logger.info("")
         logger.info("Setting up strategy functions...")
-        
+
         if args.strategy == "trend_baseline":
             # Get EMA defaults for frequency
             ema_config = get_default_ema_config(args.freq)
             logger.info(f"EMA Config: fast={ema_config.fast}, slow={ema_config.slow}")
-            
+
             signal_fn = create_trend_baseline_signal_fn(
-                ma_fast=ema_config.fast,
-                ma_slow=ema_config.slow
+                ma_fast=ema_config.fast, ma_slow=ema_config.slow
             )
             position_sizing_fn = create_position_sizing_fn()
         elif args.strategy == "event_insider_shipping":
             logger.info("Event Strategy: Insider Trading + Shipping Congestion")
             logger.info("Loading event data and computing features...")
-            
+
             # Also print to stdout for subprocess capture (tests expect this)
             print("Event Strategy", flush=True)
-            
+
             signal_fn = create_event_insider_shipping_signal_fn()
             position_sizing_fn = create_event_position_sizing_fn()
         elif args.strategy == "multifactor_long_short":
             logger.info("Multi-Factor Long/Short Strategy")
-            
+
             # Validate bundle path
             if args.bundle_path is None:
-                logger.error("--bundle-path is required for multifactor_long_short strategy")
-                logger.info("Example: --bundle-path config/factor_bundles/macro_world_etfs_core_bundle.yaml")
+                logger.error(
+                    "--bundle-path is required for multifactor_long_short strategy"
+                )
+                logger.info(
+                    "Example: --bundle-path config/factor_bundles/macro_world_etfs_core_bundle.yaml"
+                )
                 return 1
-            
+
             bundle_path = Path(args.bundle_path)
             if not bundle_path.exists():
                 # Try relative to project root
@@ -871,31 +908,33 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 if not bundle_path.exists():
                     logger.error(f"Factor bundle file not found: {args.bundle_path}")
                     return 1
-            
+
             logger.info(f"Bundle Path: {bundle_path}")
             logger.info(f"Top Quantile: {args.top_quantile:.1%}")
             logger.info(f"Bottom Quantile: {args.bottom_quantile:.1%}")
             logger.info(f"Rebalance Frequency: {args.rebalance_freq}")
             logger.info(f"Max Gross Exposure: {args.max_gross_exposure:.1%}")
-            
+
             # Regime overlay setup
             regime_config = None
             regime_risk_map = None
-            
+
             if args.use_regime_overlay:
                 logger.info("Regime Overlay: ENABLED")
-                
+
                 # Try to load regime config from file if provided
                 if args.regime_config_file is not None:
                     import yaml
                     import json
-                    
+
                     config_file = Path(args.regime_config_file)
                     if not config_file.is_absolute():
                         config_file = ROOT / config_file
-                    
+
                     if not config_file.exists():
-                        logger.warning(f"Regime config file not found: {config_file}. Using defaults.")
+                        logger.warning(
+                            f"Regime config file not found: {config_file}. Using defaults."
+                        )
                     else:
                         try:
                             with config_file.open("r", encoding="utf-8") as f:
@@ -904,44 +943,79 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                                 elif config_file.suffix == ".json":
                                     config_data = json.load(f)
                                 else:
-                                    logger.warning(f"Unknown config file format: {config_file.suffix}. Using defaults.")
+                                    logger.warning(
+                                        f"Unknown config file format: {config_file.suffix}. Using defaults."
+                                    )
                                     config_data = None
-                            
+
                             if config_data:
                                 # Extract regime_risk_map
                                 if "regime_risk_map" in config_data:
                                     regime_risk_map = config_data["regime_risk_map"]
-                                    logger.info(f"Loaded regime_risk_map from {config_file}")
-                                
+                                    logger.info(
+                                        f"Loaded regime_risk_map from {config_file}"
+                                    )
+
                                 # Extract regime_config if present
                                 if "regime_config" in config_data:
-                                    from src.assembled_core.risk.regime_models import RegimeStateConfig
+                                    from src.assembled_core.risk.regime_models import (
+                                        RegimeStateConfig,
+                                    )
+
                                     regime_cfg_data = config_data["regime_config"]
                                     regime_config = RegimeStateConfig(
-                                        trend_ma_windows=tuple(regime_cfg_data.get("trend_ma_windows", (50, 200))),
-                                        vol_window=regime_cfg_data.get("vol_window", 20),
-                                        vov_window=regime_cfg_data.get("vov_window", 60),
-                                        breadth_ma_window=regime_cfg_data.get("breadth_ma_window", 50),
-                                        combine_macro_and_market=regime_cfg_data.get("combine_macro_and_market", True),
+                                        trend_ma_windows=tuple(
+                                            regime_cfg_data.get(
+                                                "trend_ma_windows", (50, 200)
+                                            )
+                                        ),
+                                        vol_window=regime_cfg_data.get(
+                                            "vol_window", 20
+                                        ),
+                                        vov_window=regime_cfg_data.get(
+                                            "vov_window", 60
+                                        ),
+                                        breadth_ma_window=regime_cfg_data.get(
+                                            "breadth_ma_window", 50
+                                        ),
+                                        combine_macro_and_market=regime_cfg_data.get(
+                                            "combine_macro_and_market", True
+                                        ),
                                     )
-                                    logger.info(f"Loaded regime_config from {config_file}")
+                                    logger.info(
+                                        f"Loaded regime_config from {config_file}"
+                                    )
                         except Exception as e:
-                            logger.warning(f"Failed to load regime config from {config_file}: {e}. Using defaults.")
-                
+                            logger.warning(
+                                f"Failed to load regime config from {config_file}: {e}. Using defaults."
+                            )
+
                 # Use default regime_risk_map if not loaded from file
                 if regime_risk_map is None:
                     regime_risk_map = {
                         "bull": {"max_gross_exposure": 1.2, "target_net_exposure": 0.6},
-                        "neutral": {"max_gross_exposure": 1.0, "target_net_exposure": 0.2},
-                        "sideways": {"max_gross_exposure": 0.8, "target_net_exposure": 0.0},
+                        "neutral": {
+                            "max_gross_exposure": 1.0,
+                            "target_net_exposure": 0.2,
+                        },
+                        "sideways": {
+                            "max_gross_exposure": 0.8,
+                            "target_net_exposure": 0.0,
+                        },
                         "bear": {"max_gross_exposure": 0.6, "target_net_exposure": 0.0},
-                        "crisis": {"max_gross_exposure": 0.3, "target_net_exposure": 0.0},
-                        "reflation": {"max_gross_exposure": 1.1, "target_net_exposure": 0.3},
+                        "crisis": {
+                            "max_gross_exposure": 0.3,
+                            "target_net_exposure": 0.0,
+                        },
+                        "reflation": {
+                            "max_gross_exposure": 1.1,
+                            "target_net_exposure": 0.3,
+                        },
                     }
                     logger.info("Using default regime_risk_map")
             else:
                 logger.info("Regime Overlay: DISABLED")
-            
+
             # Create strategy config
             strategy_config = MultiFactorStrategyConfig(
                 bundle_path=str(bundle_path),
@@ -953,12 +1027,12 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 regime_config=regime_config,
                 regime_risk_map=regime_risk_map,
             )
-            
+
             # Also print to stdout for subprocess capture
             print(f"Multi-Factor Strategy: {bundle_path.name}", flush=True)
             if args.use_regime_overlay:
-                print(f"Regime Overlay: ENABLED", flush=True)
-            
+                print("Regime Overlay: ENABLED", flush=True)
+
             signal_fn = create_multifactor_long_short_signal_fn(
                 bundle_path=str(bundle_path),
                 top_quantile=args.top_quantile,
@@ -973,9 +1047,11 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             )
         else:
             logger.error(f"Unknown strategy: {args.strategy}")
-            logger.info("Supported strategies: trend_baseline, event_insider_shipping, multifactor_long_short")
+            logger.info(
+                "Supported strategies: trend_baseline, event_insider_shipping, multifactor_long_short"
+            )
             return 1
-        
+
         # Meta-model setup
         if args.use_meta_model:
             if args.meta_model_path is None:
@@ -985,12 +1061,18 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 default_model_path = model_dir / f"{args.strategy}_meta_model.joblib"
                 if default_model_path.exists():
                     args.meta_model_path = default_model_path
-                    logger.info(f"Using default meta-model path: {args.meta_model_path}")
+                    logger.info(
+                        f"Using default meta-model path: {args.meta_model_path}"
+                    )
                 else:
-                    logger.error(f"Meta-model enabled but no model found. Expected: {default_model_path}")
-                    logger.error("Either provide --meta-model-path or train a model first with: python scripts/cli.py train_meta_model")
+                    logger.error(
+                        f"Meta-model enabled but no model found. Expected: {default_model_path}"
+                    )
+                    logger.error(
+                        "Either provide --meta-model-path or train a model first with: python scripts/cli.py train_meta_model"
+                    )
                     return 1
-            
+
             logger.info("")
             logger.info("Meta-Model Ensemble: ENABLED")
             logger.info(f"  Model Path: {args.meta_model_path}")
@@ -998,8 +1080,10 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             logger.info(f"  Mode: {args.meta_ensemble_mode}")
         else:
             logger.info("")
-            logger.info("Meta-Model Ensemble: DISABLED (use --use-meta-model to enable)")
-        
+            logger.info(
+                "Meta-Model Ensemble: DISABLED (use --use-meta-model to enable)"
+            )
+
         # Run backtest
         logger.info("")
         logger.info("Running backtest...")
@@ -1015,19 +1099,22 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             include_trades=True,  # Always include trades for QA
             include_signals=False,
             include_targets=False,
-            rebalance_freq=args.freq if args.strategy != "multifactor_long_short" else args.rebalance_freq,
-            compute_features=args.strategy != "multifactor_long_short",  # Multi-factor strategy computes factors internally
+            rebalance_freq=args.freq
+            if args.strategy != "multifactor_long_short"
+            else args.rebalance_freq,
+            compute_features=args.strategy
+            != "multifactor_long_short",  # Multi-factor strategy computes factors internally
             # Meta-model ensemble parameters
             use_meta_model=args.use_meta_model,
             meta_model_path=str(args.meta_model_path) if args.meta_model_path else None,
             meta_min_confidence=args.meta_min_confidence,
             meta_ensemble_mode=args.meta_ensemble_mode,
         )
-        
+
         logger.info(f"Backtest completed: {len(result.equity)} equity points")
         if result.trades is not None and not result.trades.empty:
             logger.info(f"Generated {len(result.trades)} trades")
-        
+
         # Compute comprehensive metrics using qa.metrics
         logger.info("")
         logger.info("Computing performance metrics...")
@@ -1036,36 +1123,55 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             trades=result.trades,
             start_capital=args.start_capital,
             freq=args.freq,
-            risk_free_rate=0.0
+            risk_free_rate=0.0,
         )
-        
+
         logger.info(f"Total Return: {metrics.total_return:.2%}")
         logger.info(f"CAGR: {metrics.cagr:.2%}" if metrics.cagr else "CAGR: N/A")
-        logger.info(f"Sharpe Ratio: {metrics.sharpe_ratio:.4f}" if metrics.sharpe_ratio else "Sharpe Ratio: N/A")
+        logger.info(
+            f"Sharpe Ratio: {metrics.sharpe_ratio:.4f}"
+            if metrics.sharpe_ratio
+            else "Sharpe Ratio: N/A"
+        )
         logger.info(f"Max Drawdown: {metrics.max_drawdown_pct:.2f}%")
-        logger.info(f"Total Trades: {metrics.total_trades if metrics.total_trades else 0}")
-        
+        logger.info(
+            f"Total Trades: {metrics.total_trades if metrics.total_trades else 0}"
+        )
+
         # Also print to stdout for subprocess capture (tests expect this)
-        print(f"Total Trades: {metrics.total_trades if metrics.total_trades else 0}", flush=True)
-        
+        print(
+            f"Total Trades: {metrics.total_trades if metrics.total_trades else 0}",
+            flush=True,
+        )
+
         # Evaluate QA gates
         logger.info("")
         logger.info("Evaluating QA gates...")
         gate_result = evaluate_all_gates(metrics)
-        
+
         logger.info(f"QA Overall Result: {gate_result.overall_result.value.upper()}")
-        logger.info(f"Gates: {gate_result.passed_gates} OK, {gate_result.warning_gates} WARNING, {gate_result.blocked_gates} BLOCK")
-        
+        logger.info(
+            f"Gates: {gate_result.passed_gates} OK, {gate_result.warning_gates} WARNING, {gate_result.blocked_gates} BLOCK"
+        )
+
         # Log gate details
         for gate in gate_result.gate_results:
-            status_icon = "✓" if gate.result == QAResult.OK else "⚠" if gate.result == QAResult.WARNING else "✗"
-            logger.info(f"  {status_icon} {gate.gate_name}: {gate.result.value.upper()} - {gate.reason}")
-        
+            status_icon = (
+                "✓"
+                if gate.result == QAResult.OK
+                else "⚠"
+                if gate.result == QAResult.WARNING
+                else "✗"
+            )
+            logger.info(
+                f"  {status_icon} {gate.gate_name}: {gate.result.value.upper()} - {gate.reason}"
+            )
+
         # Generate report if requested
         if args.generate_report:
             logger.info("")
             logger.info("Generating QA report...")
-            
+
             # Build config info
             ema_config = get_default_ema_config(args.freq)
             config_info = {
@@ -1077,9 +1183,9 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 "with_costs": args.with_costs,
                 "commission_bps": cost_model.commission_bps,
                 "spread_w": cost_model.spread_w,
-                "impact_w": cost_model.impact_w
+                "impact_w": cost_model.impact_w,
             }
-            
+
             # Generate report
             report_path = generate_qa_report(
                 metrics=metrics,
@@ -1090,11 +1196,11 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 data_start_date=metrics.start_date,
                 data_end_date=metrics.end_date,
                 config_info=config_info,
-                output_dir=output_dir / "reports"
+                output_dir=output_dir / "reports",
             )
-            
+
             logger.info(f"QA Report written: {report_path}")
-        
+
         # Summary
         logger.info("")
         logger.info("=" * 60)
@@ -1107,20 +1213,23 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         if metrics.sharpe_ratio:
             logger.info(f"Sharpe Ratio: {metrics.sharpe_ratio:.4f}")
         logger.info(f"Max Drawdown: {metrics.max_drawdown_pct:.2f}%")
-        logger.info(f"Total Trades: {metrics.total_trades if metrics.total_trades else 0}")
+        logger.info(
+            f"Total Trades: {metrics.total_trades if metrics.total_trades else 0}"
+        )
         logger.info(f"QA Result: {gate_result.overall_result.value.upper()}")
         logger.info("=" * 60)
-        
+
         # Also print to stdout for subprocess capture (tests expect this)
         print("Backtest completed", flush=True)
         print(f"Final PF: {metrics.final_pf:.4f}", flush=True)
-        
+
         # Log metrics to experiment tracking if enabled
         if experiment_run:
             from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+
             settings = get_settings()
             tracker = ExperimentTracker(settings.experiments_dir)
-            
+
             # Log performance metrics
             metrics_dict = {
                 "final_pf": metrics.final_pf,
@@ -1132,26 +1241,29 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 metrics_dict["cagr"] = metrics.cagr
             if metrics.sharpe_ratio:
                 metrics_dict["sharpe_ratio"] = metrics.sharpe_ratio
-            
+
             tracker.log_metrics(experiment_run, metrics_dict)
-            
+
             # Log artifacts if report was generated
             if args.generate_report:
-                report_path = output_dir / "reports" / f"performance_report_{args.freq}.md"
+                report_path = (
+                    output_dir / "reports" / f"performance_report_{args.freq}.md"
+                )
                 if report_path.exists():
                     tracker.log_artifact(experiment_run, report_path, "qa_report.md")
-            
+
             # Finish run
             tracker.finish_run(experiment_run, status="finished")
             logger.info("")
             logger.info(f"Experiment run completed: {experiment_run.run_id}")
-        
+
         return 0
-    
+
     except FileNotFoundError as e:
         logger.error(f"File not found: {e}")
         if experiment_run:
             from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+
             settings = get_settings()
             tracker = ExperimentTracker(settings.experiments_dir)
             tracker.finish_run(experiment_run, status="failed")
@@ -1160,6 +1272,7 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         logger.error(f"Invalid input: {e}")
         if experiment_run:
             from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+
             settings = get_settings()
             tracker = ExperimentTracker(settings.experiments_dir)
             tracker.finish_run(experiment_run, status="failed")
@@ -1168,6 +1281,7 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         logger.warning("Interrupted by user")
         if experiment_run:
             from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+
             settings = get_settings()
             tracker = ExperimentTracker(settings.experiments_dir)
             tracker.finish_run(experiment_run, status="failed")
@@ -1176,6 +1290,7 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         logger.error(f"Unexpected error: {e}", exc_info=True)
         if experiment_run:
             from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+
             settings = get_settings()
             tracker = ExperimentTracker(settings.experiments_dir)
             tracker.finish_run(experiment_run, status="failed")
@@ -1190,4 +1305,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

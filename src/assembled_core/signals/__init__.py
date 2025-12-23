@@ -34,4 +34,3 @@ __all__ = [
     "make_signal_frame",
     "validate_signal_frame",
 ]
-

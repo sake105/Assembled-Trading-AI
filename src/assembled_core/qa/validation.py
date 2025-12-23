@@ -13,25 +13,26 @@ Key features:
 
 Usage:
     >>> from src.assembled_core.qa.validation import run_full_model_validation
-    >>> 
+    >>>
     >>> metrics = {
     ...     "sharpe_ratio": 1.5,
     ...     "max_drawdown_pct": -15.0,
     ...     "total_trades": 100
     ... }
-    >>> 
+    >>>
     >>> result = run_full_model_validation(
     ...     model_name="trend_baseline",
     ...     metrics=metrics,
     ...     feature_df=features_df,
     ...     deflated_sharpe=1.2
     ... )
-    >>> 
+    >>>
     >>> if result.is_ok:
     ...     print("Model validation passed")
     >>> else:
     ...     print(f"Validation failed: {result.errors}")
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -51,6 +52,7 @@ class ModelValidationResult:
         warnings: List of warning messages (non-critical issues)
         metadata: Optional dictionary with additional validation details
     """
+
     model_name: str
     is_ok: bool
     errors: list[str] = field(default_factory=list)
@@ -62,7 +64,7 @@ def validate_performance(
     metrics: dict[str, float | None],
     min_sharpe: float = 1.0,
     max_drawdown: float = 0.25,
-    min_trades: int = 30
+    min_trades: int = 30,
 ) -> ModelValidationResult:
     """Validate model performance metrics against thresholds.
 
@@ -103,7 +105,9 @@ def validate_performance(
     # Check Sharpe ratio
     sharpe = metrics.get("sharpe_ratio")
     if sharpe is None:
-        warnings.append("Sharpe ratio not available (None) - cannot validate Sharpe threshold")
+        warnings.append(
+            "Sharpe ratio not available (None) - cannot validate Sharpe threshold"
+        )
         metadata["sharpe_checked"] = False
     else:
         metadata["sharpe_checked"] = True
@@ -117,7 +121,7 @@ def validate_performance(
     # Check max drawdown (prefer max_drawdown_pct if available, else max_drawdown)
     max_dd_pct = metrics.get("max_drawdown_pct")
     max_dd_abs = metrics.get("max_drawdown")
-    
+
     if max_dd_pct is not None:
         # max_drawdown_pct is negative (e.g., -15.0 for -15%)
         max_dd_fraction = abs(max_dd_pct) / 100.0  # Convert to fraction (0.15)
@@ -140,7 +144,9 @@ def validate_performance(
                         f"Max drawdown {max_dd_abs:.2f} ({max_dd_fraction:.2%}) exceeds threshold {max_drawdown:.2%}"
                     )
             else:
-                warnings.append("start_capital is zero - cannot validate max drawdown as fraction")
+                warnings.append(
+                    "start_capital is zero - cannot validate max drawdown as fraction"
+                )
         else:
             warnings.append(
                 "Max drawdown (absolute) is available but start_capital is missing - "
@@ -156,7 +162,9 @@ def validate_performance(
     # Check trade count
     total_trades = metrics.get("total_trades")
     if total_trades is None:
-        warnings.append("Total trades count not available (None) - cannot validate minimum trades")
+        warnings.append(
+            "Total trades count not available (None) - cannot validate minimum trades"
+        )
         metadata["trades_checked"] = False
     else:
         metadata["trades_checked"] = True
@@ -168,19 +176,18 @@ def validate_performance(
             )
 
     is_ok = len(errors) == 0
-    
+
     return ModelValidationResult(
         model_name="performance_validation",
         is_ok=is_ok,
         errors=errors,
         warnings=warnings,
-        metadata=metadata
+        metadata=metadata,
     )
 
 
 def validate_overfitting(
-    deflated_sharpe: float | None,
-    threshold: float = 0.5
+    deflated_sharpe: float | None, threshold: float = 0.5
 ) -> ModelValidationResult:
     """Validate that model is not overfitted using deflated Sharpe ratio.
 
@@ -200,12 +207,12 @@ def validate_overfitting(
         >>> # Good: Deflated Sharpe above threshold
         >>> result = validate_overfitting(deflated_sharpe=0.8, threshold=0.5)
         >>> assert result.is_ok is True
-        >>> 
+        >>>
         >>> # Overfitted: Deflated Sharpe below threshold
         >>> result = validate_overfitting(deflated_sharpe=0.3, threshold=0.5)
         >>> assert result.is_ok is False
         >>> assert "overfitting" in result.errors[0].lower()
-        >>> 
+        >>>
         >>> # Not computed: Warning only, no hard failure
         >>> result = validate_overfitting(deflated_sharpe=None, threshold=0.5)
         >>> assert result.is_ok is True  # Warning, not error
@@ -239,13 +246,12 @@ def validate_overfitting(
         is_ok=is_ok,
         errors=errors,
         warnings=warnings,
-        metadata=metadata
+        metadata=metadata,
     )
 
 
 def validate_data_quality(
-    feature_df: pd.DataFrame,
-    max_missing_fraction: float = 0.05
+    feature_df: pd.DataFrame, max_missing_fraction: float = 0.05
 ) -> ModelValidationResult:
     """Validate data quality of feature DataFrame.
 
@@ -264,12 +270,12 @@ def validate_data_quality(
     Example:
         >>> import pandas as pd
         >>> import numpy as np
-        >>> 
+        >>>
         >>> # Good: No missing values
         >>> df = pd.DataFrame({"feature1": [1, 2, 3], "feature2": [4, 5, 6]})
         >>> result = validate_data_quality(df)
         >>> assert result.is_ok is True
-        >>> 
+        >>>
         >>> # Bad: Column with > 5% missing
         >>> df = pd.DataFrame({
         ...     "feature1": [1, 2, np.nan, np.nan, np.nan, np.nan, np.nan],
@@ -284,7 +290,7 @@ def validate_data_quality(
     metadata = {
         "max_missing_fraction": max_missing_fraction,
         "total_rows": len(feature_df),
-        "total_columns": len(feature_df.columns)
+        "total_columns": len(feature_df.columns),
     }
 
     if feature_df.empty:
@@ -294,7 +300,7 @@ def validate_data_quality(
             is_ok=False,
             errors=errors,
             warnings=warnings,
-            metadata=metadata
+            metadata=metadata,
         )
 
     problematic_columns = []
@@ -303,10 +309,10 @@ def validate_data_quality(
     for col in feature_df.columns:
         missing_count = feature_df[col].isna().sum()
         missing_fraction = missing_count / len(feature_df)
-        
+
         column_quality[col] = {
             "missing_count": int(missing_count),
-            "missing_fraction": float(missing_fraction)
+            "missing_fraction": float(missing_fraction),
         }
 
         if missing_fraction > max_missing_fraction:
@@ -331,7 +337,7 @@ def validate_data_quality(
         is_ok=is_ok,
         errors=errors,
         warnings=warnings,
-        metadata=metadata
+        metadata=metadata,
     )
 
 
@@ -340,7 +346,7 @@ def run_full_model_validation(
     metrics: dict[str, float | None],
     feature_df: pd.DataFrame | None = None,
     deflated_sharpe: float | None = None,
-    config: dict[str, Any] | None = None
+    config: dict[str, Any] | None = None,
 ) -> ModelValidationResult:
     """Run full model validation aggregating all validation checks.
 
@@ -364,25 +370,25 @@ def run_full_model_validation(
 
     Example:
         >>> import pandas as pd
-        >>> 
+        >>>
         >>> metrics = {
         ...     "sharpe_ratio": 1.5,
         ...     "max_drawdown_pct": -15.0,
         ...     "total_trades": 100
         ... }
-        >>> 
+        >>>
         >>> features = pd.DataFrame({
         ...     "feature1": [1, 2, 3],
         ...     "feature2": [4, 5, 6]
         ... })
-        >>> 
+        >>>
         >>> result = run_full_model_validation(
         ...     model_name="trend_baseline",
         ...     metrics=metrics,
         ...     feature_df=features,
         ...     deflated_sharpe=0.8
         ... )
-        >>> 
+        >>>
         >>> if result.is_ok:
         ...     print(f"Model {result.model_name} validation passed")
         >>> else:
@@ -408,44 +414,44 @@ def run_full_model_validation(
         metrics=metrics,
         min_sharpe=min_sharpe,
         max_drawdown=max_drawdown,
-        min_trades=min_trades
+        min_trades=min_trades,
     )
     all_errors.extend(perf_result.errors)
     all_warnings.extend(perf_result.warnings)
     validation_details["performance"] = {
         "is_ok": perf_result.is_ok,
-        "metadata": perf_result.metadata
+        "metadata": perf_result.metadata,
     }
 
     # 2. Overfitting validation
     overfitting_result = validate_overfitting(
-        deflated_sharpe=deflated_sharpe,
-        threshold=overfitting_threshold
+        deflated_sharpe=deflated_sharpe, threshold=overfitting_threshold
     )
     all_errors.extend(overfitting_result.errors)
     all_warnings.extend(overfitting_result.warnings)
     validation_details["overfitting"] = {
         "is_ok": overfitting_result.is_ok,
-        "metadata": overfitting_result.metadata
+        "metadata": overfitting_result.metadata,
     }
 
     # 3. Data quality validation (if feature_df provided)
     if feature_df is not None:
         data_quality_result = validate_data_quality(
-            feature_df=feature_df,
-            max_missing_fraction=max_missing_fraction
+            feature_df=feature_df, max_missing_fraction=max_missing_fraction
         )
         all_errors.extend(data_quality_result.errors)
         all_warnings.extend(data_quality_result.warnings)
         validation_details["data_quality"] = {
             "is_ok": data_quality_result.is_ok,
-            "metadata": data_quality_result.metadata
+            "metadata": data_quality_result.metadata,
         }
     else:
-        all_warnings.append("Feature DataFrame not provided - skipping data quality validation")
+        all_warnings.append(
+            "Feature DataFrame not provided - skipping data quality validation"
+        )
         validation_details["data_quality"] = {
             "is_ok": None,
-            "metadata": {"skipped": True, "reason": "feature_df not provided"}
+            "metadata": {"skipped": True, "reason": "feature_df not provided"},
         }
 
     # Aggregate result: is_ok = True only if all checks passed
@@ -456,7 +462,7 @@ def run_full_model_validation(
         "validation_config": config,
         "validation_details": validation_details,
         "total_errors": len(all_errors),
-        "total_warnings": len(all_warnings)
+        "total_warnings": len(all_warnings),
     }
 
     return ModelValidationResult(
@@ -464,6 +470,5 @@ def run_full_model_validation(
         is_ok=is_ok,
         errors=all_errors,
         warnings=all_warnings,
-        metadata=metadata
+        metadata=metadata,
     )
-

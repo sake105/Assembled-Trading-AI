@@ -19,21 +19,22 @@ Usage:
     ...     compute_performance_drift
     ... )
     >>> import pandas as pd
-    >>> 
+    >>>
     >>> # Feature drift
     >>> base_df = pd.DataFrame({"feature1": [1, 2, 3, 4, 5], "feature2": [10, 20, 30, 40, 50]})
     >>> current_df = pd.DataFrame({"feature1": [10, 20, 30, 40, 50], "feature2": [10, 20, 30, 40, 50]})
     >>> drift_results = detect_feature_drift(base_df, current_df)
-    >>> 
+    >>>
     >>> # Label drift
     >>> base_labels = pd.Series([0, 0, 0, 1, 1])
     >>> current_labels = pd.Series([0, 1, 1, 1, 1])
     >>> label_drift = detect_label_drift(base_labels, current_labels)
-    >>> 
+    >>>
     >>> # Performance drift
     >>> equity = pd.Series([10000, 10100, 10200, 10300, 10400, 10500])
     >>> perf_drift = compute_performance_drift(equity, window=3)
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -42,11 +43,7 @@ import numpy as np
 import pandas as pd
 
 
-def compute_psi(
-    base: pd.Series,
-    current: pd.Series,
-    bins: int = 10
-) -> float:
+def compute_psi(base: pd.Series, current: pd.Series, bins: int = 10) -> float:
     """Compute Population Stability Index (PSI) between two distributions.
 
     PSI measures how much a distribution has shifted between a base period
@@ -71,7 +68,7 @@ def compute_psi(
         >>> current = pd.Series([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
         >>> psi = compute_psi(base, current)
         >>> assert abs(psi) < 0.01  # Identical distributions → PSI ≈ 0
-        >>> 
+        >>>
         >>> # Different distributions
         >>> current2 = pd.Series([50, 60, 70, 80, 90, 100, 110, 120, 130, 140])
         >>> psi2 = compute_psi(base, current2)
@@ -108,12 +105,12 @@ def compute_psi(
         bin_edges = np.quantile(combined, np.linspace(0, 1, bins + 1))
         # Ensure unique bin edges (handle edge case where many values are identical)
         bin_edges = np.unique(bin_edges)
-        
+
         # If we have fewer unique edges than expected, reduce bins
         if len(bin_edges) < 2:
             # Fallback: use min/max of combined distribution
             bin_edges = np.array([combined.min(), combined.max() + 1e-10])
-        
+
         # Ensure last edge includes maximum value
         bin_edges[-1] = combined.max() + 1e-10
     except Exception:
@@ -137,7 +134,7 @@ def compute_psi(
     for i in range(len(base_freq)):
         base_is_zero = base_freq[i] == 0
         current_is_zero = current_freq[i] == 0
-        
+
         if base_is_zero and current_is_zero:
             # Both zero: skip this bin (no contribution to PSI)
             continue
@@ -154,7 +151,9 @@ def compute_psi(
             psi += base_freq[i] * abs(np.log(epsilon / base_freq[i]))
         else:
             # Both non-zero: standard PSI formula using original frequencies
-            psi += (current_freq[i] - base_freq[i]) * np.log(current_freq[i] / base_freq[i])
+            psi += (current_freq[i] - base_freq[i]) * np.log(
+                current_freq[i] / base_freq[i]
+            )
 
     return max(0.0, psi)  # Ensure non-negative
 
@@ -163,7 +162,7 @@ def detect_feature_drift(
     base_df: pd.DataFrame,
     current_df: pd.DataFrame,
     psi_threshold: float = 0.2,
-    severe_threshold: float = 0.3
+    severe_threshold: float = 0.3,
 ) -> pd.DataFrame:
     """Detect feature drift between base and current feature DataFrames.
 
@@ -184,7 +183,7 @@ def detect_feature_drift(
     Example:
         >>> import pandas as pd
         >>> import numpy as np
-        >>> 
+        >>>
         >>> base_df = pd.DataFrame({
         ...     "feature1": np.random.normal(0, 1, 100),
         ...     "feature2": np.random.normal(0, 1, 100)
@@ -199,23 +198,23 @@ def detect_feature_drift(
     """
     # Find common columns
     common_cols = set(base_df.columns) & set(current_df.columns)
-    
+
     if len(common_cols) == 0:
         return pd.DataFrame(columns=["feature", "psi", "drift_flag"])
 
     results = []
-    
+
     for col in sorted(common_cols):
         base_series = base_df[col]
         current_series = current_df[col]
-        
+
         # Compute PSI
         try:
             psi = compute_psi(base_series, current_series)
         except Exception:
             # If PSI computation fails, mark as severe drift
             psi = 1.0
-        
+
         # Determine drift flag
         if psi >= severe_threshold:
             drift_flag = "SEVERE"
@@ -223,20 +222,14 @@ def detect_feature_drift(
             drift_flag = "MODERATE"
         else:
             drift_flag = "NONE"
-        
-        results.append({
-            "feature": col,
-            "psi": psi,
-            "drift_flag": drift_flag
-        })
-    
+
+        results.append({"feature": col, "psi": psi, "drift_flag": drift_flag})
+
     return pd.DataFrame(results)
 
 
 def detect_label_drift(
-    base_labels: pd.Series,
-    current_labels: pd.Series,
-    psi_threshold: float = 0.2
+    base_labels: pd.Series, current_labels: pd.Series, psi_threshold: float = 0.2
 ) -> dict[str, Any]:
     """Detect label drift between base and current label distributions.
 
@@ -259,7 +252,7 @@ def detect_label_drift(
 
     Example:
         >>> import pandas as pd
-        >>> 
+        >>>
         >>> # Binary labels with drift
         >>> base_labels = pd.Series([0, 0, 0, 0, 1, 1])  # 33% positive
         >>> current_labels = pd.Series([0, 1, 1, 1, 1, 1])  # 83% positive
@@ -278,7 +271,7 @@ def detect_label_drift(
             "current_mean": None,
             "mean_shift": None,
             "drift_detected": True,
-            "drift_severity": "SEVERE"
+            "drift_severity": "SEVERE",
         }
 
     # Compute PSI
@@ -308,14 +301,11 @@ def detect_label_drift(
         "current_mean": current_mean,
         "mean_shift": mean_shift,
         "drift_detected": drift_detected,
-        "drift_severity": drift_severity
+        "drift_severity": drift_severity,
     }
 
 
-def compute_performance_drift(
-    equity: pd.Series,
-    window: int = 63
-) -> dict[str, Any]:
+def compute_performance_drift(equity: pd.Series, window: int = 63) -> dict[str, Any]:
     """Detect performance drift in equity curve using rolling statistics.
 
     Compares performance metrics (rolling Sharpe, average return) between
@@ -337,7 +327,7 @@ def compute_performance_drift(
     Example:
         >>> import pandas as pd
         >>> import numpy as np
-        >>> 
+        >>>
         >>> # Equity with degrading performance
         >>> np.random.seed(42)
         >>> returns1 = np.random.normal(0.01, 0.01, 100)  # Good: 1% daily return
@@ -345,7 +335,7 @@ def compute_performance_drift(
         >>> equity = pd.Series([10000.0])
         >>> for r in list(returns1) + list(returns2):
         ...     equity = pd.concat([equity, pd.Series([equity.iloc[-1] * (1 + r)])])
-        >>> 
+        >>>
         >>> drift = compute_performance_drift(equity, window=20)
         >>> assert drift["performance_degrading"] is True
     """
@@ -356,7 +346,7 @@ def compute_performance_drift(
             "reference_avg_return": None,
             "current_avg_return": None,
             "performance_degrading": False,
-            "sharpe_degradation": None
+            "sharpe_degradation": None,
         }
 
     # Compute returns
@@ -371,29 +361,33 @@ def compute_performance_drift(
                 "reference_avg_return": None,
                 "current_avg_return": None,
                 "performance_degrading": False,
-                "sharpe_degradation": None
+                "sharpe_degradation": None,
             }
-        
+
         # Use simple statistics
-        reference_avg_return = float(returns.iloc[:len(returns)//2].mean())
-        current_avg_return = float(returns.iloc[len(returns)//2:].mean())
-        
-        reference_std = float(returns.iloc[:len(returns)//2].std())
-        current_std = float(returns.iloc[len(returns)//2:].std())
-        
-        reference_sharpe = reference_avg_return / reference_std if reference_std > 0 else 0.0
+        reference_avg_return = float(returns.iloc[: len(returns) // 2].mean())
+        current_avg_return = float(returns.iloc[len(returns) // 2 :].mean())
+
+        reference_std = float(returns.iloc[: len(returns) // 2].std())
+        current_std = float(returns.iloc[len(returns) // 2 :].std())
+
+        reference_sharpe = (
+            reference_avg_return / reference_std if reference_std > 0 else 0.0
+        )
         current_sharpe = current_avg_return / current_std if current_std > 0 else 0.0
-        
+
         sharpe_degradation = current_sharpe - reference_sharpe
-        performance_degrading = sharpe_degradation < -0.1  # Threshold: -0.1 Sharpe degradation
-        
+        performance_degrading = (
+            sharpe_degradation < -0.1
+        )  # Threshold: -0.1 Sharpe degradation
+
         return {
             "reference_sharpe": reference_sharpe,
             "current_sharpe": current_sharpe,
             "reference_avg_return": reference_avg_return,
             "current_avg_return": current_avg_return,
             "performance_degrading": performance_degrading,
-            "sharpe_degradation": sharpe_degradation
+            "sharpe_degradation": sharpe_degradation,
         }
 
     # Split into reference (first half) and current (second half)
@@ -409,18 +403,20 @@ def compute_performance_drift(
             mean_ret = returns_series.mean()
             std_ret = returns_series.std()
             return mean_ret / std_ret if std_ret > 0 else 0.0
-        
+
         rolling_sharpes = []
         for i in range(window_size, len(returns_series) + 1):
-            window_returns = returns_series.iloc[i - window_size:i]
+            window_returns = returns_series.iloc[i - window_size : i]
             mean_ret = window_returns.mean()
             std_ret = window_returns.std()
             if std_ret > 0:
                 rolling_sharpes.append(mean_ret / std_ret)
-        
+
         return float(np.mean(rolling_sharpes)) if rolling_sharpes else 0.0
 
-    reference_sharpe = _rolling_sharpe(reference_returns, min(window, len(reference_returns)))
+    reference_sharpe = _rolling_sharpe(
+        reference_returns, min(window, len(reference_returns))
+    )
     current_sharpe = _rolling_sharpe(current_returns, min(window, len(current_returns)))
 
     # Compute average returns
@@ -431,8 +427,8 @@ def compute_performance_drift(
     sharpe_degradation = current_sharpe - reference_sharpe
     # Performance is degrading if Sharpe decreased by more than 0.1 or avg return decreased
     performance_degrading = (
-        sharpe_degradation < -0.1 or
-        current_avg_return < reference_avg_return - 0.001  # 0.1% threshold
+        sharpe_degradation < -0.1
+        or current_avg_return < reference_avg_return - 0.001  # 0.1% threshold
     )
 
     return {
@@ -441,6 +437,5 @@ def compute_performance_drift(
         "reference_avg_return": reference_avg_return,
         "current_avg_return": current_avg_return,
         "performance_degrading": performance_degrading,
-        "sharpe_degradation": sharpe_degradation
+        "sharpe_degradation": sharpe_degradation,
     }
-

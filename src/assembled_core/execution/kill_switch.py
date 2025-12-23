@@ -16,17 +16,18 @@ Usage:
     ...     guard_orders_with_kill_switch
     ... )
     >>> import pandas as pd
-    >>> 
+    >>>
     >>> orders = pd.DataFrame({
     ...     "symbol": ["AAPL"],
     ...     "side": ["BUY"],
     ...     "qty": [100]
     ... })
-    >>> 
+    >>>
     >>> filtered_orders = guard_orders_with_kill_switch(orders)
     >>> if filtered_orders.empty and not orders.empty:
     ...     print("Kill switch is engaged - all orders blocked")
 """
+
 from __future__ import annotations
 
 import os
@@ -53,16 +54,16 @@ def is_kill_switch_engaged() -> bool:
         >>> os.environ["ASSEMBLED_KILL_SWITCH"] = "1"
         >>> is_kill_switch_engaged()
         True
-        >>> 
+        >>>
         >>> os.environ.pop("ASSEMBLED_KILL_SWITCH", None)
         >>> is_kill_switch_engaged()
         False
     """
     kill_switch_env = os.environ.get("ASSEMBLED_KILL_SWITCH", "").strip().lower()
-    
+
     # Accepted values for "engaged"
     engaged_values = {"1", "true", "yes", "on"}
-    
+
     return kill_switch_env in engaged_values
 
 
@@ -82,17 +83,17 @@ def guard_orders_with_kill_switch(orders: pd.DataFrame) -> pd.DataFrame:
     Example:
         >>> import pandas as pd
         >>> import os
-        >>> 
+        >>>
         >>> orders = pd.DataFrame({
         ...     "symbol": ["AAPL", "GOOGL"],
         ...     "side": ["BUY", "SELL"],
         ...     "qty": [100, 50]
         ... })
-        >>> 
+        >>>
         >>> # Normal operation
         >>> filtered = guard_orders_with_kill_switch(orders)
         >>> assert len(filtered) == 2
-        >>> 
+        >>>
         >>> # Kill switch engaged
         >>> os.environ["ASSEMBLED_KILL_SWITCH"] = "1"
         >>> filtered = guard_orders_with_kill_switch(orders)
@@ -104,7 +105,6 @@ def guard_orders_with_kill_switch(orders: pd.DataFrame) -> pd.DataFrame:
         )
         # Return empty DataFrame with same columns as original
         return pd.DataFrame(columns=list(orders.columns))
-    
+
     # Kill switch not engaged - return orders unchanged
     return orders
-

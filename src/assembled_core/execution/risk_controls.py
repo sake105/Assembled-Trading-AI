@@ -7,14 +7,14 @@ into a single, easy-to-use interface.
 Usage:
     >>> from src.assembled_core.execution.risk_controls import filter_orders_with_risk_controls
     >>> import pandas as pd
-    >>> 
+    >>>
     >>> orders = pd.DataFrame({
     ...     "symbol": ["AAPL", "GOOGL"],
     ...     "side": ["BUY", "BUY"],
     ...     "qty": [100, 50],
     ...     "price": [150.0, 2500.0]
     ... })
-    >>> 
+    >>>
     >>> filtered, result, kill_switch_engaged = filter_orders_with_risk_controls(
     ...     orders,
     ...     portfolio=None,
@@ -22,13 +22,18 @@ Usage:
     ...     enable_kill_switch=True
     ... )
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import pandas as pd
 
-from src.assembled_core.execution.kill_switch import guard_orders_with_kill_switch, is_kill_switch_engaged
+from src.assembled_core.execution.kill_switch import (
+    guard_orders_with_kill_switch,
+    is_kill_switch_engaged,
+)
 from src.assembled_core.execution.pre_trade_checks import (
     PreTradeCheckResult,
     PreTradeConfig,
@@ -51,6 +56,7 @@ class RiskControlResult:
         total_orders_before: Number of orders before filtering
         total_orders_after: Number of orders after filtering
     """
+
     filtered_orders: pd.DataFrame
     pre_trade_result: PreTradeCheckResult | None
     kill_switch_engaged: bool
@@ -65,7 +71,7 @@ def filter_orders_with_risk_controls(
     risk_summary: dict[str, Any] | None = None,
     pre_trade_config: PreTradeConfig | None = None,
     enable_pre_trade_checks: bool = True,
-        enable_kill_switch: bool = True
+    enable_kill_switch: bool = True,
 ) -> tuple[pd.DataFrame, RiskControlResult]:
     """Apply all risk controls to orders and return filtered orders.
 
@@ -90,16 +96,16 @@ def filter_orders_with_risk_controls(
     Example:
         >>> import pandas as pd
         >>> from src.assembled_core.execution.risk_controls import filter_orders_with_risk_controls
-        >>> 
+        >>>
         >>> orders = pd.DataFrame({
         ...     "symbol": ["AAPL", "GOOGL"],
         ...     "side": ["BUY", "BUY"],
         ...     "qty": [100, 50],
         ...     "price": [150.0, 2500.0]
         ... })
-        >>> 
+        >>>
         >>> filtered, result = filter_orders_with_risk_controls(orders)
-        >>> 
+        >>>
         >>> if len(filtered) < len(orders):
         ...     print(f"Orders filtered: {result.total_orders_before - result.total_orders_after} blocked")
     """
@@ -116,9 +122,9 @@ def filter_orders_with_risk_controls(
             portfolio=portfolio,
             qa_status=qa_status,
             risk_summary=risk_summary,
-            config=pre_trade_config
+            config=pre_trade_config,
         )
-        
+
         if not pre_trade_result.is_ok:
             logger.warning(
                 f"Pre-trade checks failed: {len(pre_trade_result.blocked_reasons)} reason(s). "
@@ -142,7 +148,7 @@ def filter_orders_with_risk_controls(
     if enable_kill_switch:
         logger.debug("Checking kill switch...")
         kill_switch_engaged = is_kill_switch_engaged()
-        
+
         if kill_switch_engaged:
             logger.warning(
                 f"KILL_SWITCH engaged - blocking all {len(filtered_orders)} remaining orders"
@@ -171,8 +177,7 @@ def filter_orders_with_risk_controls(
         pre_trade_result=pre_trade_result,
         kill_switch_engaged=kill_switch_engaged,
         total_orders_before=total_orders_before,
-        total_orders_after=total_orders_after
+        total_orders_after=total_orders_after,
     )
 
     return filtered_orders, result
-

@@ -2,6 +2,7 @@
 
 This module provides regime detection, risk overlay, and advanced risk metrics functionality.
 """
+
 from __future__ import annotations
 
 from src.assembled_core.risk.regime_models import (
@@ -62,4 +63,3 @@ __all__ = [
     "compute_factor_exposures",
     "summarize_factor_exposures",
 ]
-

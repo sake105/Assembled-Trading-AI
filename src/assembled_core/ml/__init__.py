@@ -17,23 +17,24 @@ Usage:
         run_time_series_cv,
         evaluate_ml_predictions,
     )
-    
+
     # Configure experiment
     experiment = MLExperimentConfig(
         label_col="fwd_return_20d",
         n_splits=5,
     )
-    
+
     # Configure model
     model_cfg = MLModelConfig(
         name="ridge_20d",
         model_type="ridge",
         params={"alpha": 0.1},
     )
-    
+
     # Run CV
     result = run_time_series_cv(factor_panel_df, experiment, model_cfg)
 """
+
 from __future__ import annotations
 
 from src.assembled_core.ml.factor_models import (
@@ -61,4 +62,3 @@ __all__ = [
     "compute_permutation_importance",
     "summarize_feature_importance_global",
 ]
-

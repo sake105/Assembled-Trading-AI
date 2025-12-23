@@ -1,19 +1,22 @@
 # src/assembled_core/pipeline/signals.py
 """Signal generation for trading strategies."""
+
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
 
 
-def compute_ema_signal_for_symbol(d: pd.DataFrame, fast: int, slow: int) -> pd.DataFrame:
+def compute_ema_signal_for_symbol(
+    d: pd.DataFrame, fast: int, slow: int
+) -> pd.DataFrame:
     """Compute EMA crossover signal for a single symbol.
-    
+
     Args:
         d: DataFrame with columns: timestamp, close (and optionally symbol)
         fast: Fast EMA period
         slow: Slow EMA period
-    
+
     Returns:
         DataFrame with columns: timestamp, symbol, sig, price
         sig: -1 (SELL), 0 (neutral), +1 (BUY)
@@ -40,12 +43,12 @@ def compute_ema_signal_for_symbol(d: pd.DataFrame, fast: int, slow: int) -> pd.D
 
 def compute_ema_signals(prices: pd.DataFrame, fast: int, slow: int) -> pd.DataFrame:
     """Compute EMA crossover signals for all symbols.
-    
+
     Args:
         prices: DataFrame with columns: timestamp, symbol, close
         fast: Fast EMA period
         slow: Slow EMA period
-    
+
     Returns:
         DataFrame with columns: timestamp, symbol, sig, price
         sig: -1 (SELL), 0 (neutral), +1 (BUY)
@@ -53,8 +56,9 @@ def compute_ema_signals(prices: pd.DataFrame, fast: int, slow: int) -> pd.DataFr
     """
     signals = (
         prices.groupby("symbol", group_keys=False)
-        .apply(lambda d: compute_ema_signal_for_symbol(d, fast, slow), include_groups=False)
+        .apply(
+            lambda d: compute_ema_signal_for_symbol(d, fast, slow), include_groups=False
+        )
         .reset_index(drop=True)
     )
     return signals
-

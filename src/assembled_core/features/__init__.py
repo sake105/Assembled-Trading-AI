@@ -53,4 +53,3 @@ __all__ = [
     "build_news_sentiment_factors",
     "build_macro_regime_factors",
 ]
-

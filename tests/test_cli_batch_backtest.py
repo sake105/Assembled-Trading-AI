@@ -1,4 +1,5 @@
 """Tests for batch backtest CLI and batch runner."""
+
 from __future__ import annotations
 
 import sys
@@ -24,22 +25,22 @@ def _write_simple_batch_config_yaml(path: Path, runs: List[Dict[str, Any]]) -> N
     lines.append("description: Simple test batch for CLI")
     lines.append("output_root: output/batch_backtests")
     lines.append("defaults:")
-    lines.append("  freq: \"1d\"")
-    lines.append("  data_source: \"local\"")
-    lines.append("  strategy: \"multifactor_long_short\"")
-    lines.append("  rebalance_freq: \"M\"")
+    lines.append('  freq: "1d"')
+    lines.append('  data_source: "local"')
+    lines.append('  strategy: "multifactor_long_short"')
+    lines.append('  rebalance_freq: "M"')
     lines.append("  max_gross_exposure: 1.0")
     lines.append("  start_capital: 100000.0")
     lines.append("  generate_report: false")
     lines.append("  generate_risk_report: false")
     lines.append("  generate_tca_report: false")
-    lines.append("  symbols_file: \"config/macro_world_etfs_tickers.txt\"")
+    lines.append('  symbols_file: "config/macro_world_etfs_tickers.txt"')
     lines.append("runs:")
     for run in runs:
-        lines.append(f"  - id: \"{run['id']}\"")
-        lines.append(f"    bundle_path: \"{run['bundle_path']}\"")
-        lines.append(f"    start_date: \"{run['start_date']}\"")
-        lines.append(f"    end_date: \"{run['end_date']}\"")
+        lines.append(f'  - id: "{run["id"]}"')
+        lines.append(f'    bundle_path: "{run["bundle_path"]}"')
+        lines.append(f'    start_date: "{run["start_date"]}"')
+        lines.append(f'    end_date: "{run["end_date"]}"')
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -68,7 +69,9 @@ def sample_batch_config_yaml(tmp_path: Path) -> Path:
     return cfg_path
 
 
-def test_load_batch_config_yaml_basic(sample_batch_config_yaml: Path, monkeypatch: pytest.MonkeyPatch):
+def test_load_batch_config_yaml_basic(
+    sample_batch_config_yaml: Path, monkeypatch: pytest.MonkeyPatch
+):
     """Test that load_batch_config can read a minimal YAML config."""
     from scripts import batch_backtest
 
@@ -90,7 +93,9 @@ def test_load_batch_config_yaml_basic(sample_batch_config_yaml: Path, monkeypatc
         assert run.bundle_path.name == "macro_world_etfs_core_bundle.yaml"
 
 
-def test_run_batch_with_mocked_single_run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, sample_batch_config_yaml: Path):
+def test_run_batch_with_mocked_single_run(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, sample_batch_config_yaml: Path
+):
     """Test run_batch logic using a mocked run_single_backtest for speed and determinism."""
     from scripts import batch_backtest
 
@@ -147,7 +152,9 @@ def test_run_batch_with_mocked_single_run(monkeypatch: pytest.MonkeyPatch, tmp_p
     assert "run2_core" in md_content
 
 
-def test_run_batch_fail_fast_behavior(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, sample_batch_config_yaml: Path):
+def test_run_batch_fail_fast_behavior(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, sample_batch_config_yaml: Path
+):
     """Test that fail_fast stops execution after first failure."""
     from scripts import batch_backtest
 
@@ -184,13 +191,17 @@ def test_run_batch_fail_fast_behavior(monkeypatch: pytest.MonkeyPatch, tmp_path:
     assert results[0].status == "failed"
 
 
-def test_batch_backtest_cli_subcommand_dry_run(sample_batch_config_yaml: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def test_batch_backtest_cli_subcommand_dry_run(
+    sample_batch_config_yaml: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     """Test CLI subcommand for batch_backtest in dry-run mode."""
     # Place config under repo-relative path expected by CLI
     configs_root = ROOT / "configs" / "batch_backtests"
     configs_root.mkdir(parents=True, exist_ok=True)
     target_cfg = configs_root / "cli_batch_test.yaml"
-    target_cfg.write_text(sample_batch_config_yaml.read_text(encoding="utf-8"), encoding="utf-8")
+    target_cfg.write_text(
+        sample_batch_config_yaml.read_text(encoding="utf-8"), encoding="utf-8"
+    )
 
     # Use a temp output directory to avoid polluting repo outputs
     output_dir = tmp_path / "batch_outputs"
@@ -206,13 +217,17 @@ def test_batch_backtest_cli_subcommand_dry_run(sample_batch_config_yaml: Path, t
         "--dry-run",
     ]
 
-    result = pytest.subprocess.run(
-        cmd,
-        cwd=str(ROOT),
-        capture_output=True,
-        text=True,
-        timeout=60,
-    ) if hasattr(pytest, "subprocess") else None
+    result = (
+        pytest.subprocess.run(
+            cmd,
+            cwd=str(ROOT),
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if hasattr(pytest, "subprocess")
+        else None
+    )
 
     if result is None:
         # Fallback: use stdlib subprocess if pytest-subprocess is not available
@@ -229,5 +244,3 @@ def test_batch_backtest_cli_subcommand_dry_run(sample_batch_config_yaml: Path, t
     # Dry-run mode may still return non-zero exit if downstream scripts or configs are missing.
     # We only assert that the command executed and produced a batch_summary (smoke test).
     assert result.stdout or result.stderr is not None
-
-

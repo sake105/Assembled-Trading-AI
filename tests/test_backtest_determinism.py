@@ -4,6 +4,7 @@ These tests verify that using the central seed utilities yields
 reproducible backtest results for a given seed and that different
 seeds can produce different but individually deterministic outcomes.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -23,9 +24,7 @@ def _build_prices_with_seed(seed: int) -> pd.DataFrame:
 
     set_global_seed(seed)
 
-    dates = pd.date_range(
-        start="2024-01-01", end="2024-01-15", freq="B", tz="UTC"
-    )
+    dates = pd.date_range(start="2024-01-01", end="2024-01-15", freq="B", tz="UTC")
     symbols = ["AAPL", "MSFT"]
 
     rows: list[dict[str, object]] = []
@@ -46,9 +45,7 @@ def _build_prices_with_seed(seed: int) -> pd.DataFrame:
             )
 
     return (
-        pd.DataFrame(rows)
-        .sort_values(["symbol", "timestamp"])
-        .reset_index(drop=True)
+        pd.DataFrame(rows).sort_values(["symbol", "timestamp"]).reset_index(drop=True)
     )
 
 
@@ -126,12 +123,12 @@ def test_backtest_deterministic_for_fixed_seed() -> None:
     assert result_1.trades is not None
     assert result_2.trades is not None
     pd.testing.assert_frame_equal(
-        result_1.trades.sort_values(
-            ["timestamp", "symbol", "side", "qty"]
-        ).reset_index(drop=True),
-        result_2.trades.sort_values(
-            ["timestamp", "symbol", "side", "qty"]
-        ).reset_index(drop=True),
+        result_1.trades.sort_values(["timestamp", "symbol", "side", "qty"]).reset_index(
+            drop=True
+        ),
+        result_2.trades.sort_values(["timestamp", "symbol", "side", "qty"]).reset_index(
+            drop=True
+        ),
         rtol=1e-12,
         atol=1e-12,
     )
@@ -177,5 +174,3 @@ def test_backtest_separate_seeds_individually_deterministic() -> None:
     final_a = float(a1.equity["equity"].iloc[-1])
     final_b = float(b1.equity["equity"].iloc[-1])
     assert final_a != pytest.approx(final_b, rel=1e-6, abs=1e-6)
-
-

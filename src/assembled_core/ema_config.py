@@ -1,5 +1,6 @@
 # src/assembled_core/ema_config.py
 """EMA (Exponential Moving Average) configuration for trading strategies."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -8,11 +9,12 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class EmaConfig:
     """EMA crossover strategy parameters.
-    
+
     Attributes:
         fast: Fast EMA period (shorter-term trend)
         slow: Slow EMA period (longer-term trend)
     """
+
     fast: int
     slow: int
 
@@ -38,13 +40,13 @@ ALTERNATIVE_EMA_5MIN_FAST = EmaConfig(fast=10, slow=30)
 
 def get_default_ema_config(freq: str) -> EmaConfig:
     """Return the default EMA configuration for a given frequency.
-    
+
     Args:
         freq: Frequency string ("1d" or "5min")
-    
+
     Returns:
         EmaConfig instance with default parameters for the frequency.
-    
+
     Raises:
         ValueError: If freq is not supported.
     """
@@ -54,4 +56,3 @@ def get_default_ema_config(freq: str) -> EmaConfig:
         return DEFAULT_EMA_5MIN
     else:
         raise ValueError(f"Unsupported frequency: {freq}. Use '1d' or '5min'.")
-

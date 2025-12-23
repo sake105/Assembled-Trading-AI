@@ -16,8 +16,6 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-import sys
-from pathlib import Path
 
 # Add repo root to path
 repo_root = Path(__file__).resolve().parent.parent
@@ -186,7 +184,9 @@ def print_completeness_report(report: dict[str, Any]) -> None:
     print(f"Universe: {report['universe_file']}")
     print(f"Symbols: {len(report['symbols'])}")
     if report.get("expected_start"):
-        print(f"Expected Date Range: {report['expected_start']} to {report['expected_end']}")
+        print(
+            f"Expected Date Range: {report['expected_start']} to {report['expected_end']}"
+        )
     print("=" * 80)
     print()
 
@@ -248,7 +248,9 @@ def print_completeness_report(report: dict[str, Any]) -> None:
                 else "N/A"
             )
             range_str = str(r["date_range_days"]) if r["date_range_days"] > 0 else "0"
-            missing_str = str(r["missing_days"]) if r.get("missing_days") is not None else "N/A"
+            missing_str = (
+                str(r["missing_days"]) if r.get("missing_days") is not None else "N/A"
+            )
             dup_str = str(r["duplicates"])
 
             # Status
@@ -292,11 +294,15 @@ def print_completeness_report(report: dict[str, Any]) -> None:
         if gaps_found:
             print("MISSING DATES (Sample)")
             print("-" * 80)
-            for sym, r in sorted(gaps_found, key=lambda x: x[1]["missing_days"], reverse=True)[:5]:
+            for sym, r in sorted(
+                gaps_found, key=lambda x: x[1]["missing_days"], reverse=True
+            )[:5]:
                 print(f"  {sym}: {r['missing_days']} missing days")
                 if r.get("missing_dates_sample"):
                     sample = r["missing_dates_sample"]
-                    print(f"    Sample: {sample[0]} ... {sample[-1] if len(sample) > 1 else ''}")
+                    print(
+                        f"    Sample: {sample[0]} ... {sample[-1] if len(sample) > 1 else ''}"
+                    )
             print()
 
     print("=" * 80)
@@ -342,24 +348,26 @@ def main():
 
     # Load settings
     settings = Settings()
-    target_root = Path(args.target_root) if args.target_root else Path(settings.local_data_root)
+    target_root = (
+        Path(args.target_root) if args.target_root else Path(settings.local_data_root)
+    )
 
     if args.all_universes:
         # Check all universe files
         config_dir = Path("config")
         universe_files = list(config_dir.glob("*_tickers.txt"))
-        
+
         if not universe_files:
             print("❌ No universe files found in config/")
             sys.exit(1)
 
         print(f"Found {len(universe_files)} universe files\n")
-        
+
         for universe_file in sorted(universe_files):
-            print(f"\n{'='*80}")
+            print(f"\n{'=' * 80}")
             print(f"Checking: {universe_file.name}")
-            print(f"{'='*80}\n")
-            
+            print(f"{'=' * 80}\n")
+
             report = check_universe_completeness(
                 universe_file,
                 target_root,
@@ -386,4 +394,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

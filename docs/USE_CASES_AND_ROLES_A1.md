@@ -124,6 +124,7 @@ The Data Engineer manages data ingestion, quality, and storage. The engineer ens
 | **Risk Report Generation** | Backtest results (equity curve, trades) | `python scripts/cli.py risk_report --freq 1d --benchmark SPY` | `output/risk_report_1d.md`, VaR, CVaR, volatility, drawdown analysis |
 | **TCA Report** | Backtest results (trades, prices) | `python scripts/cli.py tca_report --freq 1d --commission-bps 0.5 --spread-w 0.3` | `output/tca_report_1d.md`, cost breakdown, impact analysis |
 | **Regime-Aware Risk Analysis** | Backtest results, regime classification | `python scripts/cli.py risk_report --freq 1d --regime-analysis` | `output/risk_report_1d.md` with regime-specific metrics (Bull/Bear/Sideways) |
+| **Paper-Track Evaluation** | Backtest results, paper-track metrics | Manual evaluation using Paper-Track-Playbook criteria | Paper-Track-Report, Gate-Decision-Log. Details zu Kriterien und Ablauf siehe [Paper-Track-Playbook](PAPER_TRACK_PLAYBOOK.md) |
 
 ---
 

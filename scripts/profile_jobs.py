@@ -132,7 +132,6 @@ def run_factor_ml_job() -> None:
     Adjust paths and parameters based on your environment.
     """
     root = pathlib.Path(__file__).parent.parent
-    cli_script = root / "scripts" / "cli.py"
 
     logger.info("Running FACTOR_ML_JOB...")
 
@@ -204,28 +203,116 @@ def run_playbook_job() -> None:
         logger.info("Playbook job completed successfully")
     except ImportError as e:
         logger.warning("Could not import playbook module: %s", e)
-        logger.warning("PLAYBOOK_JOB is a placeholder – please ensure playbook is available.")
+        logger.warning(
+            "PLAYBOOK_JOB is a placeholder – please ensure playbook is available."
+        )
     except Exception as e:
         logger.warning("Playbook job failed: %s", e)
         # Don't raise - we want profiling to continue even if job fails
 
 
+def run_operations_health_check_job() -> None:
+    """
+    Run operations health check job.
+
+    Uses CLI subprocess to run health checks:
+    - Checks latest backtest directory
+    - Validates existence of key files
+    - Checks plausibility of performance metrics
+    - Outputs health summary (text format)
+    """
+    root = pathlib.Path(__file__).parent.parent
+    cli_script = root / "scripts" / "cli.py"
+
+    logger.info("Running OPERATIONS_HEALTH_CHECK job via CLI...")
+
+    cmd = [
+        sys.executable,
+        str(cli_script),
+        "check_health",
+        "--backtests-root",
+        "output/backtests/",
+        "--format",
+        "text",
+    ]
+
+    result = subprocess.run(
+        cmd, cwd=str(root), capture_output=True, text=True, check=False
+    )
+
+    if result.returncode != 0:
+        logger.warning(f"Health check completed with exit code {result.returncode}")
+        logger.warning(f"stdout: {result.stdout}")
+        logger.warning(f"stderr: {result.stderr}")
+    else:
+        logger.info("Health check completed successfully")
+        if result.stdout:
+            logger.info(f"Output:\n{result.stdout}")
+
+
+def run_paper_track_health_check_job() -> None:
+    """
+    Run paper track health check job.
+
+    Uses CLI subprocess to run health checks with paper track support:
+    - Checks latest backtest directory
+    - Checks paper track strategies (if available)
+    - Validates existence of key files
+    - Checks plausibility of performance metrics
+    - Outputs health summary (text format)
+    """
+    root = pathlib.Path(__file__).parent.parent
+    cli_script = root / "scripts" / "cli.py"
+
+    logger.info("Running PAPER_TRACK_HEALTH_CHECK job via CLI...")
+
+    cmd = [
+        sys.executable,
+        str(cli_script),
+        "check_health",
+        "--backtests-root",
+        "output/backtests/",
+        "--paper-track-root",
+        "output/paper_track/",
+        "--paper-track-days",
+        "3",
+        "--skip-paper-track-if-missing",
+        "--format",
+        "text",
+    ]
+
+    result = subprocess.run(
+        cmd, cwd=str(root), capture_output=True, text=True, check=False
+    )
+
+    if result.returncode != 0:
+        logger.warning(
+            f"Paper track health check completed with exit code {result.returncode}"
+        )
+        logger.warning(f"stdout: {result.stdout}")
+        logger.warning(f"stderr: {result.stderr}")
+    else:
+        logger.info("Paper track health check completed successfully")
+        if result.stdout:
+            logger.info(f"Output:\n{result.stdout}")
+
+
 def run_batch_backtest_job() -> None:
     """
     Run a representative batch backtest job via CLI.
-    
+
     Uses CLI subprocess to run a batch of backtests:
     - Configuration is read from a YAML/JSON batch config file
     - Dry-run mode by default to avoid heavy workloads in profiling
     """
     root = pathlib.Path(__file__).parent.parent
     cli_script = root / "scripts" / "cli.py"
-    
+
     # Example config path (can be adjusted based on repo conventions)
     batch_config = "configs/batch_backtests/ai_tech_core_vs_mlalpha.yaml"
-    
+
     logger.info("Running BATCH_BACKTEST job via CLI...")
-    
+
     cmd = [
         sys.executable,
         str(cli_script),
@@ -234,14 +321,14 @@ def run_batch_backtest_job() -> None:
         batch_config,
         "--dry-run",
     ]
-    
+
     result = subprocess.run(
         cmd,
         cwd=str(root),
         capture_output=False,
         check=False,
     )
-    
+
     if result.returncode != 0:
         logger.warning(
             "Batch backtest job exited with code %d. This may be expected if config or data is missing.",
@@ -256,6 +343,8 @@ JOB_MAP = {
     "FACTOR_ML_JOB": run_factor_ml_job,
     "PLAYBOOK_JOB": run_playbook_job,
     "BATCH_BACKTEST": run_batch_backtest_job,
+    "OPERATIONS_HEALTH_CHECK": run_operations_health_check_job,
+    "PAPER_TRACK_HEALTH_CHECK": run_paper_track_health_check_job,
 }
 
 
@@ -274,7 +363,9 @@ def profile_job(job_name: str, with_cprofile: bool, top_n: int) -> None:
         top_n: Number of top functions to include in stats output
     """
     if job_name not in JOB_MAP:
-        raise ValueError(f"Unknown job_name={job_name!r}. Valid: {sorted(JOB_MAP.keys())}")
+        raise ValueError(
+            f"Unknown job_name={job_name!r}. Valid: {sorted(JOB_MAP.keys())}"
+        )
 
     if with_cprofile and (cProfile is None or pstats is None):
         raise RuntimeError("cProfile/pstats not available. Cannot enable profiling.")
@@ -310,8 +401,10 @@ def profile_job(job_name: str, with_cprofile: bool, top_n: int) -> None:
         f.write(f"timestamp={timestamp}\n")
         f.write(f"total_seconds={total_sec:.6f}\n")
         if prof is not None:
-            f.write(f"cprofile_enabled=true\n")
-            f.write(f"profile_file=output/perf_profiles/profile_{job_name}_{timestamp}.prof\n")
+            f.write("cprofile_enabled=true\n")
+            f.write(
+                f"profile_file=output/perf_profiles/profile_{job_name}_{timestamp}.prof\n"
+            )
 
     logger.info("Wrote perf log to %s", log_path)
 
@@ -373,7 +466,9 @@ def main(argv: list[str] | None = None) -> int:
     _setup_logging()
     args = parse_args(argv)
     try:
-        profile_job(job_name=args.job, with_cprofile=args.with_cprofile, top_n=args.top_n)
+        profile_job(
+            job_name=args.job, with_cprofile=args.with_cprofile, top_n=args.top_n
+        )
         return 0
     except Exception as exc:
         logger.exception("Error while profiling job %s: %s", args.job, exc)
@@ -382,4 +477,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

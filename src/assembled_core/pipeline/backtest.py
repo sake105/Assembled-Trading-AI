@@ -1,5 +1,6 @@
 # src/assembled_core/pipeline/backtest.py
 """Backtest simulation (equity curve without costs)."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -10,18 +11,20 @@ import pandas as pd
 from src.assembled_core.config import OUTPUT_DIR
 
 
-def simulate_equity(prices: pd.DataFrame, orders: pd.DataFrame, start_capital: float) -> pd.DataFrame:
+def simulate_equity(
+    prices: pd.DataFrame, orders: pd.DataFrame, start_capital: float
+) -> pd.DataFrame:
     """Simulate equity curve from prices and orders (without costs).
-    
+
     Args:
         prices: DataFrame with columns: timestamp, symbol, close
         orders: DataFrame with columns: timestamp, symbol, side, qty, price
         start_capital: Starting capital
-    
+
     Returns:
         DataFrame with columns: timestamp, equity
         Sorted by timestamp
-    
+
     Side effects:
         None (pure function)
     """
@@ -85,10 +88,10 @@ def simulate_equity(prices: pd.DataFrame, orders: pd.DataFrame, start_capital: f
 
 def compute_metrics(equity: pd.DataFrame) -> dict[str, float | int]:
     """Compute performance metrics from equity curve.
-    
+
     Args:
         equity: DataFrame with columns: timestamp, equity
-    
+
     Returns:
         Dictionary with keys: final_pf, sharpe, rows, first, last
         final_pf: Final performance factor (equity[-1] / equity[0])
@@ -100,7 +103,7 @@ def compute_metrics(equity: pd.DataFrame) -> dict[str, float | int]:
     pf = float(equity["equity"].iloc[-1] / max(equity["equity"].iloc[0], 1e-12))
     ret = equity["equity"].pct_change().replace([np.inf, -np.inf], np.nan).dropna()
     sharpe = float(ret.mean() / (ret.std() + 1e-12)) if not ret.empty else float("nan")
-    
+
     return {
         "final_pf": pf,
         "sharpe": sharpe,
@@ -110,18 +113,23 @@ def compute_metrics(equity: pd.DataFrame) -> dict[str, float | int]:
     }
 
 
-def write_backtest_report(equity: pd.DataFrame, metrics: dict[str, float | int], freq: str, output_dir: Path | str | None = None) -> tuple[Path, Path]:
+def write_backtest_report(
+    equity: pd.DataFrame,
+    metrics: dict[str, float | int],
+    freq: str,
+    output_dir: Path | str | None = None,
+) -> tuple[Path, Path]:
     """Write backtest results to CSV and Markdown report.
-    
+
     Args:
         equity: DataFrame with columns: timestamp, equity
         metrics: Dictionary with performance metrics
         freq: Frequency string ("1d" or "5min")
         output_dir: Base output directory (default: None, uses config.OUTPUT_DIR)
-    
+
     Returns:
         Tuple of (equity_curve_path, report_path)
-    
+
     Side effects:
         Creates output directory if it doesn't exist
         Writes CSV file: output_dir/equity_curve_{freq}.csv
@@ -129,7 +137,7 @@ def write_backtest_report(equity: pd.DataFrame, metrics: dict[str, float | int],
     """
     out_dir = Path(output_dir) if output_dir else OUTPUT_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
-    
+
     curve_path = out_dir / f"equity_curve_{freq}.csv"
     rep_path = out_dir / f"performance_report_{freq}.md"
 
@@ -144,4 +152,3 @@ def write_backtest_report(equity: pd.DataFrame, metrics: dict[str, float | int],
         f.write(f"- Last:  {metrics['last']}\n")
 
     return curve_path, rep_path
-

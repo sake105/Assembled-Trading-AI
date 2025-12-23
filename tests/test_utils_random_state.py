@@ -1,4 +1,5 @@
 """Tests for global random state utilities."""
+
 from __future__ import annotations
 
 import sys
@@ -45,5 +46,3 @@ def test_seed_context_reproducible_blocks():
 
     assert seq1_py == seq2_py
     assert np.allclose(seq1_np, seq2_np)
-
-

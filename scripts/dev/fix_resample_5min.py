@@ -3,9 +3,10 @@ from __future__ import annotations
 import pathlib as pl
 import pandas as pd
 
-RAW_DIR  = pl.Path("data/raw/1min")
-OUT_DIR  = pl.Path("output/aggregates")
+RAW_DIR = pl.Path("data/raw/1min")
+OUT_DIR = pl.Path("output/aggregates")
 OUT_FILE = OUT_DIR / "5min.parquet"
+
 
 def _read_one(p: pl.Path) -> pd.DataFrame:
     df = pd.read_parquet(p)
@@ -26,6 +27,7 @@ def _read_one(p: pl.Path) -> pd.DataFrame:
         raise ValueError(f"{p}: Spalte 'close' fehlt.")
     return df[["timestamp", "symbol", "close"]]
 
+
 def build_from_raw() -> pd.DataFrame:
     files = sorted(RAW_DIR.glob("*.parquet"))
     if not files:
@@ -39,10 +41,10 @@ def build_from_raw() -> pd.DataFrame:
             g = g.sort_values("timestamp")
             r = (
                 g.set_index("timestamp")["close"]
-                 .resample("5min")
-                 .last()
-                 .to_frame("close")
-                 .reset_index()
+                .resample("5min")
+                .last()
+                .to_frame("close")
+                .reset_index()
             )
             r["symbol"] = sym
             parts.append(r)
@@ -51,10 +53,11 @@ def build_from_raw() -> pd.DataFrame:
     # Aufräumen & sortieren
     df5 = (
         df5[["symbol", "timestamp", "close"]]
-          .sort_values(["timestamp", "symbol"])
-          .reset_index(drop=True)
+        .sort_values(["timestamp", "symbol"])
+        .reset_index(drop=True)
     )
     return df5
+
 
 def main():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -65,6 +68,7 @@ def main():
         f"symbols={df5['symbol'].nunique()} "
         f"first={df5['timestamp'].min()} last={df5['timestamp'].max()}"
     )
+
 
 if __name__ == "__main__":
     main()

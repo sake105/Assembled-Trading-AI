@@ -18,7 +18,7 @@ Usage:
     ...     run_pre_trade_checks
     ... )
     >>> import pandas as pd
-    >>> 
+    >>>
     >>> config = PreTradeConfig(
     ...     max_notional_per_symbol=10000.0,
     ...     max_gross_exposure=50000.0
@@ -29,11 +29,12 @@ Usage:
     ...     "qty": [100, 50],
     ...     "price": [150.0, 2500.0]
     ... })
-    >>> 
+    >>>
     >>> result = run_pre_trade_checks(orders, portfolio=None, config=config)
     >>> if result.is_ok:
     ...     print("All orders passed pre-trade checks")
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -55,6 +56,7 @@ class PreTradeConfig:
         max_sector_exposure: Optional dict mapping sector names to max exposure (fraction)
         max_region_exposure: Optional dict mapping region names to max exposure (fraction)
     """
+
     max_notional_per_symbol: float | None = None
     max_weight_per_symbol: float | None = None
     max_gross_exposure: float | None = None
@@ -72,6 +74,7 @@ class PreTradeCheckResult:
         filtered_orders: Orders DataFrame after filtering (only orders that passed)
         summary: Optional dictionary with summary metrics (gross exposure, etc.)
     """
+
     is_ok: bool
     blocked_reasons: list[str] = field(default_factory=list)
     filtered_orders: pd.DataFrame = field(default_factory=lambda: pd.DataFrame())
@@ -83,7 +86,7 @@ def run_pre_trade_checks(
     portfolio: pd.DataFrame | None = None,
     qa_status: QAGatesSummary | None = None,
     risk_summary: dict[str, Any] | None = None,
-    config: PreTradeConfig | None = None
+    config: PreTradeConfig | None = None,
 ) -> tuple[PreTradeCheckResult, pd.DataFrame]:
     """Run pre-trade checks on orders and filter out blocked orders.
 
@@ -114,17 +117,17 @@ def run_pre_trade_checks(
         ...     PreTradeConfig,
         ...     run_pre_trade_checks
         ... )
-        >>> 
+        >>>
         >>> orders = pd.DataFrame({
         ...     "symbol": ["AAPL", "GOOGL"],
         ...     "side": ["BUY", "BUY"],
         ...     "qty": [100, 50],
         ...     "price": [150.0, 2500.0]
         ... })
-        >>> 
+        >>>
         >>> config = PreTradeConfig(max_notional_per_symbol=10000.0)
         >>> result, filtered = run_pre_trade_checks(orders, config=config)
-        >>> 
+        >>>
         >>> if not result.is_ok:
         ...     print(f"Orders blocked: {result.blocked_reasons}")
     """
@@ -141,10 +144,12 @@ def run_pre_trade_checks(
             PreTradeCheckResult(
                 is_ok=True,
                 blocked_reasons=[],
-                filtered_orders=pd.DataFrame(columns=orders.columns if not orders.empty else []),
-                summary={"total_orders": 0, "passed_orders": 0}
+                filtered_orders=pd.DataFrame(
+                    columns=orders.columns if not orders.empty else []
+                ),
+                summary={"total_orders": 0, "passed_orders": 0},
             ),
-            pd.DataFrame(columns=orders.columns if not orders.empty else [])
+            pd.DataFrame(columns=orders.columns if not orders.empty else []),
         )
 
     # Check required columns
@@ -157,9 +162,9 @@ def run_pre_trade_checks(
                 is_ok=False,
                 blocked_reasons=blocked_reasons,
                 filtered_orders=pd.DataFrame(columns=orders.columns),
-                summary={"total_orders": len(orders), "passed_orders": 0}
+                summary={"total_orders": len(orders), "passed_orders": 0},
             ),
-            pd.DataFrame(columns=orders.columns)
+            pd.DataFrame(columns=orders.columns),
         )
 
     # 1. Check QA status (if provided)
@@ -171,15 +176,21 @@ def run_pre_trade_checks(
                     is_ok=False,
                     blocked_reasons=blocked_reasons,
                     filtered_orders=pd.DataFrame(columns=orders.columns),
-                    summary={"total_orders": len(orders), "passed_orders": 0, "qa_blocked": True}
+                    summary={
+                        "total_orders": len(orders),
+                        "passed_orders": 0,
+                        "qa_blocked": True,
+                    },
                 ),
-                pd.DataFrame(columns=orders.columns)
+                pd.DataFrame(columns=orders.columns),
             )
 
     # 2. Calculate order notional values (if price available)
     orders_with_notional = filtered_orders.copy()
     if "price" in filtered_orders.columns:
-        orders_with_notional["notional"] = filtered_orders["qty"] * filtered_orders["price"]
+        orders_with_notional["notional"] = (
+            filtered_orders["qty"] * filtered_orders["price"]
+        )
     else:
         # If no price, set notional to 0 (checks will be skipped)
         orders_with_notional["notional"] = 0.0
@@ -188,9 +199,13 @@ def run_pre_trade_checks(
     if config.max_notional_per_symbol is not None:
         if "price" in filtered_orders.columns:
             # Calculate notional per symbol (sum of BUY and SELL)
-            symbol_notionals = orders_with_notional.groupby("symbol")["notional"].sum().abs()
-            exceeded_symbols = symbol_notionals[symbol_notionals > config.max_notional_per_symbol]
-            
+            symbol_notionals = (
+                orders_with_notional.groupby("symbol")["notional"].sum().abs()
+            )
+            exceeded_symbols = symbol_notionals[
+                symbol_notionals > config.max_notional_per_symbol
+            ]
+
             if len(exceeded_symbols) > 0:
                 for symbol, notional in exceeded_symbols.items():
                     blocked_reasons.append(
@@ -198,8 +213,12 @@ def run_pre_trade_checks(
                         f"{notional:.2f}, exceeds limit {config.max_notional_per_symbol:.2f}"
                     )
                     # Filter out orders for this symbol
-                    filtered_orders = filtered_orders[filtered_orders["symbol"] != symbol]
-                    orders_with_notional = orders_with_notional[orders_with_notional["symbol"] != symbol]
+                    filtered_orders = filtered_orders[
+                        filtered_orders["symbol"] != symbol
+                    ]
+                    orders_with_notional = orders_with_notional[
+                        orders_with_notional["symbol"] != symbol
+                    ]
 
     # 4. Check max_weight_per_symbol (requires portfolio and total capital)
     if config.max_weight_per_symbol is not None:
@@ -209,7 +228,7 @@ def run_pre_trade_checks(
             # For a full implementation, we'd need current positions + orders to compute new positions
             # For now, we'll check if any order would result in weight > threshold
             # This requires knowing total capital and current positions
-            
+
             # Simplified: If portfolio has weights, check if any order would exceed
             # This is a placeholder - full implementation would need position merging logic
             pass  # TODO: Implement weight checking when portfolio + capital info is available
@@ -223,7 +242,7 @@ def run_pre_trade_checks(
             original_notionals = orders["qty"] * orders["price"]
             gross_exposure = original_notionals.abs().sum()
             summary["gross_exposure"] = gross_exposure
-            
+
             if gross_exposure > config.max_gross_exposure:
                 blocked_reasons.append(
                     f"max_gross_exposure: Gross exposure {gross_exposure:.2f} "
@@ -231,7 +250,9 @@ def run_pre_trade_checks(
                 )
                 # Block all orders if gross exposure exceeded
                 filtered_orders = pd.DataFrame(columns=orders.columns)
-                orders_with_notional = pd.DataFrame(columns=orders_with_notional.columns)
+                orders_with_notional = pd.DataFrame(
+                    columns=orders_with_notional.columns
+                )
         else:
             # Without prices, cannot calculate gross exposure
             # Skip this check
@@ -254,7 +275,7 @@ def run_pre_trade_checks(
 
     # Determine is_ok: True if no reasons to block AND some orders passed
     is_ok = len(blocked_reasons) == 0 and len(filtered_orders) > 0
-    
+
     # Special case: empty orders originally -> is_ok = True
     if len(orders) == 0:
         is_ok = True
@@ -263,8 +284,7 @@ def run_pre_trade_checks(
         is_ok=is_ok,
         blocked_reasons=blocked_reasons,
         filtered_orders=filtered_orders,
-        summary=summary
+        summary=summary,
     )
 
     return result, filtered_orders
-

@@ -16,20 +16,33 @@ import yfinance as yf
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Pull intraday data via yfinance.")
-    p.add_argument("--symbols", type=str, default="AAPL,MSFT",
-                   help="Comma-separated tickers, e.g. 'AAPL,MSFT'")
-    p.add_argument("--days", type=int, default=2,
-                   help="Lookback window in days (yfinance period)")
-    p.add_argument("--repo-root", type=str, required=True,
-                   help="Path to repository root")
-    p.add_argument("--interval", type=str, default=None,
-                   help="Force interval (default: choose 1m if days<=7 else 5m)")
-    p.add_argument("--max-retries", type=int, default=4,
-                   help="Max retries on errors/rate limits")
-    p.add_argument("--base-sleep", type=float, default=2.5,
-                   help="Base sleep seconds for backoff")
-    p.add_argument("--jitter", type=float, default=1.5,
-                   help="Random jitter seconds added to sleep")
+    p.add_argument(
+        "--symbols",
+        type=str,
+        default="AAPL,MSFT",
+        help="Comma-separated tickers, e.g. 'AAPL,MSFT'",
+    )
+    p.add_argument(
+        "--days", type=int, default=2, help="Lookback window in days (yfinance period)"
+    )
+    p.add_argument(
+        "--repo-root", type=str, required=True, help="Path to repository root"
+    )
+    p.add_argument(
+        "--interval",
+        type=str,
+        default=None,
+        help="Force interval (default: choose 1m if days<=7 else 5m)",
+    )
+    p.add_argument(
+        "--max-retries", type=int, default=4, help="Max retries on errors/rate limits"
+    )
+    p.add_argument(
+        "--base-sleep", type=float, default=2.5, help="Base sleep seconds for backoff"
+    )
+    p.add_argument(
+        "--jitter", type=float, default=1.5, help="Random jitter seconds added to sleep"
+    )
     return p.parse_args()
 
 
@@ -63,7 +76,9 @@ def normalize_df(df: pd.DataFrame, symbol: str) -> pd.DataFrame:
     df = df.rename(columns=cols_map)
     keep = [c for c in ["open", "high", "low", "close", "volume"] if c in df.columns]
     if not keep:
-        return pd.DataFrame(columns=["timestamp", "symbol", "open", "high", "low", "close", "volume"])
+        return pd.DataFrame(
+            columns=["timestamp", "symbol", "open", "high", "low", "close", "volume"]
+        )
 
     out = df[keep].copy()
 
@@ -75,7 +90,17 @@ def normalize_df(df: pd.DataFrame, symbol: str) -> pd.DataFrame:
             idx = pd.to_datetime(out["datetime"], utc=True, errors="coerce")
         else:
             # kein Datum → leer
-            return pd.DataFrame(columns=["timestamp", "symbol", "open", "high", "low", "close", "volume"])
+            return pd.DataFrame(
+                columns=[
+                    "timestamp",
+                    "symbol",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                ]
+            )
 
     if idx.tz is None:
         idx = idx.tz_localize("UTC")
@@ -91,7 +116,9 @@ def normalize_df(df: pd.DataFrame, symbol: str) -> pd.DataFrame:
     return out[["timestamp", "symbol", "open", "high", "low", "close", "volume"]]
 
 
-def download_batch(tickers: List[str], period: str, interval: str) -> Dict[str, pd.DataFrame]:
+def download_batch(
+    tickers: List[str], period: str, interval: str
+) -> Dict[str, pd.DataFrame]:
     """
     Lädt mehrere Ticker via yfinance.download. Gibt dict(symbol -> DataFrame) zurück.
     """
@@ -121,7 +148,9 @@ def download_batch(tickers: List[str], period: str, interval: str) -> Dict[str, 
     if isinstance(data, pd.DataFrame) and isinstance(data.columns, pd.MultiIndex):
         # Heuristik: checke, ob Level 0 Felder ("Open", "Close", …) enthält
         lvl0 = [str(x).lower() for x in data.columns.get_level_values(0)]
-        looks_like_fields_first = any(k in lvl0 for k in ["open", "high", "low", "close", "volume"])
+        looks_like_fields_first = any(
+            k in lvl0 for k in ["open", "high", "low", "close", "volume"]
+        )
 
         if looks_like_fields_first:
             # Spalten sind (Field, Ticker)
@@ -193,7 +222,9 @@ def main() -> None:
             print(msg)
             if attempt < a.max_retries:
                 # Exponential Backoff + Jitter
-                sleep_s = a.base_sleep * (2 ** (attempt - 1)) + random.uniform(0, a.jitter)
+                sleep_s = a.base_sleep * (2 ** (attempt - 1)) + random.uniform(
+                    0, a.jitter
+                )
                 print(f"[LIVE] WARN empty all (try#{attempt}) → sleep {sleep_s:.1f}s")
                 time.sleep(sleep_s)
             else:
@@ -203,7 +234,9 @@ def main() -> None:
             # Andere Fehler (Netz, Parsing, …): ebenfalls backoff
             print(f"[LIVE] ERROR: {type(e).__name__}: {e}")
             if attempt < a.max_retries:
-                sleep_s = a.base_sleep * (2 ** (attempt - 1)) + random.uniform(0, a.jitter)
+                sleep_s = a.base_sleep * (2 ** (attempt - 1)) + random.uniform(
+                    0, a.jitter
+                )
                 print(f"[LIVE] WARN exception (try#{attempt}) → sleep {sleep_s:.1f}s")
                 time.sleep(sleep_s)
             else:

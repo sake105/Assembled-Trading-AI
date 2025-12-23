@@ -222,6 +222,60 @@ market_state = breadth.merge(ad_line, on="timestamp").merge(risk_indicator, on="
 - Component map linking roles to workflows, scripts, and documentation
 - Open questions and future work
 
+#### A3: Operations & Monitoring ✅ (Completed)
+
+**Status:** Implemented and tested
+
+**Module:** `src/assembled_core/ops/health_check.py`  
+**CLI:** `scripts/check_health.py`, `scripts/cli.py check_health`  
+**Profile Jobs:** Optional `OPERATIONS_HEALTH_CHECK` job type in `scripts/profile_jobs.py`
+
+**Implementation:**
+- **Health Check Core**: Data structures and utilities for health checks
+  - `HealthCheck` and `HealthCheckResult` dataclasses
+  - Status aggregation (OK, WARN, CRITICAL, SKIP)
+  - JSON serialization (`health_result_to_dict()`, `health_result_from_dict()`)
+  - Text rendering (`render_health_summary_text()`)
+- **Health Check Script**: Read-only health checks for backend operations
+  - Existence checks (backtest runs, risk reports, TCA reports)
+  - Plausibility checks (drawdown, Sharpe, turnover, benchmark correlation)
+  - Backtest freshness validation (last equity timestamp within lookback window)
+  - Status interpretation and exit codes (0=OK/SKIP, 1=WARN, 2=CRITICAL)
+
+**Integration:**
+- Standalone script: `scripts/check_health.py` (direct execution)
+- CLI subcommand: `scripts/cli.py check_health` (with all arguments: `--backtests-root`, `--days`, `--min-sharpe`, etc.)
+- Outputs: `health_summary.json` (machine-readable), `health_summary.md` (human-readable)
+- Designed for daily automation (cron/scheduler integration, see Runbook)
+
+#### A4: Paper-Track-Playbook ✅ (Completed)
+
+**Document:** [Paper Track Playbook](PAPER_TRACK_PLAYBOOK.md)
+
+**Description:** Standardized process definition for moving trading strategies from backtest to paper trading (simulation) and eventually to live trading. Defines quality criteria, operational processes, monitoring metrics, and gate decisions.
+
+**Content:**
+- **Phase 0 - Candidate-Backtest**: Gate criteria for entry into paper track (minimum backtest duration >= 5 years, regime coverage >= 3 regimes, deflated Sharpe >= 0.5, max drawdown <= -30%, PIT-safety, optional walk-forward and factor exposures)
+- **Phase 1 - Paper-Track Setup**: Required artifacts (backtest reports, model cards, configs), technical setup (EOD pipeline, SAFE-Bridge outputs), roles (Researcher, Operator, Risk/QA) and their tasks
+- **Phase 2 - Paper-Track Runtime**: Minimum duration (6-12 months), monitored metrics (Sharpe, deflated Sharpe, MaxDD, hit-rate, turnover, slippage, factor exposures, regime performance), acceptable deviations vs. backtest (with example thresholds), handling of WARN/CRITICAL scenarios (pause, parameter review, kill)
+- **Phase 3 - Go/No-Go to Live**: Clarification that live trading requires additional professional and regulatory checks, example Go/No-Go criteria, documentation requirements (updated model card, decision log)
+- **Checklists & Templates**: Two compact tables (Backtest → Paper Gate, Paper → Live Gate) with fields: Sharpe/DSR, MaxDD, regime coverage, QA status, comments
+
+**Integration:**
+- Builds on existing backtest infrastructure (`scripts/run_backtest_strategy.py`, `scripts/batch_backtest.py`)
+- Uses risk reports (`scripts/generate_risk_report.py`) for regime analysis and factor exposures
+- Integrates with walk-forward analysis (B3) and deflated Sharpe (B4) for gate criteria
+- Links to PIT-safety (B2) for validation requirements
+- Optional job profiling: `python scripts/profile_jobs.py --job OPERATIONS_HEALTH_CHECK`
+
+**Tests:**
+- `tests/test_ops_health_check_core.py` (7 tests): Core functionality (status aggregation, serialization, rendering)
+- `tests/test_cli_check_health.py` (7 tests): CLI integration, smoke tests, help commands
+
+**Documentation:**
+- Design Document: `docs/OPERATIONS_BACKEND_A3_DESIGN.md`
+- Runbook: `docs/OPERATIONS_BACKEND.md` (daily/weekly checklists, troubleshooting, automation)
+
 ---
 
 ### Phase B: Alt-Data Factors 2.0

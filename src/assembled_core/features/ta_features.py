@@ -8,6 +8,7 @@ Zukünftige Integration:
 - Erweitert um weitere TA-Indikatoren (SMA, ATR, RSI, MACD, Bollinger Bands, etc.)
 - Bietet Feature-Engineering-Pipeline für ML-Modelle
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -21,19 +22,21 @@ def add_log_returns(
 ) -> pd.DataFrame:
     """
     Füge logarithmische Returns pro Symbol hinzu.
-    
+
     Erwartet:
     - Spalte 'symbol'
     - Spalte `price_col` (z.B. 'close')
     - Optional: 'timestamp' für zeitliche Sortierung
-    
+
     Rückgabe:
     - DataFrame mit neuer Spalte `out_col`
     """
     if "symbol" not in df.columns:
         raise KeyError("symbol")
     if price_col not in df.columns:
-        raise KeyError(f"Price column '{price_col}' not found. Available columns: {list(df.columns)}")
+        raise KeyError(
+            f"Price column '{price_col}' not found. Available columns: {list(df.columns)}"
+        )
 
     result = df.copy()
 
@@ -57,38 +60,38 @@ def add_log_returns(
 
 
 def add_moving_averages(
-    df: pd.DataFrame,
-    windows: tuple[int, ...] = (20, 50, 200),
-    price_col: str = "close"
+    df: pd.DataFrame, windows: tuple[int, ...] = (20, 50, 200), price_col: str = "close"
 ) -> pd.DataFrame:
     """Add Simple Moving Averages (SMA) to price DataFrame.
-    
+
     Computes SMA for each window: SMA(window) = mean(price over window periods)
-    
+
     Args:
         df: DataFrame with columns: timestamp, symbol, and price_col
         windows: Tuple of window sizes (default: (20, 50, 200))
         price_col: Column name for price data (default: "close")
-    
+
     Returns:
         DataFrame with additional columns: ma_{window} for each window
         Sorted by symbol, then timestamp
-    
+
     Raises:
         KeyError: If required columns are missing
     """
     df = df.copy()
-    
+
     # Ensure required columns
     if price_col not in df.columns:
-        raise KeyError(f"Price column '{price_col}' not found. Available columns: {list(df.columns)}")
-    
+        raise KeyError(
+            f"Price column '{price_col}' not found. Available columns: {list(df.columns)}"
+        )
+
     # Sort by symbol and timestamp
     if "symbol" in df.columns:
         df = df.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
     else:
         df = df.sort_values("timestamp").reset_index(drop=True)
-    
+
     # Compute SMA for each window per symbol
     for window in windows:
         col_name = f"ma_{window}"
@@ -101,7 +104,7 @@ def add_moving_averages(
             )
         else:
             df[col_name] = df[price_col].rolling(window=window, min_periods=1).mean()
-    
+
     return df
 
 
@@ -114,11 +117,11 @@ def add_atr(
 ) -> pd.DataFrame:
     """
     Füge Average True Range (ATR) pro Symbol hinzu.
-    
+
     Erwartet:
     - Spalten: 'symbol', high_col, low_col, close_col
     - Optional: 'timestamp'
-    
+
     Rückgabe:
     - DataFrame mit neuer Spalte f"atr_{window}"
     """
@@ -171,11 +174,11 @@ def add_rsi(
 ) -> pd.DataFrame:
     """
     Füge einen klassischen RSI (Wilder) pro Symbol hinzu.
-    
+
     Erwartet:
     - Spalten: 'symbol', price_col
     - Optional: 'timestamp'
-    
+
     Rückgabe:
     - DataFrame mit neuer Spalte f"rsi_{window}"
     """
@@ -230,19 +233,19 @@ def add_all_features(
     ma_windows: tuple[int, ...] = (20, 50, 200),
     atr_window: int = 14,
     rsi_window: int = 14,
-    include_rsi: bool = True
+    include_rsi: bool = True,
 ) -> pd.DataFrame:
     """Add all technical analysis features to price DataFrame.
-    
+
     Convenience function that adds log returns, moving averages, ATR, and optionally RSI.
-    
+
     Args:
         df: DataFrame with columns: timestamp, symbol, open, high, low, close, volume
         ma_windows: Tuple of SMA window sizes (default: (20, 50, 200))
         atr_window: ATR window size (default: 14)
         rsi_window: RSI window size (default: 14)
         include_rsi: Whether to include RSI (default: True)
-    
+
     Returns:
         DataFrame with all features added
         Columns added: log_return, ma_{window} for each window, atr_{atr_window}, rsi_{rsi_window} (if include_rsi)
@@ -250,8 +253,8 @@ def add_all_features(
     df = add_log_returns(df)
     df = add_moving_averages(df, windows=ma_windows)
     df = add_atr(df, window=atr_window)
-    
+
     if include_rsi:
         df = add_rsi(df, window=rsi_window)
-    
+
     return df
