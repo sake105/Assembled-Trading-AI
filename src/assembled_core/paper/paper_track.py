@@ -39,10 +39,6 @@ from src.assembled_core.config.constants import (
 from src.assembled_core.data.prices_ingest import (
     load_eod_prices_for_universe,
 )
-from src.assembled_core.execution.order_generation import (
-    generate_orders_from_targets,
-)
-from src.assembled_core.features.ta_features import add_all_features
 from src.assembled_core.qa.backtest_engine import _update_positions_vectorized
 from src.assembled_core.qa.metrics import (
     compute_drawdown,
@@ -55,6 +51,10 @@ from src.assembled_core.qa.point_in_time_checks import (
 )
 from src.assembled_core.paper.strategy_adapters import (
     generate_signals_and_targets_for_day,
+)
+from src.assembled_core.pipeline.trading_cycle import (
+    TradingContext,
+    run_trading_cycle,
 )
 
 logger = logging.getLogger(__name__)
@@ -1042,45 +1042,125 @@ def run_paper_day(
             )
             # Continue with empty prices_tradeable - will result in no orders
 
-        # Step 4: Compute features (PIT-safe)
-        logger.debug("Computing features")
-        # Strategy-specific feature computation (used primarily for trend_baseline)
-        prices_with_features = _compute_features_for_strategy(config, prices_tradeable)
-
-        # PIT check (if enabled)
+        # Step 4-7: Run unified trading cycle (features/signals/positions/orders)
+        logger.debug("Running trading cycle (features/signals/positions/orders)")
+        
+        # Build signal and sizing functions from strategy adapter
+        # We need to wrap the strategy adapter to work with trading_cycle
+        def signal_fn(df_with_features: pd.DataFrame) -> pd.DataFrame:
+            """Signal function wrapper for trading_cycle."""
+            # The strategy adapter expects full context, but trading_cycle only provides
+            # prices_with_features. We'll use a simplified version that extracts signals.
+            # For now, delegate to strategy adapter with minimal context.
+            signals, _ = _generate_signals_and_targets_for_day(
+                config=config,
+                state_before=state_before,
+                prices_full=prices,
+                prices_filtered=prices_tradeable,
+                prices_with_features=df_with_features,
+                as_of=as_of,
+            )
+            return signals
+        
+        def sizing_fn(signals: pd.DataFrame, capital: float) -> pd.DataFrame:
+            """Position sizing function wrapper for trading_cycle."""
+            # For trend_baseline, we can compute target positions directly from signals
+            # For other strategies, we'll need to call the strategy adapter with features
+            if config.strategy_type == "trend_baseline":
+                from src.assembled_core.portfolio.position_sizing import (
+                    compute_target_positions_from_trend_signals,
+                )
+                params = config.strategy_params or {}
+                return compute_target_positions_from_trend_signals(
+                    signals,
+                    total_capital=capital,
+                    top_n=params.get("top_n"),
+                    min_score=params.get("min_score", 0.0),
+                )
+            else:
+                # For other strategies (e.g., multifactor), we need to call the adapter
+                # We'll need prices_with_features, so we compute them again (cached in cycle)
+                # This is a limitation, but acceptable for now
+                prices_with_features_temp = _compute_features_for_strategy(config, prices_tradeable)
+                _, target_positions = _generate_signals_and_targets_for_day(
+                    config=config,
+                    state_before=state_before,
+                    prices_full=prices,
+                    prices_filtered=prices_tradeable,
+                    prices_with_features=prices_with_features_temp,
+                    as_of=as_of,
+                )
+                # Filter to signals that are in the input
+                if not signals.empty and not target_positions.empty:
+                    signal_symbols = set(signals["symbol"].unique())
+                    target_positions = target_positions[
+                        target_positions["symbol"].isin(signal_symbols)
+                    ].copy()
+                return target_positions
+        
+        # Build TradingContext
+        current_positions = state_before.positions.copy()
+        ctx = TradingContext(
+            prices=prices_tradeable,  # Tradeable prices (already filtered)
+            as_of=as_of,
+            freq=config.freq,
+            universe=universe_symbols if universe_symbols else None,
+            use_factor_store=False,  # Paper track doesn't use factor store yet
+            factor_store_root=None,
+            factor_group="core_ta",
+            feature_config={
+                "ma_windows": (
+                    config.strategy_params.get("ma_fast", DEFAULT_MA_WINDOWS[0]),
+                    config.strategy_params.get("ma_slow", DEFAULT_MA_WINDOWS[1]),
+                ),
+                "atr_window": DEFAULT_ATR_WINDOW,
+                "rsi_window": DEFAULT_RSI_WINDOW,
+                "include_rsi": True,
+            },
+            signal_fn=signal_fn,
+            signal_config=config.strategy_params,
+            position_sizing_fn=sizing_fn,
+            capital=state_before.equity,  # Use current equity as capital
+            current_positions=current_positions
+            if not current_positions.empty
+            else None,
+            order_timestamp=as_of,
+            enable_risk_controls=False,  # Paper track handles risk separately
+            risk_config={},
+            output_dir=None,  # No outputs from trading_cycle (we handle outputs)
+            output_format="none",
+            write_outputs=False,  # Pure function
+            run_id=None,
+            strategy_name=config.strategy_name,
+            logger=logger,
+            timings=None,
+        )
+        
+        # Run trading cycle
+        cycle_result = run_trading_cycle(ctx)
+        
+        if cycle_result.status != "success":
+            raise ValueError(f"Trading cycle failed: {cycle_result.error_message}")
+        
+        # PIT check (if enabled) - now on cycle_result.prices_with_features
         enable_pit = _should_enable_pit_checks(config)
         if enable_pit:
             check_features_pit_safe(
-                prices_with_features,
+                cycle_result.prices_with_features,
                 as_of=as_of,
                 timestamp_col="timestamp",
                 strict=True,
                 feature_source="paper_track",
             )
             logger.debug("PIT checks passed")
-
-        # Step 5-6: Generate signals and target positions via strategy adapter
-        logger.debug("Generating signals and target positions")
-        signals, target_positions = _generate_signals_and_targets_for_day(
-            config=config,
-            state_before=state_before,
-            prices_full=prices,
-            prices_filtered=prices_tradeable,  # Use tradeable prices
-            prices_with_features=prices_with_features,
-            as_of=as_of,
-        )
-
-        # Step 7: Generate orders
-        logger.debug("Generating orders")
-        current_positions = state_before.positions.copy()
-        orders = generate_orders_from_targets(
-            target_positions,
-            current_positions=current_positions
-            if not current_positions.empty
-            else None,
-            timestamp=as_of,
-            prices=prices_tradeable,  # Use tradeable prices
-        )
+        
+        # Extract results
+        signals = cycle_result.signals
+        target_positions = cycle_result.target_positions
+        orders = cycle_result.orders  # Already generated from targets
+        
+        # Use prices_with_features from cycle for consistency
+        prices_with_features = cycle_result.prices_with_features
 
         # Step 8: Simulate fills
         logger.debug("Simulating order fills")

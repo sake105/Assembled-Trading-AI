@@ -171,6 +171,27 @@ Examples:
     )
 
     parser.add_argument(
+        "--batch-root",
+        type=Path,
+        default=None,
+        help="Root directory containing batch backtest outputs (default: auto-detect under output/)",
+    )
+
+    parser.add_argument(
+        "--batch-max-failure-rate",
+        type=float,
+        default=0.2,
+        help="Maximum acceptable failure rate for batch runs (default: 0.2 = 20%%)",
+    )
+
+    parser.add_argument(
+        "--skip-batch-if-missing",
+        action="store_true",
+        default=False,
+        help="Skip batch checks if batch directory doesn't exist (default: False = WARN)",
+    )
+
+    parser.add_argument(
         "--paper-track-max-drawdown-min",
         type=float,
         default=-0.25,
@@ -947,6 +968,419 @@ def run_paper_track_health_checks(
     return checks
 
 
+def find_batch_directories(batch_root: Path) -> list[Path]:
+    """Find all batch directories (those containing batch_manifest.json).
+
+    Args:
+        batch_root: Root directory containing batch outputs
+
+    Returns:
+        List of batch directory paths (sorted by modification time, newest first)
+    """
+    if not batch_root.exists():
+        return []
+
+    batch_dirs = []
+    for item in batch_root.iterdir():
+        if not item.is_dir():
+            continue
+
+        # Check for batch_manifest.json
+        batch_manifest = item / "batch_manifest.json"
+        if batch_manifest.exists():
+            batch_dirs.append(item)
+
+    # Sort by modification time (newest first)
+    batch_dirs.sort(key=lambda p: (p / "batch_manifest.json").stat().st_mtime, reverse=True)
+
+    return batch_dirs
+
+
+def load_batch_manifest(batch_dir: Path) -> dict[str, Any] | None:
+    """Load batch manifest from batch directory.
+
+    Args:
+        batch_dir: Batch directory path
+
+    Returns:
+        Dictionary with batch manifest data, or None if not found
+    """
+    manifest_path = batch_dir / "batch_manifest.json"
+    if not manifest_path.exists():
+        return None
+
+    try:
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        logger.warning(f"Failed to load batch manifest from {manifest_path}: {e}")
+        return None
+
+
+def load_batch_summary_csv(batch_dir: Path) -> pd.DataFrame | None:
+    """Load batch summary CSV from batch directory.
+
+    Args:
+        batch_dir: Batch directory path
+
+    Returns:
+        DataFrame with batch summary, or None if not found
+    """
+    summary_csv = batch_dir / "batch_summary.csv"
+    if not summary_csv.exists():
+        return None
+
+    try:
+        df = pd.read_csv(summary_csv)
+        logger.debug(f"Loaded batch summary CSV from {summary_csv}: {len(df)} runs")
+        return df
+    except Exception as e:
+        logger.warning(f"Failed to load batch summary CSV from {summary_csv}: {e}")
+        return None
+
+
+def check_batch_latest_status(
+    batch_dir: Path | None,
+) -> HealthCheck:
+    """Check latest batch status from batch manifest.
+
+    Args:
+        batch_dir: Latest batch directory, or None if none found
+
+    Returns:
+        HealthCheck instance
+    """
+    if batch_dir is None:
+        return HealthCheck(
+            name="batch_latest_status",
+            status="WARN",
+            value="missing",
+            expected="exists",
+            details="No batch directories found",
+        )
+
+    manifest = load_batch_manifest(batch_dir)
+    if manifest is None:
+        return HealthCheck(
+            name="batch_latest_status",
+            status="WARN",
+            value="missing",
+            expected="exists",
+            details=f"Batch manifest not found in {batch_dir.name}",
+        )
+
+    # Extract status from run_results_summary
+    run_summary = manifest.get("run_results_summary", {})
+    total_runs = run_summary.get("total_runs", 0)
+    success_count = run_summary.get("success_count", 0)
+    failed_count = run_summary.get("failed_count", 0)
+
+    if total_runs == 0:
+        status = "WARN"
+        details = f"Batch {batch_dir.name}: No runs completed"
+    elif failed_count > 0:
+        if failed_count == total_runs:
+            status = "CRITICAL"
+            details = f"Batch {batch_dir.name}: All {total_runs} runs failed"
+        else:
+            status = "WARN"
+            details = f"Batch {batch_dir.name}: {failed_count}/{total_runs} runs failed"
+    else:
+        status = "OK"
+        details = f"Batch {batch_dir.name}: {success_count}/{total_runs} runs succeeded"
+
+    finished_at_str = manifest.get("finished_at")
+    last_updated_at = None
+    if finished_at_str:
+        try:
+            last_updated_at = pd.to_datetime(finished_at_str, utc=True)
+        except Exception:
+            pass
+
+    return HealthCheck(
+        name="batch_latest_status",
+        status=status,
+        value=f"{success_count}/{total_runs}",
+        expected="all succeeded",
+        details=details,
+        last_updated_at=last_updated_at,
+    )
+
+
+def check_batch_failure_rate(
+    batch_dir: Path | None,
+    max_failure_rate: float,
+) -> HealthCheck:
+    """Check batch failure rate from batch summary CSV.
+
+    Args:
+        batch_dir: Latest batch directory, or None if none found
+        max_failure_rate: Maximum acceptable failure rate (0.0-1.0)
+
+    Returns:
+        HealthCheck instance
+    """
+    if batch_dir is None:
+        return HealthCheck(
+            name="batch_failure_rate",
+            status="SKIP",
+            value=None,
+            expected=f"<= {max_failure_rate:.1%}",
+            details="No batch directories found",
+        )
+
+    summary_df = load_batch_summary_csv(batch_dir)
+    if summary_df is None or summary_df.empty:
+        return HealthCheck(
+            name="batch_failure_rate",
+            status="WARN",
+            value=None,
+            expected=f"<= {max_failure_rate:.1%}",
+            details=f"Batch summary CSV not found or empty in {batch_dir.name}",
+        )
+
+    if "status" not in summary_df.columns:
+        return HealthCheck(
+            name="batch_failure_rate",
+            status="WARN",
+            value=None,
+            expected=f"<= {max_failure_rate:.1%}",
+            details=f"Batch summary CSV missing 'status' column in {batch_dir.name}",
+        )
+
+    # Count statuses
+    total_runs = len(summary_df)
+    failed_runs = len(summary_df[summary_df["status"] == "failed"])
+    failure_rate = failed_runs / total_runs if total_runs > 0 else 0.0
+
+    if failure_rate > max_failure_rate:
+        if failure_rate >= 0.5:  # 50% or more failures
+            status = "CRITICAL"
+        else:
+            status = "WARN"
+        details = (
+            f"Batch {batch_dir.name}: Failure rate {failure_rate:.1%} ({failed_runs}/{total_runs}) "
+            f"exceeds threshold {max_failure_rate:.1%}"
+        )
+    else:
+        status = "OK"
+        details = (
+            f"Batch {batch_dir.name}: Failure rate {failure_rate:.1%} ({failed_runs}/{total_runs}) "
+            f"within threshold {max_failure_rate:.1%}"
+        )
+
+    return HealthCheck(
+        name="batch_failure_rate",
+        status=status,
+        value=failure_rate,
+        expected=f"<= {max_failure_rate:.1%}",
+        details=details,
+    )
+
+
+def check_batch_missing_manifests(
+    batch_dir: Path | None,
+) -> HealthCheck:
+    """Check for missing run manifests in batch directory.
+
+    Args:
+        batch_dir: Latest batch directory, or None if none found
+
+    Returns:
+        HealthCheck instance
+    """
+    if batch_dir is None:
+        return HealthCheck(
+            name="batch_missing_manifests",
+            status="SKIP",
+            value=None,
+            expected="all present",
+            details="No batch directories found",
+        )
+
+    # Load batch manifest to get run IDs
+    manifest = load_batch_manifest(batch_dir)
+    if manifest is None:
+        return HealthCheck(
+            name="batch_missing_manifests",
+            status="WARN",
+            value=None,
+            expected="all present",
+            details=f"Batch manifest not found in {batch_dir.name}",
+        )
+
+    run_results_summary = manifest.get("run_results_summary", {})
+    run_ids = run_results_summary.get("run_ids", [])
+
+    if not run_ids:
+        return HealthCheck(
+            name="batch_missing_manifests",
+            status="WARN",
+            value=0,
+            expected=">= 1",
+            details=f"Batch {batch_dir.name}: No run IDs found in manifest",
+        )
+
+    # Check for run manifests in runs/ subdirectory
+    runs_dir = batch_dir / "runs"
+    missing_manifests = []
+
+    for run_id in run_ids:
+        # Find run directory (could be {run_index}_{run_id} or just {run_id})
+        run_dir = None
+        if runs_dir.exists():
+            # Look for directories matching run_id pattern
+            for item in runs_dir.iterdir():
+                if not item.is_dir():
+                    continue
+                # Check if run_id is in directory name
+                if run_id in item.name:
+                    run_dir = item
+                    break
+
+        if run_dir is None:
+            missing_manifests.append(run_id)
+            continue
+
+        # Check for run_manifest.json
+        run_manifest = run_dir / "run_manifest.json"
+        if not run_manifest.exists():
+            missing_manifests.append(run_id)
+
+    missing_count = len(missing_manifests)
+    total_runs = len(run_ids)
+
+    if missing_count == 0:
+        status = "OK"
+        details = f"Batch {batch_dir.name}: All {total_runs} run manifests present"
+    elif missing_count <= total_runs * 0.1:  # Less than 10% missing
+        status = "WARN"
+        details = (
+            f"Batch {batch_dir.name}: {missing_count}/{total_runs} run manifests missing "
+            f"({', '.join(missing_manifests[:5])}{'...' if missing_count > 5 else ''})"
+        )
+    else:  # More than 10% missing
+        status = "CRITICAL"
+        details = (
+            f"Batch {batch_dir.name}: {missing_count}/{total_runs} run manifests missing "
+            f"({', '.join(missing_manifests[:5])}{'...' if missing_count > 5 else ''})"
+        )
+
+    return HealthCheck(
+        name="batch_missing_manifests",
+        status=status,
+        value=missing_count,
+        expected=f"0 (of {total_runs})",
+        details=details,
+    )
+
+
+def run_batch_health_checks(
+    batch_root: Path | None,
+    args: argparse.Namespace,
+) -> list[HealthCheck]:
+    """Run health checks for batch backtests.
+
+    Args:
+        batch_root: Root directory for batch outputs
+        args: Parsed command-line arguments
+
+    Returns:
+        List of HealthCheck instances
+    """
+    checks = []
+
+    # Auto-detect batch root if not provided
+    if batch_root is None:
+        batch_root = ROOT / "output"
+
+    if not batch_root.is_absolute():
+        batch_root = ROOT / batch_root
+    batch_root = batch_root.resolve()
+
+    if not batch_root.exists():
+        if args.skip_batch_if_missing:
+            logger.info(
+                f"Batch root does not exist and --skip-batch-if-missing is set: {batch_root}"
+            )
+            checks.append(
+                HealthCheck(
+                    name="batch_root_exists",
+                    status="SKIP",
+                    value="missing",
+                    expected="exists",
+                    details=f"Batch root not found: {batch_root} (skipped per flag)",
+                )
+            )
+            return checks
+        else:
+            logger.warning(f"Batch root does not exist: {batch_root}")
+            checks.append(
+                HealthCheck(
+                    name="batch_root_exists",
+                    status="WARN",
+                    value="missing",
+                    expected="exists",
+                    details=f"Batch root not found: {batch_root}",
+                )
+            )
+            return checks
+
+    checks.append(
+        HealthCheck(
+            name="batch_root_exists",
+            status="OK",
+            value="exists",
+            expected="exists",
+            details=f"Batch root found: {batch_root}",
+        )
+    )
+
+    # Find batch directories
+    batch_dirs = find_batch_directories(batch_root)
+
+    if not batch_dirs:
+        checks.append(
+            HealthCheck(
+                name="batch_directories_found",
+                status="WARN",
+                value=0,
+                expected=">= 1",
+                details=f"No batch directories found in {batch_root}",
+            )
+        )
+        return checks
+
+    checks.append(
+        HealthCheck(
+            name="batch_directories_found",
+            status="OK",
+            value=len(batch_dirs),
+            expected=">= 1",
+            details=f"Found {len(batch_dirs)} batch directory(ies)",
+        )
+    )
+
+    # Use latest batch directory for checks
+    latest_batch_dir = batch_dirs[0] if batch_dirs else None
+
+    # Check latest batch status
+    latest_status_check = check_batch_latest_status(latest_batch_dir)
+    checks.append(latest_status_check)
+
+    # Check failure rate
+    failure_rate_check = check_batch_failure_rate(
+        latest_batch_dir, args.batch_max_failure_rate
+    )
+    checks.append(failure_rate_check)
+
+    # Check missing manifests
+    missing_manifests_check = check_batch_missing_manifests(latest_batch_dir)
+    checks.append(missing_manifests_check)
+
+    return checks
+
+
 def maybe_load_benchmark_returns(args: argparse.Namespace) -> pd.Series | None:
     """Load benchmark returns if benchmark symbol or file is provided.
 
@@ -1494,6 +1928,23 @@ def run_health_checks_from_cli(args: argparse.Namespace) -> int:
             )
         )
 
+    # Check 8: Batch health checks (optional)
+    try:
+        batch_checks = run_batch_health_checks(args.batch_root, args)
+        checks.extend(batch_checks)
+    except Exception as e:
+        logger.warning(f"Batch health checks failed: {e}", exc_info=args.verbose)
+        # Don't crash - add SKIP check instead
+        checks.append(
+            HealthCheck(
+                name="batch_checks",
+                status="SKIP",
+                value=None,
+                expected="N/A",
+                details=f"Batch checks failed: {e}",
+            )
+        )
+
     # Aggregate overall status
     overall_status = aggregate_overall_status(checks)
 
@@ -1514,6 +1965,8 @@ def run_health_checks_from_cli(args: argparse.Namespace) -> int:
             if args.paper_track_root
             else "auto-detected",
             "paper_track_days": args.paper_track_days,
+            "batch_root": str(args.batch_root) if args.batch_root else "auto-detected",
+            "batch_max_failure_rate": args.batch_max_failure_rate,
         },
     )
 

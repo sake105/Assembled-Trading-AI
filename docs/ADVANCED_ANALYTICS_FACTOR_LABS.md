@@ -330,6 +330,7 @@ market_state = breadth.merge(ad_line, on="timestamp").merge(risk_indicator, on="
 - All Alt-Data feature builders support `as_of` parameter for PIT-safe factor computation
 - Events are filtered by `disclosure_date <= as_of` to prevent look-ahead bias
 - See [Point-in-Time and Latency Documentation](POINT_IN_TIME_AND_LATENCY.md) for details
+- **Status:** ✅ Completed (B2.1-B2.3 implemented)
 
 **Download Script:**
 - **Module:** `scripts/download_altdata_finnhub_events.py`
@@ -446,6 +447,7 @@ all_factors = ta_factors.merge(
 - All Alt-Data feature builders support `as_of` parameter for PIT-safe factor computation
 - Events are filtered by `disclosure_date <= as_of` to prevent look-ahead bias
 - See [Point-in-Time and Latency Documentation](POINT_IN_TIME_AND_LATENCY.md) for details
+- **Status:** ✅ Completed (B2.1-B2.3 implemented)
 
 **Tests:**
 - `tests/test_features_altdata_news_macro_factors.py` (marked with `@pytest.mark.advanced`)
@@ -1683,9 +1685,189 @@ python scripts/cli.py tca_report --backtest-dir output/backtests/experiment_123/
 - Market impact models (based on trade size relative to volume)
 - Integration with live execution layer (post-trade TCA)
 
-#### P4: Batch Runner & Parallelisierung ✅ (Design implemented, Runner available)
+#### P2: Factor Store & Data Layout ✅ (Completed)
 
-**Status:** Design und erste Implementierung abgeschlossen, Batch-Runner produktiv nutzbar (seriell), Parallelisierung vorbereitet.
+**Status:** ✅ Completed  
+**Design Document:** [Factor Store P2 Design](FACTOR_STORE_P2_DESIGN.md)  
+**User Guide:** [Factor Store](FACTOR_STORE.md)
+
+**Goal:** Centralize factor/feature computation and caching to avoid redundant calculations across EOD pipelines, backtests, and ML workflows.
+
+**Implementation:**
+- **Storage Structure**: Hierarchical structure organized by factor group, frequency, universe key, and year partitioning
+  - Directory layout: `data/factors/<group>/<freq>/<universe_key>/year=YYYY.parquet`
+  - Metadata files: `_metadata.json` per universe directory (computation params, date ranges, factor columns)
+- **Core API**: `build_or_load_factors()` in `src/assembled_core/features/factor_store_integration.py`
+  - Checks cache before computing
+  - Supports Point-in-Time (PIT) safety with `as_of` parameter
+  - Automatic universe key computation from symbol lists
+  - Year partitioning for large datasets
+- **Low-Level API**: `load_factors()`, `store_factors()`, `compute_universe_key()` in `src/assembled_core/data/factor_store.py`
+- **Integration:**
+  - EOD Pipeline: `run_daily.py` supports `--use-factor-store` flag
+  - Backtests: `run_backtest_strategy.py` supports `--use-factor-store` flag
+  - Profile Jobs: `profile_jobs.py` supports `--warm-cache` and `--use-factor-store` for performance measurements
+
+**Features:**
+- Cache hit/miss logging (`[cache_hit]`, `[cache_miss]`, `[cache_stored]`)
+- PIT-safe filtering (prevents look-ahead bias)
+- Atomic writes with year partitioning
+- Metadata tracking (computation date, parameters, schema)
+- Force rebuild option (`force_rebuild=True`)
+
+**Usage:**
+```bash
+# EOD Pipeline with Factor Store
+python scripts/run_daily.py --date 2024-12-31 --use-factor-store
+
+# Backtest with Factor Store
+python scripts/run_backtest_strategy.py --freq 1d --use-factor-store --start-date 2020-01-01 --end-date 2024-12-31
+
+# Profile Jobs with warm cache
+python scripts/profile_jobs.py --job EOD_SMALL --warm-cache --use-factor-store
+```
+
+**Tests:**
+- `tests/test_build_or_load_factors_cache_hit_miss.py`: Cache hit/miss logic
+- `tests/test_factor_store_paths_and_manifest.py`: Path generation and metadata
+- `tests/test_factor_store_roundtrip.py`: Roundtrip (store/load) validation
+- `tests/test_factor_store_point_in_time.py`: PIT safety
+- `tests/test_backtest_factor_store.py`: Backtest integration
+- `tests/test_profile_jobs_factor_store.py`: Profile jobs integration
+
+**References:**
+- Design: [Factor Store P2 Design](FACTOR_STORE_P2_DESIGN.md)
+- User Guide: [Factor Store](FACTOR_STORE.md)
+- Tests: `tests/test_*factor_store*.py`, `tests/test_build_or_load_factors*.py`
+
+#### P1: Performance Profiling & Baseline ✅ (Completed)
+
+**Status:** ✅ Completed  
+**Design Document:** [Performance Profiling P1 Design](PERFORMANCE_PROFILING_P1_DESIGN.md)  
+**Profile Report:** [Performance Profile Report](PERFORMANCE_PROFILE.md)
+
+**Goal:** Definieren systematische Performance-Messungen für typische Workloads (Backtests, Factor-Building, ML, Risk) und reproduzierbare Baseline-Metriken für spätere Optimierungen.
+
+**Implementation:**
+- **Profiling Infrastructure:** `scripts/profile_jobs.py` with cProfile and pyinstrument support
+- **Reference Jobs:** EOD_SMALL, BACKTEST_MEDIUM, ML_JOB (deterministic, reproducible)
+- **Timing Utilities:** `src/assembled_core/utils/timing.py` for step-by-step timing
+- **Profile Report Generator:** `scripts/generate_performance_profile_report.py`
+
+**Features:**
+- Job profiling with cProfile (`.prof` + stats) and optional pyinstrument (HTML/text reports)
+- Step-by-step timing breakdowns (load_data, build_factors, signals, backtest, etc.)
+- Top-3 performance hotspots per job (function, file, line, cumulative time)
+- Reproducible baseline metrics for comparing optimizations
+- Output structure: `output/profiles/<job>/<timestamp>/`
+
+**Usage:**
+```bash
+# List available jobs
+python scripts/profile_jobs.py --list
+
+# Profile a job with cProfile
+python scripts/profile_jobs.py --job BACKTEST_MEDIUM --profiler cprofile
+
+# Profile with pyinstrument (if installed)
+python scripts/profile_jobs.py --job BACKTEST_MEDIUM --profiler pyinstrument
+
+# Generate performance profile report
+python scripts/generate_performance_profile_report.py
+```
+
+**Outputs:**
+- Profile data: `output/profiles/<job>/<timestamp>/profile_<job>.prof`
+- Stats file: `output/profiles/<job>/<timestamp>/profile_<job>_stats.txt`
+- Summary report: `docs/PERFORMANCE_PROFILE.md` (runtime, step breakdown, top-3 hotspots)
+
+**References:**
+- Design: [Performance Profiling P1 Design](PERFORMANCE_PROFILING_P1_DESIGN.md)
+- Profile Report: [Performance Profile Report](PERFORMANCE_PROFILE.md)
+- Tests: `tests/test_profile_jobs_*.py` (marked with `@pytest.mark.advanced`)
+
+#### P3: Backtest Engine Optimization ✅ (Completed)
+
+**Status:** ✅ Completed  
+**Documentation:** [Backtest Engine Optimization P3](BACKTEST_ENGINE_OPTIMIZATION_P3.md)
+
+**Goal:** Optimierung des Backtest-Engines durch Vektorisierung und optionale Numba-Beschleunigung ohne Änderung der Logik.
+
+**Implementation:**
+- **Vektorisierung:** Per-Order, Per-Symbol und Positions-Update Loops → NumPy-Vektorisierung
+- **Numba-Kernels:** Optionale JIT-Beschleunigung für Mark-to-Market und Positions-Deltas (`src/assembled_core/qa/numba_kernels.py`)
+- **Automatischer Fallback:** Pure NumPy wenn Numba nicht verfügbar (keine API-Änderung)
+- **Benchmark-Harness:** `scripts/benchmark_backtest.py` für reproduzierbare Speedup-Messung
+
+**Features:**
+- Vektorisierte Fill-Berechnung (fill_price, fees, notional) aus Order-Spalten
+- Vektorisierte Equity-Berechnung: `equity = cash + sum(position_shares * price)`
+- Vektorisierte Positions-Updates mit stabiler Symbol-Alignment
+- Regression-Tests: Vergleich optimiert vs. Legacy-Implementierung (Equity-Kurven, Metriken, Order-Counts)
+
+**Speedup-Messung:**
+```bash
+# Benchmark ausführen (BACKTEST_MEDIUM 3x, Median-Runtime)
+python scripts/benchmark_backtest.py --job BACKTEST_MEDIUM --runs 3
+
+# Output: output/profiles/benchmark/benchmark.json
+#   - median_runtime: Median-Runtime in Sekunden
+#   - mean_runtime, min_runtime, max_runtime: Statistik
+#   - runtimes: Liste aller Runtimes
+```
+
+**Numba aktivieren:**
+```bash
+# Installation
+pip install numba
+
+# Automatische Aktivierung (wenn installiert)
+# Numba wird automatisch verwendet wenn verfügbar, sonst Fallback auf pure NumPy
+```
+
+**Baseline vs. Optimized Profiling:**
+```bash
+# Baseline (vor Optimierung): Legacy-Implementierung in Tests
+pytest tests/test_backtest_regression.py -v
+
+# Optimized (nach Optimierung): Standard mit Vektorisierung + optional Numba
+python scripts/profile_jobs.py --job BACKTEST_MEDIUM --profiler cprofile --top-n 50
+```
+
+**Report Generation:**
+```bash
+# Performance-Profile (cProfile)
+python scripts/profile_jobs.py --job BACKTEST_MEDIUM --profiler cprofile --top-n 50
+# Output: output/profiles/BACKTEST_MEDIUM/<timestamp>/profile_*.prof, profile_*_stats.txt
+
+# Benchmark-Report
+python scripts/benchmark_backtest.py --job BACKTEST_MEDIUM --runs 3
+# Output: output/profiles/benchmark/benchmark.json
+
+# Timings-Report (Step-Breakdown)
+python scripts/run_backtest_strategy.py --freq 1d --enable-timings
+# Output: output/timings.json (load_prices, build_features, signals, positions, fills, equity, metrics)
+```
+
+**Messartefakte:**
+- `output/profiles/benchmark/benchmark.json`: Benchmark-Statistiken (median, mean, min, max runtime)
+- `output/profiles/<job>/<timestamp>/profile_*.prof`: cProfile-Daten
+- `output/profiles/<job>/<timestamp>/profile_*_stats.txt`: cProfile-Statistiken
+- `output/timings.json`: Step-by-Step Timings (wenn `--enable-timings`)
+
+**References:**
+- Documentation: [Backtest Engine Optimization P3](BACKTEST_ENGINE_OPTIMIZATION_P3.md)
+- Tests: `tests/test_backtest_regression.py` (Equity-Kurven, Metriken, Order-Counts)
+- Numba Kernels: `src/assembled_core/qa/numba_kernels.py`
+- Benchmark Script: `scripts/benchmark_backtest.py`
+
+---
+
+#### P4: Batch Runner & Parallelisierung ✅ (Completed)
+
+**Status:** ✅ Completed  
+**Documentation:** [Batch Runner & Parallelization P4](BATCH_RUNNER_P4.md)  
+**Design Document:** [Batch Runner P4 Design](BATCH_RUNNER_P4_DESIGN.md)
 
 **Module / Scripts:**
 - Batch-Runner Script: `scripts/batch_backtest.py`
@@ -1735,7 +1917,9 @@ python scripts/cli.py tca_report --backtest-dir output/backtests/experiment_123/
 
 #### B2: Point-in-Time Safety & Latency for Alt-Data ✅ (Completed)
 
-**Status:** Implemented and tested
+**Status:** ✅ Completed (B2.1-B2.3 implemented)
+
+**Documentation:** [Point-in-Time and Latency](POINT_IN_TIME_AND_LATENCY.md)
 
 **Goal:** Sicherstellen, dass Alt-Data-Faktoren nur Informationen verwenden, die zum jeweiligen Backtest-Datum tatsächlich verfügbar waren, um Look-Ahead-Bias zu verhindern.
 
@@ -1743,7 +1927,8 @@ python scripts/cli.py tca_report --backtest-dir output/backtests/experiment_123/
 - Explizite `event_date` und `disclosure_date` Felder in allen Alt-Data-Event-Contracts
 - Feature-Builder unterstützen `as_of` Parameter für PIT-sichere Faktor-Berechnung
 - Automatische Filterung: Events mit `disclosure_date > as_of` werden ausgeschlossen
-- Konservative Defaults: Falls `disclosure_date` fehlt, wird `event_date` verwendet (kein Look-Ahead, aber möglicherweise keine echte Latenz-Modellierung)
+- Latency-Helper: `filter_events_as_of()`, `apply_source_latency()`, `ensure_event_schema()`
+- Typische Latenzen: Insider (2 Tage), Congress (10 Tage), Earnings (0 Tage), News (0 Tage)
 
 **Implementation:**
 - Daten-Layer: `src/assembled_core/data/altdata/finnhub_events.py`, `finnhub_news_macro.py`

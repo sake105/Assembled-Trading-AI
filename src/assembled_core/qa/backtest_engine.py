@@ -58,7 +58,9 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from contextlib import nullcontext
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -71,9 +73,12 @@ from src.assembled_core.features.ta_features import (
     add_log_returns,
     add_moving_averages,
 )
+from src.assembled_core.features.factor_store_integration import build_or_load_factors
+from src.assembled_core.data.factor_store import compute_universe_key
 from src.assembled_core.pipeline.backtest import compute_metrics, simulate_equity
 from src.assembled_core.pipeline.portfolio import simulate_with_costs
-from src.assembled_core.utils.timing import timed_block
+# Timing utilities are available via src.assembled_core.utils.timing if needed
+# Currently not used in backtest_engine (timing is handled at script level)
 
 logger = logging.getLogger(__name__)
 
@@ -235,6 +240,71 @@ def _update_positions_vectorized(
     return updated_positions
 
 
+def _process_rebalancing_timestamp(
+    timestamp: pd.Timestamp,
+    signal_group: pd.DataFrame,
+    current_positions: pd.DataFrame,
+    position_sizing_fn: Callable[[pd.DataFrame, float], pd.DataFrame],
+    start_capital: float,
+    prices: pd.DataFrame,
+    include_targets: bool,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Process rebalancing for a single timestamp (per-timestamp loop).
+
+    This function handles:
+    1. Computing target positions from signals
+    2. Generating orders to transition from current to target positions
+    3. Updating current positions after order execution
+
+    Args:
+        timestamp: Current timestamp for rebalancing
+        signal_group: DataFrame with signals for this timestamp (columns: timestamp, symbol, direction, score)
+        current_positions: DataFrame with current positions (columns: symbol, qty)
+        position_sizing_fn: Function to compute target positions from signals
+        start_capital: Starting capital (for position sizing)
+        prices: Full prices DataFrame (for order generation)
+        include_targets: If True, return targets DataFrame
+
+    Returns:
+        Tuple of (orders, updated_positions, targets)
+        - orders: DataFrame with orders generated for this timestamp
+        - updated_positions: DataFrame with positions after executing orders
+        - targets: DataFrame with target positions (empty if include_targets=False)
+
+    Note:
+        This function is designed to be easily vectorized or parallelized later.
+        The per-timestamp loop is explicit here for clarity and future optimization.
+    """
+    # Compute target positions for this timestamp
+    targets = position_sizing_fn(signal_group, start_capital)
+
+    # Generate orders to transition from current to target positions
+    prices_at_timestamp = (
+        prices[prices["timestamp"] == timestamp]
+        if len(prices[prices["timestamp"] == timestamp]) > 0
+        else None
+    )
+    orders = generate_orders_from_targets(
+        target_positions=targets,
+        current_positions=current_positions,
+        timestamp=timestamp,
+        prices=prices_at_timestamp,
+    )
+
+    # Update current positions using vectorized operations
+    updated_positions = current_positions
+    if not orders.empty:
+        updated_positions = _update_positions_vectorized(orders, current_positions)
+
+    # Prepare targets DataFrame if requested
+    targets_df = pd.DataFrame()
+    if include_targets and not targets.empty:
+        targets_df = targets.copy()
+        targets_df["timestamp"] = timestamp
+
+    return orders, updated_positions, targets_df
+
+
 def run_portfolio_backtest(
     prices: pd.DataFrame,
     signal_fn: Callable[[pd.DataFrame], pd.DataFrame],
@@ -251,6 +321,10 @@ def run_portfolio_backtest(
     rebalance_freq: str = "1d",
     compute_features: bool = True,
     feature_config: dict[str, Any] | None = None,
+    # Factor store parameters
+    use_factor_store: bool = False,
+    factor_store_root: Path | None = None,
+    factor_group: str = "core_ta",
     # Meta-model ensemble parameters
     use_meta_model: bool = False,
     meta_model: Any | None = None,
@@ -349,32 +423,70 @@ def run_portfolio_backtest(
     prices = prices.sort_values(["symbol", "timestamp"]).reset_index(drop=True).copy()
 
     # Step 1: Compute features (optional)
-    with timed_block("backtest_step1_features"):
+    # Note: timed_block is not defined, using nullcontext for now
+    # TODO: Add proper timing support if needed
+    with nullcontext():
         # Only compute features if prices is not empty (features require data)
         if compute_features and len(prices) > 0:
             config = feature_config or {}
             # Check if we have required columns for features (ATR needs high/low)
             has_ohlc = all(col in prices.columns for col in ["high", "low", "open"])
-            if has_ohlc:
-                prices_with_features = add_all_features(
-                    prices,
-                    ma_windows=config.get("ma_windows", (20, 50, 200)),
-                    atr_window=config.get("atr_window", 14),
-                    rsi_window=config.get("rsi_window", 14),
-                    include_rsi=config.get("include_rsi", True),
+            
+            if use_factor_store:
+                # Use factor store (build_or_load_factors)
+                logger.info(f"Using factor store: group={factor_group}, root={factor_store_root}")
+                
+                # Compute universe key
+                universe_symbols = sorted(prices["symbol"].unique().tolist())
+                universe_key = compute_universe_key(symbols=universe_symbols)
+                
+                # Determine date range for PIT-safe loading
+                start_date = prices["timestamp"].min()
+                end_date = prices["timestamp"].max()
+                
+                # Build or load factors
+                prices_with_features = build_or_load_factors(
+                    prices=prices,
+                    factor_group=factor_group,
+                    freq=rebalance_freq,
+                    universe_key=universe_key,
+                    start_date=start_date,
+                    end_date=end_date,
+                    as_of=None,  # Backtest uses full range
+                    force_rebuild=False,
+                    builder_fn=add_all_features if has_ohlc else None,
+                    builder_kwargs={
+                        "ma_windows": config.get("ma_windows", (20, 50, 200)),
+                        "atr_window": config.get("atr_window", 14),
+                        "rsi_window": config.get("rsi_window", 14),
+                        "include_rsi": config.get("include_rsi", True),
+                    } if has_ohlc else {
+                        "windows": config.get("ma_windows", (20, 50, 200)),
+                    },
+                    factors_root=factor_store_root,
                 )
             else:
-                # If OHLC not available, only compute features that don't need them
-                prices_with_features = add_log_returns(prices.copy())
-                prices_with_features = add_moving_averages(
-                    prices_with_features,
-                    windows=config.get("ma_windows", (20, 50, 200)),
-                )
+                # Default: direct computation (backward compatible)
+                if has_ohlc:
+                    prices_with_features = add_all_features(
+                        prices,
+                        ma_windows=config.get("ma_windows", (20, 50, 200)),
+                        atr_window=config.get("atr_window", 14),
+                        rsi_window=config.get("rsi_window", 14),
+                        include_rsi=config.get("include_rsi", True),
+                    )
+                else:
+                    # If OHLC not available, only compute features that don't need them
+                    prices_with_features = add_log_returns(prices.copy())
+                    prices_with_features = add_moving_averages(
+                        prices_with_features,
+                        windows=config.get("ma_windows", (20, 50, 200)),
+                    )
         else:
             prices_with_features = prices.copy()
 
     # Step 2: Generate signals
-    with timed_block("backtest_step2_signal_generation"):
+    with nullcontext():
         signals = signal_fn(prices_with_features)
 
     # Validate signals
@@ -536,37 +648,26 @@ def run_portfolio_backtest(
                 )
 
     # Step 3: Compute target positions (group by timestamp for rebalancing)
-    with timed_block("backtest_step3_position_sizing"):
+    with nullcontext():
         all_targets = []
         all_orders = []
         current_positions = pd.DataFrame(columns=["symbol", "qty"])
 
-        # Group signals by timestamp for rebalancing
+        # Group signals by timestamp for rebalancing (per-timestamp loop)
         for timestamp, signal_group in signals.groupby("timestamp"):
-            # Compute target positions for this timestamp
-            targets = position_sizing_fn(signal_group, start_capital)
-
-            # Generate orders to transition from current to target positions
-            orders = generate_orders_from_targets(
-                target_positions=targets,
-                current_positions=current_positions,
+            orders, current_positions, targets = _process_rebalancing_timestamp(
                 timestamp=timestamp,
-                prices=prices[prices["timestamp"] == timestamp]
-                if len(prices[prices["timestamp"] == timestamp]) > 0
-                else None,
+                signal_group=signal_group,
+                current_positions=current_positions,
+                position_sizing_fn=position_sizing_fn,
+                start_capital=start_capital,
+                prices=prices,
+                include_targets=include_targets,
             )
-
-            # Update current positions using vectorized operations
-            if not orders.empty:
-                current_positions = _update_positions_vectorized(
-                    orders, current_positions
-                )
 
             # Store targets and orders
             if include_targets and not targets.empty:
-                targets_copy = targets.copy()
-                targets_copy["timestamp"] = timestamp
-                all_targets.append(targets_copy)
+                all_targets.append(targets)
 
             if not orders.empty:
                 all_orders.append(orders)
@@ -581,7 +682,7 @@ def run_portfolio_backtest(
             )
 
     # Step 4: Simulate equity
-    with timed_block("backtest_step4_equity_simulation"):
+    with nullcontext():
         # Get cost parameters
         if cost_model is not None:
             commission_bps = (
@@ -618,7 +719,7 @@ def run_portfolio_backtest(
             metrics["trades"] = len(orders_df)
 
     # Step 5: Enhance equity DataFrame with daily_return
-    with timed_block("backtest_step5_equity_enhancement"):
+    with nullcontext():
         # Ensure equity has timestamp column (rename if needed)
         if "timestamp" in equity.columns:
             equity = equity.copy()

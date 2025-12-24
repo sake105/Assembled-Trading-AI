@@ -532,31 +532,97 @@ def analyze_factors_subcommand(args: argparse.Namespace) -> int:
 def batch_backtest_subcommand(args: argparse.Namespace) -> int:
     """Run batch of strategy backtests from config file.
 
+    This subcommand uses the new batch runner infrastructure (experiments module)
+    with support for serial and parallel execution.
+
     Args:
         args: Parsed command-line arguments
 
     Returns:
-        Exit code (0 for success, 1 for failure)
+        Exit code (0 on success, 1 on failure)
     """
-    from scripts.batch_backtest import load_batch_config, run_batch
+    from src.assembled_core.experiments.batch_config import load_batch_config
+    from src.assembled_core.experiments.batch_runner import (
+        expand_run_specs,
+        run_batch_parallel,
+        run_batch_serial,
+    )
 
     try:
-        batch_cfg = load_batch_config(args.config_file)
-        if args.output_dir is not None:
-            batch_cfg.output_root = args.output_dir.resolve()
+        # Load config
+        config = load_batch_config(args.config_file)
 
-        results = run_batch(
-            batch_cfg=batch_cfg,
-            max_workers=args.max_workers,
-            dry_run=args.dry_run,
-            fail_fast=args.fail_fast,
-        )
-    except Exception as exc:  # pragma: no cover - defensive
+        # Override output_root if provided (handle both --output-root and --output-dir for compatibility)
+        output_root = getattr(args, "output_root", None) or getattr(args, "output_dir", None)
+        if output_root:
+            config.output_root = Path(output_root).resolve()
+
+        # Expand run specs (handles grid search)
+        run_specs = expand_run_specs(config)
+
+        # Handle dry-run: just print plan
+        if args.dry_run:
+            print("=" * 60)
+            print(f"Dry-run: Batch '{config.batch_name}'")
+            print("=" * 60)
+            print(f"Description: {config.description}")
+            print(f"Output root: {config.output_root / config.batch_name}")
+            print(f"Total runs: {len(run_specs)}")
+            print(
+                f"Execution mode: {'serial' if args.serial else f'parallel (max_workers={args.max_workers})'}"
+            )
+            print(f"Fail fast: {args.fail_fast}")
+            if config.seed:
+                print(f"Random seed: {config.seed}")
+            print("\nRun plan:")
+            for idx, run_spec in enumerate(run_specs, 1):
+                print(f"  {idx}. {run_spec.id}")
+                print(f"     Bundle: {run_spec.bundle_path}")
+                print(f"     Period: {run_spec.start_date} to {run_spec.end_date}")
+                if run_spec.overrides:
+                    print(f"     Overrides: {run_spec.overrides}")
+            print("=" * 60)
+            return 0
+
+        # Handle rerun: check if batch already exists
+        batch_output_dir = config.output_root / config.batch_name
+        if args.rerun and batch_output_dir.exists():
+            logger.info(f"Rerunning batch: {batch_output_dir}")
+            # Could optionally clean previous results here, but we'll just overwrite
+
+        # Execute batch
+        if args.serial:
+            result = run_batch_serial(
+                run_specs=run_specs,
+                batch_name=config.batch_name,
+                output_root=config.output_root,
+                base_args=config.base_args,
+                repo_root=ROOT,
+                fail_fast=args.fail_fast,
+                seed=config.seed,
+                config=config,  # Pass config for manifest generation
+            )
+        else:
+            result = run_batch_parallel(
+                run_specs=run_specs,
+                batch_name=config.batch_name,
+                output_root=config.output_root,
+                base_args=config.base_args,
+                max_workers=args.max_workers,
+                repo_root=ROOT,
+                fail_fast=args.fail_fast,
+                timeout_per_run=None,  # Could be added as CLI arg later
+                seed=config.seed,
+                config=config,  # Pass config for manifest generation
+            )
+
+        # Determine exit code
+        any_success = result.success_count > 0
+        return 0 if any_success else 1
+
+    except Exception as exc:
         logger.error("Batch backtest failed: %s", exc, exc_info=True)
         return 1
-
-    any_success = any(r.status == "success" for r in results)
-    return 0 if any_success else 1
 
 
 def tca_report_subcommand(args: argparse.Namespace) -> int:
@@ -2497,11 +2563,23 @@ Examples:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  # Load config and run (parallel, 4 workers)
   python scripts/cli.py batch_backtest --config-file configs/batch_backtests/ai_tech_core_vs_mlalpha.yaml
 
+  # Serial execution
+  python scripts/cli.py batch_backtest --config-file configs/batch_backtests/ai_tech_core_vs_mlalpha.yaml --serial
+
+  # Parallel with custom workers and fail-fast
   python scripts/cli.py batch_backtest `
     --config-file configs/batch_backtests/ai_tech_core_vs_mlalpha.yaml `
-    --dry-run
+    --max-workers 4 --fail-fast
+
+  # Dry-run: show plan without executing
+  python scripts/cli.py batch_backtest --config-file configs/batch_backtests/test.yaml --dry-run
+
+  # Rerun existing batch (overwrites)
+  python scripts/cli.py batch_backtest --config-file configs/batch_backtests/test.yaml --rerun
+
         """,
     )
     batch_parser.add_argument(
@@ -2512,18 +2590,33 @@ Examples:
         help="Path to batch config file (YAML or JSON).",
     )
     batch_parser.add_argument(
+        "--output-root",
+        type=Path,
+        default=None,
+        dest="output_root",
+        metavar="DIR",
+        help="Override output root directory for batch (default: from config.output_root).",
+    )
+    # Also support --output-dir for backward compatibility
+    batch_parser.add_argument(
         "--output-dir",
         type=Path,
         default=None,
+        dest="output_dir",
         metavar="DIR",
-        help="Override output root directory for batch (default: from config.output_root).",
+        help="(Deprecated: use --output-root) Override output root directory.",
     )
     batch_parser.add_argument(
         "--max-workers",
         type=int,
-        default=1,
+        default=4,
         metavar="N",
-        help="Maximum number of workers (currently only validated, execution is serial).",
+        help="Maximum number of parallel workers (default: 4, ignored if --serial).",
+    )
+    batch_parser.add_argument(
+        "--serial",
+        action="store_true",
+        help="Run batch serially (no parallelization).",
     )
     batch_parser.add_argument(
         "--fail-fast",
@@ -2533,7 +2626,12 @@ Examples:
     batch_parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Print commands without executing backtests.",
+        help="Show run plan without executing backtests.",
+    )
+    batch_parser.add_argument(
+        "--rerun",
+        action="store_true",
+        help="Rerun batch even if output directory already exists (overwrites).",
     )
     batch_parser.set_defaults(func=batch_backtest_subcommand)
 

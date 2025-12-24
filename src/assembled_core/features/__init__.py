@@ -8,10 +8,15 @@ This package handles:
 - Core TA/Price factors (Phase A, Sprint A1)
 - Liquidity & Volatility factors (Phase A, Sprint A2)
 - Market Breadth & Risk-On/Risk-Off indicators (Phase A, Sprint A3)
+- Factor store integration (build_or_load_factors for caching)
 
 Note: Current EMA logic is in pipeline.signals.compute_ema_signals.
 This package will provide a broader set of technical indicators.
 """
+
+from src.assembled_core.features.factor_store_integration import build_or_load_factors
+
+__all__ = ["build_or_load_factors"]
 
 # Core TA/Price Factors (Phase A, Sprint A1)
 from src.assembled_core.features.ta_factors_core import build_core_ta_factors

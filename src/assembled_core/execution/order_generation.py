@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+import numpy as np
 import pandas as pd
 
 from src.assembled_core.portfolio.position_sizing import compute_target_positions
@@ -71,13 +72,20 @@ def generate_orders_from_targets(
     if "qty" not in current_positions.columns:
         current_positions["qty"] = 0.0
 
-    # Merge target and current positions
-    merged = target_positions[["symbol", "target_qty"]].merge(
-        current_positions[["symbol", "qty"]],
+    # Ensure both DataFrames are sorted by symbol for stable alignment
+    target_sorted = target_positions[["symbol", "target_qty"]].sort_values("symbol").reset_index(drop=True)
+    current_sorted = current_positions[["symbol", "qty"]].sort_values("symbol").reset_index(drop=True)
+
+    # Merge target and current positions (outer join to include all symbols)
+    merged = target_sorted.merge(
+        current_sorted,
         on="symbol",
         how="outer",
         suffixes=("_target", "_current"),
     )
+
+    # Ensure stable symbol order (sorted)
+    merged = merged.sort_values("symbol").reset_index(drop=True)
 
     # Fill NaN with 0.0 (symbols not in current or target)
     # Ensure columns are float type before filling to avoid FutureWarning
@@ -86,18 +94,23 @@ def generate_orders_from_targets(
     if "qty" in merged.columns:
         merged["qty"] = merged["qty"].astype(float).fillna(0.0)
 
-    # Compute quantity delta
-    merged["qty_delta"] = merged["target_qty"] - merged["qty"]
+    # Compute quantity delta vectorially (aligned arrays)
+    qty_delta = merged["target_qty"].values - merged["qty"].values
+    merged["qty_delta"] = qty_delta
 
-    # Filter for non-zero deltas
-    orders = merged[merged["qty_delta"].abs() > 1e-6].copy()
+    # Filter for non-zero deltas (vectorized)
+    abs_delta = np.abs(qty_delta)
+    non_zero_mask = abs_delta > 1e-6
+    orders = merged[non_zero_mask].copy()
 
     if orders.empty:
         return pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
 
-    # Determine side and quantity
-    orders["side"] = orders["qty_delta"].apply(lambda x: "BUY" if x > 0 else "SELL")
-    orders["qty"] = orders["qty_delta"].abs()
+    # Determine side and quantity vectorially (no apply loop)
+    # BUY if delta > 0, SELL if delta < 0
+    qty_delta_filtered = orders["qty_delta"].values
+    orders["side"] = np.where(qty_delta_filtered > 0, "BUY", "SELL")
+    orders["qty"] = np.abs(qty_delta_filtered)
 
     # Get prices if available
     if prices is not None and "close" in prices.columns and "symbol" in prices.columns:

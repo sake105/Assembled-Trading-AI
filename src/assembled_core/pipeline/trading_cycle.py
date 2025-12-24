@@ -1,0 +1,669 @@
+"""Unified Trading Cycle Orchestrator (B1).
+
+This module provides a unified orchestrator interface for the common trading cycle steps:
+1. Prices Loading (data ingest)
+2. Features Building (TA features, factor store integration)
+3. Signals Generation (trend, event, multi-factor)
+4. Position Sizing (target positions computation)
+5. Order Generation (orders from targets)
+6. Risk Controls (pre-trade checks, kill switch)
+7. Outputs (SAFE-CSV, equity curves, reports)
+
+The orchestrator uses hook points for each step, allowing callers to override
+default behavior or integrate with existing workflows.
+
+Example usage:
+    >>> from src.assembled_core.pipeline.trading_cycle import TradingContext, run_trading_cycle
+    >>> 
+    >>> ctx = TradingContext(
+    ...     prices=prices_df,
+    ...     as_of=target_date,
+    ...     signal_fn=lambda df: generate_trend_signals_from_prices(df, ma_fast=20, ma_slow=50),
+    ...     position_sizing_fn=lambda sig, cap: compute_target_positions(sig, total_capital=cap),
+    ...     capital=10000.0,
+    ... )
+    >>> 
+    >>> result = run_trading_cycle(ctx)
+    >>> print(f"Generated {len(result.orders)} orders")
+"""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Literal
+
+import pandas as pd
+
+# Import existing modules (no duplication)
+from src.assembled_core.data.factor_store import compute_universe_key
+from src.assembled_core.execution.order_generation import generate_orders_from_targets
+from src.assembled_core.execution.risk_controls import filter_orders_with_risk_controls
+from src.assembled_core.features.factor_store_integration import build_or_load_factors
+from src.assembled_core.features.ta_features import (
+    add_all_features,
+    add_log_returns,
+    add_moving_averages,
+)
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class TradingContext:
+    """Unified context for trading cycle execution.
+    
+    This context contains all configuration and data needed for executing
+    a single trading cycle iteration (one day/timestamp in EOD, one rebalance
+    in backtest, one day in paper track).
+    
+    Attributes:
+        prices: DataFrame with columns: timestamp, symbol, close, ... (OHLCV)
+            Input price data. Must be sorted by symbol, then timestamp.
+        as_of: pd.Timestamp | None
+            Point-in-time cutoff (PIT-safe filtering). If None, no filtering is applied.
+        freq: str
+            Trading frequency ("1d" or "5min") for context (default: "1d")
+        universe: list[str] | None
+            Universe symbols for validation (optional). If provided, prices will
+            be filtered to only include symbols in universe.
+            
+        # Feature building
+        use_factor_store: bool
+            Enable factor store caching (default: False)
+        factor_store_root: Path | None
+            Factor store root directory (default: None)
+        factor_group: str
+            Factor group name for factor store (default: "core_ta")
+        feature_config: dict[str, Any] | None
+            Feature building configuration (e.g., ma_windows, atr_window, rsi_window)
+            (default: None, uses defaults from add_all_features)
+            
+        # Signal generation
+        signal_fn: Callable[[pd.DataFrame], pd.DataFrame]
+            Signal function that takes prices DataFrame and returns signals DataFrame.
+            Input: DataFrame with columns: timestamp, symbol, close, ... (features if built)
+            Output: DataFrame with columns: timestamp, symbol, direction, score
+        signal_config: dict[str, Any]
+            Signal-specific configuration (e.g., ma_fast, ma_slow) (default: {})
+            
+        # Position sizing
+        position_sizing_fn: Callable[[pd.DataFrame, float], pd.DataFrame]
+            Position sizing function that takes signals DataFrame and capital,
+            returns target positions DataFrame.
+            Input: (signals_df: pd.DataFrame, total_capital: float)
+            Output: DataFrame with columns: symbol, target_weight, target_qty
+        capital: float
+            Total capital for position sizing (default: 10000.0)
+            
+        # Order generation
+        current_positions: pd.DataFrame | None
+            Current portfolio positions (columns: symbol, qty) (default: None)
+            If None, assumes empty portfolio (all positions are new)
+        order_timestamp: pd.Timestamp
+            Timestamp for generated orders (default: current UTC timestamp)
+            
+        # Risk controls
+        enable_risk_controls: bool
+            Enable risk controls (pre-trade checks, kill switch) (default: True)
+        risk_config: dict[str, Any]
+            Risk control configuration (default: {})
+            
+        # Outputs
+        output_dir: Path
+            Output directory for writing outputs (default: Path("output"))
+        output_format: Literal["safe_csv", "equity_curve", "state", "none"]
+            Output format type (default: "safe_csv")
+        write_outputs: bool
+            Whether to write output files (default: True)
+            
+        # Metadata
+        run_id: str | None
+            Run identifier for logging/tracking (default: None)
+        strategy_name: str | None
+            Strategy name for metadata (default: None)
+        logger: logging.Logger | None
+            Logger instance (default: None, uses module logger)
+        timings: dict[str, Any] | None
+            Timing dictionary for step timing (default: None)
+    """
+    
+    # Input data
+    prices: pd.DataFrame
+    as_of: pd.Timestamp | None = None
+    freq: str = "1d"
+    universe: list[str] | None = None
+    
+    # Feature building
+    use_factor_store: bool = False
+    factor_store_root: Path | None = None
+    factor_group: str = "core_ta"
+    feature_config: dict[str, Any] | None = None
+    
+    # Signal generation
+    signal_fn: Callable[[pd.DataFrame], pd.DataFrame] | None = None
+    signal_config: dict[str, Any] = field(default_factory=dict)
+    
+    # Position sizing
+    position_sizing_fn: Callable[[pd.DataFrame, float], pd.DataFrame] | None = None
+    capital: float = 10000.0
+    
+    # Order generation
+    current_positions: pd.DataFrame | None = None
+    order_timestamp: pd.Timestamp = field(default_factory=lambda: pd.Timestamp.utcnow())
+    
+    # Risk controls
+    enable_risk_controls: bool = True
+    risk_config: dict[str, Any] = field(default_factory=dict)
+    
+    # Outputs
+    output_dir: Path = field(default_factory=lambda: Path("output"))
+    output_format: Literal["safe_csv", "equity_curve", "state", "none"] = "safe_csv"
+    write_outputs: bool = True
+    
+    # Metadata
+    run_id: str | None = None
+    strategy_name: str | None = None
+    logger: logging.Logger | None = None
+    timings: dict[str, Any] | None = None
+
+
+@dataclass
+class TradingCycleResult:
+    """Result of unified trading cycle execution.
+    
+    This result contains all intermediate outputs from the trading cycle
+    execution, allowing callers to inspect or use intermediate results.
+    
+    Attributes:
+        prices_filtered: pd.DataFrame
+            Prices after filtering (as_of, universe). Same schema as input prices.
+        prices_with_features: pd.DataFrame
+            Prices with computed features added. Contains all input columns
+            plus feature columns (e.g., ma_20, ma_50, atr_14, rsi_14, etc.)
+        signals: pd.DataFrame
+            Generated signals (columns: timestamp, symbol, direction, score)
+        target_positions: pd.DataFrame
+            Target positions (columns: symbol, target_weight, target_qty)
+        orders: pd.DataFrame
+            Generated orders (columns: timestamp, symbol, side, qty, price)
+        orders_filtered: pd.DataFrame
+            Orders after risk controls applied (same schema as orders)
+            
+        # Metadata
+        run_id: str | None
+            Run identifier (from context)
+        timestamp: pd.Timestamp
+            Execution timestamp
+        status: Literal["success", "error"]
+            Execution status
+        error_message: str | None
+            Error message if status == "error" (None otherwise)
+        meta: dict[str, Any]
+            Additional metadata (e.g., feature cache status, risk control results)
+        output_paths: dict[str, Path]
+            Dictionary of output file paths (e.g., {"safe_csv": Path(...)})
+            Keys depend on output_format
+    """
+    
+    # Intermediate results
+    prices_filtered: pd.DataFrame = field(default_factory=lambda: pd.DataFrame())
+    prices_with_features: pd.DataFrame = field(default_factory=lambda: pd.DataFrame())
+    signals: pd.DataFrame = field(default_factory=lambda: pd.DataFrame())
+    target_positions: pd.DataFrame = field(default_factory=lambda: pd.DataFrame())
+    orders: pd.DataFrame = field(default_factory=lambda: pd.DataFrame())
+    orders_filtered: pd.DataFrame = field(default_factory=lambda: pd.DataFrame())
+    
+    # Metadata
+    run_id: str | None = None
+    timestamp: pd.Timestamp = field(default_factory=lambda: pd.Timestamp.utcnow())
+    status: Literal["success", "error"] = "success"
+    error_message: str | None = None
+    meta: dict[str, Any] = field(default_factory=dict)
+    output_paths: dict[str, Path] = field(default_factory=dict)
+
+
+def _filter_prices_for_as_of(
+    prices: pd.DataFrame,
+    as_of: pd.Timestamp | None,
+    universe: list[str] | None = None,
+) -> pd.DataFrame:
+    """Filter prices to last available data <= as_of (per symbol) and optionally filter by universe.
+    
+    This is a PIT-safe filtering function that ensures no future data leaks into the cycle.
+    
+    Args:
+        prices: DataFrame with columns: timestamp, symbol, close, ...
+        as_of: Maximum allowed timestamp (pd.Timestamp, UTC). If None, no time filtering.
+        universe: Optional list of symbols to filter by. If None, all symbols are included.
+        
+    Returns:
+        Filtered DataFrame (one row per symbol: last available <= as_of)
+    """
+    if prices.empty:
+        return prices
+    
+    # Ensure timestamp is timezone-aware UTC
+    if prices["timestamp"].dt.tz is None:
+        prices = prices.copy()
+        prices["timestamp"] = pd.to_datetime(prices["timestamp"], utc=True)
+    
+    # Filter to dates <= as_of if as_of is provided
+    if as_of is not None:
+        filtered = prices[prices["timestamp"] <= as_of].copy()
+    else:
+        filtered = prices.copy()
+    
+    if filtered.empty:
+        return pd.DataFrame(columns=prices.columns)
+    
+    # Group by symbol and take last row (most recent timestamp per symbol)
+    filtered = filtered.groupby("symbol", group_keys=False, dropna=False).last()
+    filtered = filtered.reset_index()  # Keep 'symbol' as column
+    
+    # Filter by universe if provided
+    if universe is not None:
+        universe_upper = [s.upper().strip() for s in universe]
+        filtered = filtered[
+            filtered["symbol"].str.upper().isin(universe_upper)
+        ].copy()
+    
+    return filtered
+
+
+def _build_features_default(
+    ctx: TradingContext,
+    prices_filtered: pd.DataFrame,
+) -> pd.DataFrame:
+    """Default feature building implementation using existing modules.
+    
+    Args:
+        ctx: TradingContext with feature configuration
+        prices_filtered: Filtered prices DataFrame
+        
+    Returns:
+        DataFrame with features added
+    """
+    if ctx.use_factor_store:
+        # Use factor store (build_or_load_factors)
+        log = ctx.logger if ctx.logger is not None else logger
+        log.debug(f"Using factor store: group={ctx.factor_group}, root={ctx.factor_store_root}")
+        
+        # Compute universe key for metadata
+        universe_symbols = sorted(prices_filtered["symbol"].unique().tolist())
+        universe_key = compute_universe_key(symbols=universe_symbols)
+        
+        # Determine date range for PIT-safe loading
+        start_date = prices_filtered["timestamp"].min() if not prices_filtered.empty else None
+        end_date = prices_filtered["timestamp"].max() if not prices_filtered.empty else None
+        
+        # Get feature config
+        config = ctx.feature_config or {}
+        has_ohlc = all(col in prices_filtered.columns for col in ["high", "low", "open"])
+        
+        # Build or load factors
+        prices_with_features = build_or_load_factors(
+            prices=prices_filtered,
+            factor_group=ctx.factor_group,
+            freq=ctx.freq,
+            universe_key=universe_key,
+            start_date=start_date,
+            end_date=end_date,
+            as_of=ctx.as_of,  # PIT-safe: use as_of as cutoff
+            force_rebuild=False,
+            builder_fn=add_all_features if has_ohlc else None,
+            builder_kwargs={
+                "ma_windows": config.get("ma_windows", (20, 50, 200)),
+                "atr_window": config.get("atr_window", 14),
+                "rsi_window": config.get("rsi_window", 14),
+                "include_rsi": config.get("include_rsi", True),
+            } if has_ohlc else {
+                "windows": config.get("ma_windows", (20, 50, 200)),
+            },
+            factors_root=ctx.factor_store_root,
+        )
+    else:
+        # Default: direct computation (backward compatible)
+        config = ctx.feature_config or {}
+        has_ohlc = all(col in prices_filtered.columns for col in ["high", "low", "open"])
+        
+        if has_ohlc:
+            prices_with_features = add_all_features(
+                prices_filtered,
+                ma_windows=config.get("ma_windows", (20, 50, 200)),
+                atr_window=config.get("atr_window", 14),
+                rsi_window=config.get("rsi_window", 14),
+                include_rsi=config.get("include_rsi", True),
+            )
+        else:
+            # If OHLC not available, only compute features that don't need them
+            from src.assembled_core.features.ta_features import add_log_returns, add_moving_averages
+            prices_with_features = add_log_returns(prices_filtered.copy())
+            prices_with_features = add_moving_averages(
+                prices_with_features,
+                windows=config.get("ma_windows", (20, 50, 200)),
+            )
+    
+    return prices_with_features
+
+
+def _generate_orders_default(
+    ctx: TradingContext,
+    target_positions: pd.DataFrame,
+) -> pd.DataFrame:
+    """Default order generation implementation using existing module.
+    
+    Args:
+        ctx: TradingContext with order generation configuration
+        target_positions: Target positions DataFrame
+        
+    Returns:
+        Orders DataFrame
+    """
+    if target_positions.empty:
+        return pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
+    
+    # Use prices_with_features if available for price lookup
+    # For now, we use prices_filtered from context (prices are already in context)
+    # In the actual cycle, prices_with_features will be available, but we need to
+    # pass it through somehow. For now, we'll extract prices from the latest
+    # prices_filtered (or use a hook to provide prices).
+    # For simplicity, generate_orders_from_targets will use 0.0 if prices not provided
+    orders = generate_orders_from_targets(
+        target_positions=target_positions,
+        current_positions=ctx.current_positions,
+        timestamp=ctx.order_timestamp,
+        prices=None,  # Prices will be added later if needed (via hook or post-processing)
+    )
+    
+    return orders
+
+
+def _apply_risk_controls_default(
+    ctx: TradingContext,
+    orders: pd.DataFrame,
+) -> pd.DataFrame:
+    """Default risk controls implementation using existing module.
+    
+    Args:
+        ctx: TradingContext with risk control configuration
+        orders: Orders DataFrame
+        
+    Returns:
+        Filtered orders DataFrame
+    """
+    if orders.empty or not ctx.enable_risk_controls:
+        return orders.copy()
+    
+    try:
+        # Use existing risk controls module
+        filtered_orders, risk_result, kill_switch_engaged = filter_orders_with_risk_controls(
+            orders=orders,
+            portfolio=None,  # Portfolio snapshot not available in cycle context
+            qa_status=None,  # QA status not available in cycle context
+            enable_pre_trade_checks=ctx.enable_risk_controls,
+            enable_kill_switch=ctx.enable_risk_controls,
+        )
+        
+        return filtered_orders
+    except Exception as e:
+        # If risk controls fail, log warning and pass through orders
+        log = ctx.logger if ctx.logger is not None else logger
+        log.warning(f"Risk controls failed: {e}. Passing through orders without filtering.")
+        return orders.copy()
+
+
+def run_trading_cycle(
+    ctx: TradingContext,
+    *,
+    hooks: dict[str, Callable] | None = None,
+) -> TradingCycleResult:
+    """Execute unified trading cycle.
+    
+    This function orchestrates the common trading cycle steps using hook points
+    for each step. The default implementation is a skeleton that validates inputs
+    and provides clear hook points for integration.
+    
+    Steps (hook points):
+    1. `load_prices`: Filter prices (as_of, universe validation)
+    2. `build_features`: Build features (TA features, factor store integration)
+    3. `generate_signals`: Generate signals (via signal_fn)
+    4. `size_positions`: Compute target positions (via position_sizing_fn)
+    5. `generate_orders`: Generate orders (current_positions vs. target_positions)
+    6. `risk_controls`: Apply risk controls (pre-trade checks, kill switch)
+    7. `write_outputs`: Write outputs (SAFE-CSV, equity curve, state, etc.)
+    
+    Args:
+        ctx: TradingContext with all configuration and data
+        hooks: Optional dictionary of hook functions to override default behavior.
+               Keys: "load_prices", "build_features", "generate_signals",
+                     "size_positions", "generate_orders", "risk_controls", "write_outputs"
+               Hook function signatures:
+               - load_prices(ctx) -> pd.DataFrame
+               - build_features(ctx, prices_filtered) -> pd.DataFrame
+               - generate_signals(ctx, prices_with_features) -> pd.DataFrame
+               - size_positions(ctx, signals) -> pd.DataFrame
+               - generate_orders(ctx, target_positions) -> pd.DataFrame
+               - risk_controls(ctx, orders) -> pd.DataFrame
+               - write_outputs(ctx, orders_filtered) -> dict[str, Path]
+               
+    Returns:
+        TradingCycleResult with intermediate results and outputs
+        
+    Raises:
+        ValueError: If required context fields are missing or invalid
+        
+    Note:
+        This implementation uses existing modules for all steps (no duplication):
+        - Price filtering: PIT-safe filtering via as_of and universe
+        - Feature building: add_all_features or build_or_load_factors
+        - Signal generation: via signal_fn (caller provides)
+        - Position sizing: via position_sizing_fn (caller provides)
+        - Order generation: generate_orders_from_targets
+        - Risk controls: filter_orders_with_risk_controls
+        - Outputs: No default implementation (pure function, no file writes)
+        
+        Hook points allow callers to override default behavior or integrate
+        with existing workflows. Default implementations ensure deterministic
+        behavior while maintaining flexibility.
+    """
+    # Use context logger or module logger
+    log = ctx.logger if ctx.logger is not None else logger
+    
+    # Initialize result
+    result = TradingCycleResult(
+        run_id=ctx.run_id,
+        timestamp=pd.Timestamp.utcnow(),
+        status="success",
+    )
+    
+    # Validate required fields
+    if ctx.prices is None or ctx.prices.empty:
+        result.status = "error"
+        result.error_message = "prices DataFrame is None or empty"
+        return result
+    
+    required_price_cols = ["timestamp", "symbol", "close"]
+    missing_cols = [c for c in required_price_cols if c not in ctx.prices.columns]
+    if missing_cols:
+        result.status = "error"
+        result.error_message = f"Missing required price columns: {', '.join(missing_cols)}"
+        return result
+    
+    if ctx.signal_fn is None:
+        result.status = "error"
+        result.error_message = "signal_fn is required but not provided"
+        return result
+    
+    if ctx.position_sizing_fn is None:
+        result.status = "error"
+        result.error_message = "position_sizing_fn is required but not provided"
+        return result
+    
+    # Initialize hooks dict if not provided
+    hooks = hooks or {}
+    
+    # Step 1: Load/Filter prices (hook point: load_prices)
+    try:
+        if "load_prices" in hooks:
+            result.prices_filtered = hooks["load_prices"](ctx)
+        else:
+            # Default: filter prices by as_of and universe (PIT-safe)
+            result.prices_filtered = _filter_prices_for_as_of(
+                prices=ctx.prices,
+                as_of=ctx.as_of,
+                universe=ctx.universe,
+            )
+        
+        if result.prices_filtered.empty:
+            result.status = "error"
+            result.error_message = "No prices remaining after filtering (as_of or universe)"
+            return result
+        
+        log.debug(f"Prices filtered: {len(result.prices_filtered)} rows, {result.prices_filtered['symbol'].nunique()} symbols")
+    except Exception as e:
+        result.status = "error"
+        result.error_message = f"Error in load_prices: {e}"
+        return result
+    
+    # Step 2: Build features (hook point: build_features)
+    try:
+        if "build_features" in hooks:
+            result.prices_with_features = hooks["build_features"](ctx, result.prices_filtered)
+        else:
+            # Default: use existing feature building modules
+            result.prices_with_features = _build_features_default(ctx, result.prices_filtered)
+        
+        log.debug(f"Features built: {len(result.prices_with_features.columns)} columns (was {len(result.prices_filtered.columns)})")
+    except Exception as e:
+        result.status = "error"
+        result.error_message = f"Error in build_features: {e}"
+        return result
+    
+    # Step 3: Generate signals (hook point: generate_signals)
+    try:
+        if "generate_signals" in hooks:
+            result.signals = hooks["generate_signals"](ctx, result.prices_with_features)
+        else:
+            # Default: call signal_fn
+            result.signals = ctx.signal_fn(result.prices_with_features)
+        
+        # Validate signals format
+        required_signal_cols = ["timestamp", "symbol", "direction"]
+        missing_signal_cols = [c for c in required_signal_cols if c not in result.signals.columns]
+        if missing_signal_cols:
+            result.status = "error"
+            result.error_message = f"signals missing required columns: {', '.join(missing_signal_cols)}"
+            return result
+        
+        log.debug(f"Signals generated: {len(result.signals)} rows")
+    except Exception as e:
+        result.status = "error"
+        result.error_message = f"Error in generate_signals hook: {e}"
+        return result
+    
+    # Step 4: Size positions (hook point: size_positions)
+    try:
+        if "size_positions" in hooks:
+            result.target_positions = hooks["size_positions"](ctx, result.signals)
+        else:
+            # Default: call position_sizing_fn
+            result.target_positions = ctx.position_sizing_fn(result.signals, ctx.capital)
+        
+        # Validate target_positions format
+        required_target_cols = ["symbol", "target_weight", "target_qty"]
+        missing_target_cols = [c for c in required_target_cols if c not in result.target_positions.columns]
+        if missing_target_cols:
+            # Allow missing target_weight or target_qty (at least one should be present)
+            if not any(c in result.target_positions.columns for c in ["target_weight", "target_qty"]):
+                result.status = "error"
+                result.error_message = "target_positions missing required columns: symbol and (target_weight or target_qty)"
+                return result
+        
+        log.debug(f"Target positions computed: {len(result.target_positions)} symbols")
+    except Exception as e:
+        result.status = "error"
+        result.error_message = f"Error in size_positions hook: {e}"
+        return result
+    
+    # Step 5: Generate orders (hook point: generate_orders)
+    try:
+        if "generate_orders" in hooks:
+            result.orders = hooks["generate_orders"](ctx, result.target_positions)
+        else:
+            # Default: use existing order generation module
+            # Note: We need to add prices to orders after generation
+            # For now, generate_orders_from_targets will use 0.0 if prices not provided
+            # Prices can be added via hook or post-processing
+            result.orders = _generate_orders_default(ctx, result.target_positions)
+            
+            # Add prices from prices_with_features if available (for symbols in orders)
+            if not result.orders.empty and not result.prices_with_features.empty:
+                # Get latest prices per symbol from prices_with_features
+                if "close" in result.prices_with_features.columns:
+                    latest_prices = (
+                        result.prices_with_features
+                        .groupby("symbol", group_keys=False)["close"]
+                        .last()
+                        .reset_index()
+                        .rename(columns={"close": "price"})
+                    )
+                    
+                    # Merge prices into orders
+                    result.orders = result.orders.merge(
+                        latest_prices,
+                        on="symbol",
+                        how="left",
+                        suffixes=("", "_latest"),
+                    )
+                    
+                    # Use latest price if order price is 0.0 or missing
+                    if "price_latest" in result.orders.columns:
+                        result.orders["price"] = result.orders["price_latest"].fillna(result.orders["price"])
+                        result.orders = result.orders.drop(columns=["price_latest"])
+        
+        log.debug(f"Orders generated: {len(result.orders)} orders")
+    except Exception as e:
+        result.status = "error"
+        result.error_message = f"Error in generate_orders: {e}"
+        return result
+    
+    # Step 6: Apply risk controls (hook point: risk_controls)
+    try:
+        if "risk_controls" in hooks:
+            result.orders_filtered = hooks["risk_controls"](ctx, result.orders)
+        else:
+            # Default: use existing risk controls module
+            result.orders_filtered = _apply_risk_controls_default(ctx, result.orders)
+        
+        if len(result.orders_filtered) < len(result.orders):
+            log.info(f"Risk controls filtered orders: {len(result.orders)} -> {len(result.orders_filtered)} ({len(result.orders) - len(result.orders_filtered)} blocked)")
+        
+        log.debug(f"Orders after risk controls: {len(result.orders_filtered)} orders")
+    except Exception as e:
+        result.status = "error"
+        result.error_message = f"Error in risk_controls: {e}"
+        return result
+    
+    # Step 7: Write outputs (hook point: write_outputs)
+    try:
+        if ctx.write_outputs:
+            if "write_outputs" in hooks:
+                result.output_paths = hooks["write_outputs"](ctx, result.orders_filtered)
+            else:
+                # Default: no outputs written
+                # TODO: Implement default output writing logic in B1.2
+                result.output_paths = {}
+        
+        log.debug(f"Outputs written: {len(result.output_paths)} files")
+    except Exception as e:
+        result.status = "error"
+        result.error_message = f"Error in write_outputs hook: {e}"
+        return result
+    
+    log.info(f"Trading cycle completed successfully: {len(result.orders_filtered)} orders")
+    
+    return result
+

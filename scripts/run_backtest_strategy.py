@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from contextlib import nullcontext
 from pathlib import Path
 
 import pandas as pd
@@ -41,6 +42,7 @@ from src.assembled_core.qa.metrics import compute_all_metrics
 from src.assembled_core.qa.qa_gates import QAResult, evaluate_all_gates
 from src.assembled_core.reports.daily_qa_report import generate_qa_report
 from src.assembled_core.signals.rules_trend import generate_trend_signals_from_prices
+from src.assembled_core.utils.timing import timed_step, write_timings_json
 from src.assembled_core.signals.rules_event_insider_shipping import (
     generate_event_signals,
 )
@@ -835,6 +837,10 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         logger.info(f"With Costs: {args.with_costs}")
         logger.info(f"Output Dir: {output_dir}")
 
+        # Initialize timing dictionary (always initialized, but only populated if enabled)
+        enable_timings = getattr(args, "enable_timings", False)
+        timings: dict = {}
+
         # Also print to stdout for subprocess capture (tests expect this)
         print(f"With Costs: {args.with_costs}", flush=True)
 
@@ -1087,7 +1093,10 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         # Run backtest
         logger.info("")
         logger.info("Running backtest...")
-        result: BacktestResult = run_portfolio_backtest(
+        step_name = "backtest"
+        step_context = timed_step(step_name, timings, logger) if enable_timings else nullcontext()
+        with step_context:
+            result: BacktestResult = run_portfolio_backtest(
             prices=prices,
             signal_fn=signal_fn,
             position_sizing_fn=position_sizing_fn,
@@ -1118,7 +1127,10 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         # Compute comprehensive metrics using qa.metrics
         logger.info("")
         logger.info("Computing performance metrics...")
-        metrics = compute_all_metrics(
+        step_name = "metrics"
+        step_context = timed_step(step_name, timings, logger) if enable_timings else nullcontext()
+        with step_context:
+            metrics = compute_all_metrics(
             equity=result.equity,
             trades=result.trades,
             start_capital=args.start_capital,
@@ -1172,9 +1184,12 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             logger.info("")
             logger.info("Generating QA report...")
 
-            # Build config info
-            ema_config = get_default_ema_config(args.freq)
-            config_info = {
+            step_name = "outputs"
+            step_context = timed_step(step_name, timings, logger) if enable_timings else nullcontext()
+            with step_context:
+                # Build config info
+                ema_config = get_default_ema_config(args.freq)
+                config_info = {
                 "strategy": args.strategy,
                 "freq": args.freq,
                 "start_capital": args.start_capital,
@@ -1184,10 +1199,10 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 "commission_bps": cost_model.commission_bps,
                 "spread_w": cost_model.spread_w,
                 "impact_w": cost_model.impact_w,
-            }
+                }
 
-            # Generate report
-            report_path = generate_qa_report(
+                # Generate report
+                report_path = generate_qa_report(
                 metrics=metrics,
                 gate_result=gate_result,
                 strategy_name=args.strategy,
@@ -1197,9 +1212,10 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 data_end_date=metrics.end_date,
                 config_info=config_info,
                 output_dir=output_dir / "reports",
-            )
+                )
 
-            logger.info(f"QA Report written: {report_path}")
+                logger.info(f"QA Report written: {report_path}")
+                # End of outputs step (step_context exits here)
 
         # Summary
         logger.info("")
@@ -1222,6 +1238,33 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         # Also print to stdout for subprocess capture (tests expect this)
         print("Backtest completed", flush=True)
         print(f"Final PF: {metrics.final_pf:.4f}", flush=True)
+
+        # Write timings if enabled
+        if enable_timings:
+            if hasattr(args, "timings_out") and args.timings_out:
+                timings_path = Path(args.timings_out)
+            else:
+                timings_path = output_dir / "timings.json"
+            
+            job_meta = {
+                "strategy": args.strategy,
+                "freq": args.freq,
+                "start_capital": args.start_capital,
+                "with_costs": args.with_costs,
+            }
+            
+            # Add EMA config if trend strategy
+            if args.strategy == "trend_baseline":
+                ema_config = get_default_ema_config(args.freq)
+                job_meta["ema_fast"] = ema_config.fast
+                job_meta["ema_slow"] = ema_config.slow
+            
+            # Add cost model config
+            job_meta["commission_bps"] = cost_model.commission_bps
+            job_meta["spread_w"] = cost_model.spread_w
+            job_meta["impact_w"] = cost_model.impact_w
+            
+            write_timings_json(timings, timings_path, job_name="run_backtest_strategy", job_meta=job_meta)
 
         # Log metrics to experiment tracking if enabled
         if experiment_run:

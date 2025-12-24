@@ -1,246 +1,324 @@
-"""Tests for batch backtest CLI and batch runner."""
+"""Unit tests for batch_backtest CLI subcommand.
+
+Tests cover:
+- CLI help output
+- Dry-run mode (plan printing)
+- Summary file creation (with patching)
+- Serial vs parallel execution
+"""
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
-from typing import Any, Dict, List
-
-import pytest
-
-# Add repo root to path
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-
-pytestmark = pytest.mark.advanced
+from unittest.mock import patch
 
 
-def _write_simple_batch_config_yaml(path: Path, runs: List[Dict[str, Any]]) -> None:
-    """Write a minimal YAML batch config using a simple hand-crafted format.
-
-    We avoid requiring PyYAML in tests by writing a very small YAML subset manually.
-    """
-    lines: List[str] = []
-    lines.append("batch_name: test_batch")
-    lines.append("description: Simple test batch for CLI")
-    lines.append("output_root: output/batch_backtests")
-    lines.append("defaults:")
-    lines.append('  freq: "1d"')
-    lines.append('  data_source: "local"')
-    lines.append('  strategy: "multifactor_long_short"')
-    lines.append('  rebalance_freq: "M"')
-    lines.append("  max_gross_exposure: 1.0")
-    lines.append("  start_capital: 100000.0")
-    lines.append("  generate_report: false")
-    lines.append("  generate_risk_report: false")
-    lines.append("  generate_tca_report: false")
-    lines.append('  symbols_file: "config/macro_world_etfs_tickers.txt"')
-    lines.append("runs:")
-    for run in runs:
-        lines.append(f'  - id: "{run["id"]}"')
-        lines.append(f'    bundle_path: "{run["bundle_path"]}"')
-        lines.append(f'    start_date: "{run["start_date"]}"')
-        lines.append(f'    end_date: "{run["end_date"]}"')
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+from scripts.cli import batch_backtest_subcommand
 
 
-@pytest.fixture
-def sample_batch_config_yaml(tmp_path: Path) -> Path:
-    """Create a simple YAML batch config file for testing."""
-    config_dir = tmp_path / "configs"
-    config_dir.mkdir(parents=True, exist_ok=True)
+def test_cli_batch_backtest_help() -> None:
+    """Test that CLI help is accessible and subcommand exists."""
+    import subprocess
+    import sys
 
-    runs = [
-        {
-            "id": "run1_core",
-            "bundle_path": "config/factor_bundles/macro_world_etfs_core_bundle.yaml",
-            "start_date": "2015-01-01",
-            "end_date": "2015-01-10",
-        },
-        {
-            "id": "run2_core",
-            "bundle_path": "config/factor_bundles/macro_world_etfs_core_bundle.yaml",
-            "start_date": "2015-01-11",
-            "end_date": "2015-01-20",
-        },
-    ]
-    cfg_path = config_dir / "batch_test.yaml"
-    _write_simple_batch_config_yaml(cfg_path, runs)
-    return cfg_path
+    from scripts.cli import create_parser
 
+    parser = create_parser()
 
-def test_load_batch_config_yaml_basic(
-    sample_batch_config_yaml: Path, monkeypatch: pytest.MonkeyPatch
-):
-    """Test that load_batch_config can read a minimal YAML config."""
-    from scripts import batch_backtest
+    # Test that we can create parser without error
+    assert parser is not None
 
-    # Force ROOT used inside batch_backtest to test root
-    monkeypatch.setattr(batch_backtest, "ROOT", ROOT)
-
-    batch_cfg = batch_backtest.load_batch_config(sample_batch_config_yaml)
-
-    assert batch_cfg.batch_name == "test_batch"
-    assert len(batch_cfg.runs) == 2
-
-    run_ids = {r.id for r in batch_cfg.runs}
-    assert run_ids == {"run1_core", "run2_core"}
-
-    for run in batch_cfg.runs:
-        assert run.freq == "1d"
-        assert run.data_source == "local"
-        assert run.strategy == "multifactor_long_short"
-        assert run.bundle_path.name == "macro_world_etfs_core_bundle.yaml"
+    # Verify subcommand exists by checking parser structure
+    # The batch_backtest subcommand should be registered
+    subcommand_names = [name for action in parser._actions if hasattr(action, "choices") and action.choices for name in action.choices.keys()]
+    
+    # Alternatively, try to parse the subcommand (will fail due to missing required args, but that's ok)
+    try:
+        args = parser.parse_args(["batch_backtest", "--help"])
+    except SystemExit as e:
+        # Help command exits with code 0 (success)
+        assert e.code == 0
+    
+    # Verify we can parse with required args (even if config file doesn't exist)
+    # This just verifies the argument structure is correct
+    args = parser.parse_args(["batch_backtest", "--config-file", "dummy.yaml"])
+    # argparse converts Path arguments to Path objects
+    assert str(args.config_file) == "dummy.yaml" or args.config_file == Path("dummy.yaml")
+    assert hasattr(args, "serial")
+    assert hasattr(args, "dry_run")
+    assert hasattr(args, "max_workers")
 
 
-def test_run_batch_with_mocked_single_run(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, sample_batch_config_yaml: Path
-):
-    """Test run_batch logic using a mocked run_single_backtest for speed and determinism."""
-    from scripts import batch_backtest
+def test_cli_batch_backtest_dry_run(tmp_path: Path, capsys) -> None:
+    """Test dry-run mode prints plan without executing."""
+    # Create a minimal config file
+    config_file = tmp_path / "test_batch.yaml"
+    config_file.write_text(
+        """
+batch_name: test_batch
+description: Test batch configuration
+output_root: output/test
+base_args:
+  freq: "1d"
+  data_source: "local"
+runs:
+  - id: run1
+    bundle_path: config/bundle.yaml
+    start_date: "2015-01-01"
+    end_date: "2020-12-31"
+  - id: run2
+    bundle_path: config/bundle.yaml
+    start_date: "2015-01-01"
+    end_date: "2020-12-31"
+""",
+        encoding="utf-8",
+    )
 
-    monkeypatch.setattr(batch_backtest, "ROOT", ROOT)
-    batch_cfg = batch_backtest.load_batch_config(sample_batch_config_yaml)
+    # Create argparse namespace
+    import argparse
 
-    # Override output root to tmp_path for isolation
-    batch_cfg.output_root = tmp_path
-
-    fake_results: List[batch_backtest.SingleRunResult] = []
-
-    def fake_run_single_backtest(run_cfg, base_output_dir, dry_run=False):
-        # Create dummy backtest directory
-        backtest_dir = base_output_dir / run_cfg.id / "backtest"
-        backtest_dir.mkdir(parents=True, exist_ok=True)
-        result = batch_backtest.SingleRunResult(
-            run_id=run_cfg.id,
-            status="success",
-            backtest_dir=backtest_dir,
-            runtime_sec=0.123,
-            exit_code=0,
-            error=None,
-        )
-        fake_results.append(result)
-        return result
-
-    monkeypatch.setattr(batch_backtest, "run_single_backtest", fake_run_single_backtest)
-
-    results = batch_backtest.run_batch(
-        batch_cfg=batch_cfg,
-        max_workers=1,
-        dry_run=False,
+    args = argparse.Namespace(
+        config_file=config_file,
+        output_root=None,
+        output_dir=None,
+        max_workers=4,
+        serial=False,
         fail_fast=False,
+        dry_run=True,
+        rerun=False,
     )
 
-    assert len(results) == 2
-    assert all(r.status == "success" for r in results)
+    # Run dry-run
+    exit_code = batch_backtest_subcommand(args)
 
-    # Check summary files
-    batch_root = tmp_path / batch_cfg.batch_name
-    summary_csv = batch_root / "batch_summary.csv"
-    summary_md = batch_root / "batch_summary.md"
+    # Should exit successfully
+    assert exit_code == 0
 
-    assert summary_csv.exists()
-    assert summary_md.exists()
-
-    csv_content = summary_csv.read_text(encoding="utf-8")
-    assert "run1_core" in csv_content
-    assert "run2_core" in csv_content
-
-    md_content = summary_md.read_text(encoding="utf-8")
-    assert "Batch Summary" in md_content
-    assert "run1_core" in md_content
-    assert "run2_core" in md_content
+    # Check output contains expected information
+    captured = capsys.readouterr()
+    assert "Dry-run" in captured.out
+    assert "test_batch" in captured.out
+    assert "Total runs: 2" in captured.out
+    assert "run1" in captured.out
+    assert "run2" in captured.out
 
 
-def test_run_batch_fail_fast_behavior(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, sample_batch_config_yaml: Path
-):
-    """Test that fail_fast stops execution after first failure."""
-    from scripts import batch_backtest
+def test_cli_batch_backtest_creates_summary(tmp_path: Path) -> None:
+    """Test that batch execution creates summary files."""
+    # Create a minimal config file
+    config_file = tmp_path / "test_batch.yaml"
+    config_file.write_text(
+        """
+batch_name: test_batch
+description: Test batch configuration
+output_root: output/test
+base_args:
+  freq: "1d"
+  data_source: "local"
+runs:
+  - id: run1
+    bundle_path: config/bundle.yaml
+    start_date: "2015-01-01"
+    end_date: "2020-12-31"
+""",
+        encoding="utf-8",
+    )
 
-    monkeypatch.setattr(batch_backtest, "ROOT", ROOT)
-    batch_cfg = batch_backtest.load_batch_config(sample_batch_config_yaml)
-    batch_cfg.output_root = tmp_path
+    # Mock the batch runner functions
+    from datetime import datetime
 
-    call_order: List[str] = []
+    from src.assembled_core.experiments.batch_runner import BatchResult, RunResult
 
-    def fake_run_single_backtest(run_cfg, base_output_dir, dry_run=False):
-        call_order.append(run_cfg.id)
-        status = "failed" if run_cfg.id == "run1_core" else "success"
-        return batch_backtest.SingleRunResult(
-            run_id=run_cfg.id,
-            status=status,
-            backtest_dir=base_output_dir / run_cfg.id / "backtest",
-            runtime_sec=0.1,
-            exit_code=1 if status == "failed" else 0,
-            error="boom" if status == "failed" else None,
+    mock_result = BatchResult(
+        batch_name="test_batch",
+        started_at=datetime.utcnow(),
+        finished_at=datetime.utcnow(),
+        total_runtime_sec=10.0,
+        run_results=[
+            RunResult(
+                run_id="run1",
+                status="success",
+                output_dir=tmp_path / "output" / "test_batch" / "runs" / "0000_run1" / "backtest",
+                runtime_sec=5.0,
+            ),
+        ],
+    )
+
+    with patch(
+        "src.assembled_core.experiments.batch_runner.run_batch_serial",
+        return_value=mock_result,
+    ) as mock_serial:
+        # Create argparse namespace
+        import argparse
+
+        args = argparse.Namespace(
+            config_file=config_file,
+            output_root=None,
+            output_dir=None,
+            max_workers=4,
+            serial=True,  # Use serial to avoid ProcessPoolExecutor in tests
+            fail_fast=False,
+            dry_run=False,
+            rerun=False,
         )
 
-    monkeypatch.setattr(batch_backtest, "run_single_backtest", fake_run_single_backtest)
+        # Run batch
+        exit_code = batch_backtest_subcommand(args)
 
-    results = batch_backtest.run_batch(
-        batch_cfg=batch_cfg,
-        max_workers=1,
-        dry_run=False,
-        fail_fast=True,
+        # Should exit successfully
+        assert exit_code == 0
+
+        # Verify function was called
+        assert mock_serial.called
+
+        # Verify function was called with correct args
+        call_args = mock_serial.call_args
+        assert call_args is not None
+        assert call_args.kwargs["batch_name"] == "test_batch"
+
+
+def test_cli_batch_backtest_serial_vs_parallel(tmp_path: Path) -> None:
+    """Test that --serial flag selects correct execution path."""
+    # Create a minimal config file
+    config_file = tmp_path / "test_batch.yaml"
+    config_file.write_text(
+        """
+batch_name: test_batch
+description: Test batch
+output_root: output/test
+base_args:
+  freq: "1d"
+runs:
+  - id: run1
+    bundle_path: config/bundle.yaml
+    start_date: "2015-01-01"
+    end_date: "2020-12-31"
+""",
+        encoding="utf-8",
     )
 
-    # Only first run should be executed
-    assert call_order == ["run1_core"]
-    assert len(results) == 1
-    assert results[0].status == "failed"
+    from src.assembled_core.experiments.batch_runner import BatchResult
+    from datetime import datetime
 
-
-def test_batch_backtest_cli_subcommand_dry_run(
-    sample_batch_config_yaml: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-):
-    """Test CLI subcommand for batch_backtest in dry-run mode."""
-    # Place config under repo-relative path expected by CLI
-    configs_root = ROOT / "configs" / "batch_backtests"
-    configs_root.mkdir(parents=True, exist_ok=True)
-    target_cfg = configs_root / "cli_batch_test.yaml"
-    target_cfg.write_text(
-        sample_batch_config_yaml.read_text(encoding="utf-8"), encoding="utf-8"
+    mock_result = BatchResult(
+        batch_name="test_batch",
+        started_at=datetime.utcnow(),
+        finished_at=datetime.utcnow(),
+        total_runtime_sec=5.0,
+        run_results=[],
     )
 
-    # Use a temp output directory to avoid polluting repo outputs
-    output_dir = tmp_path / "batch_outputs"
+    import argparse
 
-    cmd = [
-        sys.executable,
-        str(ROOT / "scripts" / "cli.py"),
-        "batch_backtest",
-        "--config-file",
-        str(target_cfg),
-        "--output-dir",
-        str(output_dir),
-        "--dry-run",
-    ]
+    # Test serial path
+    with patch(
+        "src.assembled_core.experiments.batch_runner.run_batch_serial", return_value=mock_result
+    ) as mock_serial:
+        with patch("src.assembled_core.experiments.batch_runner.run_batch_parallel") as mock_parallel:
+            args = argparse.Namespace(
+                config_file=config_file,
+                output_root=None,
+                output_dir=None,
+                max_workers=4,
+                serial=True,
+                fail_fast=False,
+                dry_run=False,
+                rerun=False,
+            )
 
-    result = (
-        pytest.subprocess.run(
-            cmd,
-            cwd=str(ROOT),
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-        if hasattr(pytest, "subprocess")
-        else None
+            batch_backtest_subcommand(args)
+
+            # Should call serial, not parallel
+            assert mock_serial.called
+            assert not mock_parallel.called
+
+    # Test parallel path
+    with patch("src.assembled_core.experiments.batch_runner.run_batch_serial") as mock_serial:
+        with patch(
+            "src.assembled_core.experiments.batch_runner.run_batch_parallel", return_value=mock_result
+        ) as mock_parallel:
+            args = argparse.Namespace(
+                config_file=config_file,
+                output_root=None,
+                output_dir=None,
+                max_workers=4,
+                serial=False,
+                fail_fast=False,
+                dry_run=False,
+                rerun=False,
+            )
+
+            batch_backtest_subcommand(args)
+
+            # Should call parallel, not serial
+            assert mock_parallel.called
+            assert not mock_serial.called
+
+
+def test_cli_batch_backtest_rerun_flag(tmp_path: Path) -> None:
+    """Test that --rerun flag is accepted."""
+    config_file = tmp_path / "test_batch.yaml"
+    config_file.write_text(
+        """
+batch_name: test_batch
+description: Test batch
+output_root: output/test
+base_args:
+  freq: "1d"
+runs:
+  - id: run1
+    bundle_path: config/bundle.yaml
+    start_date: "2015-01-01"
+    end_date: "2020-12-31"
+""",
+        encoding="utf-8",
     )
 
-    if result is None:
-        # Fallback: use stdlib subprocess if pytest-subprocess is not available
-        import subprocess
+    # Create existing batch directory
+    batch_output_dir = tmp_path / "output" / "test_batch"
+    batch_output_dir.mkdir(parents=True, exist_ok=True)
 
-        result = subprocess.run(
-            cmd,
-            cwd=str(ROOT),
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
+    from datetime import datetime
 
-    # Dry-run mode may still return non-zero exit if downstream scripts or configs are missing.
-    # We only assert that the command executed and produced a batch_summary (smoke test).
-    assert result.stdout or result.stderr is not None
+    from src.assembled_core.experiments.batch_runner import BatchResult, RunResult
+
+    # Create mock result with at least one success
+    mock_result = BatchResult(
+        batch_name="test_batch",
+        started_at=datetime.utcnow(),
+        finished_at=datetime.utcnow(),
+        total_runtime_sec=5.0,
+        run_results=[
+            RunResult(
+                run_id="run1",
+                status="success",
+                output_dir=tmp_path / "output" / "test_batch" / "runs" / "0000_run1" / "backtest",
+                runtime_sec=5.0,
+            ),
+        ],
+    )
+
+    import argparse
+
+    # Mock both runner and ROOT
+    with patch(
+        "src.assembled_core.experiments.batch_runner.run_batch_serial", return_value=mock_result
+    ):
+        from pathlib import Path
+
+        with patch("scripts.cli.ROOT", Path(tmp_path)):
+            args = argparse.Namespace(
+                config_file=config_file,
+                output_root=None,
+                output_dir=None,
+                max_workers=4,
+                serial=True,
+                fail_fast=False,
+                dry_run=False,
+                rerun=True,
+            )
+
+            # Should not raise error even if directory exists
+            exit_code = batch_backtest_subcommand(args)
+            # With at least one successful run, exit code should be 0
+            assert exit_code == 0

@@ -24,8 +24,10 @@ from __future__ import annotations
 
 import argparse
 import sys
+from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -38,14 +40,17 @@ from src.assembled_core.data.prices_ingest import (
     load_eod_prices,
     load_eod_prices_for_universe,
 )
-from src.assembled_core.execution.order_generation import generate_orders_from_signals
 from src.assembled_core.execution.safe_bridge import write_safe_orders_csv
-from src.assembled_core.features.ta_features import add_all_features
 from src.assembled_core.logging_utils import setup_logging
+from src.assembled_core.pipeline.trading_cycle import (
+    TradingContext,
+    run_trading_cycle,
+)
 from src.assembled_core.portfolio.position_sizing import (
     compute_target_positions_from_trend_signals,
 )
 from src.assembled_core.signals.rules_trend import generate_trend_signals_from_prices
+from src.assembled_core.utils.timing import timed_step, write_timings_json
 
 
 def parse_target_date(date_str: str | None) -> datetime:
@@ -184,6 +189,11 @@ def run_daily_eod(
     min_score: float = 0.0,
     disable_pre_trade_checks: bool = False,
     ignore_kill_switch: bool = False,
+    enable_timings: bool = False,
+    timings_out: Path | str | None = None,
+    use_factor_store: bool = False,
+    factor_store_root: Path | str | None = None,
+    factor_group: str = "core_ta",
 ) -> Path:
     """Run daily EOD order generation.
 
@@ -219,6 +229,9 @@ def run_daily_eod(
     """
     # Setup logging
     logger = setup_logging(level="INFO")
+
+    # Initialize timing dictionary (always initialized, but only populated if enabled)
+    timings: dict = {}
 
     # Parse date
     try:
@@ -268,25 +281,28 @@ def run_daily_eod(
     # Step 2: Load EOD prices
     logger.info("Step 1: Loading EOD prices...")
     try:
-        if price_file:
-            price_path = Path(price_file)
-            if not price_path.exists():
-                logger.error(f"Price file not found: {price_path}")
+        step_name = "load_data"
+        step_context = timed_step(step_name, timings, logger) if enable_timings else nullcontext()
+        with step_context:
+            if price_file:
+                price_path = Path(price_file)
+                if not price_path.exists():
+                    logger.error(f"Price file not found: {price_path}")
+                    sys.exit(1)
+
+                prices = load_eod_prices(price_file=price_path, freq="1d")
+            else:
+                prices = load_eod_prices_for_universe(
+                    universe_file=universe_file, freq="1d"
+                )
+
+            if prices.empty:
+                logger.error("Price data is empty after loading")
                 sys.exit(1)
 
-            prices = load_eod_prices(price_file=price_path, freq="1d")
-        else:
-            prices = load_eod_prices_for_universe(
-                universe_file=universe_file, freq="1d"
+            logger.info(
+                f"Loaded prices: {len(prices)} rows, {prices['symbol'].nunique()} symbols"
             )
-
-        if prices.empty:
-            logger.error("Price data is empty after loading")
-            sys.exit(1)
-
-        logger.info(
-            f"Loaded prices: {len(prices)} rows, {prices['symbol'].nunique()} symbols"
-        )
     except FileNotFoundError as e:
         logger.error(f"Price file not found: {e}")
         sys.exit(1)
@@ -329,142 +345,143 @@ def run_daily_eod(
             f"Filtered prices: {len(prices)} rows, {prices['symbol'].nunique()} symbols"
         )
 
-    # Step 4: Compute TA features
-    logger.info("Step 3: Computing TA features...")
+    # Step 4-7: Run unified trading cycle
+    logger.info("Step 3: Running trading cycle (features/signals/positions/orders/risk)...")
     try:
-        prices_with_features = add_all_features(
-            prices,
-            ma_windows=(ma_fast, ma_slow),
-            atr_window=14,
-            rsi_window=14,
-            include_rsi=True,
-        )
-        logger.info(f"Features computed: {len(prices_with_features)} rows")
-    except Exception as e:
-        logger.error(f"Failed to compute features: {e}", exc_info=True)
-        sys.exit(1)
-
-    # Step 5: Generate trend signals
-    logger.info("Step 4: Generating trend signals...")
-    try:
-        signals = generate_trend_signals_from_prices(
-            prices_with_features, ma_fast=ma_fast, ma_slow=ma_slow
-        )
-        long_signals = signals[signals["direction"] == "LONG"]
-        logger.info(
-            f"Signals generated: {len(long_signals)} LONG signals from {len(signals)} total"
-        )
-    except Exception as e:
-        logger.error(f"Failed to generate signals: {e}", exc_info=True)
-        sys.exit(1)
-
-    # Step 6: Compute target positions
-    logger.info("Step 5: Computing target positions...")
-    try:
-        targets = compute_target_positions_from_trend_signals(
-            signals, total_capital=total_capital, top_n=top_n, min_score=min_score
-        )
-
-        if targets.empty:
-            logger.warning(
-                "No target positions computed (no LONG signals or all filtered out)"
+        step_name = "trading_cycle"
+        step_context = timed_step(step_name, timings, logger) if enable_timings else nullcontext()
+        
+        with step_context:
+            # Build TradingContext from CLI args
+            # Convert target_date (datetime) to pd.Timestamp for TradingContext
+            target_timestamp = pd.Timestamp(target_date) if isinstance(target_date, datetime) else target_date
+            
+            # Define signal function
+            def signal_fn(df: pd.DataFrame) -> pd.DataFrame:
+                return generate_trend_signals_from_prices(df, ma_fast=ma_fast, ma_slow=ma_slow)
+            
+            # Define position sizing function
+            def sizing_fn(signals: pd.DataFrame, capital: float) -> pd.DataFrame:
+                return compute_target_positions_from_trend_signals(
+                    signals, total_capital=capital, top_n=top_n, min_score=min_score
+                )
+            
+            # Build TradingContext
+            ctx = TradingContext(
+                prices=prices,  # Full prices (will be filtered by trading_cycle)
+                as_of=target_timestamp,
+                freq="1d",
+                universe=universe_symbols if universe_symbols else None,
+                use_factor_store=use_factor_store,
+                factor_store_root=Path(factor_store_root) if factor_store_root else None,
+                factor_group=factor_group,
+                feature_config={
+                    "ma_windows": (ma_fast, ma_slow),
+                    "atr_window": 14,
+                    "rsi_window": 14,
+                    "include_rsi": True,
+                },
+                signal_fn=signal_fn,
+                signal_config={"ma_fast": ma_fast, "ma_slow": ma_slow},
+                position_sizing_fn=sizing_fn,
+                capital=total_capital,
+                current_positions=None,  # No current positions in EOD flow
+                order_timestamp=target_timestamp,
+                enable_risk_controls=not disable_pre_trade_checks and not ignore_kill_switch,
+                risk_config={
+                    "enable_pre_trade_checks": not disable_pre_trade_checks,
+                    "enable_kill_switch": not ignore_kill_switch,
+                },
+                output_dir=out_dir,
+                output_format="none",  # Don't write outputs in trading_cycle (we do it manually)
+                write_outputs=False,  # Pure function
+                run_id=None,  # No run_id in EOD flow
+                strategy_name="EOD Strategy - Daily MVP",
+                logger=logger,
+                timings=timings if enable_timings else None,
             )
-            logger.warning("No orders will be generated.")
-            # Create empty SAFE file
-            safe_path = write_safe_orders_csv(
-                pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"]),
-                date=target_date,
-                output_path=None,
-                price_type="MARKET",
-                comment="EOD Strategy - Daily MVP (no signals)",
-            )
-            logger.info(f"Empty SAFE orders file written: {safe_path}")
-            return safe_path
-
-        logger.info(f"Target positions: {len(targets)} symbols")
-        if not targets.empty:
-            logger.info(f"Symbols: {', '.join(targets['symbol'].tolist())}")
+            
+            # Run trading cycle
+            result = run_trading_cycle(ctx)
+            
+            if result.status != "success":
+                logger.error(f"Trading cycle failed: {result.error_message}")
+                sys.exit(1)
+            
+            # Extract results
+            orders = result.orders_filtered  # Already filtered by risk controls
+            
+            # Log intermediate results
+            if not result.signals.empty:
+                long_signals = result.signals[result.signals["direction"] == "LONG"]
+                logger.info(
+                    f"Signals generated: {len(long_signals)} LONG signals from {len(result.signals)} total"
+                )
+            
+            if not result.target_positions.empty:
+                logger.info(f"Target positions: {len(result.target_positions)} symbols")
+                logger.info(f"Symbols: {', '.join(result.target_positions['symbol'].tolist())}")
+            else:
+                logger.warning(
+                    "No target positions computed (no LONG signals or all filtered out)"
+                )
+                logger.warning("No orders will be generated.")
+                # Create empty SAFE file
+                safe_path = write_safe_orders_csv(
+                    pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"]),
+                    date=target_date,
+                    output_path=None,
+                    price_type="MARKET",
+                    comment="EOD Strategy - Daily MVP (no signals)",
+                )
+                logger.info(f"Empty SAFE orders file written: {safe_path}")
+                return safe_path
+            
+            if orders.empty:
+                logger.warning("No orders generated (no position changes or all filtered by risk controls)")
+                # Create empty SAFE file
+                safe_path = write_safe_orders_csv(
+                    orders,
+                    date=target_date,
+                    output_path=None,
+                    price_type="MARKET",
+                    comment="EOD Strategy - Daily MVP (no orders)",
+                )
+                logger.info(f"Empty SAFE orders file written: {safe_path}")
+                return safe_path
+            
+            logger.info(f"Orders generated: {len(orders)} orders")
+            if not orders.empty:
+                buy_count = len(orders[orders["side"] == "BUY"])
+                sell_count = len(orders[orders["side"] == "SELL"])
+                logger.info(f"Order breakdown: {buy_count} BUY, {sell_count} SELL")
+            
+            # Store factor metadata in timings if enabled
+            if enable_timings and result.meta:
+                if step_name in timings:
+                    if "meta" not in timings[step_name]:
+                        timings[step_name]["meta"] = {}
+                    timings[step_name]["meta"].update(result.meta)
+                    
     except Exception as e:
-        logger.error(f"Failed to compute target positions: {e}", exc_info=True)
-        sys.exit(1)
-
-    # Step 7: Generate orders
-    logger.info("Step 6: Generating orders...")
-    try:
-        orders = generate_orders_from_signals(
-            signals,
-            total_capital=total_capital,
-            top_n=top_n,
-            timestamp=target_date,
-            prices=prices_with_features,
-        )
-
-        if orders.empty:
-            logger.warning("No orders generated (no position changes)")
-            # Create empty SAFE file
-            safe_path = write_safe_orders_csv(
-                orders,
-                date=target_date,
-                output_path=None,
-                price_type="MARKET",
-                comment="EOD Strategy - Daily MVP (no orders)",
-            )
-            logger.info(f"Empty SAFE orders file written: {safe_path}")
-            return safe_path
-
-        logger.info(f"Orders generated: {len(orders)} orders")
-        if not orders.empty:
-            buy_count = len(orders[orders["side"] == "BUY"])
-            sell_count = len(orders[orders["side"] == "SELL"])
-            logger.info(f"Order breakdown: {buy_count} BUY, {sell_count} SELL")
-    except Exception as e:
-        logger.error(f"Failed to generate orders: {e}", exc_info=True)
-        sys.exit(1)
-
-    # Step 7.5: Apply risk controls (pre-trade checks + kill switch)
-    logger.info("Step 7: Applying risk controls...")
-    try:
-        from src.assembled_core.execution.risk_controls import (
-            filter_orders_with_risk_controls,
-        )
-
-        filtered_orders, risk_result = filter_orders_with_risk_controls(
-            orders,
-            portfolio=None,  # Portfolio snapshot not available in this flow
-            qa_status=None,  # QA status not available in this flow
-            enable_pre_trade_checks=not disable_pre_trade_checks,
-            enable_kill_switch=not ignore_kill_switch,
-        )
-
-        if len(filtered_orders) < len(orders):
-            logger.warning(
-                f"Risk controls filtered orders: {len(orders)} -> {len(filtered_orders)} "
-                f"({len(orders) - len(filtered_orders)} blocked)"
-            )
-        elif len(filtered_orders) == 0 and len(orders) > 0:
-            logger.warning(
-                "All orders blocked by risk controls - empty order file will be written"
-            )
-
-        # Use filtered orders going forward
-        orders = filtered_orders
-
-    except Exception as e:
-        logger.error(f"Failed to apply risk controls: {e}", exc_info=True)
+        logger.error(f"Failed to run trading cycle: {e}", exc_info=True)
         sys.exit(1)
 
     # Step 8: Write SAFE-Bridge CSV
-    logger.info("Step 7: Writing SAFE-Bridge CSV...")
+    logger.info("Step 4: Writing SAFE-Bridge CSV...")
     try:
-        safe_path = write_safe_orders_csv(
-            orders,
-            date=target_date,
-            output_path=None,  # Use default: output/orders_YYYYMMDD.csv
-            price_type="MARKET",
-            comment="EOD Strategy - Daily MVP",
-        )
-        logger.info(f"SAFE orders written: {safe_path}")
-        logger.info(f"Total orders: {len(orders)}")
+        step_name = "outputs"
+        step_context = timed_step(step_name, timings, logger) if enable_timings else nullcontext()
+        with step_context:
+            safe_path = write_safe_orders_csv(
+                orders,
+                date=target_date,
+                output_path=None,  # Use default: output/orders_YYYYMMDD.csv
+                price_type="MARKET",
+                comment="EOD Strategy - Daily MVP",
+            )
+            logger.info(f"SAFE orders written: {safe_path}")
+            logger.info(f"Total orders: {len(orders)}")
     except ValueError as e:
         # ValueError from validation - log clearly and exit
         error_msg = str(e)
@@ -488,6 +505,23 @@ def run_daily_eod(
     )
 
     logger.info(f"SUCCESS: EOD-MVP completed for {target_date.strftime('%Y-%m-%d')}")
+
+    # Write timings if enabled
+    if enable_timings:
+        if timings_out:
+            timings_path = Path(timings_out)
+        else:
+            timings_path = out_dir / "timings.json"
+        
+        job_meta = {
+            "date": target_date.strftime("%Y-%m-%d"),
+            "universe_file": str(universe_file) if universe_file else None,
+            "total_capital": total_capital,
+            "ma_fast": ma_fast,
+            "ma_slow": ma_slow,
+        }
+        write_timings_json(timings, timings_path, job_name="run_daily", job_meta=job_meta)
+
     return safe_path
 
 
@@ -562,6 +596,36 @@ def main() -> None:
         default=False,
         help="Ignore kill switch (only for offline backtests/dev, default: kill switch respected)",
     )
+    p.add_argument(
+        "--enable-timings",
+        action="store_true",
+        default=False,
+        help="Enable timing logs for each pipeline step (default: disabled)",
+    )
+    p.add_argument(
+        "--timings-out",
+        type=str,
+        default=None,
+        help="Path to write timings JSON file (default: output_dir/timings.json)",
+    )
+    p.add_argument(
+        "--use-factor-store",
+        action="store_true",
+        default=False,
+        help="Use factor store for caching (default: disabled, uses direct computation)",
+    )
+    p.add_argument(
+        "--factor-store-root",
+        type=str,
+        default=None,
+        help="Root directory for factor store (default: from settings or data/factors)",
+    )
+    p.add_argument(
+        "--factor-group",
+        type=str,
+        default="core_ta",
+        help="Factor group name for factor store (default: core_ta)",
+    )
 
     args = p.parse_args()
 
@@ -581,6 +645,11 @@ def main() -> None:
             min_score=args.min_score,
             disable_pre_trade_checks=args.disable_pre_trade_checks,
             ignore_kill_switch=args.ignore_kill_switch,
+            enable_timings=args.enable_timings,
+            timings_out=Path(args.timings_out) if args.timings_out else None,
+            use_factor_store=args.use_factor_store,
+            factor_store_root=Path(args.factor_store_root) if args.factor_store_root else None,
+            factor_group=args.factor_group,
         )
 
         logger.info(f"Output file: {safe_path}")

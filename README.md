@@ -87,6 +87,19 @@ The `assembled-cli` command-line interface is the preferred entry point for all 
   - Evaluate model performance (ROC-AUC, Brier, Log Loss)
   - Connect to research notebooks
 
+- **Factor Store** → [Factor Store](docs/FACTOR_STORE.md)
+  - Caching system for computed factors/features
+  - Performance optimization for repeated runs (EOD, backtests, ML workflows)
+  - Point-in-Time (PIT) safety to prevent look-ahead bias
+  - Cache management (clear, rebuild, metadata inspection)
+
+- **Point-in-Time Safety & Latency (B2)** → [Point-in-Time and Latency](docs/POINT_IN_TIME_AND_LATENCY.md)
+  - Core rule: Only use events with `disclosure_date <= as_of` in features
+  - Typical latencies by source (Insider: 2 days, Congress: 10 days, Earnings: 0 days)
+  - Implementation pattern for event feature builders
+  - How to add a new event source with PIT safety
+  - Integration with Factor Store and backtests
+
 - **Multi-Factor Long/Short Strategy** → [Workflows – Multi-Factor Long/Short Strategy](docs/WORKFLOWS_STRATEGIES_MULTIFACTOR.md)
   - Factor-based long/short trading strategy
   - Uses factor bundles and local alt-data snapshots
@@ -98,6 +111,11 @@ The `assembled-cli` command-line interface is the preferred entry point for all 
   - Daily execution workflow: load state → signals → positions → fills → update state
   - Aggregated equity curve, trades, and positions history
   - Catch-up mode, skip/resume logic, risk reports
+
+- **Performance Profiling & Baseline** → [Performance Profile Report](docs/PERFORMANCE_PROFILE.md)
+  - Profiling infrastructure for measuring job performance (cProfile, pyinstrument)
+  - Reference jobs (EOD_SMALL, BACKTEST_MEDIUM, ML_JOB) with runtime metrics and hotspots
+  - Step-by-step timing breakdowns and top-3 performance bottlenecks per job
   - Standard config templates: `configs/paper_track/trend_baseline.yaml`, `configs/paper_track/multifactor_long_short.yaml`
   - List available strategies: `python scripts/cli.py paper_track --list`
 
@@ -115,10 +133,10 @@ The `assembled-cli` command-line interface is the preferred entry point for all 
   - Factor exposure analysis (optional: rolling regression of strategy returns vs. factor returns)
   - Comprehensive risk reports from backtest results
 
-- **Batch Backtests & Parallelization (P4)** → [Workflows – Batch Backtests & Parallelization](docs/WORKFLOWS_BATCH_BACKTESTS_AND_PARALLELIZATION.md)
+- **Batch Backtests & Parallelization (P4)** → [Batch Runner & Parallelization P4](docs/BATCH_RUNNER_P4.md) | [Workflows – Batch Backtests & Parallelization](docs/WORKFLOWS_BATCH_BACKTESTS_AND_PARALLELIZATION.md)
   - Run multiple backtests from a single YAML/JSON config
-  - Parameter sweeps (risk parameters, rebalancing, costs)
-  - Strategy comparisons (Core vs. ML vs. ML-only)
+  - Grid search for parameter sweeps (exposure, commission, etc.)
+  - Parallel execution with ProcessPoolExecutor
   - Clean output structure with batch summaries (CSV/Markdown)
 
 - **Walk-Forward & Regime Analysis** → [Factor Analysis Workflows](docs/WORKFLOWS_FACTOR_ANALYSIS.md) and [Walk-Forward & Regime B3 Design](docs/WALK_FORWARD_AND_REGIME_B3_DESIGN.md)
