@@ -135,12 +135,30 @@ class TradingContext:
     as_of: pd.Timestamp | None = None
     freq: str = "1d"
     universe: list[str] | None = None
+    mode: Literal["eod", "backtest", "paper", "live"] = "eod"
+    """Trading cycle mode.
+    
+    - "eod": EOD mode - filters to last row per symbol <= as_of (default, backward compatible)
+    - "backtest": Backtest mode - keeps full history slice <= as_of for MAs/returns, plus latest row for orders
+    - "paper": Paper trading mode - same as eod
+    - "live": Live trading mode - same as eod
+    """
     
     # Feature building
     use_factor_store: bool = False
     factor_store_root: Path | None = None
     factor_group: str = "core_ta"
     feature_config: dict[str, Any] | None = None
+    precomputed_prices_with_features: pd.DataFrame | None = None
+    """Precomputed prices with features (optional).
+    
+    If provided and mode=="backtest", this panel will be used instead of
+    computing features per timestamp. The panel will be sliced PIT-safely
+    (<= as_of) for each timestamp.
+    
+    This enables performance optimization in backtest mode where features
+    are computed once upfront instead of per timestamp.
+    """
     
     # Signal generation
     signal_fn: Callable[[pd.DataFrame], pd.DataFrame] | None = None
@@ -180,6 +198,12 @@ class TradingCycleResult:
     Attributes:
         prices_filtered: pd.DataFrame
             Prices after filtering (as_of, universe). Same schema as input prices.
+            In "eod" mode: last row per symbol <= as_of.
+            In "backtest" mode: full history slice <= as_of (for MAs/returns).
+        prices_latest: pd.DataFrame | None
+            Latest prices per symbol (one row per symbol) extracted from prices_filtered.
+            Only populated in "backtest" mode (for order generation with latest prices).
+            Columns: same as prices_filtered, but only latest timestamp per symbol.
         prices_with_features: pd.DataFrame
             Prices with computed features added. Contains all input columns
             plus feature columns (e.g., ma_20, ma_50, atr_14, rsi_14, etc.)
@@ -210,6 +234,7 @@ class TradingCycleResult:
     
     # Intermediate results
     prices_filtered: pd.DataFrame = field(default_factory=lambda: pd.DataFrame())
+    prices_latest: pd.DataFrame | None = None
     prices_with_features: pd.DataFrame = field(default_factory=lambda: pd.DataFrame())
     signals: pd.DataFrame = field(default_factory=lambda: pd.DataFrame())
     target_positions: pd.DataFrame = field(default_factory=lambda: pd.DataFrame())
@@ -229,8 +254,9 @@ def _filter_prices_for_as_of(
     prices: pd.DataFrame,
     as_of: pd.Timestamp | None,
     universe: list[str] | None = None,
-) -> pd.DataFrame:
-    """Filter prices to last available data <= as_of (per symbol) and optionally filter by universe.
+    mode: Literal["eod", "backtest", "paper", "live"] = "eod",
+) -> tuple[pd.DataFrame, pd.DataFrame | None]:
+    """Filter prices based on mode: last row (eod) or full history slice (backtest).
     
     This is a PIT-safe filtering function that ensures no future data leaks into the cycle.
     
@@ -238,12 +264,23 @@ def _filter_prices_for_as_of(
         prices: DataFrame with columns: timestamp, symbol, close, ...
         as_of: Maximum allowed timestamp (pd.Timestamp, UTC). If None, no time filtering.
         universe: Optional list of symbols to filter by. If None, all symbols are included.
+        mode: Trading cycle mode:
+            - "eod": Returns last row per symbol <= as_of (default, backward compatible)
+            - "backtest": Returns full history slice <= as_of (for MAs/returns)
+            - "paper": Same as "eod"
+            - "live": Same as "eod"
         
     Returns:
-        Filtered DataFrame (one row per symbol: last available <= as_of)
+        Tuple of (prices_filtered, prices_latest):
+        - prices_filtered: Filtered DataFrame
+          - In "eod" mode: one row per symbol (last available <= as_of)
+          - In "backtest" mode: full history slice <= as_of (multiple rows per symbol)
+        - prices_latest: Latest prices per symbol (one row per symbol)
+          - In "eod" mode: None (same as prices_filtered)
+          - In "backtest" mode: last row per symbol from prices_filtered
     """
     if prices.empty:
-        return prices
+        return prices, None
     
     # Ensure timestamp is timezone-aware UTC
     if prices["timestamp"].dt.tz is None:
@@ -257,11 +294,7 @@ def _filter_prices_for_as_of(
         filtered = prices.copy()
     
     if filtered.empty:
-        return pd.DataFrame(columns=prices.columns)
-    
-    # Group by symbol and take last row (most recent timestamp per symbol)
-    filtered = filtered.groupby("symbol", group_keys=False, dropna=False).last()
-    filtered = filtered.reset_index()  # Keep 'symbol' as column
+        return pd.DataFrame(columns=prices.columns), None
     
     # Filter by universe if provided
     if universe is not None:
@@ -270,7 +303,26 @@ def _filter_prices_for_as_of(
             filtered["symbol"].str.upper().isin(universe_upper)
         ].copy()
     
-    return filtered
+    # Determine if we need history slice or just latest
+    if mode == "backtest":
+        # Backtest mode: keep full history slice for MAs/returns
+        # Also extract latest prices per symbol for order generation
+        prices_latest = (
+            filtered.groupby("symbol", group_keys=False, dropna=False)
+            .last()
+            .reset_index()
+        )
+        # Ensure deterministic sorting (timestamp, symbol)
+        filtered = filtered.sort_values(["timestamp", "symbol"]).reset_index(drop=True)
+        prices_latest = prices_latest.sort_values("symbol").reset_index(drop=True)
+        return filtered, prices_latest
+    else:
+        # EOD/Paper/Live mode: return last row per symbol (backward compatible)
+        filtered = filtered.groupby("symbol", group_keys=False, dropna=False).last()
+        filtered = filtered.reset_index()  # Keep 'symbol' as column
+        # Ensure deterministic sorting
+        filtered = filtered.sort_values("symbol").reset_index(drop=True)
+        return filtered, None
 
 
 def _build_features_default(
@@ -508,13 +560,20 @@ def run_trading_cycle(
     # Step 1: Load/Filter prices (hook point: load_prices)
     try:
         if "load_prices" in hooks:
-            result.prices_filtered = hooks["load_prices"](ctx)
+            load_result = hooks["load_prices"](ctx)
+            # Handle both tuple (filtered, latest) and single DataFrame (backward compat)
+            if isinstance(load_result, tuple):
+                result.prices_filtered, result.prices_latest = load_result
+            else:
+                result.prices_filtered = load_result
+                result.prices_latest = None
         else:
             # Default: filter prices by as_of and universe (PIT-safe)
-            result.prices_filtered = _filter_prices_for_as_of(
+            result.prices_filtered, result.prices_latest = _filter_prices_for_as_of(
                 prices=ctx.prices,
                 as_of=ctx.as_of,
                 universe=ctx.universe,
+                mode=ctx.mode,
             )
         
         if result.prices_filtered.empty:
@@ -522,7 +581,11 @@ def run_trading_cycle(
             result.error_message = "No prices remaining after filtering (as_of or universe)"
             return result
         
-        log.debug(f"Prices filtered: {len(result.prices_filtered)} rows, {result.prices_filtered['symbol'].nunique()} symbols")
+        log.debug(
+            f"Prices filtered: {len(result.prices_filtered)} rows, "
+            f"{result.prices_filtered['symbol'].nunique()} symbols "
+            f"(mode={ctx.mode}, latest={'yes' if result.prices_latest is not None else 'no'})"
+        )
     except Exception as e:
         result.status = "error"
         result.error_message = f"Error in load_prices: {e}"
@@ -532,11 +595,47 @@ def run_trading_cycle(
     try:
         if "build_features" in hooks:
             result.prices_with_features = hooks["build_features"](ctx, result.prices_filtered)
+        elif ctx.mode == "backtest" and ctx.precomputed_prices_with_features is not None and not ctx.precomputed_prices_with_features.empty:
+            # Backtest mode: use precomputed feature panel (PIT-safe slice)
+            precomputed = ctx.precomputed_prices_with_features.copy()
+            
+            # PIT-safe slice: only rows <= as_of
+            if ctx.as_of is not None:
+                # Ensure timestamp column is UTC-aware for comparison
+                if precomputed["timestamp"].dtype.tz is None:
+                    precomputed["timestamp"] = pd.to_datetime(precomputed["timestamp"], utc=True)
+                elif precomputed["timestamp"].dtype.tz != pd.Timestamp.utcnow().tz:
+                    # Ensure UTC timezone
+                    precomputed["timestamp"] = precomputed["timestamp"].dt.tz_convert("UTC")
+                
+                # Slice to only rows <= as_of (PIT-safe)
+                result.prices_with_features = precomputed[
+                    precomputed["timestamp"] <= ctx.as_of
+                ].copy()
+            else:
+                # No as_of: use all precomputed data
+                result.prices_with_features = precomputed.copy()
+            
+            # Extract prices_latest from the sliced panel (for order generation)
+            # This is important: prices_latest must come from the sliced panel, not the original precomputed panel
+            if not result.prices_with_features.empty and result.prices_latest is None:
+                result.prices_latest = (
+                    result.prices_with_features.groupby("symbol", group_keys=False, dropna=False)
+                    .last()
+                    .reset_index()
+                    .sort_values("symbol")
+                    .reset_index(drop=True)
+                )
+            
+            log.debug(
+                f"Using precomputed features: {len(result.prices_with_features)} rows "
+                f"(sliced to <= {ctx.as_of if ctx.as_of else 'no cutoff'})"
+            )
         else:
             # Default: use existing feature building modules
             result.prices_with_features = _build_features_default(ctx, result.prices_filtered)
         
-        log.debug(f"Features built: {len(result.prices_with_features.columns)} columns (was {len(result.prices_filtered.columns)})")
+        log.debug(f"Features: {len(result.prices_with_features.columns)} columns (was {len(result.prices_filtered.columns)})")
     except Exception as e:
         result.status = "error"
         result.error_message = f"Error in build_features: {e}"
@@ -601,8 +700,12 @@ def run_trading_cycle(
             
             # Add prices from prices_with_features if available (for symbols in orders)
             if not result.orders.empty and not result.prices_with_features.empty:
-                # Get latest prices per symbol from prices_with_features
-                if "close" in result.prices_with_features.columns:
+                # Use prices_latest if available (backtest mode), otherwise extract from prices_with_features
+                if result.prices_latest is not None and "close" in result.prices_latest.columns:
+                    # Backtest mode: use pre-extracted latest prices
+                    latest_prices = result.prices_latest[["symbol", "close"]].rename(columns={"close": "price"})
+                elif "close" in result.prices_with_features.columns:
+                    # EOD mode: extract latest prices from prices_with_features
                     latest_prices = (
                         result.prices_with_features
                         .groupby("symbol", group_keys=False)["close"]
@@ -610,7 +713,10 @@ def run_trading_cycle(
                         .reset_index()
                         .rename(columns={"close": "price"})
                     )
-                    
+                else:
+                    latest_prices = None
+                
+                if latest_prices is not None:
                     # Merge prices into orders
                     result.orders = result.orders.merge(
                         latest_prices,

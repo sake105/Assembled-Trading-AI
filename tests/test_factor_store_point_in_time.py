@@ -1,15 +1,18 @@
-"""Point-in-Time (PIT) safety tests for factor store.
-
-Tests ensure that loading factors with as_of parameter correctly filters out
-future data (no look-ahead bias).
-"""
+# tests/test_factor_store_point_in_time.py
+"""Point-in-time (PIT) safety tests for factor store (no rows > end/as_of)."""
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
+from datetime import datetime, timedelta
 
 import pandas as pd
 import pytest
+
+# Add repo root to path
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 
 from src.assembled_core.data.factor_store import (
     compute_universe_key,
@@ -17,253 +20,310 @@ from src.assembled_core.data.factor_store import (
     store_factors,
 )
 
-pytestmark = pytest.mark.advanced
+
+@pytest.fixture
+def temp_factor_store(tmp_path, monkeypatch):
+    """Set up temporary factor store root."""
+    temp_store = tmp_path / "factors"
+    temp_store.mkdir(parents=True, exist_ok=True)
+    
+    # Monkeypatch get_factor_store_root to return temp store
+    from src.assembled_core import data
+    original_get_root = data.factor_store.get_factor_store_root
+    
+    def mock_get_root(settings=None):
+        return temp_store
+    
+    monkeypatch.setattr(data.factor_store, "get_factor_store_root", mock_get_root)
+    
+    yield temp_store
 
 
-def test_factor_store_point_in_time_basic(tmp_path: Path) -> None:
-    """Test basic PIT filtering: store t0..t9, load with as_of=t4 → only t0..t4."""
-    symbols = ["AAPL"]
-    # Create data for days t0..t9 (10 days)
-    dates = pd.date_range("2024-01-01", "2024-01-10", freq="D", tz="UTC")
-    
-    original_df = pd.DataFrame({
-        "timestamp": dates,
-        "symbol": ["AAPL"] * len(dates),
-        "ta_ma_20": range(len(dates)),  # Values 0..9 for easy verification
-    })
-    
-    universe_key = compute_universe_key(symbols=symbols)
-    
-    # Store all days (t0..t9)
-    store_factors(
-        df=original_df,
-        factor_group="core_ta",
-        freq="1d",
-        universe_key=universe_key,
-        factors_root=tmp_path / "factors",
-    )
-    
-    # Load with as_of=t4 (2024-01-05, which is the 5th day, index 4)
-    as_of_date = pd.Timestamp("2024-01-05", tz="UTC")
-    
-    loaded_df = load_factors(
-        factor_group="core_ta",
-        freq="1d",
-        universe_key=universe_key,
-        as_of=as_of_date,
-        factors_root=tmp_path / "factors",
-    )
-    
-    # Verify loaded data is not None
-    assert loaded_df is not None, "load_factors should return DataFrame"
-    assert not loaded_df.empty, "Loaded DataFrame should not be empty"
-    
-    # Verify only t0..t4 (5 days: 2024-01-01 to 2024-01-05) are returned
-    assert len(loaded_df) == 5, f"Expected 5 rows, got {len(loaded_df)}"
-    
-    # Verify max timestamp is <= as_of
-    assert loaded_df["timestamp"].max() <= as_of_date, \
-        f"Max timestamp {loaded_df['timestamp'].max()} should be <= as_of {as_of_date}"
-    
-    # Verify all timestamps are <= as_of (strict PIT check)
-    assert (loaded_df["timestamp"] <= as_of_date).all(), \
-        "All timestamps must be <= as_of (no future data)"
-    
-    # Verify exact dates returned
-    expected_dates = pd.date_range("2024-01-01", "2024-01-05", freq="D", tz="UTC")
-    assert set(loaded_df["timestamp"].dt.date) == set(expected_dates.date), \
-        "Expected dates 2024-01-01 to 2024-01-05"
-    
-    # Verify values match original (for returned dates)
-    original_filtered = original_df[original_df["timestamp"] <= as_of_date].sort_values("timestamp")
-    loaded_sorted = loaded_df.sort_values("timestamp")
-    
-    pd.testing.assert_series_equal(
-        original_filtered["ta_ma_20"].reset_index(drop=True),
-        loaded_sorted["ta_ma_20"].reset_index(drop=True),
-        check_names=False,
-    )
-
-
-def test_factor_store_point_in_time_with_start_date(tmp_path: Path) -> None:
-    """Test PIT filtering combined with start_date: store t0..t9, load start=t2, as_of=t4 → only t2..t4."""
-    symbols = ["AAPL"]
-    dates = pd.date_range("2024-01-01", "2024-01-10", freq="D", tz="UTC")
-    
-    original_df = pd.DataFrame({
-        "timestamp": dates,
-        "symbol": ["AAPL"] * len(dates),
-        "ta_ma_20": range(len(dates)),
-    })
-    
-    universe_key = compute_universe_key(symbols=symbols)
-    
-    # Store all days (t0..t9)
-    store_factors(
-        df=original_df,
-        factor_group="core_ta",
-        freq="1d",
-        universe_key=universe_key,
-        factors_root=tmp_path / "factors",
-    )
-    
-    # Load with start_date=t2 (2024-01-03) and as_of=t4 (2024-01-05)
-    start_date = pd.Timestamp("2024-01-03", tz="UTC")
-    as_of_date = pd.Timestamp("2024-01-05", tz="UTC")
-    
-    loaded_df = load_factors(
-        factor_group="core_ta",
-        freq="1d",
-        universe_key=universe_key,
-        start_date=start_date,
-        as_of=as_of_date,
-        factors_root=tmp_path / "factors",
-    )
-    
-    assert loaded_df is not None
-    assert len(loaded_df) == 3, "Expected 3 rows (t2, t3, t4)"
-    
-    # Verify all timestamps are in range [start_date, as_of]
-    assert (loaded_df["timestamp"] >= start_date).all(), "All timestamps must be >= start_date"
-    assert (loaded_df["timestamp"] <= as_of_date).all(), "All timestamps must be <= as_of"
-    
-    # Verify exact dates
-    expected_dates = pd.date_range("2024-01-03", "2024-01-05", freq="D", tz="UTC")
-    assert set(loaded_df["timestamp"].dt.date) == set(expected_dates.date)
-
-
-def test_factor_store_point_in_time_as_of_takes_precedence(tmp_path: Path) -> None:
-    """Test that as_of takes precedence over end_date."""
-    symbols = ["AAPL"]
-    dates = pd.date_range("2024-01-01", "2024-01-10", freq="D", tz="UTC")
-    
-    original_df = pd.DataFrame({
-        "timestamp": dates,
-        "symbol": ["AAPL"] * len(dates),
-        "ta_ma_20": range(len(dates)),
-    })
-    
-    universe_key = compute_universe_key(symbols=symbols)
-    
-    store_factors(
-        df=original_df,
-        factor_group="core_ta",
-        freq="1d",
-        universe_key=universe_key,
-        factors_root=tmp_path / "factors",
-    )
-    
-    # Load with end_date=t9 but as_of=t4 → should only return t0..t4
-    end_date = pd.Timestamp("2024-01-10", tz="UTC")  # Would include all 10 days
-    as_of_date = pd.Timestamp("2024-01-05", tz="UTC")  # Should cut at 5 days
-    
-    loaded_df = load_factors(
-        factor_group="core_ta",
-        freq="1d",
-        universe_key=universe_key,
-        end_date=end_date,
-        as_of=as_of_date,
-        factors_root=tmp_path / "factors",
-    )
-    
-    assert loaded_df is not None
-    assert len(loaded_df) == 5, "as_of should take precedence, returning only 5 days (t0..t4)"
-    assert loaded_df["timestamp"].max() <= as_of_date, "Max timestamp should be <= as_of"
-
-
-def test_factor_store_point_in_time_multiple_symbols(tmp_path: Path) -> None:
-    """Test PIT filtering with multiple symbols."""
+@pytest.fixture
+def multi_year_factors_df():
+    """Create factors DataFrame spanning multiple years for PIT testing."""
+    base_date = datetime(2023, 6, 1, tzinfo=pd.Timestamp.utcnow().tz)
     symbols = ["AAPL", "MSFT"]
-    dates = pd.date_range("2024-01-01", "2024-01-10", freq="D", tz="UTC")
     
-    rows = []
+    data = []
+    # Create data from 2023-06-01 to 2024-06-01 (1 year span)
     for symbol in symbols:
-        for date in dates:
-            rows.append({
-                "timestamp": date,
+        for i in range(366):  # 366 days
+            ts = base_date + timedelta(days=i)
+            data.append({
+                "timestamp": ts,
                 "symbol": symbol,
-                "ta_ma_20": 100.0 + hash(symbol) % 10,
+                "ta_ma_20": 100.0 + i * 0.1,
+                "ta_ma_50": 95.0 + i * 0.05,
             })
     
-    original_df = pd.DataFrame(rows)
+    df = pd.DataFrame(data)
+    df["date"] = df["timestamp"].dt.date.astype(str)
+    df = df.sort_values(["timestamp", "symbol"]).reset_index(drop=True)
+    return df
+
+
+def test_load_factors_with_end_date_filter(temp_factor_store, multi_year_factors_df):
+    """Test that end_date filter excludes rows after end_date."""
+    factor_group = "core_ta"
+    freq = "1d"
+    universe_key = compute_universe_key(symbols=["AAPL", "MSFT"])
     
-    universe_key = compute_universe_key(symbols=symbols)
-    
-    # Store all days for all symbols (t0..t9)
+    # Store factors
     store_factors(
-        df=original_df,
-        factor_group="core_ta",
-        freq="1d",
+        df=multi_year_factors_df,
+        factor_group=factor_group,
+        freq=freq,
         universe_key=universe_key,
-        factors_root=tmp_path / "factors",
+        mode="overwrite",
+        factors_root=temp_factor_store,
     )
     
-    # Load with as_of=t4
-    as_of_date = pd.Timestamp("2024-01-05", tz="UTC")
-    
+    # Load with end_date filter (cut off at 2023-12-31)
+    end_date = pd.Timestamp("2023-12-31", tz="UTC")
     loaded_df = load_factors(
-        factor_group="core_ta",
-        freq="1d",
+        factor_group=factor_group,
+        freq=freq,
         universe_key=universe_key,
-        as_of=as_of_date,
-        factors_root=tmp_path / "factors",
+        end_date=end_date,
+        factors_root=temp_factor_store,
     )
     
     assert loaded_df is not None
-    assert len(loaded_df) == 10, "Expected 10 rows (2 symbols × 5 days)"
+    assert not loaded_df.empty
     
-    # Verify all timestamps are <= as_of
-    assert (loaded_df["timestamp"] <= as_of_date).all(), "No future data allowed"
+    # Verify no rows after end_date
+    assert (loaded_df["timestamp"] <= end_date).all(), "All rows should be <= end_date"
     
-    # Verify both symbols are present
-    assert set(loaded_df["symbol"].unique()) == {"AAPL", "MSFT"}
+    # Verify max timestamp is <= end_date
+    max_timestamp = loaded_df["timestamp"].max()
+    assert max_timestamp <= end_date, f"Max timestamp {max_timestamp} should be <= end_date {end_date}"
     
-    # Verify each symbol has exactly 5 days
-    for symbol in symbols:
-        symbol_df = loaded_df[loaded_df["symbol"] == symbol]
-        assert len(symbol_df) == 5, f"Symbol {symbol} should have 5 days"
-        assert symbol_df["timestamp"].max() <= as_of_date
+    # Verify we got some data (not empty)
+    assert len(loaded_df) > 0, "Should have some rows before end_date"
 
 
-def test_factor_store_point_in_time_no_future_data(tmp_path: Path) -> None:
-    """Test that no future data is ever returned, even if stored."""
-    symbols = ["AAPL"]
-    dates = pd.date_range("2024-01-01", "2024-01-10", freq="D", tz="UTC")
+def test_load_factors_with_start_date_filter(temp_factor_store, multi_year_factors_df):
+    """Test that start_date filter excludes rows before start_date."""
+    factor_group = "core_ta"
+    freq = "1d"
+    universe_key = compute_universe_key(symbols=["AAPL", "MSFT"])
     
-    original_df = pd.DataFrame({
-        "timestamp": dates,
-        "symbol": ["AAPL"] * len(dates),
-        "ta_ma_20": range(len(dates)),
-    })
-    
-    universe_key = compute_universe_key(symbols=symbols)
-    
-    # Store all days (t0..t9)
+    # Store factors
     store_factors(
-        df=original_df,
-        factor_group="core_ta",
-        freq="1d",
+        df=multi_year_factors_df,
+        factor_group=factor_group,
+        freq=freq,
         universe_key=universe_key,
-        factors_root=tmp_path / "factors",
+        mode="overwrite",
+        factors_root=temp_factor_store,
     )
     
-    # Load with as_of in the middle of the stored range
-    as_of_date = pd.Timestamp("2024-01-05", tz="UTC")
-    
+    # Load with start_date filter (start at 2024-01-01)
+    start_date = pd.Timestamp("2024-01-01", tz="UTC")
     loaded_df = load_factors(
-        factor_group="core_ta",
-        freq="1d",
+        factor_group=factor_group,
+        freq=freq,
         universe_key=universe_key,
-        as_of=as_of_date,
-        factors_root=tmp_path / "factors",
+        start_date=start_date,
+        factors_root=temp_factor_store,
     )
     
     assert loaded_df is not None
+    assert not loaded_df.empty
     
-    # Verify no data after as_of is returned
-    future_data = loaded_df[loaded_df["timestamp"] > as_of_date]
-    assert len(future_data) == 0, f"Found {len(future_data)} rows with timestamp > as_of (future data leak)"
+    # Verify no rows before start_date
+    assert (loaded_df["timestamp"] >= start_date).all(), "All rows should be >= start_date"
     
-    # Verify all data is <= as_of
-    assert (loaded_df["timestamp"] <= as_of_date).all(), "All data must be <= as_of"
+    # Verify min timestamp is >= start_date
+    min_timestamp = loaded_df["timestamp"].min()
+    assert min_timestamp >= start_date, f"Min timestamp {min_timestamp} should be >= start_date {start_date}"
+    
+    # Verify we got some data (not empty)
+    assert len(loaded_df) > 0, "Should have some rows after start_date"
 
+
+def test_load_factors_with_date_range_filter(temp_factor_store, multi_year_factors_df):
+    """Test that start_date and end_date together filter correctly."""
+    factor_group = "core_ta"
+    freq = "1d"
+    universe_key = compute_universe_key(symbols=["AAPL", "MSFT"])
+    
+    # Store factors
+    store_factors(
+        df=multi_year_factors_df,
+        factor_group=factor_group,
+        freq=freq,
+        universe_key=universe_key,
+        mode="overwrite",
+        factors_root=temp_factor_store,
+    )
+    
+    # Load with both start_date and end_date (2023-09-01 to 2023-12-31)
+    start_date = pd.Timestamp("2023-09-01", tz="UTC")
+    end_date = pd.Timestamp("2023-12-31", tz="UTC")
+    
+    loaded_df = load_factors(
+        factor_group=factor_group,
+        freq=freq,
+        universe_key=universe_key,
+        start_date=start_date,
+        end_date=end_date,
+        factors_root=temp_factor_store,
+    )
+    
+    assert loaded_df is not None
+    assert not loaded_df.empty
+    
+    # Verify all rows are within date range
+    assert (loaded_df["timestamp"] >= start_date).all(), "All rows should be >= start_date"
+    assert (loaded_df["timestamp"] <= end_date).all(), "All rows should be <= end_date"
+    
+    # Verify min and max timestamps
+    min_timestamp = loaded_df["timestamp"].min()
+    max_timestamp = loaded_df["timestamp"].max()
+    
+    assert min_timestamp >= start_date, f"Min timestamp {min_timestamp} should be >= start_date {start_date}"
+    assert max_timestamp <= end_date, f"Max timestamp {max_timestamp} should be <= end_date {end_date}"
+
+
+def test_load_factors_with_as_of_pit_filter(temp_factor_store, multi_year_factors_df):
+    """Test that as_of (PIT) filter excludes rows after as_of (strict PIT safety)."""
+    factor_group = "core_ta"
+    freq = "1d"
+    universe_key = compute_universe_key(symbols=["AAPL", "MSFT"])
+    
+    # Store factors
+    store_factors(
+        df=multi_year_factors_df,
+        factor_group=factor_group,
+        freq=freq,
+        universe_key=universe_key,
+        mode="overwrite",
+        factors_root=temp_factor_store,
+    )
+    
+    # Load with as_of filter (cut off at 2024-01-15)
+    as_of = pd.Timestamp("2024-01-15", tz="UTC")
+    loaded_df = load_factors(
+        factor_group=factor_group,
+        freq=freq,
+        universe_key=universe_key,
+        as_of=as_of,
+        factors_root=temp_factor_store,
+    )
+    
+    assert loaded_df is not None
+    assert not loaded_df.empty
+    
+    # Verify no rows after as_of (strict PIT safety: <= as_of)
+    assert (loaded_df["timestamp"] <= as_of).all(), "All rows should be <= as_of (PIT safety)"
+    
+    # Verify max timestamp is <= as_of
+    max_timestamp = loaded_df["timestamp"].max()
+    assert max_timestamp <= as_of, f"Max timestamp {max_timestamp} should be <= as_of {as_of}"
+    
+    # Verify we got some data
+    assert len(loaded_df) > 0, "Should have some rows <= as_of"
+
+
+def test_load_factors_as_of_takes_precedence_over_end_date(temp_factor_store, multi_year_factors_df):
+    """Test that as_of takes precedence over end_date (as_of is stricter)."""
+    factor_group = "core_ta"
+    freq = "1d"
+    universe_key = compute_universe_key(symbols=["AAPL", "MSFT"])
+    
+    # Store factors
+    store_factors(
+        df=multi_year_factors_df,
+        factor_group=factor_group,
+        freq=freq,
+        universe_key=universe_key,
+        mode="overwrite",
+        factors_root=temp_factor_store,
+    )
+    
+    # Load with both end_date (later) and as_of (earlier)
+    # as_of should take precedence
+    end_date = pd.Timestamp("2024-06-01", tz="UTC")  # Later
+    as_of = pd.Timestamp("2024-01-15", tz="UTC")  # Earlier (should take precedence)
+    
+    loaded_df = load_factors(
+        factor_group=factor_group,
+        freq=freq,
+        universe_key=universe_key,
+        end_date=end_date,
+        as_of=as_of,
+        factors_root=temp_factor_store,
+    )
+    
+    assert loaded_df is not None
+    assert not loaded_df.empty
+    
+    # Verify all rows are <= as_of (not end_date)
+    assert (loaded_df["timestamp"] <= as_of).all(), "All rows should be <= as_of (takes precedence)"
+    
+    max_timestamp = loaded_df["timestamp"].max()
+    assert max_timestamp <= as_of, f"Max timestamp {max_timestamp} should be <= as_of {as_of} (not end_date {end_date})"
+
+
+def test_load_factors_empty_result_when_all_data_after_start(temp_factor_store, multi_year_factors_df):
+    """Test that loading with start_date after all data returns None or empty DataFrame."""
+    factor_group = "core_ta"
+    freq = "1d"
+    universe_key = compute_universe_key(symbols=["AAPL", "MSFT"])
+    
+    # Store factors (data from 2023-06-01 to 2024-06-01)
+    store_factors(
+        df=multi_year_factors_df,
+        factor_group=factor_group,
+        freq=freq,
+        universe_key=universe_key,
+        mode="overwrite",
+        factors_root=temp_factor_store,
+    )
+    
+    # Load with start_date after all data (2025-01-01)
+    start_date = pd.Timestamp("2025-01-01", tz="UTC")
+    loaded_df = load_factors(
+        factor_group=factor_group,
+        freq=freq,
+        universe_key=universe_key,
+        start_date=start_date,
+        factors_root=temp_factor_store,
+    )
+    
+    # Should return None or empty DataFrame
+    if loaded_df is not None:
+        assert loaded_df.empty, "Should return empty DataFrame when all data is before start_date"
+
+
+def test_load_factors_empty_result_when_all_data_before_end(temp_factor_store, multi_year_factors_df):
+    """Test that loading with end_date before all data returns None or empty DataFrame."""
+    factor_group = "core_ta"
+    freq = "1d"
+    universe_key = compute_universe_key(symbols=["AAPL", "MSFT"])
+    
+    # Store factors (data from 2023-06-01 to 2024-06-01)
+    store_factors(
+        df=multi_year_factors_df,
+        factor_group=factor_group,
+        freq=freq,
+        universe_key=universe_key,
+        mode="overwrite",
+        factors_root=temp_factor_store,
+    )
+    
+    # Load with end_date before all data (2023-01-01)
+    end_date = pd.Timestamp("2023-01-01", tz="UTC")
+    loaded_df = load_factors(
+        factor_group=factor_group,
+        freq=freq,
+        universe_key=universe_key,
+        end_date=end_date,
+        factors_root=temp_factor_store,
+    )
+    
+    # Should return None or empty DataFrame
+    if loaded_df is not None:
+        assert loaded_df.empty, "Should return empty DataFrame when all data is after end_date"

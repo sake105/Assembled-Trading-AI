@@ -37,7 +37,12 @@ from src.assembled_core.ema_config import get_default_ema_config
 from src.assembled_core.portfolio.position_sizing import (
     compute_target_positions_from_trend_signals,
 )
-from src.assembled_core.qa.backtest_engine import BacktestResult, run_portfolio_backtest
+from src.assembled_core.qa.backtest_engine import (
+    BacktestResult,
+    make_cycle_fn,
+    run_portfolio_backtest,
+)
+from src.assembled_core.pipeline.trading_cycle import TradingContext
 from src.assembled_core.qa.metrics import compute_all_metrics
 from src.assembled_core.qa.qa_gates import QAResult, evaluate_all_gates
 from src.assembled_core.reports.daily_qa_report import generate_qa_report
@@ -417,6 +422,27 @@ Examples:
         default=None,
         help="Output directory (default: from settings.output_dir)",
     )
+    
+    parser.add_argument(
+        "--use-factor-store",
+        action="store_true",
+        default=False,
+        help="Enable factor store caching (load factors from cache if available, otherwise compute and store)",
+    )
+    
+    parser.add_argument(
+        "--factor-store-root",
+        type=Path,
+        default=None,
+        help="Factor store root directory (default: from settings.factors_dir if available)",
+    )
+    
+    parser.add_argument(
+        "--factor-group",
+        type=str,
+        default="core_ta",
+        help="Factor group name for factor store (default: 'core_ta')",
+    )
 
     parser.add_argument(
         "--generate-report",
@@ -527,6 +553,22 @@ Examples:
         type=Path,
         default=None,
         help="Path to YAML/JSON file with regime configuration and risk_map (optional)",
+    )
+
+    # Timing arguments
+    parser.add_argument(
+        "--write-timings",
+        action="store_true",
+        default=False,
+        dest="enable_timings",
+        help="Enable timing logs and write timings JSON file (default: disabled)",
+    )
+
+    parser.add_argument(
+        "--timings-out",
+        type=Path,
+        default=None,
+        help="Path to write timings JSON file (default: output_dir/timings.json or output_dir/run_timings.json)",
     )
 
     return parser.parse_args()
@@ -847,7 +889,10 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         # Load price data
         logger.info("")
         logger.info("Loading price data...")
-        prices = load_price_data(args)
+        step_name = "load_data"
+        step_context = timed_step(step_name, timings, logger) if enable_timings else nullcontext()
+        with step_context:
+            prices = load_price_data(args)
 
         if prices.empty:
             logger.error("No price data loaded")
@@ -1090,6 +1135,133 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 "Meta-Model Ensemble: DISABLED (use --use-meta-model to enable)"
             )
 
+        # Build TradingContext template for TradingCycle integration (B1)
+        # Extract universe symbols if available
+        universe_symbols = None
+        if hasattr(args, "symbols") and args.symbols:
+            universe_symbols = args.symbols
+        elif hasattr(args, "symbols_file") and args.symbols_file:
+            universe_symbols = load_symbols_from_file(args.symbols_file)
+        elif args.universe:
+            universe_symbols = load_symbols_from_file(args.universe)
+        
+        # Build feature_config from strategy (if applicable)
+        feature_config = None
+        if args.strategy == "trend_baseline":
+            # Default feature config for TA features (can be customized later)
+            feature_config = {}
+        
+        # Precompute features for entire time range (once, not per timestamp)
+        # This is a performance optimization: compute features once upfront instead of per timestamp
+        precomputed_prices_with_features = None
+        if not prices.empty:
+            from src.assembled_core.features.ta_features import add_all_features
+            from src.assembled_core.features.factor_store_integration import build_or_load_factors
+            from src.assembled_core.data.factor_store import compute_universe_key
+            
+            # Check if we have required columns for features (ATR needs high/low)
+            has_ohlc = all(col in prices.columns for col in ["high", "low", "open"])
+            
+            # Use factor store if enabled via CLI args
+            use_factor_store = args.use_factor_store
+            factor_group = args.factor_group
+            
+            # Determine factor_store_root: CLI arg > settings > default
+            from src.assembled_core.data.factor_store import get_factor_store_root
+            if args.factor_store_root is not None:
+                factor_store_root = Path(args.factor_store_root)
+            else:
+                # Try to get from settings, otherwise use default
+                try:
+                    settings = get_settings()
+                    if hasattr(settings, 'factors_dir') and settings.factors_dir:
+                        factor_store_root = Path(settings.factors_dir)
+                    else:
+                        factor_store_root = get_factor_store_root()
+                except Exception:
+                    # Fallback to default
+                    factor_store_root = get_factor_store_root()
+            
+            if use_factor_store:
+                # Use factor store (build_or_load_factors)
+                logger.info(f"Using factor store: group={factor_group}, root={factor_store_root}")
+                universe_key = compute_universe_key(symbols=universe_symbols if universe_symbols else sorted(prices["symbol"].unique().tolist()))
+                start_date = prices["timestamp"].min() if not prices.empty else None
+                end_date = prices["timestamp"].max() if not prices.empty else None
+                
+                # Prepare builder_kwargs
+                if has_ohlc:
+                    builder_kwargs = {
+                        "ma_windows": feature_config.get("ma_windows", (20, 50, 200)) if feature_config else (20, 50, 200),
+                        "atr_window": feature_config.get("atr_window", 14) if feature_config else 14,
+                        "rsi_window": feature_config.get("rsi_window", 14) if feature_config else 14,
+                        "include_rsi": feature_config.get("include_rsi", True) if feature_config else True,
+                    }
+                else:
+                    builder_kwargs = {
+                        "windows": feature_config.get("ma_windows", (20, 50, 200)) if feature_config else (20, 50, 200),
+                    }
+                
+                precomputed_prices_with_features = build_or_load_factors(
+                    prices=prices,
+                    factor_group=factor_group,
+                    freq=args.freq,
+                    universe_key=universe_key,
+                    start_date=start_date,
+                    end_date=end_date,
+                    as_of=None,  # No PIT cutoff here, we want full range
+                    force_rebuild=False,
+                    builder_fn=add_all_features if has_ohlc else None,
+                    builder_kwargs=builder_kwargs,
+                    factors_root=factor_store_root,
+                )
+                logger.info(f"Loaded/computed features from factor store: {len(precomputed_prices_with_features)} rows")
+            else:
+                # Direct computation: add features to prices (no factor store)
+                logger.info("Computing features directly (factor store disabled)")
+                if has_ohlc:
+                    precomputed_prices_with_features = add_all_features(
+                        prices.copy(),
+                        ma_windows=feature_config.get("ma_windows", (20, 50, 200)) if feature_config else (20, 50, 200),
+                        atr_window=feature_config.get("atr_window", 14) if feature_config else 14,
+                        rsi_window=feature_config.get("rsi_window", 14) if feature_config else 14,
+                        include_rsi=feature_config.get("include_rsi", True) if feature_config else True,
+                    )
+                else:
+                    # If OHLC not available, only compute features that don't need them
+                    from src.assembled_core.features.ta_features import add_log_returns, add_moving_averages
+                    precomputed_prices_with_features = add_log_returns(prices.copy())
+                    precomputed_prices_with_features = add_moving_averages(
+                        precomputed_prices_with_features,
+                        windows=feature_config.get("ma_windows", (20, 50, 200)) if feature_config else (20, 50, 200),
+                    )
+                logger.info(f"Computed features directly: {len(precomputed_prices_with_features)} rows")
+        
+        # Create TradingContext template
+        # Note: use_factor_store is set to False here because features are already precomputed
+        # (either from factor store or direct computation). The factor store was used during
+        # precomputation if enabled, so we don't need to use it again in the trading cycle.
+        ctx_template = TradingContext(
+            prices=prices,
+            freq=args.freq,
+            universe=universe_symbols,
+            use_factor_store=False,  # Features already precomputed (factor store used during precomputation if enabled)
+            factor_store_root=factor_store_root if use_factor_store else None,
+            factor_group=factor_group,
+            feature_config=feature_config,
+            precomputed_prices_with_features=precomputed_prices_with_features,  # Set precomputed features
+            write_outputs=False,  # Backtest engine handles outputs
+            enable_risk_controls=False,  # Backtest engine doesn't use risk controls
+        )
+        
+        # Create cycle_fn using make_cycle_fn
+        cycle_fn = make_cycle_fn(
+            ctx_template,
+            signal_fn=signal_fn,
+            position_sizing_fn=position_sizing_fn,
+            capital=args.start_capital,
+        )
+        
         # Run backtest
         logger.info("")
         logger.info("Running backtest...")
@@ -1098,8 +1270,8 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         with step_context:
             result: BacktestResult = run_portfolio_backtest(
             prices=prices,
-            signal_fn=signal_fn,
-            position_sizing_fn=position_sizing_fn,
+            signal_fn=signal_fn,  # Still pass for backward compatibility/validation
+            position_sizing_fn=position_sizing_fn,  # Still pass for backward compatibility/validation
             start_capital=args.start_capital,
             commission_bps=cost_model.commission_bps,
             spread_w=cost_model.spread_w,
@@ -1111,13 +1283,14 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             rebalance_freq=args.freq
             if args.strategy != "multifactor_long_short"
             else args.rebalance_freq,
-            compute_features=args.strategy
-            != "multifactor_long_short",  # Multi-factor strategy computes factors internally
-            # Meta-model ensemble parameters
-            use_meta_model=args.use_meta_model,
-            meta_model_path=str(args.meta_model_path) if args.meta_model_path else None,
-            meta_min_confidence=args.meta_min_confidence,
-            meta_ensemble_mode=args.meta_ensemble_mode,
+            compute_features=False,  # Features already precomputed once and passed via ctx_template.precomputed_prices_with_features
+            # Meta-model ensemble parameters (not supported with cycle_fn for now - features/signals computed per timestamp)
+            use_meta_model=False,  # Meta-model not supported with TradingCycle integration yet
+            meta_model_path=None,
+            meta_min_confidence=0.5,
+            meta_ensemble_mode="filter",
+            # Trading cycle integration (B1)
+            cycle_fn=cycle_fn,
         )
 
         logger.info(f"Backtest completed: {len(result.equity)} equity points")
@@ -1244,7 +1417,8 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             if hasattr(args, "timings_out") and args.timings_out:
                 timings_path = Path(args.timings_out)
             else:
-                timings_path = output_dir / "timings.json"
+                # Default: use run_timings.json (or timings.json for backward compatibility)
+                timings_path = output_dir / "run_timings.json"
             
             job_meta = {
                 "strategy": args.strategy,

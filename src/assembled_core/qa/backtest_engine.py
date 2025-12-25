@@ -59,7 +59,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from contextlib import nullcontext
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -77,6 +77,11 @@ from src.assembled_core.features.factor_store_integration import build_or_load_f
 from src.assembled_core.data.factor_store import compute_universe_key
 from src.assembled_core.pipeline.backtest import compute_metrics, simulate_equity
 from src.assembled_core.pipeline.portfolio import simulate_with_costs
+from src.assembled_core.pipeline.trading_cycle import (
+    TradingContext,
+    TradingCycleResult,
+    run_trading_cycle,
+)
 # Timing utilities are available via src.assembled_core.utils.timing if needed
 # Currently not used in backtest_engine (timing is handled at script level)
 
@@ -240,6 +245,75 @@ def _update_positions_vectorized(
     return updated_positions
 
 
+def make_cycle_fn(
+    ctx_template: TradingContext,
+    *,
+    signal_fn: Callable[[pd.DataFrame], pd.DataFrame],
+    position_sizing_fn: Callable[[pd.DataFrame, float], pd.DataFrame],
+    capital: float,
+) -> Callable[[pd.Timestamp, pd.DataFrame], TradingCycleResult]:
+    """Create a callable that runs trading cycle for a given timestamp and positions.
+    
+    This is an adapter function that bridges the backtest engine's per-timestamp
+    loop with the unified trading cycle orchestrator.
+    
+    Args:
+        ctx_template: Template TradingContext with shared configuration
+            (prices, universe, feature_config, factor_store settings, etc.)
+        signal_fn: Signal function (same as in run_portfolio_backtest)
+        position_sizing_fn: Position sizing function (same as in run_portfolio_backtest)
+        capital: Capital for position sizing (updated per timestamp based on equity)
+        
+    Returns:
+        Callable that takes (timestamp: pd.Timestamp, current_positions: pd.DataFrame)
+        and returns TradingCycleResult
+        
+    Example:
+        >>> ctx_template = TradingContext(
+        ...     prices=prices,
+        ...     freq="1d",
+        ...     use_factor_store=True,
+        ...     factor_group="core_ta",
+        ... )
+        >>> cycle_fn = make_cycle_fn(
+        ...     ctx_template,
+        ...     signal_fn=signal_fn,
+        ...     position_sizing_fn=position_sizing_fn,
+        ...     capital=10000.0,
+        ... )
+        >>> result = cycle_fn(timestamp, current_positions)
+        >>> orders = result.orders_filtered  # or result.orders as fallback
+    """
+    def cycle_fn(timestamp: pd.Timestamp, current_positions: pd.DataFrame) -> TradingCycleResult:
+        """Run trading cycle for a specific timestamp.
+        
+        Args:
+            timestamp: Current timestamp for rebalancing
+            current_positions: Current portfolio positions (columns: symbol, qty)
+            
+        Returns:
+            TradingCycleResult with orders, signals, target_positions, etc.
+        """
+        # Build context from template, updating timestamp-specific fields
+        ctx = replace(
+            ctx_template,
+            as_of=timestamp,
+            mode="backtest",  # Use backtest mode (full history slice)
+            current_positions=current_positions,
+            order_timestamp=timestamp,
+            capital=capital,  # Capital might be updated per timestamp in the future
+            signal_fn=signal_fn,
+            position_sizing_fn=position_sizing_fn,
+            write_outputs=False,  # Backtest engine handles outputs
+            enable_risk_controls=False,  # Backtest engine doesn't use risk controls (can be added later)
+        )
+        
+        # Run trading cycle
+        return run_trading_cycle(ctx)
+    
+    return cycle_fn
+
+
 def _process_rebalancing_timestamp(
     timestamp: pd.Timestamp,
     signal_group: pd.DataFrame,
@@ -307,8 +381,8 @@ def _process_rebalancing_timestamp(
 
 def run_portfolio_backtest(
     prices: pd.DataFrame,
-    signal_fn: Callable[[pd.DataFrame], pd.DataFrame],
-    position_sizing_fn: Callable[[pd.DataFrame, float], pd.DataFrame],
+    signal_fn: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
+    position_sizing_fn: Callable[[pd.DataFrame, float], pd.DataFrame] | None = None,
     start_capital: float = 10000.0,
     commission_bps: float | None = None,
     spread_w: float | None = None,
@@ -331,6 +405,8 @@ def run_portfolio_backtest(
     meta_model_path: str | None = None,
     meta_min_confidence: float = 0.5,
     meta_ensemble_mode: str = "filter",  # "filter" or "scaling"
+    # Trading cycle integration (B1)
+    cycle_fn: Callable[[pd.Timestamp, pd.DataFrame], TradingCycleResult] | None = None,
 ) -> BacktestResult:
     """Run a portfolio-level backtest with configurable signal and position sizing functions.
 
@@ -422,12 +498,13 @@ def run_portfolio_backtest(
     # Ensure prices are sorted
     prices = prices.sort_values(["symbol", "timestamp"]).reset_index(drop=True).copy()
 
-    # Step 1: Compute features (optional)
+    # Step 1: Compute features (optional) - skip if cycle_fn is provided (features precomputed and passed via ctx_template)
     # Note: timed_block is not defined, using nullcontext for now
     # TODO: Add proper timing support if needed
     with nullcontext():
         # Only compute features if prices is not empty (features require data)
-        if compute_features and len(prices) > 0:
+        # Skip feature computation if cycle_fn is provided (features are precomputed once and passed via ctx_template.precomputed_prices_with_features)
+        if compute_features and len(prices) > 0 and cycle_fn is None:
             config = feature_config or {}
             # Check if we have required columns for features (ATR needs high/low)
             has_ohlc = all(col in prices.columns for col in ["high", "low", "open"])
@@ -484,23 +561,35 @@ def run_portfolio_backtest(
                     )
         else:
             prices_with_features = prices.copy()
+        # If cycle_fn is provided, features are precomputed once and passed via ctx_template.precomputed_prices_with_features
+        # Set prices_with_features to prices for now (will not be used, as cycle_fn uses precomputed features)
+        if cycle_fn is not None:
+            prices_with_features = prices.copy()
 
-    # Step 2: Generate signals
+    # Step 2: Generate signals (skip if cycle_fn is provided, signals generated per timestamp)
     with nullcontext():
-        signals = signal_fn(prices_with_features)
+        if cycle_fn is None:
+            if signal_fn is None:
+                raise ValueError("signal_fn is required when cycle_fn is not provided")
+            signals = signal_fn(prices_with_features)
+        else:
+            # Signals will be generated per timestamp via cycle_fn
+            # Create empty signals DataFrame for compatibility
+            signals = pd.DataFrame(columns=["timestamp", "symbol", "direction", "score"])
 
-    # Validate signals
-    required_signal_cols = ["timestamp", "symbol", "direction"]
-    missing_signal = [c for c in required_signal_cols if c not in signals.columns]
-    if missing_signal:
-        raise KeyError(
-            f"signal_fn must return DataFrame with columns: {required_signal_cols}. Missing: {missing_signal}"
-        )
+    # Validate signals (skip validation if cycle_fn is provided)
+    if cycle_fn is None:
+        required_signal_cols = ["timestamp", "symbol", "direction"]
+        missing_signal = [c for c in required_signal_cols if c not in signals.columns]
+        if missing_signal:
+            raise KeyError(
+                f"signal_fn must return DataFrame with columns: {required_signal_cols}. Missing: {missing_signal}"
+            )
 
         signals = signals.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
 
-    # Step 2.5: Apply meta-model ensemble (if enabled)
-    if use_meta_model:
+    # Step 2.5: Apply meta-model ensemble (if enabled) - skip if cycle_fn is provided
+    if use_meta_model and cycle_fn is None:
         logger.info("Applying meta-model ensemble...")
 
         # Load meta-model if path provided
@@ -651,26 +740,70 @@ def run_portfolio_backtest(
     with nullcontext():
         all_targets = []
         all_orders = []
+        all_signals_list = []  # For collecting signals if include_signals=True
         current_positions = pd.DataFrame(columns=["symbol", "qty"])
 
-        # Group signals by timestamp for rebalancing (per-timestamp loop)
-        for timestamp, signal_group in signals.groupby("timestamp"):
-            orders, current_positions, targets = _process_rebalancing_timestamp(
-                timestamp=timestamp,
-                signal_group=signal_group,
-                current_positions=current_positions,
-                position_sizing_fn=position_sizing_fn,
-                start_capital=start_capital,
-                prices=prices,
-                include_targets=include_targets,
-            )
+        # Determine timeline (unique timestamps from prices, sorted)
+        timeline = sorted(prices["timestamp"].unique())
 
-            # Store targets and orders
-            if include_targets and not targets.empty:
-                all_targets.append(targets)
+        # Use cycle_fn if provided (TradingCycle integration), otherwise use legacy path
+        if cycle_fn is not None:
+            # TradingCycle path: use cycle_fn for each timestamp
+            for timestamp in timeline:
+                # Run trading cycle for this timestamp
+                cycle_result = cycle_fn(timestamp, current_positions)
+                
+                if cycle_result.status != "success":
+                    logger.warning(
+                        f"Trading cycle failed for timestamp {timestamp}: {cycle_result.error_message}"
+                    )
+                    continue
+                
+                # Extract orders (prefer orders_filtered, fallback to orders)
+                orders = (
+                    cycle_result.orders_filtered
+                    if not cycle_result.orders_filtered.empty
+                    else cycle_result.orders
+                )
+                
+                # Update positions using vectorized operations (Fill/Fees/Equity-Update stays in Engine)
+                if not orders.empty:
+                    current_positions = _update_positions_vectorized(orders, current_positions)
+                    all_orders.append(orders)
+                
+                # Store targets if requested
+                if include_targets and not cycle_result.target_positions.empty:
+                    targets_with_timestamp = cycle_result.target_positions.copy()
+                    targets_with_timestamp["timestamp"] = timestamp
+                    all_targets.append(targets_with_timestamp)
+                
+                # Store signals if requested
+                if include_signals and not cycle_result.signals.empty:
+                    all_signals_list.append(cycle_result.signals)
+        else:
+            # Legacy path: group signals by timestamp and process
+            if signal_fn is None or position_sizing_fn is None:
+                raise ValueError(
+                    "signal_fn and position_sizing_fn are required when cycle_fn is not provided"
+                )
+            
+            for timestamp, signal_group in signals.groupby("timestamp"):
+                orders, current_positions, targets = _process_rebalancing_timestamp(
+                    timestamp=timestamp,
+                    signal_group=signal_group,
+                    current_positions=current_positions,
+                    position_sizing_fn=position_sizing_fn,
+                    start_capital=start_capital,
+                    prices=prices,
+                    include_targets=include_targets,
+                )
 
-            if not orders.empty:
-                all_orders.append(orders)
+                # Store targets and orders
+                if include_targets and not targets.empty:
+                    all_targets.append(targets)
+
+                if not orders.empty:
+                    all_orders.append(orders)
 
         # Combine all orders
         if all_orders:
@@ -758,11 +891,20 @@ def run_portfolio_backtest(
             equity = equity[["date", "timestamp", "equity", "daily_return"]].copy()
 
     # Step 6: Build result
+    # Combine signals if collected from cycle_fn
+    signals_result = None
+    if include_signals:
+        if cycle_fn is not None and all_signals_list:
+            signals_result = pd.concat(all_signals_list, ignore_index=True)
+            signals_result = signals_result.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
+        elif cycle_fn is None:
+            signals_result = signals
+    
     result = BacktestResult(
         equity=equity,
         metrics=metrics,
         trades=orders_df if include_trades else None,
-        signals=signals if include_signals else None,
+        signals=signals_result,
         target_positions=pd.concat(all_targets, ignore_index=True)
         if include_targets and all_targets
         else None,

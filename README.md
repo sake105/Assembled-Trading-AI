@@ -87,6 +87,14 @@ The `assembled-cli` command-line interface is the preferred entry point for all 
   - Evaluate model performance (ROC-AUC, Brier, Log Loss)
   - Connect to research notebooks
 
+- **Batch Runs & Profiling** → [Batch Runner P4](docs/BATCH_RUNNER_P4.md)
+  - Run multiple backtests from YAML config
+  - Deterministic run IDs (hash-based, reproducible)
+  - Resume support (skip successful runs, rerun failed)
+  - Parallel execution with ProcessPoolExecutor
+  - Performance profiling integration
+  - Example: `python scripts/cli.py batch_run --config-file configs/batch.yaml --max-workers 4 --resume`
+
 - **Factor Store** → [Factor Store](docs/FACTOR_STORE.md)
   - Caching system for computed factors/features
   - Performance optimization for repeated runs (EOD, backtests, ML workflows)
@@ -182,6 +190,18 @@ python scripts/cli.py run_backtest --freq 1d --strategy trend_baseline --generat
 **Build ML Dataset:**
 ```bash
 python scripts/cli.py build_ml_dataset --strategy trend_baseline --freq 1d
+```
+
+**Batch Runs:**
+```bash
+# Run batch from config
+python scripts/cli.py batch_run --config-file configs/batch_example.yaml
+
+# Parallel execution with 4 workers
+python scripts/cli.py batch_run --config-file configs/batch_example.yaml --max-workers 4
+
+# Resume from previous run (skip successful runs)
+python scripts/cli.py batch_run --config-file configs/batch_example.yaml --resume
 ```
 
 For detailed workflows, examples, and troubleshooting, see the workflow documentation linked above.

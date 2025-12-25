@@ -511,7 +511,8 @@ def run_daily_eod(
         if timings_out:
             timings_path = Path(timings_out)
         else:
-            timings_path = out_dir / "timings.json"
+            # Default: use run_timings.json (or timings.json for backward compatibility)
+            timings_path = out_dir / "run_timings.json"
         
         job_meta = {
             "date": target_date.strftime("%Y-%m-%d"),

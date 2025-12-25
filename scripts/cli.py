@@ -529,6 +529,54 @@ def analyze_factors_subcommand(args: argparse.Namespace) -> int:
         return 1
 
 
+def batch_run_subcommand(args: argparse.Namespace) -> int:
+    """Run batch backtests with resume support (MVP).
+
+    This subcommand uses the MVP batch runner (scripts/batch_runner.py) which provides:
+    - Deterministic run IDs (hash-based)
+    - Resume support (skip successful runs)
+    - Rerun failed runs option
+    - Parallel execution support
+
+    Args:
+        args: Parsed command-line arguments
+
+    Returns:
+        Exit code (0 if all successful, 1 otherwise)
+    """
+    from scripts.batch_runner import load_batch_config, run_batch, _setup_logging
+
+    # Setup logging with verbosity
+    verbosity = args.verbose if hasattr(args, "verbose") else 0
+    _setup_logging(verbosity)
+
+    try:
+        batch_cfg = load_batch_config(args.config_file)
+    except Exception as exc:
+        logger.error("Failed to load batch config: %s", exc, exc_info=True)
+        return 1
+
+    if args.output_root is not None:
+        batch_cfg.output_root = args.output_root.resolve()
+
+    try:
+        max_workers = args.max_workers if hasattr(args, "max_workers") else 1
+        if max_workers < 1:
+            logger.error("max_workers must be >= 1")
+            return 1
+
+        return run_batch(
+            batch_cfg,
+            max_workers=max_workers,
+            dry_run=args.dry_run if hasattr(args, "dry_run") else False,
+            resume=args.resume if hasattr(args, "resume") else False,
+            rerun_failed=args.rerun_failed if hasattr(args, "rerun_failed") else False,
+        )
+    except Exception as exc:
+        logger.error("Batch execution failed: %s", exc, exc_info=True)
+        return 1
+
+
 def batch_backtest_subcommand(args: argparse.Namespace) -> int:
     """Run batch of strategy backtests from config file.
 
@@ -2634,6 +2682,83 @@ Examples:
         help="Rerun batch even if output directory already exists (overwrites).",
     )
     batch_parser.set_defaults(func=batch_backtest_subcommand)
+
+    # batch_run subcommand (MVP batch runner)
+    batch_run_parser = subparsers.add_parser(
+        "batch_run",
+        help="Run batch backtests with resume support (MVP)",
+        description="Runs multiple backtests from a YAML config file with resume/rerun support. "
+        "Each run gets a deterministic run_id based on parameters for reproducibility.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Run batch from config
+  python scripts/cli.py batch_run --config-file configs/batch_example.yaml
+
+  # Parallel execution with 4 workers
+  python scripts/cli.py batch_run --config-file configs/batch_example.yaml --max-workers 4
+
+  # Resume from previous run (skip successful runs)
+  python scripts/cli.py batch_run --config-file configs/batch_example.yaml --resume
+
+  # Resume and rerun failed runs
+  python scripts/cli.py batch_run --config-file configs/batch_example.yaml --resume --rerun-failed
+
+  # Dry-run (show plan without execution)
+  python scripts/cli.py batch_run --config-file configs/batch_example.yaml --dry-run
+
+See docs/BATCH_RUNNER_P4.md for detailed documentation.
+        """,
+    )
+
+    batch_run_parser.add_argument(
+        "--config-file",
+        type=Path,
+        required=True,
+        help="Path to YAML config file",
+    )
+
+    batch_run_parser.add_argument(
+        "--output-root",
+        type=Path,
+        default=None,
+        help="Override output_root from config",
+    )
+
+    batch_run_parser.add_argument(
+        "--max-workers",
+        type=int,
+        default=1,
+        help="Maximum number of parallel workers (1 = serial execution, default: 1)",
+    )
+
+    batch_run_parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Skip runs that already succeeded (resume from previous run)",
+    )
+
+    batch_run_parser.add_argument(
+        "--rerun-failed",
+        action="store_true",
+        help="Rerun failed runs even with --resume (default: skip failed runs)",
+    )
+
+    batch_run_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print plan without executing backtests",
+    )
+
+    batch_run_parser.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help="Increase verbosity (can be used multiple times)",
+    )
+
+    batch_run_parser.set_defaults(func=batch_run_subcommand)
 
     # risk_report subcommand
     risk_report_parser = subparsers.add_parser(

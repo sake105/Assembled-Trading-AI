@@ -103,6 +103,119 @@ def test_eod_cycle_returns_orders_deterministic() -> None:
     assert (result.orders["price"] > 0.0).all()
 
 
+def test_backtest_mode_keeps_history_slice() -> None:
+    """Test that backtest mode keeps full history slice for MAs/returns."""
+    # Create price data (2 symbols, 20 days)
+    dates = pd.date_range("2025-01-01", periods=20, freq="D", tz="UTC")
+    
+    prices = pd.DataFrame({
+        "timestamp": dates.tolist() * 2,
+        "symbol": ["AAPL"] * 20 + ["MSFT"] * 20,
+        "close": [100.0 + i * 0.5 for i in range(20)] + [200.0 + i * 0.3 for i in range(20)],
+        "high": [101.0 + i * 0.5 for i in range(20)] + [201.0 + i * 0.3 for i in range(20)],
+        "low": [99.0 + i * 0.5 for i in range(20)] + [199.0 + i * 0.3 for i in range(20)],
+        "open": [100.5 + i * 0.5 for i in range(20)] + [200.5 + i * 0.3 for i in range(20)],
+        "volume": [1000000.0] * 40,
+    })
+    
+    # Set as_of to day 15 (should keep all 15 days per symbol)
+    as_of = dates[14]  # Day 15 (0-indexed)
+    
+    def signal_fn(df: pd.DataFrame) -> pd.DataFrame:
+        return generate_trend_signals_from_prices(df, ma_fast=5, ma_slow=10)
+    
+    def sizing_fn(signals: pd.DataFrame, capital: float) -> pd.DataFrame:
+        return compute_target_positions_from_trend_signals(
+            signals, total_capital=capital, top_n=None, min_score=0.0
+        )
+    
+    ctx = TradingContext(
+        prices=prices,
+        as_of=as_of,
+        mode="backtest",  # Backtest mode
+        signal_fn=signal_fn,
+        position_sizing_fn=sizing_fn,
+        capital=10000.0,
+        enable_risk_controls=False,
+        write_outputs=False,
+    )
+    
+    result = run_trading_cycle(ctx)
+    
+    assert result.status == "success"
+    
+    # Verify prices_filtered has full history slice (15 days * 2 symbols = 30 rows)
+    assert len(result.prices_filtered) == 30  # All history <= as_of
+    assert (result.prices_filtered["timestamp"] <= as_of).all()
+    
+    # Verify prices_latest is populated (one row per symbol = 2 rows)
+    assert result.prices_latest is not None
+    assert len(result.prices_latest) == 2
+    assert result.prices_latest["symbol"].nunique() == 2
+    
+    # Verify prices_latest contains latest prices per symbol
+    for symbol in ["AAPL", "MSFT"]:
+        latest = result.prices_latest[result.prices_latest["symbol"] == symbol]
+        assert len(latest) == 1
+        assert latest["timestamp"].iloc[0] == as_of  # Should be exactly as_of
+    
+    # Verify orders have prices (should use prices_latest)
+    assert not result.orders.empty
+    assert "price" in result.orders.columns
+    assert (result.orders["price"] > 0.0).all()
+
+
+def test_eod_mode_backward_compatible() -> None:
+    """Test that EOD mode (default) remains backward compatible (one row per symbol)."""
+    dates = pd.date_range("2025-01-01", periods=20, freq="D", tz="UTC")
+    
+    prices = pd.DataFrame({
+        "timestamp": dates.tolist() * 2,
+        "symbol": ["AAPL"] * 20 + ["MSFT"] * 20,
+        "close": [100.0 + i * 0.5 for i in range(20)] + [200.0 + i * 0.3 for i in range(20)],
+    })
+    
+    as_of = dates[14]  # Day 15
+    
+    def signal_fn(df: pd.DataFrame) -> pd.DataFrame:
+        return pd.DataFrame({
+            "timestamp": [as_of],
+            "symbol": ["AAPL"],
+            "direction": ["LONG"],
+            "score": [0.5],
+        })
+    
+    def sizing_fn(signals: pd.DataFrame, capital: float) -> pd.DataFrame:
+        return pd.DataFrame({
+            "symbol": ["AAPL"],
+            "target_weight": [0.1],
+            "target_qty": [10.0],
+        })
+    
+    # Test with default mode (eod)
+    ctx = TradingContext(
+        prices=prices,
+        as_of=as_of,
+        # mode defaults to "eod"
+        signal_fn=signal_fn,
+        position_sizing_fn=sizing_fn,
+        capital=10000.0,
+        enable_risk_controls=False,
+        write_outputs=False,
+    )
+    
+    result = run_trading_cycle(ctx)
+    
+    assert result.status == "success"
+    
+    # Verify prices_filtered has one row per symbol (EOD mode)
+    assert len(result.prices_filtered) == 2  # One row per symbol
+    assert result.prices_filtered["symbol"].nunique() == 2
+    
+    # Verify prices_latest is None (EOD mode doesn't populate it)
+    assert result.prices_latest is None
+
+
 def test_eod_cycle_pit_safe_filtering() -> None:
     """Test that PIT-safe filtering works correctly."""
     # Create price data with future dates

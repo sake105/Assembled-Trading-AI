@@ -85,7 +85,7 @@ def build_or_load_factors(
     if as_of is not None and isinstance(as_of, str):
         as_of = pd.Timestamp(as_of, tz="UTC")
 
-    # Try to load from cache (unless force_rebuild)
+    # Try to load from cache first (unless force_rebuild)
     if not force_rebuild:
         cached_factors = load_factors(
             factor_group=factor_group,
@@ -119,7 +119,7 @@ def build_or_load_factors(
                 logger.debug(
                     f"[cache_partial] Cached factors exist but don't cover full range: "
                     f"requested=[{start_date.date()}, {pit_cutoff.date()}], "
-                    f"cached=[{cached_start.date()}, {cached_end.date()}], will rebuild"
+                    f"cached=[{cached_start.date()}, {cached_end.date()}], will compute missing"
                 )
 
     # Cache miss or incomplete: compute factors
@@ -146,6 +146,8 @@ def build_or_load_factors(
         raise ValueError(f"Builder function must return DataFrame with columns: {missing_cols}")
 
     # Store factors in cache
+    # Use append mode (not overwrite) to avoid rewriting existing year partitions
+    # In backtest mode, this ensures only missing partitions are written per timestamp
     store_factors(
         df=factors_df,
         factor_group=factor_group,
