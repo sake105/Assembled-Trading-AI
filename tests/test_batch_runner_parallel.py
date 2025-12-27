@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
 
-import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -168,7 +166,7 @@ def test_output_path_structure(tmp_path: Path) -> None:
     import sys
     sys.path.insert(0, str(ROOT))
 
-    from scripts.batch_runner import BatchConfig, RunConfig, run_single_backtest
+    from scripts.batch_runner import RunConfig, run_single_backtest
 
     run_cfg = RunConfig(
         id="test_run_123",
@@ -186,6 +184,7 @@ def test_output_path_structure(tmp_path: Path) -> None:
     status, runtime_sec, exit_code, error = run_single_backtest(
         run_cfg=run_cfg,
         batch_output_root=batch_output_root,
+        seed=42,
         dry_run=True,
     )
 

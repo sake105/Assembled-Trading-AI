@@ -6,7 +6,6 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -43,6 +42,7 @@ def test_load_existing_manifest(tmp_path: Path) -> None:
         finished_at=finished_at,
         runtime_sec=150.5,
         exit_code=0,
+        seed=42,
     )
 
     # Load manifest
@@ -110,6 +110,7 @@ def test_resume_skip_successful_run(tmp_path: Path) -> None:
         finished_at=finished_at,
         runtime_sec=150.5,
         exit_code=0,
+        seed=42,
     )
 
     # Run with resume - should skip
@@ -158,6 +159,7 @@ def test_resume_skip_failed_run(tmp_path: Path) -> None:
         finished_at=finished_at,
         runtime_sec=50.0,
         exit_code=1,
+        seed=42,
         error="Test error",
     )
 
@@ -172,7 +174,7 @@ def test_resume_rerun_failed(tmp_path: Path) -> None:
     import sys
     sys.path.insert(0, str(ROOT))
 
-    from scripts.batch_runner import BatchConfig, RunConfig, run_batch, run_single_backtest
+    from scripts.batch_runner import BatchConfig, RunConfig, run_single_backtest
 
     run_cfg = RunConfig(
         id="run1",
@@ -208,6 +210,7 @@ def test_resume_rerun_failed(tmp_path: Path) -> None:
         finished_at=finished_at,
         runtime_sec=50.0,
         exit_code=1,
+        seed=42,
         error="Test error",
     )
 
@@ -215,6 +218,7 @@ def test_resume_rerun_failed(tmp_path: Path) -> None:
     status, runtime_sec, exit_code, error = run_single_backtest(
         run_cfg=run_cfg,
         batch_output_root=batch_output_root,
+        seed=42,
         dry_run=True,  # Don't actually run, just test logic
         resume=True,
         rerun_failed=True,
@@ -231,7 +235,7 @@ def test_resume_no_manifest_runs_normally(tmp_path: Path) -> None:
     import sys
     sys.path.insert(0, str(ROOT))
 
-    from scripts.batch_runner import BatchConfig, RunConfig, run_single_backtest
+    from scripts.batch_runner import RunConfig, run_single_backtest
 
     run_cfg = RunConfig(
         id="run1",
@@ -249,6 +253,7 @@ def test_resume_no_manifest_runs_normally(tmp_path: Path) -> None:
     status, runtime_sec, exit_code, error = run_single_backtest(
         run_cfg=run_cfg,
         batch_output_root=batch_output_root,
+        seed=42,
         dry_run=True,
         resume=True,
         rerun_failed=False,
@@ -289,6 +294,7 @@ def test_manifest_contains_required_fields(tmp_path: Path) -> None:
         finished_at=finished_at,
         runtime_sec=150.5,
         exit_code=1,
+        seed=42,
         error="Test error message",
     )
 

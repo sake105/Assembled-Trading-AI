@@ -23,6 +23,7 @@ from src.assembled_core.qa.shipping_risk import (
     compute_shipping_exposure,
     compute_systemic_risk_flags,
 )
+from src.assembled_core.reports.metrics_export import export_metrics_json
 
 
 def generate_qa_report(
@@ -97,8 +98,26 @@ def generate_qa_report(
     )
 
     # Write report
-    with open(report_path, "w", encoding="utf-8") as f:
-        f.write(content)
+    try:
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        with report_path.open("w", encoding="utf-8") as f:
+            f.write(content)
+    except (IOError, OSError) as exc:
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.error("Failed to write QA report to %s: %s", report_path, exc)
+        raise RuntimeError(f"Failed to write QA report: {report_path}") from exc
+    
+    # Export metrics as JSON (same directory as report)
+    metrics_json_path = report_path.parent / "metrics.json"
+    try:
+        export_metrics_json(metrics, metrics_json_path)
+    except Exception as exc:
+        # Log but don't fail report generation if metrics export fails
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to export metrics JSON: {exc}", exc_info=True)
 
     return report_path
 

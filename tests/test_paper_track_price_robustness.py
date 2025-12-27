@@ -9,7 +9,6 @@ import pytest
 
 from src.assembled_core.paper.paper_track import (
     PaperTrackConfig,
-    PaperTrackState,
     filter_tradeable_universe,
     run_paper_day,
     write_paper_day_outputs,

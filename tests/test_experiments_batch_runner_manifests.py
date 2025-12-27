@@ -14,7 +14,6 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-import pytest
 
 from src.assembled_core.experiments.batch_config import BatchConfig, RunSpec
 from src.assembled_core.experiments.batch_runner import (

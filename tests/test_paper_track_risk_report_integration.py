@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
 
 import scripts.run_paper_track as rpt
-from src.assembled_core.paper.paper_track import PaperTrackConfig, PaperTrackDayResult, PaperTrackState
+from src.assembled_core.paper.paper_track import PaperTrackDayResult, PaperTrackState
 
 pytestmark = pytest.mark.advanced
 

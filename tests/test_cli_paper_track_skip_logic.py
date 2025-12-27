@@ -24,7 +24,6 @@ def _write_minimal_outputs(
 def _patch_paper_track_runtime(monkeypatch, tmp_path: Path):
     """Helper to patch paper track runtime functions."""
     from src.assembled_core.paper.paper_track import (
-        PaperTrackConfig,
         PaperTrackDayResult,
         PaperTrackState,
     )

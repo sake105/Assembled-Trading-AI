@@ -92,5 +92,9 @@ def write_orders(
     out_dir = Path(output_dir) if output_dir else OUTPUT_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"orders_{freq}.csv"
-    orders.to_csv(path, index=False)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        orders.to_csv(path, index=False)
+    except (IOError, OSError) as exc:
+        raise RuntimeError(f"Failed to write orders CSV to {path}") from exc
     return path

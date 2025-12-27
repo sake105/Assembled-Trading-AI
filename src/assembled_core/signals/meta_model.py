@@ -48,7 +48,6 @@ except ImportError:
 # Try to import sklearn, fallback to None if not available
 try:
     from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
-    from sklearn.model_selection import train_test_split
 
     SKLEARN_AVAILABLE = True
 except ImportError:

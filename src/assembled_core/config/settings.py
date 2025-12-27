@@ -173,6 +173,14 @@ class Settings(BaseSettings):
         description="Default list of symbols to use if no universe file is provided",
     )
 
+    # Performance optimization flags
+    use_numba: bool = Field(
+        default=False,
+        description="Enable Numba JIT acceleration for backtest loops (default: False). "
+        "Set via ASSEMBLED_USE_NUMBA environment variable (true/1/yes to enable). "
+        "Falls back gracefully if Numba is not installed.",
+    )
+
     model_config = SettingsConfigDict(
         env_prefix="ASSEMBLED_",  # Environment variables: ASSEMBLED_ENVIRONMENT, ASSEMBLED_OUTPUT_DIR, etc.
         case_sensitive=False,

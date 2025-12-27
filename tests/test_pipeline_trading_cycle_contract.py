@@ -14,7 +14,6 @@ import logging
 from pathlib import Path
 
 import pandas as pd
-import pytest
 
 from src.assembled_core.pipeline.trading_cycle import (
     TradingContext,

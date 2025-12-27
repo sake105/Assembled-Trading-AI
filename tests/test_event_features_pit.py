@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pandas as pd
-import pytest
 
 from src.assembled_core.features.congress_features import add_congress_features
 from src.assembled_core.features.event_features import build_event_feature_panel

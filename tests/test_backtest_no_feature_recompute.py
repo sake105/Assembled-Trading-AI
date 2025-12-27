@@ -15,11 +15,9 @@ from __future__ import annotations
 import sys
 from collections import Counter
 from pathlib import Path
-from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
-import pytest
 
 # Add repo root to path
 ROOT = Path(__file__).resolve().parents[1]

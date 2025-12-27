@@ -7,7 +7,6 @@ existing modules, producing deterministic orders.
 from __future__ import annotations
 
 import pandas as pd
-import pytest
 
 from src.assembled_core.pipeline.trading_cycle import TradingContext, run_trading_cycle
 from src.assembled_core.portfolio.position_sizing import (

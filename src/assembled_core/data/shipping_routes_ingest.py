@@ -43,9 +43,15 @@ def load_shipping_sample(path: Path | str | None = None) -> pd.DataFrame:
     if path is not None:
         path = Path(path)
         if path.suffix == ".parquet":
-            return pd.read_parquet(path)
+            try:
+                return pd.read_parquet(path)
+            except (IOError, OSError) as exc:
+                raise IOError(f"Failed to read shipping data file {path}") from exc
         elif path.suffix == ".csv":
-            df = pd.read_csv(path)
+            try:
+                df = pd.read_csv(path)
+            except (IOError, OSError) as exc:
+                raise IOError(f"Failed to read shipping data file {path}") from exc
             if "timestamp" in df.columns:
                 df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
             return df

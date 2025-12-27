@@ -181,7 +181,6 @@ def test_find_config_by_strategy_name_not_found(
 
 def test_cli_list_flag(temp_configs_dir: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """Test that CLI --list flag works."""
-    import scripts.run_paper_track as rpt_module
 
     # Create a mock args object
     class MockArgs:
@@ -218,7 +217,6 @@ def test_cli_strategy_name_resolves_config(
     temp_configs_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Test that --strategy-name resolves correct config file."""
-    import scripts.run_paper_track as rpt_module
 
     from scripts.run_paper_track import find_config_by_strategy_name
 

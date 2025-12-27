@@ -7,9 +7,7 @@ compared to the legacy manual step-by-step path in run_daily.py.
 from __future__ import annotations
 
 import pandas as pd
-import pytest
 
-from src.assembled_core.execution.order_generation import generate_orders_from_signals
 from src.assembled_core.features.ta_features import add_all_features
 from src.assembled_core.pipeline.trading_cycle import (
     TradingContext,

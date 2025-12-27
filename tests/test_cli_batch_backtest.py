@@ -18,8 +18,6 @@ from scripts.cli import batch_backtest_subcommand
 
 def test_cli_batch_backtest_help() -> None:
     """Test that CLI help is accessible and subcommand exists."""
-    import subprocess
-    import sys
 
     from scripts.cli import create_parser
 

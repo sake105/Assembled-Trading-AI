@@ -49,6 +49,7 @@ from src.assembled_core.qa.metrics import (
 from src.assembled_core.qa.point_in_time_checks import (
     check_features_pit_safe,
 )
+from src.assembled_core.features.ta_features import add_all_features
 from src.assembled_core.paper.strategy_adapters import (
     generate_signals_and_targets_for_day,
 )
@@ -1154,13 +1155,8 @@ def run_paper_day(
             )
             logger.debug("PIT checks passed")
         
-        # Extract results
-        signals = cycle_result.signals
-        target_positions = cycle_result.target_positions
-        orders = cycle_result.orders  # Already generated from targets
-        
-        # Use prices_with_features from cycle for consistency
-        prices_with_features = cycle_result.prices_with_features
+        # Extract results (cycle_result.orders already generated from targets)
+        orders = cycle_result.orders
 
         # Step 8: Simulate fills
         logger.debug("Simulating order fills")
@@ -1471,7 +1467,7 @@ def write_paper_day_outputs(
             f.write(f"- Status: {result.status}\n")
             f.write(f"- Error: {result.error_message}\n")
         f.write("\n## Metadata\n")
-        f.write(f"- See `manifest.json` for run metadata, config hash, and git commit hash.\n")
+        f.write("- See `manifest.json` for run metadata, config hash, and git commit hash.\n")
 
     logger.info(f"Wrote paper day outputs to {run_dir}")
 

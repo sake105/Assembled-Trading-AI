@@ -194,7 +194,14 @@ def write_safe_orders_csv(
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Write CSV
-    safe_df.to_csv(output_path, index=False)
+    try:
+        safe_df.to_csv(output_path, index=False)
+    except (IOError, OSError) as exc:
+        from src.assembled_core.logging_utils import get_logger
+
+        logger = get_logger()
+        logger.error("Failed to write SAFE orders CSV to %s: %s", output_path, exc)
+        raise RuntimeError(f"Failed to write SAFE orders CSV: {output_path}") from exc
 
     return output_path
 

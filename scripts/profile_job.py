@@ -15,7 +15,6 @@ import argparse
 import cProfile
 import pstats
 import sys
-import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -40,7 +39,7 @@ def run_eod_small(output_dir: Path) -> int:
     
     try:
         # Run with timings enabled
-        safe_path = run_daily_eod(
+        run_daily_eod(
             date_str=None,  # Use today
             universe_file=None,  # Use default
             price_file=None,
@@ -323,7 +322,7 @@ def extract_top_hotspots_from_pyinstrument(profile_file: Path, top_n: int = 3) -
         List of dicts with keys: function, time, percentage
     """
     try:
-        from pyinstrument import Profiler
+        import pyinstrument  # noqa: F401
     except ImportError:
         return []
     
@@ -494,7 +493,7 @@ Examples:
         # Determine phase based on job_id and profiler (can be enhanced with CLI arg later)
         phase = "P3"  # Default phase
         update_performance_profile_md(args.job, hotspots, args.profiler, total_runtime, phase=phase)
-        print(f"Updated docs/PERFORMANCE_PROFILE.md with hotspots and runtime")
+        print("Updated docs/PERFORMANCE_PROFILE.md with hotspots and runtime")
     
     return exit_code
 

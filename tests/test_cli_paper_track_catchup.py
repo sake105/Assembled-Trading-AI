@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from scripts.run_paper_track import compute_date_list, run_paper_track_from_cli
+from scripts.run_paper_track import compute_date_list
 
 
 @pytest.fixture

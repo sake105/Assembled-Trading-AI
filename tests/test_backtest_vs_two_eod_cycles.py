@@ -13,7 +13,6 @@ Success criterion from backend upgrade nr2:
 from __future__ import annotations
 
 import pandas as pd
-import pytest
 import numpy as np
 
 from src.assembled_core.qa.backtest_engine import (

@@ -18,12 +18,13 @@ def _simulate_fills_per_order(
     spread_w: float = 0.0,
     impact_w: float = 0.0,
     commission_bps: float = 0.0,
+    use_numba: bool = False,
 ) -> tuple[float, dict[str, float]]:
     """Simulate order fills for a single timestamp using vectorized numpy operations.
 
     This function executes all orders at a given timestamp using vectorized numpy
     operations instead of per-order loops. It computes fill prices, fees, and notional
-    values vectorially.
+    values vectorially. Optionally uses Numba-accelerated kernels if available.
 
     Args:
         orders_at_timestamp: DataFrame with columns: symbol, side, qty, price
@@ -33,6 +34,8 @@ def _simulate_fills_per_order(
         spread_w: Spread weight (multiplier for bid/ask spread, default: 0.0 = no costs)
         impact_w: Market impact weight (multiplier for price impact, default: 0.0 = no costs)
         commission_bps: Commission in basis points (default: 0.0 = no costs)
+        use_numba: If True, attempt to use Numba-accelerated path (default: False)
+            Falls back to pure NumPy if Numba is not available
 
     Returns:
         Tuple of (updated_cash, updated_positions)
@@ -42,10 +45,92 @@ def _simulate_fills_per_order(
     Note:
         This function uses vectorized numpy operations for performance.
         Edge cases handled: buy/sell sign, NaNs, qty=0, invalid symbols.
+        If Numba is available and use_numba=True, uses Numba-accelerated kernels.
     """
     if orders_at_timestamp.empty:
         return cash, positions.copy()
 
+    # Try Numba-accelerated path if available and requested
+    if use_numba:
+        try:
+            from src.assembled_core.qa.numba_kernels import (
+                NUMBA_AVAILABLE,
+                apply_fills_cash_delta_numba,
+                apply_fills_position_deltas_numba,
+            )
+
+            if NUMBA_AVAILABLE:
+                # Extract numpy arrays from DataFrame columns
+                symbols = orders_at_timestamp["symbol"].values
+                sides = orders_at_timestamp["side"].values
+                qtys = orders_at_timestamp["qty"].values.astype(np.float64)
+                prices = orders_at_timestamp["price"].values.astype(np.float64)
+
+                # Filter invalid orders (NaN prices, zero qty)
+                valid_mask = (
+                    ~np.isnan(prices)
+                    & (qtys > 0.0)
+                    & (qtys != 0.0)
+                )
+                
+                if not np.any(valid_mask):
+                    return cash, positions.copy()
+                
+                # Filter to valid orders
+                symbols_valid = symbols[valid_mask]
+                sides_valid = sides[valid_mask]
+                qtys_valid = qtys[valid_mask]
+                prices_valid = prices[valid_mask]
+                
+                # Convert sides to integers (0=BUY, 1=SELL) for Numba
+                side_map = {"BUY": 0, "SELL": 1}
+                sides_int = np.array([side_map.get(side, -1) for side in sides_valid], dtype=np.int32)
+                
+                # Filter out invalid sides
+                valid_side_mask = (sides_int == 0) | (sides_int == 1)
+                if not np.any(valid_side_mask):
+                    return cash, positions.copy()
+                
+                symbols_final = symbols_valid[valid_side_mask]
+                sides_final = sides_int[valid_side_mask]
+                qtys_final = qtys_valid[valid_side_mask]
+                prices_final = prices_valid[valid_side_mask]
+                
+                # Create symbol index mapping for Numba
+                unique_symbols = np.unique(symbols_final)
+                symbol_to_idx = {sym: idx for idx, sym in enumerate(unique_symbols)}
+                symbol_indices = np.array([symbol_to_idx[sym] for sym in symbols_final], dtype=np.int32)
+                
+                # Compute cash delta with Numba
+                total_cash_delta = apply_fills_cash_delta_numba(
+                    sides_final,
+                    qtys_final,
+                    prices_final,
+                    spread_w,
+                    impact_w,
+                    commission_bps,
+                )
+                updated_cash = cash + total_cash_delta
+                
+                # Compute position deltas with Numba
+                unique_indices, position_deltas = apply_fills_position_deltas_numba(
+                    sides_final,
+                    qtys_final,
+                    symbol_indices,
+                )
+                
+                # Convert back to symbol names and update positions
+                updated_positions = positions.copy()
+                for idx, delta in zip(unique_indices, position_deltas):
+                    symbol = unique_symbols[idx]
+                    updated_positions[symbol] = updated_positions.get(symbol, 0.0) + delta
+                
+                return updated_cash, updated_positions
+        except (ImportError, AttributeError, KeyError):
+            # Fall through to pure NumPy implementation
+            pass
+
+    # Pure NumPy implementation (fallback or if use_numba=False)
     # Extract numpy arrays from DataFrame columns
     symbols = orders_at_timestamp["symbol"].values
     sides = orders_at_timestamp["side"].values
@@ -319,14 +404,22 @@ def write_backtest_report(
     curve_path = out_dir / f"equity_curve_{freq}.csv"
     rep_path = out_dir / f"performance_report_{freq}.md"
 
-    equity.to_csv(curve_path, index=False)
+    try:
+        curve_path.parent.mkdir(parents=True, exist_ok=True)
+        equity.to_csv(curve_path, index=False)
+    except (IOError, OSError) as exc:
+        raise RuntimeError(f"Failed to write equity curve CSV to {curve_path}") from exc
 
-    with open(rep_path, "w", encoding="utf-8") as f:
-        f.write(f"# Performance Report ({freq})\n\n")
-        f.write(f"- Final PF: {metrics['final_pf']:.4f}\n")
-        f.write(f"- Sharpe: {metrics['sharpe']:.4f}\n")
-        f.write(f"- Rows: {metrics['rows']}\n")
-        f.write(f"- First: {metrics['first']}\n")
-        f.write(f"- Last:  {metrics['last']}\n")
+    try:
+        rep_path.parent.mkdir(parents=True, exist_ok=True)
+        with rep_path.open("w", encoding="utf-8") as f:
+            f.write(f"# Performance Report ({freq})\n\n")
+            f.write(f"- Final PF: {metrics['final_pf']:.4f}\n")
+            f.write(f"- Sharpe: {metrics['sharpe']:.4f}\n")
+            f.write(f"- Rows: {metrics['rows']}\n")
+            f.write(f"- First: {metrics['first']}\n")
+            f.write(f"- Last:  {metrics['last']}\n")
+    except (IOError, OSError) as exc:
+        raise RuntimeError(f"Failed to write performance report to {rep_path}") from exc
 
     return curve_path, rep_path

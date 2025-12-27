@@ -1,4 +1,9 @@
 # scripts/tools/parse_best_grid.py
+# DEPRECATED: Grid searches are now handled via batch_run (scripts/cli.py batch_run).
+# This tool may still be useful for parsing legacy grid outputs,
+# but new grid searches should use the batch runner with its built-in summary artifacts.
+# See: docs/BATCH_RUNNER_P4.md
+
 import json
 import re
 import math

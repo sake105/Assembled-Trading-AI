@@ -69,16 +69,39 @@ runs:
 - `runs` (list, required): Liste von Run-Konfigurationen
 
 **Run-Konfiguration:**
-- `id` (string, required): Eindeutige Run-ID
-- `strategy` (string, required): Strategie-Name (z.B. "trend_baseline")
-- `freq` (string, required): Trading-Frequenz ("1d" oder "5min")
-- `start_date` (string, required): Start-Datum (YYYY-MM-DD)
-- `end_date` (string, required): End-Datum (YYYY-MM-DD)
-- `universe` (string, optional): Pfad zur Universe-Datei (default: "watchlist.txt")
-- `start_capital` (float, optional): Startkapital (default: 100000.0)
+- `id` (string, optional): Eindeutige Run-ID (wird auto-generiert wenn nicht gesetzt)
+- `strategy` (string, required): Strategie-Name (z.B. "trend_baseline", min. 1 Zeichen)
+- `freq` (string, required): Trading-Frequenz (nur "1d" oder "5min" erlaubt)
+- `start_date` (string, required): Start-Datum im Format YYYY-MM-DD (muss gültiges Datum sein)
+- `end_date` (string, required): End-Datum im Format YYYY-MM-DD (muss >= start_date sein)
+- `universe` (string, optional): Pfad zur Universe-Datei (wenn gesetzt, darf nicht leer sein)
+- `start_capital` (float, optional): Startkapital (default: 100000.0, muss > 0 sein)
 - `use_factor_store` (bool, optional): Factor Store nutzen (default: false)
-- `factor_store_root` (string, optional): Factor Store Root-Pfad (default: null)
-- `factor_group` (string, optional): Factor Group (default: null)
+- `factor_store_root` (string, optional): Factor Store Root-Pfad (wenn gesetzt, darf nicht leer sein)
+- `factor_group` (string, optional): Factor Group (wenn gesetzt, darf nicht leer sein)
+
+## Validierungsregeln
+
+Die Batch-Config wird strikt validiert, um Fehler früh zu erkennen (besonders wichtig im Parallel-Mode):
+
+### Batch-Level Validierung:
+- `batch_name`: Muss gesetzt sein (nicht leer)
+- `seed`: Muss eine nicht-negative Ganzzahl sein (>= 0)
+- `runs`: Muss eine nicht-leere Liste sein
+- `run_id` Uniqueness: Alle Run-IDs müssen eindeutig sein (nach Auto-Generierung)
+
+### Run-Level Validierung:
+- **Required Fields:** `strategy`, `freq`, `start_date`, `end_date` müssen gesetzt sein
+- **Date Format:** `start_date` und `end_date` müssen im Format `YYYY-MM-DD` sein und gültige Datumsangaben sein
+- **Date Logic:** `end_date` muss >= `start_date` sein
+- **Freq Enum:** `freq` muss exakt "1d" oder "5min" sein (case-sensitive)
+- **Start Capital:** `start_capital` muss > 0 sein (falls gesetzt)
+- **String Fields:** `universe`, `factor_store_root`, `factor_group` dürfen nicht leer sein (wenn gesetzt)
+
+### Fehlerbehandlung:
+- Validierungsfehler werden früh geworfen (vor Ausführung)
+- Fehlermeldungen enthalten Feld-Namen und konkrete Werte
+- Bei Parallel-Mode werden Config-Fehler vor dem Start aller Worker erkannt
 
 ---
 
@@ -108,7 +131,7 @@ Jeder Run erhält ein Manifest im Run-Output-Verzeichnis:
   },
   "git_commit_hash": "a1b2c3d",
   "timings_path": "run_timings.json",
-  "output_dir": "output/batch_backtests/example_batch/runs/run1"
+  "output_dir": "output/batch_backtests/example_batch/run1"
 }
 ```
 
@@ -137,7 +160,11 @@ python scripts/batch_runner.py --config-file configs/batch_example.yaml
 
 - `--config-file` (required): Pfad zur YAML-Config-Datei
 - `--output-root` (optional): Override für `output_root` aus Config
+  - Hinweis: `batch_name` wird immer als Unterordner verwendet (z.B. `{output_root}/{batch_name}/`)
 - `--dry-run` (optional): Nur Plan anzeigen, keine Ausführung
+- `--max-workers` (optional): Anzahl paralleler Worker (default: 1 = seriell)
+- `--resume` (optional): Skip erfolgreiche Runs (basiert auf Manifest)
+- `--rerun-failed` (optional): Rerun fehlgeschlagene Runs (nur mit `--resume`)
 
 ### Beispiel-Ausführung
 
@@ -145,28 +172,57 @@ python scripts/batch_runner.py --config-file configs/batch_example.yaml
 # Dry-Run (Plan anzeigen)
 python scripts/batch_runner.py --config-file configs/batch_example.yaml --dry-run
 
-# Ausführung
+# Serielle Ausführung
 python scripts/batch_runner.py --config-file configs/batch_example.yaml
+
+# Parallele Ausführung (4 Worker)
+python scripts/batch_runner.py --config-file configs/batch_example.yaml --max-workers 4
+
+# Resume (Skip erfolgreiche Runs)
+python scripts/batch_runner.py --config-file configs/batch_example.yaml --resume
+
+# Resume + Rerun Failed
+python scripts/batch_runner.py --config-file configs/batch_example.yaml --resume --rerun-failed
+
+# Custom Output-Root
+python scripts/batch_runner.py --config-file configs/batch_example.yaml --output-root /tmp/batch_outputs
+# → Output: /tmp/batch_outputs/{batch_name}/
 ```
 
 ---
 
 ## Output-Struktur
 
+Jeder Batch wird isoliert in einem eigenen Unterordner organisiert, um Kollisionen zwischen mehreren gleichzeitigen Batches zu vermeiden:
+
 ```
 output/batch_backtests/{batch_name}/
-├── runs/
-│   ├── run1/
-│   │   ├── run_manifest.json       # Run-Manifest
-│   │   ├── run_timings.json        # Timings (optional)
-│   │   └── backtest/               # Backtest-Outputs
-│   │       ├── portfolio_equity_1d.csv
-│   │       ├── orders_1d.csv
-│   │       └── ...
-│   ├── run2/
-│   │   └── ...
+├── summary.csv                     # Batch-Summary (CSV)
+├── summary.json                    # Batch-Summary (JSON)
+├── run1/                           # Run 1 Output
+│   ├── run_manifest.json           # Run-Manifest
+│   ├── run_timings.json            # Timings (optional)
+│   └── backtest/                   # Backtest-Outputs
+│       ├── portfolio_equity_1d.csv
+│       ├── orders_1d.csv
+│       └── ...
+├── run2/                           # Run 2 Output
+│   ├── run_manifest.json
 │   └── ...
+└── ...
 ```
+
+**Pfad-Struktur:**
+- Batch-Root: `{output_root}/{batch_name}/`
+- Run-Verzeichnis: `{batch_root}/{run_id}/`
+- Summary-Dateien: `{batch_root}/summary.csv` und `{batch_root}/summary.json`
+
+**Beispiel:**
+- `output_root`: `"output/batch_backtests"`
+- `batch_name`: `"example_batch"`
+- Batch-Root: `output/batch_backtests/example_batch/`
+- Run 1: `output/batch_backtests/example_batch/run1/`
+- Summary: `output/batch_backtests/example_batch/summary.csv`
 
 ---
 

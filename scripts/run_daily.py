@@ -27,7 +27,6 @@ import sys
 from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 import pandas as pd
 

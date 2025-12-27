@@ -269,7 +269,12 @@ def save_ml_dataset(df: pd.DataFrame, path: Path | str) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    df.to_parquet(path, index=False)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        df.to_parquet(path, index=False)
+    except (IOError, OSError) as exc:
+        logger.error("Failed to write ML dataset to %s: %s", path, exc)
+        raise RuntimeError(f"Failed to write ML dataset to {path}") from exc
 
     logger.info(
         f"Saved ML dataset to {path} ({len(df)} rows, {len(df.columns)} columns)"

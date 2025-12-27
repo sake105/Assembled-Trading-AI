@@ -5,9 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-import yaml
 
-from scripts.run_paper_track import load_paper_track_config, validate_config_dict
+from scripts.run_paper_track import load_paper_track_config
 
 pytestmark = pytest.mark.advanced
 

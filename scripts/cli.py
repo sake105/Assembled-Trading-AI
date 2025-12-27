@@ -97,6 +97,9 @@ def info_subcommand(args: argparse.Namespace) -> int:
     print("  run_backtest       - Run strategy backtest with portfolio-level engine")
     print("  batch_backtest     - Run batch of strategy backtests from config file")
     print(
+        "  leaderboard        - Rank and display best runs from batch backtest results"
+    )
+    print(
         "  walk_forward       - Run walk-forward analysis (out-of-sample validation, research tool)"
     )
     print(
@@ -575,6 +578,93 @@ def batch_run_subcommand(args: argparse.Namespace) -> int:
     except Exception as exc:
         logger.error("Batch execution failed: %s", exc, exc_info=True)
         return 1
+
+
+def leaderboard_subcommand(args: argparse.Namespace) -> int:
+    """Rank and display best runs from batch backtest results.
+
+    This subcommand uses the leaderboard tool (scripts/leaderboard.py) to:
+    - Load summary.csv from batch output directory
+    - Rank runs by specified metric (Sharpe, total return, final PF, etc.)
+    - Display formatted table with top-k runs
+    - Optionally export to JSON
+
+    Args:
+        args: Parsed command-line arguments
+
+    Returns:
+        Exit code (0 on success, 1 on failure)
+    """
+    from scripts.leaderboard import (
+        export_leaderboard_json,
+        format_leaderboard_table,
+        load_batch_summary,
+        rank_runs,
+    )
+
+    # Validate batch output directory
+    if not args.batch_output.exists():
+        logger.error("Batch output directory does not exist: %s", args.batch_output)
+        return 1
+
+    if not args.batch_output.is_dir():
+        logger.error("Batch output path is not a directory: %s", args.batch_output)
+        return 1
+
+    # Load summary
+    try:
+        df = load_batch_summary(args.batch_output)
+    except FileNotFoundError as exc:
+        logger.error("Failed to load batch summary: %s", exc)
+        return 1
+    except ValueError as exc:
+        logger.error("Invalid batch summary: %s", exc)
+        return 1
+
+    # Rank runs
+    try:
+        ranked_df = rank_runs(df, sort_by=args.sort_by, top_k=args.top_k)
+    except ValueError as exc:
+        logger.error("Failed to rank runs: %s", exc)
+        return 1
+
+    # Print table
+    table_str = format_leaderboard_table(ranked_df, args.sort_by)
+    print(f"\nTop {len(ranked_df)} runs (sorted by {args.sort_by}):\n")
+    print(table_str)
+
+    # Export JSON if requested
+    if args.json:
+        try:
+            export_leaderboard_json(ranked_df, args.json)
+            logger.info("Leaderboard exported to %s", args.json)
+        except Exception as exc:
+            logger.error("Failed to export JSON: %s", exc, exc_info=True)
+            return 1
+
+    # Export best run config if requested
+    if args.export_best:
+        try:
+            from scripts.leaderboard import export_best_run_config_yaml
+            
+            export_best_run_config_yaml(
+                df,  # Use full df, not ranked_df, so we can filter to successful
+                sort_by=args.sort_by,
+                output_path=args.export_best,
+                batch_output_dir=args.batch_output,
+            )
+            logger.info("Best run config exported to %s", args.export_best)
+        except ValueError as exc:
+            logger.error("Failed to export best run config: %s", exc)
+            return 1
+        except RuntimeError as exc:
+            logger.error("Error: %s", exc)
+            return 1
+        except Exception as exc:
+            logger.error("Failed to export best run config: %s", exc, exc_info=True)
+            return 1
+
+    return 0
 
 
 def batch_backtest_subcommand(args: argparse.Namespace) -> int:
@@ -1343,14 +1433,12 @@ def train_meta_model_subcommand(args: argparse.Namespace) -> int:
         from src.assembled_core.config.settings import get_settings
         from src.assembled_core.qa.dataset_builder import (
             build_ml_dataset_for_strategy,
-            export_ml_dataset,
         )
         from src.assembled_core.qa.ml_evaluation import (
             evaluate_meta_model,
             plot_calibration_curve,
         )
         from src.assembled_core.signals.meta_model import (
-            load_meta_model,
             save_meta_model,
             train_meta_model,
         )
@@ -2759,6 +2847,63 @@ See docs/BATCH_RUNNER_P4.md for detailed documentation.
     )
 
     batch_run_parser.set_defaults(func=batch_run_subcommand)
+
+    # leaderboard subcommand
+    leaderboard_parser = subparsers.add_parser(
+        "leaderboard",
+        help="Rank and display best runs from batch backtest results",
+        description="Reads summary.csv from batch output directory and ranks runs by various metrics (Sharpe, total return, final PF, etc.).",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Top 10 runs by Sharpe ratio
+  python scripts/cli.py leaderboard --batch-output output/batch_backtests/my_batch --sort-by sharpe --top-k 10
+
+  # Top 20 runs by total return
+  python scripts/cli.py leaderboard --batch-output output/batch_backtests/my_batch --sort-by total_return --top-k 20
+
+  # Top runs by final PF with JSON export
+  python scripts/cli.py leaderboard --batch-output output/batch_backtests/my_batch --sort-by final_pf --top-k 10 --json leaderboard.json
+
+See scripts/leaderboard.py for more details.
+        """,
+    )
+    leaderboard_parser.add_argument(
+        "--batch-output",
+        type=Path,
+        required=True,
+        metavar="DIR",
+        help="Path to batch output directory (contains summary.csv)",
+    )
+    leaderboard_parser.add_argument(
+        "--sort-by",
+        type=str,
+        default="sharpe",
+        choices=["sharpe", "total_return", "final_pf", "max_drawdown_pct", "cagr", "trades"],
+        help="Metric to sort by (default: sharpe)",
+    )
+    leaderboard_parser.add_argument(
+        "--top-k",
+        type=int,
+        default=20,
+        metavar="N",
+        help="Number of top runs to display (default: 20)",
+    )
+    leaderboard_parser.add_argument(
+        "--json",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help="Optional: Export leaderboard to JSON file",
+    )
+    leaderboard_parser.add_argument(
+        "--export-best",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help="Optional: Export best run configuration as YAML file (for reproducible reruns)",
+    )
+    leaderboard_parser.set_defaults(func=leaderboard_subcommand)
 
     # risk_report subcommand
     risk_report_parser = subparsers.add_parser(

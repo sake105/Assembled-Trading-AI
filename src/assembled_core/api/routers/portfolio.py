@@ -265,7 +265,13 @@ def get_portfolio_equity_curve(freq: Frequency) -> EquityCurveResponse:
         )
 
     try:
-        df = pd.read_csv(equity_file)
+        try:
+            df = pd.read_csv(equity_file)
+        except (IOError, OSError) as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to read portfolio equity file: {exc}",
+            ) from exc
 
         if "timestamp" not in df.columns or "equity" not in df.columns:
             raise HTTPException(

@@ -36,7 +36,13 @@ def get_backtest_curve(freq: Frequency) -> EquityCurveResponse:
         )
 
     try:
-        df = pd.read_csv(curve_file)
+        try:
+            df = pd.read_csv(curve_file)
+        except (IOError, OSError) as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to read equity curve file: {exc}",
+            ) from exc
 
         if "timestamp" not in df.columns or "equity" not in df.columns:
             raise HTTPException(
@@ -102,7 +108,13 @@ def get_performance_metrics(freq: Frequency) -> dict:
         )
 
     try:
-        df = pd.read_csv(curve_file)
+        try:
+            df = pd.read_csv(curve_file)
+        except (IOError, OSError) as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to read equity curve file: {exc}",
+            ) from exc
 
         if "timestamp" not in df.columns or "equity" not in df.columns:
             raise HTTPException(

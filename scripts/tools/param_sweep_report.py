@@ -1,4 +1,9 @@
 # scripts/tools/param_sweep_report.py
+# DEPRECATED: Parameter sweeps are now handled via batch_run (scripts/cli.py batch_run).
+# This tool may still be useful for generating reports from legacy sweep outputs,
+# but new sweeps should use the batch runner with its built-in summary artifacts.
+# See: docs/BATCH_RUNNER_P4.md
+
 import pandas as pd
 from pathlib import Path
 

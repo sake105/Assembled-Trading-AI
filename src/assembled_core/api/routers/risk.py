@@ -36,7 +36,13 @@ def get_risk_summary(freq: Frequency) -> RiskMetrics:
         )
 
     try:
-        df = pd.read_csv(portfolio_file)
+        try:
+            df = pd.read_csv(portfolio_file)
+        except (IOError, OSError) as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to read portfolio equity file: {exc}",
+            ) from exc
 
         if "timestamp" not in df.columns or "equity" not in df.columns:
             raise HTTPException(

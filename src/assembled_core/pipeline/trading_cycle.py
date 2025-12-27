@@ -40,12 +40,11 @@ import pandas as pd
 # Import existing modules (no duplication)
 from src.assembled_core.data.factor_store import compute_universe_key
 from src.assembled_core.execution.order_generation import generate_orders_from_targets
+from src.assembled_core.execution.position_alignment import align_current_and_target
 from src.assembled_core.execution.risk_controls import filter_orders_with_risk_controls
 from src.assembled_core.features.factor_store_integration import build_or_load_factors
 from src.assembled_core.features.ta_features import (
     add_all_features,
-    add_log_returns,
-    add_moving_averages,
 )
 
 logger = logging.getLogger(__name__)
@@ -158,6 +157,25 @@ class TradingContext:
     
     This enables performance optimization in backtest mode where features
     are computed once upfront instead of per timestamp.
+    """
+    precomputed_panel_index: Any | None = None
+    """Precomputed panel index for efficient snapshot extraction (optional).
+    
+    If provided and mode=="backtest" and precomputed_prices_with_features is set,
+    this index will be used for O(S log N) snapshot extraction instead of
+    O(N log N) groupby operations.
+    
+    Type: PrecomputedPanelIndex from src.assembled_core.pipeline.precomputed_index
+    """
+    backtest_use_snapshot: bool = True
+    """Backtest snapshot mode (performance optimization).
+    
+    If True and mode=="backtest" and precomputed_prices_with_features is set,
+    uses only a snapshot (latest row per symbol <= as_of) instead of full
+    history slice. This avoids expensive slicing operations in long backtests.
+    
+    If False, uses full history slice (original behavior for strategies that
+    need history for MAs/returns computation).
     """
     
     # Signal generation
@@ -407,6 +425,9 @@ def _generate_orders_default(
 ) -> pd.DataFrame:
     """Default order generation implementation using existing module.
     
+    This function aligns current and target positions to ensure deterministic
+    symbol ordering, enabling the fast-path order generation to trigger more often.
+    
     Args:
         ctx: TradingContext with order generation configuration
         target_positions: Target positions DataFrame
@@ -417,15 +438,43 @@ def _generate_orders_default(
     if target_positions.empty:
         return pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
     
-    # Use prices_with_features if available for price lookup
-    # For now, we use prices_filtered from context (prices are already in context)
-    # In the actual cycle, prices_with_features will be available, but we need to
-    # pass it through somehow. For now, we'll extract prices from the latest
-    # prices_filtered (or use a hook to provide prices).
-    # For simplicity, generate_orders_from_targets will use 0.0 if prices not provided
+    # Prepare target positions for alignment
+    # Extract symbol and target_qty columns (handle both "target_qty" and "qty" column names)
+    if "target_qty" in target_positions.columns:
+        target_for_alignment = target_positions[["symbol", "target_qty"]].copy()
+        target_for_alignment = target_for_alignment.rename(columns={"target_qty": "qty"})  # Rename to "qty" for alignment
+    elif "qty" in target_positions.columns:
+        target_for_alignment = target_positions[["symbol", "qty"]].copy()
+    else:
+        # Fallback: create empty target_for_alignment
+        target_for_alignment = pd.DataFrame(columns=["symbol", "qty"])
+    
+    # Prepare current positions for alignment
+    if ctx.current_positions is not None and not ctx.current_positions.empty:
+        if "qty" not in ctx.current_positions.columns:
+            # If qty column missing, create it with 0
+            current_for_alignment = ctx.current_positions[["symbol"]].copy()
+            current_for_alignment["qty"] = 0.0
+        else:
+            current_for_alignment = ctx.current_positions[["symbol", "qty"]].copy()
+    else:
+        current_for_alignment = pd.DataFrame(columns=["symbol", "qty"])
+    
+    # Align positions (same symbol set, same order, missing = 0)
+    current_aligned, target_aligned = align_current_and_target(
+        current_positions=current_for_alignment,
+        target_positions=target_for_alignment,
+        symbol_col="symbol",
+        qty_col="qty",
+    )
+    
+    # Rename target qty column back to "target_qty" (alignment function uses "qty")
+    target_aligned = target_aligned.rename(columns={"qty": "target_qty"})
+    
+    # Now generate orders with aligned positions (fast-path should trigger)
     orders = generate_orders_from_targets(
-        target_positions=target_positions,
-        current_positions=ctx.current_positions,
+        target_positions=target_aligned,
+        current_positions=current_aligned,
         timestamp=ctx.order_timestamp,
         prices=None,  # Prices will be added later if needed (via hook or post-processing)
     )
@@ -599,38 +648,80 @@ def run_trading_cycle(
             # Backtest mode: use precomputed feature panel (PIT-safe slice)
             precomputed = ctx.precomputed_prices_with_features.copy()
             
-            # PIT-safe slice: only rows <= as_of
-            if ctx.as_of is not None:
-                # Ensure timestamp column is UTC-aware for comparison
-                if precomputed["timestamp"].dtype.tz is None:
-                    precomputed["timestamp"] = pd.to_datetime(precomputed["timestamp"], utc=True)
-                elif precomputed["timestamp"].dtype.tz != pd.Timestamp.utcnow().tz:
-                    # Ensure UTC timezone
-                    precomputed["timestamp"] = precomputed["timestamp"].dt.tz_convert("UTC")
+            # Ensure timestamp column is UTC-aware for comparison
+            if precomputed["timestamp"].dtype.tz is None:
+                precomputed["timestamp"] = pd.to_datetime(precomputed["timestamp"], utc=True)
+            elif precomputed["timestamp"].dtype.tz != pd.Timestamp.utcnow().tz:
+                # Ensure UTC timezone
+                precomputed["timestamp"] = precomputed["timestamp"].dt.tz_convert("UTC")
+            
+            if ctx.backtest_use_snapshot:
+                # Snapshot mode: only use latest row per symbol <= as_of (performance optimization)
+                # Use precomputed index if available (O(S log N) instead of O(N log N))
+                if ctx.precomputed_panel_index is not None and ctx.as_of is not None:
+                    # Use optimized index-based snapshot extraction
+                    from src.assembled_core.pipeline.precomputed_index import snapshot_as_of
+                    result.prices_latest = snapshot_as_of(
+                        df=precomputed,
+                        index=ctx.precomputed_panel_index,
+                        as_of=ctx.as_of,
+                        use_monotonic_optimization=True,
+                    )
+                else:
+                    # Fallback to groupby-based extraction (if index not available)
+                    if ctx.as_of is not None:
+                        # PIT-safe filter: only rows <= as_of
+                        precomputed_filtered = precomputed[
+                            precomputed["timestamp"] <= ctx.as_of
+                        ].copy()
+                    else:
+                        precomputed_filtered = precomputed.copy()
+                    
+                    # Extract snapshot (latest row per symbol)
+                    result.prices_latest = (
+                        precomputed_filtered.groupby("symbol", group_keys=False, dropna=False)
+                        .last()
+                        .reset_index()
+                        .sort_values("symbol")
+                        .reset_index(drop=True)
+                    )
                 
-                # Slice to only rows <= as_of (PIT-safe)
-                result.prices_with_features = precomputed[
-                    precomputed["timestamp"] <= ctx.as_of
-                ].copy()
-            else:
-                # No as_of: use all precomputed data
-                result.prices_with_features = precomputed.copy()
-            
-            # Extract prices_latest from the sliced panel (for order generation)
-            # This is important: prices_latest must come from the sliced panel, not the original precomputed panel
-            if not result.prices_with_features.empty and result.prices_latest is None:
-                result.prices_latest = (
-                    result.prices_with_features.groupby("symbol", group_keys=False, dropna=False)
-                    .last()
-                    .reset_index()
-                    .sort_values("symbol")
-                    .reset_index(drop=True)
+                # Set prices_with_features to snapshot (not full history)
+                result.prices_with_features = result.prices_latest.copy()
+                
+                # Set prices_filtered to minimal (just snapshot) to avoid downstream confusion
+                result.prices_filtered = result.prices_latest.copy()
+                
+                log.debug(
+                    f"Using precomputed features (snapshot mode): {len(result.prices_with_features)} rows "
+                    f"(latest per symbol <= {ctx.as_of if ctx.as_of else 'no cutoff'}, "
+                    f"index={'yes' if ctx.precomputed_panel_index is not None else 'no'})"
                 )
-            
-            log.debug(
-                f"Using precomputed features: {len(result.prices_with_features)} rows "
-                f"(sliced to <= {ctx.as_of if ctx.as_of else 'no cutoff'})"
-            )
+            else:
+                # History-slice mode: use full history slice (original behavior)
+                if ctx.as_of is not None:
+                    # Slice to only rows <= as_of (PIT-safe)
+                    result.prices_with_features = precomputed[
+                        precomputed["timestamp"] <= ctx.as_of
+                    ].copy()
+                else:
+                    # No as_of: use all precomputed data
+                    result.prices_with_features = precomputed.copy()
+                
+                # Extract prices_latest from the sliced panel (for order generation)
+                if not result.prices_with_features.empty and result.prices_latest is None:
+                    result.prices_latest = (
+                        result.prices_with_features.groupby("symbol", group_keys=False, dropna=False)
+                        .last()
+                        .reset_index()
+                        .sort_values("symbol")
+                        .reset_index(drop=True)
+                    )
+                
+                log.debug(
+                    f"Using precomputed features (history-slice mode): {len(result.prices_with_features)} rows "
+                    f"(sliced to <= {ctx.as_of if ctx.as_of else 'no cutoff'})"
+                )
         else:
             # Default: use existing feature building modules
             result.prices_with_features = _build_features_default(ctx, result.prices_filtered)

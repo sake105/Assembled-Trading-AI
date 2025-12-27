@@ -12,7 +12,6 @@ import math
 from pathlib import Path
 
 import pandas as pd
-import pytest
 
 from src.assembled_core.experiments.batch_runner import collect_backtest_metrics
 

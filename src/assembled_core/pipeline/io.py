@@ -60,7 +60,7 @@ def get_default_price_path(freq: str, output_dir: Path | str | None = None) -> P
     Raises:
         ValueError: If freq is not supported
     """
-    base = Path(output_dir) if output_dir else OUTPUT_DIR if output_dir else OUTPUT_DIR
+    base = Path(output_dir) if output_dir else OUTPUT_DIR
     if freq == "1d":
         return base / "aggregates" / "daily.parquet"
     if freq == "5min":
@@ -91,7 +91,10 @@ def load_prices(
     p = Path(price_file) if price_file else get_default_price_path(freq, output_dir)
     if not p.exists():
         raise FileNotFoundError(f"Preis-File nicht gefunden: {p}")
-    df = pd.read_parquet(p)
+    try:
+        df = pd.read_parquet(p)
+    except (IOError, OSError) as exc:
+        raise IOError(f"Failed to read price file {p}") from exc
     df = ensure_cols(df, ["timestamp", "symbol", "close"])
     df = coerce_price_types(df)[["timestamp", "symbol", "close"]]
     df = df.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
@@ -131,7 +134,10 @@ def load_prices_with_fallback(
             f"Kein Preis-File gefunden. Versucht: {', '.join(map(str, candidates))}"
         )
 
-    df = pd.read_parquet(p)
+    try:
+        df = pd.read_parquet(p)
+    except (IOError, OSError) as exc:
+        raise IOError(f"Failed to read price file {p}") from exc
     need = {"timestamp", "symbol", "close"}
     if not need.issubset(df.columns):
         raise ValueError(
@@ -176,7 +182,12 @@ def load_orders(
             )
         return pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
 
-    df = pd.read_csv(p)
+    try:
+        df = pd.read_csv(p)
+    except (IOError, OSError) as exc:
+        if strict:
+            raise IOError(f"Failed to read orders file {p}") from exc
+        return pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
 
     if strict:
         for c in ["timestamp", "symbol", "side", "qty", "price"]:

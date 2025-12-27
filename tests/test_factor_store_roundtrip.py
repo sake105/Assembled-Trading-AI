@@ -18,7 +18,6 @@ from src.assembled_core.data.factor_store import (
     compute_universe_key,
     load_factors,
     store_factors,
-    get_factor_store_root,
     list_available_panels,
 )
 

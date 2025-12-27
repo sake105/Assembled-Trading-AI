@@ -161,7 +161,15 @@ def check_orders(freq: str, output_dir: Path | None = None) -> QaCheckResult:
 
     try:
         # Load and check DataFrame
-        df = pd.read_csv(orders_file)
+        try:
+            df = pd.read_csv(orders_file)
+        except (IOError, OSError) as exc:
+            return QaCheckResult(
+                name="orders",
+                status="error",
+                message=f"Failed to read orders file: {orders_file}",
+                details={"file": str(orders_file), "error": str(exc)},
+            )
 
         if df.empty:
             return QaCheckResult(
@@ -253,7 +261,15 @@ def check_portfolio(freq: str, output_dir: Path | None = None) -> QaCheckResult:
 
     try:
         # Load and check DataFrame
-        df = pd.read_csv(portfolio_file)
+        try:
+            df = pd.read_csv(portfolio_file)
+        except (IOError, OSError) as exc:
+            return QaCheckResult(
+                name="portfolio",
+                status="error",
+                message=f"Failed to read portfolio file: {portfolio_file}",
+                details={"file": str(portfolio_file), "error": str(exc)},
+            )
 
         # Check required columns
         if "equity" not in df.columns:

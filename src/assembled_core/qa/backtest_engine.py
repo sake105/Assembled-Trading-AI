@@ -82,8 +82,8 @@ from src.assembled_core.pipeline.trading_cycle import (
     TradingCycleResult,
     run_trading_cycle,
 )
-# Timing utilities are available via src.assembled_core.utils.timing if needed
-# Currently not used in backtest_engine (timing is handled at script level)
+from src.assembled_core.utils.timing import timed_step
+from src.assembled_core.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +120,8 @@ class BacktestResult:
     trades: pd.DataFrame | None = None
     signals: pd.DataFrame | None = None
     target_positions: pd.DataFrame | None = None
+    meta: dict[str, Any] | None = None
+    """Optional metadata dictionary (e.g., timings, configuration)"""
 
 
 def _update_positions_vectorized(
@@ -407,6 +409,8 @@ def run_portfolio_backtest(
     meta_ensemble_mode: str = "filter",  # "filter" or "scaling"
     # Trading cycle integration (B1)
     cycle_fn: Callable[[pd.Timestamp, pd.DataFrame], TradingCycleResult] | None = None,
+    # Performance optimization
+    use_numba: bool | None = None,
 ) -> BacktestResult:
     """Run a portfolio-level backtest with configurable signal and position sizing functions.
 
@@ -486,6 +490,11 @@ def run_portfolio_backtest(
         >>> print(f"Sharpe: {result.metrics['sharpe']:.4f}")
         >>> print(f"Trades: {result.metrics['trades']}")
     """
+    # Get use_numba from parameter or settings (default: False)
+    if use_numba is None:
+        settings = get_settings()
+        use_numba = settings.use_numba
+    
     # Validate input
     if prices is None or prices.empty:
         raise ValueError("Missing required columns: prices DataFrame is None or empty")
@@ -737,6 +746,9 @@ def run_portfolio_backtest(
                 )
 
     # Step 3: Compute target positions (group by timestamp for rebalancing)
+    # Initialize timings dictionary for step-level profiling
+    timings: dict[str, Any] = {}
+    
     with nullcontext():
         all_targets = []
         all_orders = []
@@ -749,9 +761,17 @@ def run_portfolio_backtest(
         # Use cycle_fn if provided (TradingCycle integration), otherwise use legacy path
         if cycle_fn is not None:
             # TradingCycle path: use cycle_fn for each timestamp
+            decision_timings = []
+            position_update_timings = []
+            
             for timestamp in timeline:
-                # Run trading cycle for this timestamp
-                cycle_result = cycle_fn(timestamp, current_positions)
+                # Decision (cycle_fn) - includes signal generation and order generation internally
+                with timed_step(f"decision_{timestamp}", timings, logger):
+                    cycle_result = cycle_fn(timestamp, current_positions)
+                
+                # Track per-timestamp decision timing for aggregation
+                if f"decision_{timestamp}" in timings:
+                    decision_timings.append(timings[f"decision_{timestamp}"]["duration_ms"])
                 
                 if cycle_result.status != "success":
                     logger.warning(
@@ -768,7 +788,11 @@ def run_portfolio_backtest(
                 
                 # Update positions using vectorized operations (Fill/Fees/Equity-Update stays in Engine)
                 if not orders.empty:
-                    current_positions = _update_positions_vectorized(orders, current_positions)
+                    with timed_step(f"position_update_{timestamp}", timings, logger):
+                        current_positions = _update_positions_vectorized(orders, current_positions, use_numba=use_numba)
+                    # Track per-timestamp position update timing
+                    if f"position_update_{timestamp}" in timings:
+                        position_update_timings.append(timings[f"position_update_{timestamp}"]["duration_ms"])
                     all_orders.append(orders)
                 
                 # Store targets if requested
@@ -780,6 +804,20 @@ def run_portfolio_backtest(
                 # Store signals if requested
                 if include_signals and not cycle_result.signals.empty:
                     all_signals_list.append(cycle_result.signals)
+            
+            # Aggregate per-timestamp timings into summary
+            if decision_timings:
+                timings["decision"] = {
+                    "total_duration_ms": sum(decision_timings),
+                    "avg_duration_ms": sum(decision_timings) / len(decision_timings),
+                    "count": len(decision_timings),
+                }
+            if position_update_timings:
+                timings["position_update"] = {
+                    "total_duration_ms": sum(position_update_timings),
+                    "avg_duration_ms": sum(position_update_timings) / len(position_update_timings),
+                    "count": len(position_update_timings),
+                }
         else:
             # Legacy path: group signals by timestamp and process
             if signal_fn is None or position_sizing_fn is None:
@@ -787,16 +825,26 @@ def run_portfolio_backtest(
                     "signal_fn and position_sizing_fn are required when cycle_fn is not provided"
                 )
             
+            order_generation_timings = []
+            
             for timestamp, signal_group in signals.groupby("timestamp"):
-                orders, current_positions, targets = _process_rebalancing_timestamp(
-                    timestamp=timestamp,
-                    signal_group=signal_group,
-                    current_positions=current_positions,
-                    position_sizing_fn=position_sizing_fn,
-                    start_capital=start_capital,
-                    prices=prices,
-                    include_targets=include_targets,
-                )
+                # Order generation (includes position sizing and order generation)
+                with timed_step(f"order_generation_{timestamp}", timings, logger):
+                    orders, updated_positions, targets = _process_rebalancing_timestamp(
+                        timestamp=timestamp,
+                        signal_group=signal_group,
+                        current_positions=current_positions,
+                        position_sizing_fn=position_sizing_fn,
+                        start_capital=start_capital,
+                        prices=prices,
+                        include_targets=include_targets,
+                    )
+                # Track per-timestamp order generation timing
+                if f"order_generation_{timestamp}" in timings:
+                    order_generation_timings.append(timings[f"order_generation_{timestamp}"]["duration_ms"])
+                
+                # Position update is done inside _process_rebalancing_timestamp for legacy path
+                current_positions = updated_positions
 
                 # Store targets and orders
                 if include_targets and not targets.empty:
@@ -804,6 +852,14 @@ def run_portfolio_backtest(
 
                 if not orders.empty:
                     all_orders.append(orders)
+            
+            # Aggregate per-timestamp timings into summary
+            if order_generation_timings:
+                timings["order_generation"] = {
+                    "total_duration_ms": sum(order_generation_timings),
+                    "avg_duration_ms": sum(order_generation_timings) / len(order_generation_timings),
+                    "count": len(order_generation_timings),
+                }
 
         # Combine all orders
         if all_orders:
@@ -814,8 +870,8 @@ def run_portfolio_backtest(
                 columns=["timestamp", "symbol", "side", "qty", "price"]
             )
 
-    # Step 4: Simulate equity
-    with nullcontext():
+    # Step 4: Simulate equity (fill_sim + equity_update)
+    with timed_step("fill_sim", timings, logger):
         # Get cost parameters
         if cost_model is not None:
             commission_bps = (
@@ -908,6 +964,7 @@ def run_portfolio_backtest(
         target_positions=pd.concat(all_targets, ignore_index=True)
         if include_targets and all_targets
         else None,
+        meta={"timings": timings} if timings else None,
     )
 
     return result

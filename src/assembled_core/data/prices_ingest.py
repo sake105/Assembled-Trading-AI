@@ -17,7 +17,7 @@ from typing import Literal
 import pandas as pd
 
 from src.assembled_core.config import OUTPUT_DIR, get_base_dir
-from src.assembled_core.pipeline.io import coerce_price_types, ensure_cols, load_prices
+from src.assembled_core.pipeline.io import coerce_price_types, ensure_cols
 
 
 def load_eod_prices(
@@ -70,7 +70,10 @@ def load_eod_prices(
     
     # Load base data (timestamp, symbol, close)
     # This uses the existing pipeline.io logic
-    df = pd.read_parquet(source_path)
+    try:
+        df = pd.read_parquet(source_path)
+    except (IOError, OSError) as exc:
+        raise IOError(f"Failed to read price file {source_path}") from exc
     
     # Ensure minimum required columns
     df = ensure_cols(df, ["timestamp", "symbol", "close"])

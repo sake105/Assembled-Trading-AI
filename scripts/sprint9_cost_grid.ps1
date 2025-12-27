@@ -1,4 +1,19 @@
-<#  sprint9_cost_grid.ps1
+<#  DEPRECATED: Use scripts/cli.py batch_run --config-file <yaml> instead.
+    
+    This script performs cost grid searches over commission, spread, and impact values.
+    The new batch runner provides better reproducibility, parallel execution,
+    resume support, and structured outputs.
+    
+    Example migration:
+    
+    Old: pwsh -File scripts/sprint9_cost_grid.ps1 -Freq 5min -CommissionValues "0 0.5 1" -SpreadValues "0.5 1 2"
+    
+    New: Create a YAML config (see docs/BATCH_RUNNER_P4.md) with multiple runs
+    and execute: python scripts/cli.py batch_run --config-file configs/cost_grid.yaml
+    
+    See: docs/BATCH_RUNNER_P4.md for examples and documentation.
+    
+    Original description:
     Robust wrapper für sprint9_cost_grid.py
     - akzeptiert Werte als String mit Leerzeichen/Komma/Semikolon
     - Dezimaltrennzeichen , oder .

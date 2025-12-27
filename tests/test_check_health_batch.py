@@ -14,7 +14,6 @@ from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
-import pytest
 
 # Import functions from check_health (need to handle script imports)
 # We'll import via sys.path manipulation

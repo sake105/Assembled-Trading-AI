@@ -299,11 +299,15 @@ def run_eod_pipeline(
             # Try to read from watchlist file if it exists
             if settings.watchlist_file.exists():
                 symbols = []
-                with open(settings.watchlist_file, "r", encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        if line and not line.startswith("#"):
-                            symbols.append(line.upper())
+                try:
+                    with settings.watchlist_file.open("r", encoding="utf-8") as f:
+                        for line in f:
+                            line = line.strip()
+                            if line and not line.startswith("#"):
+                                symbols.append(line.upper())
+                except (IOError, OSError) as exc:
+                    logger.warning(f"Failed to read watchlist file {settings.watchlist_file}: {exc}. Using default universe.")
+                    symbols = settings.default_universe
                 if not symbols:
                     symbols = settings.default_universe
             else:
@@ -597,8 +601,16 @@ def run_eod_pipeline(
 
     # Write manifest
     manifest_path = base / f"run_manifest_{freq}.json"
-    with open(manifest_path, "w", encoding="utf-8") as f:
-        json.dump(manifest, f, indent=2)
+    try:
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        with manifest_path.open("w", encoding="utf-8") as f:
+            json.dump(manifest, f, indent=2)
+    except (IOError, OSError) as exc:
+        logger.error("Failed to write manifest to %s: %s", manifest_path, exc)
+        raise RuntimeError(f"Failed to write manifest to {manifest_path}") from exc
+    except (TypeError, ValueError) as exc:
+        logger.error("Failed to serialize manifest to JSON: %s", exc)
+        raise ValueError(f"Failed to serialize manifest to JSON: {manifest_path}") from exc
 
     logger.info(f"Manifest written: {manifest_path}")
 

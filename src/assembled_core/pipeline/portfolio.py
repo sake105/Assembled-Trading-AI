@@ -134,11 +134,20 @@ def write_portfolio_report(
     eq_path = out_dir / f"portfolio_equity_{freq}.csv"
     rep_path = out_dir / f"portfolio_report_{freq}.md"
 
-    equity.to_csv(eq_path, index=False)
-    with open(rep_path, "w", encoding="utf-8") as f:
-        f.write(f"# Portfolio Report ({freq})\n\n")
-        f.write(f"- Final PF: {metrics['final_pf']:.4f}\n")
-        f.write(f"- Sharpe: {metrics['sharpe']}\n")
+    try:
+        eq_path.parent.mkdir(parents=True, exist_ok=True)
+        equity.to_csv(eq_path, index=False)
+    except (IOError, OSError) as exc:
+        raise RuntimeError(f"Failed to write portfolio equity CSV to {eq_path}") from exc
+
+    try:
+        rep_path.parent.mkdir(parents=True, exist_ok=True)
+        with rep_path.open("w", encoding="utf-8") as f:
+            f.write(f"# Portfolio Report ({freq})\n\n")
+            f.write(f"- Final PF: {metrics['final_pf']:.4f}\n")
+            f.write(f"- Sharpe: {metrics['sharpe']}\n")
+    except (IOError, OSError) as exc:
+        raise RuntimeError(f"Failed to write portfolio report to {rep_path}") from exc
         f.write(f"- Trades: {metrics['trades']}\n")
 
     return eq_path, rep_path

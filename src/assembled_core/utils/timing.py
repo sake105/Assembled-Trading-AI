@@ -137,6 +137,18 @@ def load_timings_json(input_path: Path) -> dict[str, Any]:
 
     Returns:
         Dictionary containing timing data (same structure as written by write_timings_json)
+
+    Raises:
+        FileNotFoundError: If the file does not exist
+        IOError: If the file cannot be read
+        ValueError: If the JSON is invalid
     """
-    with open(input_path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with input_path.open("r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(f"Timings JSON file not found: {input_path}") from exc
+    except (IOError, OSError) as exc:
+        raise IOError(f"Failed to read timings JSON from {input_path}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid JSON in timings file {input_path}") from exc
