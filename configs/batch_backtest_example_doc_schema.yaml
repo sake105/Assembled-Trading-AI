@@ -1,0 +1,44 @@
+# Example Batch Backtest Config (P4 - Doc Schema)
+# This config demonstrates the new doc-style schema with:
+# - defaults on batch-level
+# - params dict for strategy-specific parameters
+# - name alias for id (alternative to id)
+
+batch_name: "example_doc_schema_batch"
+output_root: "output/batch_backtests"
+seed: 42
+
+# Batch-level defaults (applied to all runs unless overridden)
+defaults:
+  freq: "1d"
+  start_date: "2020-01-01"
+  end_date: "2023-12-31"
+  universe: "watchlist.txt"
+  start_capital: 100000.0
+  use_factor_store: false
+
+# Run configurations
+runs:
+  # Run 1: Using 'id' (standard way)
+  - id: "trend_fast10_slow30"
+    strategy: "trend_baseline"
+    params:
+      ema_fast: 10
+      ema_slow: 30
+
+  # Run 2: Using 'name' alias (alternative to id)
+  - name: "trend_fast20_slow60"
+    strategy: "trend_baseline"
+    params:
+      ema_fast: 20
+      ema_slow: 60
+
+  # Run 3: With params and explicit override of defaults
+  - id: "trend_fast50_slow200"
+    strategy: "trend_baseline"
+    start_date: "2021-01-01"  # Override default
+    params:
+      ema_fast: 50
+      ema_slow: 200
+      verbose: true
+

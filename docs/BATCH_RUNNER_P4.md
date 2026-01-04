@@ -150,11 +150,13 @@ Jeder Run erhält ein Manifest im Run-Output-Verzeichnis:
 
 ## Verwendung
 
-### Basis-Befehl
+### Basis-Befehl (Empfohlen)
 
 ```bash
-python scripts/batch_runner.py --config-file configs/batch_example.yaml
+python scripts/batch_backtest.py --config-file configs/batch_example.yaml
 ```
+
+**Hinweis:** `batch_backtest` ist der "blessed" Entry-Point. `batch_run` bleibt kompatibel und funktioniert identisch.
 
 ### CLI-Optionen
 
@@ -170,24 +172,26 @@ python scripts/batch_runner.py --config-file configs/batch_example.yaml
 
 ```bash
 # Dry-Run (Plan anzeigen)
-python scripts/batch_runner.py --config-file configs/batch_example.yaml --dry-run
+python scripts/batch_backtest.py --config-file configs/batch_example.yaml --dry-run
 
 # Serielle Ausführung
-python scripts/batch_runner.py --config-file configs/batch_example.yaml
+python scripts/batch_backtest.py --config-file configs/batch_example.yaml
 
 # Parallele Ausführung (4 Worker)
-python scripts/batch_runner.py --config-file configs/batch_example.yaml --max-workers 4
+python scripts/batch_backtest.py --config-file configs/batch_example.yaml --max-workers 4
 
 # Resume (Skip erfolgreiche Runs)
-python scripts/batch_runner.py --config-file configs/batch_example.yaml --resume
+python scripts/batch_backtest.py --config-file configs/batch_example.yaml --resume
 
 # Resume + Rerun Failed
-python scripts/batch_runner.py --config-file configs/batch_example.yaml --resume --rerun-failed
+python scripts/batch_backtest.py --config-file configs/batch_example.yaml --resume --rerun-failed
 
 # Custom Output-Root
-python scripts/batch_runner.py --config-file configs/batch_example.yaml --output-root /tmp/batch_outputs
+python scripts/batch_backtest.py --config-file configs/batch_example.yaml --output-root /tmp/batch_outputs
 # → Output: /tmp/batch_outputs/{batch_name}/
 ```
+
+**Alternative:** `python scripts/batch_runner.py` oder `python scripts/cli.py batch_backtest` funktionieren identisch.
 
 ---
 
@@ -284,17 +288,141 @@ Alle Run-Parameter werden im Manifest gespeichert für vollständige Reproduzier
 
 ---
 
+## How to Run 20 Backtests
+
+### Beispiel YAML-Config
+
+Erstelle eine YAML-Datei mit 20 Runs (oder mehr). Siehe auch die offizielle Beispiel-Config:
+`configs/batch_backtest_example_doc_schema.yaml`
+
+```yaml
+batch_name: "strategy_sweep_20"
+output_root: "output/batch_backtests"
+seed: 42
+
+defaults:
+  freq: "1d"
+  start_date: "2020-01-01"
+  end_date: "2023-12-31"
+  universe: "watchlist.txt"
+  start_capital: 100000.0
+
+runs:
+  - name: "trend_fast10_slow30"
+    strategy: "trend_baseline"
+    params:
+      ema_fast: 10
+      ema_slow: 30
+  - name: "trend_fast20_slow60"
+    strategy: "trend_baseline"
+    params:
+      ema_fast: 20
+      ema_slow: 60
+  - name: "trend_fast50_slow200"
+    strategy: "trend_baseline"
+    params:
+      ema_fast: 50
+      ema_slow: 200
+  # ... weitere 17 Runs ...
+```
+
+**Hinweis:** Mit `defaults` auf Batch-Level müssen nicht alle Felder pro Run wiederholt werden. Nur `name`, `strategy` und `params` sind pro Run nötig.
+
+### CLI-Ausführung mit Parallelisierung
+
+```bash
+# 20 Backtests parallel (4 Worker)
+python scripts/batch_backtest.py \
+  --config-file configs/strategy_sweep_20.yaml \
+  --max-workers 4
+
+# Mit Resume (Skip erfolgreiche Runs)
+python scripts/batch_backtest.py \
+  --config-file configs/strategy_sweep_20.yaml \
+  --max-workers 4 \
+  --resume
+
+# Dry-Run zuerst (Plan prüfen)
+python scripts/batch_backtest.py \
+  --config-file configs/strategy_sweep_20.yaml \
+  --max-workers 4 \
+  --dry-run
+```
+
+### Hardware-Anforderungen (grob, konservativ)
+
+**Serielle Ausführung (--max-workers 1):**
+- RAM: ~2-4 GB pro Run (abhängig von Datenmenge)
+- CPU: 1 Core ausreichend
+- Zeit: ~5-10 Minuten pro Run (abhängig von Strategie und Datenmenge)
+
+**Parallele Ausführung (--max-workers 4):**
+- RAM: ~8-16 GB gesamt (4 Runs × 2-4 GB)
+- CPU: 4+ Cores empfohlen
+- Zeit: ~1/4 der seriellen Zeit (bei 4 Workers)
+
+**Parallele Ausführung (--max-workers 8):**
+- RAM: ~16-32 GB gesamt (8 Runs × 2-4 GB)
+- CPU: 8+ Cores empfohlen
+- Zeit: ~1/8 der seriellen Zeit (bei 8 Workers)
+
+**Empfehlung:** Starte mit `--max-workers 2` oder `4` und beobachte RAM/CPU-Nutzung. Erhöhe nur wenn System stabil läuft.
+
+---
+
+## Paper-Track Readiness Gate
+
+Bevor eine Strategie für Paper-Trading freigegeben wird, müssen folgende Kriterien erfüllt sein:
+
+### Minimale Checkliste
+
+- [ ] **Determinismus:** Backtest ist reproduzierbar (gleicher Seed → gleiche Ergebnisse)
+  - Prüfung: Zweimaliger Lauf mit gleichem Seed muss identische Metriken liefern
+  - Manifest enthält `seed` und `git_commit_hash` für Nachvollziehbarkeit
+
+- [ ] **PIT Tests (Point-in-Time):** Keine Look-Ahead-Bias
+  - Prüfung: Strategie nutzt nur Daten bis zum aktuellen Zeitpunkt
+  - Keine zukünftigen Daten in Signal-Generierung
+
+- [ ] **Fees/Slippage Tests:** Transaktionskosten realistisch modelliert
+  - Prüfung: Backtest mit `commission_bps`, `spread_w`, `impact_w` > 0
+  - Performance sollte auch mit Kosten noch akzeptabel sein
+
+- [ ] **Smoke Job:** Strategie läuft ohne Fehler durch
+  - Prüfung: `python scripts/batch_backtest.py --config-file configs/smoke_test.yaml --dry-run` erfolgreich
+  - Alle Runs in Batch schließen mit `status: "success"` ab
+
+- [ ] **metrics.json vorhanden:** Metriken werden korrekt geschrieben
+  - Prüfung: `{run_output_dir}/metrics.json` existiert und enthält:
+    - `final_pf`, `sharpe`, `trades`, `max_drawdown_pct`, `total_return`, `cagr`
+  - Manifest enthält vollständige `params` für Reproduzierbarkeit
+
+- [ ] **Manifest vollständig:** Alle Metadaten vorhanden
+  - Prüfung: `run_manifest.json` enthält:
+    - `run_id`, `status`, `params`, `seed`, `git_commit_hash`
+    - `started_at`, `finished_at`, `runtime_sec`
+
+- [ ] **Performance-Metriken akzeptabel:**
+  - Sharpe Ratio > 1.0 (oder projekt-spezifischer Threshold)
+  - Max Drawdown < 20% (oder projekt-spezifischer Threshold)
+  - Total Return > 0% über Test-Zeitraum
+
+**Optional (nicht Pflicht für P4):**
+- Leaderboard-Ranking (verfügbar über `python scripts/cli.py leaderboard`)
+- Export best run config (verfügbar über `--export-best`)
+
+---
+
 ## Einschränkungen (MVP)
 
-- **Serial Execution:** Runs werden seriell ausgeführt (keine Parallelisierung)
-- **Einfaches Schema:** Kein Grid-Search, keine erweiterten Features
-- **Basis-Manifest:** Keine Metriken-Aggregation oder Batch-Summary
+- **Einfaches Schema:** Kein Grid-Search-Syntax (aber manuell mit `runs[]` möglich)
+- **Basis-Manifest:** Keine Metriken-Aggregation auf Batch-Level (aber `summary.csv` vorhanden)
 
-**Zukünftige Erweiterungen:**
-- Parallelisierung mit `ProcessPoolExecutor`
-- Grid-Search-Syntax
+**Zukünftige Erweiterungen (P5+):**
+- Grid-Search-Syntax (automatische Parameter-Kombinationen)
 - Batch-Summary mit Metriken-Vergleich
 - Integration mit Experiment-Tracking
+- Leaderboard-Integration (optional, nicht Pflicht)
 
 ---
 

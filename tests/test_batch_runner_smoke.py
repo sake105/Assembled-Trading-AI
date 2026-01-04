@@ -106,6 +106,7 @@ def test_batch_runner_write_manifest(tmp_path: Path) -> None:
         finished_at=finished_at,
         runtime_sec=150.5,
         exit_code=0,
+        seed=42,
     )
 
     manifest_path = run_output_dir / "run_manifest.json"

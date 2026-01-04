@@ -89,13 +89,11 @@ The `assembled-cli` command-line interface is the preferred entry point for all 
 
 - **Batch Runs & Profiling** → [Batch Runner P4](docs/BATCH_RUNNER_P4.md)
   - Run multiple backtests from YAML config
-  - **Parameter sweeps** (replaces old `sprint10_param_sweep.ps1` and `sprint9_cost_grid.ps1`)
   - Deterministic run IDs (hash-based, reproducible)
   - Resume support (skip successful runs, rerun failed)
   - Parallel execution with ProcessPoolExecutor
-  - Performance profiling integration
-  - Example: `python scripts/cli.py batch_run --config-file configs/batch.yaml --max-workers 4 --resume`
-  - **Leaderboard (batch outputs)** → `python scripts/cli.py leaderboard --batch-output output/batch_backtests/my_batch --sort-by sharpe --top-k 10`
+  - Example: `python scripts/batch_backtest.py --config-file configs/batch.yaml --max-workers 4 --resume`
+  - **Optional:** Leaderboard-Ranking verfügbar über `python scripts/cli.py leaderboard --batch-output output/batch_backtests/my_batch --sort-by sharpe --top-k 10`
 
 - **Factor Store** → [Factor Store](docs/FACTOR_STORE.md)
   - Caching system for computed factors/features

@@ -116,10 +116,18 @@ for p in files:
             continue
         df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
         df = df.dropna(subset=["timestamp","close"])
-        df = (df.set_index("timestamp")
-                .groupby("symbol", group_keys=False)["close"]
-                .resample("5min").last().reset_index())
-        dfs.append(df)
+        # Resample mit symbol erhalten
+        df_resampled = (df.set_index("timestamp")
+                        .groupby("symbol", group_keys=False)
+                        .apply(lambda g: g["close"].resample("5min").last().reset_index(), include_groups=False)
+                        .reset_index())
+        # symbol wieder hinzufügen (aus dem groupby-Index)
+        if "symbol" not in df_resampled.columns:
+            symbol_val = df["symbol"].iloc[0]
+            df_resampled["symbol"] = symbol_val
+        # Spalten in richtiger Reihenfolge: symbol, timestamp, close
+        df_resampled = df_resampled[["symbol", "timestamp", "close"]]
+        dfs.append(df_resampled)
         print(f"[RESAMPLE] OK {p.name} -> rows={len(df)}")
     except Exception as e:
         print(f"[RESAMPLE] ERROR {p.name}: {e}")

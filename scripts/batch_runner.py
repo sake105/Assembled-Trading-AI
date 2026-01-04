@@ -79,6 +79,12 @@ def _compute_run_id_hash(run_cfg: RunConfig, seed: int) -> str:
         "universe": run_cfg.universe or "",
         "seed": seed,
     }
+    # Include params dict in hash (stable serialization: sorted keys, JSON dumps)
+    if run_cfg.params:
+        # Sort params keys for deterministic hashing
+        params_sorted = {k: v for k, v in sorted(run_cfg.params.items())}
+        params_dict["params"] = params_sorted
+    
     # Sort keys for deterministic hashing
     params_json = json.dumps(params_dict, sort_keys=True, default=str)
     return hashlib.sha256(params_json.encode()).hexdigest()[:16]
@@ -114,7 +120,7 @@ class TradingFreq(str, Enum):
 class RunConfig(BaseModel):
     """Configuration for a single backtest run with validation."""
 
-    id: str = Field(..., description="Run identifier (unique within batch)")
+    id: str = Field(..., alias="name", description="Run identifier (unique within batch, alias: 'name')")
     strategy: str = Field(..., min_length=1, description="Strategy name (e.g., 'trend_baseline')")
     freq: TradingFreq = Field(..., description="Trading frequency: '1d' or '5min'")
     start_date: str = Field(..., description="Start date in YYYY-MM-DD format")
@@ -124,7 +130,8 @@ class RunConfig(BaseModel):
     use_factor_store: bool = Field(False, description="Enable factor store")
     factor_store_root: str | None = Field(None, description="Factor store root path (optional)")
     factor_group: str | None = Field(None, description="Factor group name (optional)")
-    extra_args: dict[str, Any] = Field(default_factory=dict, description="Additional arguments")
+    params: dict[str, Any] = Field(default_factory=dict, description="Additional parameters (mapped to CLI flags)")
+    extra_args: dict[str, Any] = Field(default_factory=dict, description="Additional arguments (legacy, use params instead)")
 
     @field_validator("start_date", "end_date")
     @classmethod
@@ -174,6 +181,7 @@ class RunConfig(BaseModel):
 
     class Config:
         use_enum_values = True  # Use enum values instead of enum objects
+        populate_by_name = True  # Allow both 'id' and 'name' (alias) in input
 
 
 class BatchConfig(BaseModel):
@@ -182,6 +190,7 @@ class BatchConfig(BaseModel):
     batch_name: str = Field(..., min_length=1, description="Batch name (required)")
     output_root: Path = Field(..., description="Output root directory")
     seed: int = Field(42, ge=0, description="Random seed for reproducibility (>= 0)")
+    defaults: dict[str, Any] = Field(default_factory=dict, description="Default values for runs (freq, start_date, end_date, universe, start_capital, etc.)")
     runs: list[RunConfig] = Field(..., min_length=1, description="List of run configurations (non-empty)")
 
     @model_validator(mode="after")
@@ -242,6 +251,15 @@ def load_batch_config(config_path: Path) -> BatchConfig:
     else:
         seed = 42
 
+    # Extract batch-level defaults
+    defaults_raw = raw.get("defaults")
+    if defaults_raw is not None:
+        if not isinstance(defaults_raw, dict):
+            raise ValueError("defaults must be a mapping/object if provided")
+        defaults = dict(defaults_raw)
+    else:
+        defaults = {}
+
     runs_raw = raw.get("runs")
     if not isinstance(runs_raw, list):
         raise ValueError("runs must be a list in config")
@@ -254,50 +272,67 @@ def load_batch_config(config_path: Path) -> BatchConfig:
         if not isinstance(run_raw, dict):
             raise ValueError(f"runs[{idx}] must be an object/dict")
 
-        # Run-ID can be explicitly set, or will be auto-generated from params
-        run_id = run_raw.get("id")
+        # Run-ID can be explicitly set via 'id' or 'name' (alias), or will be auto-generated
+        run_id = run_raw.get("id") or run_raw.get("name")
         if run_id:
             run_id = str(run_id).strip()
             if not run_id:
-                raise ValueError(f"runs[{idx}]: id cannot be empty string (use null/omit for auto-generation)")
+                raise ValueError(f"runs[{idx}]: id/name cannot be empty string (use null/omit for auto-generation)")
+
+        # Merge defaults with run-specific values (run takes precedence)
+        merged = dict(defaults)
+        merged.update(run_raw)
 
         # Prepare data for Pydantic model (with type conversions)
+        # Apply defaults if fields are missing
         run_data: dict[str, Any] = {
             "id": run_id or "",  # Will be set later if empty
-            "strategy": str(run_raw.get("strategy") or "").strip(),
-            "freq": str(run_raw.get("freq") or "").strip(),
-            "start_date": str(run_raw.get("start_date") or "").strip(),
-            "end_date": str(run_raw.get("end_date") or "").strip(),
+            "strategy": str(merged.get("strategy") or "").strip(),
+            "freq": str(merged.get("freq") or "").strip(),
+            "start_date": str(merged.get("start_date") or "").strip(),
+            "end_date": str(merged.get("end_date") or "").strip(),
         }
 
-        # Optional fields
-        if "universe" in run_raw:
-            universe_val = run_raw["universe"]
+        # Optional fields (with defaults fallback)
+        if "universe" in merged:
+            universe_val = merged["universe"]
             run_data["universe"] = str(universe_val).strip() if universe_val else None
 
-        if "start_capital" in run_raw:
+        if "start_capital" in merged:
             try:
-                run_data["start_capital"] = float(run_raw["start_capital"])
+                run_data["start_capital"] = float(merged["start_capital"])
             except (ValueError, TypeError) as exc:
-                raise ValueError(f"runs[{idx}]: start_capital must be a number, got: {run_raw['start_capital']}") from exc
+                raise ValueError(f"runs[{idx}]: start_capital must be a number, got: {merged['start_capital']}") from exc
 
-        if "use_factor_store" in run_raw:
-            run_data["use_factor_store"] = bool(run_raw["use_factor_store"])
+        if "use_factor_store" in merged:
+            run_data["use_factor_store"] = bool(merged["use_factor_store"])
 
-        if "factor_store_root" in run_raw:
-            factor_store_root_val = run_raw["factor_store_root"]
+        if "factor_store_root" in merged:
+            factor_store_root_val = merged["factor_store_root"]
             run_data["factor_store_root"] = str(factor_store_root_val).strip() if factor_store_root_val else None
 
-        if "factor_group" in run_raw:
-            factor_group_val = run_raw["factor_group"]
+        if "factor_group" in merged:
+            factor_group_val = merged["factor_group"]
             run_data["factor_group"] = str(factor_group_val).strip() if factor_group_val else None
 
-        # Collect extra args (for future extension)
-        extra_args = {k: v for k, v in run_raw.items() if k not in [
-            "id", "strategy", "freq", "start_date", "end_date",
+        # Extract params dict (if present)
+        params = {}
+        if "params" in merged:
+            params_raw = merged["params"]
+            if isinstance(params_raw, dict):
+                params = dict(params_raw)
+            else:
+                raise ValueError(f"runs[{idx}]: params must be a mapping/object if provided")
+        run_data["params"] = params
+
+        # Collect extra args (legacy, for backward compatibility)
+        # Exclude known fields and params
+        known_fields = {
+            "id", "name", "strategy", "freq", "start_date", "end_date",
             "universe", "start_capital", "use_factor_store",
-            "factor_store_root", "factor_group"
-        ]}
+            "factor_store_root", "factor_group", "params"
+        }
+        extra_args = {k: v for k, v in run_raw.items() if k not in known_fields}
         run_data["extra_args"] = extra_args
 
         # Validate using Pydantic (will raise ValidationError with detailed field errors)
@@ -320,12 +355,42 @@ def load_batch_config(config_path: Path) -> BatchConfig:
             batch_name=batch_name,
             output_root=output_root,
             seed=seed,
+            defaults=defaults,
             runs=runs,
         )
     except Exception as exc:
         raise ValueError(f"Batch config validation failed: {exc}") from exc
 
     return batch_cfg
+
+
+def _map_params_to_cli_flags(params: dict[str, Any]) -> dict[str, Any]:
+    """Map params dict to CLI flags/args.
+    
+    Args:
+        params: Parameters dict (e.g., {"ema_fast": 20, "ema_slow": 50, "verbose": True})
+    
+    Returns:
+        Dict with argparse.Namespace-compatible keys (keep underscore for attribute access)
+    """
+    args_dict: dict[str, Any] = {}
+    
+    for key, value in params.items():
+        # Keep underscore in key (argparse.Namespace supports underscore attributes)
+        # When building CLI command, we'll convert to dash format
+        
+        if isinstance(value, bool):
+            # bool: True => Flag setzen, False => nicht setzen
+            if value:
+                args_dict[key] = True
+        elif isinstance(value, (list, tuple)):
+            # list/tuple: comma-join (einheitlich)
+            args_dict[key] = ",".join(str(v) for v in value)
+        else:
+            # Other types: direct value
+            args_dict[key] = value
+    
+    return args_dict
 
 
 def build_args_from_run_config(run_cfg: RunConfig, output_dir: Path) -> argparse.Namespace:
@@ -358,7 +423,12 @@ def build_args_from_run_config(run_cfg: RunConfig, output_dir: Path) -> argparse
         if run_cfg.factor_group:
             args_dict["factor_group"] = run_cfg.factor_group
 
-    # Merge extra_args
+    # Map params to CLI flags
+    if run_cfg.params:
+        params_flags = _map_params_to_cli_flags(run_cfg.params)
+        args_dict.update(params_flags)
+
+    # Merge extra_args (legacy, for backward compatibility)
     args_dict.update(run_cfg.extra_args)
 
     # Create Namespace object
@@ -397,7 +467,7 @@ def write_run_manifest(
     timings_path = run_output_dir / "run_timings.json"
     timings_path_rel = "run_timings.json" if timings_path.exists() else None
 
-    # Build params dict
+    # Build params dict (include both standard fields and params dict)
     params: dict[str, Any] = {
         "strategy": run_cfg.strategy,
         "freq": run_cfg.freq,
@@ -412,6 +482,10 @@ def write_run_manifest(
         params["factor_store_root"] = run_cfg.factor_store_root
     if run_cfg.factor_group:
         params["factor_group"] = run_cfg.factor_group
+    
+    # Include params dict in manifest (for reproducibility)
+    if run_cfg.params:
+        params["params"] = run_cfg.params
 
     manifest = {
         "run_id": run_id,
