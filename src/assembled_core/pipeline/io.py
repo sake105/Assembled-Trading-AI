@@ -8,64 +8,8 @@ from pathlib import Path
 import pandas as pd
 
 from src.assembled_core.config import OUTPUT_DIR
-
-
-def ensure_cols(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
-    """Ensure required columns exist in DataFrame.
-
-    Args:
-        df: Input DataFrame
-        cols: List of required column names
-
-    Returns:
-        DataFrame with validated columns
-
-    Raises:
-        KeyError: If any required column is missing
-    """
-    missing = [c for c in cols if c not in df.columns]
-    if missing:
-        raise KeyError(f"Fehlende Spalten: {missing} | vorhanden={df.columns.tolist()}")
-    return df
-
-
-def coerce_price_types(df: pd.DataFrame) -> pd.DataFrame:
-    """Coerce price DataFrame to correct types.
-
-    Args:
-        df: DataFrame with price data
-
-    Returns:
-        DataFrame with coerced types (timestamp UTC, close float64, symbol string)
-    """
-    df = df.copy()
-    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
-    df["close"] = pd.to_numeric(df["close"], errors="coerce").astype("float64")
-    if "symbol" in df.columns:
-        df["symbol"] = df["symbol"].astype("string")
-    df = df.dropna(subset=["timestamp", "close"])
-    return df
-
-
-def get_default_price_path(freq: str, output_dir: Path | str | None = None) -> Path:
-    """Get default price file path for a frequency.
-
-    Args:
-        freq: Frequency string ("1d" or "5min")
-        output_dir: Base output directory (default: None, uses config.OUTPUT_DIR)
-
-    Returns:
-        Path to price parquet file
-
-    Raises:
-        ValueError: If freq is not supported
-    """
-    base = Path(output_dir) if output_dir else OUTPUT_DIR
-    if freq == "1d":
-        return base / "aggregates" / "daily.parquet"
-    if freq == "5min":
-        return base / "aggregates" / "5min.parquet"
-    raise ValueError(f"Unbekannte freq: {freq}")
+from src.assembled_core.utils.dataframe import coerce_price_types, ensure_cols
+from src.assembled_core.utils.paths import get_default_price_path
 
 
 def load_prices(

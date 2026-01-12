@@ -344,6 +344,44 @@ def run_daily_eod(
             f"Filtered prices: {len(prices)} rows, {prices['symbol'].nunique()} symbols"
         )
 
+    # Step 3.5: Run QC checks and set QA Gate (Sprint 3 / D2)
+    qa_block_trading = False
+    qa_block_reason = None
+    try:
+        from src.assembled_core.qa.data_qc import run_price_panel_qc, write_qc_report_json
+        
+        logger.info("Step 2.5: Running data quality control (QC)...")
+        # Note: target_timestamp is defined later, so we use None here
+        # (QC will use prices timestamp range for missing sessions check)
+        qc_report = run_price_panel_qc(
+            prices=prices,
+            freq="1d",
+            calendar="NYSE",
+            as_of=None,  # Will be set later when target_timestamp is available
+        )
+        
+        # Write QC report to output directory
+        qc_report_path = out_dir / "qc_report.json"
+        write_qc_report_json(qc_report, qc_report_path)
+        logger.info(f"QC report written: {qc_report_path}")
+        
+        # Set QA Gate if QC has FAIL issues
+        if not qc_report.ok:
+            qa_block_trading = True
+            qa_block_reason = f"DATA_QC_FAIL: {qc_report.summary.get('fail_count', 0)} FAIL issues, {qc_report.summary.get('warn_count', 0)} WARN issues"
+            logger.warning(f"QC FAILED: {qa_block_reason}")
+            logger.warning("Trading will be blocked (no orders generated)")
+        elif qc_report.summary.get("warn_count", 0) > 0:
+            logger.warning(f"QC WARN: {qc_report.summary.get('warn_count', 0)} WARN issues (trading will proceed)")
+    except ImportError:
+        logger.warning(
+            "QC module not available - skipping QC checks. "
+            "Install exchange-calendars for QC support."
+        )
+    except Exception as e:
+        logger.warning(f"QC check failed: {e} - proceeding without QC")
+        logger.debug(f"QC error details: {e}", exc_info=True)
+
     # Step 4-7: Run unified trading cycle
     logger.info("Step 3: Running trading cycle (features/signals/positions/orders/risk)...")
     try:
@@ -354,6 +392,22 @@ def run_daily_eod(
             # Build TradingContext from CLI args
             # Convert target_date (datetime) to pd.Timestamp for TradingContext
             target_timestamp = pd.Timestamp(target_date) if isinstance(target_date, datetime) else target_date
+            
+            # Normalize as_of to session close for 1d frequency (Sprint-2 calendar hardening)
+            try:
+                from src.assembled_core.data.calendar import normalize_as_of_to_session_close
+                target_timestamp = normalize_as_of_to_session_close(target_timestamp)
+                logger.debug(f"Normalized as_of to session close: {target_timestamp}")
+            except ImportError:
+                # If exchange_calendars not installed, log warning but continue
+                logger.warning(
+                    "exchange_calendars not installed - as_of not normalized to session close. "
+                    "Install with: pip install exchange-calendars"
+                )
+            except ValueError as e:
+                # If date is not a trading day, log error and exit
+                logger.error(f"Failed to normalize as_of to session close: {e}")
+                sys.exit(1)
             
             # Define signal function
             def signal_fn(df: pd.DataFrame) -> pd.DataFrame:

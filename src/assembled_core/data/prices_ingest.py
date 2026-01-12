@@ -17,7 +17,8 @@ from typing import Literal
 import pandas as pd
 
 from src.assembled_core.config import OUTPUT_DIR, get_base_dir
-from src.assembled_core.pipeline.io import coerce_price_types, ensure_cols
+from src.assembled_core.utils.dataframe import coerce_price_types, ensure_cols
+from src.assembled_core.utils.paths import get_default_price_path
 
 
 def load_eod_prices(
@@ -57,8 +58,7 @@ def load_eod_prices(
     if price_file:
         source_path = Path(price_file)
     else:
-        # Use default path from pipeline.io
-        from src.assembled_core.pipeline.io import get_default_price_path
+        # Use default path from utils.paths
         base = Path(data_dir) if data_dir else OUTPUT_DIR
         source_path = get_default_price_path(freq, output_dir=base)
     

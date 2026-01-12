@@ -733,13 +733,49 @@ def load_price_data(
             universe_file=None, data_dir=output_dir, freq=args.freq
         )
 
-    logger.info(f"Loaded {len(prices)} rows for {prices['symbol'].nunique()} symbols")
+        logger.info(f"Loaded {len(prices)} rows for {prices['symbol'].nunique()} symbols")
     if not prices.empty:
         logger.info(
             f"Date range: {prices['timestamp'].min()} to {prices['timestamp'].max()}"
         )
 
-    return prices
+    # Run QC checks and set QA Gate (Sprint 3 / D2)
+    qa_block_trading = False
+    qa_block_reason = None
+    try:
+        from src.assembled_core.qa.data_qc import run_price_panel_qc, write_qc_report_json
+        
+        logger.info("Running data quality control (QC)...")
+        qc_report = run_price_panel_qc(
+            prices=prices,
+            freq=args.freq,
+            calendar="NYSE",
+        )
+        
+        # Write QC report to output directory
+        if output_dir:
+            qc_report_path = Path(output_dir) / "qc_report.json"
+            write_qc_report_json(qc_report, qc_report_path)
+            logger.info(f"QC report written: {qc_report_path}")
+        
+        # Set QA Gate if QC has FAIL issues
+        if not qc_report.ok:
+            qa_block_trading = True
+            qa_block_reason = f"DATA_QC_FAIL: {qc_report.summary.get('fail_count', 0)} FAIL issues, {qc_report.summary.get('warn_count', 0)} WARN issues"
+            logger.warning(f"QC FAILED: {qa_block_reason}")
+            logger.warning("Trading will be blocked (no orders generated in backtest)")
+        elif qc_report.summary.get("warn_count", 0) > 0:
+            logger.warning(f"QC WARN: {qc_report.summary.get('warn_count', 0)} WARN issues (backtest will proceed)")
+    except ImportError:
+        logger.warning(
+            "QC module not available - skipping QC checks. "
+            "Install exchange-calendars for QC support."
+        )
+    except Exception as e:
+        logger.warning(f"QC check failed: {e} - proceeding without QC")
+        logger.debug(f"QC error details: {e}", exc_info=True)
+
+    return prices, qa_block_trading, qa_block_reason
 
 
 def get_cost_model(args: argparse.Namespace) -> CostModel:
@@ -892,7 +928,7 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         step_name = "load_data"
         step_context = timed_step(step_name, timings, logger) if enable_timings else nullcontext()
         with step_context:
-            prices = load_price_data(args)
+            prices, qa_block_trading, qa_block_reason = load_price_data(args)
 
         if prices.empty:
             logger.error("No price data loaded")
@@ -1163,13 +1199,14 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             has_ohlc = all(col in prices.columns for col in ["high", "low", "open"])
             
             # Use factor store if enabled via CLI args
-            use_factor_store = args.use_factor_store
-            factor_group = args.factor_group
+            use_factor_store = getattr(args, "use_factor_store", False)
+            factor_group = getattr(args, "factor_group", "core_ta")
             
             # Determine factor_store_root: CLI arg > settings > default
             from src.assembled_core.data.factor_store import get_factor_store_root
-            if args.factor_store_root is not None:
-                factor_store_root = Path(args.factor_store_root)
+            factor_store_root_arg = getattr(args, "factor_store_root", None)
+            if factor_store_root_arg is not None:
+                factor_store_root = Path(factor_store_root_arg)
             else:
                 # Try to get from settings, otherwise use default
                 try:
@@ -1252,6 +1289,8 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             precomputed_prices_with_features=precomputed_prices_with_features,  # Set precomputed features
             write_outputs=False,  # Backtest engine handles outputs
             enable_risk_controls=False,  # Backtest engine doesn't use risk controls
+            qa_block_trading=qa_block_trading,  # QA Gate (Sprint 3 / D2)
+            qa_block_reason=qa_block_reason,
         )
         
         # Create cycle_fn using make_cycle_fn

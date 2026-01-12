@@ -77,11 +77,16 @@ from src.assembled_core.features.factor_store_integration import build_or_load_f
 from src.assembled_core.data.factor_store import compute_universe_key
 from src.assembled_core.pipeline.backtest import compute_metrics, simulate_equity
 from src.assembled_core.pipeline.portfolio import simulate_with_costs
-from src.assembled_core.pipeline.trading_cycle import (
-    TradingContext,
-    TradingCycleResult,
-    run_trading_cycle,
-)
+
+# Type-only imports to avoid circular dependency
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.assembled_core.pipeline.trading_cycle import (
+        TradingContext,
+        TradingCycleResult,
+        run_trading_cycle,
+    )
 from src.assembled_core.utils.timing import timed_step
 from src.assembled_core.config.settings import get_settings
 
@@ -248,12 +253,13 @@ def _update_positions_vectorized(
 
 
 def make_cycle_fn(
-    ctx_template: TradingContext,
+    ctx_template: "TradingContext",
     *,
     signal_fn: Callable[[pd.DataFrame], pd.DataFrame],
     position_sizing_fn: Callable[[pd.DataFrame, float], pd.DataFrame],
     capital: float,
-) -> Callable[[pd.Timestamp, pd.DataFrame], TradingCycleResult]:
+    run_trading_cycle_fn: Callable | None = None,
+) -> Callable[[pd.Timestamp, pd.DataFrame], "TradingCycleResult"]:
     """Create a callable that runs trading cycle for a given timestamp and positions.
     
     This is an adapter function that bridges the backtest engine's per-timestamp
@@ -265,12 +271,15 @@ def make_cycle_fn(
         signal_fn: Signal function (same as in run_portfolio_backtest)
         position_sizing_fn: Position sizing function (same as in run_portfolio_backtest)
         capital: Capital for position sizing (updated per timestamp based on equity)
+        run_trading_cycle_fn: Optional callable to run trading cycle (default: imports at runtime)
+            If None, imports run_trading_cycle from pipeline.trading_cycle at runtime
         
     Returns:
         Callable that takes (timestamp: pd.Timestamp, current_positions: pd.DataFrame)
         and returns TradingCycleResult
         
     Example:
+        >>> from src.assembled_core.pipeline.trading_cycle import TradingContext, run_trading_cycle
         >>> ctx_template = TradingContext(
         ...     prices=prices,
         ...     freq="1d",
@@ -282,11 +291,16 @@ def make_cycle_fn(
         ...     signal_fn=signal_fn,
         ...     position_sizing_fn=position_sizing_fn,
         ...     capital=10000.0,
+        ...     run_trading_cycle_fn=run_trading_cycle,
         ... )
         >>> result = cycle_fn(timestamp, current_positions)
         >>> orders = result.orders_filtered  # or result.orders as fallback
     """
-    def cycle_fn(timestamp: pd.Timestamp, current_positions: pd.DataFrame) -> TradingCycleResult:
+    # Import at runtime to avoid circular dependency
+    if run_trading_cycle_fn is None:
+        from src.assembled_core.pipeline.trading_cycle import run_trading_cycle as run_trading_cycle_fn
+    
+    def cycle_fn(timestamp: pd.Timestamp, current_positions: pd.DataFrame) -> "TradingCycleResult":
         """Run trading cycle for a specific timestamp.
         
         Args:
@@ -311,7 +325,7 @@ def make_cycle_fn(
         )
         
         # Run trading cycle
-        return run_trading_cycle(ctx)
+        return run_trading_cycle_fn(ctx)
     
     return cycle_fn
 
@@ -408,7 +422,7 @@ def run_portfolio_backtest(
     meta_min_confidence: float = 0.5,
     meta_ensemble_mode: str = "filter",  # "filter" or "scaling"
     # Trading cycle integration (B1)
-    cycle_fn: Callable[[pd.Timestamp, pd.DataFrame], TradingCycleResult] | None = None,
+    cycle_fn: Callable[[pd.Timestamp, pd.DataFrame], "TradingCycleResult"] | None = None,
     # Performance optimization
     use_numba: bool | None = None,
 ) -> BacktestResult:

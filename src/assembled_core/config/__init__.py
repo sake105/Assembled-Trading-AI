@@ -58,3 +58,30 @@ try:
 except ImportError:
     # Factor bundles module may not be available in all contexts
     pass
+
+# Import config models (strict validation)
+from src.assembled_core.config.models import (
+    FeatureConfig,
+    GateConfig,
+    GateThresholdConfig,
+    RiskConfig,
+    SignalConfig,
+    ensure_feature_config,
+    ensure_gate_config,
+    ensure_risk_config,
+    ensure_signal_config,
+)
+
+__all__.extend([
+    # Config models
+    "FeatureConfig",
+    "SignalConfig",
+    "RiskConfig",
+    "GateConfig",
+    "GateThresholdConfig",
+    # Helper functions
+    "ensure_feature_config",
+    "ensure_signal_config",
+    "ensure_risk_config",
+    "ensure_gate_config",
+])

@@ -33,11 +33,18 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import pandas as pd
 
 # Import existing modules (no duplication)
+from src.assembled_core.config.models import (
+    FeatureConfig,
+    ensure_feature_config,
+)
+
+if TYPE_CHECKING:
+    from src.assembled_core.config.models import RiskConfig, SignalConfig
 from src.assembled_core.data.factor_store import compute_universe_key
 from src.assembled_core.execution.order_generation import generate_orders_from_targets
 from src.assembled_core.execution.position_alignment import align_current_and_target
@@ -85,7 +92,7 @@ class TradingContext:
             Signal function that takes prices DataFrame and returns signals DataFrame.
             Input: DataFrame with columns: timestamp, symbol, close, ... (features if built)
             Output: DataFrame with columns: timestamp, symbol, direction, score
-        signal_config: dict[str, Any]
+        signal_config: dict[str, Any] | SignalConfig
             Signal-specific configuration (e.g., ma_fast, ma_slow) (default: {})
             
         # Position sizing
@@ -104,11 +111,15 @@ class TradingContext:
         order_timestamp: pd.Timestamp
             Timestamp for generated orders (default: current UTC timestamp)
             
-        # Risk controls
-        enable_risk_controls: bool
-            Enable risk controls (pre-trade checks, kill switch) (default: True)
-        risk_config: dict[str, Any]
-            Risk control configuration (default: {})
+    # Risk controls
+    enable_risk_controls: bool
+        Enable risk controls (pre-trade checks, kill switch) (default: True)
+    risk_config: dict[str, Any] | RiskConfig
+        Risk control configuration (default: {})
+    
+    # QA Gate (Sprint 3 / D2)
+    qa_block_trading: bool = False
+    qa_block_reason: str | None = None
             
         # Outputs
         output_dir: Path
@@ -147,7 +158,7 @@ class TradingContext:
     use_factor_store: bool = False
     factor_store_root: Path | None = None
     factor_group: str = "core_ta"
-    feature_config: dict[str, Any] | None = None
+    feature_config: dict[str, Any] | FeatureConfig | None = None
     precomputed_prices_with_features: pd.DataFrame | None = None
     """Precomputed prices with features (optional).
     
@@ -180,7 +191,7 @@ class TradingContext:
     
     # Signal generation
     signal_fn: Callable[[pd.DataFrame], pd.DataFrame] | None = None
-    signal_config: dict[str, Any] = field(default_factory=dict)
+    signal_config: dict[str, Any] | SignalConfig = field(default_factory=dict)
     
     # Position sizing
     position_sizing_fn: Callable[[pd.DataFrame, float], pd.DataFrame] | None = None
@@ -192,7 +203,7 @@ class TradingContext:
     
     # Risk controls
     enable_risk_controls: bool = True
-    risk_config: dict[str, Any] = field(default_factory=dict)
+    risk_config: dict[str, Any] | RiskConfig = field(default_factory=dict)
     
     # Outputs
     output_dir: Path = field(default_factory=lambda: Path("output"))
@@ -369,8 +380,16 @@ def _build_features_default(
         start_date = prices_filtered["timestamp"].min() if not prices_filtered.empty else None
         end_date = prices_filtered["timestamp"].max() if not prices_filtered.empty else None
         
-        # Get feature config
-        config = ctx.feature_config or {}
+        # Get feature config (validate and convert to dict for backward compatibility)
+        feature_cfg = ensure_feature_config(ctx.feature_config)
+        config: dict[str, Any] = {}
+        if feature_cfg is not None:
+            config = {
+                "ma_windows": feature_cfg.ma_windows,
+                "atr_window": feature_cfg.atr_window,
+                "rsi_window": feature_cfg.rsi_window,
+                "include_rsi": feature_cfg.include_rsi,
+            }
         has_ohlc = all(col in prices_filtered.columns for col in ["high", "low", "open"])
         
         # Build or load factors
@@ -396,7 +415,15 @@ def _build_features_default(
         )
     else:
         # Default: direct computation (backward compatible)
-        config = ctx.feature_config or {}
+        feature_cfg = ensure_feature_config(ctx.feature_config)
+        config: dict[str, Any] = {}
+        if feature_cfg is not None:
+            config = {
+                "ma_windows": feature_cfg.ma_windows,
+                "atr_window": feature_cfg.atr_window,
+                "rsi_window": feature_cfg.rsi_window,
+                "include_rsi": feature_cfg.include_rsi,
+            }
         has_ohlc = all(col in prices_filtered.columns for col in ["high", "low", "open"])
         
         if has_ohlc:
@@ -500,7 +527,7 @@ def _apply_risk_controls_default(
     
     try:
         # Use existing risk controls module
-        filtered_orders, risk_result, kill_switch_engaged = filter_orders_with_risk_controls(
+        filtered_orders, risk_result = filter_orders_with_risk_controls(
             orders=orders,
             portfolio=None,  # Portfolio snapshot not available in cycle context
             qa_status=None,  # QA status not available in cycle context
@@ -826,6 +853,15 @@ def run_trading_cycle(
         result.status = "error"
         result.error_message = f"Error in generate_orders: {e}"
         return result
+    
+    # QA Gate: Block orders if qa_block_trading is True (Sprint 3 / D2)
+    if ctx.qa_block_trading:
+        log.warning(f"QA Gate: Trading blocked - {ctx.qa_block_reason or 'No reason provided'}")
+        # Set orders to empty DataFrame with correct schema
+        result.orders = pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
+        result.meta["qa_block_reason"] = ctx.qa_block_reason
+        result.meta["qa_block_trading"] = True
+        log.info("QA Gate: Orders set to empty (trading blocked)")
     
     # Step 6: Apply risk controls (hook point: risk_controls)
     try:
