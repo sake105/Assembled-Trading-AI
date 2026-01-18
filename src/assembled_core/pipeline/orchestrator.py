@@ -580,10 +580,35 @@ def run_eod_pipeline(
 
     finished_at = datetime.utcnow()
 
+    # Compute data snapshot ID (D4)
+    # Berechne genau einmal nachdem Preise geladen wurden (nicht pro Timestamp)
+    data_snapshot_id = None
+    try:
+        from src.assembled_core.data.snapshot import compute_price_panel_snapshot_id
+
+        # Auch bei leeren Preisen: Empty-Semantik aus D3 (stabiler Hash)
+        # Build source_meta from available information (nur wenn vorhanden und deterministisch)
+        source_meta = {}
+        if price_file:
+            source_meta["file"] = str(price_file)
+        if data_source:
+            source_meta["source"] = str(data_source)
+
+        data_snapshot_id = compute_price_panel_snapshot_id(
+            prices=prices,  # Kann leer sein (Empty-Semantik)
+            freq=freq,
+            source_meta=source_meta if source_meta else None,
+        )
+        logger.info(f"Data snapshot ID computed: {data_snapshot_id[:16]}...")
+    except Exception as exc:
+        logger.warning(f"Failed to compute data snapshot ID: {exc}", exc_info=True)
+        # Bei Fehler: data_snapshot_id bleibt None (wird im Manifest als None gespeichert)
+
     # Build manifest
     manifest = {
         "freq": freq,
         "start_capital": start_capital,
+        "data_snapshot_id": data_snapshot_id,  # D4: Snapshot ID for reproducibility
         "completed_steps": completed_steps,
         "qa_overall_status": qa_result["overall_status"] if qa_result else None,
         "qa_checks": qa_result["checks"] if qa_result else [],

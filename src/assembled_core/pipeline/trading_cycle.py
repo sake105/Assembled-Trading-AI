@@ -116,10 +116,6 @@ class TradingContext:
         Enable risk controls (pre-trade checks, kill switch) (default: True)
     risk_config: dict[str, Any] | RiskConfig
         Risk control configuration (default: {})
-    
-    # QA Gate (Sprint 3 / D2)
-    qa_block_trading: bool = False
-    qa_block_reason: str | None = None
             
         # Outputs
         output_dir: Path
@@ -204,6 +200,16 @@ class TradingContext:
     # Risk controls
     enable_risk_controls: bool = True
     risk_config: dict[str, Any] | RiskConfig = field(default_factory=dict)
+    security_meta_df: pd.DataFrame | None = None
+    """Security metadata DataFrame (symbol -> sector/region/currency/asset_type).
+    
+    Required for sector/region/FX exposure limits. If None and limits are enabled,
+    risk controls will skip group exposure checks.
+    """
+    
+    # QA Gate (Sprint 3 / D2)
+    qa_block_trading: bool = False
+    qa_block_reason: str | None = None
     
     # Outputs
     output_dir: Path = field(default_factory=lambda: Path("output"))
@@ -526,13 +532,95 @@ def _apply_risk_controls_default(
         return orders.copy()
     
     try:
-        # Use existing risk controls module
+        # Prepare current positions for risk controls
+        # Convert current_positions to expected format (symbol, qty)
+        current_positions_df = None
+        if ctx.current_positions is not None and not ctx.current_positions.empty:
+            if "qty" in ctx.current_positions.columns:
+                current_positions_df = ctx.current_positions[["symbol", "qty"]].copy()
+            elif "target_qty" in ctx.current_positions.columns:
+                current_positions_df = ctx.current_positions[["symbol", "target_qty"]].rename(
+                    columns={"target_qty": "qty"}
+                )
+
+        # Prepare prices_latest (latest price per symbol)
+        prices_latest_df = None
+        if ctx.prices is not None and not ctx.prices.empty:
+            # Get latest price per symbol (for exposure calculation)
+            if "close" in ctx.prices.columns:
+                prices_latest_df = (
+                    ctx.prices.groupby("symbol")["close"]
+                    .last()
+                    .reset_index()
+                    .rename(columns={"close": "price"})
+                )
+            elif "price" in ctx.prices.columns:
+                prices_latest_df = (
+                    ctx.prices.groupby("symbol")["price"]
+                    .last()
+                    .reset_index()
+                )
+
+        # Compute equity (cash + mark-to-market positions)
+        equity = ctx.capital  # Use capital as equity proxy (can be refined later)
+        
+        # Get current_equity and peak_equity if available (for drawdown de-risking)
+        current_equity = getattr(ctx, "current_equity", None)
+        peak_equity = getattr(ctx, "peak_equity", None)
+        
+        # Get security_meta_df from context (for sector/region/FX limits)
+        security_meta_df = ctx.security_meta_df
+
+        # Convert risk_config dict to PreTradeConfig
+        from src.assembled_core.execution.pre_trade_checks import PreTradeConfig
+        
+        pre_trade_config = None
+        if ctx.risk_config:
+            # Extract PreTradeConfig fields from risk_config dict
+            if isinstance(ctx.risk_config, dict):
+                pre_trade_config = PreTradeConfig(
+                    max_notional_per_symbol=ctx.risk_config.get("max_notional_per_symbol"),
+                    max_weight_per_symbol=ctx.risk_config.get("max_weight_per_symbol"),
+                    turnover_cap=ctx.risk_config.get("turnover_cap"),
+                    drawdown_threshold=ctx.risk_config.get("drawdown_threshold"),
+                    de_risk_scale=ctx.risk_config.get("de_risk_scale", 0.0),
+                    max_gross_exposure=ctx.risk_config.get("max_gross_exposure"),
+                    max_sector_exposure=ctx.risk_config.get("max_sector_exposure"),
+                    max_region_exposure=ctx.risk_config.get("max_region_exposure"),
+                    max_fx_exposure=ctx.risk_config.get("max_fx_exposure"),
+                    base_currency=ctx.risk_config.get("base_currency", "USD"),
+                    missing_security_meta=ctx.risk_config.get("missing_security_meta", "raise"),
+                )
+            elif hasattr(ctx.risk_config, "__dict__"):
+                # If it's already a PreTradeConfig or similar object, try to extract fields
+                pre_trade_config = PreTradeConfig(
+                    max_notional_per_symbol=getattr(ctx.risk_config, "max_notional_per_symbol", None),
+                    max_weight_per_symbol=getattr(ctx.risk_config, "max_weight_per_symbol", None),
+                    turnover_cap=getattr(ctx.risk_config, "turnover_cap", None),
+                    drawdown_threshold=getattr(ctx.risk_config, "drawdown_threshold", None),
+                    de_risk_scale=getattr(ctx.risk_config, "de_risk_scale", 0.0),
+                    max_gross_exposure=getattr(ctx.risk_config, "max_gross_exposure", None),
+                    max_sector_exposure=getattr(ctx.risk_config, "max_sector_exposure", None),
+                    max_region_exposure=getattr(ctx.risk_config, "max_region_exposure", None),
+                    max_fx_exposure=getattr(ctx.risk_config, "max_fx_exposure", None),
+                    base_currency=getattr(ctx.risk_config, "base_currency", "USD"),
+                    missing_security_meta=getattr(ctx.risk_config, "missing_security_meta", "raise"),
+                )
+
+        # Use existing risk controls module with exposure data
         filtered_orders, risk_result = filter_orders_with_risk_controls(
             orders=orders,
             portfolio=None,  # Portfolio snapshot not available in cycle context
             qa_status=None,  # QA status not available in cycle context
+            pre_trade_config=pre_trade_config,
             enable_pre_trade_checks=ctx.enable_risk_controls,
             enable_kill_switch=ctx.enable_risk_controls,
+            current_positions=current_positions_df,
+            prices_latest=prices_latest_df,
+            equity=equity,
+            current_equity=current_equity,
+            peak_equity=peak_equity,
+            security_meta_df=security_meta_df,
         )
         
         return filtered_orders

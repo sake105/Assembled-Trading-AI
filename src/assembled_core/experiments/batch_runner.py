@@ -873,20 +873,23 @@ def collect_backtest_metrics(run_output_dir: Path, freq: str = "1d") -> dict[str
         "end_date": None,
         "strategy": None,
         "params_hash": None,
+        "data_snapshot_id": None,  # D4: Snapshot ID for reproducibility (wird aus Manifest gelesen)
     }
 
-    # Try to load run manifest for strategy/params
+    # Try to load run manifest for strategy/params and data_snapshot_id (D4)
     manifest_path = run_output_dir / "run_manifest.json"
     if manifest_path.exists():
         try:
             with manifest_path.open("r", encoding="utf-8") as f:
                 manifest = json.load(f)
                 metrics_dict["params_hash"] = manifest.get("config_hash")
+                # D4: Read data_snapshot_id from manifest (wenn vorhanden)
+                metrics_dict["data_snapshot_id"] = manifest.get("data_snapshot_id")
                 # Extract strategy from base_args or run_spec
                 base_args = manifest.get("base_args", {})
                 metrics_dict["strategy"] = base_args.get("strategy")
         except Exception:
-            pass  # Ignore manifest errors
+            pass  # Ignore manifest errors (data_snapshot_id bleibt None)
 
     # Look for equity curve files (portfolio_equity takes precedence over equity_curve)
     backtest_dir = run_output_dir / "backtest"
@@ -1043,6 +1046,7 @@ def _write_batch_summary(batch_result: BatchResult, output_dir: Path) -> None:
                 "status",
                 "strategy",
                 "params_hash",
+                "data_snapshot_id",  # D4: Snapshot ID for reproducibility
                 "start_date",
                 "end_date",
                 "sharpe",
@@ -1062,6 +1066,7 @@ def _write_batch_summary(batch_result: BatchResult, output_dir: Path) -> None:
                     r.status,
                     metrics.get("strategy", ""),
                     metrics.get("params_hash", ""),
+                    metrics.get("data_snapshot_id", "") or "",  # D4: Snapshot ID
                     metrics.get("start_date", ""),
                     metrics.get("end_date", ""),
                     f"{metrics.get('sharpe', math.nan):.4f}" if not math.isnan(metrics.get("sharpe", math.nan)) else "",

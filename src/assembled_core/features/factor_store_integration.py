@@ -137,6 +137,7 @@ def build_or_load_factors(
         builder_kwargs = {}
 
     # Compute factors
+    # Note: For incremental updates, prices should already be filtered to last session(s)
     factors_df = builder_fn(prices, **builder_kwargs)
 
     # Ensure required columns are present

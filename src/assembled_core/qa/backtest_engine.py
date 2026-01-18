@@ -68,6 +68,12 @@ import pandas as pd
 
 from src.assembled_core.costs import CostModel, get_default_cost_model
 from src.assembled_core.execution.order_generation import generate_orders_from_targets
+from src.assembled_core.execution.transaction_costs import (
+    SlippageModel,
+    SpreadModel,
+    add_cost_columns_to_trades,
+    commission_model_from_cost_params,
+)
 from src.assembled_core.features.ta_features import (
     add_all_features,
     add_log_returns,
@@ -85,7 +91,6 @@ if TYPE_CHECKING:
     from src.assembled_core.pipeline.trading_cycle import (
         TradingContext,
         TradingCycleResult,
-        run_trading_cycle,
     )
 from src.assembled_core.utils.timing import timed_step
 from src.assembled_core.config.settings import get_settings
@@ -109,8 +114,10 @@ class BacktestResult:
             - sharpe: Sharpe ratio
             - trades: Number of trades executed
             - Additional metrics may be present
-        trades: Optional DataFrame with columns: timestamp, symbol, side, qty, price
-            List of all trades executed during backtest
+        trades: Optional DataFrame with columns: timestamp, symbol, side, qty, price,
+            fill_qty, fill_price, status, remaining_qty, commission_cash, spread_cash,
+            slippage_cash, total_cost_cash
+            List of all trades/fills executed during backtest (conforms to fill model schema)
             Only present if include_trades=True in run_portfolio_backtest
         signals: Optional DataFrame with columns: timestamp, symbol, direction, score
             All signals generated during backtest
@@ -322,6 +329,7 @@ def make_cycle_fn(
             position_sizing_fn=position_sizing_fn,
             write_outputs=False,  # Backtest engine handles outputs
             enable_risk_controls=False,  # Backtest engine doesn't use risk controls (can be added later)
+            security_meta_df=ctx_template.security_meta_df,  # Pass through security metadata
         )
         
         # Run trading cycle
@@ -920,6 +928,78 @@ def run_portfolio_backtest(
             equity = simulate_equity(prices, orders_df, start_capital)
             metrics = compute_metrics(equity)
             metrics["trades"] = len(orders_df)
+
+    # Step 4.5: Apply fill model pipeline (session gate -> limit -> partial)
+    # This must happen BEFORE cost calculation, as costs are based on fill_qty
+    if not orders_df.empty:
+        from src.assembled_core.execution.fill_model_pipeline import (
+            apply_fill_model_pipeline,
+        )
+        
+        # Apply fill model pipeline
+        # For now, use default partial fill model (can be made configurable later)
+        partial_fill_model = None  # Default: full fills (no ADV cap)
+        # TODO: Make partial_fill_model configurable via cost_model or separate parameter
+        
+        orders_df = apply_fill_model_pipeline(
+            orders_df,
+            prices=prices,
+            freq=rebalance_freq,
+            partial_fill_model=partial_fill_model,
+            strict_session_gate=True,
+        )
+    
+    # Step 4.6: Add cost columns to orders (if include_trades=True)
+    # Costs are now computed based on fill_qty (for partial/rejected fills)
+    if include_trades and not orders_df.empty:
+        # Only compute costs if include_costs=True
+        if include_costs:
+            # Create commission model from cost parameters
+            if cost_model is not None:
+                commission_model = commission_model_from_cost_params(
+                    commission_bps=cost_model.commission_bps
+                )
+            else:
+                commission_model = commission_model_from_cost_params(
+                    commission_bps=commission_bps if commission_bps is not None else 0.0
+                )
+            # Create spread model from legacy parameters (if spread_w > 0)
+            spread_model = None
+            if spread_w is not None and spread_w > 0.0:
+                # Default spread model: simple buckets based on ADV
+                # For now, use fallback spread_bps = spread_w (legacy compatibility)
+                spread_model = SpreadModel(
+                    adv_window=20,
+                    buckets=None,  # No buckets: use fallback for all
+                    fallback_spread_bps=spread_w * 100.0,  # Convert spread_w (0.25 = 25 bps) to bps
+                )
+            
+            # Create slippage model from legacy parameters (if impact_w > 0)
+            slippage_model = None
+            if impact_w is not None and impact_w > 0.0:
+                # Default slippage model: volatility-based
+                # Map impact_w to slippage model (impact_w is a weight, convert to reasonable slippage)
+                slippage_model = SlippageModel(
+                    vol_window=20,
+                    k=impact_w,  # Use impact_w as scaling factor
+                    min_bps=0.0,
+                    max_bps=50.0,
+                    fallback_slippage_bps=impact_w * 100.0,  # Convert to bps
+                )
+            
+            orders_df = add_cost_columns_to_trades(
+                orders_df,
+                commission_model=commission_model,
+                spread_model=spread_model,
+                slippage_model=slippage_model,
+                prices=prices if include_trades else None,
+            )
+        else:
+            # Costs disabled: add cost columns with 0.0 values (for schema stability)
+            orders_df["commission_cash"] = 0.0
+            orders_df["spread_cash"] = 0.0
+            orders_df["slippage_cash"] = 0.0
+            orders_df["total_cost_cash"] = 0.0
 
     # Step 5: Enhance equity DataFrame with daily_return
     with nullcontext():

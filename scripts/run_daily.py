@@ -41,6 +41,10 @@ from src.assembled_core.data.prices_ingest import (
 )
 from src.assembled_core.execution.safe_bridge import write_safe_orders_csv
 from src.assembled_core.logging_utils import setup_logging
+from src.assembled_core.data.security_master import (
+    get_default_security_master_path,
+    load_security_master,
+)
 from src.assembled_core.pipeline.trading_cycle import (
     TradingContext,
     run_trading_cycle,
@@ -382,6 +386,82 @@ def run_daily_eod(
         logger.warning(f"QC check failed: {e} - proceeding without QC")
         logger.debug(f"QC error details: {e}", exc_info=True)
 
+    # Step 3.6: Compute and store factors (incremental update) (Sprint 5 / F4)
+    # Daily pipeline: compute features for last session and store in factor store
+    if use_factor_store and not prices.empty:
+        try:
+            from src.assembled_core.data.factor_store import (
+                compute_universe_key,
+                store_factors_parquet,
+            )
+            from src.assembled_core.features.incremental_updates import (
+                compute_only_last_session,
+            )
+            from src.assembled_core.features.ta_features import add_all_features
+            
+            logger.info("Step 2.6: Computing and storing factors (incremental update)...")
+            
+            # Determine target timestamp for incremental update
+            target_timestamp_for_factors = pd.Timestamp(target_date) if isinstance(target_date, datetime) else target_date
+            try:
+                from src.assembled_core.data.calendar import normalize_as_of_to_session_close
+                target_timestamp_for_factors = normalize_as_of_to_session_close(target_timestamp_for_factors)
+            except ImportError:
+                pass  # Continue without normalization if exchange_calendars not installed
+            
+            # Compute universe key
+            universe_symbols_for_factors = sorted(prices["symbol"].unique().tolist())
+            universe_key = compute_universe_key(symbols=universe_symbols_for_factors)
+            
+            # Determine factor store root
+            factor_store_root_path = Path(factor_store_root) if factor_store_root else None
+            if factor_store_root_path is None:
+                from src.assembled_core.data.factor_store import get_factor_store_root
+                factor_store_root_path = get_factor_store_root()
+            
+            # Compute features for last session only (incremental)
+            # Note: For features requiring history (e.g., MA_200), we need enough history
+            # In practice, use compute_last_N_sessions with window_days >= max(ma_windows)
+            # For this daily run, we compute with full history but only store last session
+            has_ohlc = all(col in prices.columns for col in ["high", "low", "open"])
+            if has_ohlc:
+                # Compute with full history to ensure correct values, then filter to last session
+                factors_full = add_all_features(prices.copy())
+                factors_last_session = factors_full[
+                    factors_full["timestamp"] == target_timestamp_for_factors
+                ].copy()
+            else:
+                # Fallback: compute only last session (may have NaN for features requiring history)
+                factors_last_session = compute_only_last_session(
+                    prices=prices,
+                    builder_fn=add_all_features,
+                    as_of=target_timestamp_for_factors,
+                )
+            
+            if not factors_last_session.empty:
+                # Store factors (append mode for incremental update)
+                store_factors_parquet(
+                    df=factors_last_session,
+                    group=factor_group,
+                    freq="1d",
+                    universe=universe_key,
+                    mode="append",  # Incremental update
+                    root=factor_store_root_path,
+                    metadata={
+                        "source": "run_daily",
+                        "target_date": target_date.strftime("%Y-%m-%d") if isinstance(target_date, datetime) else str(target_date),
+                    },
+                )
+                logger.info(
+                    f"Stored factors for last session: {len(factors_last_session)} rows "
+                    f"(group={factor_group}, universe={universe_key})"
+                )
+            else:
+                logger.warning("No factors computed for last session (empty result)")
+        except Exception as e:
+            logger.warning(f"Failed to compute/store factors: {e} - proceeding without factor store")
+            logger.debug(f"Factor store error details: {e}", exc_info=True)
+
     # Step 4-7: Run unified trading cycle
     logger.info("Step 3: Running trading cycle (features/signals/positions/orders/risk)...")
     try:
@@ -419,15 +499,31 @@ def run_daily_eod(
                     signals, total_capital=capital, top_n=top_n, min_score=min_score
                 )
             
+            # Load security master (if available) for sector/region/FX limits
+            security_meta_df = None
+            try:
+                security_master_path = get_default_security_master_path()
+                if security_master_path.exists():
+                    security_meta_df = load_security_master(security_master_path)
+                    logger.info(f"Loaded security master: {len(security_meta_df)} symbols from {security_master_path}")
+                else:
+                    logger.debug(f"Security master not found at {security_master_path} - group exposure limits will be skipped")
+            except Exception as e:
+                logger.warning(f"Failed to load security master: {e} - group exposure limits will be skipped")
+                logger.debug(f"Security master error details: {e}", exc_info=True)
+            
             # Build TradingContext
             ctx = TradingContext(
-                prices=prices,  # Full prices (will be filtered by trading_cycle)
+                prices=prices,
+                security_meta_df=security_meta_df,  # Full prices (will be filtered by trading_cycle)
                 as_of=target_timestamp,
                 freq="1d",
                 universe=universe_symbols if universe_symbols else None,
                 use_factor_store=use_factor_store,
                 factor_store_root=Path(factor_store_root) if factor_store_root else None,
                 factor_group=factor_group,
+                qa_block_trading=qa_block_trading,  # QA Gate (Sprint 3 / D2)
+                qa_block_reason=qa_block_reason,
                 feature_config={
                     "ma_windows": (ma_fast, ma_slow),
                     "atr_window": 14,

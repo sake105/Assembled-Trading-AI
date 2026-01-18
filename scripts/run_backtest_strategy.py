@@ -42,6 +42,10 @@ from src.assembled_core.qa.backtest_engine import (
     make_cycle_fn,
     run_portfolio_backtest,
 )
+from src.assembled_core.data.security_master import (
+    get_default_security_master_path,
+    load_security_master,
+)
 from src.assembled_core.pipeline.trading_cycle import TradingContext
 from src.assembled_core.qa.metrics import compute_all_metrics
 from src.assembled_core.qa.qa_gates import QAResult, evaluate_all_gates
@@ -392,7 +396,7 @@ Examples:
         "--no-costs",
         action="store_false",
         dest="with_costs",
-        help="Disable transaction costs (use cost-free simulation)",
+        help="[DEBUG ONLY] Disable transaction costs (use cost-free simulation). NOT for normal use - costs are default-on for realistic backtests.",
     )
 
     parser.add_argument(
@@ -640,7 +644,10 @@ def load_price_data(
         from src.assembled_core.data.data_source import get_price_data_source
 
         settings = get_settings()
-
+        
+        # Hard Gate: Backtests must use local data only (Sprint 3 / D3)
+        # External fetches (yahoo, finnhub, etc.) are forbidden in backtest mode
+        
         # Determine symbols (priority: --symbols > --symbols-file > --universe > default)
         symbols = None
 
@@ -700,10 +707,12 @@ def load_price_data(
         end_date = getattr(args, "end_date", None) or "today"
 
         # Get data source
+        # Hard Gate: Backtests must use local data only (Sprint 3 / D3)
         price_source = get_price_data_source(
             settings=settings,
             data_source=args.data_source,
             price_file=str(args.price_file) if args.price_file else None,
+            allow_external_fetch=False,  # Backtests forbid external fetches
         )
 
         logger.info(f"Loading prices from {args.data_source} source...")
@@ -1219,60 +1228,116 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                     # Fallback to default
                     factor_store_root = get_factor_store_root()
             
-            if use_factor_store:
-                # Use factor store (build_or_load_factors)
-                logger.info(f"Using factor store: group={factor_group}, root={factor_store_root}")
-                universe_key = compute_universe_key(symbols=universe_symbols if universe_symbols else sorted(prices["symbol"].unique().tolist()))
-                start_date = prices["timestamp"].min() if not prices.empty else None
-                end_date = prices["timestamp"].max() if not prices.empty else None
-                
-                # Prepare builder_kwargs
-                if has_ohlc:
-                    builder_kwargs = {
-                        "ma_windows": feature_config.get("ma_windows", (20, 50, 200)) if feature_config else (20, 50, 200),
-                        "atr_window": feature_config.get("atr_window", 14) if feature_config else 14,
-                        "rsi_window": feature_config.get("rsi_window", 14) if feature_config else 14,
-                        "include_rsi": feature_config.get("include_rsi", True) if feature_config else True,
-                    }
-                else:
-                    builder_kwargs = {
-                        "windows": feature_config.get("ma_windows", (20, 50, 200)) if feature_config else (20, 50, 200),
-                    }
-                
-                precomputed_prices_with_features = build_or_load_factors(
-                    prices=prices,
-                    factor_group=factor_group,
+            # Sprint 5 / F4: Prefer factor store (even if use_factor_store=False, try to load first)
+            # Hard Gate: No external fetches in backtest mode (local-only)
+            universe_key = compute_universe_key(symbols=universe_symbols if universe_symbols else sorted(prices["symbol"].unique().tolist()))
+            start_date = prices["timestamp"].min() if not prices.empty else None
+            end_date = prices["timestamp"].max() if not prices.empty else None
+            
+            # Try to load from factor store first (preferred path)
+            from src.assembled_core.data.factor_store import load_factors_parquet
+            precomputed_prices_with_features = None
+            
+            try:
+                factors_loaded = load_factors_parquet(
+                    group=factor_group,
                     freq=args.freq,
-                    universe_key=universe_key,
-                    start_date=start_date,
-                    end_date=end_date,
-                    as_of=None,  # No PIT cutoff here, we want full range
-                    force_rebuild=False,
-                    builder_fn=add_all_features if has_ohlc else None,
-                    builder_kwargs=builder_kwargs,
-                    factors_root=factor_store_root,
+                    universe=universe_key,
+                    start=start_date,
+                    end=end_date,
+                    root=factor_store_root,
                 )
-                logger.info(f"Loaded/computed features from factor store: {len(precomputed_prices_with_features)} rows")
-            else:
-                # Direct computation: add features to prices (no factor store)
-                logger.info("Computing features directly (factor store disabled)")
-                if has_ohlc:
-                    precomputed_prices_with_features = add_all_features(
-                        prices.copy(),
-                        ma_windows=feature_config.get("ma_windows", (20, 50, 200)) if feature_config else (20, 50, 200),
-                        atr_window=feature_config.get("atr_window", 14) if feature_config else 14,
-                        rsi_window=feature_config.get("rsi_window", 14) if feature_config else 14,
-                        include_rsi=feature_config.get("include_rsi", True) if feature_config else True,
+                
+                if factors_loaded is not None and not factors_loaded.empty:
+                    # Factor store hit: use loaded factors
+                    logger.info(
+                        f"[factor_store_hit] Loaded factors from store: {len(factors_loaded)} rows "
+                        f"(group={factor_group}, universe={universe_key})"
                     )
+                    # Merge with prices (factors may have additional columns)
+                    # Use prices as base and merge factors on (timestamp, symbol)
+                    precomputed_prices_with_features = prices.merge(
+                        factors_loaded,
+                        on=["timestamp", "symbol"],
+                        how="left",
+                        suffixes=("", "_factor"),
+                    )
+                    # Remove duplicate columns (keep prices columns, add factor columns)
+                    factor_cols = [col for col in factors_loaded.columns if col not in ["timestamp", "symbol", "date"]]
+                    for col in factor_cols:
+                        if f"{col}_factor" in precomputed_prices_with_features.columns:
+                            precomputed_prices_with_features[col] = precomputed_prices_with_features[f"{col}_factor"]
+                            precomputed_prices_with_features = precomputed_prices_with_features.drop(columns=[f"{col}_factor"])
                 else:
-                    # If OHLC not available, only compute features that don't need them
-                    from src.assembled_core.features.ta_features import add_log_returns, add_moving_averages
-                    precomputed_prices_with_features = add_log_returns(prices.copy())
-                    precomputed_prices_with_features = add_moving_averages(
-                        precomputed_prices_with_features,
-                        windows=feature_config.get("ma_windows", (20, 50, 200)) if feature_config else (20, 50, 200),
+                    logger.debug(f"[factor_store_miss] No factors found in store (group={factor_group}, universe={universe_key})")
+            except Exception as e:
+                logger.debug(f"[factor_store_miss] Failed to load from factor store: {e}")
+            
+            # Fallback: compute features directly (if factor store miss or use_factor_store=True with force_rebuild)
+            if precomputed_prices_with_features is None or precomputed_prices_with_features.empty:
+                if use_factor_store:
+                    # Use build_or_load_factors (will compute and store)
+                    logger.info(f"[factor_store_build] Computing and storing factors: group={factor_group}, root={factor_store_root}")
+                    # Prepare builder_kwargs
+                    if has_ohlc:
+                        builder_kwargs = {
+                            "ma_windows": feature_config.get("ma_windows", (20, 50, 200)) if feature_config else (20, 50, 200),
+                            "atr_window": feature_config.get("atr_window", 14) if feature_config else 14,
+                            "rsi_window": feature_config.get("rsi_window", 14) if feature_config else 14,
+                            "include_rsi": feature_config.get("include_rsi", True) if feature_config else True,
+                        }
+                    else:
+                        builder_kwargs = {
+                            "windows": feature_config.get("ma_windows", (20, 50, 200)) if feature_config else (20, 50, 200),
+                        }
+                    
+                    precomputed_prices_with_features = build_or_load_factors(
+                        prices=prices,
+                        factor_group=factor_group,
+                        freq=args.freq,
+                        universe_key=universe_key,
+                        start_date=start_date,
+                        end_date=end_date,
+                        as_of=None,  # No PIT cutoff here, we want full range
+                        force_rebuild=False,
+                        builder_fn=add_all_features if has_ohlc else None,
+                        builder_kwargs=builder_kwargs,
+                        factors_root=factor_store_root,
                     )
-                logger.info(f"Computed features directly: {len(precomputed_prices_with_features)} rows")
+                    logger.info(f"[factor_store_build] Computed and stored features: {len(precomputed_prices_with_features)} rows")
+                else:
+                    # Direct computation: add features to prices (no factor store, local-only)
+                    logger.info("[fallback] Computing features directly (factor store not available, local-only)")
+                    if has_ohlc:
+                        precomputed_prices_with_features = add_all_features(
+                            prices.copy(),
+                            ma_windows=feature_config.get("ma_windows", (20, 50, 200)) if feature_config else (20, 50, 200),
+                            atr_window=feature_config.get("atr_window", 14) if feature_config else 14,
+                            rsi_window=feature_config.get("rsi_window", 14) if feature_config else 14,
+                            include_rsi=feature_config.get("include_rsi", True) if feature_config else True,
+                        )
+                    else:
+                        # If OHLC not available, only compute features that don't need them
+                        from src.assembled_core.features.ta_features import add_log_returns, add_moving_averages
+                        precomputed_prices_with_features = add_log_returns(prices.copy())
+                        precomputed_prices_with_features = add_moving_averages(
+                            precomputed_prices_with_features,
+                            windows=feature_config.get("ma_windows", (20, 50, 200)) if feature_config else (20, 50, 200),
+                        )
+                    logger.info(f"[fallback] Computed features directly: {len(precomputed_prices_with_features)} rows")
+        
+        # Load security master (if available) for sector/region/FX limits
+        security_meta_df = None
+        try:
+            security_master_path = get_default_security_master_path()
+            if security_master_path.exists():
+                security_meta_df = load_security_master(security_master_path)
+                logger.info(f"Loaded security master: {len(security_meta_df)} symbols from {security_master_path}")
+            else:
+                logger.debug(f"Security master not found at {security_master_path} - group exposure limits will be skipped")
+        except Exception as e:
+            logger.warning(f"Failed to load security master: {e} - group exposure limits will be skipped")
+            logger.debug(f"Security master error details: {e}", exc_info=True)
         
         # Create TradingContext template
         # Note: use_factor_store is set to False here because features are already precomputed
@@ -1289,6 +1354,7 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             precomputed_prices_with_features=precomputed_prices_with_features,  # Set precomputed features
             write_outputs=False,  # Backtest engine handles outputs
             enable_risk_controls=False,  # Backtest engine doesn't use risk controls
+            security_meta_df=security_meta_df,  # Pass security metadata for group exposure limits
             qa_block_trading=qa_block_trading,  # QA Gate (Sprint 3 / D2)
             qa_block_reason=qa_block_reason,
         )
@@ -1335,6 +1401,25 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         logger.info(f"Backtest completed: {len(result.equity)} equity points")
         if result.trades is not None and not result.trades.empty:
             logger.info(f"Generated {len(result.trades)} trades")
+        
+        # Write TCA Report (always, even if trades are empty)
+        logger.info("")
+        logger.info("Writing TCA report...")
+        from src.assembled_core.qa.tca import build_tca_report, write_tca_report_csv
+        
+        # Build TCA report from trades (even if empty, for schema stability)
+        tca_report = build_tca_report(
+            trades_df=result.trades if result.trades is not None and not result.trades.empty else pd.DataFrame(columns=[
+                "timestamp", "symbol", "qty", "price", "commission_cash", "spread_cash", "slippage_cash", "total_cost_cash"
+            ]),
+            freq=args.freq,
+            strategy_name=args.strategy,
+        )
+        
+        # Write TCA report to output directory
+        tca_report_path = output_dir / f"tca_report_{args.freq}.csv"
+        write_tca_report_csv(tca_report, tca_report_path)
+        logger.info(f"TCA report written: {tca_report_path}")
 
         # Compute comprehensive metrics using qa.metrics
         logger.info("")
@@ -1349,14 +1434,95 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             freq=args.freq,
             risk_free_rate=0.0,
         )
+        
+        # Compute Gross vs Net metrics if costs are enabled
+        if args.with_costs and result.trades is not None and not result.trades.empty:
+            # Equity is "net" (with costs), compute "gross" by adding cumulative costs
+            if "total_cost_cash" in result.trades.columns:
+                # Aggregate cumulative costs per timestamp
+                cumulative_costs = result.trades.groupby("timestamp")["total_cost_cash"].sum().cumsum()
+                # Merge with equity to add gross equity
+                equity_with_gross = result.equity.merge(
+                    cumulative_costs.reset_index(),
+                    on="timestamp",
+                    how="left",
+                    suffixes=("", "_costs"),
+                )
+                equity_with_gross["total_cost_cash"] = equity_with_gross["total_cost_cash"].fillna(0.0)
+                equity_with_gross["equity_gross"] = equity_with_gross["equity"] + equity_with_gross["total_cost_cash"]
+                
+                # Compute gross metrics
+                gross_equity_df = equity_with_gross[["timestamp", "equity_gross"]].copy()
+                gross_equity_df = gross_equity_df.rename(columns={"equity_gross": "equity"})
+                gross_metrics = compute_all_metrics(
+                    equity=gross_equity_df,
+                    trades=result.trades,
+                    start_capital=args.start_capital,
+                    freq=args.freq,
+                    risk_free_rate=0.0,
+                )
+                
+                # Add gross metrics to metrics dict (for reporting)
+                metrics_dict = metrics.__dict__.copy()
+                metrics_dict["total_return_gross"] = gross_metrics.total_return
+                metrics_dict["final_pf_gross"] = gross_metrics.final_pf
+                metrics_dict["cagr_gross"] = gross_metrics.cagr
+                metrics_dict["sharpe_ratio_gross"] = gross_metrics.sharpe_ratio
+                
+                # Total cost breakdown
+                total_cost = float(result.trades["total_cost_cash"].sum())
+                total_commission = float(result.trades["commission_cash"].sum()) if "commission_cash" in result.trades.columns else 0.0
+                total_spread = float(result.trades["spread_cash"].sum()) if "spread_cash" in result.trades.columns else 0.0
+                total_slippage = float(result.trades["slippage_cash"].sum()) if "slippage_cash" in result.trades.columns else 0.0
+                
+                metrics_dict["total_cost_cash"] = total_cost
+                metrics_dict["commission_cash"] = total_commission
+                metrics_dict["spread_cash"] = total_spread
+                metrics_dict["slippage_cash"] = total_slippage
+                
+                # Store in metrics object (as dict for now, can be extended later)
+                # Use __dict__ to add fields dynamically (PerformanceMetrics is a dataclass)
+                metrics.__dict__["gross_metrics"] = gross_metrics
+                metrics.__dict__["cost_breakdown"] = {
+                    "total_cost_cash": total_cost,
+                    "commission_cash": total_commission,
+                    "spread_cash": total_spread,
+                    "slippage_cash": total_slippage,
+                }
+            else:
+                # No cost columns in trades (should not happen if costs enabled)
+                logger.warning("Costs enabled but no total_cost_cash column in trades")
+                metrics.__dict__["gross_metrics"] = None
+                metrics.__dict__["cost_breakdown"] = None
+        else:
+            # No costs or no trades: metrics are already "gross" (no costs to add back)
+            metrics.__dict__["gross_metrics"] = None
+            metrics.__dict__["cost_breakdown"] = None
 
-        logger.info(f"Total Return: {metrics.total_return:.2%}")
-        logger.info(f"CAGR: {metrics.cagr:.2%}" if metrics.cagr else "CAGR: N/A")
-        logger.info(
-            f"Sharpe Ratio: {metrics.sharpe_ratio:.4f}"
-            if metrics.sharpe_ratio
-            else "Sharpe Ratio: N/A"
-        )
+        # Log Gross vs Net metrics
+        if hasattr(metrics, "gross_metrics") and metrics.gross_metrics is not None:
+            logger.info("=== GROSS vs NET PERFORMANCE ===")
+            logger.info(f"Gross Return: {metrics.gross_metrics.total_return:.2%} | Net Return: {metrics.total_return:.2%}")
+            logger.info(f"Gross PF: {metrics.gross_metrics.final_pf:.4f} | Net PF: {metrics.final_pf:.4f}")
+            if metrics.gross_metrics.cagr and metrics.cagr:
+                logger.info(f"Gross CAGR: {metrics.gross_metrics.cagr:.2%} | Net CAGR: {metrics.cagr:.2%}")
+            if metrics.gross_metrics.sharpe_ratio and metrics.sharpe_ratio:
+                logger.info(f"Gross Sharpe: {metrics.gross_metrics.sharpe_ratio:.4f} | Net Sharpe: {metrics.sharpe_ratio:.4f}")
+            if hasattr(metrics, "cost_breakdown") and metrics.cost_breakdown:
+                logger.info(f"Total Costs: ${metrics.cost_breakdown['total_cost_cash']:.2f} "
+                          f"(Commission: ${metrics.cost_breakdown['commission_cash']:.2f}, "
+                          f"Spread: ${metrics.cost_breakdown['spread_cash']:.2f}, "
+                          f"Slippage: ${metrics.cost_breakdown['slippage_cash']:.2f})")
+            logger.info("=" * 60)
+        else:
+            logger.info(f"Total Return: {metrics.total_return:.2%}")
+            logger.info(f"CAGR: {metrics.cagr:.2%}" if metrics.cagr else "CAGR: N/A")
+            logger.info(
+                f"Sharpe Ratio: {metrics.sharpe_ratio:.4f}"
+                if metrics.sharpe_ratio
+                else "Sharpe Ratio: N/A"
+            )
+        
         logger.info(f"Max Drawdown: {metrics.max_drawdown_pct:.2f}%")
         logger.info(
             f"Total Trades: {metrics.total_trades if metrics.total_trades else 0}"
@@ -1434,10 +1600,19 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         logger.info("=" * 60)
         logger.info("Backtest Summary")
         logger.info("=" * 60)
-        logger.info(f"Final PF: {metrics.final_pf:.4f}")
-        logger.info(f"Total Return: {metrics.total_return:.2%}")
-        if metrics.cagr:
-            logger.info(f"CAGR: {metrics.cagr:.2%}")
+        # Summary with Gross vs Net
+        if hasattr(metrics, "gross_metrics") and metrics.gross_metrics is not None:
+            logger.info(f"Gross PF: {metrics.gross_metrics.final_pf:.4f} | Net PF: {metrics.final_pf:.4f}")
+            logger.info(f"Gross Return: {metrics.gross_metrics.total_return:.2%} | Net Return: {metrics.total_return:.2%}")
+            if metrics.gross_metrics.cagr and metrics.cagr:
+                logger.info(f"Gross CAGR: {metrics.gross_metrics.cagr:.2%} | Net CAGR: {metrics.cagr:.2%}")
+            if hasattr(metrics, "cost_breakdown") and metrics.cost_breakdown:
+                logger.info(f"Total Costs: ${metrics.cost_breakdown['total_cost_cash']:.2f}")
+        else:
+            logger.info(f"Final PF: {metrics.final_pf:.4f}")
+            logger.info(f"Total Return: {metrics.total_return:.2%}")
+            if metrics.cagr:
+                logger.info(f"CAGR: {metrics.cagr:.2%}")
         if metrics.sharpe_ratio:
             logger.info(f"Sharpe Ratio: {metrics.sharpe_ratio:.4f}")
         logger.info(f"Max Drawdown: {metrics.max_drawdown_pct:.2f}%")

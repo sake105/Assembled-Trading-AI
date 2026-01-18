@@ -72,6 +72,13 @@ def filter_orders_with_risk_controls(
     pre_trade_config: PreTradeConfig | None = None,
     enable_pre_trade_checks: bool = True,
     enable_kill_switch: bool = True,
+    *,
+    current_positions: pd.DataFrame | None = None,
+    prices_latest: pd.DataFrame | None = None,
+    equity: float | None = None,
+    current_equity: float | None = None,
+    peak_equity: float | None = None,
+    security_meta_df: pd.DataFrame | None = None,
 ) -> tuple[pd.DataFrame, RiskControlResult]:
     """Apply all risk controls to orders and return filtered orders.
 
@@ -123,6 +130,12 @@ def filter_orders_with_risk_controls(
             qa_status=qa_status,
             risk_summary=risk_summary,
             config=pre_trade_config,
+            current_positions=current_positions,
+            prices_latest=prices_latest,
+            equity=equity,
+            current_equity=current_equity,
+            peak_equity=peak_equity,
+            security_meta_df=security_meta_df,
         )
 
         if not pre_trade_result.is_ok:

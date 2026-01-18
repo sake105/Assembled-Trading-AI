@@ -9,6 +9,12 @@ import numpy as np
 import pandas as pd
 
 from src.assembled_core.config import OUTPUT_DIR
+from src.assembled_core.execution.transaction_costs import (
+    SlippageModel,
+    SpreadModel,
+    add_cost_columns_to_trades,
+    commission_model_from_cost_params,
+)
 
 
 def simulate_with_costs(
@@ -18,6 +24,9 @@ def simulate_with_costs(
     spread_w: float,
     impact_w: float,
     freq: str,
+    prices: pd.DataFrame | None = None,
+    spread_model: SpreadModel | None = None,
+    slippage_model: SlippageModel | None = None,
 ) -> tuple[pd.DataFrame, dict[str, float | int]]:
     """Simulate portfolio equity with transaction costs.
 
@@ -49,32 +58,98 @@ def simulate_with_costs(
     equity = np.full(len(tl), start_capital, dtype=np.float64)
 
     # primitive, aber reproduzierbare Kostenmodellierung:
-    # - Kommission in bps * notional-per-trade
+    # - Kommission in bps * notional-per-trade (now via commission_cash column)
     # - bid/ask via spread_w in bp Äquivalent
     # - 'impact' als zusätzl. Preisabschlag in bp
     # Wir haben keinen Notional im CSV; wir modellieren 1x Preis * qty als notional surrogate.
-    k = commission_bps * 1e-4
     s = spread_w * 1e-4
     im = impact_w * 1e-4
+
+    # Apply fill model pipeline (session gate -> limit -> partial)
+    # This must happen BEFORE cost calculation, as costs are based on fill_qty
+    if not orders.empty and prices is not None:
+        from src.assembled_core.execution.fill_model_pipeline import (
+            apply_fill_model_pipeline,
+        )
+        
+        # Apply fill model pipeline
+        # For now, use default partial fill model (can be made configurable later)
+        partial_fill_model = None  # Default: full fills (no ADV cap)
+        # TODO: Make partial_fill_model configurable via cost_model or separate parameter
+        
+        orders = apply_fill_model_pipeline(
+            orders,
+            prices=prices,
+            freq=freq,
+            partial_fill_model=partial_fill_model,
+            strict_session_gate=True,
+        )
+    
+    # Add cost columns to orders (commission_cash, spread_cash, slippage_cash, total_cost_cash)
+    # Costs are now computed based on fill_qty (for partial/rejected fills)
+    # Create commission model from legacy parameters
+    commission_model = commission_model_from_cost_params(commission_bps=commission_bps)
+    
+    # Create slippage model from legacy parameters (if impact_w > 0)
+    # For now, map impact_w to slippage model (can be refined later)
+    if slippage_model is None and impact_w > 0.0:
+        # Map impact_w to slippage model (impact_w is a weight, convert to reasonable slippage)
+        # Default: k=1.0, min_bps=0.0, max_bps=50.0, fallback=impact_w*100 (convert to bps)
+        slippage_model = SlippageModel(
+            vol_window=20,
+            k=impact_w,  # Use impact_w as scaling factor
+            min_bps=0.0,
+            max_bps=50.0,
+            fallback_slippage_bps=impact_w * 100.0,  # Convert to bps
+        )
+    
+    orders = add_cost_columns_to_trades(
+        orders,
+        commission_model=commission_model,
+        spread_model=spread_model,
+        slippage_model=slippage_model,
+        prices=prices,
+    )
 
     # Gruppiere Orders je Zeitstempel, summiere Cash-Delta
     orders = orders.copy()
     orders["sign"] = np.where(
         orders["side"].eq("BUY"), +1.0, np.where(orders["side"].eq("SELL"), -1.0, 0.0)
     )
-    orders["notional"] = (orders["qty"].abs() * orders["price"].abs()).astype(
-        np.float64
+    # Notional is now computed in add_cost_columns_to_trades based on fill_qty
+    # For legacy compatibility, keep notional column (but it's not used for cash_delta)
+    if "fill_qty" in orders.columns and "fill_price" in orders.columns:
+        orders["notional"] = (orders["fill_qty"].abs() * orders["fill_price"].abs()).astype(np.float64)
+    else:
+        orders["notional"] = (orders["qty"].abs() * orders["price"].abs()).astype(np.float64)
+
+    # Update spread_cash and slippage_cash (for legacy compatibility)
+    # Spread_cash and slippage_cash are already computed in add_cost_columns_to_trades()
+    # if spread_model/slippage_model are provided. Otherwise, use legacy calculation.
+    if spread_model is None:
+        # Legacy: use spread_w for spread_cash
+        orders["spread_cash"] = orders["notional"] * s
+    # Otherwise, spread_cash is already set from add_cost_columns_to_trades()
+    
+    if slippage_model is None:
+        # Legacy: use impact_w for slippage_cash
+        orders["slippage_cash"] = orders["notional"] * im
+    # Otherwise, slippage_cash is already set from add_cost_columns_to_trades()
+    
+    orders["total_cost_cash"] = (
+        orders["commission_cash"] + orders["spread_cash"] + orders["slippage_cash"]
     )
 
     # effektiver Preisaufschlag/-abschlag
     # BUY zahlt: price * (1 + s + im) + kommission
     # SELL erhält: price * (1 - s - im) - kommission
+    # Use total_cost_cash instead of separate k * notional
     orders["cash_delta"] = np.where(
         orders["sign"] > 0,
-        -(orders["qty"] * orders["price"] * (1.0 + s + im) + k * orders["notional"]),
+        -(orders["qty"] * orders["price"] * (1.0 + s + im) + orders["total_cost_cash"]),
         +(
             orders["qty"].abs() * orders["price"] * (1.0 - s - im)
-            - k * orders["notional"]
+            - orders["total_cost_cash"]
         ),
     )
 

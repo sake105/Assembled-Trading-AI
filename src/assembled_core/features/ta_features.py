@@ -18,7 +18,8 @@ import pandas as pd
 def add_log_returns(
     df: pd.DataFrame,
     price_col: str = "close",
-    out_col: str = "log_return",
+    out_col: str | None = None,
+    use_namespace: bool = True,
 ) -> pd.DataFrame:
     """
     Füge logarithmische Returns pro Symbol hinzu.
@@ -28,8 +29,14 @@ def add_log_returns(
     - Spalte `price_col` (z.B. 'close')
     - Optional: 'timestamp' für zeitliche Sortierung
 
+    Args:
+        df: DataFrame mit Spalten: symbol, price_col
+        price_col: Name der Preis-Spalte (default: "close")
+        out_col: Optional output column name (default: "ta_log_return_v1" if use_namespace, else "log_return")
+        use_namespace: If True, use namespaced feature name (default: True)
+
     Rückgabe:
-    - DataFrame mit neuer Spalte `out_col`
+    - DataFrame mit neuer Spalte (namespaced: "ta_log_return_v1" oder legacy: "log_return")
     """
     if "symbol" not in df.columns:
         raise KeyError("symbol")
@@ -37,6 +44,10 @@ def add_log_returns(
         raise KeyError(
             f"Price column '{price_col}' not found. Available columns: {list(df.columns)}"
         )
+
+    # Use namespaced name by default (Sprint 5 / F2)
+    if out_col is None:
+        out_col = "ta_log_return_v1" if use_namespace else "log_return"
 
     result = df.copy()
 
@@ -56,11 +67,18 @@ def add_log_returns(
 
     result[out_col] = log_ret.astype("float64")
 
+    # Compatibility: also add legacy name if using namespace (deprecation)
+    if use_namespace and out_col == "ta_log_return_v1" and "log_return" not in result.columns:
+        result["log_return"] = result[out_col]
+
     return result
 
 
 def add_moving_averages(
-    df: pd.DataFrame, windows: tuple[int, ...] = (20, 50, 200), price_col: str = "close"
+    df: pd.DataFrame,
+    windows: tuple[int, ...] = (20, 50, 200),
+    price_col: str = "close",
+    use_namespace: bool = True,
 ) -> pd.DataFrame:
     """Add Simple Moving Averages (SMA) to price DataFrame.
 
@@ -70,9 +88,10 @@ def add_moving_averages(
         df: DataFrame with columns: timestamp, symbol, and price_col
         windows: Tuple of window sizes (default: (20, 50, 200))
         price_col: Column name for price data (default: "close")
+        use_namespace: If True, use namespaced feature names (default: True)
 
     Returns:
-        DataFrame with additional columns: ma_{window} for each window
+        DataFrame with additional columns: ta_ma_{window}_v1 (or ma_{window} if use_namespace=False)
         Sorted by symbol, then timestamp
 
     Raises:
@@ -94,7 +113,8 @@ def add_moving_averages(
 
     # Compute SMA for each window per symbol
     for window in windows:
-        col_name = f"ma_{window}"
+        # Use namespaced name by default (Sprint 5 / F2)
+        col_name = f"ta_ma_{window}_v1" if use_namespace else f"ma_{window}"
         if "symbol" in df.columns:
             df[col_name] = (
                 df.groupby("symbol", group_keys=False)[price_col]
@@ -104,6 +124,11 @@ def add_moving_averages(
             )
         else:
             df[col_name] = df[price_col].rolling(window=window, min_periods=1).mean()
+        
+        # Compatibility: also add legacy name if using namespace (deprecation)
+        if use_namespace and col_name.startswith("ta_") and f"ma_{window}" not in df.columns:
+            legacy_name = col_name.replace("ta_", "").replace("_v1", "")
+            df[legacy_name] = df[col_name]
 
     return df
 
@@ -162,7 +187,14 @@ def add_atr(
     # zurück auf ursprünglichen Index
     atr = atr.reindex(result.index)
 
-    result[f"atr_{window}"] = atr.astype("float64")
+    # Use namespaced name by default (Sprint 5 / F2)
+    col_name = f"ta_atr_{window}_v1"
+    result[col_name] = atr.astype("float64")
+    
+    # Compatibility: also add legacy name (deprecation)
+    legacy_name = f"atr_{window}"
+    if legacy_name not in result.columns:
+        result[legacy_name] = result[col_name]
 
     return result
 
@@ -223,7 +255,14 @@ def add_rsi(
 
     rsi = rsi.reindex(result.index)
 
-    result[f"rsi_{window}"] = rsi.astype("float64")
+    # Use namespaced name by default (Sprint 5 / F2)
+    col_name = f"ta_rsi_{window}_v1"
+    result[col_name] = rsi.astype("float64")
+    
+    # Compatibility: also add legacy name (deprecation)
+    legacy_name = f"rsi_{window}"
+    if legacy_name not in result.columns:
+        result[legacy_name] = result[col_name]
 
     return result
 
@@ -234,6 +273,7 @@ def add_all_features(
     atr_window: int = 14,
     rsi_window: int = 14,
     include_rsi: bool = True,
+    use_namespace: bool = True,
 ) -> pd.DataFrame:
     """Add all technical analysis features to price DataFrame.
 
@@ -245,13 +285,15 @@ def add_all_features(
         atr_window: ATR window size (default: 14)
         rsi_window: RSI window size (default: 14)
         include_rsi: Whether to include RSI (default: True)
+        use_namespace: If True, use namespaced feature names (default: True)
 
     Returns:
         DataFrame with all features added
-        Columns added: log_return, ma_{window} for each window, atr_{atr_window}, rsi_{rsi_window} (if include_rsi)
+        Columns added (namespaced): ta_log_return_v1, ta_ma_{window}_v1, ta_atr_{atr_window}_v1, ta_rsi_{rsi_window}_v1
+        Legacy columns also added for compatibility (deprecation)
     """
-    df = add_log_returns(df)
-    df = add_moving_averages(df, windows=ma_windows)
+    df = add_log_returns(df, use_namespace=use_namespace)
+    df = add_moving_averages(df, windows=ma_windows, use_namespace=use_namespace)
     df = add_atr(df, window=atr_window)
 
     if include_rsi:
