@@ -51,9 +51,12 @@ Example:
 
 from __future__ import annotations
 
+import json
 import logging
+import math
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Literal
 
 import pandas as pd
@@ -680,3 +683,357 @@ def make_engine_backtest_fn(
         return result_metrics
 
     return backtest_fn
+
+
+# ============================================================================
+# RB1: Simplified API for robustness integration
+# ============================================================================
+
+
+def make_walk_forward_splits(
+    prices_df: pd.DataFrame,
+    n_splits: int,
+    train_days: int,
+    test_days: int,
+    seed: int = 0,
+    timestamp_col: str = "timestamp",
+) -> list[dict[str, Any]]:
+    """Generate walk-forward splits from price DataFrame (simplified API for RB1).
+
+    This function provides a simplified interface that works directly with a price DataFrame
+    and returns splits as dictionaries (for JSON serialization).
+
+    Args:
+        prices_df: Price panel DataFrame with columns: timestamp_col, symbol, close
+        n_splits: Number of splits to generate (will generate as many as possible up to n_splits)
+        train_days: Training window size in days
+        test_days: Test window size in days
+        seed: Random seed (currently unused, but kept for future use and API consistency)
+        timestamp_col: Name of timestamp column (default: "timestamp")
+
+    Returns:
+        List of split dictionaries with keys:
+        - split_index: int (0-based)
+        - train_start: str (ISO format, UTC)
+        - train_end: str (ISO format, UTC)
+        - test_start: str (ISO format, UTC)
+        - test_end: str (ISO format, UTC)
+        - n_train: int
+        - n_test: int
+
+    Raises:
+        ValueError: If prices_df is empty or insufficient data for splits
+
+    Note:
+        - Splits are generated deterministically (same input -> same splits)
+        - All timestamps are UTC-aware
+        - Splits are sorted by split_index (ascending)
+        - seed parameter is currently unused but kept for API consistency
+    """
+    if prices_df.empty:
+        raise ValueError("prices_df must not be empty")
+
+    if timestamp_col not in prices_df.columns:
+        raise ValueError(f"timestamp_col '{timestamp_col}' not found in prices_df")
+
+    # Extract date range from prices
+    prices_df = prices_df.copy()
+    prices_df[timestamp_col] = pd.to_datetime(prices_df[timestamp_col], utc=True)
+    prices_df = prices_df.sort_values(timestamp_col, kind="mergesort")
+
+    start_date = prices_df[timestamp_col].min()
+    end_date = prices_df[timestamp_col].max()
+
+    if start_date >= end_date:
+        raise ValueError(f"Insufficient date range: start={start_date}, end={end_date}")
+
+    # Create config for rolling window
+    config = WalkForwardConfig(
+        start_date=start_date,
+        end_date=end_date,
+        train_window_days=train_days,
+        test_window_days=test_days,
+        mode="rolling",
+        step_size_days=test_days,  # Non-overlapping splits
+        min_train_periods=train_days,
+        min_test_periods=test_days,
+        max_splits=n_splits,
+        overlap_allowed=False,
+    )
+
+    # Generate splits using existing function
+    splits = generate_walk_forward_splits(
+        start_date=start_date,
+        end_date=end_date,
+        config=config,
+    )
+
+    # Convert to dictionaries (for JSON serialization)
+    split_dicts = []
+    for split in splits:
+        split_dict = {
+            "split_index": split.split_index,
+            "train_start": split.train_start.isoformat(),
+            "train_end": split.train_end.isoformat(),
+            "test_start": split.test_start.isoformat(),
+            "test_end": split.test_end.isoformat(),
+            "n_train": split.n_train,
+            "n_test": split.n_test,
+        }
+        split_dicts.append(split_dict)
+
+    # Ensure deterministic ordering (already sorted by split_index, but explicit)
+    split_dicts = sorted(split_dicts, key=lambda x: x["split_index"])
+
+    return split_dicts
+
+
+def run_walk_forward(
+    backtest_fn: Callable[
+        [pd.Timestamp, pd.Timestamp, pd.Timestamp, pd.Timestamp], dict[str, float | int]
+    ],
+    splits: list[dict[str, Any]],
+    config: dict[str, Any] | None = None,
+    *,
+    deterministic_seed: int = 0,
+) -> dict[str, Any]:
+    """Run walk-forward analysis with simplified API (RB1).
+
+    Args:
+        backtest_fn: Backtest function with signature:
+            (train_start, train_end, test_start, test_end) -> dict[str, float | int]
+            Should return OOS metrics with keys like: sharpe, cagr, max_drawdown, etc.
+        splits: List of split dictionaries (from make_walk_forward_splits)
+        config: Optional configuration dict (currently unused, kept for future use)
+        deterministic_seed: Random seed (currently unused, but kept for API consistency)
+
+    Returns:
+        Dictionary with keys:
+        - splits: list[dict] (same as input, but sorted)
+        - metrics: dict with aggregated metrics:
+            - mean_sharpe, std_sharpe, min_sharpe, max_sharpe
+            - mean_cagr, std_cagr, min_cagr, max_cagr
+            - mean_max_dd, std_max_dd, min_max_dd, max_max_dd
+            - n_splits, n_successful_splits, n_failed_splits
+        - summary_df: DataFrame (as dict) with one row per split
+        - oos_first_metrics: dict with OOS-first aggregated metrics:
+            - oos_mean_sharpe, oos_mean_cagr, oos_mean_max_dd
+            - oos_win_rate (fraction of splits with positive return)
+
+    Note:
+        - deterministic_seed is currently unused but kept for API consistency
+        - All metrics are computed from OOS (out-of-sample) test periods only
+    """
+    if not splits:
+        raise ValueError("splits must not be empty")
+
+    # Ensure splits are sorted by split_index
+    splits = sorted(splits, key=lambda x: x["split_index"])
+
+    # Convert split dicts to WalkForwardWindow objects for compatibility
+    walk_forward_windows = []
+    for split_dict in splits:
+        window = WalkForwardWindow(
+            train_start=pd.to_datetime(split_dict["train_start"], utc=True),
+            train_end=pd.to_datetime(split_dict["train_end"], utc=True),
+            test_start=pd.to_datetime(split_dict["test_start"], utc=True),
+            test_end=pd.to_datetime(split_dict["test_end"], utc=True),
+            split_index=split_dict["split_index"],
+            n_train=split_dict["n_train"],
+            n_test=split_dict["n_test"],
+        )
+        walk_forward_windows.append(window)
+
+    # Run backtest for each split
+    all_metrics = []
+    summary_rows = []
+
+    for window in walk_forward_windows:
+        try:
+            # Call backtest function
+            metrics_dict = backtest_fn(
+                window.train_start,
+                window.train_end,
+                window.test_start,
+                window.test_end,
+            )
+
+            # Normalize metric names (remove "test_" prefix if present)
+            normalized_metrics = {}
+            for key, value in metrics_dict.items():
+                if key.startswith("test_"):
+                    normalized_key = key[5:]  # Remove "test_" prefix
+                else:
+                    normalized_key = key
+                normalized_metrics[normalized_key] = value
+
+            # Ensure we have standard metrics
+            sharpe = normalized_metrics.get("sharpe", normalized_metrics.get("test_sharpe", 0.0))
+            cagr = normalized_metrics.get("cagr", normalized_metrics.get("test_cagr", 0.0))
+            max_dd = normalized_metrics.get("max_drawdown", normalized_metrics.get("test_max_dd", 0.0))
+            total_return = normalized_metrics.get("total_return", normalized_metrics.get("test_return", 0.0))
+
+            split_metrics = {
+                "split_index": window.split_index,
+                "sharpe": float(sharpe) if not pd.isna(sharpe) else 0.0,
+                "cagr": float(cagr) if not pd.isna(cagr) else 0.0,
+                "max_drawdown": float(max_dd) if not pd.isna(max_dd) else 0.0,
+                "total_return": float(total_return) if not pd.isna(total_return) else 0.0,
+            }
+
+            all_metrics.append(split_metrics)
+
+            # Build summary row
+            summary_row = {
+                "split_index": window.split_index,
+                "train_start": window.train_start.isoformat(),
+                "train_end": window.train_end.isoformat(),
+                "test_start": window.test_start.isoformat(),
+                "test_end": window.test_end.isoformat(),
+                "n_train": window.n_train,
+                "n_test": window.n_test,
+                "status": "success",
+                **split_metrics,
+            }
+            summary_rows.append(summary_row)
+
+        except Exception as exc:
+            logger.warning(f"Split {window.split_index} failed: {exc}", exc_info=True)
+
+            # Add failed split to summary
+            summary_row = {
+                "split_index": window.split_index,
+                "train_start": window.train_start.isoformat(),
+                "train_end": window.train_end.isoformat(),
+                "test_start": window.test_start.isoformat(),
+                "test_end": window.test_end.isoformat(),
+                "n_train": window.n_train,
+                "n_test": window.n_test,
+                "status": "failed",
+                "sharpe": None,
+                "cagr": None,
+                "max_drawdown": None,
+                "total_return": None,
+                "error": str(exc),
+            }
+            summary_rows.append(summary_row)
+
+    if not all_metrics:
+        raise ValueError("All splits failed. Check backtest_fn implementation and logs.")
+
+    # Build metrics DataFrame
+    metrics_df = pd.DataFrame(all_metrics)
+
+    # Calculate aggregated metrics
+    aggregated = {}
+    for col in ["sharpe", "cagr", "max_drawdown", "total_return"]:
+        if col in metrics_df.columns:
+            values = metrics_df[col].dropna()
+            if len(values) > 0:
+                aggregated[f"mean_{col}"] = float(values.mean())
+                aggregated[f"std_{col}"] = float(values.std())
+                aggregated[f"min_{col}"] = float(values.min())
+                aggregated[f"max_{col}"] = float(values.max())
+
+    aggregated["n_splits"] = len(splits)
+    aggregated["n_successful_splits"] = len(all_metrics)
+    aggregated["n_failed_splits"] = len(splits) - len(all_metrics)
+
+    # Calculate OOS-first metrics
+    oos_first_metrics = {}
+    if "sharpe" in metrics_df.columns:
+        oos_first_metrics["oos_mean_sharpe"] = float(metrics_df["sharpe"].mean())
+    if "cagr" in metrics_df.columns:
+        oos_first_metrics["oos_mean_cagr"] = float(metrics_df["cagr"].mean())
+    if "max_drawdown" in metrics_df.columns:
+        oos_first_metrics["oos_mean_max_dd"] = float(metrics_df["max_drawdown"].mean())
+    if "total_return" in metrics_df.columns:
+        positive_returns = (metrics_df["total_return"] > 0).sum()
+        oos_first_metrics["oos_win_rate"] = float(positive_returns / len(metrics_df))
+
+    # Build summary DataFrame
+    summary_df = pd.DataFrame(summary_rows)
+    summary_df = summary_df.sort_values("split_index", kind="mergesort")
+
+    # Convert summary_df to dict (for JSON serialization)
+    summary_dict = summary_df.to_dict(orient="records")
+
+    return {
+        "splits": splits,
+        "metrics": aggregated,
+        "summary_df": summary_dict,
+        "oos_first_metrics": oos_first_metrics,
+    }
+
+
+def export_walk_forward_results(
+    wf_result: dict[str, Any],
+    output_dir: Path,
+    run_id: str,
+) -> dict[str, Path]:
+    """Export walk-forward results to CSV and JSON files (RB1).
+
+    Args:
+        wf_result: Result dictionary from run_walk_forward()
+        output_dir: Output directory (will create walk_forward_<run_id> subdirectory)
+        run_id: Run identifier for file naming
+
+    Returns:
+        Dictionary with keys: splits_json, summary_csv, metrics_json
+        Values are Path objects to written files
+
+    Note:
+        - JSON files use sort_keys=True, indent=2 for deterministic output
+        - NaN values in JSON are converted to None (for JSON compatibility)
+        - CSV files are sorted by split_index
+    """
+    import json
+    import math
+
+    wf_output_dir = output_dir / f"walk_forward_{run_id}"
+    wf_output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Export splits.json
+    splits_json = wf_output_dir / "splits.json"
+    with splits_json.open("w", encoding="utf-8") as f:
+        json.dump(wf_result["splits"], f, sort_keys=True, indent=2, default=_json_serialize_nan)
+
+    # Export wf_summary.csv
+    summary_csv = wf_output_dir / "wf_summary.csv"
+    summary_df = pd.DataFrame(wf_result["summary_df"])
+    summary_df = summary_df.sort_values("split_index", kind="mergesort")
+    summary_df.to_csv(summary_csv, index=False, encoding="utf-8")
+
+    # Export wf_metrics.json
+    metrics_json = wf_output_dir / "wf_metrics.json"
+    metrics_dict = {
+        "aggregated_metrics": wf_result["metrics"],
+        "oos_first_metrics": wf_result["oos_first_metrics"],
+    }
+    with metrics_json.open("w", encoding="utf-8") as f:
+        json.dump(metrics_dict, f, sort_keys=True, indent=2, default=_json_serialize_nan)
+
+    logger.info(f"Walk-forward results exported to {wf_output_dir}")
+
+    return {
+        "splits_json": splits_json,
+        "summary_csv": summary_csv,
+        "metrics_json": metrics_json,
+    }
+
+
+def _json_serialize_nan(obj: Any) -> Any:
+    """JSON serializer that converts NaN/Inf to None (for deterministic JSON output).
+
+    Args:
+        obj: Object to serialize
+
+    Returns:
+        Serialized value (None for NaN/Inf, otherwise obj)
+    """
+    import math
+
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+    return obj

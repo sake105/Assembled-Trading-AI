@@ -106,6 +106,7 @@ scripts/
  leaderboard.py            # Leaderboard Generator
  generate_*.py             # Report Generators
  dev/                      # Dev-Scripts (tmp_*, experiments)
+   run_checks.py           # Code Quality Checks (py_compile, ruff, pytest)
  live/                     # Live Trading Scripts
  ps/                       # PowerShell Utilities
  tools/                    # Utility Scripts
@@ -138,6 +139,112 @@ scripts/
 **Neue PowerShell-Wrappers:**
 - In `scripts/` oder `scripts/ps/` ablegen
 - Beispiel: `scripts/run_all_sprint10.ps1`
+
+**Broker Snapshot CLI-Beispiele (Sprint 13):**
+```bash
+# Default policy (prefer: use snapshot if available, otherwise paper view)
+python scripts/run_backtest_strategy.py --strategy ema
+
+# Ignore snapshots (always use paper view)
+python scripts/run_backtest_strategy.py --strategy ema --broker-snapshot-policy ignore
+
+# Require snapshot (fail if missing)
+python scripts/run_backtest_strategy.py --strategy ema --broker-snapshot-policy require
+
+# Write paper view as snapshot (for replay/reproducibility)
+python scripts/run_backtest_strategy.py --strategy ema --write-broker-snapshot
+
+# Combine flags
+python scripts/run_backtest_strategy.py --strategy ema --write-broker-snapshot --broker-snapshot-policy prefer
+
+# Import external broker snapshot before reconciliation
+python scripts/run_backtest_strategy.py \
+  --strategy ema \
+  --broker-snapshot-file broker_positions.json \
+  --broker-snapshot-date 2025-01-15 \
+  --broker-snapshot-policy require
+
+# Import snapshot with fallback to paper view
+python scripts/run_backtest_strategy.py \
+  --strategy ema \
+  --broker-snapshot-file broker_positions.json \
+  --broker-snapshot-policy prefer
+```
+
+**EOD Pipeline with broker snapshot controls:**
+```bash
+# Prefer snapshots, fallback to paper view (default)
+python scripts/run_eod_pipeline.py --freq 1d --broker-snapshot-policy prefer
+
+# Require a real broker snapshot (fail-fast if missing)
+python scripts/run_eod_pipeline.py --freq 1d --broker-snapshot-policy require
+
+# Write paper view snapshot for replay/debug (still deterministic)
+python scripts/run_eod_pipeline.py --freq 1d --write-broker-snapshot --broker-snapshot-policy prefer
+
+# Use snapshot from different run_id namespace
+python scripts/run_eod_pipeline.py --freq 1d --broker-snapshot-run-id ops_snapshot_20250115
+
+# Import external broker snapshot before reconciliation
+python scripts/run_eod_pipeline.py \
+  --freq 1d \
+  --broker-snapshot-file broker_positions_2025-01-15.json \
+  --broker-snapshot-date 2025-01-15 \
+  --broker-snapshot-policy require
+
+# Import CSV snapshot (cash override via Python API only)
+python scripts/run_eod_pipeline.py \
+  --freq 1d \
+  --broker-snapshot-file broker_positions.csv \
+  --broker-snapshot-date 2025-01-15 \
+  --broker-snapshot-run-id ops_snapshot_20250115
+```
+
+**Daily Run with broker snapshot controls:**
+```bash
+# Import external snapshot and require it for reconciliation
+python scripts/run_daily.py \
+  --date 2025-01-15 \
+  --broker-snapshot-file broker_positions_2025-01-15.json \
+  --broker-snapshot-date 2025-01-15 \
+  --broker-snapshot-policy require
+
+# Prefer snapshot with fallback to paper view
+python scripts/run_daily.py \
+  --date 2025-01-15 \
+  --broker-snapshot-file broker_positions_2025-01-15.json \
+  --broker-snapshot-policy prefer
+
+# Write paper view as snapshot
+python scripts/run_daily.py \
+  --date 2025-01-15 \
+  --write-broker-snapshot \
+  --broker-snapshot-policy prefer
+```
+
+**Broker Snapshot Import (Python API):**
+```python
+from pathlib import Path
+from src.assembled_core.accounting.broker_snapshot_importer import import_broker_snapshot
+
+# Import from JSON
+result = import_broker_snapshot(
+    snapshot_path="broker_positions_2025-01-15.json",
+    run_id="ops_snapshot_20250115",
+    snapshot_date="2025-01-15",
+    output_dir=Path("output"),
+    store_parquet=True,
+)
+
+# Import from CSV (with cash override)
+result = import_broker_snapshot(
+    snapshot_path="broker_positions.csv",
+    run_id="ops_snapshot_20250115",
+    snapshot_date="2025-01-15",
+    output_dir=Path("output"),
+    cash_override=10000.0,  # CSV doesn't have cash column
+)
+```
 
 ---
 
@@ -447,11 +554,80 @@ Vor dem Hinzufuegen einer neuen Datei pruefen:
 
 ---
 
+## Code Quality Checks (Windows-kompatibel)
+
+### Zweck
+Robuste, Windows-kompatible Check-Strategie fuer Code-Qualitaet (Syntax, Linting, Tests).
+
+### Script: `scripts/dev/run_checks.py`
+
+**Verwendung:**
+```bash
+# Alle Checks ausfuehren (py_compile → ruff → pytest)
+python scripts/dev/run_checks.py
+
+# Nur bestimmte Checks
+python scripts/dev/run_checks.py --skip-compile
+python scripts/dev/run_checks.py --skip-ruff --skip-pytest
+
+# Pytest mit zusaetzlichen Argumenten
+python scripts/dev/run_checks.py --pytest-args tests/test_ledger*.py -v
+
+# Pytest nur bestimmte Tests
+python scripts/dev/run_checks.py --skip-compile --skip-ruff --pytest-args tests/test_ledger_store_roundtrip.py -v
+
+# Andere Pfade pruefen
+python scripts/dev/run_checks.py --paths src/assembled_core/accounting/
+```
+
+**Features:**
+- Verwendet `python -m` statt direkter CLI-Aufrufe (vermeidet PATH-Probleme)
+- Erkennt automatisch `.venv` und nutzt `.venv\\Scripts\\python.exe` wenn vorhanden
+- Deterministische Exit-Codes (0 = Erfolg, !=0 = Fehler)
+- Keine OS-spezifischen Pfade hardcodiert (nutzt `pathlib.Path`)
+
+**Exit-Codes:**
+- `0`: Alle Checks bestanden
+- `1`: Mindestens ein Check fehlgeschlagen
+
+**Windows-kompatibel:**
+- Nutzt `python -m pytest` statt `pytest`
+- Nutzt `python -m ruff` statt `ruff`
+- Nutzt `python -m py_compile` (Standard-Library)
+- Erkennt `.venv\\Scripts\\python.exe` automatisch
+
+### Manuelle Checks (Alternative)
+
+Falls das Script nicht verwendet wird, sollten die Checks manuell so ausgefuehrt werden:
+
+**Mit venv:**
+```bash
+# Windows
+.venv\Scripts\python.exe -m py_compile src/ tests/
+.venv\Scripts\python.exe -m ruff check src/ tests/
+.venv\Scripts\python.exe -m pytest tests/ -v
+
+# Linux/Mac
+.venv/bin/python -m py_compile src/ tests/
+.venv/bin/python -m ruff check src/ tests/
+.venv/bin/python -m pytest tests/ -v
+```
+
+**Ohne venv (System-Python):**
+```bash
+python -m py_compile src/ tests/
+python -m ruff check src/ tests/
+python -m pytest tests/ -v
+```
+
+**Wichtig:** Verwende immer `python -m` statt direkter CLI-Aufrufe (`pytest`, `ruff`), um PATH-Probleme zu vermeiden.
+
 ## Referenzen
 
 - `docs/ARCHITECTURE_LAYERING.md` - Layer-Architektur & Import-Regeln
 - `docs/CONTRACTS.md` - Data Contracts
 - `.gitignore` - Git-Ignore-Regeln
+- `scripts/dev/run_checks.py` - Code Quality Check Script
 
 ---
 

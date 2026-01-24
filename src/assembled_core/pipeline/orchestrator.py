@@ -39,6 +39,31 @@ from src.assembled_core.reports.daily_qa_report import generate_qa_report
 logger = get_logger("assembled_core.pipeline")
 
 
+def _manifest_path_str(path: str | Path | None, *, base_dir: Path) -> str | None:
+    """Convert a path to a portable manifest string.
+
+    Rules:
+    - Prefer paths relative to base_dir (typically output/).
+    - Always use POSIX slashes in the manifest (portable across OS).
+    """
+    if path is None:
+        return None
+
+    p = Path(path)
+    try:
+        rel = p.relative_to(base_dir)
+        return rel.as_posix()
+    except Exception:
+        return p.as_posix()
+
+
+def _write_manifest_json(manifest_path: Path, manifest: dict[str, Any]) -> None:
+    """Write a JSON manifest deterministically (stable bytes for same inputs)."""
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(manifest, sort_keys=True, indent=2)
+    manifest_path.write_text(payload + "\n", encoding="utf-8")
+
+
 def _metrics_to_dict(metrics) -> dict[str, Any] | None:
     """Convert PerformanceMetrics to dictionary for JSON serialization.
 
@@ -193,7 +218,7 @@ def run_portfolio_step(
     spread_w: float | None = None,
     impact_w: float | None = None,
     output_dir: Path | None = None,
-) -> tuple[Path, Path]:
+) -> tuple[Path, Path, pd.DataFrame]:
     """Run portfolio step: simulate equity with costs.
 
     Args:
@@ -205,7 +230,8 @@ def run_portfolio_step(
         output_dir: Base output directory (default: None, uses config.OUTPUT_DIR)
 
     Returns:
-        Tuple of (equity_path, report_path)
+        Tuple of (equity_path, report_path, trades_df)
+        trades_df: DataFrame with trades (includes fill_qty, fill_price, status, costs)
 
     Side effects:
         Writes portfolio_equity_{freq}.csv and portfolio_report_{freq}.md
@@ -224,15 +250,22 @@ def run_portfolio_step(
     # Load orders
     orders = load_orders(freq, output_dir=base, strict=True)
 
-    # Simulate with costs
-    equity, metrics = simulate_with_costs(
-        orders, start_capital, commission_bps, spread_w, impact_w, freq
+    # Load prices for fill model pipeline
+    prices = None
+    try:
+        prices = load_prices_with_fallback(freq, output_dir=base)
+    except Exception:
+        logger.warning("Could not load prices for fill model pipeline")
+
+    # Simulate with costs (returns trades with fill_qty, fill_price, status, costs)
+    equity, metrics, trades_df = simulate_with_costs(
+        orders, start_capital, commission_bps, spread_w, impact_w, freq, prices=prices
     )
 
     # Write results
     eq_path, rep_path = write_portfolio_report(equity, metrics, freq, output_dir=base)
 
-    return eq_path, rep_path
+    return eq_path, rep_path, trades_df
 
 
 def run_eod_pipeline(
@@ -250,6 +283,12 @@ def run_eod_pipeline(
     symbols: list[str] | None = None,
     start_date: str | None = None,
     end_date: str | None = None,
+    # Broker snapshot controls (Sprint 13 extension)
+    broker_snapshot_policy: str = "prefer",
+    write_paper_broker_snapshot: bool = False,
+    broker_snapshot_run_id: str | None = None,
+    broker_snapshot_file: str | Path | None = None,
+    broker_snapshot_date: str | None = None,
 ) -> dict[str, Any]:
     """Run full EOD pipeline for a given frequency.
 
@@ -382,10 +421,11 @@ def run_eod_pipeline(
         logger.info("Step 3: Backtest (SKIPPED)")
 
     # Step 4: Portfolio
+    portfolio_trades_df = None
     if not skip_portfolio:
         try:
             logger.info("Step 4: Portfolio")
-            eq_path, rep_path = run_portfolio_step(
+            eq_path, rep_path, portfolio_trades_df = run_portfolio_step(
                 freq,
                 start_capital,
                 commission_bps=commission_bps,
@@ -400,6 +440,96 @@ def run_eod_pipeline(
             failure_flag = True
     else:
         logger.info("Step 4: Portfolio (SKIPPED)")
+
+    # Step 4b: Ledger/Accounting (Sprint 13 L5)
+    ledger_result = None
+    if not skip_portfolio and portfolio_trades_df is not None and not portfolio_trades_df.empty:
+        try:
+            logger.info("Step 4b: Ledger/Accounting")
+            from src.assembled_core.accounting.ledger_integration import build_ledger_from_trades
+
+            # Generate run_id from timestamp
+            run_id = f"run_{started_at.strftime('%Y%m%d_%H%M%S')}"
+
+            # Load orders for ORDER_SUBMIT events
+            orders_df = load_orders(freq, output_dir=base, strict=False)
+
+            # Load prices for unrealized PnL
+            prices_df = None
+            try:
+                prices_df = load_prices_with_fallback(freq, output_dir=base)
+            except Exception:
+                logger.warning("Could not load prices for unrealized PnL calculation")
+
+            # Default: use run_id as snapshot namespace unless explicitly overridden
+            snapshot_run_id = broker_snapshot_run_id if broker_snapshot_run_id is not None else run_id
+
+            # Step 4b.1: Import external broker snapshot if provided
+            if broker_snapshot_file:
+                try:
+                    logger.info(f"Importing external broker snapshot from: {broker_snapshot_file}")
+                    from src.assembled_core.accounting.broker_snapshot_importer import import_broker_snapshot
+
+                    # Determine snapshot date (use provided date, or last trade date, or today)
+                    snapshot_date = broker_snapshot_date
+                    if snapshot_date is None:
+                        if not portfolio_trades_df.empty and "timestamp" in portfolio_trades_df.columns:
+                            snapshot_date = pd.to_datetime(portfolio_trades_df["timestamp"].max(), utc=True)
+                        else:
+                            snapshot_date = pd.Timestamp.utcnow()
+                    else:
+                        snapshot_date = pd.to_datetime(snapshot_date, utc=True)
+
+                    # Import snapshot
+                    import_result = import_broker_snapshot(
+                        snapshot_path=Path(broker_snapshot_file),
+                        run_id=snapshot_run_id,
+                        snapshot_date=snapshot_date,
+                        output_dir=base,
+                        qty_tol=1e-8,
+                        store_parquet=True,
+                    )
+                    logger.info(
+                        f"Imported broker snapshot: {import_result['broker_snapshot_path']}, "
+                        f"cash={import_result['cash']}"
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to import broker snapshot: {e}", exc_info=True)
+                    # If policy is require, we should fail here
+                    if broker_snapshot_policy == "require":
+                        raise ValueError(
+                            f"Broker snapshot import failed (policy=require): {e}"
+                        ) from e
+                    # Otherwise, log and continue (snapshot might still exist from previous import)
+
+            # Build ledger
+            ledger_result = build_ledger_from_trades(
+                orders_df=orders_df,
+                trades_df=portfolio_trades_df,
+                run_id=run_id,
+                output_dir=base,
+                as_of_date=None,  # Use last trade timestamp
+                prices_df=prices_df,
+                start_cash=start_capital,
+                broker_snapshot_policy=broker_snapshot_policy,
+                write_paper_broker_snapshot=write_paper_broker_snapshot,
+                broker_snapshot_run_id=snapshot_run_id,
+            )
+
+            logger.info(
+                f"Ledger built: pack_path={ledger_result['ledger_pack_path']}, "
+                f"reconciliation_ok={ledger_result['reconciliation_ok']}"
+            )
+            completed_steps.append("ledger")
+        except ValueError:
+            # Important: do NOT swallow fail-fast policy errors (e.g. policy="require")
+            raise
+        except Exception as e:
+            logger.warning(f"Ledger/Accounting step failed: {e}", exc_info=True)
+            # Don't fail the pipeline if ledger fails - it's optional
+            ledger_result = None
+    else:
+        logger.info("Step 4b: Ledger/Accounting (SKIPPED - no trades available)")
 
     # Step 5: QA
     qa_result = None
@@ -616,7 +746,40 @@ def run_eod_pipeline(
         "qa_gate_result": _gate_result_to_dict(qa_gate_result)
         if qa_gate_result
         else None,
-        "qa_report_path": str(qa_report_path_rel) if qa_report_path_rel else None,
+        "qa_report_path": (
+            _manifest_path_str(qa_report_path_rel, base_dir=base) if qa_report_path_rel else None
+        ),
+        # Sprint 12: Robustness Pack fields (backward compatible: None if not run)
+        "robustness_pack_path": None,
+        "wf_oos_metrics": None,
+        "plateau_score": None,
+        "sensitivity_summary": None,
+        "crisis_summary": None,
+        "deflated_sharpe": None,
+        "multiple_testing_warning": None,
+        "robustness_ok": None,
+        # Sprint 13 L5: Ledger/Accounting fields
+        "ledger_pack_path": (
+            _manifest_path_str(ledger_result.get("ledger_pack_path"), base_dir=base)
+            if ledger_result
+            else None
+        ),
+        "reconcile_report_path": (
+            _manifest_path_str(ledger_result.get("reconcile_report_path"), base_dir=base)
+            if ledger_result
+            else None
+        ),
+        "accounting_report_path": (
+            _manifest_path_str(ledger_result.get("accounting_report_path"), base_dir=base)
+            if ledger_result
+            else None
+        ),
+        "broker_snapshot_path": (
+            _manifest_path_str(ledger_result.get("broker_snapshot_path"), base_dir=base)
+            if ledger_result
+            else None
+        ),
+        "reconciliation_ok": ledger_result["reconciliation_ok"] if ledger_result else None,
         "timestamps": {
             "started": started_at.isoformat(),
             "finished": finished_at.isoformat(),
@@ -627,9 +790,7 @@ def run_eod_pipeline(
     # Write manifest
     manifest_path = base / f"run_manifest_{freq}.json"
     try:
-        manifest_path.parent.mkdir(parents=True, exist_ok=True)
-        with manifest_path.open("w", encoding="utf-8") as f:
-            json.dump(manifest, f, indent=2)
+        _write_manifest_json(manifest_path, manifest)
     except (IOError, OSError) as exc:
         logger.error("Failed to write manifest to %s: %s", manifest_path, exc)
         raise RuntimeError(f"Failed to write manifest to {manifest_path}") from exc

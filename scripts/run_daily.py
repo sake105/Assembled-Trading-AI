@@ -197,6 +197,12 @@ def run_daily_eod(
     use_factor_store: bool = False,
     factor_store_root: Path | str | None = None,
     factor_group: str = "core_ta",
+    # Broker snapshot controls (Sprint 13 extension)
+    broker_snapshot_policy: str = "prefer",
+    write_broker_snapshot: bool = False,
+    broker_snapshot_run_id: str | None = None,
+    broker_snapshot_file: str | Path | None = None,
+    broker_snapshot_date: str | None = None,
 ) -> Path:
     """Run daily EOD order generation.
 
@@ -253,6 +259,63 @@ def run_daily_eod(
 
     logger.info(f"Starting EOD-MVP for {target_date.strftime('%Y-%m-%d')}")
     logger.info(f"Output directory: {out_dir}")
+    
+    # Broker snapshot import (if file provided) - before ledger/reconciliation step
+    if broker_snapshot_file:
+        try:
+            from src.assembled_core.accounting.broker_snapshot_importer import import_broker_snapshot
+            
+            # Determine snapshot date
+            if broker_snapshot_date:
+                snapshot_date = pd.Timestamp(broker_snapshot_date, tz="UTC")
+            else:
+                # Use target_date as snapshot date
+                snapshot_date = pd.Timestamp(target_date) if isinstance(target_date, datetime) else target_date
+                if snapshot_date.tzinfo is None:
+                    snapshot_date = snapshot_date.tz_localize("UTC")
+            
+            # Determine snapshot run_id
+            snapshot_run_id = broker_snapshot_run_id if broker_snapshot_run_id else "daily_snapshot"
+            
+            logger.info(f"Importing broker snapshot from: {broker_snapshot_file}")
+            logger.info(f"Snapshot date: {snapshot_date.strftime('%Y-%m-%d')}")
+            logger.info(f"Snapshot run_id: {snapshot_run_id}")
+            
+            # Import snapshot
+            import_result = import_broker_snapshot(
+                snapshot_path=Path(broker_snapshot_file),
+                run_id=snapshot_run_id,
+                snapshot_date=snapshot_date,
+                output_dir=out_dir,
+                qty_tol=1e-8,
+                store_parquet=True,
+            )
+            
+            logger.info(f"Broker snapshot imported: {import_result['broker_snapshot_path']}")
+            
+            # Update broker_snapshot_run_id to use imported snapshot namespace
+            if not broker_snapshot_run_id:
+                broker_snapshot_run_id = snapshot_run_id
+                
+        except FileNotFoundError as e:
+            if broker_snapshot_policy == "require":
+                logger.error(f"Broker snapshot file not found (policy=require): {e}")
+                sys.exit(1)
+            else:
+                logger.warning(f"Broker snapshot file not found (policy={broker_snapshot_policy}): {e} - continuing without import")
+        except ValueError as e:
+            if broker_snapshot_policy == "require":
+                logger.error(f"Broker snapshot import failed (policy=require): {e}")
+                sys.exit(1)
+            else:
+                logger.warning(f"Broker snapshot import failed (policy={broker_snapshot_policy}): {e} - continuing without import")
+        except Exception as e:
+            if broker_snapshot_policy == "require":
+                logger.error(f"Broker snapshot import error (policy=require): {e}", exc_info=True)
+                sys.exit(1)
+            else:
+                logger.warning(f"Broker snapshot import error (policy={broker_snapshot_policy}): {e} - continuing without import")
+                logger.debug(f"Import error details: {e}", exc_info=True)
 
     # Step 1: Load universe symbols (if universe_file provided, else use default from settings)
     universe_symbols = []
@@ -800,6 +863,11 @@ def main() -> None:
             use_factor_store=args.use_factor_store,
             factor_store_root=Path(args.factor_store_root) if args.factor_store_root else None,
             factor_group=args.factor_group,
+            broker_snapshot_policy=args.broker_snapshot_policy,
+            write_broker_snapshot=args.write_broker_snapshot,
+            broker_snapshot_run_id=args.broker_snapshot_run_id,
+            broker_snapshot_file=Path(args.broker_snapshot_file) if args.broker_snapshot_file else None,
+            broker_snapshot_date=args.broker_snapshot_date,
         )
 
         logger.info(f"Output file: {safe_path}")

@@ -117,6 +117,14 @@ def test_run_eod_pipeline_smoke(tmp_path: Path, monkeypatch):
                     or "Performance Metrics" in report_content
                 )
 
+        # Optional enhancement (Sprint 13): If ledger is active, verify ledger_pack_path exists
+        # This would be a nice-to-have E2E check to ensure ledger files are actually created.
+        # The unit test (test_orchestrator_manifest_writer.py) already verifies serialization/determinism.
+        # Example:
+        # if manifest_data.get("ledger_pack_path"):
+        #     ledger_path = tmp_path / manifest_data["ledger_pack_path"]
+        #     assert ledger_path.exists(), f"Ledger pack should exist: {ledger_path}"
+
     finally:
         # Restore original OUTPUT_DIR
         monkeypatch.setattr(config_module, "OUTPUT_DIR", original_output_dir)

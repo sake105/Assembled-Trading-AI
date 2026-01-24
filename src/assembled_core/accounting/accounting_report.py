@@ -1,0 +1,268 @@
+"""Accounting report writer (Sprint 13).
+
+This module provides functions to write daily accounting reports
+in CSV, JSON, and optional Markdown formats with deterministic output.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import pandas as pd
+
+logger = logging.getLogger(__name__)
+
+
+def _json_serialize_nan(obj: Any) -> Any:
+    """JSON serializer that converts NaN/Inf to None (for deterministic JSON output)."""
+    if isinstance(obj, dict):
+        return {k: _json_serialize_nan(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_json_serialize_nan(item) for item in obj]
+    elif isinstance(obj, float):
+        if np.isnan(obj) or np.isinf(obj):
+            return None
+        return obj
+    elif isinstance(obj, pd.DataFrame):
+        return obj.to_dict(orient="records")
+    elif isinstance(obj, pd.Series):
+        return obj.to_dict()
+    else:
+        return obj
+
+
+def write_accounting_report_csv(
+    positions_result: dict,
+    output_dir: Path | str,
+    run_id: str,
+    as_of: pd.Timestamp | str,
+    *,
+    start_cash: float,
+    reconciliation_result: dict | None = None,
+    ledger_pack_path: str | None = None,
+    reconcile_report_path: str | None = None,
+    costs_breakdown: dict[str, float] | None = None,
+) -> Path:
+    """Write accounting report to CSV file.
+
+    Args:
+        positions_result: Result dict from build_positions_from_ledger() with keys:
+            - positions_df: DataFrame with columns: symbol, qty, avg_price, realized_pnl, unrealized_pnl, ...
+            - cash_balance: float (final cash balance)
+            - summary: dict with total_realized_pnl, total_unrealized_pnl, etc.
+        output_dir: Base output directory
+        run_id: Run identifier
+        as_of: Report date (UTC, tz-aware)
+        start_cash: Starting cash balance
+        reconciliation_result: Optional reconciliation result dict
+        ledger_pack_path: Optional path to ledger pack (relative to output_dir)
+        reconcile_report_path: Optional path to reconciliation report (relative to output_dir)
+        costs_breakdown: Optional dict with keys: commission_cash, spread_cash, slippage_cash, total_cost_cash
+
+    Returns:
+        Path to written CSV file
+    """
+    # Normalize as_of
+    if isinstance(as_of, str):
+        as_of = pd.to_datetime(as_of, utc=True)
+    if as_of.tz is None:
+        as_of = as_of.tz_localize("UTC")
+
+    # Format date as YYYY-MM-DD
+    date_str = as_of.strftime("%Y-%m-%d")
+
+    # Create output directory
+    output_path = Path(output_dir)
+    accounting_dir = output_path / f"accounting_report_{run_id}"
+    accounting_dir.mkdir(parents=True, exist_ok=True)
+
+    # Build CSV file path
+    csv_path = accounting_dir / f"accounting_{date_str}.csv"
+
+    # Extract data
+    positions_df = positions_result.get("positions_df", pd.DataFrame())
+    cash_balance = positions_result.get("cash_balance", start_cash)
+    summary = positions_result.get("summary", {})
+
+    total_realized_pnl = summary.get("total_realized_pnl", 0.0)
+    total_unrealized_pnl = summary.get("total_unrealized_pnl", 0.0)
+    total_pnl = summary.get("total_pnl", total_realized_pnl + total_unrealized_pnl)
+
+    # Build report rows
+    report_rows = []
+
+    # Summary row
+    report_rows.append({
+        "section": "SUMMARY",
+        "symbol": "",
+        "cash_start": start_cash,
+        "cash_end": cash_balance,
+        "cash_change": cash_balance - start_cash,
+        "realized_pnl": total_realized_pnl,
+        "unrealized_pnl": total_unrealized_pnl,
+        "total_pnl": total_pnl,
+        "commission_cash": costs_breakdown.get("commission_cash", 0.0) if costs_breakdown else 0.0,
+        "spread_cash": costs_breakdown.get("spread_cash", 0.0) if costs_breakdown else 0.0,
+        "slippage_cash": costs_breakdown.get("slippage_cash", 0.0) if costs_breakdown else 0.0,
+        "total_cost_cash": costs_breakdown.get("total_cost_cash", 0.0) if costs_breakdown else 0.0,
+        "reconciliation_ok": reconciliation_result.get("ok") if reconciliation_result else None,
+    })
+
+    # Per-symbol rows (sorted by symbol)
+    if not positions_df.empty:
+        for _, row in positions_df.iterrows():
+            report_rows.append({
+                "section": "POSITION",
+                "symbol": str(row["symbol"]),
+                "cash_start": None,
+                "cash_end": None,
+                "cash_change": None,
+                "realized_pnl": float(row["realized_pnl"]) if pd.notna(row["realized_pnl"]) else 0.0,
+                "unrealized_pnl": float(row["unrealized_pnl"]) if pd.notna(row["unrealized_pnl"]) else 0.0,
+                "total_pnl": float(row["realized_pnl"] + row["unrealized_pnl"]) if pd.notna(row["realized_pnl"]) and pd.notna(row["unrealized_pnl"]) else None,
+                "commission_cash": None,
+                "spread_cash": None,
+                "slippage_cash": None,
+                "total_cost_cash": None,
+                "reconciliation_ok": None,
+            })
+
+    # Build DataFrame
+    report_df = pd.DataFrame(report_rows)
+
+    # Replace NaN with None for CSV (pandas will write as empty)
+    report_df = report_df.fillna("")
+
+    # Write CSV (deterministic: sorted by section, then symbol)
+    report_df = report_df.sort_values(["section", "symbol"], kind="mergesort")
+    report_df.to_csv(csv_path, index=False)
+
+    logger.info(f"Accounting report CSV written: {csv_path}")
+    return csv_path
+
+
+def write_accounting_report_json(
+    positions_result: dict,
+    output_dir: Path | str,
+    run_id: str,
+    as_of: pd.Timestamp | str,
+    *,
+    start_cash: float,
+    reconciliation_result: dict | None = None,
+    ledger_pack_path: str | None = None,
+    reconcile_report_path: str | None = None,
+    costs_breakdown: dict[str, float] | None = None,
+) -> Path:
+    """Write accounting report to JSON file.
+
+    Args:
+        positions_result: Result dict from build_positions_from_ledger()
+        output_dir: Base output directory
+        run_id: Run identifier
+        as_of: Report date (UTC, tz-aware)
+        start_cash: Starting cash balance
+        reconciliation_result: Optional reconciliation result dict
+        ledger_pack_path: Optional path to ledger pack (relative to output_dir)
+        reconcile_report_path: Optional path to reconciliation report (relative to output_dir)
+        costs_breakdown: Optional dict with cost breakdown
+
+    Returns:
+        Path to written JSON file
+    """
+    # Normalize as_of
+    if isinstance(as_of, str):
+        as_of = pd.to_datetime(as_of, utc=True)
+    if as_of.tz is None:
+        as_of = as_of.tz_localize("UTC")
+
+    # Format date as YYYY-MM-DD
+    date_str = as_of.strftime("%Y-%m-%d")
+
+    # Create output directory
+    output_path = Path(output_dir)
+    accounting_dir = output_path / f"accounting_report_{run_id}"
+    accounting_dir.mkdir(parents=True, exist_ok=True)
+
+    # Build JSON file path
+    json_path = accounting_dir / f"accounting_{date_str}.json"
+
+    # Extract data
+    positions_df = positions_result.get("positions_df", pd.DataFrame())
+    cash_balance = positions_result.get("cash_balance", start_cash)
+    summary = positions_result.get("summary", {})
+
+    # Build positions list (sorted by symbol, deterministic)
+    positions_list = []
+    if not positions_df.empty:
+        positions_sorted = positions_df.sort_values("symbol", kind="mergesort")
+        for _, row in positions_sorted.iterrows():
+            positions_list.append({
+                "symbol": str(row["symbol"]),
+                "qty": float(row["qty"]) if pd.notna(row["qty"]) else 0.0,
+                "avg_price": float(row["avg_price"]) if pd.notna(row["avg_price"]) else None,
+                "realized_pnl": float(row["realized_pnl"]) if pd.notna(row["realized_pnl"]) else 0.0,
+                "unrealized_pnl": float(row["unrealized_pnl"]) if pd.notna(row["unrealized_pnl"]) else 0.0,
+                "total_pnl": float(row["realized_pnl"] + row["unrealized_pnl"]) if pd.notna(row["realized_pnl"]) and pd.notna(row["unrealized_pnl"]) else None,
+                "notional": float(row["notional"]) if pd.notna(row["notional"]) else 0.0,
+                "last_price": float(row["last_price"]) if pd.notna(row["last_price"]) else None,
+            })
+
+    # Build report dict
+    report = {
+        "as_of_date": as_of.isoformat(),
+        "run_id": run_id,
+        "cash": {
+            "start": start_cash,
+            "end": cash_balance,
+            "change": cash_balance - start_cash,
+        },
+        "pnl": {
+            "total_realized": summary.get("total_realized_pnl", 0.0),
+            "total_unrealized": summary.get("total_unrealized_pnl", 0.0),
+            "total": summary.get("total_pnl", summary.get("total_realized_pnl", 0.0) + summary.get("total_unrealized_pnl", 0.0)),
+        },
+        "positions": positions_list,
+        "summary": {
+            "n_positions": summary.get("n_positions", len(positions_df)),
+            "gross_exposure": summary.get("gross_exposure", 0.0),
+            "net_exposure": summary.get("net_exposure", 0.0),
+        },
+    }
+
+    # Add costs if provided
+    if costs_breakdown:
+        report["costs"] = {
+            "commission_cash": costs_breakdown.get("commission_cash", 0.0),
+            "spread_cash": costs_breakdown.get("spread_cash", 0.0),
+            "slippage_cash": costs_breakdown.get("slippage_cash", 0.0),
+            "total_cost_cash": costs_breakdown.get("total_cost_cash", 0.0),
+        }
+
+    # Add reconciliation info if provided
+    if reconciliation_result:
+        report["reconciliation"] = {
+            "ok": reconciliation_result.get("ok", False),
+            "cash_match": reconciliation_result.get("cash_match", False),
+            "cash_diff": reconciliation_result.get("cash_diff", 0.0),
+        }
+
+    # Add links if provided
+    if ledger_pack_path:
+        report["ledger_pack_path"] = ledger_pack_path
+    if reconcile_report_path:
+        report["reconcile_report_path"] = reconcile_report_path
+
+    # Serialize NaN/Inf to None
+    report_serialized = _json_serialize_nan(report)
+
+    # Write JSON (deterministic: sort_keys=True, indent=2)
+    with json_path.open("w", encoding="utf-8") as f:
+        json.dump(report_serialized, f, sort_keys=True, indent=2, default=str)
+        f.write("\n")  # Trailing newline for byte-stability
+
+    logger.info(f"Accounting report JSON written: {json_path}")
+    return json_path

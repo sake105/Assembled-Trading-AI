@@ -57,7 +57,8 @@ def build_event_feature_panel(
         feature_prefix: Prefix for feature column names (default: "event")
         method: Implementation method (default: "legacy")
             - "legacy": Original nested loop implementation (Sprint 10.B)
-            - "vectorized": Vectorized implementation using merge_asof + rolling (Sprint 11.E1)
+            - "vectorized": Vectorized implementation using merge_asof + cumulative counting (Sprint 11.E1)
+                Production-ready and tested. Equivalent to legacy, but faster for large datasets.
 
     Returns:
         DataFrame with same rows as prices_df, plus additional columns:
@@ -196,7 +197,8 @@ def add_disclosure_count_feature(
             is applied (disclosure_date <= price timestamp)
         method: Implementation method (default: "legacy")
             - "legacy": Original nested loop implementation (Sprint 10.B)
-            - "vectorized": Vectorized implementation using cross-join + filtering (Sprint 11.E1)
+            - "vectorized": Vectorized implementation using merge_asof + cumulative counting (Sprint 11.E1)
+                Production-ready and tested. Equivalent to legacy, but faster for large datasets.
 
     Returns:
         DataFrame with additional column {out_col} containing event counts

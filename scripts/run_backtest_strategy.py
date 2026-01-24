@@ -455,6 +455,47 @@ Examples:
         help="Generate QA report after backtest",
     )
 
+    # Ledger/Reconciliation arguments (Sprint 13)
+    parser.add_argument(
+        "--no-ledger",
+        action="store_true",
+        default=False,
+        help="Disable ledger/accounting integration (default: ledger is enabled)",
+    )
+    
+    # Broker snapshot arguments (Sprint 13 extension)
+    parser.add_argument(
+        "--broker-snapshot-policy",
+        type=str,
+        choices=["ignore", "prefer", "require"],
+        default="prefer",
+        help="Broker snapshot policy: ignore (never use), prefer (use if available, default), require (must exist)",
+    )
+    parser.add_argument(
+        "--write-broker-snapshot",
+        action="store_true",
+        default=False,
+        help="Write paper broker view as snapshot after computation (for replay/reproducibility)",
+    )
+    parser.add_argument(
+        "--broker-snapshot-run-id",
+        type=str,
+        default=None,
+        help="Optional snapshot namespace run_id to load broker snapshots from. Defaults to run_id.",
+    )
+    parser.add_argument(
+        "--broker-snapshot-file",
+        type=str,
+        default=None,
+        help="Path to external broker snapshot file (JSON/CSV) to import before reconciliation.",
+    )
+    parser.add_argument(
+        "--broker-snapshot-date",
+        type=str,
+        default=None,
+        help="Snapshot date (YYYY-MM-DD) for imported snapshot. Defaults to last trade date or today.",
+    )
+
     # Meta-model ensemble arguments
     parser.add_argument(
         "--use-meta-model",
@@ -1373,6 +1414,15 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         step_name = "backtest"
         step_context = timed_step(step_name, timings, logger) if enable_timings else nullcontext()
         with step_context:
+            # Generate run_id for ledger integration (if enabled)
+            run_id = None
+            if not args.no_ledger:
+                # Generate deterministic run_id from strategy, freq, and timestamp
+                from datetime import datetime
+                import hashlib
+                run_id_base = f"{args.strategy}_{args.freq}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                run_id = f"backtest_{hashlib.sha256(run_id_base.encode()).hexdigest()[:12]}"
+            
             result: BacktestResult = run_portfolio_backtest(
             prices=prices,
             signal_fn=signal_fn,  # Still pass for backward compatibility/validation
@@ -1396,6 +1446,16 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             meta_ensemble_mode="filter",
             # Trading cycle integration (B1)
             cycle_fn=cycle_fn,
+            # Ledger/Reconciliation integration (Sprint 13)
+            include_ledger=not args.no_ledger,
+            run_id=run_id,
+            output_dir=output_dir,
+            # Broker snapshot controls (Sprint 13 extension)
+            broker_snapshot_policy=args.broker_snapshot_policy,
+            write_broker_snapshot=args.write_broker_snapshot,
+            broker_snapshot_run_id=getattr(args, "broker_snapshot_run_id", None),
+            broker_snapshot_file=getattr(args, "broker_snapshot_file", None),
+            broker_snapshot_date=getattr(args, "broker_snapshot_date", None),
         )
 
         logger.info(f"Backtest completed: {len(result.equity)} equity points")

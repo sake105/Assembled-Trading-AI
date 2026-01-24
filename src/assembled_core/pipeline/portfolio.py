@@ -27,7 +27,7 @@ def simulate_with_costs(
     prices: pd.DataFrame | None = None,
     spread_model: SpreadModel | None = None,
     slippage_model: SlippageModel | None = None,
-) -> tuple[pd.DataFrame, dict[str, float | int]]:
+) -> tuple[pd.DataFrame, dict[str, float | int], pd.DataFrame]:
     """Simulate portfolio equity with transaction costs.
 
     Args:
@@ -39,9 +39,12 @@ def simulate_with_costs(
         freq: Frequency string ("1d" or "5min") for timeline generation
 
     Returns:
-        Tuple of (equity DataFrame, metrics dict)
+        Tuple of (equity DataFrame, metrics dict, trades DataFrame)
         equity: DataFrame with columns: timestamp, equity
         metrics: Dictionary with keys: final_pf, sharpe, trades
+        trades: DataFrame with columns: timestamp, symbol, side, qty, price,
+            fill_qty, fill_price, status, commission_cash, spread_cash, slippage_cash,
+            total_cost_cash, ... (all cost columns)
 
     Side effects:
         None (pure function)
@@ -51,7 +54,9 @@ def simulate_with_costs(
         ts = pd.date_range(end=pd.Timestamp.utcnow(), periods=60, freq=freq)
         eq = pd.DataFrame({"timestamp": ts, "equity": float(start_capital)})
         rep = {"final_pf": 1.0, "sharpe": float("nan"), "trades": 0}
-        return eq, rep
+        # Return empty trades DataFrame with expected columns
+        trades_df = pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
+        return eq, rep, trades_df
 
     t0, t1 = orders["timestamp"].min(), orders["timestamp"].max()
     tl = pd.date_range(start=t0, end=t1, freq=freq)
@@ -141,17 +146,29 @@ def simulate_with_costs(
     )
 
     # effektiver Preisaufschlag/-abschlag
-    # BUY zahlt: price * (1 + s + im) + kommission
-    # SELL erhält: price * (1 - s - im) - kommission
-    # Use total_cost_cash instead of separate k * notional
-    orders["cash_delta"] = np.where(
-        orders["sign"] > 0,
-        -(orders["qty"] * orders["price"] * (1.0 + s + im) + orders["total_cost_cash"]),
-        +(
-            orders["qty"].abs() * orders["price"] * (1.0 - s - im)
-            - orders["total_cost_cash"]
-        ),
-    )
+    # BUY zahlt: fill_price * fill_qty + total_cost_cash
+    # SELL erhält: fill_price * fill_qty - total_cost_cash
+    # IMPORTANT: Use fill_qty and fill_price for partial fills, not qty and price
+    # Costs (total_cost_cash) are already computed based on fill_qty via add_cost_columns_to_trades
+    if "fill_qty" in orders.columns and "fill_price" in orders.columns:
+        # Use fill_qty and fill_price for cash_delta (correct for partial fills)
+        fill_qty_abs = orders["fill_qty"].abs()
+        fill_price_vals = orders["fill_price"].fillna(orders["price"]).astype(float)
+        orders["cash_delta"] = np.where(
+            orders["sign"] > 0,
+            -(fill_qty_abs * fill_price_vals + orders["total_cost_cash"]),
+            +(fill_qty_abs * fill_price_vals - orders["total_cost_cash"]),
+        )
+    else:
+        # Fallback: use qty and price (for backward compatibility if fill_qty not available)
+        orders["cash_delta"] = np.where(
+            orders["sign"] > 0,
+            -(orders["qty"] * orders["price"] * (1.0 + s + im) + orders["total_cost_cash"]),
+            +(
+                orders["qty"].abs() * orders["price"] * (1.0 - s - im)
+                - orders["total_cost_cash"]
+            ),
+        )
 
     ts_to_delta = (
         orders.groupby(pd.Grouper(key="timestamp", freq=freq))["cash_delta"]
@@ -178,7 +195,12 @@ def simulate_with_costs(
         else float("nan")
     )
     rep = {"final_pf": pf, "sharpe": sharpe, "trades": int(len(orders))}
-    return eq, rep
+    
+    # Return trades DataFrame (with fill_qty, fill_price, status, costs)
+    # This is the "trades" output that will be used for ledger generation
+    trades_df = orders.copy()
+    
+    return eq, rep, trades_df
 
 
 def write_portfolio_report(

@@ -53,7 +53,7 @@ def main():
     orders = load_orders(a.freq, output_dir=OUTPUT_DIR, strict=True)
 
     # Simulate with costs
-    eq, rep = simulate_with_costs(
+    eq, rep, trades_df = simulate_with_costs(
         orders,
         a.start_capital,
         a.commission_bps,
@@ -61,6 +61,7 @@ def main():
         a.impact_w,
         a.freq,
     )
+    # trades_df is available but not used in this legacy script
 
     # Write results
     eq_path, rep_path = write_portfolio_report(eq, rep, a.freq, output_dir=OUTPUT_DIR)

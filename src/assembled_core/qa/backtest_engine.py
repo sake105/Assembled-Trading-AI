@@ -433,6 +433,16 @@ def run_portfolio_backtest(
     cycle_fn: Callable[[pd.Timestamp, pd.DataFrame], "TradingCycleResult"] | None = None,
     # Performance optimization
     use_numba: bool | None = None,
+    # Ledger/Reconciliation integration (Sprint 13)
+    include_ledger: bool = True,
+    run_id: str | None = None,
+    output_dir: Path | None = None,
+    # Broker snapshot controls (Sprint 13 extension)
+    broker_snapshot_policy: str = "prefer",
+    write_broker_snapshot: bool = False,
+    broker_snapshot_run_id: str | None = None,
+    broker_snapshot_file: str | Path | None = None,
+    broker_snapshot_date: str | None = None,
 ) -> BacktestResult:
     """Run a portfolio-level backtest with configurable signal and position sizing functions.
 
@@ -914,13 +924,14 @@ def run_portfolio_backtest(
             impact_w = impact_w if impact_w is not None else default_costs.impact_w
 
         if include_costs:
-            equity, metrics = simulate_with_costs(
+            equity, metrics, trades_df = simulate_with_costs(
                 orders=orders_df,
                 start_capital=start_capital,
                 commission_bps=commission_bps,
                 spread_w=spread_w,
                 impact_w=impact_w,
                 freq=rebalance_freq,
+                prices=prices,  # Pass prices for fill model pipeline
             )
             # Add trades count to metrics
             metrics["trades"] = len(orders_df)
@@ -928,6 +939,8 @@ def run_portfolio_backtest(
             equity = simulate_equity(prices, orders_df, start_capital)
             metrics = compute_metrics(equity)
             metrics["trades"] = len(orders_df)
+            # For ledger integration, use orders_df as trades_df when costs are disabled
+            trades_df = pd.DataFrame()
 
     # Step 4.5: Apply fill model pipeline (session gate -> limit -> partial)
     # This must happen BEFORE cost calculation, as costs are based on fill_qty
@@ -1040,7 +1053,79 @@ def run_portfolio_backtest(
             equity["daily_return"] = equity["equity"].pct_change().fillna(0.0)
             equity = equity[["date", "timestamp", "equity", "daily_return"]].copy()
 
-    # Step 6: Build result
+    # Step 6: Ledger/Reconciliation integration (optional, default-on)
+    ledger_result = None
+    if include_ledger and run_id and output_dir:
+        try:
+            from src.assembled_core.accounting.ledger_integration import build_ledger_from_trades
+            
+            # Get trades_df (from simulate_with_costs if include_costs=True, otherwise from orders_df)
+            trades_for_ledger = orders_df.copy()
+            if include_costs and not trades_df.empty:
+                # Use trades_df from simulate_with_costs (has fill_qty, fill_price, status, costs)
+                trades_for_ledger = trades_df.copy()
+            
+            # Determine snapshot run_id (for import and lookup)
+            snapshot_run_id = broker_snapshot_run_id if broker_snapshot_run_id is not None else run_id
+
+            # Step 6.1: Import external broker snapshot if provided
+            if broker_snapshot_file:
+                try:
+                    logger.info(f"Importing external broker snapshot from: {broker_snapshot_file}")
+                    from pathlib import Path
+                    from src.assembled_core.accounting.broker_snapshot_importer import import_broker_snapshot
+
+                    # Determine snapshot date (use provided date, or last trade date, or today)
+                    snapshot_date = broker_snapshot_date
+                    if snapshot_date is None:
+                        if not trades_for_ledger.empty and "timestamp" in trades_for_ledger.columns:
+                            snapshot_date = pd.to_datetime(trades_for_ledger["timestamp"].max(), utc=True)
+                        else:
+                            snapshot_date = pd.Timestamp.utcnow()
+                    else:
+                        snapshot_date = pd.to_datetime(snapshot_date, utc=True)
+
+                    # Import snapshot
+                    import_result = import_broker_snapshot(
+                        snapshot_path=Path(broker_snapshot_file),
+                        run_id=snapshot_run_id,
+                        snapshot_date=snapshot_date,
+                        output_dir=output_dir,
+                        qty_tol=1e-8,
+                        store_parquet=True,
+                    )
+                    logger.info(
+                        f"Imported broker snapshot: {import_result['broker_snapshot_path']}, "
+                        f"cash={import_result['cash']}"
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to import broker snapshot: {e}", exc_info=True)
+                    # If policy is require, we should fail here
+                    if broker_snapshot_policy == "require":
+                        raise ValueError(
+                            f"Broker snapshot import failed (policy=require): {e}"
+                        ) from e
+                    # Otherwise, log and continue (snapshot might still exist from previous import)
+            
+            # Build ledger from trades
+            ledger_result = build_ledger_from_trades(
+                orders_df=orders_df,
+                trades_df=trades_for_ledger,
+                run_id=run_id,
+                output_dir=output_dir,
+                as_of_date=None,  # Use last timestamp from trades
+                prices_df=prices,
+                start_cash=start_capital,
+                broker_snapshot_policy=broker_snapshot_policy,
+                write_paper_broker_snapshot=write_broker_snapshot,
+                broker_snapshot_run_id=snapshot_run_id,
+            )
+            logger.info(f"Ledger integration completed: ledger_pack_path={ledger_result.get('ledger_pack_path')}, reconciliation_ok={ledger_result.get('reconciliation_ok')}")
+        except Exception as e:
+            logger.warning(f"Ledger integration failed: {e}", exc_info=True)
+            ledger_result = None
+
+    # Step 7: Build result
     # Combine signals if collected from cycle_fn
     signals_result = None
     if include_signals:
@@ -1050,6 +1135,16 @@ def run_portfolio_backtest(
         elif cycle_fn is None:
             signals_result = signals
     
+    # Build meta dict with timings and ledger info
+    meta_dict = {}
+    if timings:
+        meta_dict["timings"] = timings
+    if ledger_result:
+        meta_dict["ledger_pack_path"] = ledger_result.get("ledger_pack_path")
+        meta_dict["reconcile_report_path"] = ledger_result.get("reconcile_report_path")
+        meta_dict["reconciliation_ok"] = ledger_result.get("reconciliation_ok")
+        meta_dict["broker_snapshot_path"] = ledger_result.get("broker_snapshot_path")
+    
     result = BacktestResult(
         equity=equity,
         metrics=metrics,
@@ -1058,7 +1153,7 @@ def run_portfolio_backtest(
         target_positions=pd.concat(all_targets, ignore_index=True)
         if include_targets and all_targets
         else None,
-        meta={"timings": timings} if timings else None,
+        meta=meta_dict if meta_dict else None,
     )
 
     return result

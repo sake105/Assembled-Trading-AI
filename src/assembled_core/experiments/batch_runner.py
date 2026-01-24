@@ -833,6 +833,110 @@ def run_batch_serial(
     return batch_result
 
 
+def collect_robustness_pack_metrics(run_output_dir: Path, run_id: str) -> dict[str, Any] | None:
+    """Collect robustness pack metrics from exported robustness pack (Sprint 12 Final).
+
+    This function reads robustness pack summary that was previously exported
+    to robustness_pack_<run_id> directory.
+
+    Args:
+        run_output_dir: Run output directory
+        run_id: Run identifier
+
+    Returns:
+        Dictionary with robustness pack metrics:
+        - robustness_ok: bool (True if all enabled tests pass)
+        - plateau_score: float | None (RB2 plateau robust_score)
+        - deflated_sharpe: float | None (RB5 deflated Sharpe for best run)
+        - wf_oos_metrics: dict | None (RB1 OOS-first metrics)
+        - sensitivity_summary: dict | None (RB3 summary)
+        - crisis_summary: dict | None (RB4 summary)
+        - multiple_testing_warning: dict | None (RB5 warnings)
+        None if robustness pack not found
+    """
+    import math
+
+    pack_dir = run_output_dir / f"robustness_pack_{run_id}"
+    summary_json = pack_dir / "robustness_summary.json"
+
+    if not summary_json.exists():
+        return None
+
+    try:
+        with summary_json.open("r", encoding="utf-8") as f:
+            pack_data = json.load(f)
+
+        return {
+            "robustness_ok": pack_data.get("robustness_ok", False),
+            "plateau_score": pack_data.get("plateau_score"),
+            "deflated_sharpe": pack_data.get("deflated_sharpe"),
+            "wf_oos_metrics": pack_data.get("wf_oos_metrics"),
+            "sensitivity_summary": pack_data.get("sensitivity_summary"),
+            "crisis_summary": pack_data.get("crisis_summary"),
+            "multiple_testing_warning": pack_data.get("multiple_testing_warning"),
+        }
+
+    except Exception as exc:
+        logger.warning(f"Failed to read robustness pack metrics from {summary_json}: {exc}")
+        return None
+
+
+def collect_walk_forward_metrics(run_output_dir: Path, run_id: str) -> dict[str, Any] | None:
+    """Collect walk-forward metrics from exported WF results (RB1).
+
+    This function reads walk-forward results that were previously exported
+    to walk_forward_<run_id> directory.
+
+    Args:
+        run_output_dir: Run output directory
+        run_id: Run identifier
+
+    Returns:
+        Dictionary with OOS-first metrics:
+        - wf_oos_sharpe: Mean OOS Sharpe ratio
+        - wf_oos_cagr: Mean OOS CAGR
+        - wf_oos_dd: Mean OOS max drawdown
+        - wf_pass: bool (True if mean OOS Sharpe >= 0.5 and win rate >= 0.5)
+        None if WF results not found
+    """
+    import math
+
+    wf_dir = run_output_dir / f"walk_forward_{run_id}"
+    metrics_json = wf_dir / "wf_metrics.json"
+
+    if not metrics_json.exists():
+        return None
+
+    try:
+        with metrics_json.open("r", encoding="utf-8") as f:
+            wf_data = json.load(f)
+
+        oos_metrics = wf_data.get("oos_first_metrics", {})
+        if not oos_metrics:
+            return None
+
+        wf_oos_sharpe = oos_metrics.get("oos_mean_sharpe")
+        wf_oos_cagr = oos_metrics.get("oos_mean_cagr")
+        wf_oos_dd = oos_metrics.get("oos_mean_max_dd")
+        wf_win_rate = oos_metrics.get("oos_win_rate", 0.0)
+
+        # Determine pass/fail: mean OOS Sharpe >= 0.5 and win rate >= 0.5
+        wf_pass = False
+        if wf_oos_sharpe is not None and wf_win_rate is not None:
+            wf_pass = (wf_oos_sharpe >= 0.5) and (wf_win_rate >= 0.5)
+
+        return {
+            "wf_oos_sharpe": wf_oos_sharpe if wf_oos_sharpe is not None else math.nan,
+            "wf_oos_cagr": wf_oos_cagr if wf_oos_cagr is not None else math.nan,
+            "wf_oos_dd": wf_oos_dd if wf_oos_dd is not None else math.nan,
+            "wf_pass": wf_pass,
+        }
+
+    except Exception as exc:
+        logger.warning(f"Failed to read walk-forward metrics from {metrics_json}: {exc}")
+        return None
+
+
 def collect_backtest_metrics(run_output_dir: Path, freq: str = "1d") -> dict[str, Any]:
     """Collect backtest metrics from run output directory.
 
@@ -874,7 +978,66 @@ def collect_backtest_metrics(run_output_dir: Path, freq: str = "1d") -> dict[str
         "strategy": None,
         "params_hash": None,
         "data_snapshot_id": None,  # D4: Snapshot ID for reproducibility (wird aus Manifest gelesen)
+        # RB1: Walk-forward metrics (backward compatible: None if not available)
+        "wf_oos_sharpe": math.nan,
+        "wf_oos_cagr": math.nan,
+        "wf_oos_dd": math.nan,
+        "wf_pass": None,
+        # Sprint 12: Robustness Pack metrics (backward compatible: None if not available)
+        "robustness_ok": None,
+        "plateau_score": math.nan,
+        "crisis_pass_fraction": math.nan,
+        "sensitivity_all_pass": None,
     }
+
+    # Sprint 12: Try to collect robustness pack metrics if available
+    # Extract run_id from directory name (e.g., "runs/run_123" -> "run_123")
+    run_id = run_output_dir.name
+    pack_metrics = collect_robustness_pack_metrics(run_output_dir, run_id)
+    if pack_metrics:
+        metrics_dict["robustness_ok"] = pack_metrics.get("robustness_ok")
+        metrics_dict["plateau_score"] = (
+            pack_metrics.get("plateau_score") if pack_metrics.get("plateau_score") is not None else math.nan
+        )
+        crisis_summary = pack_metrics.get("crisis_summary")
+        if crisis_summary:
+            metrics_dict["crisis_pass_fraction"] = (
+                crisis_summary.get("pass_fraction") if crisis_summary.get("pass_fraction") is not None else math.nan
+            )
+        sensitivity_summary = pack_metrics.get("sensitivity_summary")
+        if sensitivity_summary:
+            metrics_dict["sensitivity_all_pass"] = sensitivity_summary.get("all_pass")
+
+        # Extract WF metrics from pack if available (takes precedence over standalone WF)
+        wf_oos_metrics = pack_metrics.get("wf_oos_metrics")
+        if wf_oos_metrics:
+            metrics_dict["wf_oos_sharpe"] = (
+                wf_oos_metrics.get("oos_mean_sharpe")
+                if wf_oos_metrics.get("oos_mean_sharpe") is not None
+                else math.nan
+            )
+            metrics_dict["wf_oos_cagr"] = (
+                wf_oos_metrics.get("oos_mean_cagr")
+                if wf_oos_metrics.get("oos_mean_cagr") is not None
+                else math.nan
+            )
+            metrics_dict["wf_oos_dd"] = (
+                wf_oos_metrics.get("oos_mean_max_dd")
+                if wf_oos_metrics.get("oos_mean_max_dd") is not None
+                else math.nan
+            )
+            oos_win_rate = wf_oos_metrics.get("oos_win_rate")
+            if oos_win_rate is not None:
+                oos_sharpe = wf_oos_metrics.get("oos_mean_sharpe")
+                metrics_dict["wf_pass"] = (
+                    oos_sharpe is not None and oos_sharpe >= 0.5 and oos_win_rate >= 0.5
+                )
+
+    # RB1: Fallback: Try to collect standalone walk-forward metrics if pack not available
+    if metrics_dict["wf_oos_sharpe"] is math.nan:
+        wf_metrics = collect_walk_forward_metrics(run_output_dir, run_id)
+        if wf_metrics:
+            metrics_dict.update(wf_metrics)
 
     # Try to load run manifest for strategy/params and data_snapshot_id (D4)
     manifest_path = run_output_dir / "run_manifest.json"
@@ -1054,6 +1217,16 @@ def _write_batch_summary(batch_result: BatchResult, output_dir: Path) -> None:
                 "max_dd",
                 "max_dd_pct",
                 "turnover",
+                # RB1: Walk-forward metrics (backward compatible)
+                "wf_oos_sharpe",
+                "wf_oos_cagr",
+                "wf_oos_dd",
+                "wf_pass",
+                # Sprint 12: Robustness Pack metrics (backward compatible)
+                "robustness_ok",
+                "plateau_score",
+                "crisis_pass_fraction",
+                "sensitivity_all_pass",
                 "runtime_sec",
                 "error",
             ]
@@ -1080,6 +1253,26 @@ def _write_batch_summary(batch_result: BatchResult, output_dir: Path) -> None:
                     f"{metrics.get('turnover', math.nan):.2f}"
                     if not math.isnan(metrics.get("turnover", math.nan))
                     else "",
+                    # RB1: Walk-forward metrics
+                    f"{metrics.get('wf_oos_sharpe', math.nan):.4f}"
+                    if not math.isnan(metrics.get("wf_oos_sharpe", math.nan))
+                    else "",
+                    f"{metrics.get('wf_oos_cagr', math.nan):.4f}"
+                    if not math.isnan(metrics.get("wf_oos_cagr", math.nan))
+                    else "",
+                    f"{metrics.get('wf_oos_dd', math.nan):.4f}"
+                    if not math.isnan(metrics.get("wf_oos_dd", math.nan))
+                    else "",
+                    "True" if metrics.get("wf_pass") is True else ("False" if metrics.get("wf_pass") is False else ""),
+                    # Sprint 12: Robustness Pack metrics
+                    "True" if metrics.get("robustness_ok") is True else ("False" if metrics.get("robustness_ok") is False else ""),
+                    f"{metrics.get('plateau_score', math.nan):.4f}"
+                    if not math.isnan(metrics.get("plateau_score", math.nan))
+                    else "",
+                    f"{metrics.get('crisis_pass_fraction', math.nan):.4f}"
+                    if not math.isnan(metrics.get("crisis_pass_fraction", math.nan))
+                    else "",
+                    "True" if metrics.get("sensitivity_all_pass") is True else ("False" if metrics.get("sensitivity_all_pass") is False else ""),
                     f"{r.runtime_sec:.3f}",
                     r.error or "",
                 ]

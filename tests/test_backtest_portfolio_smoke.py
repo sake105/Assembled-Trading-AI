@@ -113,7 +113,7 @@ def test_simulate_with_costs_basic():
     impact_w = 0.5
     freq = "5min"
 
-    equity, metrics = simulate_with_costs(
+    equity, metrics, trades_df = simulate_with_costs(
         orders, start_capital, commission_bps, spread_w, impact_w, freq
     )
 
@@ -134,6 +134,13 @@ def test_simulate_with_costs_basic():
     assert metrics["trades"] == len(orders), "Trades count should match orders count"
     assert metrics["final_pf"] > 0, "Final PF should be positive"
 
+    # Verify trades_df is returned (signature regression test)
+    assert isinstance(trades_df, pd.DataFrame), "trades_df should be a DataFrame"
+    # trades_df should have expected columns (at minimum: timestamp, symbol, side, qty, price)
+    if not trades_df.empty:
+        assert "timestamp" in trades_df.columns, "trades_df should have timestamp column"
+        assert "symbol" in trades_df.columns, "trades_df should have symbol column"
+
 
 def test_simulate_with_costs_equity_positive():
     """Test that portfolio simulation always produces positive equity."""
@@ -144,7 +151,7 @@ def test_simulate_with_costs_equity_positive():
     for commission_bps in [0.0, 0.5, 1.0]:
         for spread_w in [0.0, 0.25, 0.5]:
             for impact_w in [0.0, 0.5, 1.0]:
-                equity, metrics = simulate_with_costs(
+                equity, metrics, trades_df = simulate_with_costs(
                     orders, start_capital, commission_bps, spread_w, impact_w, "5min"
                 )
 

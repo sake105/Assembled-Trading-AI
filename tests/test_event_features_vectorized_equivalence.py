@@ -175,9 +175,12 @@ def test_build_event_feature_panel_equivalence() -> None:
                 )
             else:
                 # Float comparison (with tolerance)
+                # Convert to float64 to handle object dtype (legacy uses object dtype with NaN)
+                legacy_float = legacy_non_nan.astype("float64")
+                vectorized_float = vectorized_non_nan.astype("float64")
                 np.testing.assert_allclose(
-                    legacy_non_nan.values,
-                    vectorized_non_nan.values,
+                    legacy_float.values,
+                    vectorized_float.values,
                     rtol=1e-10,
                     atol=1e-10,
                 )

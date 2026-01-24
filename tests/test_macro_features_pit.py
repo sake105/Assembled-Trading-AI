@@ -109,7 +109,10 @@ def test_add_latest_macro_value_merge_asof_behavior() -> None:
 
     macro_df = pd.DataFrame({
         "series_id": ["GDP_US"] * 2,
-        "release_ts": pd.to_datetime(["2024-01-05 08:30:00"] * 2, utc=True),
+        "release_ts": pd.to_datetime([
+            "2024-01-05 08:30:00",
+            "2024-01-10 08:30:00",  # Different release_ts to avoid deduplication
+        ], utc=True),
         "available_ts": pd.to_datetime([
             "2024-01-05 09:00:00",
             "2024-01-10 09:00:00",
@@ -124,13 +127,7 @@ def test_add_latest_macro_value_merge_asof_behavior() -> None:
     assert pd.isna(result["macro_GDP_US_latest"].iloc[0])
     # Second row: timestamp 2024-01-05 09:00:00, first value available (exact match) -> 2.5
     assert result["macro_GDP_US_latest"].iloc[1] == 2.5
-    # Third row: timestamp 2024-01-10 09:00:00
-    # Note: There's a known issue with index mapping in add_latest_macro_value
-    # The correct value should be 2.6 (exact match), but due to index mapping
-    # it currently returns 2.5. This is a known limitation.
-    # TODO: Fix index mapping in add_latest_macro_value to preserve correct values
-    value_at_third = result["macro_GDP_US_latest"].iloc[2]
-    assert value_at_third in [2.5, 2.6], f"Expected 2.5 or 2.6, got {value_at_third}"
-    # Fourth row: timestamp 2024-01-15 09:00:00, latest available -> 2.6 (or 2.5 due to mapping issue)
-    value_at_fourth = result["macro_GDP_US_latest"].iloc[3]
-    assert value_at_fourth in [2.5, 2.6], f"Expected 2.5 or 2.6, got {value_at_fourth}"
+    # Third row: timestamp 2024-01-10 09:00:00, second value available (exact match) -> 2.6
+    assert result["macro_GDP_US_latest"].iloc[2] == 2.6
+    # Fourth row: timestamp 2024-01-15 09:00:00, latest available -> 2.6
+    assert result["macro_GDP_US_latest"].iloc[3] == 2.6

@@ -105,6 +105,40 @@ def parse_eod_args() -> argparse.Namespace:
         default=str(OUTPUT_DIR),
         help="Output directory (default: from config)",
     )
+    
+    # Broker snapshot arguments (Sprint 13 extension)
+    p.add_argument(
+        "--broker-snapshot-policy",
+        type=str,
+        choices=["ignore", "prefer", "require"],
+        default="prefer",
+        help="Broker snapshot usage for reconciliation. "
+             "ignore=always paper view, prefer=snapshot if present else paper (default), require=fail if missing.",
+    )
+    p.add_argument(
+        "--write-broker-snapshot",
+        action="store_true",
+        default=False,
+        help="Write paper broker view as a broker snapshot (for replay/repro).",
+    )
+    p.add_argument(
+        "--broker-snapshot-run-id",
+        type=str,
+        default=None,
+        help="Optional snapshot namespace run_id to load broker snapshots from. Defaults to run_id.",
+    )
+    p.add_argument(
+        "--broker-snapshot-file",
+        type=str,
+        default=None,
+        help="Path to external broker snapshot file (JSON/CSV) to import before reconciliation.",
+    )
+    p.add_argument(
+        "--broker-snapshot-date",
+        type=str,
+        default=None,
+        help="Snapshot date (YYYY-MM-DD) for imported snapshot. Defaults to today or run date.",
+    )
 
     return p.parse_args()
 
@@ -183,6 +217,12 @@ def run_eod_from_args(args: argparse.Namespace) -> dict:
         symbols=symbols,
         start_date=getattr(args, "start_date", None),
         end_date=getattr(args, "end_date", None),
+        # Broker snapshot controls (Sprint 13 extension)
+        broker_snapshot_policy=args.broker_snapshot_policy,
+        write_paper_broker_snapshot=args.write_broker_snapshot,
+        broker_snapshot_run_id=args.broker_snapshot_run_id,
+        broker_snapshot_file=getattr(args, "broker_snapshot_file", None),
+        broker_snapshot_date=getattr(args, "broker_snapshot_date", None),
     )
 
     logger.info("=" * 60)

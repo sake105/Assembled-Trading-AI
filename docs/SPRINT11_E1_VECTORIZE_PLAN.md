@@ -198,10 +198,39 @@ result = cross[mask].groupby(["symbol", "timestamp"]).agg({
 - **Tests**: `tests/test_event_features_pit.py`, `tests/test_leakage_altdata_pit.py`
 - **Contract**: `src/assembled_core/data/altdata/contract.py`
 
-## Next Steps (Sprint 11.E1)
+## Implementation Status (Sprint 11.E1 - COMPLETED)
 
-1. Implement vectorized `build_event_feature_panel()` using merge_asof + rolling
-2. Implement vectorized `add_disclosure_count_feature()` using same approach
-3. Add equivalence tests comparing vectorized vs legacy
-4. Benchmark performance improvement
-5. Update documentation if API changes
+### Vectorized Implementation
+
+1. **Implemented**: `build_event_feature_panel_vectorized()` using merge_asof + cumulative counting
+2. **Implemented**: `add_disclosure_count_feature_vectorized()` using same approach
+3. **Equivalence tests**: All green (test_event_features_vectorized_equivalence.py)
+4. **PIT-safety tests**: All green (test_event_features_pit.py, test_leakage_altdata_pit.py)
+
+### Algorithm
+
+The vectorized implementation uses:
+- **Cumulative counting**: Events are aggregated by `disclosure_date` and cumulative counts/sums are computed
+- **merge_asof**: For each price timestamp, find cumulative count/sum at that time (direction="backward")
+- **Window subtraction**: `window_count = cum_at_t - cum_at_start` where `start = timestamp - lookback_days`
+- **Mean calculation**: `mean = sum / count` (if count > 0, else NaN)
+
+### Semantics (Preserved)
+
+- **PIT-safety**: `disclosure_date <= row.timestamp` (per-row filtering)
+- **Window strictness**: `disclosure_date > (timestamp - lookback_days)` (strict >, not >=)
+- **Determinism**: Uses `mergesort` for stable sorting, UTC normalization, `np.nan` for missing values
+- **Output schema**: Identical to legacy (count=int, sum=float, mean=float/NaN)
+
+### Default Routing
+
+**Current default**: `method="legacy"` (conservative)
+
+**Vectorized path**: Available via `method="vectorized"`, production-ready and tested.
+
+**Migration**: To use vectorized path, explicitly set `method="vectorized"`:
+```python
+build_event_feature_panel(events, prices, as_of, method="vectorized")
+```
+
+The vectorized path is fully tested and equivalent to legacy, but remains opt-in to ensure backward compatibility.

@@ -181,6 +181,15 @@ Shipping/Macro feature builders should:
 
 This ensures PIT-safety and prevents look-ahead bias.
 
+### Row-Mapping Guarantee
+
+When using `merge_asof` for feature building (e.g., `add_latest_macro_value()`):
+- **Stable row mapping**: Uses `_row_id` to preserve original row order
+- **Deterministic**: Sort by `timestamp, _row_id` (mergesort) before merge, restore via `_row_id` after
+- **Correct assignment**: Each row receives the correct value based on its timestamp, not a global value
+
+This ensures that features are correctly assigned to each row in the panel, maintaining PIT-safety and deterministic behavior.
+
 ## Error Handling
 
 - **Missing Required Columns**: `ValueError` with list of missing columns

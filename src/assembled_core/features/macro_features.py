@@ -5,6 +5,7 @@ Provides PIT-safe macro features using availability_ts filtering.
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 from src.assembled_core.data.macro.contract import filter_macro_pit, normalize_macro_releases
@@ -51,7 +52,7 @@ def add_latest_macro_value(
     except ValueError:
         # If normalization fails, return panel with NaN values
         out_col = out_col or f"macro_{series_id}_latest"
-        result[out_col] = pd.NA
+        result[out_col] = np.nan
         return result
 
     # Filter by series_id
@@ -59,7 +60,7 @@ def add_latest_macro_value(
 
     if macro_series.empty:
         out_col = out_col or f"macro_{series_id}_latest"
-        result[out_col] = pd.NA
+        result[out_col] = np.nan
         return result
 
     # Apply PIT filtering
@@ -67,19 +68,23 @@ def add_latest_macro_value(
 
     if macro_pit.empty:
         out_col = out_col or f"macro_{series_id}_latest"
-        result[out_col] = pd.NA
+        result[out_col] = np.nan
         return result
 
     # Sort by available_ts for merge_asof
-    macro_sorted = macro_pit.sort_values("available_ts").reset_index(drop=True)
+    macro_sorted = macro_pit.sort_values("available_ts", kind="mergesort").reset_index(drop=True)
 
     # Use merge_asof to join latest available value to each timestamp
-    # Store original index for mapping back
-    original_index = result.index.copy()
-    result_sorted = result.sort_values("timestamp").reset_index(drop=True)
+    # Implement stable row mapping to preserve original order
+    panel_in = result.copy()
+    panel_in["_row_id"] = np.arange(len(panel_in), dtype=np.int64)
 
+    # Sort panel for merge_asof (stable sort: timestamp, then _row_id)
+    panel_sorted = panel_in.sort_values(["timestamp", "_row_id"], kind="mergesort").reset_index(drop=True)
+
+    # Perform merge_asof
     merged = pd.merge_asof(
-        result_sorted,
+        panel_sorted,
         macro_sorted[["available_ts", "value"]],
         left_on="timestamp",
         right_on="available_ts",
@@ -91,10 +96,16 @@ def add_latest_macro_value(
     out_col = out_col or f"macro_{series_id}_latest"
     merged[out_col] = merged["value"]
 
-    # Restore original index
-    merged.index = original_index
+    # Map back to original rows using _row_id
+    # Merge on _row_id to restore original order
+    result = panel_in.merge(
+        merged[["_row_id", out_col]],
+        on="_row_id",
+        how="left",
+        validate="one_to_one",
+    )
 
-    # Assign values back to result
-    result[out_col] = merged[out_col]
+    # Sort by _row_id to restore original order, then drop helper column
+    result = result.sort_values("_row_id", kind="mergesort").drop(columns=["_row_id"]).reset_index(drop=True)
 
     return result

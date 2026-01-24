@@ -1,7 +1,7 @@
 """Vectorized event feature builder module (Sprint 11.E1).
 
 This module provides vectorized implementations of event feature builders using
-pandas merge_asof and rolling window operations instead of nested loops.
+pandas merge_asof and cumulative counting instead of nested loops.
 
 Key Functions:
     - build_event_feature_panel_vectorized(): Vectorized version of build_event_feature_panel
@@ -10,12 +10,13 @@ Key Functions:
 Design Principles:
     - PIT-safe: Uses disclosure_date filtering (same as legacy)
     - Deterministic: Same input -> same output (explicit sorting)
-    - Vectorized: No Python loops, uses pandas operations
+    - Vectorized: O(N log N) per symbol using merge_asof
     - Compatible: Same output schema as legacy implementation
 """
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 from src.assembled_core.data.altdata.contract import (
@@ -34,9 +35,9 @@ def build_event_feature_panel_vectorized(
     """Build event feature panel using vectorized operations (Sprint 11.E1).
 
     This is a vectorized implementation of build_event_feature_panel that uses:
-    1. Daily aggregation of events (per symbol, per disclosure_date)
-    2. merge_asof to join events to prices (disclosure_date <= timestamp)
-    3. Rolling window statistics (count, sum, mean) via groupby+rolling
+    1. Per-row PIT filtering (disclosure_date <= row.timestamp)
+    2. Cumulative counting via merge_asof (O(N log N) per symbol)
+    3. Window subtraction (cum_at_t - cum_at_start)
 
     Args:
         events_df: Event DataFrame (must have symbol, event_date, disclosure_date)
@@ -71,225 +72,153 @@ def build_event_feature_panel_vectorized(
         # If normalization fails, return prices with zero features
         result[f"{feature_prefix}_count_{lookback_days}d"] = 0
         result[f"{feature_prefix}_sum_{lookback_days}d"] = 0.0
-        result[f"{feature_prefix}_mean_{lookback_days}d"] = pd.NA
+        result[f"{feature_prefix}_mean_{lookback_days}d"] = np.nan
         return result
 
     if events.empty:
         # Return prices with zero features
         result[f"{feature_prefix}_count_{lookback_days}d"] = 0
         result[f"{feature_prefix}_sum_{lookback_days}d"] = 0.0
-        result[f"{feature_prefix}_mean_{lookback_days}d"] = pd.NA
+        result[f"{feature_prefix}_mean_{lookback_days}d"] = np.nan
         return result
 
-    # Step 2: Filter events by disclosure_date <= as_of (PIT-safe)
+    # Step 2: Filter events by disclosure_date <= as_of (PIT-safe, global)
     events = filter_events_pit(events, as_of)
 
-    # Step 3: Daily aggregation (per symbol, per disclosure_date)
-    # Aggregate events by (symbol, disclosure_date) to get daily counts/sums
-    agg_dict = {}
-    if "value" in events.columns:
-        agg_dict["value"] = ["count", "sum", "mean"]
-    else:
-        # If no value column, just count events
-        agg_dict["event_date"] = "count"  # Use any column for count
+    # Step 3: Initialize feature columns
+    result[f"{feature_prefix}_count_{lookback_days}d"] = 0
+    result[f"{feature_prefix}_sum_{lookback_days}d"] = 0.0
+    result[f"{feature_prefix}_mean_{lookback_days}d"] = np.nan
 
-    events_daily = events.groupby(["symbol", "disclosure_date"]).agg(agg_dict).reset_index()
+    # Determine value column for aggregation
+    value_col = "value" if "value" in events.columns else None
 
-    # Flatten column names if multi-level
-    if isinstance(events_daily.columns, pd.MultiIndex):
-        events_daily.columns = ["_".join(col).strip("_") if col[1] else col[0] for col in events_daily.columns.values]
-    else:
-        # Single-level columns
-        if "value" not in events.columns:
-            # Rename count column
-            events_daily = events_daily.rename(columns={"event_date": "value_count"})
+    # Step 4: Process per symbol (O(N log N) per symbol)
+    for symbol in result["symbol"].unique():
+        symbol_mask = result["symbol"] == symbol
+        symbol_prices = result[symbol_mask].copy()
 
-    # Ensure we have the columns we need
-    if "value" in events.columns:
-        # Rename aggregated columns
-        events_daily = events_daily.rename(columns={
-            "value_count": "event_count",
-            "value_sum": "event_sum",
-            "value_mean": "event_mean",
-        })
-    else:
-        # Only count available
-        events_daily = events_daily.rename(columns={"value_count": "event_count"})
-        events_daily["event_sum"] = 0.0
-        events_daily["event_mean"] = pd.NA
+        # Get events for this symbol (already PIT-filtered globally)
+        symbol_events = events[events["symbol"] == symbol].copy()
 
-    # Step 4: Sort prices for processing
-    result_sorted = result.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
+        if symbol_events.empty:
+            continue
 
-    # Step 5: Note: merge_asof could be used here, but we use cross-join approach
-    # in _compute_features_for_symbol for better window handling
-
-    # Step 6: Compute rolling window statistics using vectorized operations
-    # Use groupby + apply with vectorized helper function
-    # Initialize feature columns first
-    result_sorted[f"{feature_prefix}_count_{lookback_days}d"] = 0
-    result_sorted[f"{feature_prefix}_sum_{lookback_days}d"] = 0.0
-    result_sorted[f"{feature_prefix}_mean_{lookback_days}d"] = pd.NA
-
-    # Store original sorted index
-    original_sorted_index = result_sorted.index.copy()
-
-    # Compute features per symbol group
-    # group_keys=False ensures index is preserved within groups
-    result_grouped = result_sorted.groupby("symbol", group_keys=False).apply(
-        lambda g: _compute_features_for_symbol(
-            g, events, lookback_days, feature_prefix, as_of
+        # Compute features for this symbol using vectorized approach
+        features = _compute_features_for_symbol_vectorized(
+            symbol_prices,
+            symbol_events,
+            lookback_days,
+            feature_prefix,
+            value_col,
         )
-    )
 
-    # result_grouped should have same index as result_sorted (group_keys=False)
-    # Reindex to ensure alignment
-    result_grouped = result_grouped.reindex(original_sorted_index)
+        # Assign features back to result
+        result.loc[symbol_mask, f"{feature_prefix}_count_{lookback_days}d"] = features["count"].values
+        result.loc[symbol_mask, f"{feature_prefix}_sum_{lookback_days}d"] = features["sum"].values
+        result.loc[symbol_mask, f"{feature_prefix}_mean_{lookback_days}d"] = features["mean"].values
 
-    # Copy feature columns directly
-    result_sorted[f"{feature_prefix}_count_{lookback_days}d"] = result_grouped[f"{feature_prefix}_count_{lookback_days}d"].fillna(0).astype(int)
-    result_sorted[f"{feature_prefix}_sum_{lookback_days}d"] = result_grouped[f"{feature_prefix}_sum_{lookback_days}d"].fillna(0.0)
-    result_sorted[f"{feature_prefix}_mean_{lookback_days}d"] = result_grouped[f"{feature_prefix}_mean_{lookback_days}d"]
-
-    # Step 7: Merge back to original result to preserve original index order
-    # Create mapping from original index to sorted index
-    result_original = result.copy()
-    result_original["_sort_key"] = result_original["symbol"].astype(str) + "_" + result_original["timestamp"].astype(str)
-    result_sorted["_sort_key"] = result_sorted["symbol"].astype(str) + "_" + result_sorted["timestamp"].astype(str)
-
-    # Merge on sort_key to align
-    result = result_original.merge(
-        result_sorted[["_sort_key", f"{feature_prefix}_count_{lookback_days}d",
-                       f"{feature_prefix}_sum_{lookback_days}d",
-                       f"{feature_prefix}_mean_{lookback_days}d"]],
-        on="_sort_key",
-        how="left",
-        suffixes=("", "_new"),
-    )
-
-    # Use new columns, fill missing with defaults
-    count_col = f"{feature_prefix}_count_{lookback_days}d_new"
-    sum_col = f"{feature_prefix}_sum_{lookback_days}d_new"
-    mean_col = f"{feature_prefix}_mean_{lookback_days}d_new"
-
-    if count_col in result.columns:
-        result[f"{feature_prefix}_count_{lookback_days}d"] = result[count_col].fillna(0).astype(int)
-    else:
-        result[f"{feature_prefix}_count_{lookback_days}d"] = 0
-
-    if sum_col in result.columns:
-        result[f"{feature_prefix}_sum_{lookback_days}d"] = result[sum_col].fillna(0.0)
-    else:
-        result[f"{feature_prefix}_sum_{lookback_days}d"] = 0.0
-
-    if mean_col in result.columns:
-        result[f"{feature_prefix}_mean_{lookback_days}d"] = result[mean_col]
-    else:
-        result[f"{feature_prefix}_mean_{lookback_days}d"] = pd.NA
-
-    # Drop temporary columns
-    result = result.drop(columns=[col for col in result.columns if col.endswith("_new") or col == "_sort_key"], errors="ignore")
-
-    # Final deterministic sort
-    result = result.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
+    # Final deterministic sort (same as legacy)
+    result = result.sort_values(["symbol", "timestamp"], kind="mergesort").reset_index(drop=True)
 
     return result
 
 
-def _compute_features_for_symbol(
+def _compute_features_for_symbol_vectorized(
     prices_group: pd.DataFrame,
     events: pd.DataFrame,
     lookback_days: int,
     feature_prefix: str,
-    as_of: pd.Timestamp,
+    value_col: str | None,
 ) -> pd.DataFrame:
-    """Compute features for a single symbol using vectorized operations."""
-    symbol = prices_group["symbol"].iloc[0]
-    symbol_events = events[events["symbol"] == symbol].copy()
+    """Compute features for a single symbol using vectorized merge_asof approach.
 
-    # Store original index to preserve row order
-    original_index = prices_group.index.copy()
+    This implements the exact Legacy semantics:
+    - Per-row PIT filtering: disclosure_date <= price_time_normalized
+    - Window: disclosure_date > price_time_normalized - lookback_days (strict >)
+    - Uses cumulative counting via merge_asof for O(N log N) performance
+    """
+    # Normalize timestamps (same as legacy: price_time.normalize())
+    prices_sorted = prices_group.sort_values("timestamp", kind="mergesort").reset_index(drop=True)
+    prices_sorted["timestamp_normalized"] = prices_sorted["timestamp"].dt.normalize()
+    prices_sorted["_row_id"] = range(len(prices_sorted))
 
-    if symbol_events.empty:
-        prices_group[f"{feature_prefix}_count_{lookback_days}d"] = 0
-        prices_group[f"{feature_prefix}_sum_{lookback_days}d"] = 0.0
-        prices_group[f"{feature_prefix}_mean_{lookback_days}d"] = pd.NA
-        return prices_group
+    # Prepare events: normalize disclosure_date and sort
+    events_sorted = events.copy()
+    events_sorted["disclosure_date_normalized"] = events_sorted["disclosure_date"].dt.normalize()
+    events_sorted = events_sorted.sort_values("disclosure_date_normalized", kind="mergesort").reset_index(drop=True)
 
-    # For each price timestamp, we need to count events in window
-    # Use vectorized approach: cross-join prices with events, then filter
-    prices_expanded = prices_group[["timestamp", "symbol"]].copy()
-    prices_expanded["timestamp_normalized"] = prices_expanded["timestamp"].dt.normalize()
-    # Add row identifier to preserve original row order
-    if "_row_id" in prices_group.columns:
-        prices_expanded["_row_id"] = prices_group["_row_id"]
+    # Build cumulative counts/sums per disclosure_date
+    # Group by disclosure_date to handle multiple events on same day
+    if value_col and value_col in events_sorted.columns:
+        events_cum = events_sorted.groupby("disclosure_date_normalized", sort=False).agg({
+            "disclosure_date": "count",  # Count events per day
+            value_col: "sum",  # Sum of values per day
+        }).reset_index()
+        events_cum.columns = ["disclosure_date_normalized", "event_count", "value_sum"]
     else:
-        prices_expanded["_row_id"] = prices_expanded.index
-
-    # Cross join with events (vectorized)
-    events_for_symbol = symbol_events[["disclosure_date", "value"]].copy() if "value" in symbol_events.columns else symbol_events[["disclosure_date"]].copy()
-    events_for_symbol["disclosure_date_normalized"] = events_for_symbol["disclosure_date"].dt.normalize()
-
-    # Use merge to create all combinations, then filter
-    cross = prices_expanded.assign(key=1).merge(
-        events_for_symbol.assign(key=1),
-        on="key",
-        suffixes=("_price", "_event"),
-    ).drop("key", axis=1)
-
-    # Vectorized filtering: disclosure_date <= timestamp AND in window
-    mask = (
-        (cross["disclosure_date_normalized"] <= cross["timestamp_normalized"])
-        & (cross["disclosure_date_normalized"] > cross["timestamp_normalized"] - pd.Timedelta(days=lookback_days))
-    )
-
-    # Aggregate per row_id (not timestamp, to handle duplicate timestamps)
-    if "value" in events_for_symbol.columns:
-        features = cross[mask].groupby("_row_id").agg({
-            "disclosure_date": "count",
-            "value": ["sum", "mean"],
-        })
-        if isinstance(features.columns, pd.MultiIndex):
-            features.columns = ["count", "sum", "mean"]
-        else:
-            features.columns = ["count", "sum", "mean"]
-        features = features.reset_index()
-    else:
-        features = cross[mask].groupby("_row_id").agg({
+        events_cum = events_sorted.groupby("disclosure_date_normalized", sort=False).agg({
             "disclosure_date": "count",
         }).reset_index()
-        features.columns = ["_row_id", "count"]
-        features["sum"] = 0.0
-        features["mean"] = pd.NA
+        events_cum.columns = ["disclosure_date_normalized", "event_count"]
+        events_cum["value_sum"] = 0.0
 
-    # Merge back to prices_group using row_id
-    # First, ensure prices_group has _row_id column
-    if "_row_id" not in prices_group.columns:
-        prices_group["_row_id"] = prices_group.index
+    # Compute cumulative sums (cumulative count/sum up to each disclosure_date)
+    events_cum["cum_count"] = events_cum["event_count"].cumsum()
+    events_cum["cum_sum"] = events_cum["value_sum"].cumsum()
 
-    prices_group = prices_group.merge(
-        features,
-        on="_row_id",
-        how="left",
-        suffixes=("", "_feature"),
+    # For each price timestamp, find cumulative count/sum at that time
+    # Using merge_asof with direction="backward" (disclosure_date <= timestamp)
+    merged_at_t = pd.merge_asof(
+        prices_sorted[["timestamp_normalized", "_row_id"]],
+        events_cum[["disclosure_date_normalized", "cum_count", "cum_sum"]],
+        left_on="timestamp_normalized",
+        right_on="disclosure_date_normalized",
+        direction="backward",
+        allow_exact_matches=True,
     )
 
-    # Fill missing values
-    prices_group[f"{feature_prefix}_count_{lookback_days}d"] = prices_group["count"].fillna(0).astype(int)
-    if "value" in events_for_symbol.columns:
-        prices_group[f"{feature_prefix}_sum_{lookback_days}d"] = prices_group["sum"].fillna(0.0)
-        prices_group[f"{feature_prefix}_mean_{lookback_days}d"] = prices_group["mean"]
+    # For window start (price_time - lookback_days), find cumulative count/sum
+    # Legacy uses strict >, so we need events <= (timestamp - lookback_days)
+    prices_sorted["window_start"] = prices_sorted["timestamp_normalized"] - pd.Timedelta(days=lookback_days)
+    merged_at_start = pd.merge_asof(
+        prices_sorted[["window_start", "_row_id"]],
+        events_cum[["disclosure_date_normalized", "cum_count", "cum_sum"]],
+        left_on="window_start",
+        right_on="disclosure_date_normalized",
+        direction="backward",
+        allow_exact_matches=True,
+    )
+
+    # Compute window features: cum_at_t - cum_at_start
+    # Handle NaNs (no events before timestamp or window_start)
+    features = pd.DataFrame({
+        "_row_id": prices_sorted["_row_id"],
+        "count": (merged_at_t["cum_count"].fillna(0) - merged_at_start["cum_count"].fillna(0)).astype(int),
+        "sum": (merged_at_t["cum_sum"].fillna(0.0) - merged_at_start["cum_sum"].fillna(0.0)),
+    })
+
+    # Compute mean: sum / count (if count > 0)
+    # Legacy computes mean from window_events[value_col].mean()
+    # This is equivalent to sum / count (mean of values in window)
+    if value_col and value_col in events_sorted.columns:
+        # Mean = sum / count (if count > 0)
+        # Use np.nan instead of pd.NA to match legacy dtype (object with NaN)
+        features["mean"] = features["sum"] / features["count"].replace(0, np.nan)
+        features["mean"] = features["mean"].where(features["count"] > 0, np.nan)
+        # Convert to object dtype to match legacy (legacy uses object dtype with NaN)
+        features["mean"] = features["mean"].astype("object")
     else:
-        prices_group[f"{feature_prefix}_sum_{lookback_days}d"] = 0.0
-        prices_group[f"{feature_prefix}_mean_{lookback_days}d"] = pd.NA
+        features["mean"] = np.nan
+        features["mean"] = features["mean"].astype("object")
 
-    # Drop temporary columns
-    prices_group = prices_group.drop(columns=["count", "sum", "mean", "_row_id"], errors="ignore")
+    # Ensure count >= 0 (should be, but safety check)
+    features["count"] = features["count"].clip(lower=0)
 
-    # Restore original index
-    prices_group.index = original_index
+    # Restore original order via _row_id
+    features = features.sort_values("_row_id", kind="mergesort").reset_index(drop=True)
 
-    return prices_group
+    return features
 
 
 def add_disclosure_count_feature_vectorized(
@@ -303,7 +232,7 @@ def add_disclosure_count_feature_vectorized(
     """Add disclosure count feature using vectorized operations (Sprint 11.E1).
 
     This is a vectorized implementation of add_disclosure_count_feature that uses
-    cross-join + vectorized filtering instead of nested loops.
+    merge_asof + cumulative counting instead of nested loops.
 
     Args:
         prices: Price DataFrame with columns: timestamp (UTC), symbol, ...
@@ -339,109 +268,110 @@ def add_disclosure_count_feature_vectorized(
     if as_of is not None:
         events_normalized = filter_events_pit(events_normalized, as_of)
 
-    # Group by symbol and compute features
-    result_grouped = result.sort_values(["symbol", "timestamp"]).groupby("symbol", group_keys=False).apply(
-        lambda g: _compute_count_for_symbol(
-            g, events_normalized, window_days, out_col, as_of
+    # Initialize feature column
+    result[out_col] = 0
+
+    # Process per symbol
+    for symbol in result["symbol"].unique():
+        symbol_mask = result["symbol"] == symbol
+        symbol_prices = result[symbol_mask].copy()
+
+        # Get events for this symbol
+        symbol_events = events_normalized[events_normalized["symbol"] == symbol].copy()
+
+        if symbol_events.empty:
+            continue
+
+        # Compute count for this symbol using vectorized approach
+        counts = _compute_count_for_symbol_vectorized(
+            symbol_prices,
+            symbol_events,
+            window_days,
+            as_of,
         )
-    )
 
-    # Merge back to original result
-    result = result.merge(
-        result_grouped[[out_col]],
-        left_index=True,
-        right_index=True,
-        how="left",
-        suffixes=("", "_new"),
-    )
+        # Assign counts back to result
+        result.loc[symbol_mask, out_col] = counts.values
 
-    # Use new column, fill missing with 0
-    new_col = f"{out_col}_new"
-    if new_col in result.columns:
-        result[out_col] = result[new_col].fillna(0).astype(int)
-    else:
-        result[out_col] = 0
-
-    # Drop temporary column
-    result = result.drop(columns=[f"{out_col}_new"], errors="ignore")
-
-    # Final deterministic sort
-    result = result.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
+    # Final deterministic sort (same as legacy)
+    result = result.sort_values(["symbol", "timestamp"], kind="mergesort").reset_index(drop=True)
 
     return result
 
 
-def _compute_count_for_symbol(
+def _compute_count_for_symbol_vectorized(
     prices_group: pd.DataFrame,
     events: pd.DataFrame,
     window_days: int,
-    out_col: str,
     as_of: pd.Timestamp | None,
-) -> pd.DataFrame:
-    """Compute count feature for a single symbol using vectorized operations."""
-    symbol = prices_group["symbol"].iloc[0]
-    symbol_events = events[events["symbol"] == symbol].copy()
+) -> pd.Series:
+    """Compute count feature for a single symbol using vectorized merge_asof approach.
 
-    # Store original index
-    original_index = prices_group.index.copy()
+    This implements the exact Legacy semantics:
+    - Per-row PIT filtering (if as_of is None): disclosure_date <= price_time_normalized
+    - Window: disclosure_date > price_time_normalized - window_days (strict >)
+    - Uses cumulative counting via merge_asof for O(N log N) performance
+    """
+    # Normalize timestamps (same as legacy: price_time.normalize())
+    prices_sorted = prices_group.sort_values("timestamp", kind="mergesort").reset_index(drop=True)
+    prices_sorted["timestamp_normalized"] = prices_sorted["timestamp"].dt.normalize()
+    prices_sorted["_row_id"] = range(len(prices_sorted))
 
-    if symbol_events.empty:
-        prices_group[out_col] = 0
-        return prices_group
+    # Prepare events: normalize disclosure_date and sort
+    events_sorted = events.copy()
+    events_sorted["disclosure_date_normalized"] = events_sorted["disclosure_date"].dt.normalize()
+    events_sorted = events_sorted.sort_values("disclosure_date_normalized", kind="mergesort").reset_index(drop=True)
 
-    # Cross join prices with events (vectorized)
-    prices_expanded = prices_group[["timestamp"]].copy()
-    prices_expanded["timestamp_normalized"] = prices_expanded["timestamp"].dt.normalize()
-    prices_expanded["_row_id"] = prices_expanded.index
+    # If as_of is None, we need per-row PIT filtering
+    # This means we can't pre-filter events globally
+    # Instead, we'll filter during merge_asof by only including events <= timestamp
+    # But merge_asof already does this with direction="backward"
+    # So we just need to ensure events are sorted and use merge_asof correctly
 
-    events_for_symbol = symbol_events[["disclosure_date"]].copy()
-    events_for_symbol["disclosure_date_normalized"] = events_for_symbol["disclosure_date"].dt.normalize()
-
-    # Cross join
-    cross = prices_expanded.assign(key=1).merge(
-        events_for_symbol.assign(key=1),
-        on="key",
-        suffixes=("_price", "_event"),
-    ).drop("key", axis=1)
-
-    # Vectorized filtering
-    if as_of is None:
-        # Per-row PIT filtering: disclosure_date <= timestamp
-        mask = (
-            (cross["disclosure_date_normalized"] <= cross["timestamp_normalized"])
-            & (cross["disclosure_date_normalized"] > cross["timestamp_normalized"] - pd.Timedelta(days=window_days))
-        )
-    else:
-        # Already filtered globally, just check window
-        mask = (
-            (cross["disclosure_date_normalized"] <= cross["timestamp_normalized"])
-            & (cross["disclosure_date_normalized"] > cross["timestamp_normalized"] - pd.Timedelta(days=window_days))
-        )
-
-    # Aggregate per row_id (to handle duplicate timestamps correctly)
-    features = cross[mask].groupby("_row_id").agg({
+    # Build cumulative counts per disclosure_date
+    events_cum = events_sorted.groupby("disclosure_date_normalized", sort=False).agg({
         "disclosure_date": "count",
     }).reset_index()
-    features.columns = ["_row_id", "count"]
+    events_cum.columns = ["disclosure_date_normalized", "event_count"]
 
-    # Merge back to prices_group
-    # Ensure _row_id exists in prices_group
-    if "_row_id" not in prices_group.columns:
-        prices_group["_row_id"] = prices_group.index
+    # Compute cumulative sum
+    events_cum["cum_count"] = events_cum["event_count"].cumsum()
 
-    prices_group = prices_group.merge(
-        features,
-        on="_row_id",
-        how="left",
+    # For each price timestamp, find cumulative count at that time
+    # Using merge_asof with direction="backward" (disclosure_date <= timestamp)
+    # If as_of is None, this effectively does per-row PIT filtering
+    merged_at_t = pd.merge_asof(
+        prices_sorted[["timestamp_normalized", "_row_id"]],
+        events_cum[["disclosure_date_normalized", "cum_count"]],
+        left_on="timestamp_normalized",
+        right_on="disclosure_date_normalized",
+        direction="backward",
+        allow_exact_matches=True,
     )
 
-    # Fill missing values
-    prices_group[out_col] = prices_group["count"].fillna(0).astype(int)
+    # For window start (price_time - window_days), find cumulative count
+    # Legacy uses strict >, so we need events <= (timestamp - window_days)
+    prices_sorted["window_start"] = prices_sorted["timestamp_normalized"] - pd.Timedelta(days=window_days)
+    merged_at_start = pd.merge_asof(
+        prices_sorted[["window_start", "_row_id"]],
+        events_cum[["disclosure_date_normalized", "cum_count"]],
+        left_on="window_start",
+        right_on="disclosure_date_normalized",
+        direction="backward",
+        allow_exact_matches=True,
+    )
 
-    # Drop temporary columns
-    prices_group = prices_group.drop(columns=["count", "_row_id"], errors="ignore")
+    # Compute window count: cum_at_t - cum_at_start
+    counts = (merged_at_t["cum_count"].fillna(0) - merged_at_start["cum_count"].fillna(0)).astype(int)
 
-    # Restore original index
-    prices_group.index = original_index
+    # Ensure count >= 0
+    counts = counts.clip(lower=0)
 
-    return prices_group
+    # Restore original order via _row_id
+    counts_df = pd.DataFrame({
+        "_row_id": prices_sorted["_row_id"],
+        "count": counts,
+    })
+    counts_df = counts_df.sort_values("_row_id", kind="mergesort").reset_index(drop=True)
+
+    return counts_df["count"]
