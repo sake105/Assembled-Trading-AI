@@ -70,7 +70,7 @@ def store_broker_snapshot_json(
         "positions": positions_df.to_dict(orient="records"),
     }
 
-    # Write JSON deterministically (sort_keys=True, indent=2)
+    # Write JSON deterministically (sort_keys=True, indent=2, trailing newline)
     snapshot_path = snapshot_dir / f"snapshot_{date_str}.json"
     
     # Atomic write (Windows-safe)
@@ -82,6 +82,7 @@ def store_broker_snapshot_json(
         suffix=".tmp.json",
     ) as tmp_file:
         json.dump(snapshot, tmp_file, sort_keys=True, indent=2, default=str)
+        tmp_file.write("\n")
         tmp_path = Path(tmp_file.name)
     
     # Atomic rename (Windows-safe)

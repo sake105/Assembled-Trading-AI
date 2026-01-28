@@ -222,6 +222,9 @@ python scripts/run_daily.py \
   --broker-snapshot-policy prefer
 ```
 
+**Evidence Pack Export and Verify (Ops):**  
+`scripts/export_evidence_pack.py` builds the Evidence Pack ZIP from the evidence index or manifest fallback; `scripts/verify_evidence_pack.py` validates a pack offline (manifest, schema, checksums, paths). Both are Windows-compatible and ASCII-only. See **docs/LEDGER_RECONCILIATION.md** (Golden Path: Evidence Pack Archive) for a full copy-paste workflow including verify and archive.
+
 **Standalone Evidence Pack Export Tool (Ops):**
 ```bash
 # Basic export from evidence index
@@ -245,6 +248,10 @@ python scripts/export_evidence_pack.py \
 # Verify pack contents
 unzip -l output/evidence_ledger_eod_1d/pack_2025-01-15.zip
 cat output/evidence_ledger_eod_1d/pack_manifest_2025-01-15.json
+
+# Offline validation of Evidence Pack ZIP (manifest, schema, checksums, paths)
+python scripts/verify_evidence_pack.py --zip output/evidence_ledger_eod_1d/pack_2025-01-15.zip
+python scripts/verify_evidence_pack.py --zip output/evidence_ledger_eod_1d/pack_2025-01-15.zip --json
 ```
 
 **Standalone Import Tool (Ops):**
@@ -713,6 +720,21 @@ python scripts/dev/run_checks.py --preset broker_snapshot
 
 # Ops Evidence-Fokus (Evidence Index + Evidence Pack + CLI + E2E Tests)
 python scripts/dev/run_checks.py --preset ops_evidence
+
+# Preset `ops_evidence`: validates the full Ops Evidence chain (import broker snapshot, require snapshot in ledger, build evidence pack, verify pack offline) via fast smoke/E2E tests.
+
+# Ops Evidence preset runs (fast, PR-suitable)
+# Default pytest list (when no --pytest-args are given):
+# - tests/test_broker_snapshot_importer_smoke.py
+# - tests/test_broker_snapshot_importer_hardening.py
+# - tests/test_broker_snapshot_namespace_rules.py
+# - tests/test_ops_golden_path_evidence_pack_e2e.py
+# - tests/test_verify_evidence_pack_cli_smoke.py
+# - tests/test_evidence_index_written.py
+# - tests/test_evidence_pack_written.py
+#
+# Example (skip compile + ruff for speed):
+# python scripts/dev/run_checks.py --preset ops_evidence --skip-compile --skip-ruff
 
 # Preset mit zusaetzlichen Pytest-Argumenten (Paths bleiben vom Preset)
 python scripts/dev/run_checks.py --preset broker_snapshot --skip-compile --skip-ruff --pytest-args tests/test_ops_evidence_pack_e2e.py -q

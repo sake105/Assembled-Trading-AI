@@ -306,6 +306,8 @@ def build_ledger_from_trades(
     # Write accounting report (after positions and reconciliation are computed)
     accounting_report_path = None
     evidence_index_path = None
+    evidence_pack_path = None
+    evidence_pack_manifest_path = None
     try:
         logger.info("Writing accounting report")
         
@@ -350,10 +352,18 @@ def build_ledger_from_trades(
         logger.info(f"Accounting report written: {accounting_report_path}")
 
         # Write evidence index (links all accounting-related artifacts)
+        # Evidence pack expects file paths, not directories (ledger_events.parquet, snapshot_*.json)
+        date_str = as_of_date.strftime("%Y-%m-%d")
+        ledger_events_path = ledger_base / "ledger_events.parquet"
+        broker_snapshot_file = (
+            (broker_snapshot_path / f"snapshot_{date_str}.json")
+            if broker_snapshot_path is not None
+            else None
+        )
         try:
             evidence_paths = {
-                "broker_snapshot_path": broker_snapshot_path,
-                "ledger_pack_path": ledger_base,
+                "broker_snapshot_path": broker_snapshot_file,
+                "ledger_pack_path": ledger_events_path,
                 "reconcile_report_path": output_dir / reconcile_report_path
                 if reconcile_report_path
                 else None,

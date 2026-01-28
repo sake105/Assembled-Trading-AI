@@ -25,6 +25,22 @@ logger = logging.getLogger(__name__)
 # This ensures byte-stable ZIP files
 FIXED_ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 
+# Required and optional path keys per source (single source of truth for Ops/CI).
+# Evidence Index: only ledger pack is required; reconcile/accounting are optional.
+# Manifest fallback: ledger + reconcile + accounting are required.
+REQUIRED_KEYS_BY_SOURCE: dict[str, list[str]] = {
+    "evidence_index": ["ledger_pack_path"],
+    "manifest": ["ledger_pack_path", "reconcile_report_path", "accounting_report_path"],
+}
+OPTIONAL_KEYS_BY_SOURCE: dict[str, list[str]] = {
+    "evidence_index": ["broker_snapshot_path", "reconcile_report_path", "accounting_report_path", "manifest_path"],
+    "manifest": ["broker_snapshot_path", "evidence_index_path"],
+}
+
+def _ascii_only(msg: str) -> str:
+    """Return msg stripped to ASCII-only (lossy)."""
+    return msg.encode("ascii", errors="ignore").decode("ascii")
+
 
 def _sha256_file(path: Path) -> str:
     """Calculate SHA256 hash of a file.
@@ -208,8 +224,9 @@ def collect_evidence_files(
     Returns:
         Dictionary with:
             - files: List of (file_path, zip_entry_path) tuples
-            - missing_required: List of missing required file paths (relative)
-            - missing_optional: List of missing optional file paths (relative)
+            - missing_required: List of missing required keys (not paths)
+            - missing_optional: List of missing optional keys (not paths)
+            - optional_zip_paths: List of zip_entry_paths that came from optional keys (for filtering when include_optional=False)
             - evidence_index_path: Path to evidence index JSON (if found)
             - manifest_path: Path to orchestrator manifest JSON (if used)
             - source: Source type ("evidence_index", "manifest", or None)
@@ -238,6 +255,7 @@ def collect_evidence_files(
     files: list[tuple[Path, str]] = []
     missing_required: list[str] = []
     missing_optional: list[str] = []
+    optional_zip_paths: list[str] = []
     
     # First preference: Evidence Index JSON
     if evidence_index_path.exists():
@@ -268,6 +286,7 @@ def collect_evidence_files(
                 "files": [],
                 "missing_required": [],
                 "missing_optional": [],
+                "optional_zip_paths": [],
                 "evidence_index_path": None,
                 "manifest_path": None,
                 "source": None,
@@ -282,6 +301,7 @@ def collect_evidence_files(
                 "files": [],
                 "missing_required": [],
                 "missing_optional": [],
+                "optional_zip_paths": [],
                 "evidence_index_path": None,
                 "manifest_path": manifest_path,
                 "source": None,
@@ -302,42 +322,38 @@ def collect_evidence_files(
             "evidence_index_path": manifest.get("evidence_index_path"),
         }
     
-    # Define required vs optional files depending on source
-    if source == "manifest":
-        # Manifest source: stricter requirements
-        required_keys = ["ledger_pack_path", "reconcile_report_path", "accounting_report_path"]
-        optional_keys = ["broker_snapshot_path", "evidence_index_path"]
-    else:
-        # Evidence index source: keep existing behavior (only ledger required)
-        required_keys = ["ledger_pack_path"]
-        optional_keys = ["broker_snapshot_path", "reconcile_report_path", "accounting_report_path", "manifest_path"]
+    # Use centralized required/optional keys per source
+    required_keys = REQUIRED_KEYS_BY_SOURCE.get(source, [])
+    optional_keys = OPTIONAL_KEYS_BY_SOURCE.get(source, [])
     
-    # Process required files
+    # Process required files (missing -> keys in missing_required)
     for key in required_keys:
         rel_path_str = paths.get(key)
         if not rel_path_str:
-            # Missing or null required path in source
             missing_required.append(key)
             logger.error(f"Required path missing in source={source}: {key}")
             continue
         
-        # Resolve to absolute path
-        file_path = base_dir / rel_path_str
-        
-        # Check if file exists
+        file_path = (base_dir / rel_path_str).resolve()
         if not file_path.exists():
-            missing_required.append(rel_path_str)
-            logger.error(f"Required file not found: {rel_path_str}")
+            missing_required.append(key)
+            logger.error(f"Required file not found: {key} -> {rel_path_str}")
+            continue
+        if file_path.is_dir():
+            missing_required.append(key)
+            logger.warning(
+                _ascii_only(
+                    "Required path points to a directory; treating as missing: "
+                    f"run_id={run_id}, as_of_date={date_str}, key={key}, path={rel_path_str}"
+                )
+            )
             continue
         
-        # Add main file
         zip_entry_path = _normalize_zip_path(file_path, base_dir)
         files.append((file_path, zip_entry_path))
         
-        # Find related files (CSV, MD, Parquet variants)
         related = _find_related_files(file_path)
         for related_path in related:
-            # Only include if within output_dir
             try:
                 related_path.relative_to(base_dir)
                 related_zip_path = _normalize_zip_path(related_path, base_dir)
@@ -345,32 +361,37 @@ def collect_evidence_files(
             except ValueError:
                 logger.warning(f"Related file outside output_dir, skipping: {related_path}")
     
-    # Process optional files
+    # Process optional files (missing -> keys in missing_optional; included -> zip paths in optional_zip_paths)
     for key in optional_keys:
         rel_path_str = paths.get(key)
         if rel_path_str is None:
             continue
         
-        # Resolve to absolute path
-        file_path = base_dir / rel_path_str
-        
-        # Check if file exists
+        file_path = (base_dir / rel_path_str).resolve()
         if not file_path.exists():
-            missing_optional.append(rel_path_str)
-            logger.warning(f"Optional file not found: {rel_path_str}")
+            missing_optional.append(key)
+            logger.warning(f"Optional file not found: {key} -> {rel_path_str}")
+            continue
+        if file_path.is_dir():
+            missing_optional.append(key)
+            logger.warning(
+                _ascii_only(
+                    "Optional path points to a directory; treating as missing: "
+                    f"run_id={run_id}, as_of_date={date_str}, key={key}, path={rel_path_str}"
+                )
+            )
             continue
         
-        # Add main file
         zip_entry_path = _normalize_zip_path(file_path, base_dir)
+        optional_zip_paths.append(zip_entry_path)
         files.append((file_path, zip_entry_path))
         
-        # Find related files (CSV, MD, Parquet variants)
         related = _find_related_files(file_path)
         for related_path in related:
-            # Only include if within output_dir
             try:
                 related_path.relative_to(base_dir)
                 related_zip_path = _normalize_zip_path(related_path, base_dir)
+                optional_zip_paths.append(related_zip_path)
                 files.append((related_path, related_zip_path))
             except ValueError:
                 logger.warning(f"Related file outside output_dir, skipping: {related_path}")
@@ -379,6 +400,7 @@ def collect_evidence_files(
         "files": files,
         "missing_required": missing_required,
         "missing_optional": missing_optional,
+        "optional_zip_paths": optional_zip_paths,
         "evidence_index_path": evidence_index_path if evidence_index_used else None,
         "manifest_path": manifest_path,
         "source": source,
@@ -392,9 +414,13 @@ def build_evidence_pack(
     as_of_date: str | pd.Timestamp,
     *,
     include_optional: bool = True,
+    strict: bool = False,
     fixed_timestamp: tuple[int, int, int, int, int, int] | None = None,
 ) -> dict[str, Any]:
     """Build evidence pack (ZIP + manifest) from Evidence Index.
+    
+    Policy: Required missing -> always fail. Optional missing -> fail if strict=True,
+    else warning (and excluded from pack if include_optional=False).
     
     Args:
         output_dir: Base output directory
@@ -402,16 +428,19 @@ def build_evidence_pack(
         as_of_date: Report date (YYYY-MM-DD string or pd.Timestamp)
         include_optional: If True, include optional files (with warnings if missing).
                          If False, skip optional files silently.
+        strict: If True, raise ValueError when any optional file is missing.
         fixed_timestamp: Fixed ZIP timestamp (default: 1980-01-01 00:00:00)
         
     Returns:
-        Dictionary with:
-            - pack_path: Relative path to ZIP file
-            - pack_manifest_path: Relative path to pack manifest JSON
+        Dictionary (return schema stable):
+            - pack_path: Relative path to ZIP file (POSIX)
+            - pack_manifest_path: Relative path to pack manifest JSON (POSIX)
             - n_files: Number of files included in pack
-            - missing_optional: List of missing optional file paths
+            - missing_optional: List of missing optional keys (not paths)
             - checksums: Dict mapping zip_entry_path to SHA256 hash
-            - source: Source type ("evidence_index" or None)
+            - source: Source type ("evidence_index" or "manifest" or None)
+
+    Determinism: Pack manifest and ZIP use sort_keys=True, indent=2, trailing newline; paths in manifest are POSIX.
     """
     base_dir = Path(output_dir)
     
@@ -440,15 +469,20 @@ def build_evidence_pack(
             f"Required files missing for run_id={run_id}, as_of_date={date_str}: {missing_required}"
         )
     
-    # Filter out missing optional files if include_optional=False
-    files = collection["files"]
+    # Strict: fail if any optional file is missing (ASCII-only message)
+    missing_optional = collection.get("missing_optional", [])
+    if strict and missing_optional:
+        msg = (
+            f"Strict mode: optional files missing for run_id={run_id}, as_of_date={date_str}: "
+            f"{missing_optional}"
+        )
+        raise ValueError(msg.encode("ascii", errors="ignore").decode("ascii"))
+    
+    # Filter out optional files from ZIP when include_optional=False (policy: still report optional_missing keys in manifest)
+    files = list(collection["files"])
     if not include_optional:
-        # Remove files whose zip_entry_path matches any missing_optional path
-        missing_set = set(collection.get("missing_optional", []))
-        files = [
-            (fp, zp) for fp, zp in files
-            if zp not in missing_set
-        ]
+        optional_set = set(collection.get("optional_zip_paths", []))
+        files = [(fp, zp) for fp, zp in files if zp not in optional_set]
     
     # Use fixed timestamp or default
     zip_timestamp = fixed_timestamp if fixed_timestamp is not None else FIXED_ZIP_TIMESTAMP
@@ -498,6 +532,15 @@ def build_evidence_pack(
         "optional_missing": collection.get("missing_optional", []),
         "tool_version": CORE_VERSION,
     }
+    # Invariant: the source artifact (evidence index or manifest JSON) must be
+    # present in files[] and explicitly typed via source_type == source.
+    source = collection.get("source")
+    source_path = collection.get("source_path")
+    if source and source_path:
+        for entry in pack_manifest["files"]:
+            if entry.get("path") == source_path:
+                entry["source_type"] = source
+                break
     
     # Write pack manifest JSON to disk (deterministic)
     manifest_path = evidence_dir / f"pack_manifest_{date_str}.json"
@@ -618,14 +661,12 @@ def verify_evidence_pack_zip(zip_path: Path | str) -> dict[str, Any]:
         zip_path: Path to evidence pack ZIP file
     
     Returns:
-        Dictionary with verification result:
-            {
-                "ok": bool,
-                "n_files": int,
-                "bad_paths": list[str],
-                "checksum_mismatches": list[str],
-                "missing_manifest": bool,
-            }
+        Dictionary (return schema stable):
+            - ok: True if manifest present, schema ok, checksums match, no illegal paths
+            - n_files: Number of entries in ZIP
+            - bad_paths: List of illegal entry paths (.., absolute, backslashes)
+            - checksum_mismatches: List of paths with checksum mismatch
+            - missing_manifest: True if no pack_manifest_*.json in ZIP root
     """
     zpath = Path(zip_path)
     if not zpath.exists():

@@ -226,12 +226,14 @@ def main() -> int:
                 "src/assembled_core/accounting/evidence_index.py",
                 "src/assembled_core/accounting/evidence_pack.py",
                 "scripts/export_evidence_pack.py",
+                "scripts/verify_evidence_pack.py",
             ]
         elif args.preset == "evidence_pack":
             preset_paths = [
                 "src/assembled_core/accounting/evidence_index.py",
                 "src/assembled_core/accounting/evidence_pack.py",
                 "scripts/export_evidence_pack.py",
+                "scripts/verify_evidence_pack.py",
             ]
         else:
             preset_paths = ["src/", "tests/"]
@@ -292,7 +294,25 @@ def main() -> int:
                     "tests/test_evidence_pack_deterministic_bytes.py",
                     "tests/test_evidence_pack_manifest_fallback.py",
                     "tests/test_export_evidence_pack_cli_smoke.py",
+                    "tests/test_verify_evidence_pack_cli_smoke.py",
                     "tests/test_evidence_pack_verify.py",
+                    "-q",
+                ]
+            elif args.preset == "ops_evidence":
+                pytest_args = [
+                    # Ops-relevant, fast suite:
+                    # - Import broker snapshot (smoke + hardening)
+                    # - Namespace rules
+                    # - Ops golden path E2E (import -> require -> build pack -> verify offline)
+                    # - Verify CLI smoke (deterministic JSON + ASCII-only errors)
+                    # - Minimal evidence index/pack unit coverage (fast, no full suite)
+                    "tests/test_broker_snapshot_importer_smoke.py",
+                    "tests/test_broker_snapshot_importer_hardening.py",
+                    "tests/test_broker_snapshot_namespace_rules.py",
+                    "tests/test_ops_golden_path_evidence_pack_e2e.py",
+                    "tests/test_verify_evidence_pack_cli_smoke.py",
+                    "tests/test_evidence_index_written.py",
+                    "tests/test_evidence_pack_written.py",
                     "-q",
                 ]
             else:

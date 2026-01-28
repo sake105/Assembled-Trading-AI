@@ -203,6 +203,8 @@ def run_daily_eod(
     broker_snapshot_run_id: str | None = None,
     broker_snapshot_file: str | Path | None = None,
     broker_snapshot_date: str | None = None,
+    # Evidence pack (Sprint 13, aligned with run_eod_pipeline / run_backtest_strategy)
+    write_evidence_pack: bool = False,
 ) -> Path:
     """Run daily EOD order generation.
 
@@ -745,7 +747,9 @@ def run_daily_eod(
     # Write optional daily manifest (Sprint 13)
     # Generate run_id for manifest (use date-based ID if not provided)
     run_id = f"daily_{target_date.strftime('%Y%m%d')}"
-    
+    # Evidence pack paths: Daily does not call build_ledger_from_trades; when ledger/accounting
+    # are added here, pass ledger_result["evidence_index_path"], evidence_pack_path, evidence_pack_manifest_path
+    # to _write_daily_manifest and set write_evidence_pack from args.write_evidence_pack.
     try:
         _write_daily_manifest(
             output_dir=out_dir,
@@ -758,6 +762,10 @@ def run_daily_eod(
             broker_snapshot_file=broker_snapshot_file,
             broker_snapshot_date=broker_snapshot_date,
             broker_snapshot_import_ok=broker_snapshot_import_ok,
+            write_evidence_pack=write_evidence_pack,
+            evidence_index_path=None,
+            evidence_pack_path=None,
+            evidence_pack_manifest_path=None,
         )
     except Exception as e:
         # Manifest writing is optional - log warning but don't fail
@@ -796,6 +804,10 @@ def _write_daily_manifest(
     broker_snapshot_file: str | Path | None,
     broker_snapshot_date: str | None,
     broker_snapshot_import_ok: bool | None = None,
+    write_evidence_pack: bool = False,
+    evidence_index_path: str | None = None,
+    evidence_pack_path: str | None = None,
+    evidence_pack_manifest_path: str | None = None,
 ) -> None:
     """Write daily manifest JSON (optional, backward-compatible).
 
@@ -812,6 +824,10 @@ def _write_daily_manifest(
         broker_snapshot_file: Snapshot file path (if imported)
         broker_snapshot_date: Snapshot date (if imported)
         broker_snapshot_import_ok: Whether broker snapshot import succeeded (if file was provided)
+        write_evidence_pack: Whether evidence pack was requested (--write-evidence-pack)
+        evidence_index_path: Relative POSIX path to evidence index JSON (if created)
+        evidence_pack_path: Relative POSIX path to evidence pack ZIP (if created)
+        evidence_pack_manifest_path: Relative POSIX path to pack manifest JSON (if created)
     """
     import json
     
@@ -868,6 +884,11 @@ def _write_daily_manifest(
         "ledger_pack_path": ledger_pack_path,
         "reconcile_report_path": reconcile_report_path,
         "reconciliation_ok": reconciliation_ok,
+        # Evidence pack (optional, aligned with run_eod_pipeline; paths relative POSIX)
+        "evidence_index_path": evidence_index_path,
+        "evidence_pack_path": evidence_pack_path,
+        "evidence_pack_manifest_path": evidence_pack_manifest_path,
+        "write_evidence_pack": write_evidence_pack,
         # Paper snapshot write flag (aligned with orchestrator: write_paper_broker_snapshot)
         "write_paper_broker_snapshot": write_broker_snapshot,
     }
@@ -1015,6 +1036,12 @@ def main() -> None:
         default=None,
         help="Snapshot date for import (YYYY-MM-DD, default: target_date)",
     )
+    p.add_argument(
+        "--write-evidence-pack",
+        action="store_true",
+        default=False,
+        help="Request evidence pack (ZIP + manifest). Daily currently does not build ledger/accounting; evidence pack paths in manifest remain None. Use EOD/backtest for actual pack creation (default: False)",
+    )
 
     args = p.parse_args()
 
@@ -1044,6 +1071,7 @@ def main() -> None:
             broker_snapshot_run_id=args.broker_snapshot_run_id,
             broker_snapshot_file=Path(args.broker_snapshot_file) if args.broker_snapshot_file else None,
             broker_snapshot_date=args.broker_snapshot_date,
+            write_evidence_pack=args.write_evidence_pack,
         )
 
         logger.info(f"Output file: {safe_path}")

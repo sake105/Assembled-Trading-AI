@@ -1011,6 +1011,10 @@ All fields are present in the manifest (even if `None`), ensuring consistent sch
 - `ledger_pack_path`: Relative path to ledger pack (POSIX slashes, or `None`)
 - `reconcile_report_path`: Relative path to reconciliation report (POSIX slashes, or `None`)
 - `reconciliation_ok`: Reconciliation status (boolean, or `None`)
+- `evidence_index_path`: Relative path to evidence index JSON (POSIX, or `None`)
+- `evidence_pack_path`: Relative path to evidence pack ZIP (POSIX, or `None`)
+- `evidence_pack_manifest_path`: Relative path to pack manifest JSON (POSIX, or `None`)
+- `write_evidence_pack`: Whether evidence pack was requested (boolean)
 
 **Broker Snapshot Import Fields:**
 
@@ -1040,19 +1044,23 @@ When `--broker-snapshot-file` is provided:
   "broker_snapshot_path": "broker_snapshot_daily_snapshot/snapshot_2025-01-15.json",
   "broker_snapshot_policy": "prefer",
   "broker_snapshot_run_id": "daily_snapshot",
+  "evidence_index_path": null,
+  "evidence_pack_manifest_path": null,
+  "evidence_pack_path": null,
   "ledger_pack_path": null,
   "reconcile_report_path": null,
   "reconciliation_ok": null,
   "run_id": "daily_20250115",
   "safe_orders_path": "orders_20250115.csv",
   "target_date": "2025-01-15",
+  "write_evidence_pack": false,
   "write_paper_broker_snapshot": false
 }
 ```
 
 ### Note
 
-Currently, `run_daily.py` generates orders but does not perform portfolio simulation or ledger/reconciliation by default. The broker snapshot controls and manifest structure are prepared for future integration when ledger/reconciliation is added to the daily run workflow.
+Currently, `run_daily.py` generates orders but does not perform portfolio simulation or ledger/reconciliation by default. The broker snapshot controls and manifest structure are prepared for future integration when ledger/reconciliation is added to the daily run workflow. The `--write-evidence-pack` flag is accepted; evidence pack paths (`evidence_index_path`, `evidence_pack_path`, `evidence_pack_manifest_path`) in the daily manifest remain `None` until ledger/accounting are integrated. Use EOD or backtest pipelines for actual evidence pack creation.
 
 ## Reconcile Report Broker Source Fields
 
@@ -1507,12 +1515,12 @@ The evidence index serves as:
 
 ### Schema
 
-**JSON Structure:**
+**JSON Structure (deterministic: no `created_utc`, `as_of_date` is date-only YYYY-MM-DD):**
 ```json
 {
   "schema_version": 1,
   "run_id": "ledger_eod_1d",
-  "as_of_date": "2025-01-15T00:00:00+00:00",
+  "as_of_date": "2025-01-15",
   "paths": {
     "broker_snapshot_path": "broker_snapshot_ops_20250115/snapshot_2025-01-15.json",
     "ledger_pack_path": "ledger_ledger_eod_1d/ledger_events.parquet",
@@ -1534,7 +1542,7 @@ The evidence index serves as:
 **Fields:**
 - `schema_version`: Schema version (currently `1`)
 - `run_id`: Run identifier
-- `as_of_date`: Report date (ISO 8601 UTC)
+- `as_of_date`: Report date (date-only `YYYY-MM-DD` for byte-determinism; no time or timezone)
 - `paths`: Dictionary of relative POSIX paths to artifacts (may be `None` if not available)
 - `broker_meta`: Optional broker metadata (same structure as in reconciliation reports)
 - `reconciliation_ok`: Optional reconciliation status (`true`, `false`, or `null`)
@@ -1948,6 +1956,74 @@ unzip -l output/evidence_<run_id>/pack_2025-01-15.zip
 # Verify checksums from manifest
 python -c "import json; m=json.load(open('output/evidence_<run_id>/pack_manifest_2025-01-15.json')); print(json.dumps(m['files'], indent=2))"
 ```
+
+### Golden Path: Evidence Pack Archive
+
+Copy-paste workflow (Windows-compatible, ASCII-only) that ends with a **verified** ZIP in an archive folder. **Only verified ZIPs are archived:** the verify step is a hard gate; if it fails, the script exits and the archive step is never run.
+
+```batch
+set RUN_ID=ledger_eod_1d
+set AS_OF=2025-01-15
+set OUT=output
+set ARCHIVE=archive
+
+mkdir %ARCHIVE% 2>nul
+
+REM Optional: import broker snapshot first
+REM python scripts/import_broker_snapshot.py --input broker_positions_%AS_OF%.json --run-id ops_%AS_OF% --as-of-date %AS_OF% --output-dir %OUT% --store-parquet
+
+REM Run EOD with evidence pack creation
+python scripts/run_eod_pipeline.py --freq 1d --write-evidence-pack
+
+REM Fallback: if pack was not created by EOD, export standalone (optional: add --verify-after-build to enforce verify in one step)
+python scripts/export_evidence_pack.py --run-id %RUN_ID% --as-of-date %AS_OF% --output-dir %OUT%
+
+REM Gate: verify pack offline; only continue if exit 0 (no archive without verify)
+python scripts/verify_evidence_pack.py --zip %OUT%/evidence_%RUN_ID%/pack_%AS_OF%.zip
+if errorlevel 1 echo Verify failed - not archiving && exit /b 1
+
+REM Archive only after verify succeeded (verified ZIPs only)
+copy /Y "%OUT%\evidence_%RUN_ID%\pack_%AS_OF%.zip" "%ARCHIVE%\pack_%RUN_ID%_%AS_OF%.zip"
+echo Archived to %ARCHIVE%\pack_%RUN_ID%_%AS_OF%.zip
+```
+
+- **Optional:** Uncomment the broker snapshot import if you need to import external positions before EOD.
+- **EOD:** Creates the pack under `output/evidence_<run_id>/pack_<date>.zip` when `--write-evidence-pack` is set.
+- **Fallback:** Export step is idempotent; run it if the pack was not produced by EOD (e.g. different run_id/date).
+- **Verify (gate):** Must exit 0 before archiving. If verify fails, the batch exits with `exit /b 1` and the archive step is skipped; fix the pack and re-run.
+- **Archive:** Only runs after verify succeeded. Single copy to a folder of your choice; filenames are ASCII-only.
+
+### Verify Evidence Pack (offline)
+
+A standalone CLI validates an Evidence Pack ZIP **offline** (no repo or output_dir required). Use it to check that a ZIP has a valid manifest, supported schema, correct checksums, and no illegal paths.
+
+**CLI:**
+```bash
+# Required: path to the ZIP
+python scripts/verify_evidence_pack.py --zip path/to/pack_2025-01-15.zip
+
+# Optional: output result as deterministic JSON
+python scripts/verify_evidence_pack.py --zip path/to/pack_2025-01-15.zip --json
+```
+
+**Exit codes:**
+- **0** – Validation passed (manifest present, schema ok, checksums ok, no illegal paths).
+- **1** – Validation failed (e.g. missing manifest, bad paths, checksum mismatches) or error (e.g. unsupported schema, file not found).
+
+**Output (without `--json`):**
+- Success: one line `OK: ok=True n_files=... missing_manifest=... bad_paths_count=... checksum_mismatches_count=...`
+- Failure: one line `FAIL: ok=False ...` with the same keys.
+- Error (e.g. unsupported schema): `ERROR: ...` on stderr.
+
+**Output with `--json`:**
+- Single JSON object with keys: `ok`, `n_files`, `missing_manifest`, `bad_paths_count`, `checksum_mismatches_count`. Deterministic: `sort_keys=True`, `indent=2`, trailing newline.
+
+**Interpretation:**
+- `ok=True` – Pack is valid (manifest present, schema version 1, all checksums match, no illegal ZIP paths).
+- `ok=False` – Check `missing_manifest`, `bad_paths_count`, `checksum_mismatches_count` to see what failed.
+- `ERROR:` – Invalid manifest (e.g. unsupported `schema_version`) or missing ZIP file; fix the pack or path and re-run.
+
+All status and error lines are ASCII-only.
 
 ### Determinism
 

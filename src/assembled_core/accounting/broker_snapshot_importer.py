@@ -356,10 +356,10 @@ def import_broker_snapshot(
         cash_override: Optional cash value to override value from file (default: None)
 
     Returns:
-        Dictionary with:
-        - broker_snapshot_path: Path to stored JSON snapshot (relative to output_dir)
-        - broker_positions_path: Path to stored Parquet snapshot (relative, or None if not stored)
-        - cash: Final cash value used (float or None)
+        Dictionary (return schema stable):
+        - broker_snapshot_path: Relative path to stored JSON snapshot (POSIX, relative to output_dir)
+        - broker_positions_path: Relative path to stored Parquet (POSIX, or None if not stored)
+        - cash: Final cash value used (float)
 
     Raises:
         ValueError: If snapshot file format is invalid or schema is invalid
@@ -422,14 +422,14 @@ def import_broker_snapshot(
             as_of_date=snapshot_date,
         )
 
-    # Return paths relative to output_dir
+    # Return paths relative to output_dir (POSIX for portability)
     broker_snapshot_path = json_path.relative_to(output_dir_obj)
     broker_positions_path = parquet_path.relative_to(output_dir_obj) if parquet_path else None
 
     logger.info(f"Imported broker snapshot: {broker_snapshot_path}")
 
     return {
-        "broker_snapshot_path": str(broker_snapshot_path),
-        "broker_positions_path": str(broker_positions_path) if broker_positions_path else None,
+        "broker_snapshot_path": broker_snapshot_path.as_posix(),
+        "broker_positions_path": broker_positions_path.as_posix() if broker_positions_path else None,
         "cash": normalized_cash,
     }

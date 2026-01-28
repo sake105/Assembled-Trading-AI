@@ -59,14 +59,13 @@ def write_evidence_index_json(
 
     Returns:
         Path to written evidence index JSON file.
+
+    Determinism: Output JSON uses sort_keys=True, indent=2, trailing newline; as_of_date is date-only (YYYY-MM-DD).
     """
     base = Path(output_dir)
 
-    # Normalize as_of_date
-    if isinstance(as_of_date, str):
-        as_of_ts = pd.to_datetime(as_of_date, utc=True)
-    else:
-        as_of_ts = as_of_date
+    # Normalize as_of_date (accept str, pd.Timestamp, or datetime; always UTC, date-only for determinism)
+    as_of_ts = pd.to_datetime(as_of_date, utc=True)
     if as_of_ts.tz is None:
         as_of_ts = as_of_ts.tz_localize("UTC")
     date_str = as_of_ts.strftime("%Y-%m-%d")
@@ -85,7 +84,7 @@ def write_evidence_index_json(
     evidence: dict[str, Any] = {
         "schema_version": 1,
         "run_id": run_id,
-        "as_of_date": as_of_ts.isoformat(),
+        "as_of_date": date_str,
         "paths": {
             "broker_snapshot_path": broker_snapshot_path,
             "ledger_pack_path": ledger_pack_path,

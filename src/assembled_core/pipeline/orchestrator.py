@@ -64,6 +64,65 @@ def _write_manifest_json(manifest_path: Path, manifest: dict[str, Any]) -> None:
     manifest_path.write_text(payload + "\n", encoding="utf-8")
 
 
+def _backfill_evidence_index_manifest_path(
+    *, base_dir: Path, ledger_result: dict[str, Any] | None, manifest_path: Path
+) -> None:
+    """Best-effort backfill of manifest_path into Evidence Index JSON.
+
+    If ledger_result contains an evidence_index_path, this helper will:
+    - Load the Evidence Index JSON from that path
+    - Set paths.manifest_path to the relative POSIX path of the given manifest
+      (relative to base_dir, typically output/)
+    - Re-write the Evidence Index JSON deterministically (sort_keys=True, indent=2, trailing newline)
+
+    Errors are logged as warnings and do not fail the pipeline.
+    """
+    if not ledger_result:
+        return
+
+    evidence_index_rel = ledger_result.get("evidence_index_path")
+    if not evidence_index_rel:
+        return
+
+    evidence_index_path = base_dir / evidence_index_rel
+    if not evidence_index_path.exists():
+        logger.warning(
+            "Evidence index not found for manifest backfill: %s", evidence_index_path
+        )
+        return
+
+    try:
+        with evidence_index_path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as exc:
+        logger.warning(
+            "Failed to read evidence index for manifest backfill: %s (%s)",
+            evidence_index_path,
+            exc,
+        )
+        return
+
+    try:
+        paths_block = data.setdefault("paths", {})
+        # manifest_path is stored as relative POSIX path in Evidence Index
+        rel_manifest = _manifest_path_str(manifest_path, base_dir=base_dir)
+        paths_block["manifest_path"] = rel_manifest
+
+        payload = json.dumps(data, sort_keys=True, indent=2)
+        evidence_index_path.write_text(payload + "\n", encoding="utf-8")
+        logger.info(
+            "Backfilled manifest_path into evidence index: %s -> %s",
+            evidence_index_path,
+            rel_manifest,
+        )
+    except Exception as exc:
+        logger.warning(
+            "Failed to backfill manifest_path into evidence index %s: %s",
+            evidence_index_path,
+            exc,
+        )
+
+
 def _metrics_to_dict(metrics) -> dict[str, Any] | None:
     """Convert PerformanceMetrics to dictionary for JSON serialization.
 
@@ -810,6 +869,10 @@ def run_eod_pipeline(
     manifest_path = base / f"run_manifest_{freq}.json"
     try:
         _write_manifest_json(manifest_path, manifest)
+        # Best-effort backfill: ensure Evidence Index references the manifest if it exists.
+        _backfill_evidence_index_manifest_path(
+            base_dir=base, ledger_result=ledger_result, manifest_path=manifest_path
+        )
     except (IOError, OSError) as exc:
         logger.error("Failed to write manifest to %s: %s", manifest_path, exc)
         raise RuntimeError(f"Failed to write manifest to {manifest_path}") from exc

@@ -11,6 +11,7 @@ import zipfile
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 # Add repo root to path
 ROOT = Path(__file__).resolve().parents[1]
@@ -111,6 +112,15 @@ def test_evidence_pack_written_with_files(tmp_path: Path) -> None:
     assert manifest_data.get("as_of_date") is not None
     assert "files" in manifest_data
     assert len(manifest_data["files"]) == result["n_files"]
+    # Evidence Index source: evidence index JSON must be present as source artifact
+    assert manifest_data.get("source") == "evidence_index"
+    evidence_index_name = f"evidence_{run_id}/evidence_{date_str}.json"
+    source_entries = [
+        entry for entry in manifest_data["files"]
+        if entry.get("path") == evidence_index_name
+    ]
+    assert len(source_entries) == 1
+    assert source_entries[0].get("source_type") == "evidence_index"
     
     # Verify required_missing and optional_missing fields
     assert "required_missing" in manifest_data
@@ -174,10 +184,67 @@ def test_evidence_pack_handles_missing_optional_files(tmp_path: Path) -> None:
     assert "pack_manifest_path" in result
     assert result["n_files"] > 0  # At least evidence index + ledger pack
 
-    # Verify missing optional files are reported
+    # Verify missing optional files are reported as keys (Evidence Index: reconcile/accounting are optional)
     assert "missing_optional" in result
-    assert len(result["missing_optional"]) > 0
+    missing_opt = result["missing_optional"]
+    assert len(missing_opt) > 0
+    # Pack manifest and return use keys, not paths
+    for key in missing_opt:
+        assert key in ("broker_snapshot_path", "reconcile_report_path", "accounting_report_path", "manifest_path"), (
+            f"missing_optional should contain keys, not paths: {missing_opt}"
+        )
 
     # Verify ZIP exists
     zip_path = output_dir / result["pack_path"]
     assert zip_path.exists()
+
+    # Pack manifest must list optional_missing as keys (not paths)
+    with (output_dir / result["pack_manifest_path"]).open("r", encoding="utf-8") as f:
+        pack_manifest = json.load(f)
+    assert "optional_missing" in pack_manifest
+    for key in pack_manifest["optional_missing"]:
+        assert key in ("broker_snapshot_path", "reconcile_report_path", "accounting_report_path", "manifest_path"), (
+            f"optional_missing should be keys: {pack_manifest['optional_missing']}"
+        )
+
+
+def test_evidence_pack_strict_raises_when_optional_missing(tmp_path: Path) -> None:
+    """build_evidence_pack(strict=True) raises ValueError when optional files are missing."""
+    output_dir = tmp_path / "output"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    run_id = "pack_strict_optional"
+    as_of = pd.Timestamp("2025-01-15", tz="UTC")
+
+    ledger_pack_path = output_dir / "ledger_run" / "ledger_events.parquet"
+    ledger_pack_path.parent.mkdir(parents=True, exist_ok=True)
+    ledger_pack_path.write_text("dummy ledger", encoding="utf-8")
+
+    evidence_paths = {
+        "broker_snapshot_path": output_dir / "broker_snapshot_run" / "snapshot_2025-01-15.json",
+        "ledger_pack_path": ledger_pack_path,
+        "reconcile_report_path": output_dir / "reconcile_run" / "reconcile_2025-01-15.json",
+        "accounting_report_path": None,
+        "manifest_path": None,
+    }
+
+    write_evidence_index_json(
+        output_dir=output_dir,
+        run_id=run_id,
+        as_of_date=as_of,
+        paths=evidence_paths,
+        broker_meta=None,
+        reconciliation_ok=None,
+    )
+
+    with pytest.raises(ValueError) as exc_info:
+        build_evidence_pack(
+            output_dir=output_dir,
+            run_id=run_id,
+            as_of_date=as_of,
+            include_optional=True,
+            strict=True,
+        )
+    msg = str(exc_info.value)
+    assert "optional" in msg.lower() or "missing" in msg.lower()
+    assert msg.encode("ascii", errors="ignore").decode("ascii") == msg

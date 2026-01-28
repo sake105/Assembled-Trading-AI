@@ -20,6 +20,18 @@ The exporter reads the Evidence Index JSON to discover all relevant files, then 
 
 ## Input Sources
 
+### Source -> required/optional keys (single source of truth)
+
+Required and optional path keys are defined in `evidence_pack.REQUIRED_KEYS_BY_SOURCE` and `OPTIONAL_KEYS_BY_SOURCE`. Pack manifest fields `required_missing` and `optional_missing` contain **keys** (not paths).
+
+| Source            | Required keys                                                                 | Optional keys                                                                                          |
+|-------------------|--------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------|
+| `evidence_index`  | `ledger_pack_path`                                                            | `broker_snapshot_path`, `reconcile_report_path`, `accounting_report_path`, `manifest_path`             |
+| `manifest`        | `ledger_pack_path`, `reconcile_report_path`, `accounting_report_path`         | `broker_snapshot_path`, `evidence_index_path`                                                          |
+
+- **Evidence Index:** Only the ledger pack is required; missing reconcile/accounting are reported in `optional_missing`, pack is still created (unless `strict=True`).
+- **Manifest fallback:** Ledger, reconcile and accounting are required; missing any of them raises `ValueError` and no pack is created.
+
 ### Primary: Evidence Index JSON
 
 **Location:** `output/evidence_<run_id>/evidence_<YYYY-MM-DD>.json`
@@ -191,6 +203,12 @@ def normalize_zip_path(file_path: Path, output_dir: Path) -> str:
 - Portable across Windows/Linux/Mac
 - Consistent ZIP structure
 - No OS-specific path separators
+
+### Strict determinism checklist (Ops modules)
+
+- **JSON:** Where output must be byte-deterministic: always `sort_keys=True`, `indent=2`, trailing newline (`+ "\n"` or `write("\n")` after `json.dump`).
+- **Paths:** Relative + POSIX only: use `.as_posix()` for paths in manifests/returns; no backslashes, no absolute paths.
+- **Evidence index / pack manifest / broker snapshot JSON:** All follow the above; return schemas are documented in docstrings as stable.
 
 ### Checksum Calculation
 

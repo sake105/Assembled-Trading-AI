@@ -81,6 +81,7 @@ def test_cli_export_creates_pack(tmp_path: Path) -> None:
     assert "pack_path=" in result.stdout
     assert "pack_manifest_path=" in result.stdout
     assert "source=" in result.stdout
+    assert "source_path=" in result.stdout
     assert "n_files=" in result.stdout
     assert "required_missing=" in result.stdout
     assert "optional_missing=" in result.stdout
@@ -97,6 +98,127 @@ def test_cli_export_creates_pack(tmp_path: Path) -> None:
     # Verify ZIP is valid
     with zipfile.ZipFile(zip_path, "r") as zf:
         assert len(zf.namelist()) > 0, "ZIP should contain files"
+
+
+def test_cli_export_verify_after_build_ok_exits_zero(tmp_path: Path) -> None:
+    """Export with --verify-after-build on valid pack exits 0."""
+    output_dir = tmp_path / "output"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    run_id = "cli_verify_ok"
+    as_of_date = "2025-01-15"
+    date_str = "2025-01-15"
+    broker_snapshot_path = output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    ledger_pack_path = output_dir / "ledger_run" / "ledger_events.parquet"
+    reconcile_report_path = output_dir / "reconcile_run" / f"reconcile_{date_str}.json"
+    for p in [broker_snapshot_path, ledger_pack_path, reconcile_report_path]:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("dummy content", encoding="utf-8")
+    evidence_paths = {
+        "broker_snapshot_path": broker_snapshot_path,
+        "ledger_pack_path": ledger_pack_path,
+        "reconcile_report_path": reconcile_report_path,
+        "accounting_report_path": None,
+        "manifest_path": None,
+    }
+    write_evidence_index_json(
+        output_dir=output_dir,
+        run_id=run_id,
+        as_of_date=pd.Timestamp(as_of_date, tz="UTC"),
+        paths=evidence_paths,
+        broker_meta=None,
+        reconciliation_ok=None,
+    )
+    script_path = ROOT / "scripts" / "export_evidence_pack.py"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(script_path),
+            "--run-id",
+            run_id,
+            "--as-of-date",
+            as_of_date,
+            "--output-dir",
+            str(output_dir),
+            "--verify-after-build",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=str(ROOT),
+    )
+    assert result.returncode == 0, f"CLI with --verify-after-build failed: {result.stderr}"
+    assert "OK:" in result.stdout
+
+
+def test_cli_export_verify_after_build_fail_exits_one(tmp_path: Path) -> None:
+    """When verify fails (e.g. tampered ZIP), verify CLI exits 1; export --verify-after-build would exit 1 on same condition."""
+    output_dir = tmp_path / "output"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    run_id = "cli_verify_fail"
+    as_of_date = "2025-01-15"
+    date_str = "2025-01-15"
+    for p in [
+        output_dir / "ledger_run" / "ledger_events.parquet",
+        output_dir / "reconcile_run" / f"reconcile_{date_str}.json",
+        output_dir / "accounting_run" / f"accounting_{date_str}.json",
+    ]:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("dummy", encoding="utf-8")
+    evidence_paths = {
+        "broker_snapshot_path": None,
+        "ledger_pack_path": output_dir / "ledger_run" / "ledger_events.parquet",
+        "reconcile_report_path": output_dir / "reconcile_run" / f"reconcile_{date_str}.json",
+        "accounting_report_path": output_dir / "accounting_run" / f"accounting_{date_str}.json",
+        "manifest_path": None,
+    }
+    write_evidence_index_json(
+        output_dir=output_dir,
+        run_id=run_id,
+        as_of_date=pd.Timestamp(as_of_date, tz="UTC"),
+        paths=evidence_paths,
+        broker_meta=None,
+        reconciliation_ok=None,
+    )
+    subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "export_evidence_pack.py"),
+            "--run-id",
+            run_id,
+            "--as-of-date",
+            as_of_date,
+            "--output-dir",
+            str(output_dir),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=str(ROOT),
+    )
+    zip_path = output_dir / f"evidence_{run_id}" / f"pack_{date_str}.zip"
+    assert zip_path.exists()
+    extracted = tmp_path / "extracted"
+    extracted.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        zf.extractall(extracted)
+        namelist = zf.namelist()
+    target_name = next((n for n in namelist if not n.startswith("pack_manifest_")), None)
+    assert target_name is not None
+    (extracted / target_name).write_text("tampered", encoding="utf-8")
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for f in extracted.rglob("*"):
+            if f.is_file():
+                zf.write(f, f.relative_to(extracted).as_posix())
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "verify_evidence_pack.py"),
+            "--zip",
+            str(zip_path),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=str(ROOT),
+    )
+    assert result.returncode == 1, "Verify on tampered pack should exit 1"
 
 
 def test_cli_invalid_date_exits_with_error(tmp_path: Path) -> None:
@@ -286,6 +408,7 @@ def test_cli_prints_source_and_missing_counts(tmp_path: Path) -> None:
     # Status line should contain source and zero missing counts
     status_line = result.stdout.strip()
     assert "source=" in status_line
+    assert "source_path=" in status_line
     assert "required_missing=0" in status_line
     assert "optional_missing=0" in status_line
 

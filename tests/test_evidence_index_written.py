@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -89,12 +88,12 @@ def test_evidence_index_written_with_expected_paths(tmp_path: Path) -> None:
 
 
 def test_evidence_index_deterministic_bytes(tmp_path: Path) -> None:
-    """Writing the same evidence index twice should produce byte-identical output."""
+    """Writing the same evidence index twice produces byte-identical output."""
     output_dir = tmp_path / "output"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     run_id = "evidence_deterministic"
-    as_of = datetime(2025, 1, 15, 10, 0, 0)
+    as_of_date = "2025-01-15"
 
     paths = {
         "broker_snapshot_path": output_dir / "broker_snapshot_run" / "snapshot_2025-01-15.json",
@@ -108,18 +107,18 @@ def test_evidence_index_deterministic_bytes(tmp_path: Path) -> None:
     path1 = write_evidence_index_json(
         output_dir=output_dir,
         run_id=run_id,
-        as_of_date=as_of,
+        as_of_date=as_of_date,
         paths=paths,
         broker_meta=None,
         reconciliation_ok=None,
     )
     content1 = path1.read_bytes()
 
-    # Second write (same inputs)
+    # Second write (same inputs) -> identical bytes
     path2 = write_evidence_index_json(
         output_dir=output_dir,
         run_id=run_id,
-        as_of_date=as_of,
+        as_of_date=as_of_date,
         paths=paths,
         broker_meta=None,
         reconciliation_ok=None,
@@ -127,4 +126,17 @@ def test_evidence_index_deterministic_bytes(tmp_path: Path) -> None:
     content2 = path2.read_bytes()
 
     assert content1 == content2
+
+    data = json.loads(content1.decode("utf-8"))
+    assert data.get("schema_version") == 1
+    assert data.get("run_id") == run_id
+    assert data.get("as_of_date") == "2025-01-15"
+    assert "paths" in data
+    assert set(data["paths"].keys()) >= {
+        "broker_snapshot_path",
+        "ledger_pack_path",
+        "reconcile_report_path",
+        "accounting_report_path",
+        "manifest_path",
+    }
 

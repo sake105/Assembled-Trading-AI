@@ -119,6 +119,8 @@ def test_manifest_fallback_required_missing_raises(tmp_path: Path) -> None:
         msg = str(exc)
         assert "run_id=manifest_missing" in msg
         assert f"as_of_date={date_str}" in msg
+        # required_missing are keys (not paths); manifest fallback requires reconcile + accounting
+        assert "reconcile_report_path" in msg or "accounting_report_path" in msg
 
 
 def test_manifest_fallback_sets_source_fields(tmp_path: Path) -> None:
@@ -168,4 +170,12 @@ def test_manifest_fallback_sets_source_fields(tmp_path: Path) -> None:
 
     assert pack_manifest.get("source") == "manifest"
     assert pack_manifest.get("source_path") == "run_manifest_1d.json"
+
+    # Source artifact (manifest) must be in files[] exactly once with source_type="manifest"
+    manifest_entries = [
+        entry for entry in pack_manifest["files"]
+        if entry.get("path") == "run_manifest_1d.json"
+    ]
+    assert len(manifest_entries) == 1
+    assert manifest_entries[0].get("source_type") == "manifest"
 

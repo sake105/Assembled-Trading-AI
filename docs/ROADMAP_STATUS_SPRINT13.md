@@ -142,6 +142,32 @@ All components follow strict determinism rules:
 
 ---
 
+## Evidence Pack (Ops Evidence)
+
+### Artifacts (single source of truth)
+- Evidence Index JSON: `output/evidence_<run_id>/evidence_<YYYY-MM-DD>.json`
+- Evidence Pack ZIP: `output/evidence_<run_id>/pack_<YYYY-MM-DD>.zip`
+- Evidence Pack manifest JSON: `output/evidence_<run_id>/pack_manifest_<YYYY-MM-DD>.json`
+- Verify CLI (offline): `scripts/verify_evidence_pack.py` (manifest, schema, checksums, paths)
+
+### Commands (Windows, copy/paste)
+```powershell
+# Evidence Pack preset (export + verify + deterministic tests, blocking in CI)
+py -3 scripts/dev/run_checks.py --preset evidence_pack
+
+# Ops Evidence preset (import -> require -> pack -> verify, fast smoke/E2E)
+py -3 scripts/dev/run_checks.py --preset ops_evidence --skip-compile --skip-ruff
+```
+
+### CI Workflows (Windows)
+- `Evidence Pack CI (Windows)` - `.github/workflows/evidence-pack-ci.yml`  
+  - Blocking: runs `--preset evidence_pack`
+  - Optional: runs `--preset ops_evidence` (non-blocking, logs uploaded on failure)
+- `Accounting CI (Windows)` - `.github/workflows/accounting-ci.yml`  
+  - Runs `--preset broker_snapshot` and `--preset accounting`
+
+---
+
 ## Regression Checks
 
 **Windows CI:**
