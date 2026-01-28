@@ -62,7 +62,10 @@ def store_broker_snapshot_json(
 
     # Build snapshot dict
     snapshot = {
-        "as_of_date": as_of_date.isoformat(),
+        # Schema version to allow future upgrades / migrations
+        "schema_version": 1,
+        # Store date as YYYY-MM-DD (date-only) for stability
+        "as_of_date": date_str,
         "cash": cash,
         "positions": positions_df.to_dict(orient="records"),
     }
@@ -166,13 +169,33 @@ def load_broker_snapshot_json(
     date_str = as_of_date.strftime("%Y-%m-%d")
 
     snapshot_path = broker_snapshot_base_path(output_dir, run_id) / f"snapshot_{date_str}.json"
-    
+
     if not snapshot_path.exists():
+        # Caller decides whether this is fatal (e.g. policy=require) or a fallback case.
+        logger.debug(
+            "Broker snapshot JSON not found for run_id=%s, date=%s (expected path: %s)",
+            run_id,
+            date_str,
+            snapshot_path,
+        )
         return None
-    
-    with snapshot_path.open("r", encoding="utf-8") as f:
-        snapshot = json.load(f)
-    
+
+    try:
+        with snapshot_path.open("r", encoding="utf-8") as f:
+            snapshot = json.load(f)
+    except json.JSONDecodeError as exc:
+        # Provide clear ASCII-only context for ops/logging.
+        raise ValueError(
+            f"Failed to parse broker snapshot JSON at {snapshot_path}"
+        ) from exc
+
+    # Schema version handling (forward-compatible)
+    schema_version = snapshot.get("schema_version", 1)
+    if not isinstance(schema_version, int) or schema_version < 1:
+        raise ValueError(
+            f"Invalid schema_version in broker snapshot JSON at {snapshot_path}: {schema_version}"
+        )
+
     return snapshot
 
 
@@ -200,8 +223,19 @@ def load_broker_snapshot_parquet(
     date_str = as_of_date.strftime("%Y-%m-%d")
 
     positions_path = broker_snapshot_base_path(output_dir, run_id) / f"positions_{date_str}.parquet"
-    
+
     if not positions_path.exists():
+        logger.debug(
+            "Broker snapshot Parquet not found for run_id=%s, date=%s (expected path: %s)",
+            run_id,
+            date_str,
+            positions_path,
+        )
         return None
-    
-    return pd.read_parquet(positions_path)
+
+    try:
+        return pd.read_parquet(positions_path)
+    except Exception as exc:
+        raise ValueError(
+            f"Failed to read broker snapshot Parquet at {positions_path}"
+        ) from exc

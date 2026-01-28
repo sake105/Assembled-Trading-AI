@@ -46,6 +46,7 @@ def write_accounting_report_csv(
     ledger_pack_path: str | None = None,
     reconcile_report_path: str | None = None,
     costs_breakdown: dict[str, float] | None = None,
+    broker_meta: dict[str, Any] | None = None,
 ) -> Path:
     """Write accounting report to CSV file.
 
@@ -92,53 +93,132 @@ def write_accounting_report_csv(
     total_unrealized_pnl = summary.get("total_unrealized_pnl", 0.0)
     total_pnl = summary.get("total_pnl", total_realized_pnl + total_unrealized_pnl)
 
+    # Fixed schema columns (including optional reconciliation / broker fields)
+    fixed_columns = [
+        "section",
+        "symbol",
+        "cash_start",
+        "cash_end",
+        "cash_change",
+        "realized_pnl",
+        "unrealized_pnl",
+        "total_pnl",
+        "commission_cash",
+        "spread_cash",
+        "slippage_cash",
+        "total_cost_cash",
+        "reconciliation_ok",
+        "cash_end_matches_reconcile_cash",
+        "reconcile_report_path",
+        "broker_view_source",
+        "broker_snapshot_run_id",
+        "broker_snapshot_date",
+        "broker_snapshot_path",
+        "schema_version",
+    ]
+
     # Build report rows
     report_rows = []
 
+    # Consistency flag: does accounting cash_end match broker cash in reconciliation?
+    # We approximate this via reconciliation_result["cash_match"] if reconciliation_result is provided.
+    cash_end_matches_reconcile_cash: bool | None = None
+    if reconciliation_result is not None:
+        cash_end_matches_reconcile_cash = bool(reconciliation_result.get("cash_match"))
+
+    # Broker meta fields (optional, fixed schema)
+    broker_view_source = ""
+    broker_snapshot_run_id = ""
+    broker_snapshot_date = ""
+    broker_snapshot_path = ""
+    if broker_meta is not None:
+        broker_view_source = str(broker_meta.get("broker_view_source", "") or "")
+        broker_snapshot_run_id = str(broker_meta.get("broker_snapshot_run_id", "") or "")
+        broker_snapshot_date = str(broker_meta.get("broker_snapshot_date", "") or "")
+        broker_snapshot_path = str(broker_meta.get("broker_snapshot_path", "") or "")
+
     # Summary row
-    report_rows.append({
-        "section": "SUMMARY",
-        "symbol": "",
-        "cash_start": start_cash,
-        "cash_end": cash_balance,
-        "cash_change": cash_balance - start_cash,
-        "realized_pnl": total_realized_pnl,
-        "unrealized_pnl": total_unrealized_pnl,
-        "total_pnl": total_pnl,
-        "commission_cash": costs_breakdown.get("commission_cash", 0.0) if costs_breakdown else 0.0,
-        "spread_cash": costs_breakdown.get("spread_cash", 0.0) if costs_breakdown else 0.0,
-        "slippage_cash": costs_breakdown.get("slippage_cash", 0.0) if costs_breakdown else 0.0,
-        "total_cost_cash": costs_breakdown.get("total_cost_cash", 0.0) if costs_breakdown else 0.0,
-        "reconciliation_ok": reconciliation_result.get("ok") if reconciliation_result else None,
-    })
+    report_rows.append(
+        {
+            "section": "SUMMARY",
+            "symbol": "",
+            "cash_start": start_cash,
+            "cash_end": cash_balance,
+            "cash_change": cash_balance - start_cash,
+            "realized_pnl": total_realized_pnl,
+            "unrealized_pnl": total_unrealized_pnl,
+            "total_pnl": total_pnl,
+            "commission_cash": costs_breakdown.get("commission_cash", 0.0)
+            if costs_breakdown
+            else 0.0,
+            "spread_cash": costs_breakdown.get("spread_cash", 0.0)
+            if costs_breakdown
+            else 0.0,
+            "slippage_cash": costs_breakdown.get("slippage_cash", 0.0)
+            if costs_breakdown
+            else 0.0,
+            "total_cost_cash": costs_breakdown.get("total_cost_cash", 0.0)
+            if costs_breakdown
+            else 0.0,
+            "reconciliation_ok": reconciliation_result.get("ok") if reconciliation_result else None,
+            "cash_end_matches_reconcile_cash": cash_end_matches_reconcile_cash,
+            "reconcile_report_path": reconcile_report_path or "",
+            "broker_view_source": broker_view_source,
+            "broker_snapshot_run_id": broker_snapshot_run_id,
+            "broker_snapshot_date": broker_snapshot_date,
+            "broker_snapshot_path": broker_snapshot_path,
+            "schema_version": 1,
+        }
+    )
 
     # Per-symbol rows (sorted by symbol)
     if not positions_df.empty:
         for _, row in positions_df.iterrows():
-            report_rows.append({
-                "section": "POSITION",
-                "symbol": str(row["symbol"]),
-                "cash_start": None,
-                "cash_end": None,
-                "cash_change": None,
-                "realized_pnl": float(row["realized_pnl"]) if pd.notna(row["realized_pnl"]) else 0.0,
-                "unrealized_pnl": float(row["unrealized_pnl"]) if pd.notna(row["unrealized_pnl"]) else 0.0,
-                "total_pnl": float(row["realized_pnl"] + row["unrealized_pnl"]) if pd.notna(row["realized_pnl"]) and pd.notna(row["unrealized_pnl"]) else None,
-                "commission_cash": None,
-                "spread_cash": None,
-                "slippage_cash": None,
-                "total_cost_cash": None,
-                "reconciliation_ok": None,
-            })
+            report_rows.append(
+                {
+                    "section": "POSITION",
+                    "symbol": str(row["symbol"]),
+                    "cash_start": None,
+                    "cash_end": None,
+                    "cash_change": None,
+                    "realized_pnl": float(row["realized_pnl"])
+                    if pd.notna(row["realized_pnl"])
+                    else 0.0,
+                    "unrealized_pnl": float(row["unrealized_pnl"])
+                    if pd.notna(row["unrealized_pnl"])
+                    else 0.0,
+                    "total_pnl": float(row["realized_pnl"] + row["unrealized_pnl"])
+                    if pd.notna(row["realized_pnl"]) and pd.notna(row["unrealized_pnl"])
+                    else None,
+                    "commission_cash": None,
+                    "spread_cash": None,
+                    "slippage_cash": None,
+                    "total_cost_cash": None,
+                    "reconciliation_ok": None,
+                    "cash_end_matches_reconcile_cash": None,
+                    "reconcile_report_path": "",
+                    "broker_view_source": broker_view_source,
+                    "broker_snapshot_run_id": broker_snapshot_run_id,
+                    "broker_snapshot_date": broker_snapshot_date,
+                    "broker_snapshot_path": broker_snapshot_path,
+                    "schema_version": 1,
+                }
+            )
 
-    # Build DataFrame
+    # Build DataFrame with fixed schema
     report_df = pd.DataFrame(report_rows)
+    # Ensure all fixed columns exist (for schema stability)
+    for col in fixed_columns:
+        if col not in report_df.columns:
+            report_df[col] = ""
 
     # Replace NaN with None for CSV (pandas will write as empty)
     report_df = report_df.fillna("")
 
     # Write CSV (deterministic: sorted by section, then symbol)
-    report_df = report_df.sort_values(["section", "symbol"], kind="mergesort")
+    report_df = report_df[fixed_columns].sort_values(
+        ["section", "symbol"], kind="mergesort"
+    )
     report_df.to_csv(csv_path, index=False)
 
     logger.info(f"Accounting report CSV written: {csv_path}")
@@ -156,6 +236,7 @@ def write_accounting_report_json(
     ledger_pack_path: str | None = None,
     reconcile_report_path: str | None = None,
     costs_breakdown: dict[str, float] | None = None,
+    broker_meta: dict[str, Any] | None = None,
 ) -> Path:
     """Write accounting report to JSON file.
 
@@ -213,6 +294,7 @@ def write_accounting_report_json(
 
     # Build report dict
     report = {
+        "schema_version": 1,
         "as_of_date": as_of.isoformat(),
         "run_id": run_id,
         "cash": {
@@ -223,7 +305,11 @@ def write_accounting_report_json(
         "pnl": {
             "total_realized": summary.get("total_realized_pnl", 0.0),
             "total_unrealized": summary.get("total_unrealized_pnl", 0.0),
-            "total": summary.get("total_pnl", summary.get("total_realized_pnl", 0.0) + summary.get("total_unrealized_pnl", 0.0)),
+            "total": summary.get(
+                "total_pnl",
+                summary.get("total_realized_pnl", 0.0)
+                + summary.get("total_unrealized_pnl", 0.0),
+            ),
         },
         "positions": positions_list,
         "summary": {
@@ -244,10 +330,15 @@ def write_accounting_report_json(
 
     # Add reconciliation info if provided
     if reconciliation_result:
+        # Consistency flag: does accounting cash_end match broker cash in reconciliation?
+        cash_end_matches_reconcile_cash: bool | None = bool(
+            reconciliation_result.get("cash_match", False)
+        )
         report["reconciliation"] = {
             "ok": reconciliation_result.get("ok", False),
             "cash_match": reconciliation_result.get("cash_match", False),
             "cash_diff": reconciliation_result.get("cash_diff", 0.0),
+            "cash_end_matches_reconcile_cash": cash_end_matches_reconcile_cash,
         }
 
     # Add links if provided
@@ -255,6 +346,10 @@ def write_accounting_report_json(
         report["ledger_pack_path"] = ledger_pack_path
     if reconcile_report_path:
         report["reconcile_report_path"] = reconcile_report_path
+
+    # Add broker meta if provided (mirrors reconciliation report)
+    if broker_meta is not None:
+        report["broker_meta"] = dict(broker_meta)
 
     # Serialize NaN/Inf to None
     report_serialized = _json_serialize_nan(report)

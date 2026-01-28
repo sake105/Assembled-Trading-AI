@@ -139,6 +139,12 @@ def parse_eod_args() -> argparse.Namespace:
         default=None,
         help="Snapshot date (YYYY-MM-DD) for imported snapshot. Defaults to today or run date.",
     )
+    p.add_argument(
+        "--write-evidence-pack",
+        action="store_true",
+        default=False,
+        help="Create evidence pack (ZIP + manifest) after ledger/accounting step.",
+    )
 
     return p.parse_args()
 
@@ -223,6 +229,7 @@ def run_eod_from_args(args: argparse.Namespace) -> dict:
         broker_snapshot_run_id=args.broker_snapshot_run_id,
         broker_snapshot_file=getattr(args, "broker_snapshot_file", None),
         broker_snapshot_date=getattr(args, "broker_snapshot_date", None),
+        write_evidence_pack=getattr(args, "write_evidence_pack", False),
     )
 
     logger.info("=" * 60)

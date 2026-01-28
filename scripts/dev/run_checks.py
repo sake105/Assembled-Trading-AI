@@ -18,7 +18,6 @@ import argparse
 import subprocess
 import sys
 from pathlib import Path
-from typing import Sequence
 
 
 def find_python_executable() -> Path:
@@ -62,7 +61,7 @@ def run_py_compile(python_exe: Path, paths: list[str]) -> tuple[int, str]:
         if result.returncode == 0:
             print(f"[OK] py_compile passed for {len(paths)} path(s)")
         else:
-            print(f"[FAIL] py_compile failed:")
+            print("[FAIL] py_compile failed:")
             print(result.stdout)
             print(result.stderr)
         return result.returncode, result.stdout + result.stderr
@@ -96,7 +95,7 @@ def run_ruff(python_exe: Path, paths: list[str]) -> tuple[int, str]:
         if result.returncode == 0:
             print(f"[OK] ruff check passed for {len(paths)} path(s)")
         else:
-            print(f"[FAIL] ruff check failed:")
+            print("[FAIL] ruff check failed:")
             print(result.stdout)
             print(result.stderr)
         return result.returncode, result.stdout + result.stderr
@@ -172,8 +171,18 @@ def main() -> int:
     parser.add_argument(
         "--paths",
         nargs="+",
-        default=["src/", "tests/"],
-        help="Paths to check with py_compile and ruff (default: src/ tests/)",
+        default=None,
+        help="Paths to check with py_compile and ruff (default: src/ tests/). "
+        "If set, overrides any preset paths.",
+    )
+    parser.add_argument(
+        "--preset",
+        choices=["accounting", "broker_snapshot", "ops_evidence", "evidence_pack"],
+        help=(
+            "Optional preset for common check bundles "
+            "(accounting, broker_snapshot, ops_evidence, or evidence_pack). "
+            "Presets are shortcuts; explicit --paths override paths."
+        ),
     )
 
     args = parser.parse_args()
@@ -187,7 +196,47 @@ def main() -> int:
 
     # Determine paths to check
     repo_root = Path(__file__).resolve().parents[2]
-    paths = [str(repo_root / p) for p in args.paths]
+
+    # Preset-aware path selection; explicit --paths override presets
+    if args.paths is not None:
+        paths = [str(repo_root / p) for p in args.paths]
+    else:
+        if args.preset == "accounting":
+            preset_paths: list[str] = [
+                "src/assembled_core/accounting/",
+                "src/assembled_core/pipeline/orchestrator.py",
+                "src/assembled_core/qa/candidate_gate.py",
+                "scripts/run_eod_pipeline.py",
+                "scripts/run_backtest_strategy.py",
+                "scripts/run_daily.py",
+            ]
+        elif args.preset == "broker_snapshot":
+            preset_paths = [
+                "src/assembled_core/accounting/broker_snapshot.py",
+                "src/assembled_core/accounting/broker_snapshot_store.py",
+                "src/assembled_core/accounting/broker_snapshot_importer.py",
+                "src/assembled_core/accounting/ledger_integration.py",
+                "src/assembled_core/qa/backtest_engine.py",
+                "scripts/run_backtest_strategy.py",
+                "scripts/run_eod_pipeline.py",
+                "scripts/import_broker_snapshot.py",
+            ]
+        elif args.preset == "ops_evidence":
+            preset_paths = [
+                "src/assembled_core/accounting/evidence_index.py",
+                "src/assembled_core/accounting/evidence_pack.py",
+                "scripts/export_evidence_pack.py",
+            ]
+        elif args.preset == "evidence_pack":
+            preset_paths = [
+                "src/assembled_core/accounting/evidence_index.py",
+                "src/assembled_core/accounting/evidence_pack.py",
+                "scripts/export_evidence_pack.py",
+            ]
+        else:
+            preset_paths = ["src/", "tests/"]
+
+        paths = [str(repo_root / p) for p in preset_paths]
 
     # Run checks in sequence
     exit_code = 0
@@ -209,7 +258,46 @@ def main() -> int:
 
     # Step 3: pytest
     if not args.skip_pytest:
-        pytest_args = args.pytest_args if args.pytest_args else ["tests/", "-v"]
+        if args.pytest_args:
+            pytest_args = args.pytest_args
+        else:
+            # Provide useful defaults per preset; fall back to full test suite
+            if args.preset == "accounting":
+                pytest_args = [
+                    "tests/test_reconcile_report_written.py",
+                    "tests/test_reconcile_report_csv_broker_meta.py",
+                    "tests/test_accounting_report_broker_meta.py",
+                    "tests/test_candidate_gate_reconciliation.py",
+                    "tests/test_ops_evidence_pack_e2e.py",
+                    "-q",
+                ]
+            elif args.preset == "broker_snapshot":
+                pytest_args = [
+                    "tests/test_broker_snapshot_smoke.py",
+                    "tests/test_broker_snapshot_policy_precedence.py",
+                    "tests/test_broker_snapshot_policy_require.py",
+                    "tests/test_backtest_write_broker_snapshot_smoke.py",
+                    "tests/test_broker_snapshot_importer_smoke.py",
+                    "tests/test_broker_snapshot_importer_hardening.py",
+                    "tests/test_broker_snapshot_import_e2e_reconciliation.py",
+                    "tests/test_import_cli_then_require_reconcile.py",
+                    "tests/test_broker_snapshot_namespace_rules.py",
+                    "tests/test_ops_evidence_pack_e2e.py",
+                    "-q",
+                ]
+            elif args.preset == "evidence_pack":
+                pytest_args = [
+                    "tests/test_evidence_index_written.py",
+                    "tests/test_evidence_pack_written.py",
+                    "tests/test_evidence_pack_deterministic_bytes.py",
+                    "tests/test_evidence_pack_manifest_fallback.py",
+                    "tests/test_export_evidence_pack_cli_smoke.py",
+                    "tests/test_evidence_pack_verify.py",
+                    "-q",
+                ]
+            else:
+                pytest_args = ["tests/", "-v"]
+
         code, output = run_pytest(python_exe, pytest_args)
         exit_code = max(exit_code, code)
         outputs.append(("pytest", code, output))

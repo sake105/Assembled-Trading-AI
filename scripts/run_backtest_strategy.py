@@ -495,6 +495,12 @@ Examples:
         default=None,
         help="Snapshot date (YYYY-MM-DD) for imported snapshot. Defaults to last trade date or today.",
     )
+    parser.add_argument(
+        "--write-evidence-pack",
+        action="store_true",
+        default=False,
+        help="Create evidence pack (ZIP + manifest) after ledger/accounting step.",
+    )
 
     # Meta-model ensemble arguments
     parser.add_argument(
@@ -1456,6 +1462,8 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             broker_snapshot_run_id=getattr(args, "broker_snapshot_run_id", None),
             broker_snapshot_file=getattr(args, "broker_snapshot_file", None),
             broker_snapshot_date=getattr(args, "broker_snapshot_date", None),
+            # Evidence pack controls
+            write_evidence_pack=getattr(args, "write_evidence_pack", False),
         )
 
         logger.info(f"Backtest completed: {len(result.equity)} equity points")

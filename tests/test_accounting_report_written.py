@@ -91,6 +91,7 @@ def test_accounting_report_csv_written(tmp_path: Path):
     assert "realized_pnl" in df.columns
     assert "unrealized_pnl" in df.columns
     assert "total_pnl" in df.columns
+    assert "schema_version" in df.columns
 
     # Verify summary row exists
     summary_row = df[df["section"] == "SUMMARY"]
@@ -119,6 +120,8 @@ def test_accounting_report_json_written(tmp_path: Path):
     with json_path.open("r", encoding="utf-8") as f:
         report = json.load(f)
     
+    assert "schema_version" in report
+    assert report["schema_version"] == 1
     assert "as_of_date" in report
     assert "run_id" in report
     assert "cash" in report

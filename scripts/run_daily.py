@@ -261,6 +261,7 @@ def run_daily_eod(
     logger.info(f"Output directory: {out_dir}")
     
     # Broker snapshot import (if file provided) - before ledger/reconciliation step
+    broker_snapshot_import_ok = None
     if broker_snapshot_file:
         try:
             from src.assembled_core.accounting.broker_snapshot_importer import import_broker_snapshot
@@ -296,20 +297,26 @@ def run_daily_eod(
             # Update broker_snapshot_run_id to use imported snapshot namespace
             if not broker_snapshot_run_id:
                 broker_snapshot_run_id = snapshot_run_id
+            
+            # Mark import as successful
+            broker_snapshot_import_ok = True
                 
         except FileNotFoundError as e:
+            broker_snapshot_import_ok = False
             if broker_snapshot_policy == "require":
                 logger.error(f"Broker snapshot file not found (policy=require): {e}")
                 sys.exit(1)
             else:
                 logger.warning(f"Broker snapshot file not found (policy={broker_snapshot_policy}): {e} - continuing without import")
         except ValueError as e:
+            broker_snapshot_import_ok = False
             if broker_snapshot_policy == "require":
                 logger.error(f"Broker snapshot import failed (policy=require): {e}")
                 sys.exit(1)
             else:
                 logger.warning(f"Broker snapshot import failed (policy={broker_snapshot_policy}): {e} - continuing without import")
         except Exception as e:
+            broker_snapshot_import_ok = False
             if broker_snapshot_policy == "require":
                 logger.error(f"Broker snapshot import error (policy=require): {e}", exc_info=True)
                 sys.exit(1)
@@ -735,7 +742,144 @@ def run_daily_eod(
         }
         write_timings_json(timings, timings_path, job_name="run_daily", job_meta=job_meta)
 
+    # Write optional daily manifest (Sprint 13)
+    # Generate run_id for manifest (use date-based ID if not provided)
+    run_id = f"daily_{target_date.strftime('%Y%m%d')}"
+    
+    try:
+        _write_daily_manifest(
+            output_dir=out_dir,
+            run_id=run_id,
+            target_date=target_date,
+            safe_path=safe_path,
+            broker_snapshot_policy=broker_snapshot_policy,
+            write_broker_snapshot=write_broker_snapshot,
+            broker_snapshot_run_id=broker_snapshot_run_id,
+            broker_snapshot_file=broker_snapshot_file,
+            broker_snapshot_date=broker_snapshot_date,
+            broker_snapshot_import_ok=broker_snapshot_import_ok,
+        )
+    except Exception as e:
+        # Manifest writing is optional - log warning but don't fail
+        logger.warning(f"Failed to write daily manifest: {e} - continuing without manifest")
+        logger.debug(f"Manifest error details: {e}", exc_info=True)
+
     return safe_path
+
+
+def _manifest_path_str(path: str | Path | None, *, base_dir: Path) -> str | None:
+    """Convert a path to a portable manifest string (reused from orchestrator).
+
+    Rules:
+    - Prefer paths relative to base_dir (typically output/).
+    - Always use POSIX slashes in the manifest (portable across OS).
+    """
+    if path is None:
+        return None
+
+    p = Path(path)
+    try:
+        rel = p.relative_to(base_dir)
+        return rel.as_posix()
+    except Exception:
+        return p.as_posix()
+
+
+def _write_daily_manifest(
+    output_dir: Path,
+    run_id: str,
+    target_date: datetime,
+    safe_path: Path,
+    broker_snapshot_policy: str,
+    write_broker_snapshot: bool,
+    broker_snapshot_run_id: str | None,
+    broker_snapshot_file: str | Path | None,
+    broker_snapshot_date: str | None,
+    broker_snapshot_import_ok: bool | None = None,
+) -> None:
+    """Write daily manifest JSON (optional, backward-compatible).
+
+    Fields align with orchestrator manifest structure for consistency.
+
+    Args:
+        output_dir: Base output directory
+        run_id: Run identifier
+        target_date: Target trading date
+        safe_path: Path to generated SAFE orders CSV
+        broker_snapshot_policy: Broker snapshot policy (ignore/prefer/require)
+        write_broker_snapshot: Whether paper snapshot was written
+        broker_snapshot_run_id: Snapshot run ID (if used)
+        broker_snapshot_file: Snapshot file path (if imported)
+        broker_snapshot_date: Snapshot date (if imported)
+        broker_snapshot_import_ok: Whether broker snapshot import succeeded (if file was provided)
+    """
+    import json
+    
+    # Determine broker snapshot path (if snapshot was written or imported)
+    broker_snapshot_path = None
+    if broker_snapshot_run_id:
+        try:
+            from src.assembled_core.accounting.broker_snapshot_store import broker_snapshot_base_path
+            snapshot_base = broker_snapshot_base_path(output_dir, broker_snapshot_run_id)
+            if snapshot_base.exists():
+                broker_snapshot_path = snapshot_base
+        except Exception:
+            pass  # Snapshot path not available
+    
+    # Determine ledger/reconcile paths (if ledger was active)
+    # Note: run_daily.py currently doesn't integrate ledger, but we prepare the structure
+    ledger_pack_path = None
+    reconcile_report_path = None
+    reconciliation_ok = None
+    
+    # Normalize broker_snapshot_file to relative path or basename
+    broker_snapshot_file_str = None
+    if broker_snapshot_file:
+        try:
+            file_path = Path(broker_snapshot_file)
+            # Try to make it relative to output_dir
+            try:
+                rel_path = file_path.resolve().relative_to(output_dir.resolve())
+                broker_snapshot_file_str = rel_path.as_posix()
+            except (ValueError, TypeError):
+                # If not relative to output_dir, use basename (portable)
+                broker_snapshot_file_str = file_path.name
+        except Exception:
+            # Fallback to basename if Path construction fails
+            try:
+                broker_snapshot_file_str = Path(str(broker_snapshot_file)).name
+            except Exception:
+                # Last resort: use string representation
+                broker_snapshot_file_str = str(broker_snapshot_file)
+    
+    # Build manifest (fields aligned with orchestrator manifest structure)
+    manifest = {
+        "run_id": run_id,
+        "target_date": target_date.strftime("%Y-%m-%d") if isinstance(target_date, datetime) else str(target_date),
+        "safe_orders_path": _manifest_path_str(safe_path, base_dir=output_dir),
+        # Broker snapshot fields (aligned with orchestrator)
+        "broker_snapshot_policy": broker_snapshot_policy,
+        "broker_snapshot_date": broker_snapshot_date,
+        "broker_snapshot_file": broker_snapshot_file_str,
+        "broker_snapshot_import_ok": broker_snapshot_import_ok,
+        "broker_snapshot_path": _manifest_path_str(broker_snapshot_path, base_dir=output_dir) if broker_snapshot_path else None,
+        "broker_snapshot_run_id": broker_snapshot_run_id,
+        # Ledger/Accounting fields (optional, None if not active, aligned with orchestrator)
+        "ledger_pack_path": ledger_pack_path,
+        "reconcile_report_path": reconcile_report_path,
+        "reconciliation_ok": reconciliation_ok,
+        # Paper snapshot write flag (aligned with orchestrator: write_paper_broker_snapshot)
+        "write_paper_broker_snapshot": write_broker_snapshot,
+    }
+    
+    # Write manifest deterministically (sort_keys=True, indent=2, trailing newline)
+    manifest_path = output_dir / f"manifest_daily_{run_id}.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(manifest, sort_keys=True, indent=2)
+    manifest_path.write_text(payload + "\n", encoding="utf-8")
+    
+    logger = setup_logging(level="INFO")
+    logger.info(f"Daily manifest written: {manifest_path}")
 
 
 def main() -> None:
@@ -838,6 +982,38 @@ def main() -> None:
         type=str,
         default="core_ta",
         help="Factor group name for factor store (default: core_ta)",
+    )
+    # Broker snapshot controls (Sprint 13)
+    p.add_argument(
+        "--broker-snapshot-policy",
+        type=str,
+        choices=["ignore", "prefer", "require"],
+        default="prefer",
+        help="Broker snapshot policy: ignore, prefer (default), or require",
+    )
+    p.add_argument(
+        "--write-broker-snapshot",
+        action="store_true",
+        default=False,
+        help="Write paper broker snapshot after run (default: False)",
+    )
+    p.add_argument(
+        "--broker-snapshot-run-id",
+        type=str,
+        default=None,
+        help="Run ID for broker snapshot namespace (default: daily_snapshot or run_id)",
+    )
+    p.add_argument(
+        "--broker-snapshot-file",
+        type=str,
+        default=None,
+        help="Path to external broker snapshot file to import (JSON/CSV)",
+    )
+    p.add_argument(
+        "--broker-snapshot-date",
+        type=str,
+        default=None,
+        help="Snapshot date for import (YYYY-MM-DD, default: target_date)",
     )
 
     args = p.parse_args()

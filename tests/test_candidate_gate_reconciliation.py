@@ -2,6 +2,7 @@
 
 Tests that reconciliation_ok=False blocks candidate status,
 and reconciliation_ok=None allows with warning (backward compatible).
+Tests combined gate behavior and report links in messages.
 """
 
 from __future__ import annotations
@@ -23,14 +24,16 @@ from src.assembled_core.qa.candidate_gate import (
 def test_candidate_blocked_when_reconciliation_failed():
     """Test that candidate is blocked when reconciliation_ok=False."""
     # Robustness passed, but reconciliation failed
+    reconcile_report = "reconcile_report_test/reconcile_2024-01-15.json"
     candidate_allowed, message = check_candidate_allowed(
         robustness_ok=True,
         reconciliation_ok=False,
-        reconcile_report_path="reconcile_report_test/reconcile_2024-01-15.json",
+        reconcile_report_path=reconcile_report,
     )
 
     assert candidate_allowed is False, "Candidate should be blocked when reconciliation failed"
     assert "Reconciliation failed" in message
+    assert reconcile_report in message, "Message should contain report link"
     assert "candidate NOT allowed" in message
 
 
@@ -43,6 +46,7 @@ def test_candidate_allowed_when_reconciliation_passed():
     )
 
     assert candidate_allowed is True, "Candidate should be allowed when reconciliation passed"
+    assert "Robustness pack passed" in message
     assert "Reconciliation passed" in message
     assert "candidate allowed" in message
 
@@ -56,6 +60,7 @@ def test_candidate_allowed_when_reconciliation_none_backward_compatible():
     )
 
     assert candidate_allowed is True, "Candidate should be allowed when reconciliation_ok=None (backward compatible)"
+    assert "Robustness pack passed" in message
     assert "Reconciliation not run" in message
     assert "backward compatible" in message
     assert "candidate allowed" in message
@@ -63,15 +68,116 @@ def test_candidate_allowed_when_reconciliation_none_backward_compatible():
 
 def test_candidate_blocked_when_both_robustness_and_reconciliation_failed():
     """Test that candidate is blocked when both robustness and reconciliation failed."""
+    robustness_pack = "robustness_pack_test"
+    reconcile_report = "reconcile_report_test/reconcile_2024-01-15.json"
     candidate_allowed, message = check_candidate_allowed(
         robustness_ok=False,
-        robustness_pack_path="robustness_pack_test",
+        robustness_pack_path=robustness_pack,
         reconciliation_ok=False,
-        reconcile_report_path="reconcile_report_test/reconcile_2024-01-15.json",
+        reconcile_report_path=reconcile_report,
     )
 
     assert candidate_allowed is False, "Candidate should be blocked when both gates failed"
     assert "Robustness pack failed" in message
+    assert robustness_pack in message, "Message should contain robustness pack link"
+    assert "Reconciliation failed" in message
+    assert reconcile_report in message, "Message should contain reconciliation report link"
+    assert "candidate NOT allowed" in message
+
+
+def test_candidate_message_includes_report_links_when_available():
+    """Test that messages include report links when paths are provided."""
+    robustness_pack = "output/robustness_pack_run1"
+    reconcile_report = "output/reconcile_report_run1/reconcile_2025-01-15.json"
+    
+    # Test with both reports
+    candidate_allowed, message = check_candidate_allowed(
+        robustness_ok=True,
+        robustness_pack_path=robustness_pack,
+        reconciliation_ok=True,
+        reconcile_report_path=reconcile_report,
+    )
+    
+    assert candidate_allowed is True
+    assert robustness_pack in message, "Message should include robustness pack path"
+    assert reconcile_report in message, "Message should include reconciliation report path"
+    
+    # Test with only reconciliation report
+    candidate_allowed, message = check_candidate_allowed(
+        robustness_ok=True,
+        reconciliation_ok=False,
+        reconcile_report_path=reconcile_report,
+    )
+    
+    assert candidate_allowed is False
+    assert reconcile_report in message, "Message should include reconciliation report path when reconciliation fails"
+
+
+def test_candidate_combined_gates_all_none_backward_compatible():
+    """Test that candidate is allowed when both gates are None (backward compatible)."""
+    candidate_allowed, message = check_candidate_allowed(
+        robustness_ok=None,
+        reconciliation_ok=None,
+    )
+    
+    assert candidate_allowed is True, "Candidate should be allowed when both gates are None (backward compatible)"
+    assert "Robustness pack not run" in message
+    assert "Reconciliation not run" in message
+    assert "backward compatible" in message
+    assert "candidate allowed" in message
+
+
+def test_candidate_combined_gates_robustness_none_reconciliation_true():
+    """Test that candidate is allowed when robustness is None and reconciliation is True."""
+    candidate_allowed, message = check_candidate_allowed(
+        robustness_ok=None,
+        reconciliation_ok=True,
+    )
+    
+    assert candidate_allowed is True, "Candidate should be allowed (robustness None is backward compatible)"
+    assert "Robustness pack not run" in message
+    assert "Reconciliation passed" in message
+    assert "candidate allowed" in message
+
+
+def test_candidate_combined_gates_robustness_true_reconciliation_none():
+    """Test that candidate is allowed when robustness is True and reconciliation is None."""
+    candidate_allowed, message = check_candidate_allowed(
+        robustness_ok=True,
+        reconciliation_ok=None,
+    )
+    
+    assert candidate_allowed is True, "Candidate should be allowed (reconciliation None is backward compatible)"
+    assert "Robustness pack passed" in message
+    assert "Reconciliation not run" in message
+    assert "backward compatible" in message
+    assert "candidate allowed" in message
+
+
+def test_candidate_combined_gates_robustness_false_reconciliation_none():
+    """Test that candidate is blocked when robustness is False (even if reconciliation is None)."""
+    candidate_allowed, message = check_candidate_allowed(
+        robustness_ok=False,
+        robustness_pack_path="robustness_pack_test",
+        reconciliation_ok=None,
+    )
+    
+    assert candidate_allowed is False, "Candidate should be blocked when robustness fails (even if reconciliation is None)"
+    assert "Robustness pack failed" in message
+    assert "Reconciliation not run" in message
+    assert "candidate NOT allowed" in message
+
+
+def test_candidate_combined_gates_robustness_none_reconciliation_false():
+    """Test that candidate is blocked when reconciliation is False (even if robustness is None)."""
+    candidate_allowed, message = check_candidate_allowed(
+        robustness_ok=None,
+        reconciliation_ok=False,
+        reconcile_report_path="reconcile_report_test/reconcile_2024-01-15.json",
+    )
+    
+    assert candidate_allowed is False, "Candidate should be blocked when reconciliation fails (even if robustness is None)"
+    assert "Robustness pack not run" in message
     assert "Reconciliation failed" in message
     assert "candidate NOT allowed" in message
 

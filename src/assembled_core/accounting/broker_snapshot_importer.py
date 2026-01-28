@@ -22,6 +22,97 @@ from src.assembled_core.accounting.broker_snapshot_store import (
 logger = logging.getLogger(__name__)
 
 
+def _normalize_symbol(sym: Any) -> str:
+    """Normalize symbol string (strip, collapse internal whitespace).
+
+    This helper is intentionally strict but ASCII-safe:
+    - Converts value to string
+    - Strips leading/trailing whitespace
+    - Collapses multiple internal whitespace characters into a single space
+    """
+    s = str(sym)
+    s = s.strip()
+    if not s:
+        return s
+    # Collapse any internal whitespace (spaces, tabs, etc.) to a single space
+    return " ".join(s.split())
+
+
+def _parse_float_like(value: Any) -> float | None:
+    """Parse a 'float-like' value robustly.
+
+    Rules (ASCII-only error messages):
+    - None / NaN / empty string -> returns None
+    - Numeric types -> float(value)
+    - String with surrounding whitespace -> stripped before parsing
+    - Thousands separators:
+      - Patterns like "1,000" or "12,345.67" are allowed and parsed as 1000.0 / 12345.67
+      - Other comma patterns (e.g. "1,2,3") raise ValueError
+    - Parentheses notation:
+      - "(5)" -> -5.0
+      - " ( 1,000 ) " -> -1000.0
+    """
+    # Handle obvious None-like values up front
+    if value is None:
+        return None
+
+    # Handle pandas NaN / NA by numeric check
+    try:
+        if isinstance(value, (int, float)):
+            # pandas may pass NaN as float; treat as None
+            if pd.isna(value):  # type: ignore[arg-type]
+                return None
+            return float(value)
+    except Exception:
+        # Fall through to string parsing
+        pass
+
+    # Work with string representation
+    s = str(value).strip()
+    if not s:
+        return None
+
+    # Parentheses notation for negatives e.g. "(5)" -> -5.0
+    negative = False
+    if s.startswith("(") and s.endswith(")"):
+        negative = True
+        s = s[1:-1].strip()
+        if not s:
+            raise ValueError("Invalid numeric value: empty parentheses")
+
+    # Handle thousands separators (commas)
+    if "," in s:
+        if "." in s:
+            int_part, frac_part = s.split(".", 1)
+        else:
+            int_part, frac_part = s, None
+
+        int_groups = int_part.split(",")
+        # First group: 1-3 digits, remaining groups: exactly 3 digits
+        if not int_groups[0].isdigit() or not (1 <= len(int_groups[0]) <= 3):
+            raise ValueError("Invalid numeric value: bad thousands grouping")
+        for grp in int_groups[1:]:
+            if not (grp.isdigit() and len(grp) == 3):
+                raise ValueError("Invalid numeric value: bad thousands grouping")
+
+        int_clean = "".join(int_groups)
+        if frac_part is not None:
+            s_clean = int_clean + "." + frac_part
+        else:
+            s_clean = int_clean
+    else:
+        s_clean = s
+
+    try:
+        num = float(s_clean)
+    except (ValueError, TypeError) as exc:
+        raise ValueError("Invalid numeric value") from exc
+
+    if negative:
+        num = -num
+    return num
+
+
 def load_external_broker_snapshot(
     path: Path | str,
 ) -> tuple[float | None, pd.DataFrame]:
@@ -83,13 +174,16 @@ def _load_external_broker_snapshot_json(path: Path) -> tuple[float | None, pd.Da
     except json.JSONDecodeError as e:
         raise ValueError(f"Invalid JSON in snapshot file {path}: {e}") from e
 
-    # Extract cash (optional)
-    cash = data.get("cash")
-    if cash is not None:
+    # Extract cash (optional, may be string or numeric)
+    raw_cash = data.get("cash")
+    cash: float | None = None
+    if raw_cash is not None:
         try:
-            cash = float(cash)
-        except (ValueError, TypeError) as e:
-            raise ValueError(f"Invalid cash value in snapshot file {path}: {cash}") from e
+            parsed = _parse_float_like(raw_cash)
+        except ValueError as exc:
+            # ASCII-only, include file path for context
+            raise ValueError(f"Invalid cash value in snapshot file {path}") from exc
+        cash = parsed
 
     # Extract positions (required)
     if "positions" not in data:
@@ -121,17 +215,30 @@ def _load_external_broker_snapshot_json(path: Path) -> tuple[float | None, pd.Da
                     f"Position entry {idx} in snapshot file {path} missing required field 'qty'"
                 )
 
-            try:
-                qty = float(pos["qty"])
-            except (ValueError, TypeError) as e:
+            # Normalize symbol (trim + collapse whitespace)
+            symbol = _normalize_symbol(pos["symbol"])
+            if not symbol:
                 raise ValueError(
-                    f"Invalid qty value in position entry {idx} in snapshot file {path}: {pos['qty']}"
-                ) from e
+                    f"Position entry {idx} in snapshot file {path} has empty symbol after normalization"
+                )
+
+            # Robust qty parsing
+            try:
+                qty_parsed = _parse_float_like(pos["qty"])
+            except ValueError as exc:
+                raise ValueError(
+                    f"Invalid qty value in position entry {idx} in snapshot file {path}"
+                ) from exc
+
+            if qty_parsed is None:
+                raise ValueError(
+                    f"Missing qty value in position entry {idx} in snapshot file {path}"
+                )
 
             validated_positions.append(
                 {
-                    "symbol": str(pos["symbol"]),
-                    "qty": qty,
+                    "symbol": symbol,
+                    "qty": qty_parsed,
                 }
             )
 
@@ -157,7 +264,8 @@ def _load_external_broker_snapshot_csv(path: Path) -> tuple[float | None, pd.Dat
         ValueError: If CSV schema is invalid
     """
     try:
-        df = pd.read_csv(path)
+        # Read as objects to preserve raw strings for robust parsing
+        df = pd.read_csv(path, dtype=object)
     except Exception as e:
         raise ValueError(f"Failed to read CSV file {path}: {e}") from e
 
@@ -170,20 +278,53 @@ def _load_external_broker_snapshot_csv(path: Path) -> tuple[float | None, pd.Dat
         )
 
     # Extract cash (optional, if column exists)
-    cash = None
+    cash: float | None = None
     if "cash" in df.columns:
-        # Use first non-null cash value
-        cash_values = df["cash"].dropna()
-        if len(cash_values) > 0:
+        cash_series = df["cash"]
+        for row_idx, raw in cash_series.items():
+            if raw is None:
+                continue
+            s = str(raw).strip()
+            if not s:
+                continue
             try:
-                cash = float(cash_values.iloc[0])
-            except (ValueError, TypeError) as e:
+                parsed = _parse_float_like(raw)
+            except ValueError as exc:
+                # Include file path and row index for context
                 raise ValueError(
-                    f"Invalid cash value in CSV file {path}: {cash_values.iloc[0]}"
-                ) from e
+                    f"Invalid cash value in CSV file {path} at row {row_idx}"
+                ) from exc
+            if parsed is not None:
+                cash = parsed
+                break
 
-    # Extract positions
-    positions_df = df[["symbol", "qty"]].copy()
+    # Extract and normalize positions
+    positions_rows: list[dict[str, Any]] = []
+    for row_idx, row in df.iterrows():
+        raw_symbol = row.get("symbol")
+        raw_qty = row.get("qty")
+
+        symbol = _normalize_symbol(raw_symbol)
+        if not symbol:
+            raise ValueError(
+                f"Empty symbol in CSV file {path} at row {row_idx}"
+            )
+
+        try:
+            qty_parsed = _parse_float_like(raw_qty)
+        except ValueError as exc:
+            raise ValueError(
+                f"Invalid qty value in CSV file {path} at row {row_idx}"
+            ) from exc
+
+        if qty_parsed is None:
+            raise ValueError(
+                f"Missing qty value in CSV file {path} at row {row_idx}"
+            )
+
+        positions_rows.append({"symbol": symbol, "qty": qty_parsed})
+
+    positions_df = pd.DataFrame(positions_rows, columns=["symbol", "qty"])
 
     return cash, positions_df
 

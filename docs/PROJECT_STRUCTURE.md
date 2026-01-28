@@ -222,6 +222,130 @@ python scripts/run_daily.py \
   --broker-snapshot-policy prefer
 ```
 
+**Standalone Evidence Pack Export Tool (Ops):**
+```bash
+# Basic export from evidence index
+python scripts/export_evidence_pack.py \
+  --run-id ledger_eod_1d \
+  --as-of-date 2025-01-15 \
+  --output-dir output
+
+# Strict mode (fail if optional files missing)
+python scripts/export_evidence_pack.py \
+  --run-id ledger_eod_1d \
+  --as-of-date 2025-01-15 \
+  --strict
+
+# Exclude optional files
+python scripts/export_evidence_pack.py \
+  --run-id ledger_eod_1d \
+  --as-of-date 2025-01-15 \
+  --no-optional
+
+# Verify pack contents
+unzip -l output/evidence_ledger_eod_1d/pack_2025-01-15.zip
+cat output/evidence_ledger_eod_1d/pack_manifest_2025-01-15.json
+```
+
+**Standalone Import Tool (Ops):**
+```bash
+# Import JSON snapshot (standalone, without EOD/Backtest)
+python scripts/import_broker_snapshot.py \
+  --input broker_positions_2025-01-15.json \
+  --run-id ops_snapshot_20250115 \
+  --as-of-date 2025-01-15 \
+  --output-dir output \
+  --store-parquet
+
+# Import CSV snapshot with cash override
+python scripts/import_broker_snapshot.py \
+  --input broker_positions.csv \
+  --run-id ops_snapshot_20250115 \
+  --as-of-date 2025-01-15 \
+  --cash 10000.0 \
+  --store-parquet
+
+# Import with custom quantity tolerance
+python scripts/import_broker_snapshot.py \
+  --input broker_positions.json \
+  --run-id ops_snapshot_20250115 \
+  --as-of-date 2025-01-15 \
+  --qty-tol 1e-6
+```
+
+**Golden Path (Ops - 4-step workflow):**
+```bash
+# Step 1: Import external broker snapshot
+python scripts/import_broker_snapshot.py \
+  --input broker_positions_2025-01-15.json \
+  --run-id ops_snapshot_20250115 \
+  --as-of-date 2025-01-15 \
+  --output-dir output \
+  --store-parquet
+
+# Step 2: Run EOD pipeline with require policy (uses imported snapshot)
+python scripts/run_eod_pipeline.py \
+  --freq 1d \
+  --broker-snapshot-policy require \
+  --broker-snapshot-run-id ops_snapshot_20250115
+
+# Step 3: Check evidence index (links all artifacts)
+# Read: output/evidence_<run_id>/evidence_2025-01-15.json
+python -c "import json; print(json.dumps(json.load(open('output/evidence_ledger_eod_1d/evidence_2025-01-15.json')), indent=2))"
+
+# Step 4: Export evidence pack (optional, or use --write-evidence-pack in step 2)
+python scripts/export_evidence_pack.py \
+  --run-id ledger_eod_1d \
+  --as-of-date 2025-01-15 \
+  --output-dir output
+
+# Step 5: Verify reconciliation and candidate gate
+# Check reconcile report: output/reconcile_report_<run_id>/reconcile_2025-01-15.json
+# Check manifest: output/run_manifest_1d.json -> reconciliation_ok, reconcile_report_path
+# Check candidate gate output (if QA enabled): candidate_allowed status
+# Check evidence pack: output/evidence_<run_id>/pack_2025-01-15.zip
+```
+
+**Alternative: Backtest with Broker Snapshot**
+```bash
+# Step 1: Import snapshot
+python scripts/import_broker_snapshot.py \
+  --input broker_positions_2025-01-15.json \
+  --run-id ops_snapshot_20250115 \
+  --as-of-date 2025-01-15 \
+  --output-dir output
+
+# Step 2: Run backtest with require policy
+python scripts/run_backtest_strategy.py \
+  --strategy ema \
+  --broker-snapshot-policy require \
+  --broker-snapshot-run-id ops_snapshot_20250115
+
+# Step 3: Check evidence index and reports
+# Evidence: output/evidence_<run_id>/evidence_2025-01-15.json
+# Reconcile: output/reconcile_report_<run_id>/reconcile_2025-01-15.json
+```
+
+**Alternative: Daily Run with Broker Snapshot**
+```bash
+# Step 1: Import snapshot (optional, can use --broker-snapshot-file in step 2)
+python scripts/import_broker_snapshot.py \
+  --input broker_positions_2025-01-15.json \
+  --run-id daily_snapshot_20250115 \
+  --as-of-date 2025-01-15 \
+  --output-dir output
+
+# Step 2: Run daily with require policy
+python scripts/run_daily.py \
+  --date 2025-01-15 \
+  --broker-snapshot-policy require \
+  --broker-snapshot-run-id daily_snapshot_20250115
+
+# Step 3: Check daily manifest (if written)
+# Manifest: output/manifest_daily_<run_id>.json
+# Evidence: output/evidence_<run_id>/evidence_2025-01-15.json (if ledger active)
+```
+
 **Broker Snapshot Import (Python API):**
 ```python
 from pathlib import Path
@@ -578,6 +702,20 @@ python scripts/dev/run_checks.py --skip-compile --skip-ruff --pytest-args tests/
 
 # Andere Pfade pruefen
 python scripts/dev/run_checks.py --paths src/assembled_core/accounting/
+
+# Accounting/Broker Snapshot Presets (Sprint 13)
+
+# Accounting-Fokus (Ledger/Reconcile/Accounting-Reports + QA-Gate)
+python scripts/dev/run_checks.py --preset accounting
+
+# Broker Snapshot-Fokus (Importer + Policy + CLI + Reconcile/Accounting Integration)
+python scripts/dev/run_checks.py --preset broker_snapshot
+
+# Ops Evidence-Fokus (Evidence Index + Evidence Pack + CLI + E2E Tests)
+python scripts/dev/run_checks.py --preset ops_evidence
+
+# Preset mit zusaetzlichen Pytest-Argumenten (Paths bleiben vom Preset)
+python scripts/dev/run_checks.py --preset broker_snapshot --skip-compile --skip-ruff --pytest-args tests/test_ops_evidence_pack_e2e.py -q
 ```
 
 **Features:**

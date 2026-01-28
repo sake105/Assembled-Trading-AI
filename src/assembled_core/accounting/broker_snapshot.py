@@ -63,14 +63,22 @@ def normalize_broker_snapshot(
     # Ensure qty is float
     normalized["qty"] = normalized["qty"].astype(float)
 
-    # Remove zero positions (threshold: qty_tol)
-    normalized = normalized[normalized["qty"].abs() > qty_tol].copy()
+    # Aggregate duplicate symbols by summing qty deterministically
+    # (drop all other columns to avoid ambiguous aggregation semantics)
+    aggregated = (
+        normalized[["symbol", "qty"]]
+        .groupby("symbol", as_index=False, sort=False)["qty"]
+        .sum()
+    )
+
+    # Remove zero / tiny positions (threshold: qty_tol)
+    aggregated = aggregated[aggregated["qty"].abs() > qty_tol].copy()
 
     # Deterministic sort by symbol
-    normalized = normalized.sort_values("symbol", kind="mergesort").reset_index(drop=True)
+    normalized = aggregated.sort_values("symbol", kind="mergesort").reset_index(drop=True)
 
     # Extract metadata (any additional columns beyond symbol, qty)
-    metadata_cols = [col for col in normalized.columns if col not in required_cols]
+    metadata_cols = [col for col in positions_df.columns if col not in required_cols]
     metadata = {}
     if metadata_cols:
         # Store first row's metadata as example (or aggregate if needed)

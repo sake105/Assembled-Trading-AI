@@ -28,86 +28,85 @@ def check_candidate_allowed(
 ) -> tuple[bool, str]:
     """Check if strategy is allowed to be marked as "candidate" (Sprint 12 Final + Sprint 13).
 
+    Both gates (robustness and reconciliation) must pass for candidate status.
+    The function combines both gates deterministically:
+    - If any gate is False -> block candidate
+    - If both gates are True -> allow candidate
+    - If one or both gates are None -> allow with warning (backward compatible)
+
     Args:
         robustness_ok: Robustness pack result (True/False/None)
             - True: All enabled robustness tests passed
             - False: At least one robustness test failed
             - None: Robustness pack was not run
-        robustness_pack_path: Optional path to robustness pack directory (for logging)
+        robustness_pack_path: Optional path to robustness pack directory (included in message if set)
         reconciliation_ok: Reconciliation result (True/False/None) (Sprint 13 extension)
-            - True: Reconciliation passed (or not performed)
+            - True: Reconciliation passed
             - False: Reconciliation failed
             - None: Reconciliation was not run (backward compatible)
-        reconcile_report_path: Optional path to reconciliation report (for logging)
+        reconcile_report_path: Optional path to reconciliation report (included in message if set)
 
     Returns:
         Tuple of (candidate_allowed: bool, message: str):
         - candidate_allowed: True if all gates pass, False otherwise
-        - message: Human-readable message explaining the decision
+        - message: Human-readable message explaining the decision, including report links if available
 
     Note:
-        - Robustness gate: If robustness_ok is None, candidate_allowed = False
-        - Reconciliation gate (Sprint 13): If reconciliation_ok is False, candidate_allowed = False
-        - Reconciliation gate: If reconciliation_ok is None, candidate_allowed = True (backward compatible)
-          but a warning message is included
-        - This gate is minimal-invasive: it only checks gates, does not modify any existing logic
+        - If any gate is False, candidate_allowed = False
+        - If both gates are True, candidate_allowed = True
+        - If one or both gates are None, candidate_allowed = True (backward compatible) with warning
+        - Report paths are included in messages when available for easy troubleshooting
     """
-    messages = []
+    robustness_status = []
+    reconciliation_status = []
     candidate_allowed = True
 
     # Check robustness gate
+    pack_link = f" (report: {robustness_pack_path})" if robustness_pack_path else ""
     if robustness_ok is None:
         # Robustness pack was not run
-        pack_path_str = str(robustness_pack_path) if robustness_pack_path else "unknown"
-        message = (
-            f"Robustness pack not run (path: {pack_path_str}). "
-            "Candidate status requires robustness pack to be executed."
-        )
-        logger.warning(message)
-        messages.append(message)
-        candidate_allowed = False
+        status_msg = f"Robustness pack not run{pack_link}"
+        robustness_status.append(status_msg)
+        logger.warning(status_msg)
+        # None is backward compatible (allow with warning)
     elif robustness_ok is False:
-        # Robustness pack failed
-        pack_path_str = str(robustness_pack_path) if robustness_pack_path else "unknown"
-        message = (
-            f"Robustness pack failed (path: {pack_path_str}). "
-            "Candidate status requires all enabled robustness tests to pass."
-        )
-        logger.warning(message)
-        messages.append(message)
+        # Robustness pack failed - block candidate
+        status_msg = f"Robustness pack failed{pack_link}"
+        robustness_status.append(status_msg)
+        logger.warning(status_msg)
         candidate_allowed = False
     else:
         # robustness_ok is True
-        messages.append("Robustness pack passed")
+        status_msg = f"Robustness pack passed{pack_link}"
+        robustness_status.append(status_msg)
 
     # Check reconciliation gate (Sprint 13 extension)
+    report_link = f" (report: {reconcile_report_path})" if reconcile_report_path else ""
     if reconciliation_ok is False:
         # Reconciliation failed - block candidate
-        report_path_str = str(reconcile_report_path) if reconcile_report_path else "unknown"
-        message = (
-            f"Reconciliation failed (report: {report_path_str}). "
-            "Candidate status requires reconciliation to pass."
-        )
-        logger.warning(message)
-        messages.append(message)
+        status_msg = f"Reconciliation failed{report_link}"
+        reconciliation_status.append(status_msg)
+        logger.warning(status_msg)
         candidate_allowed = False
     elif reconciliation_ok is None:
         # Reconciliation not run - allow but warn (backward compatible)
-        message = "Reconciliation not run (missing reconciliation_ok in manifest). Candidate allowed (backward compatible)."
-        logger.warning(message)
-        messages.append(message)
-        # candidate_allowed remains True (backward compatible)
+        status_msg = f"Reconciliation not run{report_link} (backward compatible)"
+        reconciliation_status.append(status_msg)
+        logger.warning(status_msg)
+        # None is backward compatible (allow with warning)
     else:
         # reconciliation_ok is True
-        messages.append("Reconciliation passed")
+        status_msg = f"Reconciliation passed{report_link}"
+        reconciliation_status.append(status_msg)
 
-    # Combine messages
+    # Combine status messages deterministically
+    all_status = robustness_status + reconciliation_status
     if candidate_allowed:
-        combined_message = " - ".join(messages) + " - candidate allowed"
+        combined_message = " - ".join(all_status) + " - candidate allowed"
         logger.info(combined_message)
         return True, combined_message
     else:
-        combined_message = " | ".join(messages) + " - candidate NOT allowed"
+        combined_message = " | ".join(all_status) + " - candidate NOT allowed"
         logger.warning(combined_message)
         return False, combined_message
 

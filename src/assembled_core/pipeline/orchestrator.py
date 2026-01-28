@@ -289,6 +289,8 @@ def run_eod_pipeline(
     broker_snapshot_run_id: str | None = None,
     broker_snapshot_file: str | Path | None = None,
     broker_snapshot_date: str | None = None,
+    # Evidence pack controls
+    write_evidence_pack: bool = False,
 ) -> dict[str, Any]:
     """Run full EOD pipeline for a given frequency.
 
@@ -514,6 +516,7 @@ def run_eod_pipeline(
                 broker_snapshot_policy=broker_snapshot_policy,
                 write_paper_broker_snapshot=write_paper_broker_snapshot,
                 broker_snapshot_run_id=snapshot_run_id,
+                write_evidence_pack=write_evidence_pack,
             )
 
             logger.info(
@@ -736,6 +739,7 @@ def run_eod_pipeline(
 
     # Build manifest
     manifest = {
+        "schema_version": 1,
         "freq": freq,
         "start_capital": start_capital,
         "data_snapshot_id": data_snapshot_id,  # D4: Snapshot ID for reproducibility
@@ -771,6 +775,21 @@ def run_eod_pipeline(
         ),
         "accounting_report_path": (
             _manifest_path_str(ledger_result.get("accounting_report_path"), base_dir=base)
+            if ledger_result
+            else None
+        ),
+        "evidence_index_path": (
+            _manifest_path_str(ledger_result.get("evidence_index_path"), base_dir=base)
+            if ledger_result
+            else None
+        ),
+        "evidence_pack_path": (
+            _manifest_path_str(ledger_result.get("evidence_pack_path"), base_dir=base)
+            if ledger_result
+            else None
+        ),
+        "evidence_pack_manifest_path": (
+            _manifest_path_str(ledger_result.get("evidence_pack_manifest_path"), base_dir=base)
             if ledger_result
             else None
         ),

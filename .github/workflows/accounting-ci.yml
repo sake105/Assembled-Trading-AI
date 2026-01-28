@@ -1,0 +1,49 @@
+# GitHub Actions CI Workflow - Accounting & Broker Snapshot (Windows)
+#
+# Purpose: Windows-compatible CI for accounting/broker snapshot regression checks
+# Triggers: Push/PR to main and feature/* branches
+# Status: Active - ensures accounting features work on Windows
+name: Accounting CI (Windows)
+
+on:
+  push:
+    branches: [main, "feature/*"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  windows-accounting:
+    name: Accounting & Broker Snapshot Checks (Windows)
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: 'pip'
+      
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml', '**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas pyarrow fastparquet pytest ruff
+      
+      - name: Run broker_snapshot preset checks
+        run: |
+          python scripts/dev/run_checks.py --preset broker_snapshot
+      
+      - name: Run accounting preset checks (optional)
+        continue-on-error: true
+        run: |
+          python scripts/dev/run_checks.py --preset accounting || echo "Accounting preset checks skipped or failed (non-blocking)"

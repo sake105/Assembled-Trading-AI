@@ -32,6 +32,8 @@ from src.assembled_core.accounting.broker_snapshot_store import (
     load_broker_snapshot_json,
     load_broker_snapshot_parquet,
 )
+from src.assembled_core.accounting.evidence_index import write_evidence_index_json
+from src.assembled_core.accounting.evidence_pack import build_evidence_pack
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +50,7 @@ def build_ledger_from_trades(
     broker_snapshot_policy: str = "prefer",
     write_paper_broker_snapshot: bool = False,
     broker_snapshot_run_id: str | None = None,
+    write_evidence_pack: bool = False,
 ) -> dict[str, Any]:
     """Build ledger from orders and trades, store events, compute positions, and reconcile.
 
@@ -66,6 +69,7 @@ def build_ledger_from_trades(
             - "require": Snapshot must exist, raise ValueError if missing
         write_paper_broker_snapshot: If True, write paper broker view as snapshot after computation
         broker_snapshot_run_id: Optional run_id for broker snapshot (default: run_id)
+        write_evidence_pack: If True, create evidence pack (ZIP + manifest) after evidence index write
 
     Returns:
         Dictionary with:
@@ -241,6 +245,7 @@ def build_ledger_from_trades(
             as_of_date,
             ledger_cash=cash_balance,
             broker_cash=broker_cash,
+            broker_meta=broker_meta,
         )
         _ = write_reconcile_report_json(
             reconciliation_result,
@@ -249,6 +254,7 @@ def build_ledger_from_trades(
             as_of_date,
             ledger_cash=cash_balance,
             broker_cash=broker_cash,
+            broker_meta=broker_meta,
         )
 
         # Use CSV path as primary report path
@@ -299,6 +305,7 @@ def build_ledger_from_trades(
 
     # Write accounting report (after positions and reconciliation are computed)
     accounting_report_path = None
+    evidence_index_path = None
     try:
         logger.info("Writing accounting report")
         
@@ -323,6 +330,7 @@ def build_ledger_from_trades(
             ledger_pack_path=str(ledger_base.relative_to(output_dir)),
             reconcile_report_path=str(reconcile_report_path) if reconcile_report_path else None,
             costs_breakdown=costs_breakdown,
+            broker_meta=broker_meta,
         )
         _ = write_accounting_report_json(
             positions_result=positions_result,
@@ -334,11 +342,56 @@ def build_ledger_from_trades(
             ledger_pack_path=str(ledger_base.relative_to(output_dir)),
             reconcile_report_path=str(reconcile_report_path) if reconcile_report_path else None,
             costs_breakdown=costs_breakdown,
+            broker_meta=broker_meta,
         )
-        
+
         # Use CSV path as primary report path
         accounting_report_path = csv_path.relative_to(output_dir)
         logger.info(f"Accounting report written: {accounting_report_path}")
+
+        # Write evidence index (links all accounting-related artifacts)
+        try:
+            evidence_paths = {
+                "broker_snapshot_path": broker_snapshot_path,
+                "ledger_pack_path": ledger_base,
+                "reconcile_report_path": output_dir / reconcile_report_path
+                if reconcile_report_path
+                else None,
+                "accounting_report_path": output_dir / accounting_report_path
+                if accounting_report_path
+                else None,
+                "manifest_path": None,
+            }
+            evidence_json_path = write_evidence_index_json(
+                output_dir=output_dir,
+                run_id=run_id,
+                as_of_date=as_of_date,
+                paths=evidence_paths,
+                broker_meta=broker_meta,
+                reconciliation_ok=reconciliation_ok,
+            )
+            evidence_index_path = evidence_json_path.relative_to(output_dir)
+            logger.info(f"Evidence index written: {evidence_index_path}")
+            
+            # Build evidence pack if requested
+            if write_evidence_pack:
+                try:
+                    pack_result = build_evidence_pack(
+                        output_dir=output_dir,
+                        run_id=run_id,
+                        as_of_date=as_of_date,
+                        include_optional=True,
+                    )
+                    evidence_pack_path = pack_result["pack_path"]
+                    evidence_pack_manifest_path = pack_result["pack_manifest_path"]
+                    logger.info(
+                        f"Evidence pack created: {evidence_pack_path} "
+                        f"({pack_result['n_files']} files)"
+                    )
+                except Exception as e:  # best-effort, should not fail the run
+                    logger.warning(f"Failed to build evidence pack: {e}", exc_info=True)
+        except Exception as e:  # best-effort, should not fail the run
+            logger.warning(f"Failed to write evidence index: {e}", exc_info=True)
         
     except Exception as e:
         logger.warning(f"Accounting report generation failed: {e}", exc_info=True)
@@ -353,4 +406,8 @@ def build_ledger_from_trades(
         "accounting_report_path": str(accounting_report_path) if accounting_report_path else None,
         "broker_snapshot_path": str(broker_snapshot_path.relative_to(output_dir)) if broker_snapshot_path else None,
         "broker_meta": broker_meta,
+        "evidence_index_path": str(evidence_index_path) if evidence_index_path else None,
+        "evidence_pack_path": evidence_pack_path,
+        "evidence_pack_manifest_path": evidence_pack_manifest_path,
     }
+

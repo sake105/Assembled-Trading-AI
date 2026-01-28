@@ -95,8 +95,20 @@ def test_schema_stable(tmp_path: Path):
     # Read back
     df = pd.read_csv(csv_path)
 
-    # Verify schema
-    expected_cols = ["type", "symbol", "ledger_value", "broker_value", "diff", "match"]
+    # Verify schema (fixed schema: broker_meta columns + schema_version always present)
+    expected_cols = [
+        "type",
+        "symbol",
+        "ledger_value",
+        "broker_value",
+        "diff",
+        "match",
+        "broker_view_source",
+        "broker_snapshot_run_id",
+        "broker_snapshot_date",
+        "broker_snapshot_path",
+        "schema_version",
+    ]
     assert list(df.columns) == expected_cols
 
     # Verify cash row exists

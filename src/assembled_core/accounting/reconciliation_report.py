@@ -88,7 +88,7 @@ def write_reconcile_report_csv(
     csv_path = reconcile_dir / f"reconcile_{date_str}.csv"
 
     # Build report DataFrame
-    report_rows = []
+    report_rows: list[dict[str, Any]] = []
 
     # Get cash values (prefer function params, fallback to result_dict)
     cash_match = result_dict.get("cash_match", False)
@@ -150,19 +150,66 @@ def write_reconcile_report_csv(
         report_df = pd.DataFrame(report_rows)
         # Deterministic sort: by abs(diff) desc, then symbol asc
         # For cash row (symbol=None), put it first
-        def _sort_key_func(row):
+        def _sort_key_func(row: pd.Series) -> tuple[int, float, str]:
             if row["type"] == "cash":
                 return (0, 0.0, "")  # Cash first
-            else:
-                diff_abs = abs(row["diff"]) if pd.notna(row["diff"]) else 0.0
-                symbol_str = str(row["symbol"]) if pd.notna(row["symbol"]) else ""
-                return (1, -diff_abs, symbol_str)  # Position rows: by abs(diff) desc, then symbol asc
+            diff_abs = abs(row["diff"]) if pd.notna(row["diff"]) else 0.0
+            symbol_str = str(row["symbol"]) if pd.notna(row["symbol"]) else ""
+            return (1, -diff_abs, symbol_str)  # Position rows: by abs(diff) desc, then symbol asc
 
         report_df["_sort_key"] = report_df.apply(_sort_key_func, axis=1)
         report_df = report_df.sort_values("_sort_key", kind="mergesort").reset_index(drop=True)
         report_df = report_df.drop(columns=["_sort_key"])
     else:
-        report_df = pd.DataFrame(columns=["type", "symbol", "ledger_value", "broker_value", "diff", "match"])
+        # Empty DataFrame with fixed schema (including broker_meta and schema_version columns)
+        report_df = pd.DataFrame(
+            columns=[
+                "type",
+                "symbol",
+                "ledger_value",
+                "broker_value",
+                "diff",
+                "match",
+                "broker_view_source",
+                "broker_snapshot_run_id",
+                "broker_snapshot_date",
+                "broker_snapshot_path",
+                "schema_version",
+            ]
+        )
+
+    # Always add broker_meta columns (fixed schema to prevent BI/ETL schema drift)
+    # If broker_meta is None, use empty strings (consistent with CSV serialization)
+    if broker_meta is not None:
+        report_df["broker_view_source"] = broker_meta.get("broker_view_source")
+        report_df["broker_snapshot_run_id"] = broker_meta.get("broker_snapshot_run_id")
+        report_df["broker_snapshot_date"] = broker_meta.get("broker_snapshot_date")
+        report_df["broker_snapshot_path"] = broker_meta.get("broker_snapshot_path")
+    else:
+        # Empty values for fixed schema (use empty string for consistency with CSV)
+        report_df["broker_view_source"] = ""
+        report_df["broker_snapshot_run_id"] = ""
+        report_df["broker_snapshot_date"] = ""
+        report_df["broker_snapshot_path"] = ""
+
+    # Add schema_version as constant column (for long-term schema evolution)
+    report_df["schema_version"] = 1
+
+    # Ensure fixed column order for stability
+    fixed_columns = [
+        "type",
+        "symbol",
+        "ledger_value",
+        "broker_value",
+        "diff",
+        "match",
+        "broker_view_source",
+        "broker_snapshot_run_id",
+        "broker_snapshot_date",
+        "broker_snapshot_path",
+        "schema_version",
+    ]
+    report_df = report_df[fixed_columns]
 
     # Write CSV
     report_df.to_csv(csv_path, index=False, encoding="utf-8")
@@ -221,6 +268,7 @@ def write_reconcile_report_json(
 
     # Build report dictionary
     report_dict = {
+        "schema_version": 1,
         "reconciliation_date": as_of.isoformat(),
         "run_id": run_id,
         "ok": result_dict.get("ok", False),
@@ -238,7 +286,11 @@ def write_reconcile_report_json(
             "n_missing_in_ledger": len(result_dict.get("missing_in_ledger", [])),
             "n_missing_in_broker": len(result_dict.get("missing_in_broker", [])),
         },
-        "position_diffs": result_dict.get("position_diffs_df", pd.DataFrame()).to_dict(orient="records") if not result_dict.get("position_diffs_df", pd.DataFrame()).empty else [],
+        "position_diffs": result_dict.get("position_diffs_df", pd.DataFrame()).to_dict(
+            orient="records"
+        )
+        if not result_dict.get("position_diffs_df", pd.DataFrame()).empty
+        else [],
         "missing_in_ledger": result_dict.get("missing_in_ledger", []),
         "missing_in_broker": result_dict.get("missing_in_broker", []),
         "message": result_dict.get("message", ""),

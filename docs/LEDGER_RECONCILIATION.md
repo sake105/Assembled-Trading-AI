@@ -729,12 +729,42 @@ result = import_broker_snapshot(
 ```
 
 **Supported Formats:**
-- **JSON** (required): Schema `{"cash": float, "positions": [{"symbol": str, "qty": float}]}`
+- **JSON** (required): Schema `{"cash": float | str, "positions": [{"symbol": str, "qty": float | str, ...}]}`  
+  - Unknown keys in each `positions` entry are ignored
+  - `cash` may be string (`"1000.00"`) or numeric
 - **CSV** (optional): Columns `symbol`, `qty` (optional: `cash` column)
+
+**Accepted Formats / Normalization Rules:**
+
+- **Symbols (`symbol`):**
+  - Leading/trailing whitespace is stripped
+  - Internal whitespace is collapsed (e.g. `"  AAPL   US  "` → `"AAPL US"`)
+  - Empty symbols after normalization are rejected with a clear error
+
+- **Quantities (`qty`):**
+  - Robust parsing via internal `_parse_float_like()` helper:
+    - Numeric values (`1`, `1.5`) are accepted
+    - Strings with whitespace (`" 2.5 "`) are accepted
+    - Thousands separators (`"1,000"`, `"12,345.67"`) are accepted and parsed as `1000.0` / `12345.67`
+    - Parentheses notation (`"(5)"`) is treated as negative (`-5.0`)
+    - Empty strings / missing values are rejected for required `qty` fields (with file path and row/index in the error message)
+
+- **Cash (`cash`):**
+  - JSON: `cash` may be float or string (e.g. `"1000.00"`)
+  - CSV: If a `cash` column exists, the first non-empty value is parsed using the same float-like rules
+  - CLI / API `cash_override` (if provided) always has precedence over file content
+
+- **Duplicate Symbols:**
+  - `normalize_broker_snapshot()` aggregates duplicate symbols by summing `qty` per symbol
+  - Aggregation happens *before* tiny residual filtering and deterministic sorting
+  - After aggregation, any symbol with `abs(qty) <= qty_tol` is removed
 
 **Normalization:**
 - All imported snapshots are normalized via `normalize_broker_snapshot()`
-- Symbols are trimmed, tiny residuals filtered (abs(qty) <= qty_tol), positions sorted deterministically
+- Symbols are trimmed and normalized (whitespace rules above)
+- Duplicate symbols are aggregated deterministically
+- Tiny residuals are filtered (abs(qty) <= qty_tol)
+- Positions are sorted deterministically by symbol (stable `mergesort`)
 - Output is stored in standard layout: `output/broker_snapshot_<run_id>/snapshot_<YYYY-MM-DD>.json`
 
 **Return Value:**
@@ -800,26 +830,44 @@ python scripts/run_backtest_strategy.py \
 
 When accounting/reconciliation is active, reconciliation failures act as a gate that blocks candidate status (analogous to the robustness gate). This ensures that strategies with reconciliation failures cannot be marked as "candidate" for production use.
 
-### Gate Logic
+The candidate gate combines both robustness and reconciliation gates deterministically, ensuring that both quality checks must pass for candidate status.
 
-The candidate gate checks both robustness and reconciliation status:
+### Combined Gate Logic
 
-**Reconciliation Gate Policy:**
-- `reconciliation_ok=False`: Candidate is **blocked** (reconciliation failed)
-- `reconciliation_ok=True`: Candidate is **allowed** (reconciliation passed)
-- `reconciliation_ok=None`: Candidate is **allowed** with warning (backward compatible, reconciliation not run)
+The candidate gate checks both robustness and reconciliation status and combines them deterministically:
 
-**Combined Gate Behavior:**
-- Both robustness and reconciliation must pass for candidate status
-- If either gate fails, candidate is blocked
-- If reconciliation is not run (`None`), candidate is allowed (backward compatible) but a warning is logged
+**Individual Gate Policies:**
+
+**Robustness Gate:**
+- `robustness_ok=True`: Robustness pack passed
+- `robustness_ok=False`: Robustness pack failed → **blocks candidate**
+- `robustness_ok=None`: Robustness pack not run → **allows with warning** (backward compatible)
+
+**Reconciliation Gate:**
+- `reconciliation_ok=True`: Reconciliation passed
+- `reconciliation_ok=False`: Reconciliation failed → **blocks candidate**
+- `reconciliation_ok=None`: Reconciliation not run → **allows with warning** (backward compatible)
+
+**Combined Gate Behavior (Deterministic):**
+- **If any gate is `False`**: Candidate is **blocked** (fail-fast)
+- **If both gates are `True`**: Candidate is **allowed**
+- **If one or both gates are `None`**: Candidate is **allowed with warning** (backward compatible)
+
+**Message Format:**
+- Messages include report links when `robustness_pack_path` or `reconcile_report_path` are provided
+- Format: `"Robustness pack passed - Reconciliation failed (report: path/to/report.json) - candidate NOT allowed"`
+- Links enable quick troubleshooting by pointing directly to relevant reports
 
 ### Implementation
 
-**Helper Function:**
+**Helper Functions:**
 ```python
-from src.assembled_core.qa.candidate_gate import read_reconciliation_ok_from_manifest
+from src.assembled_core.qa.candidate_gate import (
+    read_robustness_ok_from_manifest,
+    read_reconciliation_ok_from_manifest,
+)
 
+robustness_ok = read_robustness_ok_from_manifest(manifest_path)
 reconciliation_ok = read_reconciliation_ok_from_manifest(manifest_path)
 ```
 
@@ -828,24 +876,59 @@ reconciliation_ok = read_reconciliation_ok_from_manifest(manifest_path)
 from src.assembled_core.qa.candidate_gate import check_candidate_allowed
 
 candidate_allowed, message = check_candidate_allowed(
-    robustness_ok=True,
+    robustness_ok=robustness_ok,
+    robustness_pack_path="robustness_pack_run_id",  # Optional: included in message if set
     reconciliation_ok=reconciliation_ok,
-    reconcile_report_path="reconcile_report_run_id/reconcile_2024-01-15.json",
+    reconcile_report_path="reconcile_report_run_id/reconcile_2024-01-15.json",  # Optional: included in message if set
 )
+
+if not candidate_allowed:
+    logger.error(f"Candidate blocked: {message}")
+```
+
+**Example Messages:**
+
+**Both gates passed:**
+```
+Robustness pack passed - Reconciliation passed - candidate allowed
+```
+
+**Reconciliation failed (with report link):**
+```
+Robustness pack passed - Reconciliation failed (report: reconcile_report_run1/reconcile_2025-01-15.json) - candidate NOT allowed
+```
+
+**Both gates failed (with report links):**
+```
+Robustness pack failed (report: robustness_pack_run1) | Reconciliation failed (report: reconcile_report_run1/reconcile_2025-01-15.json) - candidate NOT allowed
+```
+
+**Reconciliation not run (backward compatible):**
+```
+Robustness pack passed - Reconciliation not run (backward compatible) - candidate allowed
 ```
 
 ### Manifest Integration
 
-The `reconciliation_ok` field is automatically written to the run manifest:
-- `reconciliation_ok=True`: Reconciliation passed (or not performed)
+Both `robustness_ok` and `reconciliation_ok` fields are automatically written to the run manifest:
+- `robustness_ok=True`: Robustness pack passed
+- `robustness_ok=False`: Robustness pack failed
+- `robustness_ok=None`: Robustness pack was not run
+- `reconciliation_ok=True`: Reconciliation passed
 - `reconciliation_ok=False`: Reconciliation failed
 - `reconciliation_ok=None`: Reconciliation was not run (backward compatible)
 
 ### Use Cases
 
 **Production:**
-- Reconciliation must pass for candidate status
-- Failures block candidate marking
+- Both robustness and reconciliation must pass for candidate status
+- Failures in either gate block candidate marking
+- Report links in messages enable quick troubleshooting
+
+**Development/Backtesting:**
+- Gates can be `None` (not run) for backward compatibility
+- Warnings are logged but candidate status is allowed
+- Allows gradual adoption of new quality checks
 
 **Development/Testing:**
 - If reconciliation is not run (`None`), candidate is allowed (backward compatible)
@@ -898,9 +981,78 @@ python scripts/run_daily.py \
 - Snapshot run_id defaults to "daily_snapshot" if not provided
 - Policy behavior: `require` fails fast if snapshot missing, `prefer` falls back to paper view
 
+### Daily Manifest
+
+`run_daily.py` writes an optional daily manifest file (`manifest_daily_<run_id>.json`) that provides operational evidence and links to all generated outputs. The manifest structure is aligned with the orchestrator manifest for consistency.
+
+**Manifest Location:**
+- Path: `output/manifest_daily_<run_id>.json`
+- Run ID format: `daily_YYYYMMDD` (e.g., `daily_20250115`)
+
+**Manifest Schema (aligned with orchestrator):**
+
+All fields are present in the manifest (even if `None`), ensuring consistent schema for downstream tools.
+
+**Core Fields:**
+- `run_id`: Run identifier (string)
+- `target_date`: Target trading date (YYYY-MM-DD string)
+- `safe_orders_path`: Relative path to generated SAFE orders CSV (POSIX slashes)
+
+**Broker Snapshot Fields:**
+- `broker_snapshot_policy`: Broker snapshot policy used (`"ignore"`, `"prefer"`, or `"require"`)
+- `broker_snapshot_date`: Snapshot date (YYYY-MM-DD string, or `None`)
+- `broker_snapshot_file`: Snapshot file path (relative or basename, or `None` if not imported)
+- `broker_snapshot_import_ok`: Whether broker snapshot import succeeded (`True`, `False`, or `None` if no file provided)
+- `broker_snapshot_path`: Relative path to snapshot directory (POSIX slashes, or `None` if not exists)
+- `broker_snapshot_run_id`: Snapshot run ID (string, or `None`)
+- `write_paper_broker_snapshot`: Whether paper snapshot was written (boolean, aligned with orchestrator field name)
+
+**Ledger/Accounting Fields (optional, `None` if not active):**
+- `ledger_pack_path`: Relative path to ledger pack (POSIX slashes, or `None`)
+- `reconcile_report_path`: Relative path to reconciliation report (POSIX slashes, or `None`)
+- `reconciliation_ok`: Reconciliation status (boolean, or `None`)
+
+**Broker Snapshot Import Fields:**
+
+When `--broker-snapshot-file` is provided:
+- `broker_snapshot_file`: Set to relative path or basename of the imported file
+- `broker_snapshot_import_ok`: Set to `True` if import succeeded, `False` if import failed (and policy was not `"require"`), or `None` if no file was provided
+
+**Determinism:**
+- JSON keys are sorted (`sort_keys=True`, `indent=2`)
+- Paths are relative to output directory and use POSIX slashes (`/`) for portability
+- Trailing newline for byte stability
+- Writing the manifest twice with the same inputs produces byte-identical files
+
+**Use Cases:**
+- Operational evidence: Links to all outputs from a daily run
+- Audit trail: Track which broker snapshot was used and whether import succeeded
+- Troubleshooting: Quick access to all relevant files
+- Schema consistency: Fixed schema (all keys present) prevents BI/ETL schema drift
+
+**Example Manifest:**
+
+```json
+{
+  "broker_snapshot_date": "2025-01-15",
+  "broker_snapshot_file": "external_snapshot.json",
+  "broker_snapshot_import_ok": true,
+  "broker_snapshot_path": "broker_snapshot_daily_snapshot/snapshot_2025-01-15.json",
+  "broker_snapshot_policy": "prefer",
+  "broker_snapshot_run_id": "daily_snapshot",
+  "ledger_pack_path": null,
+  "reconcile_report_path": null,
+  "reconciliation_ok": null,
+  "run_id": "daily_20250115",
+  "safe_orders_path": "orders_20250115.csv",
+  "target_date": "2025-01-15",
+  "write_paper_broker_snapshot": false
+}
+```
+
 ### Note
 
-Currently, `run_daily.py` generates orders but does not perform portfolio simulation or ledger/reconciliation by default. The broker snapshot controls are prepared for future integration when ledger/reconciliation is added to the daily run workflow.
+Currently, `run_daily.py` generates orders but does not perform portfolio simulation or ledger/reconciliation by default. The broker snapshot controls and manifest structure are prepared for future integration when ledger/reconciliation is added to the daily run workflow.
 
 ## Reconcile Report Broker Source Fields
 
@@ -926,6 +1078,30 @@ Every reconciliation report includes `broker_meta` fields that clearly indicate 
 }
 ```
 
+**CSV Report (`reconcile_<YYYY-MM-DD>.csv`):**
+The CSV report uses a **fixed schema** that always includes `broker_meta` fields as additional columns (constant values per row):
+- `broker_view_source`: "stored_snapshot" or "paper_view" (or empty string if broker_meta=None)
+- `broker_snapshot_run_id`: Run ID for snapshot namespace (or empty string if broker_meta=None)
+- `broker_snapshot_date`: Snapshot date (ISO format, or empty string if broker_meta=None)
+- `broker_snapshot_path`: Relative path to snapshot file (or empty string if None or broker_meta=None)
+
+**Fixed Schema (no schema drift):**
+The broker_meta columns are **always present** in the CSV, even when `broker_meta=None`. This prevents schema drift in BI/ETL tools. Empty values are serialized as empty strings (`""`) for consistency.
+
+Example CSV columns (fixed schema):
+```
+type,symbol,ledger_value,broker_value,diff,match,broker_view_source,broker_snapshot_run_id,broker_snapshot_date,broker_snapshot_path
+cash,,10000.0,10000.0,0.0,True,stored_snapshot,snapshot_run_001,2025-01-15T00:00:00+00:00,broker_snapshot_snapshot_run_001/snapshot_2025-01-15.json
+position,AAPL,100.0,100.0,0.0,True,stored_snapshot,snapshot_run_001,2025-01-15T00:00:00+00:00,broker_snapshot_snapshot_run_001/snapshot_2025-01-15.json
+```
+
+Example CSV with broker_meta=None (empty strings):
+```
+type,symbol,ledger_value,broker_value,diff,match,broker_view_source,broker_snapshot_run_id,broker_snapshot_date,broker_snapshot_path
+cash,,10000.0,10000.0,0.0,True,,,,,
+position,AAPL,100.0,100.0,0.0,True,,,,,
+```
+
 **Markdown Report (`reconcile_<YYYY-MM-DD>.md`):**
 ```markdown
 ## Broker Source
@@ -941,10 +1117,30 @@ Every reconciliation report includes `broker_meta` fields that clearly indicate 
 - `"stored_snapshot"`: Broker snapshot was loaded from store (imported or previously written)
 - `"paper_view"`: Paper broker view was used (fallback when snapshot not available)
 
+### Format-Specific Behavior
+
+**CSV:**
+- `broker_meta` fields are included as columns (constant values per row)
+- **Fixed schema**: Columns are always present, even when `broker_meta=None` (prevents BI/ETL schema drift)
+- All rows have the same `broker_view_source`, `broker_snapshot_run_id`, `broker_snapshot_date`, and `broker_snapshot_path` values
+- If `broker_meta` is not provided, columns contain empty strings (`""`) instead of being omitted
+- Empty values are serialized as empty strings (not `null` or `NaN`) for consistency
+- Useful for Excel/BI tools where CSV is the primary format
+
+**JSON:**
+- `broker_meta` is included as a top-level key (dictionary)
+- All fields are present (or `null` if not applicable)
+- Deterministic key ordering (`sort_keys=True`)
+
+**Markdown:**
+- `broker_meta` is included as a "Broker Source" section
+- Human-readable format with ASCII-only characters
+- Fields are displayed as bullet points
+
 ### Use Cases
 
 **Verification:**
-- Check `broker_view_source` to confirm which source was used
+- Check `broker_view_source` to confirm which source was used (in CSV, JSON, or Markdown)
 - Verify `broker_snapshot_path` points to expected snapshot file
 - Use `broker_snapshot_run_id` to trace snapshot namespace
 
@@ -952,6 +1148,7 @@ Every reconciliation report includes `broker_meta` fields that clearly indicate 
 - If reconciliation fails, check `broker_view_source` to see if paper view or snapshot was used
 - Compare `broker_snapshot_path` with expected snapshot location
 - Verify `broker_snapshot_date` matches reconciliation date
+- In CSV reports, broker source information is available in every row (useful for Excel filtering/analysis)
 
 ## Candidate Gate Behavior (reconciliation_ok)
 
@@ -959,26 +1156,44 @@ Every reconciliation report includes `broker_meta` fields that clearly indicate 
 
 When accounting/reconciliation is active, reconciliation failures act as a gate that blocks candidate status. This ensures that strategies with reconciliation failures cannot be marked as "candidate" for production use.
 
-### Gate Logic
+The candidate gate combines both robustness and reconciliation gates deterministically, ensuring that both quality checks must pass for candidate status.
 
-The candidate gate checks both robustness and reconciliation status:
+### Combined Gate Logic
 
-**Reconciliation Gate Policy:**
-- `reconciliation_ok=False`: Candidate is **blocked** (reconciliation failed)
-- `reconciliation_ok=True`: Candidate is **allowed** (reconciliation passed)
-- `reconciliation_ok=None`: Candidate is **allowed** with warning (backward compatible, reconciliation not run)
+The candidate gate checks both robustness and reconciliation status and combines them deterministically:
 
-**Combined Gate Behavior:**
-- Both robustness and reconciliation must pass for candidate status
-- If either gate fails, candidate is blocked
-- If reconciliation is not run (`None`), candidate is allowed (backward compatible) but a warning is logged
+**Individual Gate Policies:**
+
+**Robustness Gate:**
+- `robustness_ok=True`: Robustness pack passed
+- `robustness_ok=False`: Robustness pack failed → **blocks candidate**
+- `robustness_ok=None`: Robustness pack not run → **allows with warning** (backward compatible)
+
+**Reconciliation Gate:**
+- `reconciliation_ok=True`: Reconciliation passed
+- `reconciliation_ok=False`: Reconciliation failed → **blocks candidate**
+- `reconciliation_ok=None`: Reconciliation not run → **allows with warning** (backward compatible)
+
+**Combined Gate Behavior (Deterministic):**
+- **If any gate is `False`**: Candidate is **blocked** (fail-fast)
+- **If both gates are `True`**: Candidate is **allowed**
+- **If one or both gates are `None`**: Candidate is **allowed with warning** (backward compatible)
+
+**Message Format with Report Links:**
+- Messages include report links when `robustness_pack_path` or `reconcile_report_path` are provided
+- Format: `"Robustness pack passed - Reconciliation failed (report: path/to/report.json) - candidate NOT allowed"`
+- Links enable quick troubleshooting by pointing directly to relevant reports
 
 ### Implementation
 
-**Helper Function:**
+**Helper Functions:**
 ```python
-from src.assembled_core.qa.candidate_gate import read_reconciliation_ok_from_manifest
+from src.assembled_core.qa.candidate_gate import (
+    read_robustness_ok_from_manifest,
+    read_reconciliation_ok_from_manifest,
+)
 
+robustness_ok = read_robustness_ok_from_manifest(manifest_path)
 reconciliation_ok = read_reconciliation_ok_from_manifest(manifest_path)
 ```
 
@@ -987,24 +1202,59 @@ reconciliation_ok = read_reconciliation_ok_from_manifest(manifest_path)
 from src.assembled_core.qa.candidate_gate import check_candidate_allowed
 
 candidate_allowed, message = check_candidate_allowed(
-    robustness_ok=True,
+    robustness_ok=robustness_ok,
+    robustness_pack_path="robustness_pack_run_id",  # Optional: included in message if set
     reconciliation_ok=reconciliation_ok,
-    reconcile_report_path="reconcile_report_run_id/reconcile_2024-01-15.json",
+    reconcile_report_path="reconcile_report_run_id/reconcile_2024-01-15.json",  # Optional: included in message if set
 )
+
+if not candidate_allowed:
+    logger.error(f"Candidate blocked: {message}")
+```
+
+**Example Messages:**
+
+**Both gates passed:**
+```
+Robustness pack passed - Reconciliation passed - candidate allowed
+```
+
+**Reconciliation failed (with report link):**
+```
+Robustness pack passed - Reconciliation failed (report: reconcile_report_run1/reconcile_2025-01-15.json) - candidate NOT allowed
+```
+
+**Both gates failed (with report links):**
+```
+Robustness pack failed (report: robustness_pack_run1) | Reconciliation failed (report: reconcile_report_run1/reconcile_2025-01-15.json) - candidate NOT allowed
+```
+
+**Reconciliation not run (backward compatible):**
+```
+Robustness pack passed - Reconciliation not run (backward compatible) - candidate allowed
 ```
 
 ### Manifest Integration
 
-The `reconciliation_ok` field is automatically written to the run manifest:
-- `reconciliation_ok=True`: Reconciliation passed (or not performed)
+Both `robustness_ok` and `reconciliation_ok` fields are automatically written to the run manifest:
+- `robustness_ok=True`: Robustness pack passed
+- `robustness_ok=False`: Robustness pack failed
+- `robustness_ok=None`: Robustness pack was not run
+- `reconciliation_ok=True`: Reconciliation passed
 - `reconciliation_ok=False`: Reconciliation failed
 - `reconciliation_ok=None`: Reconciliation was not run (backward compatible)
 
 ### Use Cases
 
 **Production:**
-- Reconciliation must pass for candidate status
-- Failures block candidate marking
+- Both robustness and reconciliation must pass for candidate status
+- Failures in either gate block candidate marking
+- Report links in messages enable quick troubleshooting
+
+**Development/Backtesting:**
+- Gates can be `None` (not run) for backward compatibility
+- Warnings are logged but candidate status is allowed
+- Allows gradual adoption of new quality checks
 
 **Development/Testing:**
 - If reconciliation is not run (`None`), candidate is allowed (backward compatible)
@@ -1146,7 +1396,49 @@ MSFT,50.0
 - Snapshot is stored in standard layout
 - Reconciliation uses imported snapshot
 
-**Note**: CLI does not support cash override directly; use Python API for cash override:
+**Note**: CLI does not support cash override directly; use Python API or standalone CLI tool for cash override.
+
+**Standalone CLI Tool:**
+```bash
+# Import JSON snapshot
+python scripts/import_broker_snapshot.py \
+  --input broker_positions_2025-01-15.json \
+  --run-id ops_snapshot_20250115 \
+  --as-of-date 2025-01-15 \
+  --output-dir output \
+  --store-parquet
+
+# Import CSV snapshot with cash override
+python scripts/import_broker_snapshot.py \
+  --input broker_positions.csv \
+  --run-id ops_snapshot_20250115 \
+  --as-of-date 2025-01-15 \
+  --cash 10000.0 \
+  --store-parquet
+```
+
+**Golden Path (3-step workflow):**
+```bash
+# Step 1: Import external broker snapshot
+python scripts/import_broker_snapshot.py \
+  --input broker_positions_2025-01-15.json \
+  --run-id ops_snapshot_20250115 \
+  --as-of-date 2025-01-15 \
+  --output-dir output \
+  --store-parquet
+
+# Step 2: Run EOD pipeline with require policy (uses imported snapshot)
+python scripts/run_eod_pipeline.py \
+  --freq 1d \
+  --broker-snapshot-policy require \
+  --broker-snapshot-run-id ops_snapshot_20250115
+
+# Step 3: Verify reconcile report path in manifest
+# Check: output/run_manifest_1d.json -> reconcile_report_path
+# Or: output/reconcile_report_<run_id>/reconcile_2025-01-15.json
+```
+
+**Python API (alternative):**
 ```python
 from src.assembled_core.accounting.broker_snapshot_importer import import_broker_snapshot
 
@@ -1186,3 +1478,523 @@ result = import_broker_snapshot(
 2. **Testing**: Use `policy=prefer` + `--write-broker-snapshot` to create test snapshots
 3. **Replay**: Import snapshots before replay runs to ensure deterministic reconciliation
 4. **Ops**: Store imported snapshots in separate `run_id` namespace (e.g., `ops_snapshot_<date>`)
+
+## Evidence Index
+
+### Overview
+
+The evidence index is a central JSON file that links all accounting-related artifacts for a given run and date. It provides a single entry point for Ops/Support workflows, making it easy to locate all relevant files without searching through multiple directories.
+
+### Location
+
+The evidence index is written to:
+```
+output/evidence_<run_id>/evidence_<YYYY-MM-DD>.json
+```
+
+**Example:**
+- Run ID: `ledger_eod_1d`
+- Date: `2025-01-15`
+- Path: `output/evidence_ledger_eod_1d/evidence_2025-01-15.json`
+
+### Purpose
+
+The evidence index serves as:
+- **Single entry point**: One file to find all related artifacts
+- **Audit trail**: Links snapshot, ledger, reconciliation, accounting reports, and manifest
+- **Ops tooling**: Enables automated scripts to discover all files for a run
+- **Support workflows**: Quick access to all relevant files for troubleshooting
+
+### Schema
+
+**JSON Structure:**
+```json
+{
+  "schema_version": 1,
+  "run_id": "ledger_eod_1d",
+  "as_of_date": "2025-01-15T00:00:00+00:00",
+  "paths": {
+    "broker_snapshot_path": "broker_snapshot_ops_20250115/snapshot_2025-01-15.json",
+    "ledger_pack_path": "ledger_ledger_eod_1d/ledger_events.parquet",
+    "reconcile_report_path": "reconcile_report_ledger_eod_1d/reconcile_2025-01-15.json",
+    "accounting_report_path": "accounting_report_ledger_eod_1d/accounting_2025-01-15.json",
+    "manifest_path": "run_manifest_1d.json"
+  },
+  "broker_meta": {
+    "broker_view_source": "stored_snapshot",
+    "broker_snapshot_run_id": "ops_20250115",
+    "broker_snapshot_date": "2025-01-15",
+    "broker_snapshot_path": "broker_snapshot_ops_20250115/snapshot_2025-01-15.json"
+  },
+  "reconciliation_ok": true,
+  "tool_version": "0.1.0"
+}
+```
+
+**Fields:**
+- `schema_version`: Schema version (currently `1`)
+- `run_id`: Run identifier
+- `as_of_date`: Report date (ISO 8601 UTC)
+- `paths`: Dictionary of relative POSIX paths to artifacts (may be `None` if not available)
+- `broker_meta`: Optional broker metadata (same structure as in reconciliation reports)
+- `reconciliation_ok`: Optional reconciliation status (`true`, `false`, or `null`)
+- `tool_version`: Version of the tool that generated the index
+
+### How to Read
+
+**Python:**
+```python
+import json
+from pathlib import Path
+
+# Load evidence index
+evidence_path = Path("output/evidence_ledger_eod_1d/evidence_2025-01-15.json")
+with open(evidence_path) as f:
+    evidence = json.load(f)
+
+# Access paths (relative to output_dir)
+reconcile_path = evidence["paths"]["reconcile_report_path"]
+accounting_path = evidence["paths"]["accounting_report_path"]
+
+# Check reconciliation status
+if evidence.get("reconciliation_ok") is False:
+    print(f"Reconciliation failed. Report: {reconcile_path}")
+```
+
+**CLI (Windows):**
+```powershell
+# Read evidence index
+Get-Content output\evidence_ledger_eod_1d\evidence_2025-01-15.json | ConvertFrom-Json
+
+# Extract reconcile report path
+$evidence = Get-Content output\evidence_ledger_eod_1d\evidence_2025-01-15.json | ConvertFrom-Json
+$evidence.paths.reconcile_report_path
+```
+
+**Integration:**
+- The evidence index is automatically written by `build_ledger_from_trades()` after all reports are generated
+- The manifest (`run_manifest_<freq>.json`) includes `evidence_index_path` as a top-level field
+- Paths in the evidence index are relative to `output_dir` and use POSIX slashes (`/`) for portability
+
+## Schema Versioning
+
+### Overview
+
+All key accounting artifacts (broker snapshots, reconciliation reports, accounting reports, orchestrator manifest, evidence index) include a `schema_version` field to enable long-term stability and upgradeability.
+
+### Current Schema Version
+
+**Schema Version: `1`**
+
+All artifacts currently use `schema_version: 1`. This version indicates:
+- Stable JSON structure (top-level keys, field names)
+- Stable CSV column names and order
+- Deterministic serialization (sort_keys, indent, trailing newline)
+
+### What Schema Version Means
+
+**Purpose:**
+- **Stability**: Consumers can rely on a stable schema for a given version
+- **Evolution**: Future schema changes can be versioned without breaking existing tools
+- **Upgradeability**: Tools can detect schema version and handle migration if needed
+
+**Current Behavior:**
+- All artifacts write `schema_version: 1`
+- Loaders accept `schema_version` (default to `1` if missing for backward compatibility)
+- Invalid schema versions (non-integer or < 1) raise `ValueError` with clear error message
+
+### Artifacts with Schema Version
+
+| Artifact | Location | Field |
+|----------|----------|-------|
+| Broker Snapshot JSON | `output/broker_snapshot_<run_id>/snapshot_<YYYY-MM-DD>.json` | Top-level `schema_version` |
+| Reconciliation Report JSON | `output/reconcile_report_<run_id>/reconcile_<YYYY-MM-DD>.json` | Top-level `schema_version` |
+| Reconciliation Report CSV | `output/reconcile_report_<run_id>/reconcile_<YYYY-MM-DD>.csv` | Column `schema_version` (constant value `1`) |
+| Accounting Report JSON | `output/accounting_report_<run_id>/accounting_<YYYY-MM-DD>.json` | Top-level `schema_version` |
+| Accounting Report CSV | `output/accounting_report_<run_id>/accounting_<YYYY-MM-DD>.csv` | Column `schema_version` (constant value `1`) |
+| Orchestrator Manifest | `output/run_manifest_<freq>.json` | Top-level `schema_version` |
+| Evidence Index | `output/evidence_<run_id>/evidence_<YYYY-MM-DD>.json` | Top-level `schema_version` |
+
+### How to Upgrade
+
+**Future Schema Evolution:**
+
+When schema changes are needed (e.g., new fields, renamed fields, structural changes):
+
+1. **Increment schema version**: New artifacts write `schema_version: 2`
+2. **Backward compatibility**: Loaders accept both `schema_version: 1` and `schema_version: 2`
+3. **Migration helpers**: Provide migration functions if needed (e.g., `migrate_schema_v1_to_v2()`)
+4. **Documentation**: Update this section with migration notes
+
+**Example (Future):**
+```python
+# Loader handles multiple schema versions
+schema_version = data.get("schema_version", 1)
+if schema_version == 1:
+    # Handle v1 structure
+    cash = data.get("cash")
+elif schema_version == 2:
+    # Handle v2 structure (e.g., cash renamed to cash_balance)
+    cash = data.get("cash_balance")
+else:
+    raise ValueError(f"Unsupported schema_version: {schema_version}")
+```
+
+**Current Status:**
+- All artifacts use `schema_version: 1`
+- No migration needed
+- All loaders default to `1` if `schema_version` is missing (backward compatible)
+
+## Troubleshooting
+
+### Policy=Require Errors
+
+**Error: `ValueError: Broker snapshot required but not found`**
+
+This error occurs when `broker_snapshot_policy="require"` is set, but no snapshot exists for the specified run_id and date.
+
+**Error Message Format:**
+```
+ValueError: Broker snapshot required but not found for run_id='ops_20250115', date='2025-01-15'.
+Expected path: output/broker_snapshot_ops_20250115/snapshot_2025-01-15.json
+```
+
+**How to Fix:**
+
+1. **Check expected path**: The error message includes the exact path that was searched
+2. **Verify run_id**: Ensure `--broker-snapshot-run-id` matches the snapshot namespace
+3. **Verify date**: Ensure the snapshot date matches the run date (format: `YYYY-MM-DD`)
+4. **Import snapshot**: If snapshot is missing, import it first:
+   ```bash
+   python scripts/import_broker_snapshot.py \
+     --input broker_positions_2025-01-15.json \
+     --run-id ops_20250115 \
+     --as-of-date 2025-01-15 \
+     --output-dir output
+   ```
+
+**Common Causes:**
+- Snapshot was imported to a different `run_id` namespace
+- Date mismatch (snapshot date vs. run date)
+- Snapshot file was deleted or moved
+- Import step was skipped in pipeline
+
+### Namespace Mismatch Patterns
+
+**Problem: Snapshot exists but in wrong namespace**
+
+**Symptoms:**
+- `policy=require` fails with "not found" error
+- Snapshot exists in `output/broker_snapshot_<other_run_id>/`
+- Run is looking in `output/broker_snapshot_<expected_run_id>/`
+
+**Root Cause:**
+- `broker_snapshot_run_id` parameter doesn't match the namespace where snapshot was stored
+- Default `run_id` was used during import, but different `run_id` specified during reconciliation
+
+**How to Fix:**
+
+1. **Check snapshot location:**
+   ```bash
+   # List all snapshot directories
+   dir output\broker_snapshot_*
+   
+   # Check snapshot files
+   dir output\broker_snapshot_*\snapshot_*.json
+   ```
+
+2. **Match run_id:**
+   ```bash
+   # If snapshot is in 'ops_20250115', use same run_id:
+   python scripts/run_eod_pipeline.py \
+     --freq 1d \
+     --broker-snapshot-policy require \
+     --broker-snapshot-run-id ops_20250115  # Must match import run_id
+   ```
+
+3. **Or re-import to correct namespace:**
+   ```bash
+   # Re-import snapshot to expected namespace
+   python scripts/import_broker_snapshot.py \
+     --input broker_positions_2025-01-15.json \
+     --run-id ledger_eod_1d  # Use run_id that pipeline expects
+     --as-of-date 2025-01-15
+   ```
+
+**Prevention:**
+- Use consistent `run_id` naming: `ops_snapshot_<date>` for imported snapshots
+- Document `run_id` conventions in Ops runbooks
+- Use `--broker-snapshot-run-id` explicitly (don't rely on defaults)
+
+### Reconciliation Failures
+
+**Problem: Reconciliation fails (mismatches detected)**
+
+**Symptoms:**
+- `reconciliation_ok: false` in manifest
+- Reconcile report shows `cash_diff` or `position_diffs`
+- Candidate gate blocks strategy
+
+**How to Debug:**
+
+1. **Check reconcile report:**
+   ```bash
+   # Read reconcile report JSON
+   python -c "import json; print(json.dumps(json.load(open('output/reconcile_report_<run_id>/reconcile_2025-01-15.json')), indent=2))"
+   ```
+
+2. **Check broker source:**
+   - Verify `broker_meta.broker_view_source` in reconcile report
+   - If `"paper_view"`: Reconciliation used paper broker view (expected for backtests)
+   - If `"stored_snapshot"`: Reconciliation used imported/stored snapshot
+
+3. **Check tolerances:**
+   - `cash_tol`: Default `1e-2` (0.01)
+   - `qty_tol`: Default `1e-8`
+   - Small differences within tolerance are ignored
+
+4. **Check evidence index:**
+   ```bash
+   # Evidence index links all artifacts
+   cat output/evidence_<run_id>/evidence_2025-01-15.json
+   ```
+
+**Common Causes:**
+- Broker snapshot is stale (positions changed after snapshot)
+- Ledger events missing (trades not recorded)
+- Cost calculation mismatch (commission/spread/slippage)
+- Timing mismatch (snapshot time vs. ledger time)
+
+### Import Failures
+
+**Problem: Import fails with parse error**
+
+**Error: `ValueError: Invalid file format`**
+
+**How to Fix:**
+
+1. **Check file format:**
+   - JSON: Must have `{"cash": ..., "positions": [...]}`
+   - CSV: Must have `symbol`, `qty` columns
+
+2. **Check data types:**
+   - `qty` can be numeric or string (e.g., `"1,000"` is parsed)
+   - `cash` can be numeric or string (e.g., `"1000.00"`)
+
+3. **Check required fields:**
+   - JSON: `positions` list is required (can be empty `[]`)
+   - CSV: `symbol` and `qty` columns are required
+
+**Example Fix:**
+```python
+# Valid JSON snapshot
+{
+  "cash": 10000.0,
+  "positions": [
+    {"symbol": "AAPL", "qty": 100.0}
+  ]
+}
+
+# Valid CSV snapshot
+symbol,qty
+AAPL,100.0
+MSFT,50.0
+```
+
+### Missing Evidence Index
+
+**Problem: Evidence index not found**
+
+**Symptoms:**
+- `output/evidence_<run_id>/evidence_<YYYY-MM-DD>.json` doesn't exist
+- Manifest has `evidence_index_path: null`
+
+**Common Causes:**
+- Ledger integration not run (accounting disabled)
+- Evidence index write failed (logged as warning, non-fatal)
+- Run ID mismatch
+
+**How to Fix:**
+- Ensure `build_ledger_from_trades()` is called
+- Check logs for evidence index write warnings
+- Verify `run_id` matches expected namespace
+
+### Schema Version Errors
+
+**Problem: `ValueError: Invalid schema_version`**
+
+**Error: `ValueError: Invalid schema_version in broker snapshot JSON: <value>`**
+
+**How to Fix:**
+- Ensure `schema_version` is an integer >= 1
+- If missing, loaders default to `1` (backward compatible)
+- If invalid type, fix the JSON file manually or re-import
+
+**Example:**
+```json
+{
+  "schema_version": 1,  // Must be integer >= 1
+  "cash": 10000.0,
+  "positions": []
+}
+```
+
+## Evidence Pack Export
+
+### Overview
+
+The Evidence Pack Export creates a deterministic, portable ZIP archive containing all accounting-related artifacts for a given run and date. This enables audit trails, compliance workflows, and easy artifact sharing without path dependencies.
+
+### Automatic Export (EOD/Backtest)
+
+Evidence packs can be automatically created during EOD or Backtest runs using the `--write-evidence-pack` flag.
+
+**EOD Pipeline:**
+```bash
+python scripts/run_eod_pipeline.py \
+  --freq 1d \
+  --write-evidence-pack
+```
+
+**Backtest:**
+```bash
+python scripts/run_backtest_strategy.py \
+  --strategy ema \
+  --freq 1d \
+  --write-evidence-pack
+```
+
+**Behavior:**
+- Evidence pack is created after evidence index is written
+- ZIP and pack manifest are written to `output/evidence_<run_id>/`
+- Pack paths are included in run manifest (`evidence_pack_path`, `evidence_pack_manifest_path`)
+- Pack creation is best-effort (warnings logged, but run continues on failure)
+
+### Standalone Export (CLI)
+
+Use the standalone CLI tool to export evidence packs from existing evidence indices.
+
+**Basic Export:**
+```bash
+python scripts/export_evidence_pack.py \
+  --run-id ledger_eod_1d \
+  --as-of-date 2025-01-15 \
+  --output-dir output
+```
+
+**Strict Mode (fail if optional files missing):**
+```bash
+python scripts/export_evidence_pack.py \
+  --run-id ledger_eod_1d \
+  --as-of-date 2025-01-15 \
+  --strict
+```
+
+**Exclude Optional Files:**
+```bash
+python scripts/export_evidence_pack.py \
+  --run-id ledger_eod_1d \
+  --as-of-date 2025-01-15 \
+  --no-optional
+```
+
+### Output Files
+
+**ZIP Archive:**
+- Location: `output/evidence_<run_id>/pack_<YYYY-MM-DD>.zip`
+- Contents: All referenced files from evidence index (snapshot, ledger, reconcile, accounting, manifest)
+- Internal structure: POSIX paths, sorted entries, fixed timestamps
+
+**Pack Manifest:**
+- Location: `output/evidence_<run_id>/pack_manifest_<YYYY-MM-DD>.json`
+- Contents: File list with SHA256 checksums, sizes, source types
+- Schema: `schema_version: 1`, deterministic JSON
+
+### Golden Path: Evidence Index -> Evidence Pack
+
+**Step 1: Run EOD/Backtest with Evidence Pack:**
+```bash
+# EOD with automatic pack creation
+python scripts/run_eod_pipeline.py \
+  --freq 1d \
+  --write-evidence-pack
+
+# Or Backtest
+python scripts/run_backtest_strategy.py \
+  --strategy ema \
+  --freq 1d \
+  --write-evidence-pack
+```
+
+**Step 2: Verify Evidence Pack:**
+```bash
+# Check pack exists
+ls output/evidence_<run_id>/pack_*.zip
+
+# Check manifest
+cat output/evidence_<run_id>/pack_manifest_*.json
+
+# Or use standalone export (if pack wasn't created automatically)
+python scripts/export_evidence_pack.py \
+  --run-id <run_id> \
+  --as-of-date 2025-01-15
+```
+
+**Step 3: Verify Pack Contents:**
+```bash
+# Extract and inspect (optional)
+unzip -l output/evidence_<run_id>/pack_2025-01-15.zip
+
+# Verify checksums from manifest
+python -c "import json; m=json.load(open('output/evidence_<run_id>/pack_manifest_2025-01-15.json')); print(json.dumps(m['files'], indent=2))"
+```
+
+### Determinism
+
+Evidence packs are byte-deterministic when built with same inputs:
+- **File Order**: Sorted lexicographically (POSIX, case-sensitive)
+- **ZIP Timestamps**: Fixed timestamp (1980-01-01 00:00:00 or custom)
+- **Pack Manifest**: Deterministic JSON (`sort_keys=True`, `indent=2`, trailing newline)
+- **Checksums**: SHA256 hashes enable content verification
+
+### Use Cases
+
+**Audit Trails:**
+- Complete snapshot of all accounting evidence for a run/date
+- Portable ZIP can be archived or shared
+- Checksums enable integrity verification
+
+**Compliance:**
+- Single file contains all related artifacts
+- Deterministic packs enable reproducible verification
+- Pack manifest provides file inventory
+
+**Ops/Support:**
+- Easy export for troubleshooting
+- All files in one place (no path dependencies)
+- Can be extracted on any OS (POSIX paths)
+
+### Integration
+
+**Manifest Fields:**
+- `evidence_pack_path`: Relative path to ZIP file (POSIX)
+- `evidence_pack_manifest_path`: Relative path to pack manifest JSON (POSIX)
+
+**Python API:**
+```python
+from src.assembled_core.accounting.evidence_pack import build_evidence_pack
+
+result = build_evidence_pack(
+    output_dir=Path("output"),
+    run_id="ledger_eod_1d",
+    as_of_date="2025-01-15",
+    include_optional=True,
+)
+
+# Result contains:
+# - pack_path: Relative path to ZIP
+# - pack_manifest_path: Relative path to manifest
+# - n_files: Number of files included
+# - missing_optional: List of missing optional files
+# - checksums: Dict mapping paths to SHA256 hashes
+```

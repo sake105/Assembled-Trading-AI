@@ -443,6 +443,8 @@ def run_portfolio_backtest(
     broker_snapshot_run_id: str | None = None,
     broker_snapshot_file: str | Path | None = None,
     broker_snapshot_date: str | None = None,
+    # Evidence pack controls
+    write_evidence_pack: bool = False,
 ) -> BacktestResult:
     """Run a portfolio-level backtest with configurable signal and position sizing functions.
 
@@ -1119,6 +1121,7 @@ def run_portfolio_backtest(
                 broker_snapshot_policy=broker_snapshot_policy,
                 write_paper_broker_snapshot=write_broker_snapshot,
                 broker_snapshot_run_id=snapshot_run_id,
+                write_evidence_pack=write_evidence_pack,
             )
             logger.info(f"Ledger integration completed: ledger_pack_path={ledger_result.get('ledger_pack_path')}, reconciliation_ok={ledger_result.get('reconciliation_ok')}")
         except Exception as e:
@@ -1140,10 +1143,15 @@ def run_portfolio_backtest(
     if timings:
         meta_dict["timings"] = timings
     if ledger_result:
+        # Core ledger / reconciliation paths
         meta_dict["ledger_pack_path"] = ledger_result.get("ledger_pack_path")
         meta_dict["reconcile_report_path"] = ledger_result.get("reconcile_report_path")
         meta_dict["reconciliation_ok"] = ledger_result.get("reconciliation_ok")
         meta_dict["broker_snapshot_path"] = ledger_result.get("broker_snapshot_path")
+        # Evidence pack fields (if written)
+        meta_dict["evidence_index_path"] = ledger_result.get("evidence_index_path")
+        meta_dict["evidence_pack_path"] = ledger_result.get("evidence_pack_path")
+        meta_dict["evidence_pack_manifest_path"] = ledger_result.get("evidence_pack_manifest_path")
     
     result = BacktestResult(
         equity=equity,
