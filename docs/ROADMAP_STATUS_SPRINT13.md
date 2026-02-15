@@ -1,198 +1,86 @@
-# ROADMAP STATUS - Sprint 13 (Accounting & Ledger System)
+# ROADMAP STATUS - Sprint 13 - DONE
 
-**Zweck:** Status-Übersicht für Sprint 13 - Accounting/Ledger/Reconciliation System
+**Purpose:** Final status for Sprint 13 - Accounting/Ledger/Evidence Pack. All items done; no remaining work tracked here.
 
-**Erstellt:** 2025-01-23  
-**Basis:** Implementierung aus Sprint 13 (L1-L5, Broker Snapshot, Evidence Index, Schema Versioning)
-
----
-
-## Sprint 13 Status: ✅ DONE
-
-### Done (H-L): Core Ledger & Reconciliation
-
-| Feature | Status | Evidence |
-|---------|--------|----------|
-| **H) Ledger Events & Storage** | ✅ done | `src/assembled_core/accounting/ledger.py` |
-| | | `src/assembled_core/accounting/ledger_store.py` |
-| | | `tests/test_ledger_*.py` |
-| **I) Position Engine** | ✅ done | `src/assembled_core/accounting/position_engine.py` |
-| | | Average cost basis, realized/unrealized PnL |
-| **J) Reconciliation Engine** | ✅ done | `src/assembled_core/accounting/reconciliation.py` |
-| | | `src/assembled_core/accounting/reconciliation_report.py` |
-| | | `tests/test_reconciliation_*.py` |
-| **K) Ledger Integration** | ✅ done | `src/assembled_core/accounting/ledger_integration.py` |
-| | | Integration in EOD/Backtest/Daily pipelines |
-| **L) Reconciliation Reports** | ✅ done | CSV, JSON, Markdown formats |
-| | | Broker meta fields, fixed CSV schema |
-
-### Done (M-P): Broker Snapshot & Ops Features
-
-| Feature | Status | Evidence |
-|---------|--------|----------|
-| **M) Broker Snapshot System** | ✅ done | `src/assembled_core/accounting/broker_snapshot.py` |
-| | | `src/assembled_core/accounting/broker_snapshot_store.py` |
-| | | Normalization, atomic writes, deterministic storage |
-| **N) Broker Snapshot Import** | ✅ done | `src/assembled_core/accounting/broker_snapshot_importer.py` |
-| | | `scripts/import_broker_snapshot.py` (standalone CLI) |
-| | | Robust parsing (strings, thousands separators, duplicates) |
-| **O) Broker Snapshot Policy** | ✅ done | `ignore`, `prefer`, `require` policies |
-| | | Integration in EOD/Backtest/Daily pipelines |
-| | | `tests/test_broker_snapshot_policy_*.py` |
-| **P) Evidence Index** | ✅ done | `src/assembled_core/accounting/evidence_index.py` |
-| | | Central JSON linking all artifacts |
-| | | `tests/test_evidence_index_written.py` |
-
-### Additional Features (Beyond Original Scope)
-
-| Feature | Status | Evidence |
-|---------|--------|----------|
-| **Schema Versioning** | ✅ done | All artifacts include `schema_version: 1` |
-| | | Broker snapshots, reconciliation reports, accounting reports, manifest, evidence index |
-| | | `tests/test_schema_versioning_smoke.py` |
-| **Accounting Reports** | ✅ done | `src/assembled_core/accounting/accounting_report.py` |
-| | | CSV, JSON formats with broker meta cross-references |
-| | | `tests/test_accounting_report_*.py` |
-| **Candidate Gate Integration** | ✅ done | `src/assembled_core/qa/candidate_gate.py` |
-| | | Combined robustness + reconciliation gates |
-| | | `tests/test_candidate_gate_reconciliation.py` |
-| **Daily Manifest** | ✅ done | `scripts/run_daily.py` optional manifest |
-| | | Aligned with orchestrator manifest schema |
-| | | `tests/test_run_daily_manifest_smoke.py` |
-| **Ops-Safe CLI Tools** | ✅ done | `scripts/import_broker_snapshot.py` |
-| | | Exit codes, ASCII-only errors, strict validation |
-| | | `tests/test_import_broker_snapshot_cli_smoke.py` |
-| **CI Integration** | ✅ done | `.github/workflows/accounting-ci.yml` |
-| | | Windows CI with `run_checks.py` presets |
-| | | `--preset broker_snapshot`, `--preset accounting` |
+**References:** docs/LEDGER_RECONCILIATION.md | docs/EVIDENCE_PACK.md | docs/PROJECT_STRUCTURE.md | docs/RELEASE_NOTES_SPRINT13.md
 
 ---
 
-## Key Artifacts
+## Definition of Done (checked)
 
-### Core Modules
-- `src/assembled_core/accounting/ledger.py` - Ledger event generation
-- `src/assembled_core/accounting/ledger_store.py` - Parquet storage
-- `src/assembled_core/accounting/position_engine.py` - Position tracking, PnL
-- `src/assembled_core/accounting/reconciliation.py` - Reconciliation logic
-- `src/assembled_core/accounting/reconciliation_report.py` - Report writers
-- `src/assembled_core/accounting/accounting_report.py` - Accounting reports
-- `src/assembled_core/accounting/broker_snapshot.py` - Snapshot normalization
-- `src/assembled_core/accounting/broker_snapshot_store.py` - Snapshot storage
-- `src/assembled_core/accounting/broker_snapshot_importer.py` - External import
-- `src/assembled_core/accounting/evidence_index.py` - Evidence index writer
-- `src/assembled_core/accounting/ledger_integration.py` - Pipeline integration
-
-### CLI Tools
-- `scripts/import_broker_snapshot.py` - Standalone snapshot importer
-- `scripts/run_eod_pipeline.py` - EOD pipeline with broker snapshot controls
-- `scripts/run_backtest_strategy.py` - Backtest with broker snapshot controls
-- `scripts/run_daily.py` - Daily run with broker snapshot controls
-
-### Tests
-- `tests/test_ledger_*.py` - Ledger event tests
-- `tests/test_reconciliation_*.py` - Reconciliation tests
-- `tests/test_broker_snapshot_*.py` - Broker snapshot tests
-- `tests/test_accounting_report_*.py` - Accounting report tests
-- `tests/test_evidence_index_*.py` - Evidence index tests
-- `tests/test_schema_versioning_*.py` - Schema versioning tests
-- `tests/test_ops_evidence_pack_e2e.py` - E2E ops workflow test
-
-### Documentation
-- `docs/LEDGER_RECONCILIATION.md` - Complete system documentation
-- `docs/PROJECT_STRUCTURE.md` - Golden Path (Ops) workflows
-- `.github/workflows/accounting-ci.yml` - CI workflow
+- [x] **evidence_pack preset green** — `py -3 scripts/dev/run_checks.py --preset evidence_pack`
+- [x] **ops_evidence preset green** — `py -3 scripts/dev/run_checks.py --preset ops_evidence --skip-compile --skip-ruff`
+- [x] **evidence-pack CI exists (blocking)** — `.github/workflows/evidence-pack-ci.yml`; `evidence_pack` preset must pass.
+- [x] **ops-evidence CI exists (non-blocking by separation, but red on failure)** — `.github/workflows/ops-evidence-ci.yml`; runs `ops_evidence` only; logs artifact on failure.
+- [x] **verify JSON schema stable** — `verify_evidence_pack.py --json` stable keys; schema in docs/EVIDENCE_PACK.md; tests: test_verify_evidence_pack_json_schema_stable.py, test_verify_evidence_pack_cli_smoke.py.
 
 ---
 
-## Determinism & Reproducibility
+## Sprint 13 Scope (Done)
 
-All components follow strict determinism rules:
-- **Event IDs**: SHA256 hash of canonical fields (stable across runs)
-- **Float Formatting**: `Decimal.quantize()` for canonical representation
-- **Sorting**: Stable `mergesort` algorithm
-- **JSON Serialization**: `sort_keys=True`, `indent=2`, trailing newline
-- **Atomic Writes**: Temp file → rename/move (Windows-safe)
-- **Path Normalization**: Relative POSIX paths in manifests
+### Core Ledger & Reconciliation (H-L)
 
----
+| Feature | Evidence |
+|---------|----------|
+| Ledger events & storage | ledger.py, ledger_store.py, test_ledger_*.py |
+| Position engine | position_engine.py |
+| Reconciliation engine | reconciliation.py, reconciliation_report.py, test_reconciliation_*.py |
+| Ledger integration | ledger_integration.py (EOD/Backtest/Daily) |
+| Reconciliation reports | CSV, JSON, Markdown; broker meta, fixed schema |
 
-## Ops-Ready Features
+### Broker Snapshot & Ops (M-P)
 
-### Evidence Index
-- Central JSON file linking all artifacts per run/date
-- Location: `output/evidence_<run_id>/evidence_<YYYY-MM-DD>.json`
-- Links: snapshot, ledger, reconcile, accounting, manifest
+| Feature | Evidence |
+|---------|----------|
+| Broker snapshot system | broker_snapshot.py, broker_snapshot_store.py |
+| Broker snapshot import | broker_snapshot_importer.py, scripts/import_broker_snapshot.py |
+| Broker snapshot policy | ignore / prefer / require; test_broker_snapshot_policy_*.py |
+| Evidence Index | evidence_index.py, test_evidence_index_written.py |
 
-### Schema Versioning
-- All artifacts include `schema_version: 1`
-- Enables future schema evolution
-- Backward compatible (defaults to `1` if missing)
+### Additional (Done)
 
-### Broker Snapshot Policy
-- `ignore`: Never use snapshots (always paper view)
-- `prefer`: Use snapshot if available, fallback to paper view
-- `require`: Snapshot must exist (fail-fast if missing)
-
-### Troubleshooting
-- Clear error messages with expected paths
-- Namespace mismatch detection
-- Reconciliation failure diagnostics
-- Import failure handling
+Schema versioning (schema_version: 1), accounting reports, candidate gate, daily manifest, ops-safe CLIs. CI: accounting-ci.yml, evidence-pack-ci.yml, ops-evidence-ci.yml.
 
 ---
 
-## Evidence Pack (Ops Evidence)
+## Key files changed (max 10)
 
-### Artifacts (single source of truth)
-- Evidence Index JSON: `output/evidence_<run_id>/evidence_<YYYY-MM-DD>.json`
-- Evidence Pack ZIP: `output/evidence_<run_id>/pack_<YYYY-MM-DD>.zip`
-- Evidence Pack manifest JSON: `output/evidence_<run_id>/pack_manifest_<YYYY-MM-DD>.json`
-- Verify CLI (offline): `scripts/verify_evidence_pack.py` (manifest, schema, checksums, paths)
+- `src/assembled_core/accounting/ledger.py`
+- `src/assembled_core/accounting/ledger_store.py`
+- `src/assembled_core/accounting/reconciliation.py`
+- `src/assembled_core/accounting/broker_snapshot_importer.py`
+- `src/assembled_core/accounting/evidence_index.py`
+- `src/assembled_core/accounting/evidence_pack.py`
+- `scripts/import_broker_snapshot.py`
+- `scripts/verify_evidence_pack.py`
+- `scripts/dev/run_checks.py`
+- `.github/workflows/evidence-pack-ci.yml`
 
-### Commands (Windows, copy/paste)
+---
+
+## CI inventory
+
+- **Evidence Pack CI (Windows)** — [.github/workflows/evidence-pack-ci.yml](.github/workflows/evidence-pack-ci.yml) — Blocking: evidence_pack. Optional: broker_snapshot, accounting.
+- **Ops Evidence CI (Windows)** — [.github/workflows/ops-evidence-ci.yml](.github/workflows/ops-evidence-ci.yml) — ops_evidence only; red on failure; logs artifact.
+- **Accounting CI (Windows)** — [.github/workflows/accounting-ci.yml](.github/workflows/accounting-ci.yml) — Blocking: broker_snapshot. Optional: accounting.
+
+Preset table: docs/PROJECT_STRUCTURE.md (run_checks.py).
+
+---
+
+## Copy/paste (Windows)
+
+Single block; exactly 2 commands.
+
 ```powershell
-# Evidence Pack preset (export + verify + deterministic tests, blocking in CI)
 py -3 scripts/dev/run_checks.py --preset evidence_pack
-
-# Ops Evidence preset (import -> require -> pack -> verify, fast smoke/E2E)
 py -3 scripts/dev/run_checks.py --preset ops_evidence --skip-compile --skip-ruff
 ```
 
-### CI Workflows (Windows)
-- `Evidence Pack CI (Windows)` - `.github/workflows/evidence-pack-ci.yml`  
-  - Blocking: runs `--preset evidence_pack`
-  - Optional: runs `--preset ops_evidence` (non-blocking, logs uploaded on failure)
-- `Accounting CI (Windows)` - `.github/workflows/accounting-ci.yml`  
-  - Runs `--preset broker_snapshot` and `--preset accounting`
-
 ---
 
-## Regression Checks
+## Determinism & links
 
-**Windows CI:**
-```bash
-python scripts/dev/run_checks.py --preset broker_snapshot
-python scripts/dev/run_checks.py --preset accounting
-```
+Determinism: event IDs (SHA256), float formatting (Decimal), stable sort, JSON sort_keys+indent+newline, atomic writes, POSIX paths. See docs/EVIDENCE_PACK.md, docs/LEDGER_RECONCILIATION.md.
 
-**Manual (Windows):**
-```powershell
-py -3 -m py_compile src/assembled_core/accounting/*.py
-py -3 -m ruff check src/assembled_core/accounting/
-py -3 -m pytest -q tests/test_ledger*.py tests/test_reconciliation*.py tests/test_broker_snapshot*.py
-```
-
----
-
-## Next Steps (Future Enhancements)
-
-1. **Schema Migration**: When schema version 2 is needed, provide migration helpers
-2. **Broker API Integration**: Direct broker API snapshot fetching
-3. **Real-time Reconciliation**: Continuous reconciliation during trading
-4. **Advanced Reporting**: BI/ETL integration for accounting reports
-5. **Audit Trail**: Enhanced event logging for compliance
-
----
-
-**Status:** ✅ Sprint 13 Complete - All core features implemented, tested, and documented.
+**Status:** Sprint 13 DONE. Definition of Done met; key files and CI documented; one copy/paste block above.

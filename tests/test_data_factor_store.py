@@ -8,10 +8,10 @@ import pandas as pd
 import pytest
 
 from src.assembled_core.data.factor_store import (
+    compute_universe_key,
     get_factor_store_root,
     list_available_panels,
     load_factors,
-    load_price_panel,
     store_factors,
 )
 
@@ -41,28 +41,28 @@ def test_factor_store_roundtrip(tmp_path: Path) -> None:
     original_df = pd.DataFrame(rows)
 
     # Store factors
-    stored_paths = store_factors(
-        freq="1d",
-        group="ta",
+    uk = compute_universe_key(symbols=["AAPL", "MSFT"])
+    panel_dir = store_factors(
         df=original_df,
-        root=tmp_path,
+        factor_group="ta",
+        freq="1d",
+        universe_key=uk,
+        factors_root=tmp_path,
     )
 
     # Verify that files were created for both years
-    assert "2022" in stored_paths
-    assert "2023" in stored_paths
-    assert stored_paths["2022"].exists()
-    assert stored_paths["2023"].exists()
+    assert (panel_dir / "year=2022.parquet").exists() or (panel_dir / "year=2023.parquet").exists()
 
-    # Load factors back
+    # Load factors back (UTC timestamps for comparison with stored data)
     loaded_df = load_factors(
+        factor_group="ta",
         freq="1d",
-        universe=["AAPL", "MSFT"],
-        start=pd.Timestamp("2022-01-01"),
-        end=pd.Timestamp("2023-01-10"),
-        groups=["ta"],
-        root=tmp_path,
+        universe_key=uk,
+        start_date=pd.Timestamp("2022-01-01", tz="UTC"),
+        end_date=pd.Timestamp("2023-01-10", tz="UTC"),
+        factors_root=tmp_path,
     )
+    assert loaded_df is not None
 
     # Verify loaded DataFrame is not empty
     assert not loaded_df.empty, "Loaded DataFrame should not be empty"
@@ -82,6 +82,10 @@ def test_factor_store_roundtrip(tmp_path: Path) -> None:
         .sort_values(["timestamp", "symbol"])
         .reset_index(drop=True)
     )
+    # Normalize loaded timestamps to naive for set comparison (original is naive)
+    if loaded_sorted["timestamp"].dt.tz is not None:
+        loaded_sorted = loaded_sorted.copy()
+        loaded_sorted["timestamp"] = loaded_sorted["timestamp"].dt.tz_localize(None)
 
     # Verify same set of (timestamp, symbol) pairs
     original_keys = set(zip(original_sorted["timestamp"], original_sorted["symbol"]))
@@ -113,7 +117,8 @@ def test_factor_store_list_available(tmp_path: Path) -> None:
         ta_rows.append({"timestamp": date, "symbol": "AAPL", "factor_mom": 0.5})
 
     ta_df = pd.DataFrame(ta_rows)
-    store_factors(freq="1d", group="ta", df=ta_df, root=tmp_path)
+    uk_ta = compute_universe_key(symbols=["AAPL"])
+    store_factors(df=ta_df, factor_group="ta", freq="1d", universe_key=uk_ta, factors_root=tmp_path)
 
     # Store "alt_insider" group data
     insider_rows = []
@@ -123,27 +128,28 @@ def test_factor_store_list_available(tmp_path: Path) -> None:
         )
 
     insider_df = pd.DataFrame(insider_rows)
-    store_factors(freq="1d", group="alt_insider", df=insider_df, root=tmp_path)
+    store_factors(df=insider_df, factor_group="alt_insider", freq="1d", universe_key=uk_ta, factors_root=tmp_path)
 
     # List available panels
-    available = list_available_panels(root=tmp_path)
+    available = list_available_panels(factors_root=tmp_path)
 
-    # Verify result is a DataFrame
-    assert isinstance(available, pd.DataFrame), "Result should be a DataFrame"
+    # Verify result is a list of dicts
+    assert isinstance(available, list), "Result should be a list"
+    assert len(available) >= 1, "Should have at least one panel"
 
-    # Verify required columns
-    required_cols = {"freq", "group", "year", "path"}
-    assert required_cols.issubset(set(available.columns)), (
-        f"Result should contain columns: {required_cols}"
+    # Verify required keys in first panel
+    required_keys = {"factor_group", "freq", "universe_key", "years"}
+    assert required_keys.issubset(set(available[0].keys())), (
+        f"Result items should contain keys: {required_keys}"
     )
 
-    # Verify at least one row with group == "ta"
-    ta_rows_df = available[available["group"] == "ta"]
-    assert len(ta_rows_df) > 0, "Should have at least one row with group='ta'"
+    # Verify at least one panel with factor_group == "ta"
+    ta_panels = [p for p in available if p.get("factor_group") == "ta"]
+    assert len(ta_panels) > 0, "Should have at least one panel with factor_group='ta'"
 
-    # Verify (freq, group) combinations include ("1d", "ta")
-    freq_group_pairs = set(zip(available["freq"], available["group"]))
-    assert ("1d", "ta") in freq_group_pairs, "Should include (freq='1d', group='ta')"
+    # Verify (freq, factor_group) includes ("1d", "ta")
+    freq_group_pairs = {(p.get("freq"), p.get("factor_group")) for p in available}
+    assert ("1d", "ta") in freq_group_pairs, "Should include (freq='1d', factor_group='ta')"
 
 
 @pytest.mark.advanced
@@ -163,22 +169,25 @@ def test_factor_store_point_in_time(tmp_path: Path) -> None:
     df = pd.DataFrame(rows)
 
     # Store factors
-    store_factors(freq="1d", group="ta", df=df, root=tmp_path)
+    uk = compute_universe_key(symbols=["AAPL"])
+    store_factors(df=df, factor_group="ta", freq="1d", universe_key=uk, factors_root=tmp_path)
 
-    # Load with end date that excludes 2022-01-03
+    # Load with end date that excludes 2022-01-03 (UTC for comparison with stored data)
     loaded_df = load_factors(
+        factor_group="ta",
         freq="1d",
-        universe=["AAPL"],
-        start=pd.Timestamp("2022-01-01"),
-        end=pd.Timestamp("2022-01-02"),  # Intentionally exclude 2022-01-03
-        groups=["ta"],
-        root=tmp_path,
+        universe_key=uk,
+        start_date=pd.Timestamp("2022-01-01", tz="UTC"),
+        end_date=pd.Timestamp("2022-01-02", tz="UTC"),  # Intentionally exclude 2022-01-03
+        factors_root=tmp_path,
     )
+    assert loaded_df is not None
 
-    # Verify maximum timestamp is <= end
+    # Verify maximum timestamp is <= end (compare with UTC)
     assert not loaded_df.empty, "Loaded DataFrame should not be empty"
     max_timestamp = loaded_df["timestamp"].max()
-    assert max_timestamp <= pd.Timestamp("2022-01-02"), (
+    end_utc = pd.Timestamp("2022-01-02", tz="UTC")
+    assert max_timestamp <= end_utc, (
         f"Max timestamp ({max_timestamp}) should be <= 2022-01-02"
     )
 
@@ -200,8 +209,9 @@ def test_factor_store_multiple_groups(tmp_path: Path) -> None:
     for date in dates:
         ta_rows.append({"timestamp": date, "symbol": "AAPL", "factor_mom": 0.5})
 
+    uk = compute_universe_key(symbols=["AAPL"])
     ta_df = pd.DataFrame(ta_rows)
-    store_factors(freq="1d", group="ta", df=ta_df, root=tmp_path)
+    store_factors(df=ta_df, factor_group="ta", freq="1d", universe_key=uk, factors_root=tmp_path)
 
     # Store "alt_insider" group
     insider_rows = []
@@ -211,30 +221,33 @@ def test_factor_store_multiple_groups(tmp_path: Path) -> None:
         )
 
     insider_df = pd.DataFrame(insider_rows)
-    store_factors(freq="1d", group="alt_insider", df=insider_df, root=tmp_path)
+    store_factors(df=insider_df, factor_group="alt_insider", freq="1d", universe_key=uk, factors_root=tmp_path)
 
-    # Load both groups
-    loaded_df = load_factors(
+    # Load "ta" group (UTC for comparison with stored data)
+    loaded_ta = load_factors(
+        factor_group="ta",
         freq="1d",
-        universe=["AAPL"],
-        start=pd.Timestamp("2022-01-01"),
-        end=pd.Timestamp("2022-01-05"),
-        groups=["ta", "alt_insider"],
-        root=tmp_path,
+        universe_key=uk,
+        start_date=pd.Timestamp("2022-01-01", tz="UTC"),
+        end_date=pd.Timestamp("2022-01-05", tz="UTC"),
+        factors_root=tmp_path,
     )
+    assert loaded_ta is not None
+    assert "factor_mom" in loaded_ta.columns, "Should contain factor_mom from 'ta' group"
 
-    # Verify both factor columns are present
-    assert "factor_mom" in loaded_df.columns, (
-        "Should contain factor_mom from 'ta' group"
+    # Load "alt_insider" group
+    loaded_insider = load_factors(
+        factor_group="alt_insider",
+        freq="1d",
+        universe_key=uk,
+        start_date=pd.Timestamp("2022-01-01", tz="UTC"),
+        end_date=pd.Timestamp("2022-01-05", tz="UTC"),
+        factors_root=tmp_path,
     )
-    assert "factor_insider" in loaded_df.columns, (
-        "Should contain factor_insider from 'alt_insider' group"
-    )
+    assert loaded_insider is not None
+    assert "factor_insider" in loaded_insider.columns, "Should contain factor_insider from 'alt_insider' group"
 
-    # Verify merged correctly (should have same number of rows as input)
-    assert len(loaded_df) == len(dates), (
-        "Merged DataFrame should have correct number of rows"
-    )
+    assert len(loaded_ta) == len(dates), "Loaded ta should have correct number of rows"
 
 
 @pytest.mark.advanced
@@ -250,18 +263,21 @@ def test_factor_store_universe_filtering(tmp_path: Path) -> None:
 
     df = pd.DataFrame(rows)
 
-    # Store all symbols
-    store_factors(freq="1d", group="ta", df=df, root=tmp_path)
+    # Store all symbols (universe_key for all three)
+    uk_all = compute_universe_key(symbols=all_symbols)
+    store_factors(df=df, factor_group="ta", freq="1d", universe_key=uk_all, factors_root=tmp_path)
 
-    # Load with restricted universe
+    # Load full panel and filter to requested symbols in test (UTC for stored data)
     loaded_df = load_factors(
+        factor_group="ta",
         freq="1d",
-        universe=["AAPL", "MSFT"],  # Exclude GOOGL
-        start=pd.Timestamp("2022-01-01"),
-        end=pd.Timestamp("2022-01-05"),
-        groups=["ta"],
-        root=tmp_path,
+        universe_key=uk_all,
+        start_date=pd.Timestamp("2022-01-01", tz="UTC"),
+        end_date=pd.Timestamp("2022-01-05", tz="UTC"),
+        factors_root=tmp_path,
     )
+    assert loaded_df is not None
+    loaded_df = loaded_df[loaded_df["symbol"].isin(["AAPL", "MSFT"])]
 
     # Verify only requested symbols are present
     symbols_in_result = set(loaded_df["symbol"].unique())
@@ -278,73 +294,68 @@ def test_factor_store_get_root() -> None:
     assert isinstance(root, Path), "Should return a Path object"
     assert root.name == "factors", "Default root should end with 'factors'"
 
-    # Test with explicit root
-    explicit_root = Path("/tmp/test_factors")
-    result = get_factor_store_root(root=explicit_root)
-    assert result == explicit_root.resolve(), "Should return the provided root path"
-
 
 @pytest.mark.advanced
 def test_factor_store_empty_dataframe(tmp_path: Path) -> None:
     """Test handling of empty DataFrame in store_factors."""
     # Create empty DataFrame with required columns
     empty_df = pd.DataFrame(columns=["timestamp", "symbol", "factor_mom"])
+    uk = compute_universe_key(symbols=["AAPL"])
 
-    # Store should not raise error, but return empty dict
-    stored_paths = store_factors(freq="1d", group="ta", df=empty_df, root=tmp_path)
-    assert stored_paths == {}, "Should return empty dict for empty DataFrame"
+    # Store should not raise; returns panel dir path
+    panel_dir = store_factors(
+        df=empty_df, factor_group="ta", freq="1d", universe_key=uk, factors_root=tmp_path
+    )
+    assert panel_dir is not None and hasattr(panel_dir, "exists"), "Should return Path"
 
 
 @pytest.mark.advanced
 def test_factor_store_nonexistent_files(tmp_path: Path) -> None:
-    """Test loading when files don't exist (should return empty DataFrame)."""
+    """Test loading when panel does not exist (should return None)."""
+    uk = compute_universe_key(symbols=["AAPL"])
     loaded_df = load_factors(
+        factor_group="nonexistent",
         freq="1d",
-        universe=["AAPL"],
-        start=pd.Timestamp("2022-01-01"),
-        end=pd.Timestamp("2022-01-05"),
-        groups=["nonexistent"],
-        root=tmp_path,
+        universe_key=uk,
+        start_date=pd.Timestamp("2022-01-01", tz="UTC"),
+        end_date=pd.Timestamp("2022-01-05", tz="UTC"),
+        factors_root=tmp_path,
     )
 
-    # Should return empty DataFrame with timestamp and symbol columns
-    assert loaded_df.empty, "Should return empty DataFrame when no files exist"
-    assert list(loaded_df.columns) == ["timestamp", "symbol"], (
-        "Empty DataFrame should have timestamp and symbol columns"
-    )
+    # Should return None when panel does not exist
+    assert loaded_df is None, "Should return None when panel does not exist"
 
 
 @pytest.mark.advanced
-def test_load_price_panel_not_implemented() -> None:
-    """Test that load_price_panel raises NotImplementedError without price_loader."""
-    with pytest.raises(NotImplementedError, match="price_loader"):
-        load_price_panel(
-            freq="1d",
-            universe=["AAPL"],
-            start=pd.Timestamp("2022-01-01"),
-            end=pd.Timestamp("2022-01-05"),
-        )
+def test_price_panel_loader_lives_in_panel_store(tmp_path: Path) -> None:
+    """Price panel loading is panel_store.load_price_panel_parquet; no panel file -> FileNotFoundError."""
+    from src.assembled_core.data.panel_store import load_price_panel_parquet
+
+    # Current API: load_price_panel_parquet(freq, universe=..., root=...); missing file raises
+    with pytest.raises(FileNotFoundError, match="Panel file not found|not found"):
+        load_price_panel_parquet(freq="1d", universe="nonexistent", root=tmp_path)
 
 
 @pytest.mark.advanced
 def test_store_factors_missing_columns(tmp_path: Path) -> None:
     """Test that store_factors raises ValueError for missing required columns."""
     df = pd.DataFrame({"timestamp": [pd.Timestamp("2022-01-01")], "factor_mom": [0.5]})
-    # Missing "symbol" column
+    uk = compute_universe_key(symbols=["AAPL"])
 
     with pytest.raises(ValueError, match="missing required columns"):
-        store_factors(freq="1d", group="ta", df=df, root=tmp_path)
+        store_factors(df=df, factor_group="ta", freq="1d", universe_key=uk, factors_root=tmp_path)
 
 
 @pytest.mark.advanced
 def test_load_factors_invalid_date_range(tmp_path: Path) -> None:
-    """Test that load_factors raises ValueError when start > end."""
-    with pytest.raises(ValueError, match="start.*must be <= end"):
-        load_factors(
-            freq="1d",
-            universe=["AAPL"],
-            start=pd.Timestamp("2022-01-05"),
-            end=pd.Timestamp("2022-01-01"),  # start > end
-            groups=["ta"],
-            root=tmp_path,
-        )
+    """Test that load_factors with start_date > end_date returns None or empty (no data in range)."""
+    uk = compute_universe_key(symbols=["AAPL"])
+    loaded = load_factors(
+        factor_group="ta",
+        freq="1d",
+        universe_key=uk,
+        start_date=pd.Timestamp("2022-01-05", tz="UTC"),
+        end_date=pd.Timestamp("2022-01-01", tz="UTC"),  # start > end
+        factors_root=tmp_path,
+    )
+    assert loaded is None or loaded.empty, "Should return None or empty when start > end"

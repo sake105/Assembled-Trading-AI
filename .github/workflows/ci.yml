@@ -13,8 +13,16 @@ on:
 
 jobs:
   lint-and-test:
-    name: Lint & Test
-    runs-on: ubuntu-latest
+    name: Lint & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python_cmd: python
+          - os: windows-latest
+            python_cmd: "py -3"
     
     steps:
       - name: Checkout code
@@ -39,52 +47,48 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
       
-      - name: Run ruff (linting)
-        run: |
-          ruff check src tests scripts --exclude scripts/tools --exclude scripts/00_seed_demo_data.py
+      - name: Initialize CI log
+        shell: bash
+        run: echo "CI started at $(date -Iseconds)" > ci_log.txt
       
-      - name: Check Python syntax (py_compile)
+      - name: Run ruff (linting)
+        shell: bash
         run: |
-          python -c "
-          import py_compile
-          import sys
-          from pathlib import Path
-          errors = []
-          checked = 0
-          max_check = 50
-          for pattern in ['src/**/*.py', 'scripts/**/*.py', 'tests/**/*.py']:
-              for p in sorted(Path('.').glob(pattern)):
-                  if 'scripts/tools' in str(p) or p.name == '00_seed_demo_data.py':
-                      continue
-                  if checked >= max_check:
-                      break
-                  try:
-                      py_compile.compile(str(p), doraise=True)
-                      checked += 1
-                  except py_compile.PyCompileError as e:
-                      errors.append(f'{p}: {e}')
-                      checked += 1
-                  except Exception as e:
-                      errors.append(f'{p}: Unexpected error: {e}')
-                      checked += 1
-              if checked >= max_check:
-                  break
-          if errors:
-              print(f'Syntax errors found ({len(errors)}):')
-              for e in errors[:10]:
-                  print(f'  {e}')
-              if len(errors) > 10:
-                  print(f'  ... and {len(errors) - 10} more')
-              sys.exit(1)
-          print(f'Syntax check passed (checked {checked} files)')
-          "
+          set -o pipefail
+          ruff check src tests scripts --exclude scripts/tools --exclude scripts/00_seed_demo_data.py 2>&1 | tee -a ci_log.txt
+      
+      # SSOT: run_checks.py holds compile excludes; Windows uses py -3 to avoid Store stub
+      - name: Check Python syntax (py_compile)
+        shell: bash
+        run: |
+          set -o pipefail
+          ${{ matrix.python_cmd }} scripts/dev/run_checks.py --skip-ruff --skip-pytest --python-cmd "${{ matrix.python_cmd }}" 2>&1 | tee -a ci_log.txt
       
       - name: Run fast tests (excluding advanced marker)
+        shell: bash
         run: |
-          pytest -m "not advanced" -q --maxfail=3 --tb=short
+          set -o pipefail
+          pytest -m "not advanced" -q --maxfail=3 --tb=short 2>&1 | tee -a ci_log.txt
       
       - name: Run advanced tests (optional, non-blocking)
         continue-on-error: true
+        shell: bash
         run: |
-          pytest -m "advanced" -q --maxfail=1 --tb=short || echo "Advanced tests skipped or failed (non-blocking)"
+          set -o pipefail
+          pytest -m "advanced" -q --maxfail=1 --tb=short 2>&1 | tee -a ci_log.txt || echo "Advanced tests skipped or failed (non-blocking)"
+      
+      - name: Upload CI log (always)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-log-${{ runner.os }}
+          path: ci_log.txt
+          if-no-files-found: ignore
+      
+      - name: Upload output on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-${{ runner.os }}
+          path: output/
+          if-no-files-found: ignore
 

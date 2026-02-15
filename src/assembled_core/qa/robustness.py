@@ -63,7 +63,11 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-import scipy.stats
+
+try:
+    import scipy.stats as _scipy_stats
+except ImportError:
+    _scipy_stats = None  # optional: tests that need scipy use pytest.importorskip("scipy")
 
 logger = logging.getLogger(__name__)
 
@@ -894,7 +898,9 @@ def compute_deflated_sharpe(
         - Higher n_trials -> lower deflated Sharpe (penalty for multiple testing)
     """
     import math
-    import scipy.stats
+
+    if _scipy_stats is None:
+        raise ImportError("scipy is required for compute_deflated_sharpe; install with pip install scipy")
 
     # Validate inputs
     if n_obs < 2:
@@ -929,7 +935,7 @@ def compute_deflated_sharpe(
 
     # Compute Z-score for multiple testing correction
     # Bonferroni-like correction: alpha / n_trials
-    z_critical = scipy.stats.norm.ppf(1.0 - alpha / n_trials)
+    z_critical = _scipy_stats.norm.ppf(1.0 - alpha / n_trials)
 
     # Compute deflated Sharpe
     sqrt_variance = math.sqrt(variance_term)

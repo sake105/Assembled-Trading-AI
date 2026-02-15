@@ -37,6 +37,8 @@ Dies installiert:
 - Core-Dependencies (pandas, numpy, fastapi, etc.)
 - Dev-Dependencies (pytest, ruff, black, mypy)
 
+**Optionale Test-Abhängigkeiten:** Die Standard-Suite (`pytest -q`) läuft ohne optionale Pakete; fehlende Abhängigkeit führt zu SKIP, nicht ERROR. In `pyproject.toml` existieren die Extras `dev`, `scipy`, `ml`. Vollständig: `pip install -e ".[dev,scipy,ml]"` (scipy, scikit-learn/joblib). FastAPI ist Core-Dependency. Marker: `requires_scipy`, `requires_fastapi`, `requires_sklearn` in `pytest.ini`.
+
 ### 4. Phase-4-Tests ausführen
 
 **Über CLI:**
@@ -52,6 +54,27 @@ pytest -m phase4
 **Erwartete Ausgabe:**
 - ~117 Tests in ~13-17 Sekunden
 - Alle Tests sollten grün sein ✅
+
+---
+
+## CI Workflows
+
+- **Evidence Pack CI (Windows)** — blocking: evidence_pack — [.github/workflows/evidence-pack-ci.yml](.github/workflows/evidence-pack-ci.yml)
+- **Ops Evidence CI (Windows)** — ops chain smoke/E2E — [.github/workflows/ops-evidence-ci.yml](.github/workflows/ops-evidence-ci.yml)
+- **Accounting CI (Windows)** — blocking: broker_snapshot — [.github/workflows/accounting-ci.yml](.github/workflows/accounting-ci.yml)
+- Sprint 13 release notes: [docs/RELEASE_NOTES_SPRINT13.md](docs/RELEASE_NOTES_SPRINT13.md)
+
+### Quick checks (Windows)
+
+**Primary merge-gate command (one click):** [docs/MERGE_GATE_SPRINT13.md](docs/MERGE_GATE_SPRINT13.md)
+
+```powershell
+py -3 scripts/dev/release_sprint13.py
+```
+
+Syntax check (py_compile) excludes `scripts/data`, `scripts/tools`, and `00_seed_demo_data.py`; see `scripts/dev/run_checks.py`. Full-repo `ruff check .` may report known findings; the merge gate runs ruff only on preset paths (CI / release_sprint13).
+
+Full ops archive workflow (cmd + PowerShell): [docs/OPS_EVIDENCE_GOLDEN_PATH.md](docs/OPS_EVIDENCE_GOLDEN_PATH.md)
 
 ---
 

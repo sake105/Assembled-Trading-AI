@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -58,10 +59,31 @@ def _manifest_path_str(path: str | Path | None, *, base_dir: Path) -> str | None
 
 
 def _write_manifest_json(manifest_path: Path, manifest: dict[str, Any]) -> None:
-    """Write a JSON manifest deterministically (stable bytes for same inputs)."""
+    """Write a JSON manifest deterministically (stable bytes for same inputs). Atomic: temp in same dir then replace."""
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    payload = json.dumps(manifest, sort_keys=True, indent=2)
-    manifest_path.write_text(payload + "\n", encoding="utf-8")
+    content = json.dumps(manifest, sort_keys=True, indent=2) + "\n"
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            newline="\n",
+            delete=False,
+            dir=str(manifest_path.parent),
+            prefix=manifest_path.name + ".tmp.",
+            suffix=".json",
+        ) as f:
+            tmp_path = Path(f.name)
+            f.write(content)
+            f.flush()
+        tmp_path.replace(manifest_path)
+    finally:
+        if tmp_path is not None and tmp_path.exists():
+            try:
+                if tmp_path != manifest_path:
+                    tmp_path.unlink(missing_ok=True)
+            except Exception:
+                pass
 
 
 def _backfill_evidence_index_manifest_path(
@@ -108,8 +130,34 @@ def _backfill_evidence_index_manifest_path(
         rel_manifest = _manifest_path_str(manifest_path, base_dir=base_dir)
         paths_block["manifest_path"] = rel_manifest
 
-        payload = json.dumps(data, sort_keys=True, indent=2)
-        evidence_index_path.write_text(payload + "\n", encoding="utf-8")
+        payload = json.dumps(data, sort_keys=True, indent=2) + "\n"
+
+        # Atomic write: temp file in same directory, then replace
+        tmp_path: Path | None = None
+        try:
+            from tempfile import NamedTemporaryFile
+
+            with NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=evidence_index_path.parent,
+                delete=False,
+                suffix=".tmp.json",
+            ) as tmp_file:
+                tmp_file.write(payload)
+                tmp_path = Path(tmp_file.name)
+
+            tmp_path.replace(evidence_index_path)
+        finally:
+            if tmp_path is not None and tmp_path.exists():
+                try:
+                    # If replace failed and temp file is still there, best-effort cleanup
+                    if tmp_path != evidence_index_path:
+                        tmp_path.unlink(missing_ok=True)
+                except Exception:
+                    # Ignore cleanup errors
+                    pass
+
         logger.info(
             "Backfilled manifest_path into evidence index: %s -> %s",
             evidence_index_path,
@@ -118,6 +166,91 @@ def _backfill_evidence_index_manifest_path(
     except Exception as exc:
         logger.warning(
             "Failed to backfill manifest_path into evidence index %s: %s",
+            evidence_index_path,
+            exc,
+        )
+
+
+def _backfill_evidence_index_accounting_path(
+    *, base_dir: Path, ledger_result: dict[str, Any] | None
+) -> None:
+    """Best-effort backfill of accounting_report_path into Evidence Index JSON.
+
+    If the Evidence Index exists and paths.accounting_report_path is missing/empty,
+    set it from the known path in ledger_result (relative POSIX, no backslashes).
+    Only sets when missing; never overwrites an existing value.
+    """
+    if not ledger_result:
+        return
+
+    evidence_index_rel = ledger_result.get("evidence_index_path")
+    if not evidence_index_rel:
+        return
+
+    known_accounting = ledger_result.get("accounting_report_path")
+    if not known_accounting:
+        return
+
+    evidence_index_path = base_dir / evidence_index_rel
+    if not evidence_index_path.exists():
+        return
+
+    try:
+        with evidence_index_path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as exc:
+        logger.warning(
+            "Failed to read evidence index for accounting backfill: %s (%s)",
+            evidence_index_path,
+            exc,
+        )
+        return
+
+    paths_block = data.setdefault("paths", {})
+    current = paths_block.get("accounting_report_path")
+    if current is not None and (not isinstance(current, str) or current.strip()):
+        return  # already set, do not overwrite
+
+    rel_accounting = _manifest_path_str(known_accounting, base_dir=base_dir)
+    if not rel_accounting:
+        return
+
+    # Normalize to POSIX (no backslashes)
+    paths_block["accounting_report_path"] = Path(rel_accounting).as_posix()
+
+    try:
+        payload = json.dumps(data, sort_keys=True, indent=2) + "\n"
+        tmp_path: Path | None = None
+        try:
+            from tempfile import NamedTemporaryFile
+
+            with NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=evidence_index_path.parent,
+                delete=False,
+                suffix=".tmp.json",
+            ) as tmp_file:
+                tmp_file.write(payload)
+                tmp_path = Path(tmp_file.name)
+
+            tmp_path.replace(evidence_index_path)
+        finally:
+            if tmp_path is not None and tmp_path.exists():
+                try:
+                    if tmp_path != evidence_index_path:
+                        tmp_path.unlink(missing_ok=True)
+                except Exception:
+                    pass
+
+        logger.info(
+            "Backfilled accounting_report_path into evidence index: %s -> %s",
+            evidence_index_path,
+            paths_block["accounting_report_path"],
+        )
+    except Exception as exc:
+        logger.warning(
+            "Failed to backfill accounting_report_path into evidence index %s: %s",
             evidence_index_path,
             exc,
         )
@@ -870,9 +1003,16 @@ def run_eod_pipeline(
     try:
         _write_manifest_json(manifest_path, manifest)
         # Best-effort backfill: ensure Evidence Index references the manifest if it exists.
-        _backfill_evidence_index_manifest_path(
-            base_dir=base, ledger_result=ledger_result, manifest_path=manifest_path
-        )
+        if ledger_result and ledger_result.get("evidence_index_path"):
+            _backfill_evidence_index_manifest_path(
+                base_dir=base,
+                ledger_result=ledger_result,
+                manifest_path=manifest_path,
+            )
+            _backfill_evidence_index_accounting_path(
+                base_dir=base,
+                ledger_result=ledger_result,
+            )
     except (IOError, OSError) as exc:
         logger.error("Failed to write manifest to %s: %s", manifest_path, exc)
         raise RuntimeError(f"Failed to write manifest to {manifest_path}") from exc

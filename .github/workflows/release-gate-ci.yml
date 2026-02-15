@@ -1,0 +1,65 @@
+# Release gate CI: non-blocking on PRs, blocking on push to main
+#
+# Runs release_sprint13 dry-run always; full release_sprint13 preset blocking only on push to main.
+# Artifact: release_gate_log.txt always uploaded.
+name: Release Gate CI (Windows)
+
+on:
+  push:
+    branches: [main, "feature/*"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  windows-release-gate:
+    name: Release Gate (Windows)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas pyarrow pytest ruff
+
+      - name: Release gate dry-run (always)
+        id: dry_run
+        run: |
+          $out = py -3 scripts/dev/release_sprint13.py --dry-run 2>&1
+          if ($null -eq $out -or $out -eq "") { "No output captured" | Set-Content -Path release_gate_log.txt -Encoding utf8 } else { $out | Set-Content -Path release_gate_log.txt -Encoding utf8 }
+          Write-Output $out
+
+      - name: Release gate full (blocking on push to main)
+        id: release_gate
+        continue-on-error: ${{ github.event_name == 'pull_request' || github.ref != 'refs/heads/main' }}
+        run: |
+          $out = py -3 scripts/dev/release_sprint13.py 2>&1
+          $exitCode = $LASTEXITCODE
+          if ($null -eq $out -or $out -eq "") { "No output captured" | Add-Content -Path release_gate_log.txt -Encoding utf8 } else { $out | Add-Content -Path release_gate_log.txt -Encoding utf8 }
+          Write-Output $out
+          echo "exit_code=$exitCode" >> $env:GITHUB_OUTPUT
+          exit $exitCode
+
+      - name: Write job summary
+        if: always()
+        run: |
+          $ec = "${{ steps.release_gate.outputs.exit_code }}"
+          if ($ec -eq "0") { $status = "PASS" } else { $status = "FAIL" }
+          echo "release_sprint13: $status" >> $env:GITHUB_STEP_SUMMARY
+          echo "Docs: [MERGE_GATE_SPRINT13.md](docs/MERGE_GATE_SPRINT13.md)" >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Upload release_gate_log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-gate-log
+          path: release_gate_log.txt
+          if-no-files-found: ignore

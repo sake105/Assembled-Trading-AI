@@ -222,136 +222,8 @@ python scripts/run_daily.py \
   --broker-snapshot-policy prefer
 ```
 
-**Evidence Pack Export and Verify (Ops):**  
-`scripts/export_evidence_pack.py` builds the Evidence Pack ZIP from the evidence index or manifest fallback; `scripts/verify_evidence_pack.py` validates a pack offline (manifest, schema, checksums, paths). Both are Windows-compatible and ASCII-only. See **docs/LEDGER_RECONCILIATION.md** (Golden Path: Evidence Pack Archive) for a full copy-paste workflow including verify and archive.
-
-**Standalone Evidence Pack Export Tool (Ops):**
-```bash
-# Basic export from evidence index
-python scripts/export_evidence_pack.py \
-  --run-id ledger_eod_1d \
-  --as-of-date 2025-01-15 \
-  --output-dir output
-
-# Strict mode (fail if optional files missing)
-python scripts/export_evidence_pack.py \
-  --run-id ledger_eod_1d \
-  --as-of-date 2025-01-15 \
-  --strict
-
-# Exclude optional files
-python scripts/export_evidence_pack.py \
-  --run-id ledger_eod_1d \
-  --as-of-date 2025-01-15 \
-  --no-optional
-
-# Verify pack contents
-unzip -l output/evidence_ledger_eod_1d/pack_2025-01-15.zip
-cat output/evidence_ledger_eod_1d/pack_manifest_2025-01-15.json
-
-# Offline validation of Evidence Pack ZIP (manifest, schema, checksums, paths)
-python scripts/verify_evidence_pack.py --zip output/evidence_ledger_eod_1d/pack_2025-01-15.zip
-python scripts/verify_evidence_pack.py --zip output/evidence_ledger_eod_1d/pack_2025-01-15.zip --json
-```
-
-**Standalone Import Tool (Ops):**
-```bash
-# Import JSON snapshot (standalone, without EOD/Backtest)
-python scripts/import_broker_snapshot.py \
-  --input broker_positions_2025-01-15.json \
-  --run-id ops_snapshot_20250115 \
-  --as-of-date 2025-01-15 \
-  --output-dir output \
-  --store-parquet
-
-# Import CSV snapshot with cash override
-python scripts/import_broker_snapshot.py \
-  --input broker_positions.csv \
-  --run-id ops_snapshot_20250115 \
-  --as-of-date 2025-01-15 \
-  --cash 10000.0 \
-  --store-parquet
-
-# Import with custom quantity tolerance
-python scripts/import_broker_snapshot.py \
-  --input broker_positions.json \
-  --run-id ops_snapshot_20250115 \
-  --as-of-date 2025-01-15 \
-  --qty-tol 1e-6
-```
-
-**Golden Path (Ops - 4-step workflow):**
-```bash
-# Step 1: Import external broker snapshot
-python scripts/import_broker_snapshot.py \
-  --input broker_positions_2025-01-15.json \
-  --run-id ops_snapshot_20250115 \
-  --as-of-date 2025-01-15 \
-  --output-dir output \
-  --store-parquet
-
-# Step 2: Run EOD pipeline with require policy (uses imported snapshot)
-python scripts/run_eod_pipeline.py \
-  --freq 1d \
-  --broker-snapshot-policy require \
-  --broker-snapshot-run-id ops_snapshot_20250115
-
-# Step 3: Check evidence index (links all artifacts)
-# Read: output/evidence_<run_id>/evidence_2025-01-15.json
-python -c "import json; print(json.dumps(json.load(open('output/evidence_ledger_eod_1d/evidence_2025-01-15.json')), indent=2))"
-
-# Step 4: Export evidence pack (optional, or use --write-evidence-pack in step 2)
-python scripts/export_evidence_pack.py \
-  --run-id ledger_eod_1d \
-  --as-of-date 2025-01-15 \
-  --output-dir output
-
-# Step 5: Verify reconciliation and candidate gate
-# Check reconcile report: output/reconcile_report_<run_id>/reconcile_2025-01-15.json
-# Check manifest: output/run_manifest_1d.json -> reconciliation_ok, reconcile_report_path
-# Check candidate gate output (if QA enabled): candidate_allowed status
-# Check evidence pack: output/evidence_<run_id>/pack_2025-01-15.zip
-```
-
-**Alternative: Backtest with Broker Snapshot**
-```bash
-# Step 1: Import snapshot
-python scripts/import_broker_snapshot.py \
-  --input broker_positions_2025-01-15.json \
-  --run-id ops_snapshot_20250115 \
-  --as-of-date 2025-01-15 \
-  --output-dir output
-
-# Step 2: Run backtest with require policy
-python scripts/run_backtest_strategy.py \
-  --strategy ema \
-  --broker-snapshot-policy require \
-  --broker-snapshot-run-id ops_snapshot_20250115
-
-# Step 3: Check evidence index and reports
-# Evidence: output/evidence_<run_id>/evidence_2025-01-15.json
-# Reconcile: output/reconcile_report_<run_id>/reconcile_2025-01-15.json
-```
-
-**Alternative: Daily Run with Broker Snapshot**
-```bash
-# Step 1: Import snapshot (optional, can use --broker-snapshot-file in step 2)
-python scripts/import_broker_snapshot.py \
-  --input broker_positions_2025-01-15.json \
-  --run-id daily_snapshot_20250115 \
-  --as-of-date 2025-01-15 \
-  --output-dir output
-
-# Step 2: Run daily with require policy
-python scripts/run_daily.py \
-  --date 2025-01-15 \
-  --broker-snapshot-policy require \
-  --broker-snapshot-run-id daily_snapshot_20250115
-
-# Step 3: Check daily manifest (if written)
-# Manifest: output/manifest_daily_<run_id>.json
-# Evidence: output/evidence_<run_id>/evidence_2025-01-15.json (if ledger active)
-```
+**Evidence Pack and Ops Golden Path:**  
+`scripts/export_evidence_pack.py` and `scripts/verify_evidence_pack.py` build/validate Evidence Pack ZIPs (Windows, ASCII-only). **Full workflow (Import -> Require -> Pack -> Verify -> Archive):** **docs/OPS_EVIDENCE_GOLDEN_PATH.md** – single canonical 5-step Windows block and artifact locations.
 
 **Broker Snapshot Import (Python API):**
 ```python
@@ -692,9 +564,36 @@ Robuste, Windows-kompatible Check-Strategie fuer Code-Qualitaet (Syntax, Linting
 
 ### Script: `scripts/dev/run_checks.py`
 
-**Verwendung:**
+**Presets: Blocking vs optional (CI)**
+
+- **Blocking:** Job fails the workflow. evidence_pack (Evidence Pack CI); broker_snapshot (Accounting CI).
+- **Optional:** Job uses continue-on-error; logs artifact on failure where noted. ops_evidence (Ops Evidence CI only); accounting (Accounting CI); broker_snapshot and accounting (Evidence Pack CI, optional steps).
+
+| Preset          | Purpose                                                                 | Typical runtime | CI usage                    |
+|-----------------|-------------------------------------------------------------------------|-----------------|-----------------------------|
+| evidence_pack   | Export/verify/pack manifest + deterministic bytes; full Evidence Pack | longer          | Blocking (Evidence Pack CI) |
+| ops_evidence   | Ops chain: import -> require -> pack -> verify + export/verify CLI     | short           | Optional (Ops Evidence CI)  |
+| broker_snapshot| Importer, policy, CLI, reconcile/accounting integration                 | medium          | Blocking (Accounting CI)    |
+| accounting     | Ledger, reconcile, accounting reports, candidate gate                   | medium          | Optional (Accounting CI)    |
+
+**CI Workflows (inventory)**
+
+- **Evidence Pack CI (Windows)** – `.github/workflows/evidence-pack-ci.yml` – Blocking: evidence_pack preset. Optional: broker_snapshot, accounting.
+- **Ops Evidence CI (Windows)** – `.github/workflows/ops-evidence-ci.yml` – Optional: ops_evidence preset only; logs artifact on failure.
+- **Accounting CI (Windows)** – `.github/workflows/accounting-ci.yml` – Blocking: broker_snapshot. Optional: accounting.
+
+**Beispiele (Windows, copy-paste mit py -3):**
+
+```powershell
+py -3 scripts/dev/run_checks.py --preset evidence_pack
+py -3 scripts/dev/run_checks.py --preset ops_evidence --skip-compile --skip-ruff
+py -3 scripts/dev/run_checks.py --preset broker_snapshot
+py -3 scripts/dev/run_checks.py --preset accounting
+```
+
+**Weitere Verwendung:**
 ```bash
-# Alle Checks ausfuehren (py_compile → ruff → pytest)
+# Alle Checks (py_compile, ruff, pytest)
 python scripts/dev/run_checks.py
 
 # Nur bestimmte Checks
@@ -704,40 +603,8 @@ python scripts/dev/run_checks.py --skip-ruff --skip-pytest
 # Pytest mit zusaetzlichen Argumenten
 python scripts/dev/run_checks.py --pytest-args tests/test_ledger*.py -v
 
-# Pytest nur bestimmte Tests
-python scripts/dev/run_checks.py --skip-compile --skip-ruff --pytest-args tests/test_ledger_store_roundtrip.py -v
-
 # Andere Pfade pruefen
 python scripts/dev/run_checks.py --paths src/assembled_core/accounting/
-
-# Accounting/Broker Snapshot Presets (Sprint 13)
-
-# Accounting-Fokus (Ledger/Reconcile/Accounting-Reports + QA-Gate)
-python scripts/dev/run_checks.py --preset accounting
-
-# Broker Snapshot-Fokus (Importer + Policy + CLI + Reconcile/Accounting Integration)
-python scripts/dev/run_checks.py --preset broker_snapshot
-
-# Ops Evidence-Fokus (Evidence Index + Evidence Pack + CLI + E2E Tests)
-python scripts/dev/run_checks.py --preset ops_evidence
-
-# Preset `ops_evidence`: validates the full Ops Evidence chain (import broker snapshot, require snapshot in ledger, build evidence pack, verify pack offline) via fast smoke/E2E tests.
-
-# Ops Evidence preset runs (fast, PR-suitable)
-# Default pytest list (when no --pytest-args are given):
-# - tests/test_broker_snapshot_importer_smoke.py
-# - tests/test_broker_snapshot_importer_hardening.py
-# - tests/test_broker_snapshot_namespace_rules.py
-# - tests/test_ops_golden_path_evidence_pack_e2e.py
-# - tests/test_verify_evidence_pack_cli_smoke.py
-# - tests/test_evidence_index_written.py
-# - tests/test_evidence_pack_written.py
-#
-# Example (skip compile + ruff for speed):
-# python scripts/dev/run_checks.py --preset ops_evidence --skip-compile --skip-ruff
-
-# Preset mit zusaetzlichen Pytest-Argumenten (Paths bleiben vom Preset)
-python scripts/dev/run_checks.py --preset broker_snapshot --skip-compile --skip-ruff --pytest-args tests/test_ops_evidence_pack_e2e.py -q
 ```
 
 **Features:**

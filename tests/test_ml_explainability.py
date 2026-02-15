@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
-import pytest
 from pathlib import Path
-import pandas as pd
+
 import numpy as np
-from sklearn.linear_model import Ridge
+import pandas as pd
+import pytest
+
+pytest.importorskip("sklearn")
+
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import Ridge
 from sklearn.neighbors import KNeighborsRegressor
 
 from src.assembled_core.ml.explainability import (
@@ -15,8 +19,6 @@ from src.assembled_core.ml.explainability import (
     compute_permutation_importance,
     summarize_feature_importance_global,
 )
-
-pytest.importorskip("sklearn")
 
 
 @pytest.fixture

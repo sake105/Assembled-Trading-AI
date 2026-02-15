@@ -59,6 +59,13 @@ Required and optional path keys are defined in `evidence_pack.REQUIRED_KEYS_BY_S
 - Paths may be `None` (optional files)
 - Paths use POSIX slashes (`/`) for portability
 
+**Manifest via Evidence Index:**
+- When `paths.manifest_path` is set and the referenced file exists, the Evidence Pack exporter:
+  - Treats `manifest_path` as an **optional** file for the `evidence_index` source.
+  - Includes the manifest JSON (`run_manifest_<freq>.json`) directly from the Evidence Index (no need to fall back to manifest discovery).
+  - Marks the corresponding entry in the pack manifest with `source_type: "manifest"`.
+- If `paths.manifest_path` is missing or `None`, the exporter can still fall back to the orchestrator manifest discovery logic (manifest fallback source) when no usable Evidence Index is available.
+
 **Note:** The current implementation only supports Evidence Index as input source. Manifest fallback is not implemented in the initial version.
 
 ## Output Structure
@@ -143,8 +150,91 @@ pack_2025-01-15.zip
   - `path`: Relative POSIX path inside ZIP
   - `size_bytes`: File size in bytes
   - `sha256`: SHA256 hash (hex string, lowercase)
-  - `source_type`: Type hint (`"evidence_index"`, `"broker_snapshot"`, `"ledger_pack"`, `"reconcile_report"`, `"accounting_report"`, `"manifest"`)
+  - `source_type`: Type hint (`"evidence_index"`, `"broker_snapshot"`, `"ledger_pack"`, `"reconcile_report"`, `"accounting_report"`, `"manifest"`, `"pack_manifest"`)
 - `tool_version`: Version of exporter tool
+
+### Pack manifest schema (v1)
+
+Top-level keys (all ASCII). Single source of truth for manifest contract.
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `schema_version` | int | Always `1` |
+| `run_id` | string | Run identifier |
+| `as_of_date` | string | Report date ISO 8601 UTC |
+| `source` | string | `"evidence_index"` or `"manifest"` |
+| `source_path` | string \| null | Relative POSIX path to source JSON in ZIP |
+| `files` | array | File entries (see below) |
+| `required_missing` | array of string | Keys of required paths that were missing |
+| `optional_missing` | array of string | Keys of optional paths that were missing |
+| `required_present_count` | int | Number of required paths included |
+| `optional_present_count` | int | Number of optional paths included |
+| `required_missing_count` | int | Length of `required_missing` |
+| `optional_missing_count` | int | Length of `optional_missing` |
+| `zip_compression` | string | ZIP compression (e.g. `"zip_deflated"`) |
+| `required_keys` | array of string | Keys considered required for this source (lexicographic sort) |
+| `optional_keys` | array of string | Keys considered optional for this source (lexicographic sort) |
+| `zip_entries` | array of string | Sorted list of all ZIP entry paths (POSIX) |
+| `zip_entries_count` | int | Must equal `len(zip_entries)`; `pack_manifest_*.json` must be in `zip_entries` |
+| `files_count` | int | Must equal `len(files)` |
+| `tool_version` | string | Exporter version |
+
+**files[] entry keys (each element):**
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `path` | string | Relative POSIX path inside ZIP |
+| `sha256` | string \| null | SHA256 hex lowercase |
+| `size_bytes` | int | File size in bytes |
+| `source_type` | string | One of: `evidence_index`, `broker_snapshot`, `ledger_pack`, `reconcile_report`, `accounting_report`, `manifest`, `pack_manifest`, `other` |
+
+### Source semantics
+
+- `source` is either `evidence_index` or `manifest` (which input was used to build the pack).
+- `source_path` is the relative POSIX path to the source file inside the ZIP (e.g. the evidence index JSON or the run manifest JSON).
+- Export and Verify JSON outputs both include `source` and `source_path` for logs and automation.
+- The pack manifest inside the ZIP is the single source of truth for these values.
+
+## Verify Evidence Pack (offline)
+
+The script `scripts/verify_evidence_pack.py` validates an Evidence Pack ZIP offline (manifest present, schema ok, checksums, no illegal paths). Exit codes: 0 = ok, 1 = fail or error. ASCII-only output. Option `--fail-on-warn` exits 1 if any of bad_paths_count, missing_entries_count, paths_not_in_zip_entries_count, or checksum_mismatches_count is greater than zero (even when ok is true).
+
+### verify_evidence_pack --json output schema
+
+With `--json`, the CLI prints a single JSON object to stdout. Schema version: **1**. Keys are stable for automation and parsing.
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `schema_version` | int | JSON schema version (currently `1`) |
+| `zip_path` | string | Path to the ZIP as provided on CLI |
+| `ok` | boolean | `true` if verification passed |
+| `error_code` | string | `""` when ok; otherwise one of `MISSING_MANIFEST`, `BAD_PATHS`, `CHECKSUM_MISMATCH`, `UNSUPPORTED_SCHEMA`, `FILE_NOT_FOUND`, `UNEXPECTED_ERROR` |
+| `missing_manifest` | boolean | `true` if no pack_manifest_*.json in ZIP root |
+| `n_files` | int | Number of ZIP entries (0 if unknown) |
+| `bad_paths_count` | int | Number of illegal paths |
+| `missing_entries_count` | int | Number of manifest files[] paths missing from ZIP |
+| `paths_not_in_zip_entries_count` | int | Number of files[] paths not listed in zip_entries |
+| `checksum_mismatches_count` | int | Number of checksum mismatches |
+| `details` | object | Optional debug: `bad_paths`, `missing_entries`, `paths_not_in_zip_entries`, `checksum_mismatches` (up to 20 each); empty when ok |
+
+- **error_code priority:** When multiple issues exist, a single code is chosen in order: `MISSING_MANIFEST` > `BAD_PATHS` > `CHECKSUM_MISMATCH`. Details lists are capped at 20 entries each.
+
+Output is deterministic: `sort_keys=True`, `indent=2`, trailing newline. Two runs on the same ZIP produce identical bytes.
+
+**Example (ok):**
+```json
+{
+  "bad_paths_count": 0,
+  "checksum_mismatches_count": 0,
+  "details": {},
+  "error_code": "",
+  "missing_manifest": false,
+  "n_files": 5,
+  "ok": true,
+  "schema_version": 1,
+  "zip_path": "output/evidence_run/pack_2025-01-15.zip"
+}
+```
 
 ## Determinism Rules
 
@@ -397,6 +487,7 @@ python scripts/export_evidence_pack.py \
 - `--output-dir <path>`: Output directory (default: `output`)
 - `--strict`: Fail if optional files are missing (default: warn and continue)
 - `--no-optional`: Exclude optional files from pack (default: include optional files)
+- `--print-pack-path`: Print only the resolved pack path (one line) to stdout; mutually exclusive with `--text`; useful for cmd/PowerShell pipes. Logs go to stderr only.
 
 **Exit Codes:**
 - `0`: Success

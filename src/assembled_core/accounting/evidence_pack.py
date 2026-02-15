@@ -42,6 +42,101 @@ def _ascii_only(msg: str) -> str:
     return msg.encode("ascii", errors="ignore").decode("ascii")
 
 
+# Required keys per file entry in pack manifest files[] (machine contract)
+MANIFEST_FILE_KEYS = ("path", "sha256", "size_bytes", "source_type")
+
+
+def _validate_manifest_consistency(
+    pack_manifest: dict[str, Any],
+    run_id: str,
+    as_of_date: str,
+) -> None:
+    """Ensure files_count == len(files), every files[].path in zip_entries, no duplicate paths, pack_manifest exactly once. Raises ValueError (ASCII-only)."""
+    files_list = pack_manifest.get("files", [])
+    files_count = pack_manifest.get("files_count")
+    zip_entries = pack_manifest.get("zip_entries", [])
+    zip_set = set(zip_entries)
+
+    if files_count is not None and files_count != len(files_list):
+        msg = _ascii_only(
+            f"files_count must equal len(files); run_id={run_id}, as_of_date={as_of_date}"
+        )
+        raise ValueError(msg)
+
+    paths = [e.get("path") for e in files_list if isinstance(e.get("path"), str)]
+    for p in paths:
+        if p not in zip_set:
+            msg = _ascii_only(
+                f"files[].path must be in zip_entries; run_id={run_id}, as_of_date={as_of_date}, path={p!r}"
+            )
+            raise ValueError(msg)
+
+    if len(set(paths)) != len(paths):
+        msg = _ascii_only(
+            f"files[].path must have no duplicates; run_id={run_id}, as_of_date={as_of_date}"
+        )
+        raise ValueError(msg)
+
+    pack_manifest_entries = [
+        e for e in files_list
+        if isinstance(e.get("source_type"), str) and e.get("source_type") == "pack_manifest"
+    ]
+    if len(pack_manifest_entries) != 1:
+        msg = _ascii_only(
+            f"pack_manifest_*.json must appear exactly once in files[] (source_type=pack_manifest); run_id={run_id}, as_of_date={as_of_date}"
+        )
+        raise ValueError(msg)
+
+
+def _validate_manifest_files_schema(
+    files_list: list[dict[str, Any]],
+    run_id: str,
+    as_of_date: str,
+) -> None:
+    """Validate each files[] entry has path, sha256, size_bytes, source_type. Raises ValueError (ASCII-only)."""
+    for i, entry in enumerate(files_list):
+        if not isinstance(entry, dict):
+            msg = _ascii_only(
+                f"pack manifest files[{i}] must be a dict; run_id={run_id}, as_of_date={as_of_date}"
+            )
+            raise ValueError(msg)
+        for key in MANIFEST_FILE_KEYS:
+            if key not in entry:
+                msg = _ascii_only(
+                    f"pack manifest files[{i}] missing key {key!r}; run_id={run_id}, as_of_date={as_of_date}"
+                )
+                raise ValueError(msg)
+        path_val = entry.get("path")
+        if not isinstance(path_val, str):
+            msg = _ascii_only(
+                f"pack manifest files[{i}].path must be str; run_id={run_id}, as_of_date={as_of_date}"
+            )
+            raise ValueError(msg)
+        sha256_val = entry.get("sha256")
+        if sha256_val is not None and not isinstance(sha256_val, str):
+            msg = _ascii_only(
+                f"pack manifest files[{i}].sha256 must be str or null; run_id={run_id}, as_of_date={as_of_date}"
+            )
+            raise ValueError(msg)
+        size_val = entry.get("size_bytes")
+        if not isinstance(size_val, int):
+            msg = _ascii_only(
+                f"pack manifest files[{i}].size_bytes must be int; run_id={run_id}, as_of_date={as_of_date}"
+            )
+            raise ValueError(msg)
+        if size_val < 0:
+            msg = _ascii_only(
+                f"pack manifest files[{i}].size_bytes must be >= 0; run_id={run_id}, as_of_date={as_of_date}"
+            )
+            raise ValueError(msg)
+        source_type_val = entry.get("source_type")
+        if not isinstance(source_type_val, str):
+            msg = _ascii_only(
+                f"pack manifest files[{i}].source_type must be str; run_id={run_id}, as_of_date={as_of_date}"
+            )
+            raise ValueError(msg)
+
+
 def _sha256_file(path: Path) -> str:
     """Calculate SHA256 hash of a file.
     
@@ -84,11 +179,11 @@ def _normalize_zip_path(file_path: Path, base_dir: Path) -> str:
         
         # Ensure no '..' segments and no absolute paths
         if ".." in posix_path or posix_path.startswith("/"):
-            raise ValueError(f"Path contains '..' or is absolute: {posix_path}")
+            raise ValueError(_ascii_only(f"Path contains '..' or is absolute: {posix_path}"))
         
         # Ensure no backslashes (Windows paths)
         if "\\" in posix_path:
-            raise ValueError(f"Path contains backslashes: {posix_path}")
+            raise ValueError(_ascii_only(f"Path contains backslashes: {posix_path}"))
         
         return posix_path
     except ValueError as e:
@@ -96,7 +191,7 @@ def _normalize_zip_path(file_path: Path, base_dir: Path) -> str:
         if "contains" in str(e) or "absolute" in str(e):
             raise
         # Otherwise, file is outside base_dir
-        raise ValueError(f"File outside output_dir: {file_path}") from e
+        raise ValueError(_ascii_only(f"File outside output_dir: {file_path}")) from e
 
 
 def _write_zip_deterministic(
@@ -104,6 +199,7 @@ def _write_zip_deterministic(
     files: list[tuple[Path, str]],
     base_dir: Path,
     fixed_timestamp: tuple[int, int, int, int, int, int] = FIXED_ZIP_TIMESTAMP,
+    compression: str = "deflated",
 ) -> None:
     """Write ZIP file with deterministic ordering and timestamps.
     
@@ -112,18 +208,20 @@ def _write_zip_deterministic(
         files: List of (file_path, zip_entry_path) tuples (already sorted)
         base_dir: Base directory for relative paths
         fixed_timestamp: Fixed timestamp for all ZIP entries (default: 1980-01-01)
+        compression: "deflated" (default) or "stored" (no compression, max reproducibility)
     """
+    if compression not in ("deflated", "stored"):
+        raise ValueError(_ascii_only(f"compression must be 'deflated' or 'stored'; got {compression!r}"))
+    compress_type = zipfile.ZIP_STORED if compression == "stored" else zipfile.ZIP_DEFLATED
+
     # Files should already be sorted by caller, but ensure deterministic order
     sorted_files = sorted(files, key=lambda x: x[1])
     
     # Write to temp file first (Windows-safe atomic write)
     tmp_path = zip_path.with_suffix(".tmp.zip")
     
-    # Fixed compression type for all entries
-    COMPRESS_TYPE = zipfile.ZIP_DEFLATED
-    
     try:
-        with zipfile.ZipFile(tmp_path, "w", COMPRESS_TYPE) as zf:
+        with zipfile.ZipFile(tmp_path, "w", compress_type) as zf:
             for file_path, zip_entry_path in sorted_files:
                 if not file_path.exists():
                     logger.warning(f"File not found, skipping: {file_path}")
@@ -131,14 +229,14 @@ def _write_zip_deterministic(
                 
                 # Validate zip_entry_path is relative and POSIX
                 if ".." in zip_entry_path or zip_entry_path.startswith("/"):
-                    raise ValueError(f"Invalid ZIP entry path (contains '..' or absolute): {zip_entry_path}")
+                    raise ValueError(_ascii_only(f"Invalid ZIP entry path (contains '..' or absolute): {zip_entry_path}"))
                 if "\\" in zip_entry_path:
-                    raise ValueError(f"Invalid ZIP entry path (contains backslashes): {zip_entry_path}")
+                    raise ValueError(_ascii_only(f"Invalid ZIP entry path (contains backslashes): {zip_entry_path}"))
                 
                 # Create ZipInfo with fixed timestamp and compression
                 zip_info = zipfile.ZipInfo(filename=zip_entry_path)
                 zip_info.date_time = fixed_timestamp
-                zip_info.compress_type = COMPRESS_TYPE
+                zip_info.compress_type = compress_type
                 
                 # Add file to ZIP
                 with open(file_path, "rb") as f:
@@ -255,6 +353,8 @@ def collect_evidence_files(
     files: list[tuple[Path, str]] = []
     missing_required: list[str] = []
     missing_optional: list[str] = []
+    required_present_keys: list[str] = []
+    optional_present_keys: list[str] = []
     optional_zip_paths: list[str] = []
     
     # First preference: Evidence Index JSON
@@ -351,6 +451,7 @@ def collect_evidence_files(
         
         zip_entry_path = _normalize_zip_path(file_path, base_dir)
         files.append((file_path, zip_entry_path))
+        required_present_keys.append(key)
         
         related = _find_related_files(file_path)
         for related_path in related:
@@ -385,6 +486,7 @@ def collect_evidence_files(
         zip_entry_path = _normalize_zip_path(file_path, base_dir)
         optional_zip_paths.append(zip_entry_path)
         files.append((file_path, zip_entry_path))
+        optional_present_keys.append(key)
         
         related = _find_related_files(file_path)
         for related_path in related:
@@ -396,11 +498,37 @@ def collect_evidence_files(
             except ValueError:
                 logger.warning(f"Related file outside output_dir, skipping: {related_path}")
     
+    # Deduplicate files by zip_entry_path to avoid duplicate entries in pack/ZIP.
+    # Keep the first occurrence for each zip_entry_path.
+    unique_files: dict[str, Path] = {}
+    for file_path, zip_entry_path in files:
+        if zip_entry_path not in unique_files:
+            unique_files[zip_entry_path] = file_path
+        else:
+            logger.warning(
+                _ascii_only(
+                    "Duplicate ZIP entry path detected; keeping first occurrence: "
+                    f"path={zip_entry_path}, run_id={run_id}, as_of_date={date_str}"
+                )
+            )
+    deduped_files = [(fp, zp) for zp, fp in unique_files.items()]
+    deduped_files.sort(key=lambda item: item[1])
+
+    # Deduplicate optional_zip_paths while preserving order
+    seen_opt: set[str] = set()
+    deduped_optional_zip_paths: list[str] = []
+    for zp in optional_zip_paths:
+        if zp not in seen_opt:
+            seen_opt.add(zp)
+            deduped_optional_zip_paths.append(zp)
+    
     return {
-        "files": files,
+        "files": deduped_files,
         "missing_required": missing_required,
         "missing_optional": missing_optional,
-        "optional_zip_paths": optional_zip_paths,
+        "required_present_keys": required_present_keys,
+        "optional_present_keys": optional_present_keys,
+        "optional_zip_paths": deduped_optional_zip_paths,
         "evidence_index_path": evidence_index_path if evidence_index_used else None,
         "manifest_path": manifest_path,
         "source": source,
@@ -416,6 +544,7 @@ def build_evidence_pack(
     include_optional: bool = True,
     strict: bool = False,
     fixed_timestamp: tuple[int, int, int, int, int, int] | None = None,
+    compression: str = "deflated",
 ) -> dict[str, Any]:
     """Build evidence pack (ZIP + manifest) from Evidence Index.
     
@@ -430,19 +559,27 @@ def build_evidence_pack(
                          If False, skip optional files silently.
         strict: If True, raise ValueError when any optional file is missing.
         fixed_timestamp: Fixed ZIP timestamp (default: 1980-01-01 00:00:00)
+        compression: "deflated" (default) or "stored" (no compression, max reproducibility)
         
     Returns:
         Dictionary (return schema stable):
             - pack_path: Relative path to ZIP file (POSIX)
             - pack_manifest_path: Relative path to pack manifest JSON (POSIX)
             - n_files: Number of files included in pack
+            - files_count: Number of entries in pack manifest files[]
+            - zip_entries_count: Same as n_files (ZIP entry count)
+            - zip_compression: "deflated" or "stored"
+            - missing_required: List of missing required keys (not paths)
             - missing_optional: List of missing optional keys (not paths)
             - checksums: Dict mapping zip_entry_path to SHA256 hash
             - source: Source type ("evidence_index" or "manifest" or None)
+            - source_path: Relative POSIX path to source JSON in pack (or None)
 
     Determinism: Pack manifest and ZIP use sort_keys=True, indent=2, trailing newline; paths in manifest are POSIX.
     """
     base_dir = Path(output_dir)
+    if compression not in ("deflated", "stored"):
+        raise ValueError(_ascii_only(f"compression must be 'deflated' or 'stored'; got {compression!r}"))
     
     # Normalize as_of_date
     if isinstance(as_of_date, str):
@@ -465,9 +602,9 @@ def build_evidence_pack(
     # Check for missing required files (fail-fast)
     missing_required = collection.get("missing_required", [])
     if missing_required:
-        raise ValueError(
+        raise ValueError(_ascii_only(
             f"Required files missing for run_id={run_id}, as_of_date={date_str}: {missing_required}"
-        )
+        ))
     
     # Strict: fail if any optional file is missing (ASCII-only message)
     missing_optional = collection.get("missing_optional", [])
@@ -512,13 +649,41 @@ def build_evidence_pack(
             # Still include file, but without checksum
             files_to_zip.append((file_path, zip_entry_path))
     
+    # Enforce keys-only: required_missing and optional_missing must only contain allowed keys
+    source = collection.get("source")
+    allowed_required = set(REQUIRED_KEYS_BY_SOURCE.get(source, []))
+    allowed_optional = set(OPTIONAL_KEYS_BY_SOURCE.get(source, []))
+    missing_required_list = collection.get("missing_required", [])
+    missing_optional_list = collection.get("missing_optional", [])
+    for key in missing_required_list:
+        if key not in allowed_required:
+            msg = _ascii_only(
+                f"required_missing must only contain allowed keys for source={source!r}; "
+                f"got invalid entry: {key!r}"
+            )
+            raise ValueError(msg)
+    for key in missing_optional_list:
+        if key not in allowed_optional:
+            msg = _ascii_only(
+                f"optional_missing must only contain allowed keys for source={source!r}; "
+                f"got invalid entry: {key!r}"
+            )
+            raise ValueError(msg)
+
+    # required_keys / optional_keys from source (lexicographic sort, deterministic)
+    src = collection["source"]
+    required_keys_list = sorted(REQUIRED_KEYS_BY_SOURCE.get(src, []))
+    optional_keys_list = sorted(OPTIONAL_KEYS_BY_SOURCE.get(src, []))
+
     # Build pack manifest (before writing ZIP, so we can include it)
     pack_manifest: dict[str, Any] = {
         "schema_version": 1,
         "run_id": run_id,
         "as_of_date": as_of_ts.isoformat(),
-        "source": collection["source"],
+        "source": src,
         "source_path": collection.get("source_path"),
+        "required_keys": required_keys_list,
+        "optional_keys": optional_keys_list,
         "files": [
             {
                 "path": zip_entry_path,
@@ -528,14 +693,29 @@ def build_evidence_pack(
             }
             for file_path, zip_entry_path in files_to_zip
         ],
-        "required_missing": collection.get("missing_required", []),
-        "optional_missing": collection.get("missing_optional", []),
+        "required_missing": missing_required_list,
+        "optional_missing": missing_optional_list,
+        "required_present_count": len(collection.get("required_present_keys", [])),
+        "optional_present_count": len(collection.get("optional_present_keys", [])),
+        "required_missing_count": len(collection.get("missing_required", [])),
+        "optional_missing_count": len(collection.get("missing_optional", [])),
+        "zip_compression": compression,
         "tool_version": CORE_VERSION,
     }
+    # Guard: source_path must match exactly one files[] entry (source artifact in pack).
+    source_path = collection.get("source_path")
+    if source_path is not None:
+        matches = [e for e in pack_manifest["files"] if e.get("path") == source_path]
+        if len(matches) != 1:
+            msg = (
+                f"source_path must match exactly one files[] entry "
+                f"(run_id={run_id}, as_of_date={date_str}): got {len(matches)} match(es) for source_path={source_path!r}"
+            )
+            raise ValueError(msg.encode("ascii", errors="ignore").decode("ascii"))
+
     # Invariant: the source artifact (evidence index or manifest JSON) must be
     # present in files[] and explicitly typed via source_type == source.
     source = collection.get("source")
-    source_path = collection.get("source_path")
     if source and source_path:
         for entry in pack_manifest["files"]:
             if entry.get("path") == source_path:
@@ -576,7 +756,38 @@ def build_evidence_pack(
         "sha256": manifest_checksum,
         "source_type": "pack_manifest",
     })
-    
+
+    # Guard: every files[] entry must have path, sha256, size_bytes, source_type
+    _validate_manifest_files_schema(pack_manifest["files"], run_id, date_str)
+
+    # Re-sort files (including manifest) - manifest should be in sorted position
+    files_to_zip = sorted(files_to_zip, key=lambda x: x[1])
+
+    # Add zip_entries (sorted POSIX list) and zip_entries_count; guard invariants
+    zip_entries: list[str] = [zp for (_, zp) in files_to_zip]
+    pack_manifest["zip_entries"] = zip_entries
+    pack_manifest["zip_entries_count"] = len(zip_entries)
+    if pack_manifest["zip_entries_count"] != len(pack_manifest["zip_entries"]):
+        msg = _ascii_only(
+            f"zip_entries_count must equal len(zip_entries); run_id={run_id}, as_of_date={date_str}"
+        )
+        raise ValueError(msg)
+    if pack_manifest["zip_entries"] != sorted(pack_manifest["zip_entries"]):
+        msg = _ascii_only(
+            f"zip_entries must be sorted; run_id={run_id}, as_of_date={date_str}"
+        )
+        raise ValueError(msg)
+    manifest_entry_name = f"pack_manifest_{date_str}.json"
+    if manifest_entry_name not in pack_manifest["zip_entries"]:
+        msg = _ascii_only(
+            f"pack_manifest_*.json must be in zip_entries; run_id={run_id}, as_of_date={date_str}"
+        )
+        raise ValueError(msg)
+
+    # files_count and consistency guards
+    pack_manifest["files_count"] = len(pack_manifest["files"])
+    _validate_manifest_consistency(pack_manifest, run_id, date_str)
+
     # Re-serialize manifest with self-reference (final version)
     manifest_json_content_final = json.dumps(pack_manifest, sort_keys=True, indent=2, default=str) + "\n"
     
@@ -592,12 +803,9 @@ def build_evidence_pack(
         tmp_path = Path(tmp_file.name)
     
     tmp_path.replace(manifest_path)
-    
-    # Re-sort files (including manifest) - manifest should be in sorted position
-    files_to_zip = sorted(files_to_zip, key=lambda x: x[1])
-    
+
     # Write ZIP deterministically (including manifest with self-reference)
-    _write_zip_deterministic(zip_path, files_to_zip, base_dir, zip_timestamp)
+    _write_zip_deterministic(zip_path, files_to_zip, base_dir, zip_timestamp, compression=compression)
     
     # Return relative paths
     pack_path_rel = zip_path.relative_to(base_dir)
@@ -612,10 +820,14 @@ def build_evidence_pack(
         "pack_path": str(pack_path_rel.as_posix()),
         "pack_manifest_path": str(manifest_path_rel.as_posix()),
         "n_files": len(files_to_zip),  # Includes manifest
+        "files_count": len(pack_manifest["files"]),
+        "zip_entries_count": len(files_to_zip),
+        "zip_compression": compression,
         "missing_required": collection.get("missing_required", []),
         "missing_optional": collection.get("missing_optional", []),
         "checksums": checksums,
         "source": collection["source"],
+        "source_path": collection.get("source_path"),
     }
 
 
@@ -648,6 +860,44 @@ def _infer_source_type(zip_entry_path: str) -> str:
         return "other"
 
 
+def read_pack_manifest_from_zip(zip_path: Path | str) -> dict[str, Any]:
+    """Read and parse the pack manifest from an evidence pack ZIP (reusable helper).
+
+    Uses the same rule as verify_evidence_pack_zip: lexicographically smallest
+    pack_manifest_*.json in the ZIP root (no path separator in name).
+
+    Args:
+        zip_path: Path to evidence pack ZIP file.
+
+    Returns:
+        Parsed manifest dict (e.g. schema_version, run_id, files, zip_entries).
+
+    Raises:
+        ValueError: No pack_manifest_*.json in root, or manifest JSON parse error (ASCII-only message).
+    """
+    zpath = Path(zip_path)
+    if not zpath.exists():
+        raise ValueError(_ascii_only(f"ZIP file not found: {zpath}"))
+    with zipfile.ZipFile(zpath, "r") as zf:
+        namelist = zf.namelist()
+        manifest_names = [
+            name
+            for name in namelist
+            if name.startswith("pack_manifest_") and name.endswith(".json") and "/" not in name.strip("/")
+        ]
+        if not manifest_names:
+            raise ValueError(_ascii_only("No pack_manifest_*.json found in ZIP root"))
+        manifest_name = sorted(manifest_names)[0]
+        with zf.open(manifest_name) as mf:
+            manifest_bytes = mf.read()
+        try:
+            return json.loads(manifest_bytes.decode("utf-8"))
+        except json.JSONDecodeError as exc:
+            raise ValueError(_ascii_only(f"Failed to parse pack manifest JSON: {exc}")) from exc
+        except Exception as exc:
+            raise ValueError(_ascii_only(f"Failed to read pack manifest: {exc}")) from exc
+
+
 def verify_evidence_pack_zip(zip_path: Path | str) -> dict[str, Any]:
     """Verify an evidence pack ZIP file offline (no repo context required).
     
@@ -667,6 +917,8 @@ def verify_evidence_pack_zip(zip_path: Path | str) -> dict[str, Any]:
             - bad_paths: List of illegal entry paths (.., absolute, backslashes)
             - checksum_mismatches: List of paths with checksum mismatch
             - missing_manifest: True if no pack_manifest_*.json in ZIP root
+            - details: Capped lists (bad_paths, checksum_mismatches) at most 20 each.
+        Note: CLI error_code priority when multiple issues: MISSING_MANIFEST > BAD_PATHS > CHECKSUM_MISMATCH.
     """
     zpath = Path(zip_path)
     if not zpath.exists():
@@ -697,9 +949,18 @@ def verify_evidence_pack_zip(zip_path: Path | str) -> dict[str, Any]:
             return {
                 "ok": False,
                 "n_files": n_files,
+                "zip_entries_count": n_files,
+                "manifest_files_count": None,
+                "zip_compression": None,
+                "tool_version": None,
+                "source": None,
+                "source_path": None,
                 "bad_paths": bad_paths,
+                "missing_entries": [],
+                "paths_not_in_zip_entries": [],
                 "checksum_mismatches": [],
                 "missing_manifest": True,
+                "details": {"bad_paths": bad_paths[:20]} if bad_paths else {},
             }
         
         # Deterministic choice if multiple: lexicographically smallest
@@ -712,16 +973,28 @@ def verify_evidence_pack_zip(zip_path: Path | str) -> dict[str, Any]:
         try:
             manifest = json.loads(manifest_bytes.decode("utf-8"))
         except Exception as exc:
-            raise ValueError(f"Failed to parse pack manifest JSON: {exc}") from exc
+            raise ValueError(_ascii_only(f"Failed to parse pack manifest JSON: {exc}")) from exc
         
         # Validate schema_version
         schema_version = manifest.get("schema_version")
         if schema_version != 1:
-            raise ValueError(f"Unsupported pack manifest schema_version: {schema_version}")
+            raise ValueError(_ascii_only(f"Unsupported pack manifest schema_version: {schema_version}"))
         
         files_meta = manifest.get("files", [])
         if not isinstance(files_meta, list):
-            raise ValueError("Invalid pack manifest: 'files' must be a list")
+            raise ValueError(_ascii_only("Invalid pack manifest: 'files' must be a list"))
+
+        # Manifest integrity: every files[].path must exist in ZIP (except pack_manifest optional for hash check)
+        manifest_paths = [e.get("path") for e in files_meta if isinstance(e.get("path"), str)]
+        namelist_set = set(namelist)
+        missing_entries = [p for p in manifest_paths if p not in namelist_set]
+
+        # If manifest has zip_entries: report paths in files[] that are not in zip_entries
+        paths_not_in_zip_entries: list[str] = []
+        manifest_zip_entries = manifest.get("zip_entries") if isinstance(manifest.get("zip_entries"), list) else None
+        if manifest_zip_entries is not None:
+            zip_entries_set = set(manifest_zip_entries)
+            paths_not_in_zip_entries = [p for p in manifest_paths if p not in zip_entries_set]
         
         # Build lookup for manifest checksums, skipping the pack manifest itself
         manifest_checksums: dict[str, str] = {}
@@ -746,13 +1019,44 @@ def verify_evidence_pack_zip(zip_path: Path | str) -> dict[str, Any]:
             actual_hash = _sha256_bytes(data)
             if actual_hash != expected_hash:
                 checksum_mismatches.append(rel_path)
-        
-        ok = not missing_manifest and not bad_paths and not checksum_mismatches
-        
+
+        ok = (
+            not missing_manifest
+            and not bad_paths
+            and not missing_entries
+            and not paths_not_in_zip_entries
+            and not checksum_mismatches
+        )
+        details: dict[str, Any] = {}
+        if bad_paths:
+            details["bad_paths"] = bad_paths[:20]
+        if missing_entries:
+            details["missing_entries"] = missing_entries[:20]
+        if paths_not_in_zip_entries:
+            details["paths_not_in_zip_entries"] = paths_not_in_zip_entries[:20]
+        if checksum_mismatches:
+            details["checksum_mismatches"] = checksum_mismatches[:20]
+
+        manifest_files_count = len(files_meta) if isinstance(files_meta, list) else 0
+        manifest_source = manifest.get("source") if isinstance(manifest.get("source"), str) else None
+        manifest_source_path = manifest.get("source_path")
+        if manifest_source_path is not None and not isinstance(manifest_source_path, str):
+            manifest_source_path = None
+        manifest_zip_compression = manifest.get("zip_compression") if isinstance(manifest.get("zip_compression"), str) else None
+        manifest_tool_version = manifest.get("tool_version") if isinstance(manifest.get("tool_version"), str) else None
         return {
             "ok": ok,
             "n_files": n_files,
+            "zip_entries_count": n_files,
+            "manifest_files_count": manifest_files_count,
+            "zip_compression": manifest_zip_compression,
+            "tool_version": manifest_tool_version,
+            "source": manifest_source,
+            "source_path": manifest_source_path,
             "bad_paths": bad_paths,
+            "missing_entries": missing_entries,
+            "paths_not_in_zip_entries": paths_not_in_zip_entries,
             "checksum_mismatches": checksum_mismatches,
             "missing_manifest": missing_manifest,
+            "details": details,
         }

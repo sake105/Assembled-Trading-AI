@@ -13,6 +13,8 @@ import math
 import numpy as np
 import pytest
 
+pytest.importorskip("scipy")
+
 from src.assembled_core.qa.robustness import compute_deflated_sharpe
 
 

@@ -9,6 +9,9 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+
+pytest.importorskip("fastapi")
+
 from fastapi.testclient import TestClient
 
 # Import pandas Timedelta for test data

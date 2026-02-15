@@ -74,18 +74,31 @@ def test_evidence_pack_written_with_files(tmp_path: Path) -> None:
         include_optional=True,
     )
 
-    # Verify return values
+    # Verify return values (return schema stable: files_count, zip_entries_count, zip_compression, source, source_path)
     assert "pack_path" in result
     assert "pack_manifest_path" in result
     assert "n_files" in result
     assert result["n_files"] > 0
+    assert "files_count" in result
+    assert "zip_entries_count" in result
+    assert "zip_compression" in result
+    assert "source" in result
+    assert "source_path" in result
+    assert result["zip_entries_count"] == result["n_files"]
+
+    # Counts must match pack manifest
+    manifest_path = output_dir / result["pack_manifest_path"]
+    manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert result["files_count"] == len(manifest_data.get("files", []))
+    assert result["zip_entries_count"] == manifest_data.get("zip_entries_count")
+    assert result["source"] == manifest_data.get("source")
+    assert result["source_path"] == manifest_data.get("source_path")
 
     # Verify ZIP file exists
     zip_path = output_dir / result["pack_path"]
     assert zip_path.exists(), f"ZIP file should exist: {zip_path}"
 
-    # Verify manifest file exists
-    manifest_path = output_dir / result["pack_manifest_path"]
+    # Verify manifest file exists (manifest_path already loaded above for count checks)
     assert manifest_path.exists(), f"Manifest file should exist: {manifest_path}"
 
     # Verify ZIP contains expected files (including manifest)
@@ -112,14 +125,16 @@ def test_evidence_pack_written_with_files(tmp_path: Path) -> None:
     assert manifest_data.get("as_of_date") is not None
     assert "files" in manifest_data
     assert len(manifest_data["files"]) == result["n_files"]
-    # Evidence Index source: evidence index JSON must be present as source artifact
+    # Evidence Index source: source_path must match exactly one files[] entry
     assert manifest_data.get("source") == "evidence_index"
     evidence_index_name = f"evidence_{run_id}/evidence_{date_str}.json"
+    assert manifest_data.get("source_path") == evidence_index_name
     source_entries = [
         entry for entry in manifest_data["files"]
         if entry.get("path") == evidence_index_name
     ]
     assert len(source_entries) == 1
+    assert source_entries[0].get("path") == manifest_data["source_path"]
     assert source_entries[0].get("source_type") == "evidence_index"
     
     # Verify required_missing and optional_missing fields
@@ -207,6 +222,13 @@ def test_evidence_pack_handles_missing_optional_files(tmp_path: Path) -> None:
             f"optional_missing should be keys: {pack_manifest['optional_missing']}"
         )
 
+    # Count fields should be consistent: one required present (ledger), no required missing,
+    # optional_missing_count matches optional_missing length, optional_present_count is zero here.
+    assert pack_manifest.get("required_present_count") == 1
+    assert pack_manifest.get("required_missing_count") == 0
+    assert pack_manifest.get("optional_missing_count") == len(pack_manifest["optional_missing"])
+    assert pack_manifest.get("optional_present_count") == 0
+
 
 def test_evidence_pack_strict_raises_when_optional_missing(tmp_path: Path) -> None:
     """build_evidence_pack(strict=True) raises ValueError when optional files are missing."""
@@ -247,4 +269,127 @@ def test_evidence_pack_strict_raises_when_optional_missing(tmp_path: Path) -> No
         )
     msg = str(exc_info.value)
     assert "optional" in msg.lower() or "missing" in msg.lower()
+    assert msg.encode("ascii", errors="ignore").decode("ascii") == msg
+
+
+def test_evidence_pack_includes_manifest_from_evidence_index(tmp_path: Path) -> None:
+    """Evidence pack includes manifest file when manifest_path is set in Evidence Index."""
+    output_dir = tmp_path / "output"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    run_id = "pack_with_manifest"
+    as_of = pd.Timestamp("2025-01-15", tz="UTC")
+    date_str = "2025-01-15"
+
+    # Create required artifacts
+    broker_snapshot_path = output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    ledger_pack_path = output_dir / "ledger_run" / "ledger_events.parquet"
+    reconcile_report_path = output_dir / "reconcile_run" / f"reconcile_{date_str}.json"
+    accounting_report_path = output_dir / "accounting_report_run" / f"accounting_{date_str}.json"
+
+    for p in [
+        broker_snapshot_path,
+        ledger_pack_path,
+        reconcile_report_path,
+        accounting_report_path,
+    ]:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("dummy content", encoding="utf-8")
+
+    # Create a manifest file in the output root
+    manifest_path = output_dir / "run_manifest_1d.json"
+    manifest_path.write_text('{"schema_version": 1, "freq": "1d"}\n', encoding="utf-8")
+
+    # Evidence Index paths include manifest_path as optional field
+    evidence_paths = {
+        "broker_snapshot_path": broker_snapshot_path,
+        "ledger_pack_path": ledger_pack_path,
+        "reconcile_report_path": reconcile_report_path,
+        "accounting_report_path": accounting_report_path,
+        "manifest_path": manifest_path,
+    }
+
+    write_evidence_index_json(
+        output_dir=output_dir,
+        run_id=run_id,
+        as_of_date=as_of,
+        paths=evidence_paths,
+        broker_meta={"broker_view_source": "stored_snapshot"},
+        reconciliation_ok=True,
+    )
+
+    # Build evidence pack
+    result = build_evidence_pack(
+        output_dir=output_dir,
+        run_id=run_id,
+        as_of_date=as_of,
+        include_optional=True,
+    )
+
+    # ZIP must contain the manifest file (from Evidence Index)
+    zip_path = output_dir / result["pack_path"]
+    assert zip_path.exists()
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        namelist = zf.namelist()
+    assert "run_manifest_1d.json" in namelist
+
+    # Pack manifest JSON must include entry with source_type == "manifest"
+    pack_manifest_path = output_dir / result["pack_manifest_path"]
+    with pack_manifest_path.open("r", encoding="utf-8") as f:
+        pack_manifest = json.load(f)
+
+    entries = [
+        entry
+        for entry in pack_manifest.get("files", [])
+        if entry.get("path") == "run_manifest_1d.json"
+    ]
+    assert len(entries) == 1
+    assert entries[0].get("source_type") == "manifest"
+    # source_path is the evidence index path (pack source is evidence_index); must match exactly one files[] entry
+    evidence_index_path = f"evidence_{run_id}/evidence_{date_str}.json"
+    assert pack_manifest.get("source_path") == evidence_index_path
+    source_entries = [e for e in pack_manifest["files"] if e.get("path") == evidence_index_path]
+    assert len(source_entries) == 1
+
+
+def test_source_path_mismatch_raises(tmp_path: Path) -> None:
+    """build_evidence_pack raises ValueError when source_path does not match exactly one files[] entry."""
+    from unittest.mock import patch
+
+    output_dir = tmp_path / "output"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    run_id = "mismatch_run"
+    as_of = pd.Timestamp("2025-01-15", tz="UTC")
+    date_str = "2025-01-15"
+
+    # Create one file so collection has content, but we will mock source_path to not match
+    ledger_path = output_dir / "ledger_run" / "ledger_events.parquet"
+    ledger_path.parent.mkdir(parents=True, exist_ok=True)
+    ledger_path.write_text("dummy", encoding="utf-8")
+
+    def fake_collect(*args: object, **kwargs: object) -> dict:
+        # Return a collection where source_path is set but no file has that path (0 matches).
+        return {
+            "source": "evidence_index",
+            "source_path": "evidence_mismatch/evidence_2025-01-15.json",
+            "files": [(ledger_path, "ledger_run/ledger_events.parquet")],
+            "missing_required": [],
+            "missing_optional": [],
+            "optional_zip_paths": [],
+            "required_present_keys": ["ledger_pack_path"],
+            "optional_present_keys": [],
+        }
+
+    with patch("src.assembled_core.accounting.evidence_pack.collect_evidence_files", side_effect=fake_collect):
+        with pytest.raises(ValueError) as exc_info:
+            build_evidence_pack(
+                output_dir=output_dir,
+                run_id=run_id,
+                as_of_date=as_of,
+                include_optional=True,
+            )
+    msg = str(exc_info.value)
+    assert "source_path must match exactly one" in msg
+    assert f"run_id={run_id}" in msg
+    assert f"as_of_date={date_str}" in msg
     assert msg.encode("ascii", errors="ignore").decode("ascii") == msg

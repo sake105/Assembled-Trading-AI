@@ -1,0 +1,63 @@
+# GitHub Actions CI Workflow - Ops Evidence (Windows)
+#
+# Purpose: Standalone Windows job that runs only the ops_evidence preset.
+# Failure turns this workflow red (visible at a glance). Does not block other workflows (separate workflow).
+#
+# Triggers: push to main/feature/*, pull_request on main
+name: Ops Evidence CI (Windows)
+
+on:
+  push:
+    branches: [main, "feature/*"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  windows-ops-evidence:
+    name: Ops Evidence (Import -> Pack -> Verify + CLI Smoke)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-ops-evidence-${{ hashFiles('**/pyproject.toml', '**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-ops-evidence-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas pyarrow pytest ruff
+
+      - name: Run ops_evidence preset checks
+        id: ops_evidence_checks
+        run: |
+          $output = py -3 scripts/dev/run_checks.py --preset ops_evidence --skip-compile --skip-ruff 2>&1
+          $exitCode = $LASTEXITCODE
+          if ($null -ne $output) { $output | Set-Content -Path ops_evidence_log.txt -Encoding utf8 } else { "No output captured" | Set-Content -Path ops_evidence_log.txt -Encoding utf8 }
+          $lines = Get-Content -Path ops_evidence_log.txt -Tail 200 -ErrorAction SilentlyContinue
+          if ($null -ne $lines) { $lines | Set-Content -Path ops_evidence_tail.txt -Encoding utf8 } else { "No tail" | Set-Content -Path ops_evidence_tail.txt -Encoding utf8 }
+          Write-Output $output
+          exit $exitCode
+
+      - name: Upload ops_evidence logs (always) and output on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ops-evidence-ci-logs
+          path: |
+            ops_evidence_log.txt
+            ops_evidence_tail.txt
+            output/
+          if-no-files-found: ignore

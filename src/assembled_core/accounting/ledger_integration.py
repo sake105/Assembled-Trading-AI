@@ -329,8 +329,8 @@ def build_ledger_from_trades(
             as_of=as_of_date,
             start_cash=start_cash,
             reconciliation_result=reconciliation_result,
-            ledger_pack_path=str(ledger_base.relative_to(output_dir)),
-            reconcile_report_path=str(reconcile_report_path) if reconcile_report_path else None,
+            ledger_pack_path=ledger_base.relative_to(output_dir).as_posix(),
+            reconcile_report_path=reconcile_report_path.as_posix() if reconcile_report_path else None,
             costs_breakdown=costs_breakdown,
             broker_meta=broker_meta,
         )
@@ -341,8 +341,8 @@ def build_ledger_from_trades(
             as_of=as_of_date,
             start_cash=start_cash,
             reconciliation_result=reconciliation_result,
-            ledger_pack_path=str(ledger_base.relative_to(output_dir)),
-            reconcile_report_path=str(reconcile_report_path) if reconcile_report_path else None,
+            ledger_pack_path=ledger_base.relative_to(output_dir).as_posix(),
+            reconcile_report_path=reconcile_report_path.as_posix() if reconcile_report_path else None,
             costs_breakdown=costs_breakdown,
             broker_meta=broker_meta,
         )
@@ -406,17 +406,25 @@ def build_ledger_from_trades(
     except Exception as e:
         logger.warning(f"Accounting report generation failed: {e}", exc_info=True)
 
+    def _posix_path(p: Path | None) -> str | None:
+        if p is None:
+            return None
+        try:
+            return p.as_posix() if isinstance(p, Path) else str(p).replace("\\", "/")
+        except Exception:
+            return str(p).replace("\\", "/")
+
     return {
-        "ledger_pack_path": str(ledger_base.relative_to(output_dir)),
+        "ledger_pack_path": ledger_base.relative_to(output_dir).as_posix(),
         "positions_df": positions_df,
         "cash_balance": cash_balance,
         "reconciliation_result": reconciliation_result,
-        "reconcile_report_path": str(reconcile_report_path) if reconcile_report_path else None,
+        "reconcile_report_path": _posix_path(reconcile_report_path) if reconcile_report_path else None,
         "reconciliation_ok": reconciliation_ok,
-        "accounting_report_path": str(accounting_report_path) if accounting_report_path else None,
-        "broker_snapshot_path": str(broker_snapshot_path.relative_to(output_dir)) if broker_snapshot_path else None,
+        "accounting_report_path": _posix_path(accounting_report_path) if accounting_report_path else None,
+        "broker_snapshot_path": broker_snapshot_path.relative_to(output_dir).as_posix() if broker_snapshot_path else None,
         "broker_meta": broker_meta,
-        "evidence_index_path": str(evidence_index_path) if evidence_index_path else None,
+        "evidence_index_path": _posix_path(evidence_index_path) if evidence_index_path else None,
         "evidence_pack_path": evidence_pack_path,
         "evidence_pack_manifest_path": evidence_pack_manifest_path,
     }

@@ -246,3 +246,69 @@ def test_pack_zip_namelist_sorted(tmp_path: Path) -> None:
     
     # Verify pack manifest is in ZIP
     assert any("pack_manifest_" in name for name in namelist), "Pack manifest should be in ZIP"
+
+
+def test_pack_compression_stored_deterministic_bytes(tmp_path: Path) -> None:
+    """Pack with compression=stored yields deterministic ZIP bytes and manifest has zip_compression."""
+    output_dir = tmp_path / "output"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    run_id = "pack_stored"
+    as_of = pd.Timestamp("2025-01-15", tz="UTC")
+    date_str = "2025-01-15"
+
+    broker_snapshot_path = output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    ledger_pack_path = output_dir / "ledger_run" / "ledger_events.parquet"
+    reconcile_report_path = output_dir / "reconcile_run" / f"reconcile_{date_str}.json"
+    for p in [broker_snapshot_path, ledger_pack_path, reconcile_report_path]:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("dummy content", encoding="utf-8")
+
+    evidence_paths = {
+        "broker_snapshot_path": broker_snapshot_path,
+        "ledger_pack_path": ledger_pack_path,
+        "reconcile_report_path": reconcile_report_path,
+        "accounting_report_path": None,
+        "manifest_path": None,
+    }
+    write_evidence_index_json(
+        output_dir=output_dir,
+        run_id=run_id,
+        as_of_date=as_of,
+        paths=evidence_paths,
+        broker_meta=None,
+        reconciliation_ok=None,
+    )
+
+    result1 = build_evidence_pack(
+        output_dir=output_dir,
+        run_id=run_id,
+        as_of_date=as_of,
+        include_optional=True,
+        compression="stored",
+    )
+    zip_path1 = output_dir / result1["pack_path"]
+    manifest_path1 = output_dir / result1["pack_manifest_path"]
+    zip_bytes1 = zip_path1.read_bytes()
+    with manifest_path1.open("r", encoding="utf-8") as f:
+        manifest1 = json.load(f)
+    assert manifest1.get("zip_compression") == "stored", "Manifest must record zip_compression: stored"
+
+    zip_path1.unlink()
+    manifest_path1.unlink()
+
+    result2 = build_evidence_pack(
+        output_dir=output_dir,
+        run_id=run_id,
+        as_of_date=as_of,
+        include_optional=True,
+        compression="stored",
+    )
+    zip_path2 = output_dir / result2["pack_path"]
+    manifest_path2 = output_dir / result2["pack_manifest_path"]
+    zip_bytes2 = zip_path2.read_bytes()
+    with manifest_path2.open("r", encoding="utf-8") as f:
+        manifest2 = json.load(f)
+    assert manifest2.get("zip_compression") == "stored"
+
+    assert zip_bytes1 == zip_bytes2, "Two builds with compression=stored must yield identical ZIP bytes"

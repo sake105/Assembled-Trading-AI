@@ -1543,10 +1543,24 @@ The evidence index serves as:
 - `schema_version`: Schema version (currently `1`)
 - `run_id`: Run identifier
 - `as_of_date`: Report date (date-only `YYYY-MM-DD` for byte-determinism; no time or timezone)
-- `paths`: Dictionary of relative POSIX paths to artifacts (may be `None` if not available)
+- `paths`: Dictionary of relative POSIX paths to artifacts (may be `None` if not available). All paths are:
+  - Relative to `output_dir` (no absolute paths)
+  - POSIX-only (`/`), no backslashes
+  - Deterministically serialized (same order, sort_keys=True)
+- `paths.manifest_path`: Optional path to the orchestrator manifest (`run_manifest_<freq>.json`). This field is:
+  - Backfilled by the orchestrator **after** the manifest is written
+  - Used by the Evidence Pack exporter to include the manifest directly from the Evidence Index (no fallback needed when present)
 - `broker_meta`: Optional broker metadata (same structure as in reconciliation reports)
 - `reconciliation_ok`: Optional reconciliation status (`true`, `false`, or `null`)
 - `tool_version`: Version of the tool that generated the index
+
+**Backfill behavior (orchestrator):**
+- `ledger_integration.py` initially writes the Evidence Index with `paths.manifest_path` set to `null`.
+- After the orchestrator writes `run_manifest_<freq>.json`, it performs a best-effort backfill:
+  - Loads the Evidence Index JSON
+  - Sets `paths.manifest_path` to the relative POSIX path of the manifest
+  - Re-writes the Evidence Index deterministically (`sort_keys=True`, `indent=2`, trailing newline, atomic temp→replace)
+  - On any error, logs a warning and continues (Evidence Index remains valid without manifest_path).
 
 ### How to Read
 
@@ -1918,80 +1932,9 @@ python scripts/export_evidence_pack.py \
 - Contents: File list with SHA256 checksums, sizes, source types
 - Schema: `schema_version: 1`, deterministic JSON
 
-### Golden Path: Evidence Index -> Evidence Pack
+### Golden Path (Import -> Require -> Pack -> Verify -> Archive)
 
-**Step 1: Run EOD/Backtest with Evidence Pack:**
-```bash
-# EOD with automatic pack creation
-python scripts/run_eod_pipeline.py \
-  --freq 1d \
-  --write-evidence-pack
-
-# Or Backtest
-python scripts/run_backtest_strategy.py \
-  --strategy ema \
-  --freq 1d \
-  --write-evidence-pack
-```
-
-**Step 2: Verify Evidence Pack:**
-```bash
-# Check pack exists
-ls output/evidence_<run_id>/pack_*.zip
-
-# Check manifest
-cat output/evidence_<run_id>/pack_manifest_*.json
-
-# Or use standalone export (if pack wasn't created automatically)
-python scripts/export_evidence_pack.py \
-  --run-id <run_id> \
-  --as-of-date 2025-01-15
-```
-
-**Step 3: Verify Pack Contents:**
-```bash
-# Extract and inspect (optional)
-unzip -l output/evidence_<run_id>/pack_2025-01-15.zip
-
-# Verify checksums from manifest
-python -c "import json; m=json.load(open('output/evidence_<run_id>/pack_manifest_2025-01-15.json')); print(json.dumps(m['files'], indent=2))"
-```
-
-### Golden Path: Evidence Pack Archive
-
-Copy-paste workflow (Windows-compatible, ASCII-only) that ends with a **verified** ZIP in an archive folder. **Only verified ZIPs are archived:** the verify step is a hard gate; if it fails, the script exits and the archive step is never run.
-
-```batch
-set RUN_ID=ledger_eod_1d
-set AS_OF=2025-01-15
-set OUT=output
-set ARCHIVE=archive
-
-mkdir %ARCHIVE% 2>nul
-
-REM Optional: import broker snapshot first
-REM python scripts/import_broker_snapshot.py --input broker_positions_%AS_OF%.json --run-id ops_%AS_OF% --as-of-date %AS_OF% --output-dir %OUT% --store-parquet
-
-REM Run EOD with evidence pack creation
-python scripts/run_eod_pipeline.py --freq 1d --write-evidence-pack
-
-REM Fallback: if pack was not created by EOD, export standalone (optional: add --verify-after-build to enforce verify in one step)
-python scripts/export_evidence_pack.py --run-id %RUN_ID% --as-of-date %AS_OF% --output-dir %OUT%
-
-REM Gate: verify pack offline; only continue if exit 0 (no archive without verify)
-python scripts/verify_evidence_pack.py --zip %OUT%/evidence_%RUN_ID%/pack_%AS_OF%.zip
-if errorlevel 1 echo Verify failed - not archiving && exit /b 1
-
-REM Archive only after verify succeeded (verified ZIPs only)
-copy /Y "%OUT%\evidence_%RUN_ID%\pack_%AS_OF%.zip" "%ARCHIVE%\pack_%RUN_ID%_%AS_OF%.zip"
-echo Archived to %ARCHIVE%\pack_%RUN_ID%_%AS_OF%.zip
-```
-
-- **Optional:** Uncomment the broker snapshot import if you need to import external positions before EOD.
-- **EOD:** Creates the pack under `output/evidence_<run_id>/pack_<date>.zip` when `--write-evidence-pack` is set.
-- **Fallback:** Export step is idempotent; run it if the pack was not produced by EOD (e.g. different run_id/date).
-- **Verify (gate):** Must exit 0 before archiving. If verify fails, the batch exits with `exit /b 1` and the archive step is skipped; fix the pack and re-run.
-- **Archive:** Only runs after verify succeeded. Single copy to a folder of your choice; filenames are ASCII-only.
+**Single canonical workflow:** **docs/OPS_EVIDENCE_GOLDEN_PATH.md** – When to use, 5-step Windows block (py -3), Evidence Index vs manifest fallback, verify gate, artifact locations. Use that doc for copy-paste; no duplication here.
 
 ### Verify Evidence Pack (offline)
 
@@ -2016,7 +1959,7 @@ python scripts/verify_evidence_pack.py --zip path/to/pack_2025-01-15.zip --json
 - Error (e.g. unsupported schema): `ERROR: ...` on stderr.
 
 **Output with `--json`:**
-- Single JSON object with keys: `ok`, `n_files`, `missing_manifest`, `bad_paths_count`, `checksum_mismatches_count`. Deterministic: `sort_keys=True`, `indent=2`, trailing newline.
+- Single JSON object (stable schema): `schema_version`, `zip_path`, `ok`, `error_code`, `missing_manifest`, `n_files`, `bad_paths_count`, `checksum_mismatches_count`, `details`. See **docs/EVIDENCE_PACK.md** (Verify Evidence Pack --json output schema). Deterministic: `sort_keys=True`, `indent=2`, trailing newline.
 
 **Interpretation:**
 - `ok=True` – Pack is valid (manifest present, schema version 1, all checksums match, no illegal ZIP paths).

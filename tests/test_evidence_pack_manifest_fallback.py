@@ -171,11 +171,29 @@ def test_manifest_fallback_sets_source_fields(tmp_path: Path) -> None:
     assert pack_manifest.get("source") == "manifest"
     assert pack_manifest.get("source_path") == "run_manifest_1d.json"
 
-    # Source artifact (manifest) must be in files[] exactly once with source_type="manifest"
+    # source_path must match exactly one files[] entry (source artifact in pack)
     manifest_entries = [
         entry for entry in pack_manifest["files"]
         if entry.get("path") == "run_manifest_1d.json"
     ]
     assert len(manifest_entries) == 1
+    assert manifest_entries[0].get("path") == pack_manifest["source_path"]
     assert manifest_entries[0].get("source_type") == "manifest"
+
+    # ZIP must also contain the manifest exactly once
+    zip_path = output_dir / result["pack_path"]
+    assert zip_path.exists()
+    import zipfile
+
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        namelist = zf.namelist()
+    manifest_names = [name for name in namelist if name == "run_manifest_1d.json"]
+    assert len(manifest_names) == 1
+
+    # Count fields: manifest source has 3 required (ledger, reconcile, accounting) and
+    # 1 optional present (broker snapshot), no missing keys.
+    assert pack_manifest.get("required_present_count") == 3
+    assert pack_manifest.get("required_missing_count") == 0
+    assert pack_manifest.get("optional_present_count") == 1
+    assert pack_manifest.get("optional_missing_count") == 0
 

@@ -163,6 +163,7 @@ def test_accounting_report_csv_fixed_schema_and_broker_columns(tmp_path: Path) -
         "broker_snapshot_run_id",
         "broker_snapshot_date",
         "broker_snapshot_path",
+        "schema_version",
     ]
 
     assert list(df.columns) == expected_columns

@@ -6,11 +6,25 @@ reconciliation report, accounting report, manifest).
 
 The goal is to make Ops/Support workflows easier by having a single, stable
 entry point per run/day that references all downstream files.
+
+Paths schema: The "paths" object in the JSON always contains all keys (missing -> null).
+Stable key order via sort_keys=True on dump. Keys: broker_snapshot_path, ledger_pack_path,
+reconcile_report_path, accounting_report_path, manifest_path.
 """
 
 from __future__ import annotations
 
+# Fixed paths schema: all keys always present (value None if missing). Order stable via sort_keys.
+PATHS_KEYS = (
+    "broker_snapshot_path",
+    "ledger_pack_path",
+    "reconcile_report_path",
+    "accounting_report_path",
+    "manifest_path",
+)
+
 import json
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -74,24 +88,16 @@ def write_evidence_index_json(
     evidence_dir.mkdir(parents=True, exist_ok=True)
     json_path = evidence_dir / f"evidence_{date_str}.json"
 
-    # Normalize known paths to POSIX + relative where possible
-    broker_snapshot_path = _rel_posix(paths.get("broker_snapshot_path"), base)
-    ledger_pack_path = _rel_posix(paths.get("ledger_pack_path"), base)
-    reconcile_report_path = _rel_posix(paths.get("reconcile_report_path"), base)
-    accounting_report_path = _rel_posix(paths.get("accounting_report_path"), base)
-    manifest_path = _rel_posix(paths.get("manifest_path"), base)
+    # Normalize known paths to POSIX + relative where possible; missing -> None (paths always has all keys)
+    paths_block: dict[str, Any] = {}
+    for key in PATHS_KEYS:
+        paths_block[key] = _rel_posix(paths.get(key), base)
 
     evidence: dict[str, Any] = {
         "schema_version": 1,
         "run_id": run_id,
         "as_of_date": date_str,
-        "paths": {
-            "broker_snapshot_path": broker_snapshot_path,
-            "ledger_pack_path": ledger_pack_path,
-            "reconcile_report_path": reconcile_report_path,
-            "accounting_report_path": accounting_report_path,
-            "manifest_path": manifest_path,
-        },
+        "paths": paths_block,
         # Optional metadata
         "reconciliation_ok": reconciliation_ok,
         "tool_version": CORE_VERSION,
@@ -100,9 +106,31 @@ def write_evidence_index_json(
     if broker_meta is not None:
         evidence["broker_meta"] = broker_meta
 
-    # Write JSON deterministically (sort_keys=True, indent=2, trailing newline)
-    payload = json.dumps(evidence, sort_keys=True, indent=2, default=str)
-    json_path.write_text(payload + "\n", encoding="utf-8")
+    # Write JSON deterministically (sort_keys=True, indent=2, trailing newline); atomic write (temp + replace)
+    # evidence is schema-fixed: only dict/list/str/int/bool/None (PATHS_KEYS + date-only as_of_date)
+    content = json.dumps(evidence, sort_keys=True, indent=2) + "\n"
+    json_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            newline="\n",
+            delete=False,
+            dir=str(json_path.parent),
+            prefix=json_path.name + ".tmp.",
+            suffix=".json",
+        ) as f:
+            tmp_path = Path(f.name)
+            f.write(content)
+            f.flush()
+        tmp_path.replace(json_path)
+    finally:
+        if tmp_path is not None and tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except Exception:
+                pass
 
     return json_path
 
