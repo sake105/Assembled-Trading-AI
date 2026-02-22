@@ -1,0 +1,19 @@
+{
+  "variants": [
+    {"id": "trend_baseline", "description": "Default trend baseline (EMA 20/60, costs on)", "strategy": "trend_baseline", "params": {}, "enabled_components": ["trend_signals", "costs"]},
+    {"id": "trend_baseline_cost_0.5x", "description": "Trend baseline with half commission", "strategy": "trend_baseline", "params": {"commission_scale": 0.5}, "enabled_components": ["trend_signals", "costs"]},
+    {"id": "trend_baseline_cost_2x", "description": "Trend baseline with double commission", "strategy": "trend_baseline", "params": {"commission_scale": 2}, "enabled_components": ["trend_signals", "costs"]},
+    {"id": "event_insider_shipping", "description": "Event-based strategy", "strategy": "event_insider_shipping", "params": {}, "enabled_components": ["event_signals", "costs"]},
+    {"id": "event_insider_shipping_cost_0.5x", "description": "Event strategy half commission", "strategy": "event_insider_shipping", "params": {"commission_scale": 0.5}, "enabled_components": ["event_signals", "costs"]},
+    {"id": "event_insider_shipping_cost_2x", "description": "Event strategy double commission", "strategy": "event_insider_shipping", "params": {"commission_scale": 2}, "enabled_components": ["event_signals", "costs"]},
+    {"id": "multifactor_long_short", "description": "Multi-factor long/short", "strategy": "multifactor_long_short", "params": {"bundle_path": "config/factor_bundles/macro_world_etfs_core_bundle.yaml"}, "enabled_components": ["multifactor_signal", "costs"]},
+    {"id": "trend_baseline_rsi_filter", "description": "Trend + RSI filter 55<=RSI<=80", "strategy": "trend_baseline_rsi_filter", "params": {"rsi_entry": 55, "rsi_overbought": 80}, "enabled_components": ["trend_signals", "rsi_filter", "costs"]},
+    {"id": "trend_baseline_vol_filter", "description": "Trend + ATR vol filter", "strategy": "trend_baseline_vol_filter", "params": {"vol_cap": 0.3}, "enabled_components": ["trend_signals", "vol_filter", "costs"]},
+    {"id": "trend_baseline_regime_gate", "description": "Trend only when risk_on", "strategy": "trend_baseline_regime_gate", "params": {"risk_on_threshold": 0}, "enabled_components": ["trend_signals", "regime_gate", "costs"]},
+    {"id": "trend_baseline_realized_vol_filter", "description": "Trend + realized vol rv_20<=0.30", "strategy": "trend_baseline_realized_vol_filter", "params": {"rv_cap": 0.30, "rv_window": 20}, "enabled_components": ["trend_signals", "realized_vol_filter", "costs"]},
+    {"id": "trend_baseline_liquidity_filter", "description": "Trend + liquidity volume_zscore>=0", "strategy": "trend_baseline_liquidity_filter", "params": {"liquidity_min": 0}, "enabled_components": ["trend_signals", "liquidity_filter", "costs"]},
+    {"id": "trend_baseline_rsi_vol_combo_filter", "description": "Trend + RSI band AND ATR vol cap", "strategy": "trend_baseline_rsi_vol_combo_filter", "params": {"rsi_entry": 55, "rsi_overbought": 80, "vol_cap": 0.30}, "enabled_components": ["trend_signals", "rsi_filter", "vol_filter", "costs"]}
+  ],
+  "baseline_id": "trend_baseline",
+  "ablation_component_ids": ["trend_baseline_cost_0.5x", "trend_baseline_cost_2x", "event_insider_shipping", "multifactor_long_short", "trend_baseline_rsi_filter", "trend_baseline_vol_filter", "trend_baseline_regime_gate", "trend_baseline_realized_vol_filter", "trend_baseline_liquidity_filter", "trend_baseline_rsi_vol_combo_filter"]
+}

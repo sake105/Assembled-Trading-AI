@@ -504,12 +504,24 @@ def _generate_orders_default(
     # Rename target qty column back to "target_qty" (alignment function uses "qty")
     target_aligned = target_aligned.rename(columns={"qty": "target_qty"})
     
-    # Now generate orders with aligned positions (fast-path should trigger)
+    # Prices are required to convert target notional to shares; use ctx.prices PIT-filtered if available
+    prices_for_orders = None
+    if ctx.prices is not None and not ctx.prices.empty and "close" in ctx.prices.columns and "symbol" in ctx.prices.columns:
+        if ctx.as_of is not None:
+            as_of_utc = pd.to_datetime(ctx.as_of, utc=True)
+            p_ts = pd.to_datetime(ctx.prices["timestamp"], utc=True)
+            p = ctx.prices.loc[p_ts <= as_of_utc]
+        else:
+            p = ctx.prices
+        if not p.empty:
+            prices_for_orders = p.groupby("symbol", group_keys=False)["close"].last().reset_index()
+    
+    # Now generate orders with aligned positions (prices needed for notional -> shares)
     orders = generate_orders_from_targets(
         target_positions=target_aligned,
         current_positions=current_aligned,
         timestamp=ctx.order_timestamp,
-        prices=None,  # Prices will be added later if needed (via hook or post-processing)
+        prices=prices_for_orders,
     )
     
     return orders
@@ -854,6 +866,18 @@ def run_trading_cycle(
         else:
             # Default: call signal_fn
             result.signals = ctx.signal_fn(result.prices_with_features)
+        
+        # In backtest mode with history slice, signal_fn returns one row per (timestamp, symbol) for full history.
+        # Keep only the latest signal per symbol (PIT: state at rebalance = last row per symbol in slice).
+        if ctx.mode == "backtest" and "timestamp" in result.signals.columns and not result.signals.empty:
+            result.signals["_ts"] = pd.to_datetime(result.signals["timestamp"], utc=True)
+            result.signals = (
+                result.signals.sort_values("_ts", ascending=True)
+                .groupby("symbol", group_keys=False)
+                .last()
+                .reset_index()
+                .drop(columns=["_ts"])
+            )
         
         # Validate signals format
         required_signal_cols = ["timestamp", "symbol", "direction"]

@@ -20,6 +20,7 @@ import sys
 from contextlib import nullcontext
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 # Import core modules
@@ -50,6 +51,7 @@ from src.assembled_core.pipeline.trading_cycle import TradingContext
 from src.assembled_core.qa.metrics import compute_all_metrics
 from src.assembled_core.qa.qa_gates import QAResult, evaluate_all_gates
 from src.assembled_core.reports.daily_qa_report import generate_qa_report
+from src.assembled_core.reports.metrics_export import export_metrics_json
 from src.assembled_core.signals.rules_trend import generate_trend_signals_from_prices
 from src.assembled_core.utils.timing import timed_step, write_timings_json
 from src.assembled_core.signals.rules_event_insider_shipping import (
@@ -82,6 +84,208 @@ def create_trend_baseline_signal_fn(ma_fast: int, ma_slow: int):
         return generate_trend_signals_from_prices(
             prices_df, ma_fast=ma_fast, ma_slow=ma_slow
         )
+
+    return signal_fn
+
+
+def create_trend_rsi_filter_signal_fn(
+    ma_fast: int, ma_slow: int, rsi_entry: float = 55.0, rsi_overbought: float = 80.0
+):
+    """Trend baseline + RSI filter: only LONG if rsi_entry <= RSI <= rsi_overbought. Dev-only, no default change."""
+
+    def signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
+        sig = generate_trend_signals_from_prices(prices_df, ma_fast=ma_fast, ma_slow=ma_slow)
+        rsi_col = None
+        for c in ("rsi_14", "ta_rsi_14_v1"):
+            if c in prices_df.columns:
+                rsi_col = c
+                break
+        if rsi_col is None:
+            return sig
+        merged = sig.merge(
+            prices_df[["timestamp", "symbol", rsi_col]].drop_duplicates(["timestamp", "symbol"]),
+            on=["timestamp", "symbol"],
+            how="left",
+        )
+        rsi = merged[rsi_col]
+        mask = (rsi >= rsi_entry) & (rsi <= rsi_overbought)
+        merged["direction"] = np.where(
+            (merged["direction"] == "LONG") & mask,
+            "LONG",
+            "FLAT",
+        )
+        merged["score"] = np.where(merged["direction"] == "FLAT", 0.0, merged["score"])
+        return merged[["timestamp", "symbol", "direction", "score"]]
+
+    return signal_fn
+
+
+def create_trend_vol_filter_signal_fn(
+    ma_fast: int, ma_slow: int, vol_cap: float = 0.30
+):
+    """Trend baseline + vol filter: only LONG if ATR_pct <= vol_cap. Dev-only."""
+
+    def signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
+        sig = generate_trend_signals_from_prices(prices_df, ma_fast=ma_fast, ma_slow=ma_slow)
+        atr_col, close_col = None, "close"
+        for c in ("atr_14", "ta_atr_14_v1"):
+            if c in prices_df.columns:
+                atr_col = c
+                break
+        if atr_col is None or close_col not in prices_df.columns:
+            return sig
+        merged = sig.merge(
+            prices_df[["timestamp", "symbol", atr_col, close_col]].drop_duplicates(["timestamp", "symbol"]),
+            on=["timestamp", "symbol"],
+            how="left",
+        )
+        atr_pct = merged[atr_col] / (merged[close_col] + 1e-10)
+        mask = atr_pct <= vol_cap
+        merged["direction"] = np.where(
+            (merged["direction"] == "LONG") & mask,
+            "LONG",
+            "FLAT",
+        )
+        merged["score"] = np.where(merged["direction"] == "FLAT", 0.0, merged["score"])
+        return merged[["timestamp", "symbol", "direction", "score"]]
+
+    return signal_fn
+
+
+def create_trend_regime_gate_signal_fn(
+    ma_fast: int, ma_slow: int, risk_on_threshold: float = 0.0
+):
+    """Trend baseline + regime gate: only LONG when risk_on_off_score > threshold. Dev-only."""
+
+    def signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
+        from src.assembled_core.features.market_breadth import compute_risk_on_off_indicator
+
+        sig = generate_trend_signals_from_prices(prices_df, ma_fast=ma_fast, ma_slow=ma_slow)
+        try:
+            risk_df = compute_risk_on_off_indicator(prices_df)
+        except Exception:
+            return sig
+        if risk_df.empty or "risk_on_off_score" not in risk_df.columns:
+            return sig
+        risk_df = risk_df[["timestamp", "risk_on_off_score"]].drop_duplicates("timestamp")
+        merged = sig.merge(risk_df, on="timestamp", how="left")
+        risk_on = (merged["risk_on_off_score"] > risk_on_threshold).fillna(False)
+        merged["direction"] = np.where(
+            (merged["direction"] == "LONG") & risk_on,
+            "LONG",
+            "FLAT",
+        )
+        merged["score"] = np.where(merged["direction"] == "FLAT", 0.0, merged["score"])
+        return merged[["timestamp", "symbol", "direction", "score"]]
+
+    return signal_fn
+
+
+def create_trend_realized_vol_filter_signal_fn(
+    ma_fast: int, ma_slow: int, vol_cap: float = 0.30, rv_window: int = 20
+):
+    """Trend baseline + realized vol filter: only LONG when rv <= vol_cap. Dev-only."""
+
+    def signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
+        from src.assembled_core.features.ta_liquidity_vol_factors import add_realized_volatility
+
+        rv_col = f"rv_{rv_window}"
+        if rv_col not in prices_df.columns:
+            try:
+                prices_df = add_realized_volatility(prices_df, windows=[rv_window])
+            except Exception:
+                return generate_trend_signals_from_prices(prices_df, ma_fast=ma_fast, ma_slow=ma_slow)
+        if rv_col not in prices_df.columns:
+            return generate_trend_signals_from_prices(prices_df, ma_fast=ma_fast, ma_slow=ma_slow)
+        sig = generate_trend_signals_from_prices(prices_df, ma_fast=ma_fast, ma_slow=ma_slow)
+        merged = sig.merge(
+            prices_df[["timestamp", "symbol", rv_col]].drop_duplicates(["timestamp", "symbol"]),
+            on=["timestamp", "symbol"],
+            how="left",
+        )
+        rv = merged[rv_col]
+        mask = (rv <= vol_cap) & (rv.notna())
+        merged["direction"] = np.where(
+            (merged["direction"] == "LONG") & mask,
+            "LONG",
+            "FLAT",
+        )
+        merged["score"] = np.where(merged["direction"] == "FLAT", 0.0, merged["score"])
+        return merged[["timestamp", "symbol", "direction", "score"]]
+
+    return signal_fn
+
+
+def create_trend_liquidity_filter_signal_fn(
+    ma_fast: int, ma_slow: int, liquidity_min: float = 0.0
+):
+    """Trend baseline + liquidity filter: only LONG when volume_zscore >= liquidity_min. Dev-only."""
+
+    def signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
+        from src.assembled_core.features.ta_liquidity_vol_factors import add_turnover_and_liquidity_proxies
+
+        if "volume_zscore" not in prices_df.columns and "volume" in prices_df.columns:
+            try:
+                prices_df = add_turnover_and_liquidity_proxies(prices_df)
+            except Exception:
+                return generate_trend_signals_from_prices(prices_df, ma_fast=ma_fast, ma_slow=ma_slow)
+        if "volume_zscore" not in prices_df.columns:
+            return generate_trend_signals_from_prices(prices_df, ma_fast=ma_fast, ma_slow=ma_slow)
+        sig = generate_trend_signals_from_prices(prices_df, ma_fast=ma_fast, ma_slow=ma_slow)
+        merged = sig.merge(
+            prices_df[["timestamp", "symbol", "volume_zscore"]].drop_duplicates(["timestamp", "symbol"]),
+            on=["timestamp", "symbol"],
+            how="left",
+        )
+        liq = merged["volume_zscore"].fillna(-1e9)
+        mask = liq >= liquidity_min
+        merged["direction"] = np.where(
+            (merged["direction"] == "LONG") & mask,
+            "LONG",
+            "FLAT",
+        )
+        merged["score"] = np.where(merged["direction"] == "FLAT", 0.0, merged["score"])
+        return merged[["timestamp", "symbol", "direction", "score"]]
+
+    return signal_fn
+
+
+def create_trend_rsi_vol_combo_signal_fn(
+    ma_fast: int, ma_slow: int,
+    rsi_entry: float = 55.0, rsi_overbought: float = 80.0, vol_cap: float = 0.30,
+):
+    """Trend baseline + RSI band AND ATR vol cap. Dev-only."""
+
+    def signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
+        sig = generate_trend_signals_from_prices(prices_df, ma_fast=ma_fast, ma_slow=ma_slow)
+        rsi_col = None
+        for c in ("rsi_14", "ta_rsi_14_v1"):
+            if c in prices_df.columns:
+                rsi_col = c
+                break
+        atr_col = None
+        for c in ("atr_14", "ta_atr_14_v1"):
+            if c in prices_df.columns:
+                atr_col = c
+                break
+        if rsi_col is None or atr_col is None or "close" not in prices_df.columns:
+            return sig
+        merge_cols = ["timestamp", "symbol", rsi_col, atr_col, "close"]
+        merged = sig.merge(
+            prices_df[[c for c in merge_cols if c in prices_df.columns]].drop_duplicates(["timestamp", "symbol"]),
+            on=["timestamp", "symbol"],
+            how="left",
+        )
+        rsi_ok = (merged[rsi_col] >= rsi_entry) & (merged[rsi_col] <= rsi_overbought)
+        atr_pct = merged[atr_col] / (merged["close"] + 1e-10)
+        vol_ok = atr_pct <= vol_cap
+        merged["direction"] = np.where(
+            (merged["direction"] == "LONG") & rsi_ok & vol_ok,
+            "LONG",
+            "FLAT",
+        )
+        merged["score"] = np.where(merged["direction"] == "FLAT", 0.0, merged["score"])
+        return merged[["timestamp", "symbol", "direction", "score"]]
 
     return signal_fn
 
@@ -374,9 +578,22 @@ Examples:
         "--strategy",
         type=str,
         default="trend_baseline",
-        choices=["trend_baseline", "event_insider_shipping", "multifactor_long_short"],
-        help="Strategy name: 'trend_baseline' (EMA crossover), 'event_insider_shipping' (Phase 6 event-based), or 'multifactor_long_short' (multi-factor long/short)",
+        choices=[
+            "trend_baseline", "event_insider_shipping", "multifactor_long_short",
+            "trend_baseline_rsi_filter", "trend_baseline_vol_filter",
+            "trend_baseline_regime_gate", "trend_baseline_realized_vol_filter",
+            "trend_baseline_liquidity_filter", "trend_baseline_rsi_vol_combo_filter",
+        ],
+        help="Strategy: trend_baseline, event, multifactor, trend_*_filter, trend_*_regime_gate, trend_*_rsi_vol_combo",
     )
+
+    parser.add_argument("--rsi-entry", type=float, default=55.0, help="RSI min for LONG (trend_baseline_rsi_filter)")
+    parser.add_argument("--rsi-overbought", type=float, default=80.0, help="RSI max for LONG (trend_baseline_rsi_filter)")
+    parser.add_argument("--vol-cap", type=float, default=0.30, help="ATR/close cap for LONG (trend_baseline_vol_filter)")
+    parser.add_argument("--risk-on-threshold", type=float, default=0.0, help="risk_on_off_score min (trend_baseline_regime_gate)")
+    parser.add_argument("--rv-cap", type=float, default=0.30, help="realized vol cap (trend_baseline_realized_vol_filter)")
+    parser.add_argument("--rv-window", type=int, default=20, help="RV window (trend_baseline_realized_vol_filter)")
+    parser.add_argument("--liquidity-min", type=float, default=0.0, help="volume_zscore min (trend_baseline_liquidity_filter)")
 
     parser.add_argument(
         "--start-capital",
@@ -462,7 +679,21 @@ Examples:
         default=False,
         help="Disable ledger/accounting integration (default: ledger is enabled)",
     )
-    
+
+    parser.add_argument(
+        "--no-strict-session-gate",
+        action="store_true",
+        default=False,
+        help="Use permissive session gate (e.g. for 1d bars with 00:00 UTC timestamps). Default: strict session gate (only fill at session close).",
+    )
+    parser.add_argument(
+        "--rebalance",
+        type=str,
+        choices=["daily", "weekly"],
+        default="daily",
+        help="Rebalance schedule: daily (every bar) or weekly (every 5th bar for 1d). Default: daily.",
+    )
+
     # Broker snapshot arguments (Sprint 13 extension)
     parser.add_argument(
         "--broker-snapshot-policy",
@@ -1022,6 +1253,58 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 ma_fast=ema_config.fast, ma_slow=ema_config.slow
             )
             position_sizing_fn = create_position_sizing_fn()
+        elif args.strategy == "trend_baseline_rsi_filter":
+            ema_config = get_default_ema_config(args.freq)
+            signal_fn = create_trend_rsi_filter_signal_fn(
+                ma_fast=ema_config.fast,
+                ma_slow=ema_config.slow,
+                rsi_entry=args.rsi_entry,
+                rsi_overbought=args.rsi_overbought,
+            )
+            position_sizing_fn = create_position_sizing_fn()
+        elif args.strategy == "trend_baseline_vol_filter":
+            ema_config = get_default_ema_config(args.freq)
+            signal_fn = create_trend_vol_filter_signal_fn(
+                ma_fast=ema_config.fast,
+                ma_slow=ema_config.slow,
+                vol_cap=args.vol_cap,
+            )
+            position_sizing_fn = create_position_sizing_fn()
+        elif args.strategy == "trend_baseline_regime_gate":
+            ema_config = get_default_ema_config(args.freq)
+            signal_fn = create_trend_regime_gate_signal_fn(
+                ma_fast=ema_config.fast,
+                ma_slow=ema_config.slow,
+                risk_on_threshold=args.risk_on_threshold,
+            )
+            position_sizing_fn = create_position_sizing_fn()
+        elif args.strategy == "trend_baseline_realized_vol_filter":
+            ema_config = get_default_ema_config(args.freq)
+            signal_fn = create_trend_realized_vol_filter_signal_fn(
+                ma_fast=ema_config.fast,
+                ma_slow=ema_config.slow,
+                vol_cap=args.rv_cap,
+                rv_window=args.rv_window,
+            )
+            position_sizing_fn = create_position_sizing_fn()
+        elif args.strategy == "trend_baseline_liquidity_filter":
+            ema_config = get_default_ema_config(args.freq)
+            signal_fn = create_trend_liquidity_filter_signal_fn(
+                ma_fast=ema_config.fast,
+                ma_slow=ema_config.slow,
+                liquidity_min=args.liquidity_min,
+            )
+            position_sizing_fn = create_position_sizing_fn()
+        elif args.strategy == "trend_baseline_rsi_vol_combo_filter":
+            ema_config = get_default_ema_config(args.freq)
+            signal_fn = create_trend_rsi_vol_combo_signal_fn(
+                ma_fast=ema_config.fast,
+                ma_slow=ema_config.slow,
+                rsi_entry=args.rsi_entry,
+                rsi_overbought=args.rsi_overbought,
+                vol_cap=args.vol_cap,
+            )
+            position_sizing_fn = create_position_sizing_fn()
         elif args.strategy == "event_insider_shipping":
             logger.info("Event Strategy: Insider Trading + Shipping Congestion")
             logger.info("Loading event data and computing features...")
@@ -1404,6 +1687,7 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             security_meta_df=security_meta_df,  # Pass security metadata for group exposure limits
             qa_block_trading=qa_block_trading,  # QA Gate (Sprint 3 / D2)
             qa_block_reason=qa_block_reason,
+            backtest_use_snapshot=False,  # Need full history slice for EMA/trend signals (snapshot = 1 row/symbol -> no signals)
         )
         
         # Create cycle_fn using make_cycle_fn
@@ -1464,6 +1748,9 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             broker_snapshot_date=getattr(args, "broker_snapshot_date", None),
             # Evidence pack controls
             write_evidence_pack=getattr(args, "write_evidence_pack", False),
+            # Fill pipeline: relax session gate for 1d EOD data (e.g. timestamps 00:00 UTC)
+            strict_session_gate=not getattr(args, "no_strict_session_gate", False),
+            rebalance_schedule=getattr(args, "rebalance", "daily"),
         )
 
         logger.info(f"Backtest completed: {len(result.equity)} equity points")
@@ -1488,6 +1775,16 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         tca_report_path = output_dir / f"tca_report_{args.freq}.csv"
         write_tca_report_csv(tca_report, tca_report_path)
         logger.info(f"TCA report written: {tca_report_path}")
+
+        # Write equity and trades for analysis scripts (e.g. analyze_backtest_results.py)
+        equity_path = output_dir / f"equity_curve_{args.freq}.csv"
+        result.equity.to_csv(equity_path, index=False)
+        if "cash" in result.equity.columns:
+            cash_path = output_dir / f"cash_curve_{args.freq}.csv"
+            result.equity[["timestamp", "cash"]].to_csv(cash_path, index=False)
+        if result.trades is not None and not result.trades.empty:
+            trades_path = output_dir / f"trades_{args.freq}.csv"
+            result.trades.to_csv(trades_path, index=False)
 
         # Compute comprehensive metrics using qa.metrics
         logger.info("")
@@ -1566,6 +1863,11 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             # No costs or no trades: metrics are already "gross" (no costs to add back)
             metrics.__dict__["gross_metrics"] = None
             metrics.__dict__["cost_breakdown"] = None
+
+        # Write metrics.json for batch runner and analyze_backtest_results.py
+        reports_dir = output_dir / "reports"
+        reports_dir.mkdir(parents=True, exist_ok=True)
+        export_metrics_json(metrics, reports_dir / "metrics.json")
 
         # Log Gross vs Net metrics
         if hasattr(metrics, "gross_metrics") and metrics.gross_metrics is not None:

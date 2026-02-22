@@ -27,6 +27,7 @@ def simulate_with_costs(
     prices: pd.DataFrame | None = None,
     spread_model: SpreadModel | None = None,
     slippage_model: SlippageModel | None = None,
+    strict_session_gate: bool = True,
 ) -> tuple[pd.DataFrame, dict[str, float | int], pd.DataFrame]:
     """Simulate portfolio equity with transaction costs.
 
@@ -49,17 +50,27 @@ def simulate_with_costs(
     Side effects:
         None (pure function)
     """
-    # Timeline aus Orders ableiten – falls nur wenige Orders, erweitern wir leicht
+    # Timeline: prefer full bar range from prices so equity curve has one row per bar (even with no fills)
     if orders.empty:
-        ts = pd.date_range(end=pd.Timestamp.utcnow(), periods=60, freq=freq)
-        eq = pd.DataFrame({"timestamp": ts, "equity": float(start_capital)})
+        if prices is not None and not prices.empty and "timestamp" in prices.columns:
+            tl = pd.DatetimeIndex(sorted(prices["timestamp"].unique()))
+            equity = np.full(len(tl), start_capital, dtype=np.float64)
+            cash = np.full(len(tl), start_capital, dtype=np.float64)
+            eq = pd.DataFrame({"timestamp": tl, "equity": equity, "cash": cash})
+        else:
+            ts = pd.date_range(end=pd.Timestamp.utcnow(), periods=60, freq=freq)
+            eq = pd.DataFrame({"timestamp": ts, "equity": float(start_capital), "cash": float(start_capital)})
         rep = {"final_pf": 1.0, "sharpe": float("nan"), "trades": 0}
-        # Return empty trades DataFrame with expected columns
         trades_df = pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
         return eq, rep, trades_df
 
-    t0, t1 = orders["timestamp"].min(), orders["timestamp"].max()
-    tl = pd.date_range(start=t0, end=t1, freq=freq)
+    timeline_from_prices = False
+    if prices is not None and not prices.empty and "timestamp" in prices.columns:
+        tl = pd.DatetimeIndex(sorted(prices["timestamp"].unique()))
+        timeline_from_prices = True
+    else:
+        t0, t1 = orders["timestamp"].min(), orders["timestamp"].max()
+        tl = pd.date_range(start=t0, end=t1, freq=freq)
     equity = np.full(len(tl), start_capital, dtype=np.float64)
 
     # primitive, aber reproduzierbare Kostenmodellierung:
@@ -87,7 +98,8 @@ def simulate_with_costs(
             prices=prices,
             freq=freq,
             partial_fill_model=partial_fill_model,
-            strict_session_gate=True,
+            strict_session_gate=strict_session_gate,
+            available_cash=start_capital,
         )
     
     # Add cost columns to orders (commission_cash, spread_cash, slippage_cash, total_cost_cash)
@@ -170,22 +182,65 @@ def simulate_with_costs(
             ),
         )
 
-    ts_to_delta = (
-        orders.groupby(pd.Grouper(key="timestamp", freq=freq))["cash_delta"]
-        .sum()
-        .reindex(tl, fill_value=0.0)
-        .to_numpy()
-    )
+    # Align order deltas to timeline: when tl is from prices, group by exact timestamp
+    if timeline_from_prices:
+        ts_to_delta = (
+            orders.groupby("timestamp")["cash_delta"]
+            .sum()
+            .reindex(tl, fill_value=0.0)
+            .fillna(0.0)
+            .to_numpy(dtype=np.float64)
+        )
+    else:
+        ts_to_delta = (
+            orders.groupby(pd.Grouper(key="timestamp", freq=freq))["cash_delta"]
+            .sum()
+            .reindex(tl, fill_value=0.0)
+            .to_numpy()
+        )
 
-    # wende Cash-Deltas ab jeweiligem Index an (cum)
-    # First equity value should always be start_capital (before any trades)
-    # Apply deltas starting from the period AFTER they occur
-    # So equity[0] = start_capital, equity[1] = start_capital + delta[0], etc.
-    cumsum_deltas = np.cumsum(ts_to_delta)
-    # Shift by 1: equity[0] stays at start_capital, equity[1] = start_capital + delta[0], etc.
-    equity[1:] = equity[1:] + cumsum_deltas[:-1]
+    # Cash series (end of bar): start_capital + cumulative cash_delta
+    cash_end = start_capital + np.cumsum(ts_to_delta)
 
-    eq = pd.DataFrame({"timestamp": tl, "equity": equity})
+    # Holdings from executed fills: signed fill_qty per (timestamp, symbol), cumsum on timeline
+    work = orders.copy()
+    if "fill_qty" in work.columns and "side" in work.columns:
+        _sign = np.where(
+            work["side"].astype(str).str.upper().eq("BUY"), 1.0,
+            np.where(work["side"].astype(str).str.upper().eq("SELL"), -1.0, 0.0),
+        )
+        work["signed_qty"] = work["fill_qty"].astype(float) * _sign
+    else:
+        work["signed_qty"] = work["qty"].astype(float) * np.where(
+            work["side"].astype(str).str.upper().eq("BUY"), 1.0, -1.0
+        )
+    qty_deltas = work.pivot_table(
+        index="timestamp", columns="symbol", values="signed_qty", aggfunc="sum"
+    ).reindex(tl, fill_value=0.0).fillna(0.0)
+    holdings = qty_deltas.cumsum()
+
+    # Position value = holdings * close per bar (MTM)
+    if prices is not None and not prices.empty and "close" in prices.columns and "symbol" in prices.columns:
+        prices_ts = pd.to_datetime(prices["timestamp"], utc=True)
+        px = prices.pivot_table(
+            index=prices_ts, columns="symbol", values="close", aggfunc="last"
+        )
+        px = px.reindex(tl).ffill()
+        # Align holdings columns to px (symbols may differ)
+        common = list(holdings.columns.intersection(px.columns))
+        if common:
+            h = holdings[common].reindex(columns=px.columns).fillna(0.0)
+            p = px.reindex(columns=h.columns).ffill().fillna(0.0)
+            pos_value = (h * p).sum(axis=1).reindex(tl).fillna(0.0).to_numpy(dtype=np.float64)
+        else:
+            pos_value = np.zeros(len(tl), dtype=np.float64)
+    else:
+        pos_value = np.zeros(len(tl), dtype=np.float64)
+
+    # Equity = cash + mark-to-market position value (not cash-only)
+    equity = cash_end + pos_value
+
+    eq = pd.DataFrame({"timestamp": tl, "equity": equity, "cash": cash_end})
     # simple Kennzahlen
     pf = float(equity[-1] / equity[0]) if equity.size else 1.0
     ret = pd.Series(equity).pct_change().replace([np.inf, -np.inf], np.nan).dropna()

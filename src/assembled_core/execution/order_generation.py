@@ -76,9 +76,20 @@ def generate_orders_from_targets_fast(
     
     # Extract numpy arrays directly (no merge, no sort)
     symbols = target_positions["symbol"].values
-    target_qty = target_positions[target_qty_col].values.astype(np.float64)
+    target_notional = target_positions[target_qty_col].values.astype(np.float64)
     
-    # Get current quantities (assume aligned if current_positions provided)
+    # Get prices first (needed to convert target notional to shares)
+    if prices_latest is not None and "close" in prices_latest.columns and "symbol" in prices_latest.columns:
+        price_map = dict(zip(prices_latest["symbol"].values, prices_latest["close"].values))
+        prices_array = np.array([price_map.get(sym, 0.0) for sym in symbols], dtype=np.float64)
+    else:
+        prices_array = np.zeros(len(symbols), dtype=np.float64)
+    
+    # target_qty from position_sizing is NOTIONAL; current_positions.qty is SHARES -> convert target to shares
+    safe_price = np.where(prices_array > 1e-10, prices_array, np.nan)
+    target_qty = np.where(np.isfinite(safe_price), target_notional / safe_price, 0.0)
+    
+    # Get current quantities in shares (assume aligned if current_positions provided)
     if current_positions is None or current_positions.empty:
         current_qty = np.zeros(len(symbols), dtype=np.float64)
     else:
@@ -97,7 +108,7 @@ def generate_orders_from_targets_fast(
             )
         current_qty = current_positions["qty"].values.astype(np.float64)
     
-    # Compute delta vectorially (numpy)
+    # Delta in SHARES (target_shares - current_shares)
     qty_delta = target_qty - current_qty
     
     # Filter for non-zero deltas (vectorized)
@@ -107,21 +118,12 @@ def generate_orders_from_targets_fast(
     if not np.any(non_zero_mask):
         return pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
     
-    # Extract non-zero deltas
+    # Extract non-zero deltas (all in shares now)
     symbols_filtered = symbols[non_zero_mask]
     qty_delta_filtered = qty_delta[non_zero_mask]
-    
-    # Determine side and quantity vectorially (numpy)
     sides = np.where(qty_delta_filtered > 0, "BUY", "SELL")
     qtys = np.abs(qty_delta_filtered)
-    
-    # Get prices if available (fast lookup from aligned prices_latest)
-    if prices_latest is not None and "close" in prices_latest.columns and "symbol" in prices_latest.columns:
-        # Build price mapping (assuming prices_latest is already aligned or small)
-        price_map = dict(zip(prices_latest["symbol"].values, prices_latest["close"].values))
-        prices_array = np.array([price_map.get(sym, 0.0) for sym in symbols_filtered], dtype=np.float64)
-    else:
-        prices_array = np.zeros(len(symbols_filtered), dtype=np.float64)
+    prices_filtered = prices_array[non_zero_mask]
     
     # Build DataFrame directly (no pandas operations except construction)
     result = pd.DataFrame({
@@ -129,12 +131,12 @@ def generate_orders_from_targets_fast(
         "symbol": symbols_filtered,
         "side": sides,
         "qty": qtys,
-        "price": prices_array,
+        "price": prices_filtered,
     })
     
     # Ensure columns are in correct order
     result = result[["timestamp", "symbol", "side", "qty", "price"]]
-    
+    result.attrs["qty_unit"] = "shares"
     return result
 
 
@@ -241,31 +243,31 @@ def generate_orders_from_targets(
     if "qty" in merged.columns:
         merged["qty"] = merged["qty"].astype(float).fillna(0.0)
 
-    # Compute quantity delta vectorially (aligned arrays)
-    qty_delta = merged["target_qty"].values - merged["qty"].values
-    merged["qty_delta"] = qty_delta
+    # target_qty from position_sizing is NOTIONAL; current qty is SHARES -> convert target to shares for delta
+    # Get prices if available (needed to convert target notional to shares)
+    if prices is not None and "close" in prices.columns and "symbol" in prices.columns:
+        latest_prices = prices.groupby("symbol")["close"].last()
+        merged["price"] = merged["symbol"].map(latest_prices).fillna(0.0)
+    else:
+        merged["price"] = 0.0
+    price_vals = merged["price"].values.astype(np.float64)
+    safe_price = np.where(price_vals > 1e-10, price_vals, np.nan)
+    target_shares = np.where(np.isfinite(safe_price), merged["target_qty"].values.astype(np.float64) / safe_price, 0.0)
+    current_shares = merged["qty"].fillna(0.0).values.astype(np.float64)
+    merged["qty_delta"] = target_shares - current_shares
 
     # Filter for non-zero deltas (vectorized)
-    abs_delta = np.abs(qty_delta)
+    abs_delta = np.abs(merged["qty_delta"])
     non_zero_mask = abs_delta > 1e-6
     orders = merged[non_zero_mask].copy()
 
     if orders.empty:
         return pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
 
-    # Determine side and quantity vectorially (no apply loop)
-    # BUY if delta > 0, SELL if delta < 0
+    # Determine side and quantity (qty in SHARES)
     qty_delta_filtered = orders["qty_delta"].values
     orders["side"] = np.where(qty_delta_filtered > 0, "BUY", "SELL")
     orders["qty"] = np.abs(qty_delta_filtered)
-
-    # Get prices if available
-    if prices is not None and "close" in prices.columns and "symbol" in prices.columns:
-        # Use latest price per symbol
-        latest_prices = prices.groupby("symbol")["close"].last()
-        orders["price"] = orders["symbol"].map(latest_prices).fillna(0.0)
-    else:
-        orders["price"] = 0.0
 
     # Select output columns
     result = orders[["symbol", "side", "qty", "price"]].copy()
@@ -274,7 +276,7 @@ def generate_orders_from_targets(
     # Reorder columns
     result = result[["timestamp", "symbol", "side", "qty", "price"]]
     result = result.sort_values("symbol").reset_index(drop=True)
-
+    result.attrs["qty_unit"] = "shares"
     return result
 
 

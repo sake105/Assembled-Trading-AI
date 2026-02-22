@@ -1,0 +1,108 @@
+rows: 3129
+min: 2020-01-01 00:00:00+00:00
+max: 2023-12-29 00:00:00+00:00
+unique_days: 1043
+null_timestamps: 0
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline\1y\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline\1y\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline\3y\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline\3y\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline\full\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline\full\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_cost_0.5x\1y\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_cost_0.5x\1y\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_cost_0.5x\3y\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_cost_0.5x\3y\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_cost_0.5x\full\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_cost_0.5x\full\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_cost_2x\1y\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_cost_2x\1y\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_cost_2x\3y\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_cost_2x\3y\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_cost_2x\full\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_cost_2x\full\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\event_insider_shipping\1y\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\event_insider_shipping\1y\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\event_insider_shipping\3y\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\event_insider_shipping\3y\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\event_insider_shipping\full\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\event_insider_shipping\full\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\event_insider_shipping_cost_0.5x\1y\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\event_insider_shipping_cost_0.5x\1y\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\event_insider_shipping_cost_0.5x\3y\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\event_insider_shipping_cost_0.5x\3y\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\event_insider_shipping_cost_0.5x\full\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\event_insider_shipping_cost_0.5x\full\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\event_insider_shipping_cost_2x\1y\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\event_insider_shipping_cost_2x\1y\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\event_insider_shipping_cost_2x\3y\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\event_insider_shipping_cost_2x\3y\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\event_insider_shipping_cost_2x\full\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\event_insider_shipping_cost_2x\full\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_rsi_filter\1y\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_rsi_filter\1y\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_rsi_filter\3y\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_rsi_filter\3y\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_rsi_filter\full\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_rsi_filter\full\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_vol_filter\1y\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_vol_filter\1y\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_vol_filter\3y\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_vol_filter\3y\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_vol_filter\full\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_vol_filter\full\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_regime_gate\1y\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_regime_gate\1y\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_regime_gate\3y\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_regime_gate\3y\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_regime_gate\full\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\trend_baseline_regime_gate\full\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\train_baseline\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\train_baseline\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\train_runs\trend_baseline_rsi_filter_rsi_entry_50\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\train_runs\trend_baseline_rsi_filter_rsi_entry_50\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\train_runs\trend_baseline_rsi_filter_rsi_entry_55\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\train_runs\trend_baseline_rsi_filter_rsi_entry_55\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\train_runs\trend_baseline_rsi_filter_rsi_entry_60\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\train_runs\trend_baseline_rsi_filter_rsi_entry_60\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\train_runs\trend_baseline_vol_filter_vol_cap_0.2\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\train_runs\trend_baseline_vol_filter_vol_cap_0.2\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\train_runs\trend_baseline_vol_filter_vol_cap_0.3\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\train_runs\trend_baseline_vol_filter_vol_cap_0.3\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\train_runs\trend_baseline_realized_vol_filter_rv_cap_0.2\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\train_runs\trend_baseline_realized_vol_filter_rv_cap_0.2\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\train_runs\trend_baseline_realized_vol_filter_rv_cap_0.3\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\train_runs\trend_baseline_realized_vol_filter_rv_cap_0.3\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\train_runs\trend_baseline_realized_vol_filter_rv_cap_0.4\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\train_runs\trend_baseline_realized_vol_filter_rv_cap_0.4\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\train_runs\trend_baseline_rsi_vol_combo_filter_combo_55_0.20\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\train_runs\trend_baseline_rsi_vol_combo_filter_combo_55_0.20\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\train_runs\trend_baseline_rsi_vol_combo_filter_combo_55_0.30\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\train_runs\trend_baseline_rsi_vol_combo_filter_combo_55_0.30\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\train_runs\trend_baseline_rsi_vol_combo_filter_combo_60_0.30\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\train_runs\trend_baseline_rsi_vol_combo_filter_combo_60_0.30\metrics_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\test_best\metrics_summary.json and F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\filter_sweep\oos\test_best\metrics_summary.csv
+Running benchmark...
+[trend_baseline/1y] Running backtest...
+[trend_baseline/3y] Running backtest...
+[trend_baseline/full] Running backtest...
+[trend_baseline_cost_0.5x/1y] Running backtest...
+[trend_baseline_cost_0.5x/3y] Running backtest...
+[trend_baseline_cost_0.5x/full] Running backtest...
+[trend_baseline_cost_2x/1y] Running backtest...
+[trend_baseline_cost_2x/3y] Running backtest...
+[trend_baseline_cost_2x/full] Running backtest...
+[event_insider_shipping/1y] Running backtest...
+[event_insider_shipping/3y] Running backtest...
+[event_insider_shipping/full] Running backtest...
+[event_insider_shipping_cost_0.5x/1y] Running backtest...
+[event_insider_shipping_cost_0.5x/3y] Running backtest...
+[event_insider_shipping_cost_0.5x/full] Running backtest...
+[event_insider_shipping_cost_2x/1y] Running backtest...
+[event_insider_shipping_cost_2x/3y] Running backtest...
+[event_insider_shipping_cost_2x/full] Running backtest...
+[multifactor_long_short/1y] Running backtest...
+[multifactor_long_short/3y] Running backtest...
+[multifactor_long_short/full] Running backtest...
+[trend_baseline_rsi_filter/1y] Running backtest...
+[trend_baseline_rsi_filter/3y] Running backtest...
+[trend_baseline_rsi_filter/full] Running backtest...
+[trend_baseline_vol_filter/1y] Running backtest...
+[trend_baseline_vol_filter/3y] Running backtest...
+[trend_baseline_vol_filter/full] Running backtest...
+[trend_baseline_regime_gate/1y] Running backtest...
+[trend_baseline_regime_gate/3y] Running backtest...
+[trend_baseline_regime_gate/full] Running backtest...
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\scoreboard.csv and .json
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\metrics_extended.csv and .json
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\indicator_exposure_summary.csv and .json
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\ablation_summary.csv
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\regime_metrics.csv and .json
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\attribution_summary.csv and .json
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\anomalies.json
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\data_quality_summary.json
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\oos_sweep_report.md
+Wrote F:\Python_Projekt\Aktienger³st\output\system_run\benchmark\BENCHMARK_REPORT.md
+Done.
+
+FullName
+--------
+F:\Python_Projekt\Aktiengerüst\output\system_run\benchmark\oos_sweep_report.md
+# OOS filter sweep report
+
+Train: 2023-01-12 to 2023-09-14 (176 days). Test: 2023-09-15 to 2023-12-29 (76 days).
+
+## Best config (by stability_score_v2 on train)
+- strategy: trend_baseline_rsi_vol_combo_filter
+- params: {'rsi_entry': 60, 'rsi_overbought': 80, 'vol_cap': 0.3}
+- train stability_score_v2: 0.782051
+- train total_return: 0.0
+- train sharpe_ratio: None
+- train max_drawdown_pct: 0.0
+
+## Test metrics
+- total_return: 0.0
+- sharpe_ratio: None
+- max_drawdown_pct: 0.0
+

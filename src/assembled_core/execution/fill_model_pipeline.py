@@ -7,9 +7,12 @@ import pandas as pd
 
 from src.assembled_core.execution.fill_model import (
     PartialFillModel,
+    _ensure_reject_reason_filled,
+    apply_cash_gate,
     apply_limit_order_fills,
     apply_partial_fills,
     apply_session_gate,
+    ensure_fill_schema,
 )
 
 
@@ -20,50 +23,34 @@ def apply_fill_model_pipeline(
     freq: str,
     partial_fill_model: PartialFillModel | None = None,
     strict_session_gate: bool = True,
+    available_cash: float | None = None,
 ) -> pd.DataFrame:
-    """Apply complete fill model pipeline: session gate -> limit -> partial.
-    
-    This is the central function for applying all fill model components in the correct order:
-    1. Session gate (reject orders outside trading sessions)
-    2. Limit order eligibility (reject limit orders not reachable)
-    3. Partial fill model (apply ADV-based partial fills)
-    
-    Args:
-        orders: DataFrame with columns: timestamp, symbol, side, qty, price
-            Optional columns: order_type, limit_price
-        prices: Prices DataFrame with columns: timestamp, symbol, close
-            Optional columns: open, high, low, volume
-        freq: Trading frequency ("1d" or "5min") for session gate
-        partial_fill_model: Optional PartialFillModel instance.
-            If None, assumes full fills (no partial fill constraints)
-        strict_session_gate: If True, reject orders outside sessions (default: True)
-            If False and exchange_calendars missing, allow all orders (permissive fallback)
-    
-    Returns:
-        DataFrame with fill model applied:
-        - fill_qty: Filled quantity (0 for rejected, <= qty for partial/full)
-        - fill_price: Fill price (limit_price for limit orders, else order price)
-        - status: "filled", "partial", or "rejected"
-        - remaining_qty: qty - fill_qty
-    
-    Note:
-        This function applies the fill model pipeline in the correct order:
-        1. Session gate first (reject weekends/holidays)
-        2. Limit eligibility second (reject unreachable limits)
-        3. Partial fills third (apply ADV cap)
+    """Apply complete fill model pipeline: cash gate -> session gate -> limit -> partial.
+
+    Order of steps:
+    1. Cash gate (optional): reject BUY orders with notional > available_cash -> INSUFFICIENT_CASH
+    2. Session gate: reject orders outside trading sessions
+    3. Limit order eligibility: reject unreachable limits
+    4. Partial fill model: apply ADV-based partial fills
     """
     if orders.empty:
         return orders
-    
+
+    # Step 0: Cash gate (when available_cash provided)
+    if available_cash is not None and available_cash > 0:
+        fills = apply_cash_gate(orders, available_cash)
+    else:
+        fills = orders.copy()
+
     # Step 1: Apply session gate (if exchange_calendars available)
     try:
-        fills = apply_session_gate(orders, freq=freq, strict=strict_session_gate)
+        fills = apply_session_gate(fills, freq=freq, strict=strict_session_gate)
     except ImportError:
         # exchange_calendars not available: skip session gate if strict=False
         if strict_session_gate:
             raise  # Re-raise if strict=True
-        # Permissive fallback: allow all orders
-        fills = orders.copy()
+        # Permissive fallback: allow all orders (keep fill schema if coming from cash gate)
+        fills = ensure_fill_schema(fills, default_full_fill=True)
     
     # Step 2: Apply limit order fills (if limit orders present)
     # This will check limit eligibility and apply partial fills if provided
@@ -80,5 +67,8 @@ def apply_fill_model_pipeline(
             prices=prices,
             partial_fill_model=partial_fill_model,
         )
-    
+
+    # Final guard: no rejected row leaves the pipeline with empty reject_reason
+    _ensure_reject_reason_filled(fills)
+
     return fills

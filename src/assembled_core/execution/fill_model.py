@@ -53,6 +53,79 @@ class PartialFillModel:
             )
 
 
+# Reject reason codes (ASCII-only, for observability)
+REJECT_INSUFFICIENT_CASH = "INSUFFICIENT_CASH"
+REJECT_MIN_NOTIONAL = "MIN_NOTIONAL"
+REJECT_UNKNOWN = "UNKNOWN"
+REJECT_MIN_QTY = "MIN_QTY"
+REJECT_RISK_LIMIT = "RISK_LIMIT"
+REJECT_MAX_POSITION = "MAX_POSITION"
+
+
+def apply_cash_gate(
+    orders: pd.DataFrame,
+    available_cash: float,
+) -> pd.DataFrame:
+    """Reject BUY orders that would drive cash below zero when processed in order (cumulative per timestamp).
+
+    Processes BUY orders per timestamp in deterministic order (symbol asc), decrementing a running
+    available_cash by spend = notional + estimated_cost. estimated_cost = total_cost_cash if present
+    else commission_cash + spread_cash + slippage_cash else 0. Rejects if cash_left - spend < 1e-6
+    (numerically robust non-negative cash). SELL orders are not gated.
+    """
+    if orders.empty or available_cash <= 0:
+        return orders
+    fills = ensure_fill_schema(orders, default_full_fill=True)
+    fills = fills.copy()  # ensure we modify a copy, not a view
+    buy_mask = fills["side"].astype(str).str.upper() == "BUY"
+
+    # estimated_cost: total_cost_cash if present else commission+spread+slippage else 0
+    if "total_cost_cash" in fills.columns:
+        cost_series = fills["total_cost_cash"].fillna(0.0).astype(float)
+    else:
+        cost_series = pd.Series(0.0, index=fills.index)
+        for col in ("commission_cash", "spread_cash", "slippage_cash"):
+            if col in fills.columns:
+                cost_series = cost_series + fills[col].fillna(0.0).astype(float)
+
+    notional = fills["qty"].abs() * fills["price"].abs()
+    # Per-timestamp cumulative: process BUYs in deterministic order (symbol asc)
+    timestamps = sorted(fills["timestamp"].unique())
+    CASH_MIN_TOLERANCE = 1e-6  # reject if cash would go below this (avoids float/cost rounding overspend)
+    for ts in timestamps:
+        ts_mask = (fills["timestamp"] == ts) & buy_mask
+        if not ts_mask.any():
+            continue
+        subset = fills.loc[ts_mask].sort_values("symbol")
+        cash_left = available_cash
+        for idx in subset.index:
+            n = float(notional.loc[idx])
+            cost = float(cost_series.loc[idx])
+            spend = n + cost
+            if cash_left - spend < CASH_MIN_TOLERANCE:  # would go below minimum safe cash
+                fills.at[idx, "status"] = "rejected"
+                fills.at[idx, "fill_qty"] = 0.0
+                fills.at[idx, "remaining_qty"] = fills.at[idx, "qty"]
+                fills.at[idx, "reject_reason"] = REJECT_INSUFFICIENT_CASH
+            else:
+                cash_left -= spend
+        available_cash = cash_left  # next timestamp starts with remaining from this bar
+
+    return fills
+
+
+def _ensure_reject_reason_filled(fills: pd.DataFrame) -> None:
+    """Ensure every row with status=rejected has non-empty ASCII reject_reason. Modifies fills in place."""
+    if fills.empty or "status" not in fills.columns:
+        return
+    if "reject_reason" not in fills.columns:
+        fills["reject_reason"] = ""
+    rejected = fills["status"].astype(str).str.strip().str.upper() == "REJECTED"
+    rr = fills["reject_reason"].astype(str).str.strip()
+    empty_reason = rr.isna() | (rr == "")
+    fills.loc[rejected & empty_reason, "reject_reason"] = REJECT_UNKNOWN
+
+
 def ensure_fill_schema(
     trades: pd.DataFrame,
     *,
@@ -117,8 +190,16 @@ def ensure_fill_schema(
             raise ValueError("remaining_qty column missing and default_full_fill=False")
         fills["remaining_qty"] = fills["qty"] - fills["fill_qty"]
 
+    if "reject_reason" not in fills.columns:
+        fills["reject_reason"] = ""
+    # Where status was inferred as rejected, set a default reason (ASCII-only)
+    fills.loc[fills["status"] == "rejected", "reject_reason"] = REJECT_UNKNOWN
+
     # Validate fill constraints
     _validate_fill_constraints(fills)
+
+    # Final guard: any rejected row must have non-empty ASCII reject_reason (no gate leaves it blank)
+    _ensure_reject_reason_filled(fills)
 
     # Ensure deterministic sorting (by timestamp, symbol)
     if not fills.empty:
@@ -311,16 +392,18 @@ def apply_session_gate(
         # Permissive fallback: allow all orders
         return trades.copy()
 
-    # Ensure fill schema (add fill columns if missing)
+    # Ensure fill schema (add fill columns if missing, including reject_reason)
     fills = ensure_fill_schema(trades, default_full_fill=True)
     
     # Make a copy to avoid modifying original
     fills = fills.copy()
+    if "reject_reason" not in fills.columns:
+        fills["reject_reason"] = ""
     
     # Get calendar for intraday checks
     cal = get_nyse_calendar()
     
-    # Apply session gate per row
+    # Apply session gate per row (reject_reason: ASCII-only codes)
     for idx, row in fills.iterrows():
         timestamp = row["timestamp"]
         
@@ -328,10 +411,10 @@ def apply_session_gate(
         if not is_trading_day(timestamp):
             # Not a trading day (weekend/holiday): reject
             fills.loc[idx, "status"] = "rejected"
+            fills.loc[idx, "reject_reason"] = "NOT_TRADING_DAY"
             fills.loc[idx, "fill_qty"] = 0.0
             fills.loc[idx, "remaining_qty"] = row["qty"]
             fills.loc[idx, "fill_price"] = row["price"]  # Use order price for consistency
-            # Costs should be 0 for rejected (will be set later if not already)
             if "commission_cash" in fills.columns:
                 fills.loc[idx, "commission_cash"] = 0.0
             if "spread_cash" in fills.columns:
@@ -342,15 +425,14 @@ def apply_session_gate(
                 fills.loc[idx, "total_cost_cash"] = 0.0
             continue
         
-        # For freq="1d": only accept at session close
-        if freq == "1d":
+        # For freq="1d": only accept at session close (unless strict=False, e.g. EOD bars at 00:00 UTC)
+        if freq == "1d" and strict:
             try:
                 session_close = session_close_utc(timestamp.date())
-                # Check if timestamp is at session close (within 1 minute tolerance)
                 time_diff = abs((timestamp - session_close).total_seconds())
                 if time_diff > 60:  # More than 1 minute away from session close
-                    # Not at session close: reject
                     fills.loc[idx, "status"] = "rejected"
+                    fills.loc[idx, "reject_reason"] = "NOT_AT_SESSION_CLOSE"
                     fills.loc[idx, "fill_qty"] = 0.0
                     fills.loc[idx, "remaining_qty"] = row["qty"]
                     fills.loc[idx, "fill_price"] = row["price"]
@@ -363,8 +445,8 @@ def apply_session_gate(
                     if "total_cost_cash" in fills.columns:
                         fills.loc[idx, "total_cost_cash"] = 0.0
             except ValueError:
-                # Not a trading day (already handled above, but catch for safety)
                 fills.loc[idx, "status"] = "rejected"
+                fills.loc[idx, "reject_reason"] = "NOT_TRADING_DAY"
                 fills.loc[idx, "fill_qty"] = 0.0
                 fills.loc[idx, "remaining_qty"] = row["qty"]
                 fills.loc[idx, "fill_price"] = row["price"]
@@ -380,27 +462,19 @@ def apply_session_gate(
         # For freq="5min": only accept within trading session
         elif freq == "5min":
             try:
-                # Get session open and close for the date
                 session_date = timestamp.date()
                 session_ts = pd.Timestamp(session_date)
-                
-                # Get session open and close times (in exchange timezone)
                 session_open_local = cal.session_open(session_ts)
                 session_close_local = cal.session_close(session_ts)
-                
-                # Convert to UTC
                 if session_open_local.tz is None:
                     session_open_local = session_open_local.tz_localize("America/New_York")
                 if session_close_local.tz is None:
                     session_close_local = session_close_local.tz_localize("America/New_York")
-                
                 session_open_utc = session_open_local.tz_convert("UTC")
                 session_close_utc = session_close_local.tz_convert("UTC")
-                
-                # Check if timestamp is within session (inclusive)
                 if timestamp < session_open_utc or timestamp > session_close_utc:
-                    # Outside session: reject
                     fills.loc[idx, "status"] = "rejected"
+                    fills.loc[idx, "reject_reason"] = "OUTSIDE_SESSION"
                     fills.loc[idx, "fill_qty"] = 0.0
                     fills.loc[idx, "remaining_qty"] = row["qty"]
                     fills.loc[idx, "fill_price"] = row["price"]
@@ -413,9 +487,9 @@ def apply_session_gate(
                     if "total_cost_cash" in fills.columns:
                         fills.loc[idx, "total_cost_cash"] = 0.0
             except Exception as e:
-                # Fallback: if calendar check fails, reject (deterministic)
                 logger.warning(f"Session check failed for {timestamp}: {e}, rejecting order")
                 fills.loc[idx, "status"] = "rejected"
+                fills.loc[idx, "reject_reason"] = "SESSION_CHECK_FAILED"
                 fills.loc[idx, "fill_qty"] = 0.0
                 fills.loc[idx, "remaining_qty"] = row["qty"]
                 fills.loc[idx, "fill_price"] = row["price"]
@@ -561,6 +635,9 @@ def apply_partial_fills(
     # Apply minimum fill quantity constraint
     min_fill_mask = fills_with_adv["fill_qty"] < partial_fill_model.min_fill_qty
     fills_with_adv.loc[min_fill_mask, "fill_qty"] = 0.0
+    if "reject_reason" not in fills_with_adv.columns:
+        fills_with_adv["reject_reason"] = ""
+    fills_with_adv.loc[min_fill_mask, "reject_reason"] = "QC_FAIL_MIN_FILL_QTY"
 
     # Update status
     fills_with_adv["status"] = fills_with_adv.apply(
@@ -655,12 +732,11 @@ def apply_limit_order_fills(
 
     # Check limit eligibility
     limit_eligible = pd.Series(True, index=fills_with_prices.index)
+    limit_price_valid = ~fills_with_prices["limit_price"].isna() & (fills_with_prices["limit_price"] > 0)
     
     # For limit orders, check if limit is reachable
     limit_mask = fills_with_prices["order_type"] == "limit"
     if limit_mask.any():
-        # Check if limit_price is present and valid
-        limit_price_valid = ~fills_with_prices["limit_price"].isna() & (fills_with_prices["limit_price"] > 0)
         limit_mask = limit_mask & limit_price_valid
         
         if limit_mask.any():
@@ -688,11 +764,17 @@ def apply_limit_order_fills(
         if limit_invalid_mask.any():
             limit_eligible.loc[limit_invalid_mask] = False
 
-    # Reject orders where limit not reached
-    fills_with_prices.loc[~limit_eligible, "fill_qty"] = 0.0
-    fills_with_prices.loc[~limit_eligible, "status"] = "rejected"
-    fills_with_prices.loc[~limit_eligible, "remaining_qty"] = fills_with_prices.loc[~limit_eligible, "qty"]
-    fills_with_prices.loc[~limit_eligible, "fill_price"] = fills_with_prices.loc[~limit_eligible, "price"]
+    # Reject orders where limit not reached (reject_reason for observability, ASCII-only)
+    if "reject_reason" not in fills_with_prices.columns:
+        fills_with_prices["reject_reason"] = ""
+    rej_mask = ~limit_eligible
+    limit_invalid = (fills_with_prices["order_type"] == "limit") & ~limit_price_valid
+    fills_with_prices.loc[rej_mask & limit_invalid, "reject_reason"] = "LIMIT_PRICE_INVALID"
+    fills_with_prices.loc[rej_mask & ~limit_invalid, "reject_reason"] = "LIMIT_NOT_REACHED"
+    fills_with_prices.loc[rej_mask, "fill_qty"] = 0.0
+    fills_with_prices.loc[rej_mask, "status"] = "rejected"
+    fills_with_prices.loc[rej_mask, "remaining_qty"] = fills_with_prices.loc[rej_mask, "qty"]
+    fills_with_prices.loc[rej_mask, "fill_price"] = fills_with_prices.loc[rej_mask, "price"]
 
     # For eligible orders, apply partial fill model if provided
     eligible_mask = limit_eligible

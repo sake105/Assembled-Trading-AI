@@ -318,6 +318,7 @@ def make_cycle_fn(
             TradingCycleResult with orders, signals, target_positions, etc.
         """
         # Build context from template, updating timestamp-specific fields
+        # Pass through backtest_use_snapshot so history-slice strategies (e.g. EMA trend) get full history
         ctx = replace(
             ctx_template,
             as_of=timestamp,
@@ -330,6 +331,7 @@ def make_cycle_fn(
             write_outputs=False,  # Backtest engine handles outputs
             enable_risk_controls=False,  # Backtest engine doesn't use risk controls (can be added later)
             security_meta_df=ctx_template.security_meta_df,  # Pass through security metadata
+            backtest_use_snapshot=getattr(ctx_template, "backtest_use_snapshot", False),
         )
         
         # Run trading cycle
@@ -403,6 +405,36 @@ def _process_rebalancing_timestamp(
     return orders, updated_positions, targets_df
 
 
+def _validate_order_notional_guard(
+    orders_df: pd.DataFrame,
+    start_capital: float,
+    *,
+    strict: bool | None = None,
+) -> None:
+    """Warn or raise if any order notional exceeds 2x start capital (qty unit mismatch).
+
+    When strict is True (or AS_CORE_STRICT_QTY=1), raises ValueError. Otherwise logs warning.
+    """
+    if orders_df.empty or start_capital <= 0:
+        return
+    order_notional = orders_df["qty"].abs() * orders_df["price"].abs()
+    over = (order_notional > 2.0 * start_capital).any()
+    if not over:
+        return
+    if strict is None:
+        import os
+        strict = os.environ.get("AS_CORE_STRICT_QTY") == "1"
+    if strict:
+        raise ValueError(
+            "At least one order has notional > 2x start capital; "
+            "possible qty unit mismatch (notional vs shares). Set qty in shares."
+        )
+    logger.warning(
+        "At least one order has notional > 2x start capital; "
+        "possible qty unit mismatch (notional vs shares)."
+    )
+
+
 def run_portfolio_backtest(
     prices: pd.DataFrame,
     signal_fn: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
@@ -445,6 +477,10 @@ def run_portfolio_backtest(
     broker_snapshot_date: str | None = None,
     # Evidence pack controls
     write_evidence_pack: bool = False,
+    # Fill pipeline: strict_session_gate=False allows tests to run without exchange_calendars
+    strict_session_gate: bool = True,
+    # Rebalance schedule: "daily" = every bar; "weekly" = every 5th bar (1d) to reduce turnover
+    rebalance_schedule: str = "daily",
 ) -> BacktestResult:
     """Run a portfolio-level backtest with configurable signal and position sizing functions.
 
@@ -791,6 +827,11 @@ def run_portfolio_backtest(
 
         # Determine timeline (unique timestamps from prices, sorted)
         timeline = sorted(prices["timestamp"].unique())
+        # Rebalance only on selected bars: weekly = every 5th bar (1d), daily = all
+        if rebalance_schedule == "weekly":
+            rebalance_timestamps = set(timeline[i] for i in range(0, len(timeline), 5))
+        else:
+            rebalance_timestamps = set(timeline)
 
         # Use cycle_fn if provided (TradingCycle integration), otherwise use legacy path
         if cycle_fn is not None:
@@ -799,6 +840,8 @@ def run_portfolio_backtest(
             position_update_timings = []
             
             for timestamp in timeline:
+                if timestamp not in rebalance_timestamps:
+                    continue
                 # Decision (cycle_fn) - includes signal generation and order generation internally
                 with timed_step(f"decision_{timestamp}", timings, logger):
                     cycle_result = cycle_fn(timestamp, current_positions)
@@ -860,8 +903,16 @@ def run_portfolio_backtest(
                 )
             
             order_generation_timings = []
-            
+            # Rebalance only on selected bars (weekly = every 5th for 1d)
+            sig_timeline = sorted(signals["timestamp"].unique())
+            if rebalance_schedule == "weekly":
+                rebalance_timestamps_legacy = set(sig_timeline[i] for i in range(0, len(sig_timeline), 5))
+            else:
+                rebalance_timestamps_legacy = set(sig_timeline)
+
             for timestamp, signal_group in signals.groupby("timestamp"):
+                if timestamp not in rebalance_timestamps_legacy:
+                    continue
                 # Order generation (includes position sizing and order generation)
                 with timed_step(f"order_generation_{timestamp}", timings, logger):
                     orders, updated_positions, targets = _process_rebalancing_timestamp(
@@ -904,6 +955,11 @@ def run_portfolio_backtest(
                 columns=["timestamp", "symbol", "side", "qty", "price"]
             )
 
+    _validate_order_notional_guard(orders_df, start_capital)
+    # Meta: mark unit for debugging (orders from order_generation are in shares)
+    if not orders_df.empty:
+        orders_df.attrs["qty_unit"] = "shares"
+
     # Step 4: Simulate equity (fill_sim + equity_update)
     with timed_step("fill_sim", timings, logger):
         # Get cost parameters
@@ -934,6 +990,7 @@ def run_portfolio_backtest(
                 impact_w=impact_w,
                 freq=rebalance_freq,
                 prices=prices,  # Pass prices for fill model pipeline
+                strict_session_gate=strict_session_gate,
             )
             # Add trades count to metrics
             metrics["trades"] = len(orders_df)
@@ -961,7 +1018,7 @@ def run_portfolio_backtest(
             prices=prices,
             freq=rebalance_freq,
             partial_fill_model=partial_fill_model,
-            strict_session_gate=True,
+            strict_session_gate=strict_session_gate,
         )
     
     # Step 4.6: Add cost columns to orders (if include_trades=True)
@@ -1025,17 +1082,20 @@ def run_portfolio_backtest(
             equity["date"] = pd.to_datetime(equity["timestamp"]).dt.date
             # Compute daily return
             equity["daily_return"] = equity["equity"].pct_change().fillna(0.0)
-            # Ensure columns are in correct order: date, timestamp, equity, daily_return
-            equity = equity[["date", "timestamp", "equity", "daily_return"]].copy()
+            # Ensure columns: date, timestamp, equity, daily_return; keep cash if present (for cash_curve CSV)
+            base_cols = ["date", "timestamp", "equity", "daily_return"]
+            extra = [c for c in ["cash"] if c in equity.columns]
+            equity = equity[base_cols + extra].copy()
         elif "date" in equity.columns:
             # If already has date, add daily_return
             equity = equity.copy()
             equity["daily_return"] = equity["equity"].pct_change().fillna(0.0)
             # Ensure columns are in correct order: date, equity, daily_return
-            if "timestamp" not in equity.columns:
-                equity = equity[["date", "equity", "daily_return"]].copy()
-            else:
-                equity = equity[["date", "timestamp", "equity", "daily_return"]].copy()
+            base = ["date", "equity", "daily_return"]
+            if "timestamp" in equity.columns:
+                base = ["date", "timestamp", "equity", "daily_return"]
+            extra = [c for c in ["cash"] if c in equity.columns]
+            equity = equity[base + extra].copy()
         else:
             # Fallback: create date from index or use timestamp
             equity = equity.copy()
@@ -1053,7 +1113,9 @@ def run_portfolio_backtest(
                     ).date
                     equity["timestamp"] = pd.to_datetime(equity["date"])
             equity["daily_return"] = equity["equity"].pct_change().fillna(0.0)
-            equity = equity[["date", "timestamp", "equity", "daily_return"]].copy()
+            base_cols = ["date", "timestamp", "equity", "daily_return"]
+            extra = [c for c in ["cash"] if c in equity.columns]
+            equity = equity[base_cols + extra].copy()
 
     # Step 6: Ledger/Reconciliation integration (optional, default-on)
     ledger_result = None
@@ -1153,10 +1215,19 @@ def run_portfolio_backtest(
         meta_dict["evidence_pack_path"] = ledger_result.get("evidence_pack_path")
         meta_dict["evidence_pack_manifest_path"] = ledger_result.get("evidence_pack_manifest_path")
     
+    # Use trades_df (with fill_qty, status, reject_reason) when from simulate_with_costs
+    trades_for_result = None
+    if include_trades:
+        trades_for_result = (
+            trades_df
+            if (include_costs and not trades_df.empty and "status" in trades_df.columns)
+            else orders_df
+        )
+
     result = BacktestResult(
         equity=equity,
         metrics=metrics,
-        trades=orders_df if include_trades else None,
+        trades=trades_for_result,
         signals=signals_result,
         target_positions=pd.concat(all_targets, ignore_index=True)
         if include_targets and all_targets
