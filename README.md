@@ -143,6 +143,10 @@ The `assembled-cli` command-line interface is the preferred entry point for all 
   - Aggregated equity curve, trades, and positions history
   - Catch-up mode, skip/resume logic, risk reports
 
+- **Strategy Policy & Risk-Leitplanken** → [Strategy Policy](docs/STRATEGY_POLICY.md)
+  - Zielbild, Scope v1, Risk-Limits und State-Machine-Prinzip
+  - Parametrisierbar über `configs/policy.yaml` (Single Source of Truth)
+
 - **Performance Profiling & Baseline** → [Performance Profile Report](docs/PERFORMANCE_PROFILE.md)
   - Profiling infrastructure for measuring job performance (cProfile, pyinstrument)
   - Reference jobs (EOD_SMALL, BACKTEST_MEDIUM, ML_JOB) with runtime metrics and hotspots

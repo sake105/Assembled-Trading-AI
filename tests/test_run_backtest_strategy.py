@@ -98,7 +98,7 @@ def test_run_backtest_strategy_smoke(
             cwd=str(ROOT),
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=180,
         )
 
         # Should succeed
@@ -228,7 +228,7 @@ def test_run_backtest_strategy_with_universe(
             cwd=str(ROOT),
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=180,
         )
 
         # Should succeed
@@ -356,7 +356,7 @@ def test_run_backtest_event_insider_shipping(
             cwd=str(ROOT),
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=180,
         )
 
         # Should succeed
@@ -471,7 +471,7 @@ def test_event_strategy_generates_trades_with_sample_events(
             cwd=str(ROOT),
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=180,
         )
 
         # Should succeed

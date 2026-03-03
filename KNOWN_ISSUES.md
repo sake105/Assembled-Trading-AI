@@ -77,6 +77,16 @@ Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante 
   **Datei:** `src/assembled_core/api/models.py` (Zeile ~2)  
   **Beschreibung:** Docstring erwähnt "future implementation", aber Models sind bereits implementiert.
 
+### 2.4 Security & Secrets (deferred)
+
+- [ ] **[security]** Secrets / .env Hardening & Secret-Scanning in CI  
+  **Beschreibung:** Aktuell existiert kein konsistenter Hardening- und Scan-Prozess für Secrets/.env-Dateien.  
+  TODO (deferred):  
+  - Secret-Management-Konzept definieren (Trennung Code/Config/Secrets).  
+  - Secret-Scanning in CI aktivieren (z.B. GitHub-Scanner, Pre-Commit-Hooks).  
+  - Richtlinien zur Ablage/Rotation von Credentials dokumentieren.  
+  **Hinweis:** Umsetzung erfolgt in einem späteren Sprint; in M0-B wird lediglich diese TODO-Notiz gepflegt.
+
 ---
 
 ## 3. Performance & Skalierung

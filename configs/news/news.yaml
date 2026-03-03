@@ -1,0 +1,65 @@
+fetch:
+  timeout_s: 10
+  retries: 2
+  backoff_base_s: 0.5
+  max_concurrency: 5
+  user_agent: "Assembled-Trading-AI/NEWS-v1"
+  sanitize:
+    strip_html: true
+    title_max_chars: 300
+    summary_max_chars: 800
+
+dedupe:
+  enabled: true
+  window_days: 14
+  store:
+    backend: "sqlite"
+    path: "output/intel/news/cache/dedupe_store.sqlite"
+  fingerprint:
+    treat_distance0_as_duplicate: true
+  near_duplicate:
+    enabled: true
+    hamming_threshold: 3
+
+clustering:
+  enabled: false
+  algorithm: "tfidf_cosine"
+  similarity_threshold: 0.45
+  min_cluster_size: 3
+  top_phrases_k: 8
+  top_entities_k: 8
+  max_pair_checks: 2000
+  require_overlap: true
+  same_day_only: true
+
+burst:
+  enabled: false
+  baseline_days: 30
+  min_doc_count: 3
+  top_k: 50
+  version_salt: "v1"
+  windows_hours: [1, 6, 24]
+
+trigger_scoring:
+  enabled: false
+
+ttl_decay:
+  enabled: false
+
+gdelt:
+  enabled: false
+  rate_limit_rps: 1
+  cache_minutes: 10
+  stale_on_error_minutes: 60
+  window_hours:
+    hourly: 1
+    daily: 6
+  queries:
+    - "war OR sanctions OR shipping"
+
+health:
+  min_sources_ok: 1
+
+cadence:
+  modes: ["hourly", "daily"]
+

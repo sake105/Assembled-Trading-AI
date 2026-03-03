@@ -1,0 +1,22 @@
+sources:
+  - source_id: "rss_example_world"
+    name: "Example World"
+    domain: "example.com"
+    type: "rss"
+    tier: "B"
+    weight: 0.6
+    active: true
+    url: "https://example.com/rss"
+    country_focus: ["global"]
+    language: ["en"]
+    notes: "Placeholder RSS source for NEWS v1 tests."
+
+  - source_id: "gdelt_default"
+    name: "GDELT"
+    domain: "gdeltproject.org"
+    type: "gdelt"
+    tier: "B"
+    weight: 0.6
+    active: false          # Enable explicitly once configured
+    query: "war OR sanctions OR shipping"
+
