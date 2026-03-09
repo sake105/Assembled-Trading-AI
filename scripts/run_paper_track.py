@@ -377,11 +377,19 @@ def load_paper_track_config(path: Path) -> PaperTrackConfig:
         raise ValueError(f"output.format must be 'csv' or 'parquet', got: {output_format_raw}")
     output_format = output_format_raw  # type: ignore[assignment]
 
-    # Intel mode (none | real)
+    # Intel mode (none | real) and georisk gate
     intel_cfg = raw.get("intel", {})
+    if not isinstance(intel_cfg, dict):
+        intel_cfg = {}
     intel_mode_raw = str(intel_cfg.get("mode", "none")).strip().lower()
     if intel_mode_raw not in ("none", "real"):
         intel_mode_raw = "none"
+
+    georisk_cfg = intel_cfg.get("georisk_gate", {})
+    if not isinstance(georisk_cfg, dict):
+        georisk_cfg = {}
+    georisk_gate_enabled = bool(georisk_cfg.get("enabled", False))
+    georisk_active_multiplier = float(georisk_cfg.get("active_multiplier", 0.70))
 
     return PaperTrackConfig(
         strategy_name=strategy_name,
@@ -398,6 +406,8 @@ def load_paper_track_config(path: Path) -> PaperTrackConfig:
         output_root=output_root,
         output_format=output_format,  # type: ignore[arg-type]
         intel_mode=intel_mode_raw,  # type: ignore[arg-type]
+        georisk_gate_enabled=georisk_gate_enabled,
+        georisk_active_multiplier=georisk_active_multiplier,
     )
 
 
@@ -719,6 +729,33 @@ def run_paper_track_from_cli(
                 f"state_hint={news_geo['state_hint']}, "
                 f"triggers={summaries['news_triggers_summary']['count']}"
             )
+
+            # GeoRisk gate: compute multiplier and inject into config
+            if config.georisk_gate_enabled:
+                from src.assembled_core.paper.georisk_gate import compute_georisk_multiplier
+
+                geo_mult = compute_georisk_multiplier(
+                    news_geo,
+                    active_multiplier=config.georisk_active_multiplier,
+                )
+                # Inject multiplier as private attr for run_paper_day to pick up
+                config._georisk_multiplier = geo_mult  # type: ignore[attr-defined]
+                intel_orchestration["georisk_gate"] = {
+                    "enabled": True,
+                    "multiplier_applied": geo_mult,
+                    "state_hint": news_geo.get("state_hint", "WATCH"),
+                }
+                if intel_summary_data is not None:
+                    intel_summary_data["georisk_gate"] = intel_orchestration["georisk_gate"]
+                    with open(intel_summary_path, "w", encoding="utf-8") as f:
+                        json.dump(intel_summary_data, f, indent=2, ensure_ascii=True)
+                logger.info(f"GeoRisk gate: multiplier={geo_mult:.2f}")
+            else:
+                intel_orchestration["georisk_gate"] = {
+                    "enabled": False,
+                    "multiplier_applied": 1.0,
+                    "state_hint": news_geo.get("state_hint", "WATCH"),
+                }
 
         # Results tracking
         results: list[PaperTrackDayResult] = []

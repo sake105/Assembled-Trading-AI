@@ -144,6 +144,8 @@ class PaperTrackConfig:
     output_root: Path | None = None
     output_format: Literal["csv", "parquet"] = "csv"
     intel_mode: Literal["none", "real"] = "none"
+    georisk_gate_enabled: bool = False
+    georisk_active_multiplier: float = 0.70
 
 
 @dataclass
@@ -1158,6 +1160,21 @@ def run_paper_day(
         
         # Extract results (cycle_result.orders already generated from targets)
         orders = cycle_result.orders
+
+        # GeoRisk gate: scale order quantities if enabled
+        georisk_multiplier_applied = 1.0
+        if config.georisk_gate_enabled:
+            from src.assembled_core.paper.georisk_gate import (
+                apply_georisk_to_orders,
+            )
+            georisk_multiplier_applied = getattr(config, "_georisk_multiplier", 1.0)
+            if georisk_multiplier_applied < 1.0 and not orders.empty:
+                pre_count = len(orders)
+                orders = apply_georisk_to_orders(orders, georisk_multiplier_applied)
+                logger.info(
+                    f"GeoRisk gate applied: multiplier={georisk_multiplier_applied:.2f}, "
+                    f"orders {pre_count} -> {len(orders)}"
+                )
 
         # Step 8: Simulate fills
         logger.debug("Simulating order fills")
