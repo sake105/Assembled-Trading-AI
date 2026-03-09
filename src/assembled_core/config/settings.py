@@ -181,6 +181,15 @@ class Settings(BaseSettings):
         "Falls back gracefully if Numba is not installed.",
     )
 
+    # Execution behavior flags
+    reduce_signals_to_latest_bar: bool = Field(
+        default=True,
+        description=(
+            "If true, reduce signals to the latest bar per symbol in trading_cycle "
+            "(backtest/eod/paper/live). Set via ASSEMBLED_REDUCE_SIGNALS_TO_LATEST_BAR."
+        ),
+    )
+
     model_config = SettingsConfigDict(
         env_prefix="ASSEMBLED_",  # Environment variables: ASSEMBLED_ENVIRONMENT, ASSEMBLED_OUTPUT_DIR, etc.
         case_sensitive=False,

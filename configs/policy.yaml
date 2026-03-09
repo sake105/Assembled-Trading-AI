@@ -43,6 +43,22 @@ health_gates:
   marketdata:
     degraded_behavior: "PAUSE"
 
+# Intel integrations (read-only load into TradingContext).
+intel:
+  disclosures_triggers:
+    enabled: false
+    path: "output/intel/disclosures/triggers_latest.json"
+
+# Disclosures confirmation boost for NEWS geo_confidence (DISCL-4.2).
+disclosures_confirm:
+  enabled: true
+  boost:
+    min_severity: 1
+    add_confidence: 0.10
+    max_confidence: 0.95
+  qc:
+    if_disclosures_degraded: "no_boost"
+
 # Execution & operations policy (high-level, environment-agnostic).
 execution_policy:
   mode_default: "paper"          # v1.x: Paper-Track als Default; Live kommt später
@@ -54,4 +70,96 @@ logging_policy:
   audit_required: true
   artifact_paths:
     policy_snapshot: "output/policy/policy_snapshot.yaml"  # Snapshot des aktiven Policy-Configs pro Run
+
+georisk_overlay:
+  enabled: true
+  source: "news_geo"
+  mapping:
+    WATCH:
+      multiplier: 1.00
+      hedge:
+        enabled: false
+    ACTIVE:
+      multiplier: 0.70
+      hedge:
+        enabled: false
+    COOLDOWN:
+      multiplier: 0.85
+      hedge:
+        enabled: false
+    PAUSE:
+      multiplier: 0.00
+      hedge:
+        enabled: false
+  by_geo_score:
+    "0": 1.00
+    "1": 0.90
+    "2": 0.70
+    "3": 0.50
+  confidence_floor: 0.60
+  qc:
+    if_intel_degraded: "WATCH"
+
+turnover_budget:
+  enabled: true
+  mode: "daily"
+  cap: 0.15
+  min_trade_notional: 0
+  behavior: "scale"
+  qc:
+    if_missing_prices: "scale_to_zero"
+
+profit_lock:
+  enabled: true
+  lookback_days: 20
+  trigger_return: 0.08
+  multiplier_on_trigger: 0.80
+  floor: 0.50
+  cooldown_days: 10
+
+market_stress:
+  enabled: true
+  lookback_days: 20
+  metrics:
+    vol_z:
+      enabled: true
+      z_threshold: 1.5
+    dd_lookback:
+      enabled: true
+      dd_threshold: -0.05
+  confirm_rule:
+    mode: "any"
+  qc:
+    if_data_missing: false
+
+risk_state_machine:
+  enabled: true
+  state_path: "output/state/risk_state.json"
+  persistence:
+    mode: "live"
+    per_run_dir: "output/state/runs"
+    lock:
+      enabled: true
+      retries: 5
+      backoff_ms: 50
+  hysteresis:
+    activate_score: 2
+    deactivate_score: 1
+    pause_score: 3
+    confidence_floor: 0.60
+    require_market_stress_confirm: true
+    require_disclosures_confirm: false
+    disclosures_min_severity: 1
+    disclosures_confirm_gate:
+      enabled: true
+      min_geo_score: 3
+      on_states: ["WATCH", "COOLDOWN"]
+  cooldown:
+    hours: 24
+  pause:
+    enabled: false
+    require_confidence: 0.80
+    hours: 12
+  qc:
+    if_intel_degraded: "WATCH"
 

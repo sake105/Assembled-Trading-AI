@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 import subprocess
 from pathlib import Path
@@ -338,6 +339,7 @@ def test_run_backtest_event_insider_shipping(
 
         # Run script with event_insider_shipping strategy
         script_path = ROOT / "scripts" / "run_backtest_strategy.py"
+        env = {**os.environ, "ASSEMBLED_RISK_STATE_PERSISTENCE_MODE": "ephemeral"}
         result = subprocess.run(
             [
                 sys.executable,
@@ -357,6 +359,7 @@ def test_run_backtest_event_insider_shipping(
             capture_output=True,
             text=True,
             timeout=180,
+            env=env,
         )
 
         # Should succeed
@@ -453,6 +456,7 @@ def test_event_strategy_generates_trades_with_sample_events(
 
         # Run backtest with event strategy
         script_path = ROOT / "scripts" / "run_backtest_strategy.py"
+        env = {**os.environ, "ASSEMBLED_RISK_STATE_PERSISTENCE_MODE": "ephemeral"}
         result = subprocess.run(
             [
                 sys.executable,
@@ -472,6 +476,7 @@ def test_event_strategy_generates_trades_with_sample_events(
             capture_output=True,
             text=True,
             timeout=180,
+            env=env,
         )
 
         # Should succeed

@@ -1,0 +1,46 @@
+paper_runner:
+  mode: "shadow"          # shadow|paper
+  output_dir: "output/runs"
+  include_news_pipeline: false
+  as_of: null             # optional timestamp override
+  ledger_path: "output/runs/_paper_ledger/ledger_state.json"  # paper mode only
+  strategy:
+    name: "ema_trend_v0"   # ema_trend_v0 | none
+    ema_fast: 20
+    ema_slow: 60
+    equal_weight: true
+  intel:
+    mode: "sim"            # real | sim | none
+    run_news_pipeline: true
+    run_disclosures_pipeline: true
+    news:
+      cadence: "hourly"
+      sources_path: "configs/news/sources.yaml"
+      config_path: "configs/news/news.yaml"
+      output_dir: "output/intel/news"
+    disclosures:
+      cadence: "daily"
+      sources_path: "configs/disclosures/sources.yaml"
+      config_path: "configs/disclosures/disclosures.yaml"
+      output_dir: "output/intel/disclosures"
+  intel_sim:
+    enabled: true
+    mode: "stress_based"
+    disclosures_confirm_every_n_days: 9
+    geo_spikes:
+      enabled: true
+      every_n_days: 7
+      geo_score: 3
+      geo_confidence: 0.85
+
+alerts:
+  enabled: true
+  thresholds:
+    final_multiplier_drop: 0.20          # delta vs prev <= -0.20 triggers alert
+    abs_delta_weight_sum: 0.20          # turnover proxy
+    turnover_scale_factor_below: 0.70
+    max_severity_ge: 2                  # triggers_summary.max_severity >= 2
+  severity_map:
+    info: 0
+    warn: 1
+    critical: 2

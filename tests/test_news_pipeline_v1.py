@@ -2004,6 +2004,307 @@ health:
     assert totals["items_raw"] == sum(s.get("items", 0) for s in per_source)
 
 
+def test_news_pipeline_emits_debug_funnel_artifact(tmp_path, monkeypatch):
+    """NEWS-DEBUG-1: Pipeline emits debug_funnel_latest.json with schema and funnel counts."""
+    import json
+
+    sources_cfg = tmp_path / "sources.yaml"
+    sources_cfg.write_text(
+        """
+sources:
+  - source_id: "rss_example"
+    name: "Example"
+    domain: "example.com"
+    type: "rss"
+    tier: "A"
+    weight: 1.0
+    active: true
+    url: "https://example.com/rss"
+        """,
+        encoding="utf-8",
+    )
+    news_cfg = tmp_path / "news.yaml"
+    news_cfg.write_text(
+        """
+fetch:
+  timeout_s: 10
+  retries: 0
+  max_concurrency: 2
+  user_agent: "UA"
+  sanitize:
+    strip_html: true
+    title_max_chars: 300
+dedupe:
+  enabled: false
+clustering:
+  enabled: true
+burst:
+  enabled: false
+gdelt:
+  enabled: false
+health:
+  min_sources_ok: 1
+        """,
+        encoding="utf-8",
+    )
+
+    from src.assembled_core.events.news import pipeline as pipeline_module
+
+    def fake_fetch(_source_id: str, _url: str, **kwargs: Any) -> tuple:
+        items = [
+            {"title": "First headline here", "link": "https://example.com/1", "published": "2025-01-08T00:00:00Z", "summary": "", "raw": {}},
+            {"title": "Second headline there", "link": "https://example.com/2", "published": "2025-01-08T01:00:00Z", "summary": "", "raw": {}},
+        ]
+        stats = {"source_id": "rss_example", "type": "rss", "ok": True, "http_status": 200, "duration_ms": 0, "items": 2, "not_modified": False, "cached": False, "error": None}
+        return items, None, stats
+
+    monkeypatch.setattr(pipeline_module, "fetch_rss_feed", fake_fetch)
+
+    out_dir = tmp_path / "out"
+    run_news_pipeline(
+        sources_path=str(sources_cfg),
+        news_path=str(news_cfg),
+        cadence="hourly",
+        output_dir=out_dir,
+    )
+
+    funnel_path = out_dir / "debug_funnel_latest.json"
+    assert funnel_path.exists()
+    data = json.loads(funnel_path.read_text(encoding="utf-8"))
+    assert data.get("schema_version") == "news.debug_funnel.v1"
+    assert "generated_utc" in data
+    assert data.get("cadence") == "hourly"
+    assert "notes" in data and isinstance(data["notes"], list)
+    counts = data.get("counts")
+    assert isinstance(counts, dict)
+    required_keys = [
+        "raw_items_count", "normalized_events_count", "normalized_ok_count",
+        "dedupe_store_dropped_url_count", "dedupe_store_dropped_fp0_count", "post_store_kept_count",
+        "normalize_exception_count", "normalize_none_count",
+        "dropped_short_title_count",
+        "deduped_events_count", "clusters_count", "clusters_with_topics_count",
+        "candidate_triggers_count", "triggers_count",
+        "triggers_severity_ge_1_count", "triggers_severity_ge_2_count",
+        "triggers_evidence_blocked_count", "triggers_qc_capped_count",
+    ]
+    for k in required_keys:
+        assert k in counts, f"missing count key: {k}"
+        assert isinstance(counts[k], int), f"count {k} must be int"
+    assert counts["raw_items_count"] == 2
+    assert counts["normalized_events_count"] == 2
+    assert counts["deduped_events_count"] == 2
+    assert counts["clusters_count"] >= 0
+    assert counts["triggers_count"] == 0
+
+
+def test_news_pipeline_dedupe_store_funnel_counts(tmp_path, monkeypatch):
+    """NEWS-DEBUG-52: Funnel counts reflect URL drop, fp0 drop, and one kept (post_store_kept_count)."""
+    import json
+
+    from src.assembled_core.events.news import pipeline as pipeline_module
+
+    sources_cfg = tmp_path / "sources.yaml"
+    sources_cfg.write_text(
+        """
+sources:
+  - source_id: "rss_example"
+    name: "Example"
+    domain: "example.com"
+    type: "rss"
+    tier: "A"
+    weight: 1.0
+    active: true
+    url: "https://example.com/rss"
+        """,
+        encoding="utf-8",
+    )
+    news_cfg = tmp_path / "news.yaml"
+    news_cfg.write_text(
+        """
+fetch:
+  timeout_s: 10
+  retries: 0
+  max_concurrency: 2
+  user_agent: "UA"
+  sanitize:
+    strip_html: true
+    title_max_chars: 300
+dedupe:
+  enabled: true
+  window_days: 365
+clustering:
+  enabled: true
+burst:
+  enabled: false
+gdelt:
+  enabled: false
+health:
+  min_sources_ok: 1
+        """,
+        encoding="utf-8",
+    )
+
+    out_dir = tmp_path / "out"
+    # Mock store: first event dropped by URL, second by fp0, third kept
+    url_drop_count = [0]
+    fp_drop_count = [0]
+
+    class MockStore:
+        def has_url(self, url: str) -> bool:
+            if not url:
+                return False
+            url_drop_count[0] += 1
+            return url_drop_count[0] == 1
+
+        def has_fingerprint64(self, fp64: int):
+            if fp64 == 0:
+                return False, None
+            fp_drop_count[0] += 1
+            return (fp_drop_count[0] == 1, None)
+
+        def candidates_by_bucket(self, bucket: int):
+            return []
+
+        def add_event(self, *args, **kwargs):
+            pass
+
+        def prune(self, window_days: int, now_utc: str) -> int:
+            return 0
+
+    def fake_fetch(_source_id: str, _url: str, **kwargs: Any) -> tuple:
+        items = [
+            {"title": "First headline for dedupe test", "link": "https://example.com/1", "published": "2025-01-08T00:00:00Z", "summary": "", "raw": {}, "source_id": "rss_example", "source_name": "Example", "source_domain": "example.com"},
+            {"title": "Second different headline", "link": "https://example.com/2", "published": "2025-01-08T01:00:00Z", "summary": "", "raw": {}, "source_id": "rss_example", "source_name": "Example", "source_domain": "example.com"},
+            {"title": "Third brand new story", "link": "https://example.com/3", "published": "2025-01-08T02:00:00Z", "summary": "", "raw": {}, "source_id": "rss_example", "source_name": "Example", "source_domain": "example.com"},
+        ]
+        stats = {"source_id": "rss_example", "type": "rss", "ok": True, "http_status": 200, "duration_ms": 0, "items": 3, "not_modified": False, "cached": False, "error": None}
+        return items, None, stats
+
+    def mock_dedupe_store(path):
+        return MockStore()
+
+    monkeypatch.setattr(pipeline_module, "fetch_rss_feed", fake_fetch)
+    monkeypatch.setattr(pipeline_module, "DedupeStoreSQLite", mock_dedupe_store)
+    run_news_pipeline(sources_path=str(sources_cfg), news_path=str(news_cfg), cadence="hourly", output_dir=out_dir)
+
+    funnel_path = out_dir / "debug_funnel_latest.json"
+    assert funnel_path.exists()
+    data = json.loads(funnel_path.read_text(encoding="utf-8"))
+    counts = data.get("counts", {})
+    assert counts.get("raw_items_count") == 3
+    assert counts.get("normalized_ok_count") == 3
+    assert counts.get("dedupe_store_dropped_url_count") == 1
+    assert counts.get("dedupe_store_dropped_fp0_count") == 1
+    assert counts.get("post_store_kept_count") == 1
+    assert counts.get("deduped_events_count") == 1
+
+
+def test_news_pipeline_normalize_failure_reasons_and_samples(tmp_path, monkeypatch):
+    """NEWS-DEBUG-2: Pipeline records normalize exceptions, None returns, and up to 3 samples."""
+    import json
+
+    from src.assembled_core.events.news import pipeline as pipeline_module
+    from src.assembled_core.events.news.normalize import normalize_raw_item as real_normalize
+
+    sources_cfg = tmp_path / "sources.yaml"
+    sources_cfg.write_text(
+        """
+sources:
+  - source_id: "rss_example"
+    name: "Example"
+    domain: "example.com"
+    type: "rss"
+    tier: "A"
+    weight: 1.0
+    active: true
+    url: "https://example.com/rss"
+        """,
+        encoding="utf-8",
+    )
+    news_cfg = tmp_path / "news.yaml"
+    news_cfg.write_text(
+        """
+fetch:
+  timeout_s: 10
+  retries: 0
+  max_concurrency: 2
+  user_agent: "UA"
+  sanitize:
+    strip_html: true
+    title_max_chars: 300
+dedupe:
+  enabled: false
+clustering:
+  enabled: true
+burst:
+  enabled: false
+gdelt:
+  enabled: false
+health:
+  min_sources_ok: 1
+        """,
+        encoding="utf-8",
+    )
+
+    call_count = [0]
+
+    def mock_normalize(raw, *, source_id, source_name, source_domain, fetched_utc):
+        call_count[0] += 1
+        if call_count[0] == 1:
+            raise ValueError("bad item")
+        if call_count[0] == 2:
+            return None
+        return real_normalize(
+            raw,
+            source_id=source_id,
+            source_name=source_name,
+            source_domain=source_domain,
+            fetched_utc=fetched_utc,
+        )
+
+    def fake_fetch(_source_id: str, _url: str, **kwargs: Any) -> tuple:
+        items = [
+            {"title": "Bad", "link": "https://example.com/1", "published": "2025-01-08T00:00:00Z", "summary": "", "raw": {}, "source_id": "rss_example", "source_name": "Example", "source_domain": "example.com"},
+            {"title": "X", "link": "https://example.com/2", "published": "2025-01-08T01:00:00Z", "summary": "", "raw": {}, "source_id": "rss_example", "source_name": "Example", "source_domain": "example.com"},
+            {"title": "Valid headline for normalization", "link": "https://example.com/3", "published": "2025-01-08T02:00:00Z", "summary": "", "raw": {}, "source_id": "rss_example", "source_name": "Example", "source_domain": "example.com"},
+        ]
+        stats = {"source_id": "rss_example", "type": "rss", "ok": True, "http_status": 200, "duration_ms": 0, "items": 3, "not_modified": False, "cached": False, "error": None}
+        return items, None, stats
+
+    monkeypatch.setattr(pipeline_module, "fetch_rss_feed", fake_fetch)
+    monkeypatch.setattr(pipeline_module, "normalize_raw_item", mock_normalize)
+
+    out_dir = tmp_path / "out"
+    run_news_pipeline(
+        sources_path=str(sources_cfg),
+        news_path=str(news_cfg),
+        cadence="hourly",
+        output_dir=out_dir,
+    )
+
+    funnel_path = out_dir / "debug_funnel_latest.json"
+    assert funnel_path.exists()
+    data = json.loads(funnel_path.read_text(encoding="utf-8"))
+    counts = data.get("counts", {})
+    assert counts.get("normalize_exception_count") == 1
+    assert counts.get("normalize_none_count") == 1
+    assert counts.get("normalized_events_count") == 1
+    assert counts.get("raw_items_count") == 3
+    assert "normalize_exception_reasons" in data
+    assert "normalize_none_reasons" in data
+    assert "samples" in data
+    samples = data["samples"]
+    assert isinstance(samples, list)
+    assert len(samples) == 2
+    kinds = {s.get("kind") for s in samples}
+    assert "exception" in kinds
+    assert "returned_none" in kinds
+    for s in samples:
+        assert "reason" in s
+        assert "raw_preview" in s
+        assert "title" in s["raw_preview"] or "keys" in s["raw_preview"]
+
+
 def test_daily_housekeeping_written_when_daily(tmp_path, monkeypatch):
     # Seed a fetch_state with an old gdelt cache entry
     from datetime import datetime, timezone, timedelta

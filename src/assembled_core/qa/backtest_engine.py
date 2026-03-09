@@ -307,13 +307,23 @@ def make_cycle_fn(
     if run_trading_cycle_fn is None:
         from src.assembled_core.pipeline.trading_cycle import run_trading_cycle as run_trading_cycle_fn
     
-    def cycle_fn(timestamp: pd.Timestamp, current_positions: pd.DataFrame) -> "TradingCycleResult":
+    def cycle_fn(
+        timestamp: pd.Timestamp,
+        current_positions: pd.DataFrame,
+        *,
+        equity_curve: pd.Series | None = None,
+        equity_curve_index: int | None = None,
+        profit_lock_state: dict[str, Any] | None = None,
+    ) -> "TradingCycleResult":
         """Run trading cycle for a specific timestamp.
-        
+
         Args:
             timestamp: Current timestamp for rebalancing
             current_positions: Current portfolio positions (columns: symbol, qty)
-            
+            equity_curve: Optional equity series for profit_lock overlay (backtest sets per step)
+            equity_curve_index: Current bar index into equity_curve
+            profit_lock_state: Optional state dict for profit_lock cooldown roundtrip
+
         Returns:
             TradingCycleResult with orders, signals, target_positions, etc.
         """
@@ -332,8 +342,11 @@ def make_cycle_fn(
             enable_risk_controls=False,  # Backtest engine doesn't use risk controls (can be added later)
             security_meta_df=ctx_template.security_meta_df,  # Pass through security metadata
             backtest_use_snapshot=getattr(ctx_template, "backtest_use_snapshot", False),
+            equity_curve=equity_curve,
+            equity_curve_index=equity_curve_index,
+            profit_lock_state=profit_lock_state,
         )
-        
+
         # Run trading cycle
         return run_trading_cycle_fn(ctx)
     
@@ -481,6 +494,8 @@ def run_portfolio_backtest(
     strict_session_gate: bool = True,
     # Rebalance schedule: "daily" = every bar; "weekly" = every 5th bar (1d) to reduce turnover
     rebalance_schedule: str = "daily",
+    # Optional: restrict rebalance to these timestamps only (e.g. for EOD parity tests)
+    rebalance_timestamps: list[pd.Timestamp] | None = None,
 ) -> BacktestResult:
     """Run a portfolio-level backtest with configurable signal and position sizing functions.
 
@@ -826,25 +841,58 @@ def run_portfolio_backtest(
         current_positions = pd.DataFrame(columns=["symbol", "qty"])
 
         # Determine timeline (unique timestamps from prices, sorted)
-        timeline = sorted(prices["timestamp"].unique())
-        # Rebalance only on selected bars: weekly = every 5th bar (1d), daily = all
-        if rebalance_schedule == "weekly":
-            rebalance_timestamps = set(timeline[i] for i in range(0, len(timeline), 5))
+        # Normalize to UTC-aware timestamps for stable membership checks
+        raw_timeline = sorted(prices["timestamp"].unique())
+        timeline: list[pd.Timestamp] = []
+        for ts in raw_timeline:
+            ts_pd = pd.to_datetime(ts)
+            if ts_pd.tzinfo is None or ts_pd.tz is None:
+                ts_pd = ts_pd.tz_localize("UTC")
+            else:
+                ts_pd = ts_pd.tz_convert("UTC")
+            timeline.append(ts_pd)
+
+        # Normalize rebalance_timestamps (if provided) to UTC-aware as well
+        if rebalance_timestamps is not None:
+            normalized_rebalance: list[pd.Timestamp] = []
+            for ts in rebalance_timestamps:
+                ts_pd = pd.to_datetime(ts)
+                if ts_pd.tzinfo is None or ts_pd.tz is None:
+                    ts_pd = ts_pd.tz_localize("UTC")
+                else:
+                    ts_pd = ts_pd.tz_convert("UTC")
+                normalized_rebalance.append(ts_pd)
+            rebalance_timestamps_set = set(normalized_rebalance)
+        elif rebalance_schedule == "weekly":
+            rebalance_timestamps_set = set(timeline[i] for i in range(0, len(timeline), 5))
         else:
-            rebalance_timestamps = set(timeline)
+            rebalance_timestamps_set = set(timeline)
 
         # Use cycle_fn if provided (TradingCycle integration), otherwise use legacy path
         if cycle_fn is not None:
             # TradingCycle path: use cycle_fn for each timestamp
             decision_timings = []
             position_update_timings = []
-            
+            # Running equity and state for profit_lock (INT-6.2)
+            equity_values: list[float] = [start_capital]
+            cash = start_capital
+            profit_lock_state: dict[str, Any] | None = None
+
             for timestamp in timeline:
-                if timestamp not in rebalance_timestamps:
+                if timestamp not in rebalance_timestamps_set:
                     continue
-                # Decision (cycle_fn) - includes signal generation and order generation internally
+                # Equity curve up to (and including) previous step; index = len-1
+                equity_curve_series = pd.Series(equity_values)
+                equity_curve_index = len(equity_values) - 1
+                # Decision (cycle_fn) - pass equity and profit_lock state
                 with timed_step(f"decision_{timestamp}", timings, logger):
-                    cycle_result = cycle_fn(timestamp, current_positions)
+                    cycle_result = cycle_fn(
+                        timestamp,
+                        current_positions,
+                        equity_curve=equity_curve_series,
+                        equity_curve_index=equity_curve_index,
+                        profit_lock_state=profit_lock_state,
+                    )
                 
                 # Track per-timestamp decision timing for aggregation
                 if f"decision_{timestamp}" in timings:
@@ -855,14 +903,29 @@ def run_portfolio_backtest(
                         f"Trading cycle failed for timestamp {timestamp}: {cycle_result.error_message}"
                     )
                     continue
-                
+
+                # Persist profit_lock state for next step
+                profit_lock_state = cycle_result.meta.get("profit_lock_state")
+
                 # Extract orders (prefer orders_filtered, fallback to orders)
                 orders = (
                     cycle_result.orders_filtered
                     if not cycle_result.orders_filtered.empty
                     else cycle_result.orders
                 )
-                
+
+                # Update cash from orders (buy = outflow, sell = inflow)
+                if not orders.empty:
+                    for _, row in orders.iterrows():
+                        side = row.get("side", "BUY")
+                        qty = float(row.get("qty", 0) or 0)
+                        price = float(row.get("price", 0) or 0)
+                        notional = qty * price
+                        if side == "BUY":
+                            cash -= notional
+                        else:
+                            cash += notional
+
                 # Update positions using vectorized operations (Fill/Fees/Equity-Update stays in Engine)
                 if not orders.empty:
                     with timed_step(f"position_update_{timestamp}", timings, logger):
@@ -871,7 +934,17 @@ def run_portfolio_backtest(
                     if f"position_update_{timestamp}" in timings:
                         position_update_timings.append(timings[f"position_update_{timestamp}"]["duration_ms"])
                     all_orders.append(orders)
-                
+
+                # Running equity for next step (cash + MTM of current positions)
+                prices_at_ts = prices[prices["timestamp"] == timestamp]
+                if not prices_at_ts.empty and not current_positions.empty:
+                    px = prices_at_ts.set_index("symbol")["close"]
+                    qty_series = current_positions.set_index("symbol")["qty"]
+                    mtm = (qty_series * px.reindex(qty_series.index).fillna(0)).sum()
+                else:
+                    mtm = 0.0
+                equity_values.append(cash + float(mtm))
+
                 # Store targets if requested
                 if include_targets and not cycle_result.target_positions.empty:
                     targets_with_timestamp = cycle_result.target_positions.copy()

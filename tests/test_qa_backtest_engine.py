@@ -9,7 +9,11 @@ import pandas as pd
 
 pytestmark = pytest.mark.phase4
 
-from src.assembled_core.qa.backtest_engine import BacktestResult, run_portfolio_backtest
+from src.assembled_core.qa.backtest_engine import (
+    BacktestResult,
+    make_cycle_fn,
+    run_portfolio_backtest,
+)
 
 
 @pytest.fixture
@@ -521,3 +525,51 @@ def test_backtest_engine_cost_model(synthetic_prices_multi_year):
     equity = result.equity
     assert len(equity) > 0
     assert equity["equity"].iloc[0] == pytest.approx(10000.0, abs=1.0)
+
+
+@pytest.mark.unit
+def test_rebalance_timestamps_timezone_normalization(synthetic_prices_single_symbol):
+    """Naive rebalance_timestamps must match UTC-aware price timestamps (cycle_fn path)."""
+    from src.assembled_core.pipeline.trading_cycle import TradingContext
+
+    prices = synthetic_prices_single_symbol.copy()
+    # Price timestamps are UTC-aware; create naive variants for first 2 days
+    unique_ts = sorted(prices["timestamp"].unique())[:2]
+    naive_ts = [ts.replace(tzinfo=None) for ts in unique_ts]
+
+    # Build TradingContext template for backtest integration
+    ctx_template = TradingContext(
+        prices=prices,
+        freq="1d",
+        universe=None,
+        use_factor_store=False,
+        factor_store_root=None,
+        factor_group="core_ta",
+        feature_config={},
+        write_outputs=False,
+        enable_risk_controls=False,
+    )
+
+    cycle_fn = make_cycle_fn(
+        ctx_template,
+        signal_fn=dummy_signal_fn,
+        position_sizing_fn=dummy_position_sizing_fn,
+        capital=10000.0,
+    )
+
+    result = run_portfolio_backtest(
+        prices=prices,
+        signal_fn=dummy_signal_fn,
+        position_sizing_fn=dummy_position_sizing_fn,
+        start_capital=10000.0,
+        include_costs=False,
+        include_trades=True,
+        rebalance_timestamps=naive_ts,
+        cycle_fn=cycle_fn,
+    )
+
+    # Ensure trades exist and timestamps align with the original UTC-aware dates
+    assert result.trades is not None
+    trade_ts = sorted(pd.to_datetime(result.trades["timestamp"].unique(), utc=True))
+    expected_ts = sorted(pd.to_datetime(unique_ts, utc=True))
+    assert trade_ts == expected_ts

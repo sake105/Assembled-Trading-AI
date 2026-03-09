@@ -1,0 +1,32 @@
+# Disclosures sources registry (House PTR, SEC EDGAR)
+# v1: stubs only; no real network calls
+
+sources:
+  - source_id: house_ptr
+    name: House PTR
+    domain: disclosures.house.gov
+    type: house_ptr
+    tier: A
+    weight: 1.0
+    active: false
+    notes: "Deaktiviert bis index_url konfiguriert (missing_index_url). EDGAR-only für sauberen Smoke."
+
+  - source_id: edgar_form4
+    name: SEC EDGAR Form 4
+    domain: sec.gov
+    type: edgar_form4
+    tier: A
+    weight: 1.0
+    active: true
+    form_types: [4]
+    notes: Insider transactions (Atom feed)
+
+  - source_id: edgar_13d
+    name: SEC EDGAR 13D/13G
+    domain: sec.gov
+    type: edgar
+    tier: B
+    weight: 0.8
+    active: true
+    form_types: [13D, 13G]
+    notes: Beneficial ownership (stub)

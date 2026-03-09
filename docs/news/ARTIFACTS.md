@@ -38,7 +38,7 @@
   - **Purpose**: Abgeleitete Trigger (Severity/Confidence) für spätere Strategy-Integration.
   - **Wann**: Jede Pipeline-Ausführung (wenn `trigger_scoring.enabled`).
   - **Key-Felder**: `trigger_id`, `cluster_id`, `trigger_type`, `topic_id`, `severity`, `confidence`, `ttl_hours`, `decay`, `evidence_ok`.
-  - **Konsument**: Wird read-only vom `TradingContext` geladen (siehe `docs/integrations/NEWS_TRIGGERS_TRADINGCONTEXT.md`).
+  - **Konsument**: Wird read-only vom `TradingContext` geladen (siehe `docs/integrations/NEWS_TRIGGERS_TRADINGCONTEXT.md`). Im Paper Runner wird `triggers_latest.json` in **real Intel mode** (`paper_runner.intel.mode=real`) vor dem Trading Cycle verwendet.
 
 - **Bursts**
   - **Pfad**: `output/intel/news/bursts_latest.json`
@@ -87,4 +87,19 @@
   - **Purpose**: Persistenter Dedupe-Store für `canonical_url` + 64-bit-Fingerprint-Buckets.
   - **Wann**: Alle Runs, in denen Dedupe-Store aktiviert ist.
   - **Key-Struktur**: Tabelle `seen_events(canonical_url, fp64, fp_bucket, event_id, source_id, published_utc, ingested_utc)` + Index auf `fp_bucket`.
+
+## Addendum: Kette bis zu Risk Overlays
+
+- **Events / Clusters / Bursts → Triggers**:
+  - Roh-News (`events_latest.json`) werden zu Clustern/Bursts aggregiert.
+  - Daraus entstehen **Triggers** (`triggers_latest.json`) mit `severity` und `confidence`.
+- **Triggers → Geo-Intel / Risk State**:
+  - Die Trigger werden in einen **Geo-/News-Score** und ggf. in einen Risk-State (WATCH/ACTIVE/COOLDOWN/PAUSE) übersetzt.
+  - Diese Informationen landen lesend im `TradingContext` (z.B. als `news_geo`, `geo_score`, `geo_confidence`, `state_hint`).
+- **Geo-Intel / Risk State → GeoRisk Overlay**:
+  - Das **GeoRisk Overlay** liest Geo-Score, Confidence und Risk-State und wendet die Policy `georisk_overlay.*` aus `configs/policy.yaml` an.
+  - Ergebnis ist ein **Exposure-Multiplikator** \\(m_{geo} \in [0,1]\\), der in der Trading-Pipeline auf die Ziel-Exposure angewendet wird.
+- **Weitere Overlays (Profit Lock, Turnover)**:
+  - Profit-Lock und Turnover-Budget basieren nicht direkt auf News-Artefakten, sondern auf **Equity-Curve** bzw. **Trade-Deltas**.
+  - Zusammen bestimmen GeoRisk, Profit Lock und Turnover-Gate die effektive Exposure und das tatsächlich gehandelte Volumen.
 

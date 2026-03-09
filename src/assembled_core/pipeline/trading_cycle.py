@@ -30,6 +30,7 @@ Example usage:
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -42,6 +43,9 @@ from src.assembled_core.config.models import (
     FeatureConfig,
     ensure_feature_config,
 )
+from src.assembled_core.config.policy_loader import load_policy
+from src.assembled_core.config.config import get_base_dir
+from src.assembled_core.config.settings import get_settings
 
 if TYPE_CHECKING:
     from src.assembled_core.config.models import RiskConfig, SignalConfig
@@ -53,6 +57,18 @@ from src.assembled_core.features.factor_store_integration import build_or_load_f
 from src.assembled_core.features.ta_features import (
     add_all_features,
 )
+from src.assembled_core.risk.georisk_overlay import (
+    apply_exposure_multiplier_to_targets,
+    compute_exposure_multiplier,
+)
+from src.assembled_core.risk.state_machine import (
+    compute_next_state,
+    load_risk_state,
+    save_risk_state,
+)
+from src.assembled_core.risk.market_stress import compute_market_stress
+from src.assembled_core.risk.profit_lock import compute_profit_lock_multiplier
+from src.assembled_core.risk.turnover_budget import apply_turnover_gate, estimate_turnover
 
 logger = logging.getLogger(__name__)
 
@@ -210,7 +226,23 @@ class TradingContext:
     # QA Gate (Sprint 3 / D2)
     qa_block_trading: bool = False
     qa_block_reason: str | None = None
-    
+
+    # Risk state machine (INT-4): WATCH / ACTIVE / COOLDOWN / PAUSE (read-only after run start)
+    risk_state: dict[str, Any] | None = None
+
+    # Market stress (INT-5): price-based stress_ok / stress_score for state machine
+    market_stress: dict[str, Any] | None = None
+
+    # Profit lock (INT-6.2): optional equity curve and current index for overlay
+    equity_curve: pd.Series | None = None
+    equity_curve_index: int | None = None
+    profit_lock_state: dict[str, Any] | None = None
+
+    # Intel (read-only): disclosures triggers snapshot; QC flags for degraded/missing intel
+    disclosures_triggers: Any | None = None  # DisclosuresTriggerSnapshot | None
+    intel_health_flags: dict[str, str] = field(default_factory=dict)
+    intel_sim_applied: bool = False  # BENCH-1: when True, skip intel loading (paper_runner sets simulated intel)
+
     # Outputs
     output_dir: Path = field(default_factory=lambda: Path("output"))
     output_format: Literal["safe_csv", "equity_curve", "state", "none"] = "safe_csv"
@@ -733,6 +765,76 @@ def run_trading_cycle(
     # Initialize hooks dict if not provided
     hooks = hooks or {}
     
+    # Risk state machine (INT-4): load persisted state, compute next, save (if not ephemeral), fill ctx.risk_state
+    try:
+        policy = load_policy()
+    except Exception:
+        policy = {}
+    rsm = (policy.get("risk_state_machine") or {})
+    base_dir = get_base_dir()
+    persistence = rsm.get("persistence") or {}
+    mode = os.environ.get("ASSEMBLED_RISK_STATE_PERSISTENCE_MODE") or persistence.get("mode", "live")
+    # Use simulation time (ctx.as_of) in paper/backtest so cooldown is in "simulation hours", not wall-clock
+    if getattr(ctx, "as_of", None) is not None:
+        as_of_utc = pd.to_datetime(ctx.as_of, utc=True)
+        now_utc = as_of_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+    else:
+        now_utc = pd.Timestamp.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    if mode == "ephemeral":
+        import tempfile
+        _ephemeral_path = Path(tempfile.gettempdir()) / f"assembled_risk_state_ephemeral_{os.getpid()}.json"
+        prev = load_risk_state(_ephemeral_path)
+        next_rec = compute_next_state(ctx, policy, now_utc, prev)
+        ctx.risk_state = next_rec.to_dict()
+    else:
+        if mode == "per_run":
+            run_id = getattr(ctx, "run_id", None) or os.environ.get("ASSEMBLED_RUN_ID") or f"pid{os.getpid()}"
+            per_run_dir = base_dir / str(persistence.get("per_run_dir", "output/state/runs"))
+            state_path = per_run_dir / str(run_id) / "risk_state.json"
+        else:
+            state_path = base_dir / str(rsm.get("state_path", "output/state/risk_state.json"))
+        prev = load_risk_state(state_path)
+        next_rec = compute_next_state(ctx, policy, now_utc, prev)
+        if rsm.get("enabled", True):
+            save_risk_state(next_rec, state_path, policy)
+        ctx.risk_state = next_rec.to_dict()
+
+    # Intel: disclosures triggers (read-only snapshot; missing/invalid -> DEGRADED flag)
+    # Skip when intel_sim_applied (BENCH-1: paper_runner injected simulated intel)
+    if not getattr(ctx, "intel_sim_applied", False):
+        try:
+            intel_cfg = (policy.get("intel") or {})
+            disc_tr_cfg = intel_cfg.get("disclosures_triggers") or {}
+            if disc_tr_cfg.get("enabled", False):
+                from src.assembled_core.intel.disclosures_triggers_loader import load_disclosures_triggers
+                path_raw = disc_tr_cfg.get("path", "output/intel/disclosures/triggers_latest.json")
+                path_resolved = (base_dir / path_raw) if not Path(path_raw).is_absolute() else Path(path_raw)
+                snap = load_disclosures_triggers(path_resolved)
+                if snap.generated_utc:
+                    ctx.disclosures_triggers = snap
+                else:
+                    ctx.disclosures_triggers = None
+                    ctx.intel_health_flags["intel_disclosures_triggers"] = "DEGRADED"
+        except Exception:
+            ctx.disclosures_triggers = None
+            if "intel_disclosures_triggers" not in (ctx.intel_health_flags or {}):
+                ctx.intel_health_flags = ctx.intel_health_flags or {}
+                ctx.intel_health_flags["intel_disclosures_triggers"] = "DEGRADED"
+
+        # Market stress (INT-5): price-based stress signal for state machine
+        ms_cfg = (policy.get("market_stress") or {})
+        if ms_cfg.get("enabled", False):
+            ctx.market_stress = compute_market_stress(ctx.prices, policy)
+        else:
+            ctx.market_stress = None
+
+        # Disclosures confirm (DISCL-4.2): boost news_geo.geo_confidence when disclosures triggers sev >= 1
+        try:
+            from src.assembled_core.risk.disclosures_confirm import apply_disclosures_confirm
+            apply_disclosures_confirm(ctx, policy)
+        except Exception:
+            pass
+
     # Step 1: Load/Filter prices (hook point: load_prices)
     try:
         if "load_prices" in hooks:
@@ -851,7 +953,26 @@ def run_trading_cycle(
                 )
         else:
             # Default: use existing feature building modules
-            result.prices_with_features = _build_features_default(ctx, result.prices_filtered)
+            # EOD/Paper/Live: use full history <= as_of for feature building (MAs etc. need history)
+            if ctx.mode in ("eod", "paper", "live") and ctx.as_of is not None:
+                prices_for_features = ctx.prices[ctx.prices["timestamp"] <= ctx.as_of].copy()
+                if ctx.universe is not None:
+                    universe_upper = [s.upper().strip() for s in ctx.universe]
+                    prices_for_features = prices_for_features[
+                        prices_for_features["symbol"].str.upper().isin(universe_upper)
+                    ].copy()
+                result.prices_with_features = _build_features_default(ctx, prices_for_features)
+                # Keep latest per symbol for order generation
+                if not result.prices_with_features.empty:
+                    result.prices_latest = (
+                        result.prices_with_features.groupby("symbol", group_keys=False, dropna=False)
+                        .last()
+                        .reset_index()
+                        .sort_values("symbol")
+                        .reset_index(drop=True)
+                    )
+            else:
+                result.prices_with_features = _build_features_default(ctx, result.prices_filtered)
         
         log.debug(f"Features: {len(result.prices_with_features.columns)} columns (was {len(result.prices_filtered.columns)})")
     except Exception as e:
@@ -867,9 +988,15 @@ def run_trading_cycle(
             # Default: call signal_fn
             result.signals = ctx.signal_fn(result.prices_with_features)
         
-        # In backtest mode with history slice, signal_fn returns one row per (timestamp, symbol) for full history.
-        # Keep only the latest signal per symbol (PIT: state at rebalance = last row per symbol in slice).
-        if ctx.mode == "backtest" and "timestamp" in result.signals.columns and not result.signals.empty:
+        # In backtest/eod mode with history slice, signal_fn may return multiple rows per symbol.
+        # Optionally keep only the latest signal per symbol (PIT: state at rebalance = last row per symbol in slice).
+        settings = get_settings()
+        if (
+            settings.reduce_signals_to_latest_bar
+            and ctx.mode in ("backtest", "eod", "paper", "live")
+            and "timestamp" in result.signals.columns
+            and not result.signals.empty
+        ):
             result.signals["_ts"] = pd.to_datetime(result.signals["timestamp"], utc=True)
             result.signals = (
                 result.signals.sort_values("_ts", ascending=True)
@@ -911,12 +1038,89 @@ def run_trading_cycle(
                 result.error_message = "target_positions missing required columns: symbol and (target_weight or target_qty)"
                 return result
         
-        log.debug(f"Target positions computed: {len(result.target_positions)} symbols")
+        # Apply GeoRisk exposure overlay (scaling only, no new signals)
+        try:
+            policy = load_policy()
+        except Exception:
+            policy = {}
+        geo_multiplier = compute_exposure_multiplier(ctx, policy)
+        # Soft Profit Lock (INT-6.2): combine multiplicatively with GeoRisk
+        pl_cfg = (policy.get("profit_lock") or {})
+        if pl_cfg.get("enabled") and getattr(ctx, "equity_curve", None) is not None and getattr(ctx, "equity_curve_index", None) is not None:
+            pl_state = getattr(ctx, "profit_lock_state", None) or {}
+            profit_lock_mult, pl_state_out = compute_profit_lock_multiplier(
+                ctx.equity_curve,
+                pl_cfg,
+                ctx.equity_curve_index,
+                state=pl_state,
+            )
+            ctx.profit_lock_state = pl_state_out
+            result.meta["profit_lock_state"] = pl_state_out
+            result.meta["profit_lock"] = {"multiplier": profit_lock_mult}
+        else:
+            profit_lock_mult = 1.0
+        final_multiplier = geo_multiplier * profit_lock_mult
+        if final_multiplier < 1.0 and not result.target_positions.empty:
+            result.target_positions = apply_exposure_multiplier_to_targets(
+                result.target_positions,
+                multiplier=final_multiplier,
+                cash_symbol="CASH",
+            )
+            log.debug(
+                "Exposure overlay applied: "
+                f"geo={geo_multiplier:.4f}, profit_lock={profit_lock_mult:.4f}, "
+                f"final={final_multiplier:.4f}, symbols={len(result.target_positions)}"
+            )
+        else:
+            log.debug(f"Target positions computed: {len(result.target_positions)} symbols")
     except Exception as e:
         result.status = "error"
         result.error_message = f"Error in size_positions hook: {e}"
         return result
-    
+
+    # Turnover budget gate (INT-6): after GeoRisk, before order generation
+    tb = (policy.get("turnover_budget") or {})
+    if tb.get("enabled", False) and not result.target_positions.empty:
+        try:
+            cap = float(tb.get("cap", 0.15) or 0.15)
+            behavior = str(tb.get("behavior", "scale") or "scale")
+            prices_for_turnover = result.prices_latest if result.prices_latest is not None and not result.prices_latest.empty else result.prices_filtered
+            estimated = estimate_turnover(
+                ctx.current_positions,
+                result.target_positions,
+                prices_for_turnover,
+                portfolio_value=ctx.capital,
+            )
+            if estimated == float("inf"):
+                result.target_positions, scale_factor = apply_turnover_gate(
+                    result.target_positions,
+                    ctx.current_positions,
+                    cap=cap,
+                    estimated_turnover=1.0,
+                    behavior="block",
+                    prices=prices_for_turnover,
+                    portfolio_value=ctx.capital,
+                )
+            else:
+                result.target_positions, scale_factor = apply_turnover_gate(
+                    result.target_positions,
+                    ctx.current_positions,
+                    cap=cap,
+                    estimated_turnover=estimated,
+                    behavior=behavior,
+                    prices=prices_for_turnover,
+                    portfolio_value=ctx.capital,
+                )
+            result.meta["turnover_budget"] = {
+                "estimated_turnover": estimated,
+                "scale_factor": scale_factor,
+                "cap": cap,
+                "behavior": behavior,
+            }
+        except Exception as e:
+            log.debug(f"Turnover budget gate skipped: {e}")
+            result.meta["turnover_budget"] = {"error": str(e), "scale_factor": 1.0}
+
     # Step 5: Generate orders (hook point: generate_orders)
     try:
         if "generate_orders" in hooks:

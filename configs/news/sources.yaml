@@ -55,4 +55,3 @@ sources:
     weight: 0.6
     active: true
     query: "war OR sanctions OR shipping OR Red Sea OR Suez OR Taiwan OR Strait of Hormuz OR export controls"
-
