@@ -59,8 +59,9 @@ def fetch_gdelt_events(
             stats["ok"] = True
             return items_cached, None, stats
 
+    api_query = query if query.startswith("(") else f"({query})" if " OR " in query else query
     params = {
-        "query": query,
+        "query": api_query,
         "format": "json",
         "maxrecords": 50,
         "sort": "datedesc",
