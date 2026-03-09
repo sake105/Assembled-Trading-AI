@@ -22,6 +22,7 @@ from .models import NewsEvent, NewsHealth
 from .normalize import normalize_raw_item, now_utc_iso
 from .sources import NewsSource, load_news_params, load_sources_registry
 from .state import load_fetch_state, save_fetch_state
+from .trigger_scoring import score_triggers
 
 
 def _collect_raw_items(
@@ -136,6 +137,7 @@ def run_news_pipeline(
     dedupe_cfg = params.get("dedupe", {})
     clustering_cfg = params.get("clustering", {})
     burst_cfg = params.get("burst", {})
+    trigger_cfg = params.get("trigger_scoring", {})
     min_sources_ok = int(health_cfg.get("min_sources_ok", 1))
 
     # Determine base output directory
@@ -272,6 +274,9 @@ def run_news_pipeline(
         clu["evidence"] = summarize_cluster_evidence(
             clu, events_by_id, source_meta, fetched_utc
         )
+
+    # Trigger scoring (Phase 4) — must run before health metrics
+    scored_triggers: List[Dict[str, Any]] = []
 
     # Baseline update (daily cadence only)
     baseline_meta = {"version_hash": "", "days_covered": 0}
@@ -431,6 +436,28 @@ def run_news_pipeline(
         health.notes.append(f"clusters_count:{len(clusters)}")
     health.notes.append(f"dedupe_kept:{len(deduped)}")
 
+    # Trigger scoring (Phase 4) — runs after health so severity caps can use health.status
+    if bool(trigger_cfg.get("enabled", False)):
+        scored_triggers = score_triggers(
+            clusters,
+            events_by_id,
+            health_status=health.status,
+            severity_cap_degraded=int(trigger_cfg.get("severity_cap_degraded", 1)),
+            severity_cap_error=int(trigger_cfg.get("severity_cap_error", 0)),
+            generated_utc=fetched_utc,
+        )
+
+    # Trigger metrics
+    triggers_sev_ge1 = sum(1 for t in scored_triggers if t.get("severity", 0) >= 1)
+    health.metrics["triggers"] = {
+        "trigger_count": len(scored_triggers),
+        "triggers_severity_ge_1": triggers_sev_ge1,
+        "max_severity": max((t.get("severity", 0) for t in scored_triggers), default=0),
+    }
+    if scored_triggers:
+        health.notes.append(f"triggers_count:{len(scored_triggers)}")
+        health.notes.append(f"triggers_sev_ge1:{triggers_sev_ge1}")
+
     # Emit artifacts
     events_path = base_dir / "events_latest.json"
     health_path = base_dir / "health_latest.json"
@@ -463,8 +490,8 @@ def run_news_pipeline(
         "schema_version": "news.triggers.v1",
         "generated_utc": fetched_utc,
         "cadence": cadence,
-        "count": 0,
-        "items": [],
+        "count": len(scored_triggers),
+        "items": scored_triggers,
     }
     bursts_wrapper: Dict[str, Any] = {
         "schema_version": "news.bursts.v1",

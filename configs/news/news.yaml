@@ -22,15 +22,15 @@ dedupe:
     hamming_threshold: 3
 
 clustering:
-  enabled: false
+  enabled: true
   algorithm: "tfidf_cosine"
-  similarity_threshold: 0.45
-  min_cluster_size: 3
+  similarity_threshold: 0.20
+  min_cluster_size: 2
   top_phrases_k: 8
   top_entities_k: 8
-  max_pair_checks: 2000
-  require_overlap: true
-  same_day_only: true
+  max_pair_checks: 5000
+  require_overlap: false
+  same_day_only: false
 
 burst:
   enabled: false
@@ -41,7 +41,9 @@ burst:
   windows_hours: [1, 6, 24]
 
 trigger_scoring:
-  enabled: false
+  enabled: true
+  severity_cap_degraded: 1
+  severity_cap_error: 0
 
 ttl_decay:
   enabled: false
