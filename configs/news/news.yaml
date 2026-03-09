@@ -42,7 +42,7 @@ burst:
 
 trigger_scoring:
   enabled: true
-  severity_cap_degraded: 1
+  severity_cap_degraded: 2
   severity_cap_error: 0
 
 ttl_decay:
