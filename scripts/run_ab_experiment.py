@@ -256,6 +256,9 @@ def run_ab_experiment(
     rebalance_min_notional: float = 500.0,
     deadzone: bool = False,
     deadzone_pct: float = 0.05,
+    hysteresis: bool = False,
+    hysteresis_entry_n: int = 5,
+    hysteresis_hold_n: int = 7,
 ) -> int:
     """Run gate_off and gate_on arms, write summaries and compare."""
     from scripts.run_paper_track import run_paper_track_from_cli, load_paper_track_config
@@ -323,6 +326,11 @@ def run_ab_experiment(
                 "deadzone": {
                     "enabled": deadzone and arm["intel_mode"] == "real",
                     "pct": deadzone_pct,
+                },
+                "ranking_hysteresis": {
+                    "enabled": hysteresis and arm["intel_mode"] == "real",
+                    "entry_n": hysteresis_entry_n,
+                    "hold_n": hysteresis_hold_n,
                 },
             },
             "strategy": {"params": arm_config.strategy_params},
@@ -399,6 +407,12 @@ def main() -> None:
                         help="Enable dead-zone rebalance filter on gate_on arm")
     run_p.add_argument("--deadzone-pct", type=float, default=0.05,
                         help="Dead-zone threshold as fraction (default: 0.05 = 5%%)")
+    run_p.add_argument("--hysteresis", action="store_true", default=False,
+                        help="Enable ranking hysteresis on gate_on arm")
+    run_p.add_argument("--hysteresis-entry-n", type=int, default=5,
+                        help="Entry rank threshold (default: 5)")
+    run_p.add_argument("--hysteresis-hold-n", type=int, default=7,
+                        help="Hold rank threshold (default: 7)")
 
     # summarize
     sum_p = sub.add_parser("summarize", help="Build summary from existing run")
@@ -424,6 +438,9 @@ def main() -> None:
             rebalance_min_notional=args.rebalance_min_notional,
             deadzone=args.deadzone,
             deadzone_pct=args.deadzone_pct,
+            hysteresis=args.hysteresis,
+            hysteresis_entry_n=args.hysteresis_entry_n,
+            hysteresis_hold_n=args.hysteresis_hold_n,
         )
         sys.exit(code)
 

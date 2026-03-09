@@ -150,6 +150,9 @@ class PaperTrackConfig:
     rebalance_min_notional: float = 500.0
     deadzone_enabled: bool = False
     deadzone_pct: float = 0.05
+    ranking_hysteresis_enabled: bool = False
+    ranking_entry_n: int = 5
+    ranking_hold_n: int = 7
 
 
 @dataclass
@@ -1075,6 +1078,22 @@ def run_paper_day(
                     .last()
                     .reset_index()
                 )
+            if config.ranking_hysteresis_enabled and not signals.empty:
+                from src.assembled_core.paper.ranking_hysteresis import apply_ranking_hysteresis
+                held = set(
+                    current_positions["symbol"].tolist()
+                ) if not current_positions.empty else set()
+                signals, hyst_meta = apply_ranking_hysteresis(
+                    signals, held,
+                    entry_n=config.ranking_entry_n,
+                    hold_n=config.ranking_hold_n,
+                )
+                if hyst_meta.get("kept_by_hysteresis", 0) > 0 or hyst_meta.get("blocked_entry", 0) > 0:
+                    logger.info(
+                        f"Ranking hysteresis: kept={hyst_meta['kept_by_hysteresis']}, "
+                        f"blocked={hyst_meta['blocked_entry']}, "
+                        f"entry_n={config.ranking_entry_n}, hold_n={config.ranking_hold_n}"
+                    )
             return signals
         
         def sizing_fn(signals: pd.DataFrame, capital: float) -> pd.DataFrame:

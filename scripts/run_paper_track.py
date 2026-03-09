@@ -403,6 +403,13 @@ def load_paper_track_config(path: Path) -> PaperTrackConfig:
     deadzone_enabled = bool(deadzone_cfg.get("enabled", False))
     deadzone_pct = float(deadzone_cfg.get("pct", 0.05))
 
+    hysteresis_cfg = intel_cfg.get("ranking_hysteresis", {})
+    if not isinstance(hysteresis_cfg, dict):
+        hysteresis_cfg = {}
+    ranking_hysteresis_enabled = bool(hysteresis_cfg.get("enabled", False))
+    ranking_entry_n = int(hysteresis_cfg.get("entry_n", 5))
+    ranking_hold_n = int(hysteresis_cfg.get("hold_n", 7))
+
     return PaperTrackConfig(
         strategy_name=strategy_name,
         strategy_type=strategy_type,  # type: ignore[arg-type]
@@ -424,6 +431,9 @@ def load_paper_track_config(path: Path) -> PaperTrackConfig:
         rebalance_min_notional=rebalance_min_notional,
         deadzone_enabled=deadzone_enabled,
         deadzone_pct=deadzone_pct,
+        ranking_hysteresis_enabled=ranking_hysteresis_enabled,
+        ranking_entry_n=ranking_entry_n,
+        ranking_hold_n=ranking_hold_n,
     )
 
 
