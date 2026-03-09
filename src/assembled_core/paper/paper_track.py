@@ -1030,13 +1030,16 @@ def run_paper_day(
             universe_file=config.universe_file,
             freq=config.freq,
         )
+        # Full history up to as_of (needed for feature/EMA computation)
+        prices_history = prices[prices["timestamp"] <= as_of].copy()
+        # Snapshot: one row per symbol (last available price)
         prices_filtered = _filter_prices_for_date(prices, as_of)
 
         # Step 3: Filter to tradeable universe (exclude NaNs, missing data)
         prices_tradeable, n_symbols_requested, n_tradeable, n_missing = filter_tradeable_universe(
             prices_filtered=prices_filtered,
             universe_symbols=universe_symbols,
-            min_history_days=0,  # TODO: Make configurable via config
+            min_history_days=0,
         )
 
         if prices_tradeable.empty:
@@ -1053,9 +1056,6 @@ def run_paper_day(
         # We need to wrap the strategy adapter to work with trading_cycle
         def signal_fn(df_with_features: pd.DataFrame) -> pd.DataFrame:
             """Signal function wrapper for trading_cycle."""
-            # The strategy adapter expects full context, but trading_cycle only provides
-            # prices_with_features. We'll use a simplified version that extracts signals.
-            # For now, delegate to strategy adapter with minimal context.
             signals, _ = _generate_signals_and_targets_for_day(
                 config=config,
                 state_before=state_before,
@@ -1064,6 +1064,13 @@ def run_paper_day(
                 prices_with_features=df_with_features,
                 as_of=as_of,
             )
+            if not signals.empty and "timestamp" in signals.columns:
+                signals = (
+                    signals.sort_values("timestamp")
+                    .groupby("symbol", group_keys=False)
+                    .last()
+                    .reset_index()
+                )
             return signals
         
         def sizing_fn(signals: pd.DataFrame, capital: float) -> pd.DataFrame:
@@ -1104,8 +1111,11 @@ def run_paper_day(
         
         # Build TradingContext
         current_positions = state_before.positions.copy()
+        tradeable_symbols = set(prices_tradeable["symbol"].unique())
+        prices_for_cycle = prices_history[prices_history["symbol"].isin(tradeable_symbols)].copy()
         ctx = TradingContext(
-            prices=prices_tradeable,  # Tradeable prices (already filtered)
+            prices=prices_for_cycle,
+            mode="backtest",  # Need full history for feature/EMA computation
             as_of=as_of,
             freq=config.freq,
             universe=universe_symbols if universe_symbols else None,

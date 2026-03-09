@@ -303,6 +303,7 @@ def run_ab_experiment(
             },
             "output": {
                 "root": str(arm_dir),
+                "strategy_dir": ".",
                 "format": arm_config.output_format,
             },
             "intel": {
