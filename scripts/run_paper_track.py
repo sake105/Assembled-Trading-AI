@@ -391,6 +391,12 @@ def load_paper_track_config(path: Path) -> PaperTrackConfig:
     georisk_gate_enabled = bool(georisk_cfg.get("enabled", False))
     georisk_active_multiplier = float(georisk_cfg.get("active_multiplier", 0.70))
 
+    rebalance_cfg = intel_cfg.get("rebalance_filter", {})
+    if not isinstance(rebalance_cfg, dict):
+        rebalance_cfg = {}
+    rebalance_filter_enabled = bool(rebalance_cfg.get("enabled", False))
+    rebalance_min_notional = float(rebalance_cfg.get("min_notional", 500.0))
+
     return PaperTrackConfig(
         strategy_name=strategy_name,
         strategy_type=strategy_type,  # type: ignore[arg-type]
@@ -408,6 +414,8 @@ def load_paper_track_config(path: Path) -> PaperTrackConfig:
         intel_mode=intel_mode_raw,  # type: ignore[arg-type]
         georisk_gate_enabled=georisk_gate_enabled,
         georisk_active_multiplier=georisk_active_multiplier,
+        rebalance_filter_enabled=rebalance_filter_enabled,
+        rebalance_min_notional=rebalance_min_notional,
     )
 
 

@@ -146,6 +146,8 @@ class PaperTrackConfig:
     intel_mode: Literal["none", "real"] = "none"
     georisk_gate_enabled: bool = False
     georisk_active_multiplier: float = 0.70
+    rebalance_filter_enabled: bool = False
+    rebalance_min_notional: float = 500.0
 
 
 @dataclass
@@ -1184,6 +1186,22 @@ def run_paper_day(
                 logger.info(
                     f"GeoRisk gate applied: multiplier={georisk_multiplier_applied:.2f}, "
                     f"orders {pre_count} -> {len(orders)}"
+                )
+
+        # Rebalance filter: drop small orders to reduce churn
+        rebalance_filter_stats = None
+        if config.rebalance_filter_enabled and not orders.empty:
+            from src.assembled_core.paper.rebalance_filter import filter_small_rebalances
+            orders, rebalance_filter_stats = filter_small_rebalances(
+                orders,
+                min_notional=config.rebalance_min_notional,
+            )
+            if rebalance_filter_stats["orders_dropped"] > 0:
+                logger.info(
+                    f"Rebalance filter: {rebalance_filter_stats['orders_before']} -> "
+                    f"{rebalance_filter_stats['orders_after']} orders "
+                    f"(dropped {rebalance_filter_stats['orders_dropped']}, "
+                    f"min_notional={config.rebalance_min_notional})"
                 )
 
         # Step 8: Simulate fills

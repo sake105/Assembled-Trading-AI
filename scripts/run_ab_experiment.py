@@ -252,6 +252,8 @@ def run_ab_experiment(
     output_root: Path,
     rerun: bool = False,
     active_multiplier: float = 0.70,
+    rebalance_filter: bool = False,
+    rebalance_min_notional: float = 500.0,
 ) -> int:
     """Run gate_off and gate_on arms, write summaries and compare."""
     from scripts.run_paper_track import run_paper_track_from_cli, load_paper_track_config
@@ -311,6 +313,10 @@ def run_ab_experiment(
                 "georisk_gate": {
                     "enabled": arm["intel_mode"] == "real",
                     "active_multiplier": active_multiplier,
+                },
+                "rebalance_filter": {
+                    "enabled": rebalance_filter and arm["intel_mode"] == "real",
+                    "min_notional": rebalance_min_notional,
                 },
             },
             "strategy": {"params": arm_config.strategy_params},
@@ -379,6 +385,10 @@ def main() -> None:
     run_p.add_argument("--output-root", type=Path, required=True)
     run_p.add_argument("--rerun", action="store_true", default=False)
     run_p.add_argument("--active-multiplier", type=float, default=0.70)
+    run_p.add_argument("--rebalance-filter", action="store_true", default=False,
+                        help="Enable rebalance filter on gate_on arm")
+    run_p.add_argument("--rebalance-min-notional", type=float, default=500.0,
+                        help="Minimum order notional to keep (default: 500)")
 
     # summarize
     sum_p = sub.add_parser("summarize", help="Build summary from existing run")
@@ -400,6 +410,8 @@ def main() -> None:
             output_root=args.output_root,
             rerun=args.rerun,
             active_multiplier=args.active_multiplier,
+            rebalance_filter=args.rebalance_filter,
+            rebalance_min_notional=args.rebalance_min_notional,
         )
         sys.exit(code)
 
