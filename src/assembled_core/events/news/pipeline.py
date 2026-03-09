@@ -166,8 +166,11 @@ def run_news_pipeline(
     near_dupes_tagged = 0
     if dedupe_enabled:
         store_cfg = dedupe_cfg.get("store") or {}
-        store_path_str = str(store_cfg.get("path") or (base_dir / "cache" / "dedupe_store.sqlite"))
-        store_path = Path(store_path_str)
+        cfg_store_path = store_cfg.get("path")
+        if output_dir is not None and (not cfg_store_path or not Path(cfg_store_path).is_absolute()):
+            store_path = base_dir / "cache" / "dedupe_store.sqlite"
+        else:
+            store_path = Path(str(cfg_store_path or (base_dir / "cache" / "dedupe_store.sqlite")))
         dedupe_store = DedupeStoreSQLite(store_path)
 
         # Prune old entries

@@ -47,7 +47,7 @@ ttl_decay:
   enabled: false
 
 gdelt:
-  enabled: false
+  enabled: true
   rate_limit_rps: 1
   cache_minutes: 10
   stale_on_error_minutes: 60
@@ -55,7 +55,7 @@ gdelt:
     hourly: 1
     daily: 6
   queries:
-    - "war OR sanctions OR shipping"
+    - "war OR sanctions OR shipping OR Red Sea OR Suez OR Taiwan OR Strait of Hormuz OR export controls"
 
 health:
   min_sources_ok: 1

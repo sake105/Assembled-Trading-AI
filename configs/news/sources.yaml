@@ -1,15 +1,15 @@
 sources:
-  - source_id: "rss_example_world"
-    name: "Example World"
-    domain: "example.com"
+  - source_id: "rss_bbc_world"
+    name: "BBC World"
+    domain: "bbc.co.uk"
     type: "rss"
-    tier: "B"
-    weight: 0.6
+    tier: "A"
+    weight: 1.0
     active: true
-    url: "https://example.com/rss"
+    url: "https://feeds.bbci.co.uk/news/world/rss.xml"
     country_focus: ["global"]
     language: ["en"]
-    notes: "Placeholder RSS source for NEWS v1 tests."
+    notes: "BBC World News RSS – free, no API key required."
 
   - source_id: "gdelt_default"
     name: "GDELT"
@@ -17,6 +17,6 @@ sources:
     type: "gdelt"
     tier: "B"
     weight: 0.6
-    active: false          # Enable explicitly once configured
-    query: "war OR sanctions OR shipping"
+    active: true
+    query: "war OR sanctions OR shipping OR Red Sea OR Suez OR Taiwan OR Strait of Hormuz OR export controls"
 
