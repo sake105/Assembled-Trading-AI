@@ -377,6 +377,12 @@ def load_paper_track_config(path: Path) -> PaperTrackConfig:
         raise ValueError(f"output.format must be 'csv' or 'parquet', got: {output_format_raw}")
     output_format = output_format_raw  # type: ignore[assignment]
 
+    # Intel mode (none | real)
+    intel_cfg = raw.get("intel", {})
+    intel_mode_raw = str(intel_cfg.get("mode", "none")).strip().lower()
+    if intel_mode_raw not in ("none", "real"):
+        intel_mode_raw = "none"
+
     return PaperTrackConfig(
         strategy_name=strategy_name,
         strategy_type=strategy_type,  # type: ignore[arg-type]
@@ -391,6 +397,7 @@ def load_paper_track_config(path: Path) -> PaperTrackConfig:
         random_seed=random_seed,
         output_root=output_root,
         output_format=output_format,  # type: ignore[arg-type]
+        intel_mode=intel_mode_raw,  # type: ignore[arg-type]
     )
 
 
@@ -613,6 +620,7 @@ def run_paper_track_from_cli(
     risk_report_frequency: Literal["daily", "weekly", "monthly"] = "weekly",
     benchmark_symbol: str | None = None,
     factor_returns_file: Path | None = None,
+    intel_mode: str | None = None,
 ) -> int:
     """Run paper track from CLI arguments.
 
@@ -633,6 +641,12 @@ def run_paper_track_from_cli(
         # Load config
         logger.info(f"Loading config from {config_file}")
         config = load_paper_track_config(config_file)
+
+        # CLI override for intel_mode
+        if intel_mode is not None:
+            from dataclasses import replace
+            config = replace(config, intel_mode=intel_mode)  # type: ignore[arg-type]
+            logger.info(f"Intel mode overridden via CLI: {intel_mode}")
 
         # Set random seed if provided
         if config.random_seed is not None:
@@ -667,6 +681,44 @@ def run_paper_track_from_cli(
 
         # Track start time
         start_time = pd.Timestamp.utcnow()
+
+        # Intel orchestration (before trading loop)
+        intel_orchestration: dict[str, Any] = {"mode": config.intel_mode}
+        intel_summary_data: dict[str, Any] | None = None
+
+        if config.intel_mode == "real":
+            from src.assembled_core.paper.intel_runner import (
+                run_real_intel_once,
+                load_intel_summaries,
+                compute_news_geo,
+                build_intel_summary,
+            )
+
+            logger.info("Intel mode=real: running NEWS pipeline before trading loop")
+            intel_result = run_real_intel_once(output_dir=output_root)
+            intel_orchestration.update(intel_result)
+
+            summaries = load_intel_summaries(output_root)
+            news_geo = compute_news_geo(output_root)
+
+            intel_summary_data = build_intel_summary(
+                intel_orchestration=intel_orchestration,
+                news_triggers_summary=summaries["news_triggers_summary"],
+                disclosures_triggers_summary=summaries["disclosures_triggers_summary"],
+                news_geo=news_geo,
+            )
+
+            # Write intel_summary.json
+            intel_summary_path = output_root / "intel_summary.json"
+            intel_summary_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(intel_summary_path, "w", encoding="utf-8") as f:
+                json.dump(intel_summary_data, f, indent=2, ensure_ascii=True)
+            logger.info(f"Intel summary written: {intel_summary_path}")
+            logger.info(
+                f"NEWS geo_score={news_geo['geo_score']}, "
+                f"state_hint={news_geo['state_hint']}, "
+                f"triggers={summaries['news_triggers_summary']['count']}"
+            )
 
         # Results tracking
         results: list[PaperTrackDayResult] = []
@@ -879,7 +931,10 @@ def run_paper_track_from_cli(
                     "start": dates[0].strftime("%Y-%m-%d") if dates else None,
                     "end": dates[-1].strftime("%Y-%m-%d") if dates else None,
                 },
+                "intel_orchestration": intel_orchestration,
             }
+            if intel_summary_data is not None:
+                run_summary["intel_summary"] = intel_summary_data
 
             with open(summary_path_json, "w", encoding="utf-8") as f:
                 json.dump(run_summary, f, indent=2, ensure_ascii=True)
@@ -1024,6 +1079,14 @@ Examples:
     )
 
     parser.add_argument(
+        "--intel-mode",
+        type=str,
+        choices=["none", "real"],
+        default=None,
+        help="Intel mode: 'none' = no intel, 'real' = run NEWS+DISCLOSURES before trading. Overrides config.",
+    )
+
+    parser.add_argument(
         "-v", "--verbose", action="store_true", help="Enable verbose logging"
     )
 
@@ -1077,6 +1140,7 @@ def main() -> None:
             risk_report_frequency=getattr(args, "risk_report_frequency", "weekly"),
             benchmark_symbol=getattr(args, "benchmark_symbol", None),
             factor_returns_file=getattr(args, "factor_returns_file", None),
+            intel_mode=getattr(args, "intel_mode", None),
         )
         sys.exit(exit_code)
     except KeyboardInterrupt:

@@ -143,6 +143,7 @@ class PaperTrackConfig:
     random_seed: int | None = None
     output_root: Path | None = None
     output_format: Literal["csv", "parquet"] = "csv"
+    intel_mode: Literal["none", "real"] = "none"
 
 
 @dataclass
