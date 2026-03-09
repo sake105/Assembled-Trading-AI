@@ -11,6 +11,42 @@ sources:
     language: ["en"]
     notes: "BBC World News RSS – free, no API key required."
 
+  - source_id: "rss_guardian_world"
+    name: "The Guardian World"
+    domain: "theguardian.com"
+    type: "rss"
+    tier: "A"
+    weight: 1.0
+    active: true
+    url: "https://www.theguardian.com/world/rss"
+    country_focus: ["global"]
+    language: ["en"]
+    notes: "The Guardian World RSS – free, broad geopolitical coverage."
+
+  - source_id: "rss_aljazeera_world"
+    name: "Al Jazeera"
+    domain: "aljazeera.com"
+    type: "rss"
+    tier: "A"
+    weight: 1.0
+    active: true
+    url: "https://www.aljazeera.com/xml/rss/all.xml"
+    country_focus: ["global"]
+    language: ["en"]
+    notes: "Al Jazeera English RSS – free, strong Middle East / geopolitical coverage."
+
+  - source_id: "rss_bbc_business"
+    name: "BBC Business"
+    domain: "bbc.co.uk"
+    type: "rss"
+    tier: "B"
+    weight: 0.6
+    active: true
+    url: "https://feeds.bbci.co.uk/news/business/rss.xml"
+    country_focus: ["global"]
+    language: ["en"]
+    notes: "BBC Business RSS – markets, energy, trade policy."
+
   - source_id: "gdelt_default"
     name: "GDELT"
     domain: "gdeltproject.org"
