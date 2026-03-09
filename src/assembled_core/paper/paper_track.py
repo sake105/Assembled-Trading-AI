@@ -153,6 +153,7 @@ class PaperTrackConfig:
     ranking_hysteresis_enabled: bool = False
     ranking_entry_n: int = 5
     ranking_hold_n: int = 7
+    price_file: Path | None = None
 
 
 @dataclass
@@ -1035,6 +1036,7 @@ def run_paper_day(
         logger.info(f"Loading prices for {as_of.date()}")
         prices = load_eod_prices_for_universe(
             universe_file=config.universe_file,
+            price_file=config.price_file,
             freq=config.freq,
         )
         # Full history up to as_of (needed for feature/EMA computation)

@@ -410,6 +410,16 @@ def load_paper_track_config(path: Path) -> PaperTrackConfig:
     ranking_entry_n = int(hysteresis_cfg.get("entry_n", 5))
     ranking_hold_n = int(hysteresis_cfg.get("hold_n", 7))
 
+    # Price file override
+    data_cfg = raw.get("data", {})
+    if not isinstance(data_cfg, dict):
+        data_cfg = {}
+    price_file_raw = data_cfg.get("price_file")
+    price_file = None
+    if price_file_raw:
+        pf = Path(price_file_raw)
+        price_file = pf if pf.is_absolute() else (ROOT / pf).resolve()
+
     return PaperTrackConfig(
         strategy_name=strategy_name,
         strategy_type=strategy_type,  # type: ignore[arg-type]
@@ -434,6 +444,7 @@ def load_paper_track_config(path: Path) -> PaperTrackConfig:
         ranking_hysteresis_enabled=ranking_hysteresis_enabled,
         ranking_entry_n=ranking_entry_n,
         ranking_hold_n=ranking_hold_n,
+        price_file=price_file,
     )
 
 

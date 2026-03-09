@@ -335,6 +335,7 @@ def run_ab_experiment(
             },
             "strategy": {"params": arm_config.strategy_params},
             "integration": {"enable_pit_checks": arm_config.enable_pit_checks},
+            "data": {"price_file": str(arm_config.price_file) if arm_config.price_file else None},
         }
         if arm_config.random_seed is not None:
             arm_config_dict["random_seed"] = arm_config.random_seed
