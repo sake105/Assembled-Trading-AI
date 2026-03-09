@@ -148,6 +148,8 @@ class PaperTrackConfig:
     georisk_active_multiplier: float = 0.70
     rebalance_filter_enabled: bool = False
     rebalance_min_notional: float = 500.0
+    deadzone_enabled: bool = False
+    deadzone_pct: float = 0.05
 
 
 @dataclass
@@ -1202,6 +1204,23 @@ def run_paper_day(
                     f"{rebalance_filter_stats['orders_after']} orders "
                     f"(dropped {rebalance_filter_stats['orders_dropped']}, "
                     f"min_notional={config.rebalance_min_notional})"
+                )
+
+        # Dead-zone filter: suppress micro-rebalances
+        deadzone_stats = None
+        if config.deadzone_enabled and not orders.empty:
+            from src.assembled_core.paper.deadzone_rebalance import filter_deadzone_orders
+            orders, deadzone_stats = filter_deadzone_orders(
+                orders,
+                current_positions=current_positions,
+                deadzone_pct=config.deadzone_pct,
+            )
+            if deadzone_stats["orders_dropped"] > 0:
+                logger.info(
+                    f"Dead-zone filter: {deadzone_stats['orders_before']} -> "
+                    f"{deadzone_stats['orders_after']} orders "
+                    f"(dropped {deadzone_stats['orders_dropped']}, "
+                    f"deadzone_pct={config.deadzone_pct})"
                 )
 
         # Step 8: Simulate fills

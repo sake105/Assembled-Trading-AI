@@ -397,6 +397,12 @@ def load_paper_track_config(path: Path) -> PaperTrackConfig:
     rebalance_filter_enabled = bool(rebalance_cfg.get("enabled", False))
     rebalance_min_notional = float(rebalance_cfg.get("min_notional", 500.0))
 
+    deadzone_cfg = intel_cfg.get("deadzone", {})
+    if not isinstance(deadzone_cfg, dict):
+        deadzone_cfg = {}
+    deadzone_enabled = bool(deadzone_cfg.get("enabled", False))
+    deadzone_pct = float(deadzone_cfg.get("pct", 0.05))
+
     return PaperTrackConfig(
         strategy_name=strategy_name,
         strategy_type=strategy_type,  # type: ignore[arg-type]
@@ -416,6 +422,8 @@ def load_paper_track_config(path: Path) -> PaperTrackConfig:
         georisk_active_multiplier=georisk_active_multiplier,
         rebalance_filter_enabled=rebalance_filter_enabled,
         rebalance_min_notional=rebalance_min_notional,
+        deadzone_enabled=deadzone_enabled,
+        deadzone_pct=deadzone_pct,
     )
 
 
