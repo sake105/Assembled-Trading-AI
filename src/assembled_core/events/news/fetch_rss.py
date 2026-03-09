@@ -27,7 +27,7 @@ def fetch_rss_feed(
     import requests
     import feedparser  # type: ignore[import]
 
-    rss_state = fetch_state.setdefault("rss", {}).get(source_id, {})
+    rss_state = fetch_state.setdefault("rss", {}).setdefault(source_id, {})
     headers: Dict[str, str] = {
         "User-Agent": user_agent,
     }

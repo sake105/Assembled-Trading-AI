@@ -218,6 +218,31 @@ def test_paper_track_cli_help():
 
 
 @pytest.mark.advanced
+def test_parse_args_accepts_rerun_flag(tmp_path: Path):
+    """Regression: --rerun must be accepted by parser."""
+    cfg_path = tmp_path / "paper.json"
+    universe = tmp_path / "universe.txt"
+    universe.write_text("AAPL\n", encoding="utf-8")
+    _write_json_config(
+        cfg_path,
+        strategy_name="paper_test",
+        output_root=tmp_path / "out",
+        universe_file=universe,
+    )
+
+    args = rpt.parse_args(
+        [
+            "--config-file",
+            str(cfg_path),
+            "--as-of",
+            "2024-01-03",
+            "--rerun",
+        ]
+    )
+    assert args.rerun is True
+
+
+@pytest.mark.advanced
 def test_paper_track_cli_single_day_dry_run(tmp_path: Path, monkeypatch):
     """Test that dry-run mode returns 0 and writes no files."""
     output_root = tmp_path / "out"

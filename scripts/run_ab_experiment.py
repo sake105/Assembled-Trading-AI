@@ -277,6 +277,7 @@ def run_ab_experiment(
     ]
 
     summaries: dict[str, dict[str, Any]] = {}
+    had_arm_failure = False
 
     for arm in arms:
         arm_name = arm["name"]
@@ -352,6 +353,8 @@ def run_ab_experiment(
         )
 
         logger.info(f"Arm {arm_name} finished with exit code {exit_code}")
+        if exit_code != 0:
+            had_arm_failure = True
 
         # Build summary
         try:
@@ -379,7 +382,7 @@ def run_ab_experiment(
     else:
         logger.warning("Could not compare: one or both summaries missing")
 
-    return 0
+    return 1 if had_arm_failure else 0
 
 
 # ---------------------------------------------------------------------------

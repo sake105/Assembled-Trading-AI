@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
 from scripts.run_ab_experiment import (
     build_summary_from_run,
     compare_summaries,
+    run_ab_experiment,
 )
 
 pytestmark = [pytest.mark.unit]
@@ -147,3 +149,20 @@ class TestCompareSummaries:
         assert comp["delta"]["total_return"] == 0.0
         assert comp["delta"]["max_drawdown"] == 0.0
         assert comp["delta"]["total_trades"] == 0
+
+
+def test_run_ab_experiment_returns_nonzero_when_any_arm_fails(tmp_path, monkeypatch):
+    import scripts.run_paper_track as rpt
+
+    config_file = Path("configs/paper_track/trend_baseline.yaml")
+    assert config_file.exists()
+
+    monkeypatch.setattr(rpt, "run_paper_track_from_cli", lambda **kwargs: 1)
+    code = run_ab_experiment(
+        config_file=config_file,
+        start_date="2025-01-01",
+        end_date="2025-01-01",
+        output_root=tmp_path / "ab_out",
+        rerun=True,
+    )
+    assert code == 1

@@ -1798,6 +1798,59 @@ def test_rss_headers_if_modified_since_etag_applied(monkeypatch):
     assert "If-Modified-Since" in calls["headers"]
 
 
+def test_rss_fetch_state_persists_new_source_entry(monkeypatch):
+    import types
+    import sys
+
+    def fake_get(url, headers=None, timeout=None):
+        class Resp:
+            status_code = 200
+
+            def raise_for_status(self):
+                return None
+
+            @property
+            def content(self):
+                return b"feed"
+
+            @property
+            def headers(self):
+                return {"ETag": "etag-new"}
+
+        return Resp()
+
+    sys.modules["requests"] = types.SimpleNamespace(get=fake_get)
+    sys.modules["feedparser"] = types.SimpleNamespace(
+        parse=lambda content: types.SimpleNamespace(
+            entries=[
+                {
+                    "title": "Title",
+                    "link": "https://example.com/article",
+                    "published": "2025-01-01T00:00:00Z",
+                    "summary": "Summary",
+                }
+            ]
+        )
+    )
+
+    fetch_state = {"rss": {}}
+    items, failure, stats = fetch_rss_feed(
+        "src_new",
+        "https://example.com/rss",
+        timeout=5.0,
+        user_agent="UA",
+        sanitize_cfg={"strip_html": True, "title_max_chars": 100, "summary_max_chars": 200},
+        fetch_state=fetch_state,
+        retries=0,
+        backoff_base_s=0.1,
+    )
+
+    assert failure is None
+    assert stats["ok"] is True
+    assert len(items) == 1
+    assert fetch_state["rss"]["src_new"]["etag"] == "etag-new"
+
+
 def test_gdelt_cache_hit_no_request(monkeypatch):
     # Prepare fake requests that would fail if called
     import types

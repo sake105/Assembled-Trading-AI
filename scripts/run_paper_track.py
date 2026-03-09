@@ -1109,6 +1109,13 @@ Examples:
     )
 
     parser.add_argument(
+        "--rerun",
+        action="store_true",
+        default=False,
+        help="Force re-run of days even if run directory already exists",
+    )
+
+    parser.add_argument(
         "--dry-run", action="store_true", help="Dry run mode: don't write any files"
     )
 
