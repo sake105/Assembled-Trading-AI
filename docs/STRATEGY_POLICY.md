@@ -55,6 +55,46 @@ Diese Datei definiert die **Strategy Policy** als Vertrag zwischen System und Op
   - Maximalgewicht pro Sektor / Korrelations-Cluster, um Konzentrationsrisiken zu vermeiden.
   - Beispiel: Max Sektor-Gewicht, Max Cluster-Gewicht für hoch korrelierte ETFs.
 
+### 3.4 Risk Overlays (GeoRisk, Profit Lock, Turnover Budget)
+
+**Gemeinsames Prinzip:**
+
+- Alle Overlays sind **rein skalierend/gate-basiert**:
+  - Sie erzeugen **keine eigenen Signale**.
+  - Sie verändern **nur Exposure / Trades**, die aus der Kern-Strategie kommen.
+  - Reihenfolge (konzeptionell): **Signale → Position Sizing → Risk Overlays → Orders**.
+
+- **GeoRisk Overlay (intel-driven, news-basiert)**:
+  - Quelle: News-/Geo-Intel (`news_geo`, `geo_score`, `geo_confidence`, Risk-State).
+  - Policy: `georisk_overlay.*` in `configs/policy.yaml`.
+  - Wirkung: Berechnet einen **Exposure-Multiplikator** \\(m_{geo} \in [0,1]\\), der die Zielgewichte/Target-Qtys der Strategie skaliert.
+  - Typische Beispiele:
+    - WATCH: \\(m_{geo} \approx 1.0\\) (keine Anpassung).
+    - ACTIVE mit hohem Geo-Risk: \\(m_{geo} < 1.0\\) (Exposure-Reduktion).
+    - PAUSE: \\(m_{geo} = 0.0\\) (faktisch Flat, keine neuen Risikopositionen).
+
+- **Profit Lock (equity-driven, PnL-basiert)**:
+  - Quelle: **Equity Curve** des Portfolios (Backtest/Paper: Equity-Historie; Live: später).
+  - Policy: `profit_lock.*` in `configs/policy.yaml` (z.B. `lookback_days`, `trigger_return`, `multiplier_on_trigger`, `floor`, `cooldown_days`).
+  - Logik:
+    - Wenn die Equity über das Lookback-Fenster (z.B. 20 Tage) mindestens `trigger_return` (z.B. +8%) erreicht,
+      wird ein **Exposure-Multiplikator** \\(m_{pl} \le 1.0\\) aktiviert.
+    - Dieser Multiplikator gilt für eine **Cooldown-Periode** (`cooldown_days`), auch wenn das Portfolio zwischenzeitlich leicht zurückkommt.
+    - Ein `floor` stellt sicher, dass das Overlay allein die Exposure nicht unter einen Minimalwert (z.B. 50%) drückt.
+  - Wirkung: **Soft Lock-In** von Gewinnen durch temporäre Reduktion der Brutto-Exposure; keine Zwangs-Realisation, keine Stops.
+
+- **Turnover Budget (cost-driven, trade-basiert)**:
+  - Quelle: Delta zwischen aktuellen Positionen und Ziel-Positionen (inkl. Preise).
+  - Policy: `turnover_budget.*` in `configs/policy.yaml` (z.B. `mode = daily|weekly`, `cap`, `behavior = scale|block`, QC-Einstellungen).
+  - Logik:
+    - Es wird ein **Turnover** geschätzt (z.B. \\(\\sum |\\Delta \\text{Weight}| / 2\\) oder notional-basiert).
+    - Liegt der geschätzte Turnover **unterhalb** des Caps: Overlay ist **no-op**.
+    - Liegt er **oberhalb** des Caps:
+      - `behavior = "scale"`: die Trade-Deltas werden proportional skaliert, so dass der effektive Turnover ≈ Cap ist.
+      - `behavior = "block"`: Ziel-Positionen werden auf aktuelle Positionen zurückgesetzt (≈ keine Trades).
+    - QC: fehlende Preise können z.B. dazu führen, dass das Overlay konservativ „auf 0“ skaliert oder blockt.
+  - Wirkung: **Kosten-Gate** vor Order-Generierung; schützt vor exzessivem Turnover durch Signalrauschen oder Rebalancing-Spikes.
+
 ### 3.4 Event / Earnings Filter (optional)
 
 - Optionaler Guard, der Positionen/Orders rund um Earnings/Events ausdünnt oder pausiert.

@@ -182,29 +182,85 @@ def run_news_pipeline(
         sources, fetch_cfg=fetch_cfg, gdelt_cfg=gdelt_cfg, fetch_state=fetch_state
     )
 
+    # NEWS-DEBUG-1: Funnel counts (observability only)
+    funnel_counts: Dict[str, int] = {
+        "raw_items_count": len(raw_items),
+        "normalized_events_count": 0,
+        "normalized_ok_count": 0,
+        "dedupe_store_dropped_url_count": 0,
+        "dedupe_store_dropped_fp0_count": 0,
+        "post_store_kept_count": 0,
+        "normalize_exception_count": 0,
+        "normalize_none_count": 0,
+        "dropped_short_title_count": 0,
+        "deduped_events_count": 0,
+        "clusters_count": 0,
+        "clusters_with_topics_count": 0,
+        "candidate_triggers_count": 0,
+        "triggers_count": 0,
+        "triggers_severity_ge_1_count": 0,
+        "triggers_severity_ge_2_count": 0,
+        "triggers_evidence_blocked_count": 0,
+        "triggers_qc_capped_count": 0,
+    }
+    funnel_notes: List[str] = []
+    # NEWS-DEBUG-2: normalize failure reasons + samples (max 3 total)
+    normalize_exception_reasons: Dict[str, int] = {}
+    normalize_none_reasons: Dict[str, int] = {}
+    normalize_failure_samples: List[Dict[str, Any]] = []
+    MAX_NORMALIZE_SAMPLES = 3
+
     events: List[NewsEvent] = []
     dropped_short_title = 0
     for raw in raw_items:
         source_id = str(raw.get("source_id") or "unknown")
         source_name = str(raw.get("source_name") or "unknown")
         source_domain = str(raw.get("source_domain") or "")
-        ev = normalize_raw_item(
-            {
-                "title": raw.get("title"),
-                "link": raw.get("link"),
-                "published": raw.get("published"),
-                "summary": raw.get("summary"),
-                "raw": raw.get("raw", raw),
-            },
-            source_id=source_id,
-            source_name=source_name,
-            source_domain=source_domain,
-            fetched_utc=fetched_utc,
-        )
+        raw_preview = {
+            "title": raw.get("title"),
+            "link": raw.get("link"),
+            "published": raw.get("published"),
+            "keys": sorted(list(raw.keys()))[:20],
+        }
+        try:
+            ev = normalize_raw_item(
+                {
+                    "title": raw.get("title"),
+                    "link": raw.get("link"),
+                    "published": raw.get("published"),
+                    "summary": raw.get("summary"),
+                    "raw": raw.get("raw", raw),
+                },
+                source_id=source_id,
+                source_name=source_name,
+                source_domain=source_domain,
+                fetched_utc=fetched_utc,
+            )
+        except Exception as exc:
+            funnel_counts["normalize_exception_count"] += 1
+            reason = f"{type(exc).__name__}: {str(exc)[:200]}"
+            normalize_exception_reasons[reason] = normalize_exception_reasons.get(reason, 0) + 1
+            if len(normalize_failure_samples) < MAX_NORMALIZE_SAMPLES:
+                normalize_failure_samples.append({
+                    "kind": "exception",
+                    "reason": reason,
+                    "raw_preview": raw_preview,
+                })
+            continue
         if ev is None:
+            funnel_counts["normalize_none_count"] += 1
+            none_reason = "returned_none"
+            normalize_none_reasons[none_reason] = normalize_none_reasons.get(none_reason, 0) + 1
+            if len(normalize_failure_samples) < MAX_NORMALIZE_SAMPLES:
+                normalize_failure_samples.append({
+                    "kind": "returned_none",
+                    "reason": none_reason,
+                    "raw_preview": raw_preview,
+                })
             dropped_short_title += 1
             continue
 
+        funnel_counts["normalized_ok_count"] += 1
         # Persistent dedupe: URL + fingerprint bucket (distance 0)
         if dedupe_store is not None and dedupe_enabled:
             try:
@@ -254,7 +310,14 @@ def run_news_pipeline(
 
         events.append(ev)
 
+    funnel_counts["normalized_events_count"] = len(events)
+    funnel_counts["post_store_kept_count"] = len(events)
+    funnel_counts["dedupe_store_dropped_url_count"] = dropped_url
+    funnel_counts["dedupe_store_dropped_fp0_count"] = dropped_fp0
+    funnel_counts["dropped_short_title_count"] = dropped_short_title
+
     deduped = dedupe_events(events)
+    funnel_counts["deduped_events_count"] = len(deduped)
 
     # Clustering
     clusters: List[Dict[str, Any]] = []
@@ -269,6 +332,14 @@ def run_news_pipeline(
         clu["evidence"] = summarize_cluster_evidence(
             clu, events_by_id, source_meta, fetched_utc
         )
+
+    funnel_counts["clusters_count"] = len(clusters)
+    funnel_counts["clusters_with_topics_count"] = sum(
+        1 for c in clusters if (c.get("topics") or c.get("candidate_triggers"))
+    )
+    funnel_counts["candidate_triggers_count"] = sum(
+        len(c.get("candidate_triggers") or []) for c in clusters
+    )
 
     # Baseline update (daily cadence only)
     baseline_meta = {"version_hash": "", "days_covered": 0}
@@ -463,6 +534,24 @@ def run_news_pipeline(
         "count": 0,
         "items": [],
     }
+    # Funnel: trigger counts (when trigger scoring is enabled, items will be non-empty)
+    trigger_items = triggers_wrapper.get("items") or []
+    funnel_counts["triggers_count"] = len(trigger_items)
+    # candidate_triggers_count already set from clusters above
+    for t in trigger_items:
+        if not isinstance(t, dict):
+            continue
+        sev = int(t.get("severity", 0))
+        if sev >= 1:
+            funnel_counts["triggers_severity_ge_1_count"] += 1
+        if sev >= 2:
+            funnel_counts["triggers_severity_ge_2_count"] += 1
+        if t.get("evidence_blocked"):
+            funnel_counts["triggers_evidence_blocked_count"] += 1
+        if t.get("qc_capped"):
+            funnel_counts["triggers_qc_capped_count"] += 1
+    triggers_wrapper["count"] = len(trigger_items)
+
     bursts_wrapper: Dict[str, Any] = {
         "schema_version": "news.bursts.v1",
         "generated_utc": fetched_utc,
@@ -480,6 +569,19 @@ def run_news_pipeline(
     emit_json_artifact(health_wrapper, health_path)
     emit_json_artifact(clusters_wrapper, clusters_path)
     emit_json_artifact(triggers_wrapper, triggers_path)
+    emit_json_artifact(
+        {
+            "schema_version": "news.debug_funnel.v1",
+            "generated_utc": fetched_utc,
+            "cadence": cadence,
+            "counts": funnel_counts,
+            "normalize_exception_reasons": normalize_exception_reasons,
+            "normalize_none_reasons": normalize_none_reasons,
+            "samples": normalize_failure_samples,
+            "notes": funnel_notes,
+        },
+        base_dir / "debug_funnel_latest.json",
+    )
     emit_json_artifact(bursts_wrapper, bursts_path)
 
     # Daily housekeeping: prune old GDELT cache entries and emit housekeeping artifact

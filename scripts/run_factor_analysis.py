@@ -14,7 +14,10 @@ import sys
 from pathlib import Path
 
 import pandas as pd
-from tabulate import tabulate
+try:
+    from tabulate import tabulate
+except Exception:
+    tabulate = None  # optional: pip install tabulate
 
 # Import core modules
 ROOT = Path(__file__).resolve().parents[1]
@@ -795,10 +798,10 @@ def run_factor_analysis_from_args(args) -> int:
                 ["factor", "mean_ic", "std_ic", "ic_ir", "hit_ratio", "count"]
             ].copy()
             display_df = display_df.round(4)
-            print(
-                "\n"
-                + tabulate(display_df, headers="keys", tablefmt="grid", showindex=False)
-            )
+            if tabulate is not None:
+                print("\n" + tabulate(display_df, headers="keys", tablefmt="grid", showindex=False))
+            else:
+                print("\n" + display_df.to_string(index=False))
         else:
             logger.warning("No IC summary data available")
 
@@ -821,10 +824,10 @@ def run_factor_analysis_from_args(args) -> int:
                 display_cols.append("deflated_sharpe")
             display_df = portfolio_summary[display_cols].copy()
             display_df = display_df.round(4)
-            print(
-                "\n"
-                + tabulate(display_df, headers="keys", tablefmt="grid", showindex=False)
-            )
+            if tabulate is not None:
+                print("\n" + tabulate(display_df, headers="keys", tablefmt="grid", showindex=False))
+            else:
+                print("\n" + display_df.to_string(index=False))
         else:
             logger.warning("No portfolio summary data available")
 

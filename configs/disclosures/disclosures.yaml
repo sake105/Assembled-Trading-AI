@@ -1,0 +1,64 @@
+# Disclosures pipeline parameters
+# v1: contract defaults; no heavy parsing
+
+fetch:
+  timeout_s: 15.0
+  retries: 2
+  user_agent: Assembled-Trading-AI/Disclosures-v1
+
+edgar:
+  enabled: true
+  form4:
+    feed_url: "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=4&count=100&output=atom"
+    user_agent: "Assembled-Trading-AI/Disclosures-v1 (email@example.com)"
+    cache_minutes: 10
+    stale_on_error_minutes: 60
+
+house_ptr:
+  enabled: true
+  index_url: "https://<HOUSE_PTR_RSS_OR_INDEX>"
+  user_agent: "Assembled-Trading-AI/Disclosures-v1"
+  cache_minutes: 60
+  stale_on_error_minutes: 240
+  download_pdfs: false
+  download_dir: "output/intel/disclosures/raw/house_ptr"
+  max_items: 50
+  pdf_meta:
+    enabled: true
+    compute_sha256: true
+    max_mb: 25
+
+health:
+  min_sources_ok: 1
+
+dedupe:
+  enabled: true
+  window_days: 30
+
+trigger_scoring:
+  enabled: true
+  severity:
+    base_by_action:
+      FORM4_FILED: 1
+      HOUSE_PTR_FILED: 1
+    max: 3
+  confidence:
+    tierA_alone: 0.85
+    tierB_two_domains: 0.70
+    otherwise: 0.40
+  gating:
+    require_evidence_ok: true
+  ttl:
+    default_hours: 168
+    by_action:
+      FORM4_FILED: 96
+      HOUSE_PTR_FILED: 168
+  decay:
+    half_life_hours: 72
+    min_confidence_floor: 0.25
+    severity_floor: 0
+  qc_gates:
+    degraded_max_severity: 1
+    error_max_severity: 0
+
+cadence: hourly

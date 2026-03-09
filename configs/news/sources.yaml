@@ -1,15 +1,27 @@
 sources:
   - source_id: "rss_example_world"
-    name: "Example World"
+    name: "Example World (deaktiviert – Platzhalter)"
     domain: "example.com"
     type: "rss"
     tier: "B"
     weight: 0.6
-    active: true
+    active: false
     url: "https://example.com/rss"
     country_focus: ["global"]
     language: ["en"]
-    notes: "Placeholder RSS source for NEWS v1 tests."
+    notes: "Placeholder; deaktiviert wegen SSL/cert failure. Ersetzen durch echte Quelle oder GDELT."
+
+  - source_id: "rss_bbc_world"
+    name: "BBC World"
+    domain: "bbc.co.uk"
+    type: "rss"
+    tier: "B"
+    weight: 0.6
+    active: true
+    url: "https://feeds.bbci.co.uk/news/world/rss.xml"
+    country_focus: ["global"]
+    language: ["en"]
+    notes: "Öffentlicher RSS für News-Smoke; mindestens eine aktive Quelle."
 
   - source_id: "gdelt_default"
     name: "GDELT"

@@ -21,6 +21,10 @@ Kurze Übersicht über zentrale Dokumente.
   - NEWS-Spezifikation → `docs/news/NEWS_SPEC.md`
   - NEWS-Artefakt-Katalog → `docs/news/ARTIFACTS.md`
 
+- **Disclosures v1**
+  - Disclosures-Spezifikation → `docs/disclosures/DISCLOSURES_SPEC.md`
+  - Disclosures-Artefakt-Katalog → `docs/disclosures/ARTIFACTS.md`
+
 ## Intel Integrations
 
 - NEWS triggers → TradingContext (read-only)  
