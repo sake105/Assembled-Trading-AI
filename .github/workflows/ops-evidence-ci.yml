@@ -43,7 +43,7 @@ jobs:
       - name: Run ops_evidence preset checks
         id: ops_evidence_checks
         run: |
-          $output = py -3 scripts/dev/run_checks.py --preset ops_evidence --skip-compile --skip-ruff 2>&1
+          $output = python scripts/dev/run_checks.py --preset ops_evidence --skip-compile --skip-ruff 2>&1
           $exitCode = $LASTEXITCODE
           if ($null -ne $output) { $output | Set-Content -Path ops_evidence_log.txt -Encoding utf8 } else { "No output captured" | Set-Content -Path ops_evidence_log.txt -Encoding utf8 }
           $lines = Get-Content -Path ops_evidence_log.txt -Tail 200 -ErrorAction SilentlyContinue
