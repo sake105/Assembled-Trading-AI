@@ -31,10 +31,13 @@ class LocalParquetPriceDataSource:
         """Load and filter price data from local file."""
         path = self._resolve_path(freq)
 
-        if path.suffix == ".csv":
-            df = pd.read_csv(path)
-        else:
-            df = pd.read_parquet(path)
+        try:
+            if path.suffix == ".csv":
+                df = pd.read_csv(path)
+            else:
+                df = pd.read_parquet(path)
+        except FileNotFoundError as exc:
+            raise FileNotFoundError(f"Price panel not found: {path}") from exc
 
         df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
 
@@ -163,6 +166,12 @@ def get_price_data_source(
         if data_source is not None
         else getattr(settings, "data_source", "local")
     )
+
+    if not allow_external_fetch and resolved != "local":
+        raise ValueError(
+            f"External data source {resolved!r} is forbidden in backtest mode. "
+            f"Use 'local' data source and run the daily ingest to build your local panel."
+        )
 
     if resolved == "local":
         return LocalParquetPriceDataSource(settings, price_file=price_file)

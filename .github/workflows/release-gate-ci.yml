@@ -33,7 +33,7 @@ jobs:
       - name: Release gate dry-run (always)
         id: dry_run
         run: |
-          $out = py -3 scripts/dev/release_sprint13.py --dry-run 2>&1
+          $out = python scripts/dev/release_sprint13.py --dry-run 2>&1
           if ($null -eq $out -or $out -eq "") { "No output captured" | Set-Content -Path release_gate_log.txt -Encoding utf8 } else { $out | Set-Content -Path release_gate_log.txt -Encoding utf8 }
           Write-Output $out
 
@@ -41,7 +41,7 @@ jobs:
         id: release_gate
         continue-on-error: ${{ github.event_name == 'pull_request' || github.ref != 'refs/heads/main' }}
         run: |
-          $out = py -3 scripts/dev/release_sprint13.py 2>&1
+          $out = python scripts/dev/release_sprint13.py 2>&1
           $exitCode = $LASTEXITCODE
           if ($null -eq $out -or $out -eq "") { "No output captured" | Add-Content -Path release_gate_log.txt -Encoding utf8 } else { $out | Add-Content -Path release_gate_log.txt -Encoding utf8 }
           Write-Output $out
