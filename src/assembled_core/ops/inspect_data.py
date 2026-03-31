@@ -37,21 +37,35 @@ def inspect_eod_prices(prices_df: pd.DataFrame) -> dict[str, Any]:
     dates_sorted = sorted(ts.dt.date.unique())
     n_unique_days = len(dates_sorted)
     min_utc = pd.Timestamp(dates_sorted[0]).tz_localize("UTC") if dates_sorted else None
-    max_utc = pd.Timestamp(dates_sorted[-1]).tz_localize("UTC") if dates_sorted else None
+    max_utc = (
+        pd.Timestamp(dates_sorted[-1]).tz_localize("UTC") if dates_sorted else None
+    )
 
-    n_symbols = int(prices_df["symbol"].nunique()) if "symbol" in prices_df.columns else None
-    last_10_days = [d.isoformat() for d in dates_sorted[-10:]] if len(dates_sorted) >= 10 else [d.isoformat() for d in dates_sorted]
+    n_symbols = (
+        int(prices_df["symbol"].nunique()) if "symbol" in prices_df.columns else None
+    )
+    last_10_days = (
+        [d.isoformat() for d in dates_sorted[-10:]]
+        if len(dates_sorted) >= 10
+        else [d.isoformat() for d in dates_sorted]
+    )
 
     last_30_trading_days: dict[str, str] | None = None
     last_90_trading_days: dict[str, str] | None = None
     if n_unique_days >= 30:
         end_30 = dates_sorted[-1]
         start_30 = dates_sorted[-30]
-        last_30_trading_days = {"start": start_30.isoformat(), "end": end_30.isoformat()}
+        last_30_trading_days = {
+            "start": start_30.isoformat(),
+            "end": end_30.isoformat(),
+        }
     if n_unique_days >= 90:
         end_90 = dates_sorted[-1]
         start_90 = dates_sorted[-90]
-        last_90_trading_days = {"start": start_90.isoformat(), "end": end_90.isoformat()}
+        last_90_trading_days = {
+            "start": start_90.isoformat(),
+            "end": end_90.isoformat(),
+        }
 
     return {
         "schema_version": SCHEMA_VERSION,

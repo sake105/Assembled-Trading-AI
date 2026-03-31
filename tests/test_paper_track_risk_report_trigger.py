@@ -56,11 +56,15 @@ def test_should_generate_risk_report_weekly() -> None:
 
     # Saturday with is_last_day_in_range should trigger
     date = pd.Timestamp("2025-01-18", tz="UTC")  # Saturday
-    assert _should_generate_risk_report(date, "weekly", is_last_day_in_range=True) is True
+    assert (
+        _should_generate_risk_report(date, "weekly", is_last_day_in_range=True) is True
+    )
 
     # Friday with is_last_day_in_range should trigger
     date = pd.Timestamp("2025-01-17", tz="UTC")  # Friday
-    assert _should_generate_risk_report(date, "weekly", is_last_day_in_range=True) is True
+    assert (
+        _should_generate_risk_report(date, "weekly", is_last_day_in_range=True) is True
+    )
 
 
 def test_should_generate_risk_report_monthly() -> None:
@@ -75,5 +79,6 @@ def test_should_generate_risk_report_monthly() -> None:
 
     # Any date with is_last_day_in_range should trigger
     date = pd.Timestamp("2025-01-15", tz="UTC")  # Mid-month
-    assert _should_generate_risk_report(date, "monthly", is_last_day_in_range=True) is True
-
+    assert (
+        _should_generate_risk_report(date, "monthly", is_last_day_in_range=True) is True
+    )

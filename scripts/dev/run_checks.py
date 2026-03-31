@@ -59,7 +59,10 @@ def _compile_with_excludes(repo_root: Path) -> tuple[int, str]:
                 continue
             parts = rel.as_posix().split("/")
             s = "/".join(parts)
-            if any(ex in s for ex in _COMPILE_EXCLUDE_SUBDIRS) or p.name in _COMPILE_EXCLUDE_NAMES:
+            if (
+                any(ex in s for ex in _COMPILE_EXCLUDE_SUBDIRS)
+                or p.name in _COMPILE_EXCLUDE_NAMES
+            ):
                 continue
             try:
                 py_compile.compile(str(p), doraise=True)
@@ -73,7 +76,9 @@ def _compile_with_excludes(repo_root: Path) -> tuple[int, str]:
     return 0, "Compile passed"
 
 
-def run_py_compile(python_cmd: list[str], paths: list[str], repo_root: Path | None = None) -> tuple[int, str]:
+def run_py_compile(
+    python_cmd: list[str], paths: list[str], repo_root: Path | None = None
+) -> tuple[int, str]:
     """Run py_compile on given paths, or compile with documented excludes when repo_root set.
 
     When repo_root is set and paths equal [src, tests], runs compile with excludes
@@ -84,11 +89,16 @@ def run_py_compile(python_cmd: list[str], paths: list[str], repo_root: Path | No
     print("=" * 70)
 
     norm_paths = [Path(p).resolve().as_posix() for p in paths]
-    default_src_tests = [(repo_root / "src").resolve().as_posix(), (repo_root / "tests").resolve().as_posix()]
+    default_src_tests = [
+        (repo_root / "src").resolve().as_posix(),
+        (repo_root / "tests").resolve().as_posix(),
+    ]
     if repo_root is not None and norm_paths == default_src_tests:
         code, output = _compile_with_excludes(repo_root)
         if code == 0:
-            print("[OK] py_compile passed (src, tests, scripts with documented excludes)")
+            print(
+                "[OK] py_compile passed (src, tests, scripts with documented excludes)"
+            )
         else:
             print("[FAIL] py_compile failed:")
             print(output)
@@ -221,7 +231,13 @@ def main() -> int:
     )
     parser.add_argument(
         "--preset",
-        choices=["accounting", "broker_snapshot", "ops_evidence", "evidence_pack", "release_sprint13"],
+        choices=[
+            "accounting",
+            "broker_snapshot",
+            "ops_evidence",
+            "evidence_pack",
+            "release_sprint13",
+        ],
         help=(
             "Optional preset for common check bundles "
             "(accounting, broker_snapshot, ops_evidence, evidence_pack, release_sprint13). "
@@ -393,10 +409,10 @@ def main() -> int:
                 _forbidden = ("deterministic_bytes", "test_evidence_pack_deterministic")
                 for item in pytest_args:
                     if item.startswith("tests/") and any(f in item for f in _forbidden):
-                        _msg = (
-                            f"ops_evidence preset must not include slow tests (deterministic_bytes): {item!r}"
+                        _msg = f"ops_evidence preset must not include slow tests (deterministic_bytes): {item!r}"
+                        raise ValueError(
+                            _msg.encode("ascii", errors="ignore").decode("ascii")
                         )
-                        raise ValueError(_msg.encode("ascii", errors="ignore").decode("ascii"))
             elif args.preset == "release_sprint13":
                 # Merge safety: CI inventory, verify/export CLI schema and smoke (fail-on-warn, print-pack-path, read_pack_manifest), ops golden path, paths POSIX, docs sanity; no deterministic-bytes
                 pytest_args = [

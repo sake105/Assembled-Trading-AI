@@ -21,7 +21,9 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Dev system run: smoke backtest + analysis.")
+    parser = argparse.ArgumentParser(
+        description="Dev system run: smoke backtest + analysis."
+    )
     parser.add_argument(
         "--verify-evidence",
         action="store_true",
@@ -40,7 +42,11 @@ def main() -> int:
     if args.verify_evidence:
         pack_dir = ROOT / "output" / "analysis_run" / "smoke"
         # Smoke run does not write evidence pack by default; skip if no pack
-        evidence_zip = next((pack_dir / "evidence").glob("*.zip"), None) if (pack_dir / "evidence").exists() else None
+        evidence_zip = (
+            next((pack_dir / "evidence").glob("*.zip"), None)
+            if (pack_dir / "evidence").exists()
+            else None
+        )
         if evidence_zip:
             r = subprocess.run(
                 [

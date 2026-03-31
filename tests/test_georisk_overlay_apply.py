@@ -28,8 +28,14 @@ def test_apply_exposure_multiplier_to_targets_basic() -> None:
 
     assert pytest.approx(scaled["target_weight"].sum()) == 0.5
     assert all(w > 0 for w in scaled["target_weight"])
-    assert pytest.approx(scaled.loc[scaled["symbol"] == "AAA", "target_weight"].item()) == 0.3
-    assert pytest.approx(scaled.loc[scaled["symbol"] == "BBB", "target_weight"].item()) == 0.2
+    assert (
+        pytest.approx(scaled.loc[scaled["symbol"] == "AAA", "target_weight"].item())
+        == 0.3
+    )
+    assert (
+        pytest.approx(scaled.loc[scaled["symbol"] == "BBB", "target_weight"].item())
+        == 0.2
+    )
     assert pytest.approx(scaled["target_qty"].sum()) == 50.0
 
 
@@ -47,8 +53,14 @@ def test_apply_exposure_multiplier_handles_no_cash_mask_cleanly() -> None:
     scaled = apply_exposure_multiplier_to_targets(df, multiplier)
 
     assert pytest.approx(scaled["target_weight"].sum()) == 0.5
-    assert pytest.approx(scaled.loc[scaled["symbol"] == "AAA", "target_weight"].item()) == 0.35
-    assert pytest.approx(scaled.loc[scaled["symbol"] == "BBB", "target_weight"].item()) == 0.15
+    assert (
+        pytest.approx(scaled.loc[scaled["symbol"] == "AAA", "target_weight"].item())
+        == 0.35
+    )
+    assert (
+        pytest.approx(scaled.loc[scaled["symbol"] == "BBB", "target_weight"].item())
+        == 0.15
+    )
     assert pytest.approx(scaled["target_qty"].sum()) == 50.0
 
 
@@ -66,12 +78,11 @@ def test_apply_exposure_multiplier_qty_non_numeric_does_not_crash() -> None:
     scaled = apply_exposure_multiplier_to_targets(df, multiplier)
 
     # AAA qty scaled, BBB becomes NaN
-    assert pytest.approx(
-        scaled.loc[scaled["symbol"] == "AAA", "target_qty"].item()
-    ) == 30.0
-    assert pd.isna(
-        scaled.loc[scaled["symbol"] == "BBB", "target_qty"].item()
+    assert (
+        pytest.approx(scaled.loc[scaled["symbol"] == "AAA", "target_qty"].item())
+        == 30.0
     )
+    assert pd.isna(scaled.loc[scaled["symbol"] == "BBB", "target_qty"].item())
 
 
 def test_georisk_overlay_applied_in_trading_cycle(monkeypatch: Any) -> None:
@@ -116,11 +127,12 @@ def test_georisk_overlay_applied_in_trading_cycle(monkeypatch: Any) -> None:
         return 0.5
 
     monkeypatch.setattr(tc, "load_policy", fake_load_policy)
-    monkeypatch.setattr(tc, "compute_exposure_multiplier", fake_compute_exposure_multiplier)
+    monkeypatch.setattr(
+        tc, "compute_exposure_multiplier", fake_compute_exposure_multiplier
+    )
 
     result = run_trading_cycle(ctx)
 
     weights = result.target_positions["target_weight"].tolist()
     assert pytest.approx(sum(weights)) == 0.5
     assert all(w > 0 for w in weights)
-

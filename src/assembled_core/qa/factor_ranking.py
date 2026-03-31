@@ -305,7 +305,7 @@ def build_factor_ranking(
 
     # Sort by combined_score (descending)
     ranking_df = ranking_df.sort_values(
-        "combined_score", ascending=False, na_last=True
+        "combined_score", ascending=False, na_position="last"
     ).reset_index(drop=True)
 
     logger.info(f"Built factor ranking table with {len(ranking_df)} factors")

@@ -11,19 +11,27 @@ pytestmark = [pytest.mark.unit]
 
 
 def _make_signals(entries: list[tuple[str, str, float]]) -> pd.DataFrame:
-    return pd.DataFrame([
-        {"timestamp": "2025-10-15", "symbol": s, "direction": d, "score": sc}
-        for s, d, sc in entries
-    ])
+    return pd.DataFrame(
+        [
+            {"timestamp": "2025-10-15", "symbol": s, "direction": d, "score": sc}
+            for s, d, sc in entries
+        ]
+    )
 
 
 class TestApplyRankingHysteresis:
     def test_new_symbol_rank6_blocked_at_entry5(self):
         """Symbol not held, rank 6 > entry_n=5 → set FLAT."""
-        signals = _make_signals([
-            ("A", "LONG", 0.9), ("B", "LONG", 0.8), ("C", "LONG", 0.7),
-            ("D", "LONG", 0.6), ("E", "LONG", 0.5), ("F", "LONG", 0.4),
-        ])
+        signals = _make_signals(
+            [
+                ("A", "LONG", 0.9),
+                ("B", "LONG", 0.8),
+                ("C", "LONG", 0.7),
+                ("D", "LONG", 0.6),
+                ("E", "LONG", 0.5),
+                ("F", "LONG", 0.4),
+            ]
+        )
         held = set()
         filtered, meta = apply_ranking_hysteresis(signals, held, entry_n=5, hold_n=7)
 
@@ -34,10 +42,16 @@ class TestApplyRankingHysteresis:
 
     def test_held_symbol_rank6_kept_at_hold7(self):
         """Symbol currently held, rank 6 <= hold_n=7 → stays LONG."""
-        signals = _make_signals([
-            ("A", "LONG", 0.9), ("B", "LONG", 0.8), ("C", "LONG", 0.7),
-            ("D", "LONG", 0.6), ("E", "LONG", 0.5), ("F", "LONG", 0.4),
-        ])
+        signals = _make_signals(
+            [
+                ("A", "LONG", 0.9),
+                ("B", "LONG", 0.8),
+                ("C", "LONG", 0.7),
+                ("D", "LONG", 0.6),
+                ("E", "LONG", 0.5),
+                ("F", "LONG", 0.4),
+            ]
+        )
         held = {"F"}
         filtered, meta = apply_ranking_hysteresis(signals, held, entry_n=5, hold_n=7)
 
@@ -47,11 +61,18 @@ class TestApplyRankingHysteresis:
 
     def test_held_symbol_rank8_dropped_at_hold7(self):
         """Symbol currently held, rank 8 > hold_n=7 → set FLAT."""
-        signals = _make_signals([
-            ("A", "LONG", 0.9), ("B", "LONG", 0.8), ("C", "LONG", 0.7),
-            ("D", "LONG", 0.6), ("E", "LONG", 0.5), ("F", "LONG", 0.4),
-            ("G", "LONG", 0.3), ("H", "LONG", 0.2),
-        ])
+        signals = _make_signals(
+            [
+                ("A", "LONG", 0.9),
+                ("B", "LONG", 0.8),
+                ("C", "LONG", 0.7),
+                ("D", "LONG", 0.6),
+                ("E", "LONG", 0.5),
+                ("F", "LONG", 0.4),
+                ("G", "LONG", 0.3),
+                ("H", "LONG", 0.2),
+            ]
+        )
         held = {"H"}
         filtered, meta = apply_ranking_hysteresis(signals, held, entry_n=5, hold_n=7)
 
@@ -60,18 +81,28 @@ class TestApplyRankingHysteresis:
 
     def test_disabled_passes_all(self):
         """Without hysteresis, all LONG signals pass unchanged."""
-        signals = _make_signals([
-            ("A", "LONG", 0.9), ("B", "LONG", 0.8), ("C", "LONG", 0.7),
-            ("D", "LONG", 0.6), ("E", "LONG", 0.5), ("F", "LONG", 0.4),
-        ])
+        signals = _make_signals(
+            [
+                ("A", "LONG", 0.9),
+                ("B", "LONG", 0.8),
+                ("C", "LONG", 0.7),
+                ("D", "LONG", 0.6),
+                ("E", "LONG", 0.5),
+                ("F", "LONG", 0.4),
+            ]
+        )
         long_count = len(signals[signals["direction"] == "LONG"])
         assert long_count == 6
 
     def test_held_within_entry_not_counted_as_hysteresis(self):
         """Held symbol within entry_n is not counted as kept_by_hysteresis."""
-        signals = _make_signals([
-            ("A", "LONG", 0.9), ("B", "LONG", 0.8), ("C", "LONG", 0.7),
-        ])
+        signals = _make_signals(
+            [
+                ("A", "LONG", 0.9),
+                ("B", "LONG", 0.8),
+                ("C", "LONG", 0.7),
+            ]
+        )
         held = {"A"}
         _, meta = apply_ranking_hysteresis(signals, held, entry_n=5, hold_n=7)
         assert meta["kept_by_hysteresis"] == 0

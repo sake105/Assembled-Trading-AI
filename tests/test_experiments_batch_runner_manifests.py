@@ -111,7 +111,9 @@ def test_write_run_manifest_roundtrip(tmp_path: Path) -> None:
     assert "finished_at" in manifest
     assert "artifacts" in manifest
     # Handle path separator differences (Windows vs Unix)
-    assert manifest["run_spec"]["bundle_path"].replace("\\", "/") == "config/bundle.yaml"
+    assert (
+        manifest["run_spec"]["bundle_path"].replace("\\", "/") == "config/bundle.yaml"
+    )
 
 
 def test_write_batch_manifest_roundtrip(tmp_path: Path) -> None:
@@ -149,8 +151,18 @@ def test_write_batch_manifest_roundtrip(tmp_path: Path) -> None:
         finished_at=datetime.utcnow(),
         total_runtime_sec=100.0,
         run_results=[
-            RunResult(run_id="run1", status="success", output_dir=tmp_path / "run1", runtime_sec=50.0),
-            RunResult(run_id="run2", status="success", output_dir=tmp_path / "run2", runtime_sec=50.0),
+            RunResult(
+                run_id="run1",
+                status="success",
+                output_dir=tmp_path / "run1",
+                runtime_sec=50.0,
+            ),
+            RunResult(
+                run_id="run2",
+                status="success",
+                output_dir=tmp_path / "run2",
+                runtime_sec=50.0,
+            ),
         ],
     )
 
@@ -198,9 +210,24 @@ def test_batch_manifest_stable_ordering(tmp_path: Path) -> None:
 
     # Create runs in non-alphabetical order
     run_specs = [
-        RunSpec(id="run3", bundle_path=Path("b.yaml"), start_date="2015-01-01", end_date="2020-12-31"),
-        RunSpec(id="run1", bundle_path=Path("a.yaml"), start_date="2015-01-01", end_date="2020-12-31"),
-        RunSpec(id="run2", bundle_path=Path("b.yaml"), start_date="2015-01-01", end_date="2020-12-31"),
+        RunSpec(
+            id="run3",
+            bundle_path=Path("b.yaml"),
+            start_date="2015-01-01",
+            end_date="2020-12-31",
+        ),
+        RunSpec(
+            id="run1",
+            bundle_path=Path("a.yaml"),
+            start_date="2015-01-01",
+            end_date="2020-12-31",
+        ),
+        RunSpec(
+            id="run2",
+            bundle_path=Path("b.yaml"),
+            start_date="2015-01-01",
+            end_date="2020-12-31",
+        ),
     ]
 
     batch_result = BatchResult(
@@ -280,4 +307,3 @@ def test_run_manifest_includes_artifacts(tmp_path: Path) -> None:
     assert "nested/data.json" in artifacts
     # Should be sorted
     assert artifacts == sorted(artifacts)
-

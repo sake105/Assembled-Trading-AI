@@ -24,10 +24,14 @@ def test_evidence_index_written_with_expected_paths(tmp_path: Path) -> None:
     as_of = pd.Timestamp("2025-01-15", tz="UTC")
 
     # Create some dummy files to reference
-    broker_snapshot_path = output_dir / "broker_snapshot_run" / "snapshot_2025-01-15.json"
+    broker_snapshot_path = (
+        output_dir / "broker_snapshot_run" / "snapshot_2025-01-15.json"
+    )
     ledger_pack_path = output_dir / "ledger_run" / "ledger_events.parquet"
     reconcile_report_path = output_dir / "reconcile_run" / "reconcile_2025-01-15.json"
-    accounting_report_path = output_dir / "accounting_report_run" / "accounting_2025-01-15.json"
+    accounting_report_path = (
+        output_dir / "accounting_report_run" / "accounting_2025-01-15.json"
+    )
     manifest_path = output_dir / "run_manifest_1d.json"
 
     for p in [
@@ -96,10 +100,16 @@ def test_evidence_index_deterministic_bytes(tmp_path: Path) -> None:
     as_of_date = "2025-01-15"
 
     paths = {
-        "broker_snapshot_path": output_dir / "broker_snapshot_run" / "snapshot_2025-01-15.json",
+        "broker_snapshot_path": output_dir
+        / "broker_snapshot_run"
+        / "snapshot_2025-01-15.json",
         "ledger_pack_path": output_dir / "ledger_run" / "ledger_events.parquet",
-        "reconcile_report_path": output_dir / "reconcile_run" / "reconcile_2025-01-15.json",
-        "accounting_report_path": output_dir / "accounting_report_run" / "accounting_2025-01-15.json",
+        "reconcile_report_path": output_dir
+        / "reconcile_run"
+        / "reconcile_2025-01-15.json",
+        "accounting_report_path": output_dir
+        / "accounting_report_run"
+        / "accounting_2025-01-15.json",
         "manifest_path": output_dir / "run_manifest_1d.json",
     }
 
@@ -139,4 +149,3 @@ def test_evidence_index_deterministic_bytes(tmp_path: Path) -> None:
         "accounting_report_path",
         "manifest_path",
     }
-

@@ -138,9 +138,9 @@ def test_analyze_factors_cli_basic(
     # Portfolio summary is optional (may be empty if insufficient data)
     if portfolio_file.exists():
         df = pd.read_csv(portfolio_file)
-        assert not df.empty, (
-            f"Portfolio summary CSV {portfolio_file} should not be empty if it exists"
-        )
+        assert (
+            not df.empty
+        ), f"Portfolio summary CSV {portfolio_file} should not be empty if it exists"
 
 
 def test_analyze_factors_direct_call(
@@ -196,9 +196,9 @@ def test_analyze_factors_direct_call(
     # Portfolio summary is optional (may be empty if insufficient data)
     if portfolio_file.exists():
         df = pd.read_csv(portfolio_file)
-        assert not df.empty, (
-            f"Portfolio summary CSV {portfolio_file} should not be empty if it exists"
-        )
+        assert (
+            not df.empty
+        ), f"Portfolio summary CSV {portfolio_file} should not be empty if it exists"
 
 
 def test_analyze_factors_with_vol_liquidity(
@@ -259,6 +259,6 @@ def test_analyze_factors_with_vol_liquidity(
     # Portfolio summary is optional (may be empty if insufficient data)
     if portfolio_file.exists():
         df = pd.read_csv(portfolio_file)
-        assert not df.empty, (
-            f"Portfolio summary CSV {portfolio_file} should not be empty if it exists"
-        )
+        assert (
+            not df.empty
+        ), f"Portfolio summary CSV {portfolio_file} should not be empty if it exists"

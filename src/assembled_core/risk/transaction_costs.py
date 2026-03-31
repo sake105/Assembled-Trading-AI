@@ -405,9 +405,9 @@ def compute_cost_adjusted_risk_metrics(
         logger.warning("Only one period available - metrics may be unreliable")
         net_return = returns.iloc[0] - costs.iloc[0]
         return {
-            "net_mean_return_annualized": float(net_return)
-            if not np.isnan(net_return)
-            else None,
+            "net_mean_return_annualized": (
+                float(net_return) if not np.isnan(net_return) else None
+            ),
             "net_vol_annualized": None,
             "net_sharpe": None,
             "net_sortino": None,
@@ -415,9 +415,9 @@ def compute_cost_adjusted_risk_metrics(
             "cost_impact_sharpe": None,
             "cost_impact_cagr": None,
             "total_cost": float(costs.sum()),
-            "cost_ratio": float(costs.sum() / returns.iloc[0])
-            if returns.iloc[0] != 0
-            else None,
+            "cost_ratio": (
+                float(costs.sum() / returns.iloc[0]) if returns.iloc[0] != 0 else None
+            ),
             "n_periods": 1,
         }
 

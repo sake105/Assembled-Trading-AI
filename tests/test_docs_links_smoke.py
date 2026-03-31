@@ -39,9 +39,9 @@ def test_readme_links_ops_evidence_golden_path() -> None:
     readme = ROOT / "README.md"
     assert readme.exists(), "README.md must exist"
     content = readme.read_text(encoding="utf-8")
-    assert "docs/OPS_EVIDENCE_GOLDEN_PATH.md" in content, (
-        "README must contain docs/OPS_EVIDENCE_GOLDEN_PATH.md (canonical ops workflow)"
-    )
+    assert (
+        "docs/OPS_EVIDENCE_GOLDEN_PATH.md" in content
+    ), "README must contain docs/OPS_EVIDENCE_GOLDEN_PATH.md (canonical ops workflow)"
 
 
 def test_referenced_workflows_exist() -> None:
@@ -61,9 +61,9 @@ def test_referenced_workflows_exist() -> None:
                 continue
             seen.add(wf_name)
             wf_path = ROOT / ".github" / "workflows" / wf_name
-            assert wf_path.exists(), (
-                f"Doc references workflow that does not exist: .github/workflows/{wf_name} (referenced from {rel})"
-            )
-            assert wf_path.is_file(), (
-                f"Workflow path is not a file: .github/workflows/{wf_name}"
-            )
+            assert (
+                wf_path.exists()
+            ), f"Doc references workflow that does not exist: .github/workflows/{wf_name} (referenced from {rel})"
+            assert (
+                wf_path.is_file()
+            ), f"Workflow path is not a file: .github/workflows/{wf_name}"

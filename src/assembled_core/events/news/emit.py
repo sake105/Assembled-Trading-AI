@@ -23,4 +23,3 @@ def _atomic_write_json(obj: Any, path: Path) -> None:
 def emit_json_artifact(obj: Any, path: str | Path) -> None:
     """Public helper for atomic JSON writes."""
     _atomic_write_json(obj, Path(path))
-

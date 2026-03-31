@@ -20,7 +20,9 @@ from src.assembled_core.pipeline.orchestrator import (
 )
 
 
-def test_orchestrator_backfills_manifest_path_into_evidence_index(tmp_path: Path) -> None:
+def test_orchestrator_backfills_manifest_path_into_evidence_index(
+    tmp_path: Path,
+) -> None:
     """After manifest write, orchestrator backfill updates paths.manifest_path in Evidence Index."""
     output_dir = tmp_path / "output"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -81,4 +83,3 @@ def test_orchestrator_backfills_manifest_path_into_evidence_index(tmp_path: Path
     assert not Path(manifest_value).is_absolute()
     # For this smoke test we expect exactly "run_manifest_1d.json"
     assert manifest_value == "run_manifest_1d.json"
-

@@ -8,7 +8,11 @@ from typing import Any
 import pytest
 
 from src.assembled_core.ops.intel_sim import apply_intel_sim
-from src.assembled_core.risk.state_machine import RiskStateRecord, compute_next_state, VERSION
+from src.assembled_core.risk.state_machine import (
+    RiskStateRecord,
+    compute_next_state,
+    VERSION,
+)
 
 
 pytestmark = [pytest.mark.unit, pytest.mark.phase6]
@@ -17,6 +21,7 @@ pytestmark = [pytest.mark.unit, pytest.mark.phase6]
 @dataclass
 class _MockCtx:
     """Minimal ctx for state_machine: news_geo, disclosures_triggers, intel_health_flags, market_stress."""
+
     news_geo: Any = None
     disclosures_triggers: Any = None
     intel_health_flags: dict[str, str] | None = None
@@ -26,6 +31,7 @@ class _MockCtx:
 
 def _now_utc() -> str:
     from datetime import datetime, timezone
+
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
@@ -33,7 +39,11 @@ def test_confirm_gate_on_blocks_activation_on_non_confirm_days() -> None:
     """With require_disclosures_confirm True and no disclosures (non-confirm day), WATCH stays WATCH."""
     ctx = _MockCtx()
     # day_index=2: stress_ok True (even), geo ACTIVE, but 2 % 5 != 0 -> disclosures_triggers None
-    apply_intel_sim(ctx, day_index=2, cfg={"mode": "stress_based", "disclosures_confirm_every_n_days": 5})
+    apply_intel_sim(
+        ctx,
+        day_index=2,
+        cfg={"mode": "stress_based", "disclosures_confirm_every_n_days": 5},
+    )
     assert ctx.disclosures_triggers is None
     assert ctx.news_geo is not None
     assert ctx.news_geo.get("geo_score") == 2
@@ -67,7 +77,11 @@ def test_confirm_gate_on_blocks_activation_on_non_confirm_days() -> None:
 def test_confirm_gate_on_allows_activation_on_confirm_days() -> None:
     """With require_disclosures_confirm True and disclosures max_severity=1 (confirm day), can transition to ACTIVE."""
     ctx = _MockCtx()
-    apply_intel_sim(ctx, day_index=0, cfg={"mode": "stress_based", "disclosures_confirm_every_n_days": 5})
+    apply_intel_sim(
+        ctx,
+        day_index=0,
+        cfg={"mode": "stress_based", "disclosures_confirm_every_n_days": 5},
+    )
     assert ctx.disclosures_triggers is not None
     assert getattr(ctx.disclosures_triggers, "summary", {}).get("max_severity") == 1
     assert ctx.news_geo.get("geo_score") == 2
@@ -128,7 +142,12 @@ def test_geo_spike_emits_score3_on_schedule() -> None:
     cfg = {
         "mode": "stress_based",
         "disclosures_confirm_every_n_days": 5,
-        "geo_spikes": {"enabled": True, "every_n_days": 7, "geo_score": 3, "geo_confidence": 0.85},
+        "geo_spikes": {
+            "enabled": True,
+            "every_n_days": 7,
+            "geo_score": 3,
+            "geo_confidence": 0.85,
+        },
     }
     apply_intel_sim(ctx0, 0, cfg)
     apply_intel_sim(ctx7, 7, cfg)
@@ -160,7 +179,12 @@ def test_conditional_gate_blocks_only_on_score3_days() -> None:
     cfg_confirm_rare = {
         "mode": "stress_based",
         "disclosures_confirm_every_n_days": 999,
-        "geo_spikes": {"enabled": True, "every_n_days": 7, "geo_score": 3, "geo_confidence": 0.85},
+        "geo_spikes": {
+            "enabled": True,
+            "every_n_days": 7,
+            "geo_score": 3,
+            "geo_confidence": 0.85,
+        },
     }
     ctx2 = _MockCtx()
     apply_intel_sim(ctx2, 2, cfg_confirm_rare)

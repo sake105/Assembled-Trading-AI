@@ -304,6 +304,6 @@ def test_aggregate_qa_status_all_ok(tmp_path: Path):
 
     # All checks should be ok
     for check in result["checks"]:
-        assert check["status"] == "ok", (
-            f"Check {check['name']} should be ok but got {check['status']}"
-        )
+        assert (
+            check["status"] == "ok"
+        ), f"Check {check['name']} should be ok but got {check['status']}"

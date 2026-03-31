@@ -21,7 +21,11 @@ def compute_signals(
         DataFrame with columns: timestamp, symbol, direction, score.
         Only rows with direction="LONG" (score=1.0). Empty if no signals.
     """
-    if prices_df.empty or "close" not in prices_df.columns or "symbol" not in prices_df.columns:
+    if (
+        prices_df.empty
+        or "close" not in prices_df.columns
+        or "symbol" not in prices_df.columns
+    ):
         return pd.DataFrame(columns=["timestamp", "symbol", "direction", "score"])
     if "timestamp" not in prices_df.columns:
         return pd.DataFrame(columns=["timestamp", "symbol", "direction", "score"])
@@ -37,7 +41,9 @@ def compute_signals(
         last_idx = len(g) - 1
         if ema_f.iloc[last_idx] > ema_s.iloc[last_idx]:
             ts = g["timestamp"].iloc[last_idx]
-            out.append({"timestamp": ts, "symbol": sym, "direction": "LONG", "score": 1.0})
+            out.append(
+                {"timestamp": ts, "symbol": sym, "direction": "LONG", "score": 1.0}
+            )
 
     if not out:
         return pd.DataFrame(columns=["timestamp", "symbol", "direction", "score"])
@@ -77,10 +83,17 @@ def compute_target_positions(
     rows = []
     for sym in syms:
         row = {"symbol": sym, "target_weight": weight, "target_qty": 0.0}
-        if prices_latest is not None and not prices_latest.empty and "close" in prices_latest.columns and "symbol" in prices_latest.columns:
+        if (
+            prices_latest is not None
+            and not prices_latest.empty
+            and "close" in prices_latest.columns
+            and "symbol" in prices_latest.columns
+        ):
             sub = prices_latest[prices_latest["symbol"] == sym]
             if not sub.empty:
-                close = float(pd.to_numeric(sub["close"].iloc[-1], errors="coerce") or 0)
+                close = float(
+                    pd.to_numeric(sub["close"].iloc[-1], errors="coerce") or 0
+                )
                 if close > 0:
                     row["target_qty"] = (total_capital * weight) / close
         rows.append(row)

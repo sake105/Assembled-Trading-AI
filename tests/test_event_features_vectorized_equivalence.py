@@ -38,7 +38,9 @@ def _generate_synthetic_events(
     event_dates = rng.choice(date_range, size=n_events, replace=True)
 
     # Generate disclosure dates (T+0 to T+5 days after event)
-    disclosure_dates = event_dates + pd.to_timedelta(rng.integers(0, 6, size=n_events), unit="D")
+    disclosure_dates = event_dates + pd.to_timedelta(
+        rng.integers(0, 6, size=n_events), unit="D"
+    )
 
     # Generate symbols
     symbols = [f"SYM{i % n_symbols:03d}" for i in range(n_events)]
@@ -46,12 +48,14 @@ def _generate_synthetic_events(
     # Generate values (optional)
     values = rng.uniform(100.0, 10000.0, size=n_events)
 
-    events = pd.DataFrame({
-        "symbol": symbols,
-        "event_date": event_dates,
-        "disclosure_date": disclosure_dates,
-        "value": values,
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": symbols,
+            "event_date": event_dates,
+            "disclosure_date": disclosure_dates,
+            "value": values,
+        }
+    )
 
     return events
 
@@ -80,15 +84,19 @@ def _generate_synthetic_prices(
     for i in range(n_symbols):
         symbol = f"SYM{i:03d}"
         # Select random dates for this symbol
-        symbol_dates = rng.choice(date_range, size=min(timestamps_per_symbol, len(date_range)), replace=False)
+        symbol_dates = rng.choice(
+            date_range, size=min(timestamps_per_symbol, len(date_range)), replace=False
+        )
         symbol_dates = np.sort(symbol_dates)
 
         for date in symbol_dates:
-            prices_list.append({
-                "timestamp": date,
-                "symbol": symbol,
-                "close": 100.0 + rng.uniform(-10, 10),
-            })
+            prices_list.append(
+                {
+                    "timestamp": date,
+                    "symbol": symbol,
+                    "close": 100.0 + rng.uniform(-10, 10),
+                }
+            )
 
     prices_df = pd.DataFrame(prices_list)
 
@@ -131,9 +139,9 @@ def test_build_event_feature_panel_equivalence() -> None:
     )
 
     # Assert: Same number of rows
-    assert len(result_legacy) == len(result_vectorized), (
-        f"Row count mismatch: legacy={len(result_legacy)}, vectorized={len(result_vectorized)}"
-    )
+    assert len(result_legacy) == len(
+        result_vectorized
+    ), f"Row count mismatch: legacy={len(result_legacy)}, vectorized={len(result_vectorized)}"
 
     # Assert: Same sorting (deterministic)
     pd.testing.assert_frame_equal(
@@ -222,13 +230,17 @@ def test_add_disclosure_count_feature_equivalence() -> None:
     )
 
     # Assert: Same number of rows
-    assert len(result_legacy) == len(result_vectorized), (
-        f"Row count mismatch: legacy={len(result_legacy)}, vectorized={len(result_vectorized)}"
-    )
+    assert len(result_legacy) == len(
+        result_vectorized
+    ), f"Row count mismatch: legacy={len(result_legacy)}, vectorized={len(result_vectorized)}"
 
     # Sort both by symbol, timestamp for comparison
-    result_legacy_sorted = result_legacy.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
-    result_vectorized_sorted = result_vectorized.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
+    result_legacy_sorted = result_legacy.sort_values(
+        ["symbol", "timestamp"]
+    ).reset_index(drop=True)
+    result_vectorized_sorted = result_vectorized.sort_values(
+        ["symbol", "timestamp"]
+    ).reset_index(drop=True)
 
     # Assert: Same sorting (deterministic)
     pd.testing.assert_frame_equal(
@@ -329,10 +341,10 @@ def test_equivalence_deterministic_multiple_runs() -> None:
     # Run legacy twice
     result_legacy_1 = build_event_feature_panel(
         events, prices, as_of=as_of, lookback_days=30, method="legacy"
-        )
+    )
     result_legacy_2 = build_event_feature_panel(
         events, prices, as_of=as_of, lookback_days=30, method="legacy"
-        )
+    )
 
     # Run vectorized twice
     result_vectorized_1 = build_event_feature_panel(

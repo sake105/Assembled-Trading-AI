@@ -16,7 +16,13 @@ class DisclosuresTriggerSnapshot:
 
     generated_utc: str = ""
     triggers: List[Dict[str, Any]] = field(default_factory=list)
-    summary: Dict[str, Any] = field(default_factory=lambda: {"max_severity": 0, "count_sev1plus": 0, "count_sev2plus": 0})
+    summary: Dict[str, Any] = field(
+        default_factory=lambda: {
+            "max_severity": 0,
+            "count_sev1plus": 0,
+            "count_sev2plus": 0,
+        }
+    )
 
 
 def load_disclosures_triggers(path: str | Path) -> DisclosuresTriggerSnapshot:

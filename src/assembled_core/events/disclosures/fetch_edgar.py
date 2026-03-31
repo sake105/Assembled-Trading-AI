@@ -45,7 +45,9 @@ def fetch_edgar_form4(
     import requests  # optional at import time
 
     feed_url = str(cfg.get("feed_url") or "").strip()
-    user_agent = str(cfg.get("user_agent") or "Assembled-Trading-AI/Disclosures-v1").strip()
+    user_agent = str(
+        cfg.get("user_agent") or "Assembled-Trading-AI/Disclosures-v1"
+    ).strip()
     timeout_s = float(cfg.get("timeout_s", 15.0))
     cache_minutes = float(cfg.get("cache_minutes", 10))
 
@@ -68,6 +70,7 @@ def fetch_edgar_form4(
         if cached_entries is not None and cached_utc:
             try:
                 from datetime import datetime, timezone, timedelta
+
                 then = datetime.fromisoformat(cached_utc.replace("Z", "+00:00"))
                 now = datetime.now(timezone.utc)
                 if (now - then) <= timedelta(minutes=cache_minutes):
@@ -96,7 +99,11 @@ def fetch_edgar_form4(
         stats["duration_ms"] = duration_ms
 
         if resp.status_code != 200:
-            failure = {"source": source_id, "reason": "http_error", "status": resp.status_code}
+            failure = {
+                "source": source_id,
+                "reason": "http_error",
+                "status": resp.status_code,
+            }
             return items, failure, stats
 
         root = ET.fromstring(resp.content)
@@ -106,23 +113,35 @@ def fetch_edgar_form4(
             entries = root.findall(".//{http://www.w3.org/2005/Atom}entry")
 
         for entry in entries:
-            title_el = entry.find("atom:title", ns) or entry.find("{http://www.w3.org/2005/Atom}title")
+            title_el = entry.find("atom:title", ns) or entry.find(
+                "{http://www.w3.org/2005/Atom}title"
+            )
             title = _get_text(title_el)
 
             link_el = None
-            for link in entry.findall("atom:link", ns) or entry.findall("{http://www.w3.org/2005/Atom}link"):
+            for link in entry.findall("atom:link", ns) or entry.findall(
+                "{http://www.w3.org/2005/Atom}link"
+            ):
                 if link.get("rel") in (None, "alternate"):
                     link_el = link
                     break
             if link_el is None:
-                link_el = entry.find("atom:link", ns) or entry.find("{http://www.w3.org/2005/Atom}link")
+                link_el = entry.find("atom:link", ns) or entry.find(
+                    "{http://www.w3.org/2005/Atom}link"
+                )
             link = _get_href(link_el)
 
-            updated_el = entry.find("atom:updated", ns) or entry.find("{http://www.w3.org/2005/Atom}updated")
-            published_el = entry.find("atom:published", ns) or entry.find("{http://www.w3.org/2005/Atom}published")
+            updated_el = entry.find("atom:updated", ns) or entry.find(
+                "{http://www.w3.org/2005/Atom}updated"
+            )
+            published_el = entry.find("atom:published", ns) or entry.find(
+                "{http://www.w3.org/2005/Atom}published"
+            )
             published = _get_text(published_el) or _get_text(updated_el)
 
-            id_el = entry.find("atom:id", ns) or entry.find("{http://www.w3.org/2005/Atom}id")
+            id_el = entry.find("atom:id", ns) or entry.find(
+                "{http://www.w3.org/2005/Atom}id"
+            )
             entry_id = _get_text(id_el)
             accession = entry_id
 
@@ -151,7 +170,9 @@ def fetch_edgar_form4(
     except requests.RequestException as e:
         duration_ms = int((time.perf_counter() - start) * 1000)
         stats["duration_ms"] = duration_ms
-        stats["http_status"] = getattr(getattr(e, "response", None), "status_code", None)
+        stats["http_status"] = getattr(
+            getattr(e, "response", None), "status_code", None
+        )
         failure = {"source": source_id, "reason": "request_error", "error": str(e)}
         return items, failure, stats
     except ET.ParseError as e:

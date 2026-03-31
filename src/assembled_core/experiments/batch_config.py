@@ -64,7 +64,9 @@ class RunSpec(BaseModel):
     bundle_path: Path = Field(..., description="Path to factor bundle YAML file")
     start_date: str = Field(..., description="Start date (YYYY-MM-DD)")
     end_date: str = Field(..., description="End date (YYYY-MM-DD)")
-    tags: list[str] = Field(default_factory=list, description="Tags for experiment tracking")
+    tags: list[str] = Field(
+        default_factory=list, description="Tags for experiment tracking"
+    )
     overrides: dict[str, Any] = Field(
         default_factory=dict, description="Parameter overrides (merged with base_args)"
     )
@@ -76,7 +78,9 @@ class RunSpec(BaseModel):
         if not v:
             raise ValueError("run id must not be empty")
         if not all(c.isalnum() or c in ("_", "-") for c in v):
-            raise ValueError(f"run id must contain only alphanumeric, underscore, hyphen: {v}")
+            raise ValueError(
+                f"run id must contain only alphanumeric, underscore, hyphen: {v}"
+            )
         return v
 
     @field_validator("start_date", "end_date")
@@ -131,7 +135,9 @@ class BatchConfig(BaseModel):
     base_args: dict[str, Any] = Field(
         default_factory=dict, description="Base arguments for all runs"
     )
-    runs: list[RunSpec] = Field(default_factory=list, description="Individual run specifications")
+    runs: list[RunSpec] = Field(
+        default_factory=list, description="Individual run specifications"
+    )
     grid: dict[str, list[Any]] | None = Field(
         None, description="Optional grid search (expanded to runs)"
     )
@@ -224,14 +230,19 @@ class BatchConfig(BaseModel):
             bundle_path = Path(bundle_path_raw)
 
             # Remove required fields from overrides (they're not overrides, they're required)
-            overrides = {k: v for k, v in merged_args.items() if k not in ("bundle_path", "start_date", "end_date")}
+            overrides = {
+                k: v
+                for k, v in merged_args.items()
+                if k not in ("bundle_path", "start_date", "end_date")
+            }
 
             run_spec = RunSpec(
                 id=run_id,
                 bundle_path=bundle_path,
                 start_date=start_date,
                 end_date=end_date,
-                tags=["grid_search"] + (self.run_tag.split("_") if self.run_tag else []),
+                tags=["grid_search"]
+                + (self.run_tag.split("_") if self.run_tag else []),
                 overrides=overrides,
             )
 
@@ -344,7 +355,10 @@ def load_batch_config(path: Path) -> BatchConfig:
         for run in raw["runs"]:
             if isinstance(run, dict) and "bundle_path" in run:
                 bundle_path_raw = run["bundle_path"]
-                if isinstance(bundle_path_raw, str) and not Path(bundle_path_raw).is_absolute():
+                if (
+                    isinstance(bundle_path_raw, str)
+                    and not Path(bundle_path_raw).is_absolute()
+                ):
                     run["bundle_path"] = str(config_dir / bundle_path_raw)
                 elif isinstance(bundle_path_raw, str):
                     run["bundle_path"] = bundle_path_raw
@@ -353,7 +367,10 @@ def load_batch_config(path: Path) -> BatchConfig:
     if "base_args" in raw and isinstance(raw["base_args"], dict):
         if "bundle_path" in raw["base_args"]:
             bundle_path_raw = raw["base_args"]["bundle_path"]
-            if isinstance(bundle_path_raw, str) and not Path(bundle_path_raw).is_absolute():
+            if (
+                isinstance(bundle_path_raw, str)
+                and not Path(bundle_path_raw).is_absolute()
+            ):
                 raw["base_args"]["bundle_path"] = str(config_dir / bundle_path_raw)
             elif isinstance(bundle_path_raw, str):
                 raw["base_args"]["bundle_path"] = bundle_path_raw
@@ -382,4 +399,3 @@ def load_batch_config(path: Path) -> BatchConfig:
             )
 
     return config
-

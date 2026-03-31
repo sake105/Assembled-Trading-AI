@@ -32,12 +32,14 @@ def test_two_orders_proportionally_reduced_when_turnover_exceeds_cap() -> None:
     # Turnover = 25000 / 10000 = 2.5 (250%)
     # Cap = 0.5 (50%)
     # Scale factor = 0.5 / 2.5 = 0.2
-    orders = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "side": ["BUY", "BUY"],
-        "qty": [100.0, 50.0],
-        "price": [150.0, 200.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "side": ["BUY", "BUY"],
+            "qty": [100.0, 50.0],
+            "price": [150.0, 200.0],
+        }
+    )
 
     equity = 10000.0
     config = PreTradeConfig(turnover_cap=0.5)  # 50% cap
@@ -53,7 +55,7 @@ def test_two_orders_proportionally_reduced_when_turnover_exceeds_cap() -> None:
     # AAPL: 100 * 0.2 = 20 (rounded: 20)
     # MSFT: 50 * 0.2 = 10 (rounded: 10)
     assert len(filtered) == 2, "Both orders should remain (reduced, not dropped)"
-    
+
     aapl_row = filtered[filtered["symbol"] == "AAPL"].iloc[0]
     msft_row = filtered[filtered["symbol"] == "MSFT"].iloc[0]
 
@@ -71,9 +73,13 @@ def test_two_orders_proportionally_reduced_when_turnover_exceeds_cap() -> None:
         assert "total_turnover" in r["explain"], "explain should have total_turnover"
         assert "cap" in r["explain"], "explain should have cap"
         assert "scale_factor" in r["explain"], "explain should have scale_factor"
-        assert abs(r["explain"]["total_turnover"] - 2.5) < 1e-10, "total_turnover should be 2.5"
+        assert (
+            abs(r["explain"]["total_turnover"] - 2.5) < 1e-10
+        ), "total_turnover should be 2.5"
         assert abs(r["explain"]["cap"] - 0.5) < 1e-10, "cap should be 0.5"
-        assert abs(r["explain"]["scale_factor"] - 0.2) < 1e-10, "scale_factor should be 0.2"
+        assert (
+            abs(r["explain"]["scale_factor"] - 0.2) < 1e-10
+        ), "scale_factor should be 0.2"
 
 
 def test_deterministic_rounding() -> None:
@@ -83,12 +89,14 @@ def test_deterministic_rounding() -> None:
     # Equity = 10000, turnover = 0.495, cap = 0.3
     # Scale factor = 0.3 / 0.495 ≈ 0.606
     # New qty = 33 * 0.606 ≈ 20.0 (should round to 20)
-    orders = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "side": ["BUY"],
-        "qty": [33.0],
-        "price": [150.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "side": ["BUY"],
+            "qty": [33.0],
+            "price": [150.0],
+        }
+    )
 
     equity = 10000.0
     config = PreTradeConfig(turnover_cap=0.3)  # 30% cap
@@ -115,18 +123,22 @@ def test_deterministic_rounding() -> None:
         check_dtype=False,
     )
     assert (
-        filtered1.sort_values("symbol").reset_index(drop=True).equals(
-            filtered2.sort_values("symbol").reset_index(drop=True)
-        )
+        filtered1.sort_values("symbol")
+        .reset_index(drop=True)
+        .equals(filtered2.sort_values("symbol").reset_index(drop=True))
     ), "Reduction should be deterministic"
 
     # Reduction reasons should be identical
-    assert result1.reduced_orders == result2.reduced_orders, "Reduction reasons should be identical"
+    assert (
+        result1.reduced_orders == result2.reduced_orders
+    ), "Reduction reasons should be identical"
 
     # Verify rounding: 33 * (0.3 / 0.495) ≈ 20.0
     expected_qty = int(33.0 * (0.3 / 0.495))  # Floor rounding
     actual_qty = filtered1["qty"].iloc[0]
-    assert abs(actual_qty - expected_qty) < 1e-10, f"Qty should be rounded to {expected_qty}, got {actual_qty}"
+    assert (
+        abs(actual_qty - expected_qty) < 1e-10
+    ), f"Qty should be rounded to {expected_qty}, got {actual_qty}"
 
 
 def test_turnover_below_cap_unchanged() -> None:
@@ -137,12 +149,14 @@ def test_turnover_below_cap_unchanged() -> None:
     # Turnover = 1500 / 10000 = 0.15 (15%)
     # Cap = 0.5 (50%)
     # Turnover < cap, so orders should be unchanged
-    orders = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "side": ["BUY"],
-        "qty": [10.0],
-        "price": [150.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "side": ["BUY"],
+            "qty": [10.0],
+            "price": [150.0],
+        }
+    )
 
     equity = 10000.0
     config = PreTradeConfig(turnover_cap=0.5)  # 50% cap
@@ -168,12 +182,14 @@ def test_turnover_exactly_at_cap_unchanged() -> None:
     # Turnover = 7500 / 10000 = 0.75 (75%)
     # Cap = 0.75 (75%)
     # Turnover == cap, so orders should be unchanged
-    orders = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "side": ["BUY"],
-        "qty": [50.0],
-        "price": [150.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "side": ["BUY"],
+            "qty": [50.0],
+            "price": [150.0],
+        }
+    )
 
     equity = 10000.0
     config = PreTradeConfig(turnover_cap=0.75)  # 75% cap
@@ -200,12 +216,14 @@ def test_small_order_dropped_after_reduction() -> None:
     # Cap = 0.001 (0.1%)
     # Scale factor = 0.001 / 0.015 ≈ 0.0667
     # New qty = 1 * 0.0667 ≈ 0.067 → rounded to 0 → dropped
-    orders = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "side": ["BUY"],
-        "qty": [1.0],
-        "price": [150.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "side": ["BUY"],
+            "qty": [1.0],
+            "price": [150.0],
+        }
+    )
 
     equity = 10000.0
     config = PreTradeConfig(turnover_cap=0.001)  # 0.1% cap
@@ -232,12 +250,14 @@ def test_negative_qty_handled_correctly() -> None:
     # Cap = 0.5 (50%)
     # Scale factor = 0.5 / 1.5 ≈ 0.333
     # New qty = -100 * 0.333 ≈ -33.33 → rounded to -33
-    orders = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "side": ["SELL"],
-        "qty": [100.0],
-        "price": [150.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "side": ["SELL"],
+            "qty": [100.0],
+            "price": [150.0],
+        }
+    )
 
     equity = 10000.0
     config = PreTradeConfig(turnover_cap=0.5)  # 50% cap
@@ -257,4 +277,6 @@ def test_negative_qty_handled_correctly() -> None:
     expected_qty = -int(100.0 * (0.5 / 1.5))  # Should be -33
     actual_qty = filtered["qty"].iloc[0]
     assert actual_qty < 0.0, "Qty should be negative (SELL)"
-    assert abs(actual_qty - expected_qty) < 1e-10, f"Qty should be {expected_qty}, got {actual_qty}"
+    assert (
+        abs(actual_qty - expected_qty) < 1e-10
+    ), f"Qty should be {expected_qty}, got {actual_qty}"

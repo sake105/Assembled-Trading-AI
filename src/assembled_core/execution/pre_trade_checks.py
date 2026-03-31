@@ -207,7 +207,7 @@ def run_pre_trade_checks(
     if qa_status is not None:
         # Import lazily to avoid circular imports
         from src.assembled_core.qa.qa_gates import QAResult
-        
+
         if qa_status.overall_result == QAResult.BLOCK:
             blocked_reasons.append("QA_BLOCK: QA gates blocked trading")
             return (
@@ -261,7 +261,11 @@ def run_pre_trade_checks(
 
     # 4. Check max_weight_per_symbol (requires current_positions, prices_latest, equity)
     if config.max_weight_per_symbol is not None:
-        if current_positions is not None and prices_latest is not None and equity is not None:
+        if (
+            current_positions is not None
+            and prices_latest is not None
+            and equity is not None
+        ):
             # Import exposure engine here to avoid circular imports
             try:
                 from src.assembled_core.risk.exposure_engine import (
@@ -283,15 +287,21 @@ def run_pre_trade_checks(
                     else:
                         # Handle different column names (qty, target_qty, etc.)
                         if "qty" in current_positions.columns:
-                            current_positions_df = current_positions[["symbol", "qty"]].copy()
+                            current_positions_df = current_positions[
+                                ["symbol", "qty"]
+                            ].copy()
                         elif "target_qty" in current_positions.columns:
-                            current_positions_df = current_positions[["symbol", "target_qty"]].rename(
-                                columns={"target_qty": "qty"}
-                            )
+                            current_positions_df = current_positions[
+                                ["symbol", "target_qty"]
+                            ].rename(columns={"target_qty": "qty"})
                         else:
                             # Skip if cannot determine current positions
-                            summary["max_weight_per_symbol_check"] = "skipped_no_qty_column"
-                            current_positions_df = pd.DataFrame(columns=["symbol", "qty"])
+                            summary["max_weight_per_symbol_check"] = (
+                                "skipped_no_qty_column"
+                            )
+                            current_positions_df = pd.DataFrame(
+                                columns=["symbol", "qty"]
+                            )
 
                     # Compute target positions (current + orders)
                     target_positions = compute_target_positions(
@@ -315,7 +325,9 @@ def run_pre_trade_checks(
 
                         if abs_weight > config.max_weight_per_symbol:
                             # Find orders for this symbol
-                            symbol_orders = filtered_orders[filtered_orders["symbol"] == symbol].copy()
+                            symbol_orders = filtered_orders[
+                                filtered_orders["symbol"] == symbol
+                            ].copy()
 
                             if symbol_orders.empty:
                                 continue
@@ -324,7 +336,9 @@ def run_pre_trade_checks(
                             # If SELL and current weight > limit, allow it (reduces exposure)
                             # Otherwise, reduce order qty
                             current_qty = (
-                                current_positions_df[current_positions_df["symbol"] == symbol]["qty"].iloc[0]
+                                current_positions_df[
+                                    current_positions_df["symbol"] == symbol
+                                ]["qty"].iloc[0]
                                 if not current_positions_df.empty
                                 and symbol in current_positions_df["symbol"].values
                                 else 0.0
@@ -335,7 +349,11 @@ def run_pre_trade_checks(
                             # Determine if we need to reduce
                             # If target_qty moves towards 0 (reduces exposure), allow it
                             # Otherwise, reduce to exactly hit the limit
-                            if abs(current_qty) > abs(target_qty) and abs(current_qty) * price / equity > config.max_weight_per_symbol:
+                            if (
+                                abs(current_qty) > abs(target_qty)
+                                and abs(current_qty) * price / equity
+                                > config.max_weight_per_symbol
+                            ):
                                 # Order reduces exposure (e.g., SELL when overweight)
                                 # Allow it (don't block or reduce)
                                 continue
@@ -344,7 +362,9 @@ def run_pre_trade_checks(
                             # max_target_notional = max_weight_per_symbol * equity
                             # max_target_qty = max_target_notional / price
                             max_target_notional = config.max_weight_per_symbol * equity
-                            max_target_qty = max_target_notional / price if price > 0.0 else 0.0
+                            max_target_qty = (
+                                max_target_notional / price if price > 0.0 else 0.0
+                            )
 
                             # Calculate required reduction
                             # target_qty should be capped at max_target_qty (or -max_target_qty for shorts)
@@ -359,13 +379,17 @@ def run_pre_trade_checks(
 
                             # Reduce each order proportionally
                             total_order_delta = symbol_orders.apply(
-                                lambda row: row["qty"] if row["side"] == "BUY" else -row["qty"],
+                                lambda row: (
+                                    row["qty"] if row["side"] == "BUY" else -row["qty"]
+                                ),
                                 axis=1,
                             ).sum()
 
                             if abs(total_order_delta) > 1e-10:
                                 scale_factor = order_delta_needed / total_order_delta
-                                scale_factor = max(0.0, min(1.0, scale_factor))  # Clamp to [0, 1]
+                                scale_factor = max(
+                                    0.0, min(1.0, scale_factor)
+                                )  # Clamp to [0, 1]
 
                                 # Apply reduction to orders
                                 for idx in symbol_orders.index:
@@ -374,33 +398,51 @@ def run_pre_trade_checks(
 
                                     if new_qty < 1e-10:
                                         # Order becomes too small, remove it
-                                        filtered_orders = filtered_orders.drop(index=idx)
-                                        reduced_orders.append({
-                                            "reason": "RISK_REDUCE_MAX_WEIGHT_PER_SYMBOL",
-                                            "symbol": symbol,
-                                            "original_qty": original_qty,
-                                            "new_qty": 0.0,
-                                            "explain": {
-                                                "current_weight": abs(current_qty * price / equity) if current_qty != 0.0 else 0.0,
-                                                "target_weight": abs_weight,
-                                                "limit": config.max_weight_per_symbol,
-                                                "reduction_factor": scale_factor,
-                                            },
-                                        })
+                                        filtered_orders = filtered_orders.drop(
+                                            index=idx
+                                        )
+                                        reduced_orders.append(
+                                            {
+                                                "reason": "RISK_REDUCE_MAX_WEIGHT_PER_SYMBOL",
+                                                "symbol": symbol,
+                                                "original_qty": original_qty,
+                                                "new_qty": 0.0,
+                                                "explain": {
+                                                    "current_weight": (
+                                                        abs(
+                                                            current_qty * price / equity
+                                                        )
+                                                        if current_qty != 0.0
+                                                        else 0.0
+                                                    ),
+                                                    "target_weight": abs_weight,
+                                                    "limit": config.max_weight_per_symbol,
+                                                    "reduction_factor": scale_factor,
+                                                },
+                                            }
+                                        )
                                     else:
                                         filtered_orders.loc[idx, "qty"] = new_qty
-                                        reduced_orders.append({
-                                            "reason": "RISK_REDUCE_MAX_WEIGHT_PER_SYMBOL",
-                                            "symbol": symbol,
-                                            "original_qty": original_qty,
-                                            "new_qty": new_qty,
-                                            "explain": {
-                                                "current_weight": abs(current_qty * price / equity) if current_qty != 0.0 else 0.0,
-                                                "target_weight": abs_weight,
-                                                "limit": config.max_weight_per_symbol,
-                                                "reduction_factor": scale_factor,
-                                            },
-                                        })
+                                        reduced_orders.append(
+                                            {
+                                                "reason": "RISK_REDUCE_MAX_WEIGHT_PER_SYMBOL",
+                                                "symbol": symbol,
+                                                "original_qty": original_qty,
+                                                "new_qty": new_qty,
+                                                "explain": {
+                                                    "current_weight": (
+                                                        abs(
+                                                            current_qty * price / equity
+                                                        )
+                                                        if current_qty != 0.0
+                                                        else 0.0
+                                                    ),
+                                                    "target_weight": abs_weight,
+                                                    "limit": config.max_weight_per_symbol,
+                                                    "reduction_factor": scale_factor,
+                                                },
+                                            }
+                                        )
 
                 except ValueError as e:
                     # Fail-fast: equity <= 0 or missing price
@@ -451,13 +493,17 @@ def run_pre_trade_checks(
                         current_positions_df = pd.DataFrame(columns=["symbol", "qty"])
                     else:
                         if "qty" in current_positions.columns:
-                            current_positions_df = current_positions[["symbol", "qty"]].copy()
+                            current_positions_df = current_positions[
+                                ["symbol", "qty"]
+                            ].copy()
                         elif "target_qty" in current_positions.columns:
-                            current_positions_df = current_positions[["symbol", "target_qty"]].rename(
-                                columns={"target_qty": "qty"}
-                            )
+                            current_positions_df = current_positions[
+                                ["symbol", "target_qty"]
+                            ].rename(columns={"target_qty": "qty"})
                         else:
-                            current_positions_df = pd.DataFrame(columns=["symbol", "qty"])
+                            current_positions_df = pd.DataFrame(
+                                columns=["symbol", "qty"]
+                            )
 
                     # Compute target positions and exposures
                     target_positions_df = compute_target_positions(
@@ -497,8 +543,12 @@ def run_pre_trade_checks(
                                         continue
 
                                     # Calculate scale factor to bring gross_weight to limit
-                                    scale_factor = config.max_sector_exposure / gross_weight
-                                    scale_factor = max(0.0, min(1.0, scale_factor))  # Clamp to [0, 1]
+                                    scale_factor = (
+                                        config.max_sector_exposure / gross_weight
+                                    )
+                                    scale_factor = max(
+                                        0.0, min(1.0, scale_factor)
+                                    )  # Clamp to [0, 1]
 
                                     # Apply scale factor to orders in this sector
                                     indices_to_process = list(sector_orders.index)
@@ -524,43 +574,53 @@ def run_pre_trade_checks(
 
                                         if abs(new_qty) < 1e-10:
                                             # Order becomes too small, remove it
-                                            filtered_orders = filtered_orders.drop(index=idx)
-                                            reduced_orders.append({
-                                                "reason": "RISK_REDUCE_MAX_SECTOR_EXPOSURE",
-                                                "symbol": symbol,
-                                                "original_qty": original_qty,
-                                                "new_qty": 0.0,
-                                                "explain": {
-                                                    "group_type": "sector",
-                                                    "group_value": sector_value,
-                                                    "cap": config.max_sector_exposure,
-                                                    "pre_weight": gross_weight,
-                                                    "post_weight": config.max_sector_exposure,
-                                                    "scale_factor": scale_factor,
-                                                },
-                                            })
+                                            filtered_orders = filtered_orders.drop(
+                                                index=idx
+                                            )
+                                            reduced_orders.append(
+                                                {
+                                                    "reason": "RISK_REDUCE_MAX_SECTOR_EXPOSURE",
+                                                    "symbol": symbol,
+                                                    "original_qty": original_qty,
+                                                    "new_qty": 0.0,
+                                                    "explain": {
+                                                        "group_type": "sector",
+                                                        "group_value": sector_value,
+                                                        "cap": config.max_sector_exposure,
+                                                        "pre_weight": gross_weight,
+                                                        "post_weight": config.max_sector_exposure,
+                                                        "scale_factor": scale_factor,
+                                                    },
+                                                }
+                                            )
                                         else:
                                             filtered_orders.loc[idx, "qty"] = new_qty
-                                            reduced_orders.append({
-                                                "reason": "RISK_REDUCE_MAX_SECTOR_EXPOSURE",
-                                                "symbol": symbol,
-                                                "original_qty": original_qty,
-                                                "new_qty": new_qty,
-                                                "explain": {
-                                                    "group_type": "sector",
-                                                    "group_value": sector_value,
-                                                    "cap": config.max_sector_exposure,
-                                                    "pre_weight": gross_weight,
-                                                    "post_weight": config.max_sector_exposure,
-                                                    "scale_factor": scale_factor,
-                                                },
-                                            })
+                                            reduced_orders.append(
+                                                {
+                                                    "reason": "RISK_REDUCE_MAX_SECTOR_EXPOSURE",
+                                                    "symbol": symbol,
+                                                    "original_qty": original_qty,
+                                                    "new_qty": new_qty,
+                                                    "explain": {
+                                                        "group_type": "sector",
+                                                        "group_value": sector_value,
+                                                        "cap": config.max_sector_exposure,
+                                                        "pre_weight": gross_weight,
+                                                        "post_weight": config.max_sector_exposure,
+                                                        "scale_factor": scale_factor,
+                                                    },
+                                                }
+                                            )
                         except ValueError as e:
                             if config.missing_security_meta == "raise":
                                 # Re-raise ValueError to fail-fast
-                                raise ValueError(f"Sector exposure check failed: {e}") from e
+                                raise ValueError(
+                                    f"Sector exposure check failed: {e}"
+                                ) from e
                             else:
-                                summary["sector_exposure_check"] = "skipped_missing_meta"
+                                summary["sector_exposure_check"] = (
+                                    "skipped_missing_meta"
+                                )
 
                     # Check region exposure limit (same logic as sector)
                     if config.max_region_exposure is not None:
@@ -586,7 +646,9 @@ def run_pre_trade_checks(
                                     if region_orders.empty:
                                         continue
 
-                                    scale_factor = config.max_region_exposure / gross_weight
+                                    scale_factor = (
+                                        config.max_region_exposure / gross_weight
+                                    )
                                     scale_factor = max(0.0, min(1.0, scale_factor))
 
                                     indices_to_process = list(region_orders.index)
@@ -607,43 +669,53 @@ def run_pre_trade_checks(
                                             new_qty = abs(new_qty)
 
                                         if abs(new_qty) < 1e-10:
-                                            filtered_orders = filtered_orders.drop(index=idx)
-                                            reduced_orders.append({
-                                                "reason": "RISK_REDUCE_MAX_REGION_EXPOSURE",
-                                                "symbol": symbol,
-                                                "original_qty": original_qty,
-                                                "new_qty": 0.0,
-                                                "explain": {
-                                                    "group_type": "region",
-                                                    "group_value": region_value,
-                                                    "cap": config.max_region_exposure,
-                                                    "pre_weight": gross_weight,
-                                                    "post_weight": config.max_region_exposure,
-                                                    "scale_factor": scale_factor,
-                                                },
-                                            })
+                                            filtered_orders = filtered_orders.drop(
+                                                index=idx
+                                            )
+                                            reduced_orders.append(
+                                                {
+                                                    "reason": "RISK_REDUCE_MAX_REGION_EXPOSURE",
+                                                    "symbol": symbol,
+                                                    "original_qty": original_qty,
+                                                    "new_qty": 0.0,
+                                                    "explain": {
+                                                        "group_type": "region",
+                                                        "group_value": region_value,
+                                                        "cap": config.max_region_exposure,
+                                                        "pre_weight": gross_weight,
+                                                        "post_weight": config.max_region_exposure,
+                                                        "scale_factor": scale_factor,
+                                                    },
+                                                }
+                                            )
                                         else:
                                             filtered_orders.loc[idx, "qty"] = new_qty
-                                            reduced_orders.append({
-                                                "reason": "RISK_REDUCE_MAX_REGION_EXPOSURE",
-                                                "symbol": symbol,
-                                                "original_qty": original_qty,
-                                                "new_qty": new_qty,
-                                                "explain": {
-                                                    "group_type": "region",
-                                                    "group_value": region_value,
-                                                    "cap": config.max_region_exposure,
-                                                    "pre_weight": gross_weight,
-                                                    "post_weight": config.max_region_exposure,
-                                                    "scale_factor": scale_factor,
-                                                },
-                                            })
+                                            reduced_orders.append(
+                                                {
+                                                    "reason": "RISK_REDUCE_MAX_REGION_EXPOSURE",
+                                                    "symbol": symbol,
+                                                    "original_qty": original_qty,
+                                                    "new_qty": new_qty,
+                                                    "explain": {
+                                                        "group_type": "region",
+                                                        "group_value": region_value,
+                                                        "cap": config.max_region_exposure,
+                                                        "pre_weight": gross_weight,
+                                                        "post_weight": config.max_region_exposure,
+                                                        "scale_factor": scale_factor,
+                                                    },
+                                                }
+                                            )
                         except ValueError as e:
                             if config.missing_security_meta == "raise":
                                 # Re-raise ValueError to fail-fast
-                                raise ValueError(f"Region exposure check failed: {e}") from e
+                                raise ValueError(
+                                    f"Region exposure check failed: {e}"
+                                ) from e
                             else:
-                                summary["region_exposure_check"] = "skipped_missing_meta"
+                                summary["region_exposure_check"] = (
+                                    "skipped_missing_meta"
+                                )
 
                     # Check FX exposure limit
                     if config.max_fx_exposure is not None:
@@ -655,12 +727,19 @@ def run_pre_trade_checks(
                                         "FX exposure check requires currency column in security_meta_df"
                                     )
                                 else:
-                                    summary["fx_exposure_check"] = "skipped_missing_currency"
+                                    summary["fx_exposure_check"] = (
+                                        "skipped_missing_currency"
+                                    )
                             else:
                                 # Check for non-base currencies
-                                non_base_currencies = security_meta_df[
-                                    security_meta_df["currency"] != config.base_currency
-                                ]["currency"].unique().tolist()
+                                non_base_currencies = (
+                                    security_meta_df[
+                                        security_meta_df["currency"]
+                                        != config.base_currency
+                                    ]["currency"]
+                                    .unique()
+                                    .tolist()
+                                )
 
                                 if non_base_currencies:
                                     # FX rates not implemented yet - fail-fast with clear message
@@ -672,14 +751,18 @@ def run_pre_trade_checks(
                                             f"All positions must be in base currency for now."
                                         )
                                     else:
-                                        summary["fx_exposure_check"] = "skipped_non_base_currency"
+                                        summary["fx_exposure_check"] = (
+                                            "skipped_non_base_currency"
+                                        )
                                 else:
                                     # All currencies are base_currency - no FX exposure
                                     summary["fx_exposure_check"] = "all_base_currency"
                         except ValueError as e:
                             if config.missing_security_meta == "raise":
                                 # Re-raise ValueError to fail-fast
-                                raise ValueError(f"FX exposure check failed: {e}") from e
+                                raise ValueError(
+                                    f"FX exposure check failed: {e}"
+                                ) from e
                             else:
                                 summary["fx_exposure_check"] = "skipped_missing_meta"
                 except ValueError as e:
@@ -710,7 +793,9 @@ def run_pre_trade_checks(
         if "price" in filtered_orders.columns and equity is not None and equity > 0.0:
             # Calculate turnover: sum(abs(order_notional)) / equity
             # order_notional = abs(qty * price)
-            order_notionals = (filtered_orders["qty"].abs() * filtered_orders["price"].abs())
+            order_notionals = (
+                filtered_orders["qty"].abs() * filtered_orders["price"].abs()
+            )
             total_turnover = float(order_notionals.sum() / equity)
 
             if total_turnover > config.turnover_cap:
@@ -721,15 +806,15 @@ def run_pre_trade_checks(
                 # Apply reduction to all orders proportionally
                 # Create a copy of indices to avoid modification during iteration
                 indices_to_process = list(filtered_orders.index)
-                
+
                 for idx in indices_to_process:
                     if idx not in filtered_orders.index:
                         continue  # Already dropped
-                    
+
                     original_qty = filtered_orders.loc[idx, "qty"]
                     symbol = filtered_orders.loc[idx, "symbol"]
                     side = filtered_orders.loc[idx, "side"]
-                    
+
                     # Calculate new qty: scale original qty
                     new_qty = original_qty * scale_factor
 
@@ -737,7 +822,7 @@ def run_pre_trade_checks(
                     # This ensures integer shares for equities
                     # For positive: 20.7 → 20, for negative: -20.7 → -20
                     new_qty = float(int(new_qty))
-                    
+
                     # Preserve sign based on side (qty is always positive in orders, side indicates direction)
                     if side == "SELL":
                         new_qty = -abs(new_qty)
@@ -747,30 +832,34 @@ def run_pre_trade_checks(
                     if abs(new_qty) < 1e-10:
                         # Order becomes too small, remove it
                         filtered_orders = filtered_orders.drop(index=idx)
-                        reduced_orders.append({
-                            "reason": "RISK_REDUCE_TURNOVER_CAP",
-                            "symbol": symbol,
-                            "original_qty": original_qty,
-                            "new_qty": 0.0,
-                            "explain": {
-                                "total_turnover": total_turnover,
-                                "cap": config.turnover_cap,
-                                "scale_factor": scale_factor,
-                            },
-                        })
+                        reduced_orders.append(
+                            {
+                                "reason": "RISK_REDUCE_TURNOVER_CAP",
+                                "symbol": symbol,
+                                "original_qty": original_qty,
+                                "new_qty": 0.0,
+                                "explain": {
+                                    "total_turnover": total_turnover,
+                                    "cap": config.turnover_cap,
+                                    "scale_factor": scale_factor,
+                                },
+                            }
+                        )
                     else:
                         filtered_orders.loc[idx, "qty"] = new_qty
-                        reduced_orders.append({
-                            "reason": "RISK_REDUCE_TURNOVER_CAP",
-                            "symbol": symbol,
-                            "original_qty": original_qty,
-                            "new_qty": new_qty,
-                            "explain": {
-                                "total_turnover": total_turnover,
-                                "cap": config.turnover_cap,
-                                "scale_factor": scale_factor,
-                            },
-                        })
+                        reduced_orders.append(
+                            {
+                                "reason": "RISK_REDUCE_TURNOVER_CAP",
+                                "symbol": symbol,
+                                "original_qty": original_qty,
+                                "new_qty": new_qty,
+                                "explain": {
+                                    "total_turnover": total_turnover,
+                                    "cap": config.turnover_cap,
+                                    "scale_factor": scale_factor,
+                                },
+                            }
+                        )
         else:
             # Missing required inputs: skip check
             if "price" not in filtered_orders.columns:
@@ -817,34 +906,38 @@ def run_pre_trade_checks(
                     if abs(new_qty) < 1e-10:
                         # Order becomes too small, remove it
                         filtered_orders = filtered_orders.drop(index=idx)
-                        reduced_orders.append({
-                            "reason": "RISK_DERISK_DRAWDOWN",
-                            "symbol": symbol,
-                            "original_qty": original_qty,
-                            "new_qty": 0.0,
-                            "explain": {
-                                "drawdown": drawdown,
-                                "threshold": config.drawdown_threshold,
-                                "de_risk_scale": de_risk_scale,
-                                "current_equity": current_equity,
-                                "peak_equity": peak_equity,
-                            },
-                        })
+                        reduced_orders.append(
+                            {
+                                "reason": "RISK_DERISK_DRAWDOWN",
+                                "symbol": symbol,
+                                "original_qty": original_qty,
+                                "new_qty": 0.0,
+                                "explain": {
+                                    "drawdown": drawdown,
+                                    "threshold": config.drawdown_threshold,
+                                    "de_risk_scale": de_risk_scale,
+                                    "current_equity": current_equity,
+                                    "peak_equity": peak_equity,
+                                },
+                            }
+                        )
                     else:
                         filtered_orders.loc[idx, "qty"] = new_qty
-                        reduced_orders.append({
-                            "reason": "RISK_DERISK_DRAWDOWN",
-                            "symbol": symbol,
-                            "original_qty": original_qty,
-                            "new_qty": new_qty,
-                            "explain": {
-                                "drawdown": drawdown,
-                                "threshold": config.drawdown_threshold,
-                                "de_risk_scale": de_risk_scale,
-                                "current_equity": current_equity,
-                                "peak_equity": peak_equity,
-                            },
-                        })
+                        reduced_orders.append(
+                            {
+                                "reason": "RISK_DERISK_DRAWDOWN",
+                                "symbol": symbol,
+                                "original_qty": original_qty,
+                                "new_qty": new_qty,
+                                "explain": {
+                                    "drawdown": drawdown,
+                                    "threshold": config.drawdown_threshold,
+                                    "de_risk_scale": de_risk_scale,
+                                    "current_equity": current_equity,
+                                    "peak_equity": peak_equity,
+                                },
+                            }
+                        )
         else:
             # Missing required inputs: skip check with explicit reason
             if current_equity is None:

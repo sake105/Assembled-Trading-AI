@@ -54,7 +54,8 @@ def _make_events_by_id(event_ids: list[str]) -> dict[str, NewsEvent]:
 def test_score_triggers_matches_geopolitical_keywords():
     """Cluster with war/sanctions keywords produces geo_risk trigger."""
     cluster = _make_cluster(
-        "clu_1", ["e1", "e2"],
+        "clu_1",
+        ["e1", "e2"],
         top_entities=["US", "RU"],
         top_phrases=["sanctions pressure"],
         sample_titles=["US imposes new sanctions on Russia over conflict"],
@@ -71,7 +72,8 @@ def test_score_triggers_matches_geopolitical_keywords():
 def test_score_triggers_shipping_disruption():
     """Cluster with Red Sea/shipping keywords produces supply_chain trigger."""
     cluster = _make_cluster(
-        "clu_ship", ["e1", "e2"],
+        "clu_ship",
+        ["e1", "e2"],
         top_entities=["Red Sea"],
         top_phrases=["shipping disruption"],
         sample_titles=["Red Sea shipping route disruptions push costs higher"],
@@ -96,7 +98,8 @@ def test_score_triggers_empty_clusters():
 def test_score_triggers_no_keyword_match():
     """Cluster without any matching keywords → no triggers."""
     cluster = _make_cluster(
-        "clu_boring", ["e1", "e2"],
+        "clu_boring",
+        ["e1", "e2"],
         top_entities=[],
         top_phrases=["cooking recipe"],
         sample_titles=["Best cake recipe of the year"],
@@ -108,14 +111,17 @@ def test_score_triggers_no_keyword_match():
 def test_severity_capped_on_degraded():
     """DEGRADED health caps severity to severity_cap_degraded."""
     cluster = _make_cluster(
-        "clu_war", ["e1", "e2"],
+        "clu_war",
+        ["e1", "e2"],
         top_entities=[],
         top_phrases=[],
         sample_titles=["Nuclear threat escalates as war intensifies"],
     )
     triggers = score_triggers(
-        [cluster], _make_events_by_id(["e1", "e2"]),
-        health_status="DEGRADED", severity_cap_degraded=1,
+        [cluster],
+        _make_events_by_id(["e1", "e2"]),
+        health_status="DEGRADED",
+        severity_cap_degraded=1,
     )
     for t in triggers:
         assert t["severity"] <= 1
@@ -124,14 +130,17 @@ def test_severity_capped_on_degraded():
 def test_severity_capped_on_error():
     """ERROR health caps severity to 0."""
     cluster = _make_cluster(
-        "clu_war", ["e1", "e2"],
+        "clu_war",
+        ["e1", "e2"],
         top_entities=[],
         top_phrases=[],
         sample_titles=["Nuclear threat escalates as war intensifies"],
     )
     triggers = score_triggers(
-        [cluster], _make_events_by_id(["e1", "e2"]),
-        health_status="ERROR", severity_cap_error=0,
+        [cluster],
+        _make_events_by_id(["e1", "e2"]),
+        health_status="ERROR",
+        severity_cap_error=0,
     )
     for t in triggers:
         assert t["severity"] == 0
@@ -140,33 +149,56 @@ def test_severity_capped_on_error():
 def test_trigger_fields_complete():
     """Each trigger has all required schema fields."""
     cluster = _make_cluster(
-        "clu_oil", ["e1", "e2"],
+        "clu_oil",
+        ["e1", "e2"],
         top_entities=["OPEC"],
         top_phrases=["oil price surge"],
         sample_titles=["Oil prices surge as OPEC cuts supply"],
         countries=["SA"],
     )
-    triggers = score_triggers([cluster], _make_events_by_id(["e1", "e2"]),
-                              generated_utc="2025-01-01T00:00:00Z")
+    triggers = score_triggers(
+        [cluster],
+        _make_events_by_id(["e1", "e2"]),
+        generated_utc="2025-01-01T00:00:00Z",
+    )
     assert len(triggers) >= 1
     required_fields = {
-        "trigger_id", "cluster_id", "trigger_type", "topic_id",
-        "severity", "confidence", "keyword_hits", "event_count",
-        "countries", "evidence_ok", "sample_title", "generated_utc",
+        "trigger_id",
+        "cluster_id",
+        "trigger_type",
+        "topic_id",
+        "severity",
+        "confidence",
+        "keyword_hits",
+        "event_count",
+        "countries",
+        "evidence_ok",
+        "sample_title",
+        "generated_utc",
     }
     for t in triggers:
-        assert required_fields.issubset(t.keys()), f"Missing fields: {required_fields - t.keys()}"
+        assert required_fields.issubset(
+            t.keys()
+        ), f"Missing fields: {required_fields - t.keys()}"
 
 
 def test_triggers_sorted_by_severity_desc():
     """Triggers are sorted by severity descending."""
     clusters = [
-        _make_cluster("clu_a", ["e1", "e2"],
-                       top_entities=[], top_phrases=[],
-                       sample_titles=["Central bank cuts interest rate"]),
-        _make_cluster("clu_b", ["e3", "e4"],
-                       top_entities=[], top_phrases=[],
-                       sample_titles=["Nuclear threat from conflict zone"]),
+        _make_cluster(
+            "clu_a",
+            ["e1", "e2"],
+            top_entities=[],
+            top_phrases=[],
+            sample_titles=["Central bank cuts interest rate"],
+        ),
+        _make_cluster(
+            "clu_b",
+            ["e3", "e4"],
+            top_entities=[],
+            top_phrases=[],
+            sample_titles=["Nuclear threat from conflict zone"],
+        ),
     ]
     events_by_id = _make_events_by_id(["e1", "e2", "e3", "e4"])
     triggers = score_triggers(clusters, events_by_id)
@@ -187,34 +219,63 @@ def test_pipeline_produces_triggers_with_mock(tmp_path, monkeypatch):
 
     def fake_rss(source_id, url, **kwargs):
         items = [
-            {"title": "Oil prices surge as Red Sea shipping disrupted",
-             "link": "https://bbc.co.uk/1", "published": "2025-01-15T10:00:00Z",
-             "summary": "Freight costs rise after Red Sea attacks.", "raw": {}},
-            {"title": "Red Sea shipping crisis deepens freight costs",
-             "link": "https://bbc.co.uk/2", "published": "2025-01-15T11:00:00Z",
-             "summary": "Shipping rerouted around Red Sea.", "raw": {}},
+            {
+                "title": "Oil prices surge as Red Sea shipping disrupted",
+                "link": "https://bbc.co.uk/1",
+                "published": "2025-01-15T10:00:00Z",
+                "summary": "Freight costs rise after Red Sea attacks.",
+                "raw": {},
+            },
+            {
+                "title": "Red Sea shipping crisis deepens freight costs",
+                "link": "https://bbc.co.uk/2",
+                "published": "2025-01-15T11:00:00Z",
+                "summary": "Shipping rerouted around Red Sea.",
+                "raw": {},
+            },
         ]
-        stats = {"source_id": source_id, "type": "rss", "ok": True,
-                 "http_status": 200, "duration_ms": 10, "items": 2,
-                 "not_modified": False, "cached": False, "error": None}
+        stats = {
+            "source_id": source_id,
+            "type": "rss",
+            "ok": True,
+            "http_status": 200,
+            "duration_ms": 10,
+            "items": 2,
+            "not_modified": False,
+            "cached": False,
+            "error": None,
+        }
         return items, None, stats
 
     def fake_gdelt(source_id, query, **kwargs):
         items = [
-            {"title": "Red Sea shipping route disruptions hit global trade",
-             "link": "https://gdelt.org/1", "published": "2025-01-15T09:00:00Z",
-             "summary": "Shipping disruptions in Red Sea.", "raw": {}},
+            {
+                "title": "Red Sea shipping route disruptions hit global trade",
+                "link": "https://gdelt.org/1",
+                "published": "2025-01-15T09:00:00Z",
+                "summary": "Shipping disruptions in Red Sea.",
+                "raw": {},
+            },
         ]
-        stats = {"source_id": source_id, "type": "gdelt", "ok": True,
-                 "http_status": 200, "duration_ms": 100, "items": 1,
-                 "not_modified": False, "cached": False, "error": None}
+        stats = {
+            "source_id": source_id,
+            "type": "gdelt",
+            "ok": True,
+            "http_status": 200,
+            "duration_ms": 100,
+            "items": 1,
+            "not_modified": False,
+            "cached": False,
+            "error": None,
+        }
         return items, None, stats
 
     monkeypatch.setattr(pm, "fetch_rss_feed", fake_rss)
     monkeypatch.setattr(pm, "fetch_gdelt_events", fake_gdelt)
 
     sources_cfg = tmp_path / "sources.yaml"
-    sources_cfg.write_text("""
+    sources_cfg.write_text(
+        """
 sources:
   - source_id: rss_test
     name: Test RSS
@@ -232,10 +293,13 @@ sources:
     weight: 0.6
     active: true
     query: "shipping OR Red Sea"
-""", encoding="utf-8")
+""",
+        encoding="utf-8",
+    )
 
     news_cfg = tmp_path / "news.yaml"
-    news_cfg.write_text("""
+    news_cfg.write_text(
+        """
 fetch:
   timeout_s: 10
   retries: 0
@@ -265,7 +329,9 @@ gdelt:
   enabled: true
 health:
   min_sources_ok: 1
-""", encoding="utf-8")
+""",
+        encoding="utf-8",
+    )
 
     out = tmp_path / "out"
     result = run_news_pipeline(

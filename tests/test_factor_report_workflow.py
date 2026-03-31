@@ -307,9 +307,9 @@ class TestFactorReportIntegration:
                 found_patterns.append(pattern)
 
         # Should have at least some expected patterns
-        assert len(found_patterns) > 0, (
-            f"Should have factors matching patterns: {expected_patterns}"
-        )
+        assert (
+            len(found_patterns) > 0
+        ), f"Should have factors matching patterns: {expected_patterns}"
 
     def test_summary_sorted_by_ic_ir(self, sample_price_panel):
         """Test that summary is sorted by IC-IR (descending)."""

@@ -212,14 +212,14 @@ def test_earnings_factors_respect_disclosure_date(
 
     # Both symbols should have NaN factors (no events disclosed yet)
     aapl_before = factors_before[factors_before["symbol"] == "AAPL"]
-    assert aapl_before["earnings_eps_surprise_last"].isna().all(), (
-        "AAPL earnings factors should be NaN before disclosure_date"
-    )
+    assert (
+        aapl_before["earnings_eps_surprise_last"].isna().all()
+    ), "AAPL earnings factors should be NaN before disclosure_date"
 
     msft_before = factors_before[factors_before["symbol"] == "MSFT"]
-    assert msft_before["earnings_eps_surprise_last"].isna().all(), (
-        "MSFT earnings factors should be NaN before disclosure_date"
-    )
+    assert (
+        msft_before["earnings_eps_surprise_last"].isna().all()
+    ), "MSFT earnings factors should be NaN before disclosure_date"
 
     # Test 2: as_of on Event B disclosure date (2024-01-12)
     # Event B should be visible, Event A still filtered
@@ -231,9 +231,9 @@ def test_earnings_factors_respect_disclosure_date(
 
     # AAPL should still have NaN (Event A not yet disclosed)
     aapl_on_b = factors_on_b_disclosure[factors_on_b_disclosure["symbol"] == "AAPL"]
-    assert aapl_on_b["earnings_eps_surprise_last"].isna().all(), (
-        "AAPL earnings factors should still be NaN (Event A disclosure_date=2024-01-15)"
-    )
+    assert (
+        aapl_on_b["earnings_eps_surprise_last"].isna().all()
+    ), "AAPL earnings factors should still be NaN (Event A disclosure_date=2024-01-15)"
 
     # MSFT should have Event B factors (disclosed on 2024-01-12)
     msft_on_b = factors_on_b_disclosure[factors_on_b_disclosure["symbol"] == "MSFT"]
@@ -241,9 +241,9 @@ def test_earnings_factors_respect_disclosure_date(
         msft_on_b["timestamp"] >= pd.Timestamp("2024-01-12", tz="UTC")
     ]
     if len(msft_jan_12_onwards) > 0:
-        assert not msft_jan_12_onwards["earnings_eps_surprise_last"].isna().all(), (
-            "MSFT earnings factors should be available after Event B disclosure"
-        )
+        assert (
+            not msft_jan_12_onwards["earnings_eps_surprise_last"].isna().all()
+        ), "MSFT earnings factors should be available after Event B disclosure"
         # Check that the surprise value is approximately correct
         non_na_values = msft_jan_12_onwards["earnings_eps_surprise_last"].dropna()
         if len(non_na_values) > 0:
@@ -265,9 +265,9 @@ def test_earnings_factors_respect_disclosure_date(
     if len(aapl_on_a) > 0:
         non_na_values = aapl_on_a["earnings_eps_surprise_last"].dropna()
         if len(non_na_values) > 0:
-            assert not non_na_values.empty, (
-                "AAPL earnings factors should be available after disclosure_date"
-            )
+            assert (
+                not non_na_values.empty
+            ), "AAPL earnings factors should be available after disclosure_date"
             assert non_na_values.iloc[0] == pytest.approx(8.7, abs=0.1)
 
     # Test 4: as_of after Event A disclosure (2024-01-16)
@@ -285,9 +285,9 @@ def test_earnings_factors_respect_disclosure_date(
     if len(aapl_after) > 0:
         non_na_values = aapl_after["earnings_eps_surprise_last"].dropna()
         if len(non_na_values) > 0:
-            assert not non_na_values.empty, (
-                "AAPL earnings factors should remain available after disclosure"
-            )
+            assert (
+                not non_na_values.empty
+            ), "AAPL earnings factors should remain available after disclosure"
             assert non_na_values.iloc[0] == pytest.approx(8.7, abs=0.1)
 
 
@@ -320,9 +320,9 @@ def test_insider_factors_respect_disclosure_date(
     if len(aapl_jan_11) > 0:
         assert aapl_jan_11["insider_net_notional_60d"].iloc[0] == pytest.approx(
             0.0, abs=1e-6
-        ) or pd.isna(aapl_jan_11["insider_net_notional_60d"].iloc[0]), (
-            "AAPL insider net notional should be zero/NaN before disclosure"
-        )
+        ) or pd.isna(
+            aapl_jan_11["insider_net_notional_60d"].iloc[0]
+        ), "AAPL insider net notional should be zero/NaN before disclosure"
 
     msft_before = factors_before[factors_before["symbol"] == "MSFT"]
     msft_jan_11 = msft_before[
@@ -331,9 +331,9 @@ def test_insider_factors_respect_disclosure_date(
     if len(msft_jan_11) > 0:
         assert msft_jan_11["insider_net_notional_60d"].iloc[0] == pytest.approx(
             0.0, abs=1e-6
-        ) or pd.isna(msft_jan_11["insider_net_notional_60d"].iloc[0]), (
-            "MSFT insider net notional should be zero/NaN before disclosure"
-        )
+        ) or pd.isna(
+            msft_jan_11["insider_net_notional_60d"].iloc[0]
+        ), "MSFT insider net notional should be zero/NaN before disclosure"
 
     # Test 2: as_of on Event B disclosure date (2024-01-12)
     factors_on_b_disclosure = build_insider_activity_factors(
@@ -351,9 +351,9 @@ def test_insider_factors_respect_disclosure_date(
     if len(aapl_jan_12) > 0:
         assert aapl_jan_12["insider_net_notional_60d"].iloc[0] == pytest.approx(
             0.0, abs=1e-6
-        ) or pd.isna(aapl_jan_12["insider_net_notional_60d"].iloc[0]), (
-            "AAPL insider net notional should still be zero/NaN (Event A disclosure_date=2024-01-15)"
-        )
+        ) or pd.isna(
+            aapl_jan_12["insider_net_notional_60d"].iloc[0]
+        ), "AAPL insider net notional should still be zero/NaN (Event A disclosure_date=2024-01-15)"
 
     # MSFT should have Event B factors (disclosed on 2024-01-12)
     msft_on_b = factors_on_b_disclosure[factors_on_b_disclosure["symbol"] == "MSFT"]
@@ -364,9 +364,9 @@ def test_insider_factors_respect_disclosure_date(
         # Event B is a sell, so net notional should be negative
         non_na_values = msft_jan_12_onwards["insider_net_notional_60d"].dropna()
         if len(non_na_values) > 0:
-            assert non_na_values.iloc[0] < 0, (
-                "MSFT insider net notional should reflect sell event (negative)"
-            )
+            assert (
+                non_na_values.iloc[0] < 0
+            ), "MSFT insider net notional should reflect sell event (negative)"
 
     # Test 3: as_of on Event A disclosure date (2024-01-15)
     factors_on_a_disclosure = build_insider_activity_factors(
@@ -384,14 +384,14 @@ def test_insider_factors_respect_disclosure_date(
     if len(aapl_on_a) > 0:
         non_na_notional = aapl_on_a["insider_net_notional_60d"].dropna()
         if len(non_na_notional) > 0:
-            assert non_na_notional.iloc[0] > 0, (
-                "AAPL insider net notional should be positive after disclosure (buy event)"
-            )
+            assert (
+                non_na_notional.iloc[0] > 0
+            ), "AAPL insider net notional should be positive after disclosure (buy event)"
         non_na_buy_count = aapl_on_a["insider_buy_count_60d"].dropna()
         if len(non_na_buy_count) > 0:
-            assert non_na_buy_count.iloc[0] > 0, (
-                "AAPL insider buy count should be > 0 after disclosure"
-            )
+            assert (
+                non_na_buy_count.iloc[0] > 0
+            ), "AAPL insider buy count should be > 0 after disclosure"
 
 
 def test_news_sentiment_factors_respect_disclosure_date(
@@ -422,9 +422,9 @@ def test_news_sentiment_factors_respect_disclosure_date(
     ]
     if len(aapl_jan_11) > 0:
         sentiment_mean = aapl_jan_11["news_sentiment_mean_20d"].iloc[0]
-        assert pd.isna(sentiment_mean) or abs(sentiment_mean) < 0.1, (
-            "AAPL sentiment should be NaN/low before disclosure"
-        )
+        assert (
+            pd.isna(sentiment_mean) or abs(sentiment_mean) < 0.1
+        ), "AAPL sentiment should be NaN/low before disclosure"
 
     msft_before = factors_before[factors_before["symbol"] == "MSFT"]
     msft_jan_11 = msft_before[
@@ -432,9 +432,9 @@ def test_news_sentiment_factors_respect_disclosure_date(
     ]
     if len(msft_jan_11) > 0:
         sentiment_mean = msft_jan_11["news_sentiment_mean_20d"].iloc[0]
-        assert pd.isna(sentiment_mean) or abs(sentiment_mean) < 0.1, (
-            "MSFT sentiment should be NaN/low before disclosure"
-        )
+        assert (
+            pd.isna(sentiment_mean) or abs(sentiment_mean) < 0.1
+        ), "MSFT sentiment should be NaN/low before disclosure"
 
     # Test 2: as_of on Event B disclosure date (2024-01-12)
     factors_on_b_disclosure = build_news_sentiment_factors(
@@ -451,9 +451,9 @@ def test_news_sentiment_factors_respect_disclosure_date(
     ]
     if len(aapl_jan_12) > 0:
         sentiment_mean = aapl_jan_12["news_sentiment_mean_20d"].iloc[0]
-        assert pd.isna(sentiment_mean) or abs(sentiment_mean) < 0.1, (
-            "AAPL sentiment should still be NaN/low (Event A disclosure_date=2024-01-15)"
-        )
+        assert (
+            pd.isna(sentiment_mean) or abs(sentiment_mean) < 0.1
+        ), "AAPL sentiment should still be NaN/low (Event A disclosure_date=2024-01-15)"
 
     # MSFT should have Event B factors (disclosed on 2024-01-12)
     msft_on_b = factors_on_b_disclosure[factors_on_b_disclosure["symbol"] == "MSFT"]
@@ -463,9 +463,9 @@ def test_news_sentiment_factors_respect_disclosure_date(
     if len(msft_jan_12_onwards) > 0:
         sentiment_mean = msft_jan_12_onwards["news_sentiment_mean_20d"].iloc[0]
         # Event B has score=0.1 (neutral), so rolling mean should reflect this
-        assert not pd.isna(sentiment_mean), (
-            "MSFT sentiment should be available after Event B disclosure"
-        )
+        assert not pd.isna(
+            sentiment_mean
+        ), "MSFT sentiment should be available after Event B disclosure"
 
     # Test 3: as_of on Event A disclosure date (2024-01-15)
     factors_on_a_disclosure = build_news_sentiment_factors(
@@ -482,13 +482,13 @@ def test_news_sentiment_factors_respect_disclosure_date(
     ]
     if len(aapl_on_a) > 0:
         sentiment_mean = aapl_on_a["news_sentiment_mean_20d"].iloc[0]
-        assert not pd.isna(sentiment_mean), (
-            "AAPL sentiment should be available after disclosure"
-        )
+        assert not pd.isna(
+            sentiment_mean
+        ), "AAPL sentiment should be available after disclosure"
         # Event A has score=0.8, so rolling mean should reflect this
-        assert sentiment_mean > 0.5, (
-            "AAPL sentiment should be positive after disclosure (Event A score=0.8)"
-        )
+        assert (
+            sentiment_mean > 0.5
+        ), "AAPL sentiment should be positive after disclosure (Event A score=0.8)"
 
 
 def test_earnings_factors_no_lookahead_bias(
@@ -533,9 +533,9 @@ def test_earnings_factors_no_lookahead_bias(
         ]["earnings_eps_surprise_last"]
 
         # Both should be NaN (no Event A in either case)
-        assert baseline_vals.isna().all() == before_vals.isna().all(), (
-            "AAPL factors should be identical before Event A disclosure (both NaN)"
-        )
+        assert (
+            baseline_vals.isna().all() == before_vals.isna().all()
+        ), "AAPL factors should be identical before Event A disclosure (both NaN)"
 
 
 def test_insider_factors_no_lookahead_bias(
@@ -583,9 +583,9 @@ def test_insider_factors_no_lookahead_bias(
         # Both should be zero or NaN (no Event A in either case)
         baseline_zero_or_nan = (baseline_vals == 0.0) | baseline_vals.isna()
         before_zero_or_nan = (before_vals == 0.0) | before_vals.isna()
-        assert baseline_zero_or_nan.all() == before_zero_or_nan.all(), (
-            "AAPL insider factors should be identical before Event A disclosure (both zero/NaN)"
-        )
+        assert (
+            baseline_zero_or_nan.all() == before_zero_or_nan.all()
+        ), "AAPL insider factors should be identical before Event A disclosure (both zero/NaN)"
 
 
 def test_earnings_factors_in_backtest_scenario(
@@ -633,23 +633,23 @@ def test_earnings_factors_in_backtest_scenario(
                 msft_first_appearance = current_date
 
     # Verify that factors appear only after disclosure_date
-    assert aapl_first_appearance is not None, (
-        "AAPL earnings factors should appear at some point"
-    )
+    assert (
+        aapl_first_appearance is not None
+    ), "AAPL earnings factors should appear at some point"
     assert aapl_first_appearance >= pd.Timestamp("2024-01-15", tz="UTC"), (
         f"AAPL earnings factors should not appear before disclosure_date (2024-01-15), "
         f"but appeared on {aapl_first_appearance}"
     )
 
-    assert msft_first_appearance is not None, (
-        "MSFT earnings factors should appear at some point"
-    )
+    assert (
+        msft_first_appearance is not None
+    ), "MSFT earnings factors should appear at some point"
     assert msft_first_appearance >= pd.Timestamp("2024-01-12", tz="UTC"), (
         f"MSFT earnings factors should not appear before disclosure_date (2024-01-12), "
         f"but appeared on {msft_first_appearance}"
     )
 
     # Verify that MSFT appears before AAPL (Event B disclosed earlier)
-    assert msft_first_appearance < aapl_first_appearance, (
-        "MSFT factors should appear before AAPL factors (Event B disclosed earlier)"
-    )
+    assert (
+        msft_first_appearance < aapl_first_appearance
+    ), "MSFT factors should appear before AAPL factors (Event B disclosed earlier)"

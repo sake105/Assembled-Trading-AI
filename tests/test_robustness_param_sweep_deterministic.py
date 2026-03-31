@@ -22,10 +22,12 @@ from src.assembled_core.qa.robustness import (
 
 def test_run_param_grid_sweep_deterministic():
     """Test that same input produces identical output order."""
+
     # Define simple backtest function
     def backtest_fn(config):
         return {
-            "sharpe": float(config.get("ma_fast", 0) + config.get("ma_slow", 0)) / 100.0,
+            "sharpe": float(config.get("ma_fast", 0) + config.get("ma_slow", 0))
+            / 100.0,
             "cagr": 0.10,
             "max_drawdown": -0.05,
             "turnover": 0.5,
@@ -73,6 +75,7 @@ def test_run_param_grid_sweep_deterministic():
 
 def test_run_param_grid_sweep_deterministic_ordering():
     """Test that parameter combinations are generated in deterministic order."""
+
     def backtest_fn(config):
         return {"sharpe": 1.0}
 
@@ -103,6 +106,7 @@ def test_run_param_grid_sweep_deterministic_ordering():
 
 def test_run_param_grid_sweep_empty_grid():
     """Test that empty grid raises ValueError."""
+
     def backtest_fn(config):
         return {"sharpe": 1.0}
 
@@ -148,11 +152,13 @@ def test_run_param_grid_sweep_handles_failures():
 def test_detect_plateau_reproducible():
     """Test that plateau detection is reproducible."""
     # Create synthetic results with clear plateau
-    results_df = pd.DataFrame({
-        "ma_fast": [10, 10, 20, 20, 30, 30],
-        "ma_slow": [50, 100, 50, 100, 50, 100],
-        "sharpe": [1.0, 1.2, 1.15, 1.18, 0.8, 0.9],  # Best is 1.2, plateau at 1.15+
-    })
+    results_df = pd.DataFrame(
+        {
+            "ma_fast": [10, 10, 20, 20, 30, 30],
+            "ma_slow": [50, 100, 50, 100, 50, 100],
+            "sharpe": [1.0, 1.2, 1.15, 1.18, 0.8, 0.9],  # Best is 1.2, plateau at 1.15+
+        }
+    )
 
     # Run plateau detection twice
     plateau1 = detect_plateau(
@@ -190,10 +196,12 @@ def test_detect_plateau_reproducible():
 
 def test_detect_plateau_negative_metrics():
     """Test plateau detection with negative metrics (e.g., max_drawdown)."""
-    results_df = pd.DataFrame({
-        "param": [1, 2, 3],
-        "max_drawdown": [-0.20, -0.10, -0.15],  # Best (least negative) is -0.10
-    })
+    results_df = pd.DataFrame(
+        {
+            "param": [1, 2, 3],
+            "max_drawdown": [-0.20, -0.10, -0.15],  # Best (least negative) is -0.10
+        }
+    )
 
     plateau = detect_plateau(
         results_df=results_df,
@@ -211,10 +219,12 @@ def test_detect_plateau_negative_metrics():
 
 def test_detect_plateau_empty_results():
     """Test plateau detection with empty or all-NaN results."""
-    results_df = pd.DataFrame({
-        "param": [1, 2],
-        "sharpe": [math.nan, math.nan],
-    })
+    results_df = pd.DataFrame(
+        {
+            "param": [1, 2],
+            "sharpe": [math.nan, math.nan],
+        }
+    )
 
     plateau = detect_plateau(
         results_df=results_df,
@@ -232,10 +242,12 @@ def test_detect_plateau_empty_results():
 
 def test_detect_plateau_top_k_combinations():
     """Test that top_k_combinations contains correct number of entries."""
-    results_df = pd.DataFrame({
-        "param": [1, 2, 3, 4, 5],
-        "sharpe": [1.0, 1.5, 1.2, 1.3, 1.1],
-    })
+    results_df = pd.DataFrame(
+        {
+            "param": [1, 2, 3, 4, 5],
+            "sharpe": [1.0, 1.5, 1.2, 1.3, 1.1],
+        }
+    )
 
     plateau = detect_plateau(
         results_df=results_df,

@@ -283,9 +283,9 @@ def build_multifactor_signal(
         "missing_factors": missing_factors,
         "options_applied": {
             "winsorize": bundle.options.winsorize,
-            "winsorize_limits": bundle.options.winsorize_limits
-            if bundle.options.winsorize
-            else None,
+            "winsorize_limits": (
+                bundle.options.winsorize_limits if bundle.options.winsorize else None
+            ),
             "zscore": bundle.options.zscore,
             "neutralize_by": bundle.options.neutralize_by,
         },

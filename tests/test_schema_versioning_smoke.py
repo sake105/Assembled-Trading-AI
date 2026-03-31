@@ -18,7 +18,9 @@ from src.assembled_core.accounting.broker_snapshot_store import (
 )
 from src.assembled_core.accounting.accounting_report import write_accounting_report_json
 from src.assembled_core.accounting.reconciliation import reconcile_ledger_vs_broker
-from src.assembled_core.accounting.reconciliation_report import write_reconcile_report_json
+from src.assembled_core.accounting.reconciliation_report import (
+    write_reconcile_report_json,
+)
 from src.assembled_core.pipeline.orchestrator import _write_manifest_json
 
 
@@ -162,4 +164,3 @@ def test_manifest_includes_schema_version_and_is_deterministic(tmp_path: Path) -
 
     loaded = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert loaded.get("schema_version") == 1
-

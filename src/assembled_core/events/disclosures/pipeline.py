@@ -48,49 +48,69 @@ def _collect_raw_items(
             fetch_state = None
             if fetch_state_path.exists():
                 try:
-                    full_state = json.loads(fetch_state_path.read_text(encoding="utf-8"))
-                    fetch_state = full_state.get(src.source_id) if isinstance(full_state, dict) else None
+                    full_state = json.loads(
+                        fetch_state_path.read_text(encoding="utf-8")
+                    )
+                    fetch_state = (
+                        full_state.get(src.source_id)
+                        if isinstance(full_state, dict)
+                        else None
+                    )
                 except Exception:
                     fetch_state = None
             cfg = {**house_ptr_cfg, **src.config}
-            src_items, failure, stats = fetch_house_ptr_filings(src.source_id, cfg, fetch_state=fetch_state)
+            src_items, failure, stats = fetch_house_ptr_filings(
+                src.source_id, cfg, fetch_state=fetch_state
+            )
             if failure is None:
                 try:
                     cache_dir.mkdir(parents=True, exist_ok=True)
                     state = {}
                     if fetch_state_path.exists():
                         try:
-                            state = json.loads(fetch_state_path.read_text(encoding="utf-8"))
+                            state = json.loads(
+                                fetch_state_path.read_text(encoding="utf-8")
+                            )
                         except Exception:
                             pass
                         if not isinstance(state, dict):
                             state = {}
                     state[src.source_id] = {
                         "cached_utc": now_utc_iso(),
-                        "last_ids": [it.get("doc_id") or it.get("link") for it in src_items[:50]],
+                        "last_ids": [
+                            it.get("doc_id") or it.get("link") for it in src_items[:50]
+                        ],
                         "cached_items": src_items,
                     }
                     fetch_state_path.parent.mkdir(parents=True, exist_ok=True)
-                    fetch_state_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
+                    fetch_state_path.write_text(
+                        json.dumps(state, indent=2), encoding="utf-8"
+                    )
                 except Exception:
                     pass
         elif src.type == "edgar_form4":
             fetch_state: Dict[str, Any] | None = None
             if fetch_state_path.exists():
                 try:
-                    fetch_state = json.loads(fetch_state_path.read_text(encoding="utf-8"))
+                    fetch_state = json.loads(
+                        fetch_state_path.read_text(encoding="utf-8")
+                    )
                     fetch_state = fetch_state.get(src.source_id)
                 except Exception:
                     fetch_state = None
             cfg = {**form4_cfg, **src.config}
-            src_items, failure, stats = fetch_edgar_form4(src.source_id, cfg, fetch_state=fetch_state)
+            src_items, failure, stats = fetch_edgar_form4(
+                src.source_id, cfg, fetch_state=fetch_state
+            )
             if failure is None and src_items:
                 try:
                     cache_dir.mkdir(parents=True, exist_ok=True)
                     state: Dict[str, Any] = {}
                     if fetch_state_path.exists():
                         try:
-                            state = json.loads(fetch_state_path.read_text(encoding="utf-8"))
+                            state = json.loads(
+                                fetch_state_path.read_text(encoding="utf-8")
+                            )
                         except Exception:
                             pass
                         if not isinstance(state, dict):
@@ -100,7 +120,9 @@ def _collect_raw_items(
                         "cached_entries": src_items,
                     }
                     fetch_state_path.parent.mkdir(parents=True, exist_ok=True)
-                    fetch_state_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
+                    fetch_state_path.write_text(
+                        json.dumps(state, indent=2), encoding="utf-8"
+                    )
                 except Exception:
                     pass
         elif src.type == "edgar":
@@ -109,7 +131,12 @@ def _collect_raw_items(
             )
         else:
             failure = {"source": src.source_id, "reason": "unknown_type"}
-            stats = {"source_id": src.source_id, "type": src.type, "ok": False, "items": 0}
+            stats = {
+                "source_id": src.source_id,
+                "type": src.type,
+                "ok": False,
+                "items": 0,
+            }
             src_items = []
         per_source_stats.append(stats)
         if failure is not None:
@@ -138,7 +165,11 @@ def run_disclosures_pipeline(
     health_cfg = params.get("health", {})
     min_sources_ok = int(health_cfg.get("min_sources_ok", 1))
 
-    base_dir = Path(output_dir) if output_dir is not None else Path("output") / "intel" / "disclosures"
+    base_dir = (
+        Path(output_dir)
+        if output_dir is not None
+        else Path("output") / "intel" / "disclosures"
+    )
     base_dir.mkdir(parents=True, exist_ok=True)
 
     all_sources = load_sources_registry(sources_path)
@@ -179,7 +210,9 @@ def run_disclosures_pipeline(
     trigger_scoring_cfg = params.get("trigger_scoring") or {}
     triggers: List[Dict[str, Any]] = []
     if trigger_scoring_cfg.get("enabled", False):
-        source_meta = {s.source_id: {"tier": s.tier, "domain": s.domain} for s in sources}
+        source_meta = {
+            s.source_id: {"tier": s.tier, "domain": s.domain} for s in sources
+        }
         triggers = score_disclosure_triggers(
             deduped,
             source_meta,

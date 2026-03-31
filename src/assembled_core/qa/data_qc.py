@@ -140,9 +140,7 @@ def _sort_issues_deterministic(issues: list[QcIssue]) -> list[QcIssue]:
     return sorted(issues, key=sort_key)
 
 
-def _check_invalid_prices(
-    prices: pd.DataFrame, issues: list[QcIssue]
-) -> list[QcIssue]:
+def _check_invalid_prices(prices: pd.DataFrame, issues: list[QcIssue]) -> list[QcIssue]:
     """Check for invalid prices (close <= 0 or NaN in required fields).
 
     Args:
@@ -198,9 +196,7 @@ def _check_invalid_prices(
     return issues
 
 
-def _check_duplicate_rows(
-    prices: pd.DataFrame, issues: list[QcIssue]
-) -> list[QcIssue]:
+def _check_duplicate_rows(prices: pd.DataFrame, issues: list[QcIssue]) -> list[QcIssue]:
     """Check for duplicate rows (identical symbol,timestamp).
 
     Args:
@@ -223,7 +219,9 @@ def _check_duplicate_rows(
                     check="duplicate_rows",
                     severity="FAIL",
                     symbol=str(symbol),
-                    timestamp=timestamp if isinstance(timestamp, pd.Timestamp) else None,
+                    timestamp=(
+                        timestamp if isinstance(timestamp, pd.Timestamp) else None
+                    ),
                     message=f"Duplicate rows: {count} rows with same symbol,timestamp",
                     details={"count": int(count)},
                 )
@@ -384,8 +382,16 @@ def _check_stale_prices(
                             details={
                                 "sessions": int(run_length),
                                 "price": float(price_val),
-                                "start_timestamp": start_ts.isoformat() if isinstance(start_ts, pd.Timestamp) else str(start_ts),
-                                "end_timestamp": end_ts.isoformat() if isinstance(end_ts, pd.Timestamp) else str(end_ts),
+                                "start_timestamp": (
+                                    start_ts.isoformat()
+                                    if isinstance(start_ts, pd.Timestamp)
+                                    else str(start_ts)
+                                ),
+                                "end_timestamp": (
+                                    end_ts.isoformat()
+                                    if isinstance(end_ts, pd.Timestamp)
+                                    else str(end_ts)
+                                ),
                             },
                         )
                     )
@@ -409,8 +415,16 @@ def _check_stale_prices(
                     details={
                         "sessions": int(run_length),
                         "price": float(price_val),
-                        "start_timestamp": start_ts.isoformat() if isinstance(start_ts, pd.Timestamp) else str(start_ts),
-                        "end_timestamp": end_ts.isoformat() if isinstance(end_ts, pd.Timestamp) else str(end_ts),
+                        "start_timestamp": (
+                            start_ts.isoformat()
+                            if isinstance(start_ts, pd.Timestamp)
+                            else str(start_ts)
+                        ),
+                        "end_timestamp": (
+                            end_ts.isoformat()
+                            if isinstance(end_ts, pd.Timestamp)
+                            else str(end_ts)
+                        ),
                     },
                 )
             )
@@ -482,7 +496,9 @@ def _check_outlier_returns(
                         "abs_return": float(abs_ret),
                         "threshold": float(threshold_used),
                         "price": float(price),
-                        "prev_price": float(prev_price) if prev_price is not None else None,
+                        "prev_price": (
+                            float(prev_price) if prev_price is not None else None
+                        ),
                     },
                 )
             )
@@ -681,7 +697,14 @@ def write_qc_report_json(report: QcReport, path: Path | str) -> None:
 
     # Write with deterministic key order (sorted)
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(report_dict, f, indent=2, sort_keys=True, cls=JSONEncoder, ensure_ascii=False)
+        json.dump(
+            report_dict,
+            f,
+            indent=2,
+            sort_keys=True,
+            cls=JSONEncoder,
+            ensure_ascii=False,
+        )
 
 
 def write_qc_summary_md(report: QcReport, path: Path | str) -> None:

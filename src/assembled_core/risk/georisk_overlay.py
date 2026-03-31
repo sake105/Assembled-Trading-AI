@@ -29,9 +29,10 @@ def compute_exposure_multiplier(ctx: "TradingContext", policy: Dict[str, Any]) -
     risk_state = getattr(ctx, "risk_state", None)
 
     # Intel degraded handling
-    if intel_flags.get("intel_geo_score") == "DEGRADED" or intel_flags.get(
-        "intel_news_triggers"
-    ) == "DEGRADED":
+    if (
+        intel_flags.get("intel_geo_score") == "DEGRADED"
+        or intel_flags.get("intel_news_triggers") == "DEGRADED"
+    ):
         qc = overlay.get("qc") or {}
         degraded_state = str(qc.get("if_intel_degraded", "WATCH"))
         state_hint = degraded_state
@@ -151,14 +152,17 @@ def apply_exposure_multiplier_to_targets(
     if has_weight and has_cash and risky_sum_before != 0.0 and cash_mask is not None:
         risky_sum_after = risky_sum_before * multiplier
         delta_to_cash = risky_sum_before - risky_sum_after
-        cash_before = pd.to_numeric(
-            df.loc[cash_mask, "target_weight"],
-            errors="coerce",
-        ).fillna(0.0).sum()
+        cash_before = (
+            pd.to_numeric(
+                df.loc[cash_mask, "target_weight"],
+                errors="coerce",
+            )
+            .fillna(0.0)
+            .sum()
+        )
         df.loc[cash_mask, "target_weight"] = cash_before + delta_to_cash
 
     return df
 
 
 __all__ = ["compute_exposure_multiplier", "apply_exposure_multiplier_to_targets"]
-

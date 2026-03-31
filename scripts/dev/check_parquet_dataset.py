@@ -22,8 +22,14 @@ sys.path.insert(0, str(ROOT))
 def main() -> int:
     path_arg = sys.argv[1] if len(sys.argv) > 1 else None
     if not path_arg:
-        print("Usage: py -3 scripts/dev/check_parquet_dataset.py <DEIN_PARQUET>", file=sys.stderr)
-        print("Example: py -3 scripts/dev/check_parquet_dataset.py output/aggregates/1d.parquet", file=sys.stderr)
+        print(
+            "Usage: py -3 scripts/dev/check_parquet_dataset.py <DEIN_PARQUET>",
+            file=sys.stderr,
+        )
+        print(
+            "Example: py -3 scripts/dev/check_parquet_dataset.py output/aggregates/1d.parquet",
+            file=sys.stderr,
+        )
         return 1
 
     p = Path(path_arg)
@@ -63,7 +69,9 @@ def main() -> int:
         if unique_days >= 252:
             print("note", ">=252 trading days -> OOS-sweep sinnvoll")
         else:
-            print("note", "<252 days -> OOS-sweep ggf. uebersprungen (MIN_TRADING_DAYS)")
+            print(
+                "note", "<252 days -> OOS-sweep ggf. uebersprungen (MIN_TRADING_DAYS)"
+            )
     else:
         print("schema_ok", False)
 

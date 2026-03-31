@@ -27,7 +27,9 @@ def _build_pack(tmp_path: Path) -> Path:
     as_of_date = "2025-01-15"
     date_str = "2025-01-15"
 
-    broker_snapshot_path = output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    broker_snapshot_path = (
+        output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    )
     ledger_pack_path = output_dir / "ledger_run" / "ledger_events.parquet"
     reconcile_report_path = output_dir / "reconcile_run" / f"reconcile_{date_str}.json"
     for p in [broker_snapshot_path, ledger_pack_path, reconcile_report_path]:

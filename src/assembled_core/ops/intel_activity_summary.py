@@ -134,7 +134,12 @@ def build_intel_activity_summary(
     news_geo_scores: list[float | None] = []
     discl_days_with_triggers = 0
     discl_max_severity_seen: int | None = None
-    risk_state_counts: Dict[str, int] = {"WATCH": 0, "ACTIVE": 0, "COOLDOWN": 0, "PAUSE": 0}
+    risk_state_counts: Dict[str, int] = {
+        "WATCH": 0,
+        "ACTIVE": 0,
+        "COOLDOWN": 0,
+        "PAUSE": 0,
+    }
     # NEWS-DEBUG-1: funnel aggregates (when run_kpis contains news_debug_funnel)
     total_candidate_triggers = 0
     total_triggers = 0
@@ -157,9 +162,15 @@ def build_intel_activity_summary(
         # Intel orchestration status
         io = kpis.get("intel_orchestration") or {}
         if isinstance(io, dict):
-            news_statuses.append((io.get("news") or {}).get("status") if isinstance(io.get("news"), dict) else None)
+            news_statuses.append(
+                (io.get("news") or {}).get("status")
+                if isinstance(io.get("news"), dict)
+                else None
+            )
             d = io.get("disclosures")
-            discl_statuses.append((d or {}).get("status") if isinstance(d, dict) else None)
+            discl_statuses.append(
+                (d or {}).get("status") if isinstance(d, dict) else None
+            )
 
         # Risk state
         rs = kpis.get("risk_state")
@@ -193,11 +204,19 @@ def build_intel_activity_summary(
         # NEWS-DEBUG-1: aggregate funnel metrics from news_debug_funnel
         funnel = kpis.get("news_debug_funnel")
         if isinstance(funnel, dict):
-            total_candidate_triggers += _safe_int(funnel.get("candidate_triggers_count"))
+            total_candidate_triggers += _safe_int(
+                funnel.get("candidate_triggers_count")
+            )
             total_triggers += _safe_int(funnel.get("triggers_count"))
-            total_triggers_sev1plus += _safe_int(funnel.get("triggers_severity_ge_1_count"))
-            total_triggers_evidence_blocked += _safe_int(funnel.get("triggers_evidence_blocked_count"))
-            total_triggers_qc_capped += _safe_int(funnel.get("triggers_qc_capped_count"))
+            total_triggers_sev1plus += _safe_int(
+                funnel.get("triggers_severity_ge_1_count")
+            )
+            total_triggers_evidence_blocked += _safe_int(
+                funnel.get("triggers_evidence_blocked_count")
+            )
+            total_triggers_qc_capped += _safe_int(
+                funnel.get("triggers_qc_capped_count")
+            )
             cc = _safe_int(funnel.get("clusters_count"))
             if cc > max_clusters_count_seen:
                 max_clusters_count_seen = cc
@@ -211,25 +230,40 @@ def build_intel_activity_summary(
                 try:
                     data = json.loads(path.read_text(encoding="utf-8"))
                     items = data.get("triggers") or data.get("items") or []
-                    if isinstance(items, list) and items and kind == "news" and news_max_severity_seen is None:
+                    if (
+                        isinstance(items, list)
+                        and items
+                        and kind == "news"
+                        and news_max_severity_seen is None
+                    ):
                         for t in items:
                             if isinstance(t, dict):
                                 s = t.get("severity")
                                 if s is not None:
                                     try:
                                         si = int(s)
-                                        if news_max_severity_seen is None or si > news_max_severity_seen:
+                                        if (
+                                            news_max_severity_seen is None
+                                            or si > news_max_severity_seen
+                                        ):
                                             news_max_severity_seen = si
                                     except (TypeError, ValueError):
                                         pass
-                    if kind == "disclosures" and discl_max_severity_seen is None and items:
+                    if (
+                        kind == "disclosures"
+                        and discl_max_severity_seen is None
+                        and items
+                    ):
                         for t in items:
                             if isinstance(t, dict):
                                 s = t.get("severity")
                                 if s is not None:
                                     try:
                                         si = int(s)
-                                        if discl_max_severity_seen is None or si > discl_max_severity_seen:
+                                        if (
+                                            discl_max_severity_seen is None
+                                            or si > discl_max_severity_seen
+                                        ):
                                             discl_max_severity_seen = si
                                     except (TypeError, ValueError):
                                         pass

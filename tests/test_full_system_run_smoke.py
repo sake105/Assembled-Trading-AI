@@ -25,9 +25,11 @@ def test_full_system_run_produces_artifacts(tmp_path: Path) -> None:
     cmd = [
         sys.executable,
         str(SCRIPT),
-        "--output-root", str(out_root),
+        "--output-root",
+        str(out_root),
         "--synthetic-only",
-        "--freq", "1d",
+        "--freq",
+        "1d",
         "--skip-sweep",
     ]
     result = subprocess.run(
@@ -37,10 +39,12 @@ def test_full_system_run_produces_artifacts(tmp_path: Path) -> None:
         capture_output=True,
         text=True,
     )
-    assert result.returncode == 0, (
-        f"Script failed: {result.returncode}\nstdout: {result.stdout[-2000:]}\nstderr: {result.stderr[-2000:]}"
-    )
-    assert (out_root / "SYSTEM_RUN_REPORT.md").exists(), "SYSTEM_RUN_REPORT.md not produced"
+    assert (
+        result.returncode == 0
+    ), f"Script failed: {result.returncode}\nstdout: {result.stdout[-2000:]}\nstderr: {result.stderr[-2000:]}"
+    assert (
+        out_root / "SYSTEM_RUN_REPORT.md"
+    ).exists(), "SYSTEM_RUN_REPORT.md not produced"
     runs = out_root / "runs"
     assert runs.is_dir(), "runs/ dir not produced"
     metrics_found = False

@@ -19,7 +19,7 @@ def test_profile_job_help():
         text=True,
         cwd=ROOT,
     )
-    
+
     assert result.returncode == 0
     assert "Profile reference benchmark jobs" in result.stdout
     assert "--job" in result.stdout
@@ -32,15 +32,17 @@ def test_profile_job_dry_run_eod_small():
         [
             sys.executable,
             "scripts/profile_job.py",
-            "--job", "EOD_SMALL",
-            "--profiler", "cprofile",
+            "--job",
+            "EOD_SMALL",
+            "--profiler",
+            "cprofile",
             "--dry-run",
         ],
         capture_output=True,
         text=True,
         cwd=ROOT,
     )
-    
+
     assert result.returncode == 0
     assert "DRY RUN" in result.stdout or "dry-run" in result.stdout.lower()
 
@@ -51,15 +53,17 @@ def test_profile_job_dry_run_backtest_medium():
         [
             sys.executable,
             "scripts/profile_job.py",
-            "--job", "BACKTEST_MEDIUM",
-            "--profiler", "cprofile",
+            "--job",
+            "BACKTEST_MEDIUM",
+            "--profiler",
+            "cprofile",
             "--dry-run",
         ],
         capture_output=True,
         text=True,
         cwd=ROOT,
     )
-    
+
     assert result.returncode == 0
 
 
@@ -69,15 +73,17 @@ def test_profile_job_dry_run_ml_job():
         [
             sys.executable,
             "scripts/profile_job.py",
-            "--job", "ML_JOB",
-            "--profiler", "cprofile",
+            "--job",
+            "ML_JOB",
+            "--profiler",
+            "cprofile",
             "--dry-run",
         ],
         capture_output=True,
         text=True,
         cwd=ROOT,
     )
-    
+
     assert result.returncode == 0
 
 
@@ -87,14 +93,16 @@ def test_profile_job_invalid_job():
         [
             sys.executable,
             "scripts/profile_job.py",
-            "--job", "INVALID_JOB",
-            "--profiler", "cprofile",
+            "--job",
+            "INVALID_JOB",
+            "--profiler",
+            "cprofile",
         ],
         capture_output=True,
         text=True,
         cwd=ROOT,
     )
-    
+
     assert result.returncode != 0
     assert "invalid choice" in result.stderr.lower() or "error" in result.stderr.lower()
 
@@ -105,14 +113,16 @@ def test_profile_job_invalid_profiler():
         [
             sys.executable,
             "scripts/profile_job.py",
-            "--job", "EOD_SMALL",
-            "--profiler", "invalid_profiler",
+            "--job",
+            "EOD_SMALL",
+            "--profiler",
+            "invalid_profiler",
         ],
         capture_output=True,
         text=True,
         cwd=ROOT,
     )
-    
+
     assert result.returncode != 0
     assert "invalid choice" in result.stderr.lower() or "error" in result.stderr.lower()
 
@@ -125,7 +135,6 @@ def test_profile_job_missing_required_args():
         text=True,
         cwd=ROOT,
     )
-    
+
     assert result.returncode != 0
     assert "required" in result.stderr.lower() or "error" in result.stderr.lower()
-

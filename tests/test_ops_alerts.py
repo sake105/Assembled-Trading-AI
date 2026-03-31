@@ -30,9 +30,15 @@ DEFAULT_CFG: dict[str, Any] = {
 
 def test_alerts_no_prev_generates_info() -> None:
     """When diff.notes contains no_prev_run_found, an info-level NO_PREV alert is generated."""
-    run_kpis: dict[str, Any] = {"generated_utc": "2025-01-15T12:00:00+00:00", "multipliers": {}}
+    run_kpis: dict[str, Any] = {
+        "generated_utc": "2025-01-15T12:00:00+00:00",
+        "multipliers": {},
+    }
     reasons: dict[str, Any] = {}
-    diff: dict[str, Any] = {"notes": ["no_prev_run_found"], "generated_utc": run_kpis["generated_utc"]}
+    diff: dict[str, Any] = {
+        "notes": ["no_prev_run_found"],
+        "generated_utc": run_kpis["generated_utc"],
+    }
 
     alerts = compute_alerts(run_kpis, reasons, diff, DEFAULT_CFG)
     assert len(alerts) >= 1
@@ -61,7 +67,10 @@ def test_alerts_state_change_generates_warn() -> None:
     state_change = [a for a in alerts if a["kind"] == "STATE_CHANGE"]
     assert len(state_change) == 1
     assert state_change[0]["level"] == "warn"
-    assert "ACTIVE" in state_change[0]["message"] and "COOLDOWN" in state_change[0]["message"]
+    assert (
+        "ACTIVE" in state_change[0]["message"]
+        and "COOLDOWN" in state_change[0]["message"]
+    )
 
 
 def test_alerts_state_change_pause_generates_critical() -> None:
@@ -160,9 +169,16 @@ def test_write_alerts_artifact(tmp_path) -> None:
 
 def test_alerts_deterministic_ordering() -> None:
     """Alerts are sorted by severity desc, then kind, then alert_id."""
-    run_kpis: dict[str, Any] = {"generated_utc": "2025-01-15T12:00:00+00:00", "turnover_budget": {"scale_factor": 0.5}}
+    run_kpis: dict[str, Any] = {
+        "generated_utc": "2025-01-15T12:00:00+00:00",
+        "turnover_budget": {"scale_factor": 0.5},
+    }
     reasons: dict[str, Any] = {"qc_flags": ["flag1"]}
-    diff: dict[str, Any] = {"notes": ["no_prev_run_found"], "generated_utc": run_kpis["generated_utc"], "summary": {}}
+    diff: dict[str, Any] = {
+        "notes": ["no_prev_run_found"],
+        "generated_utc": run_kpis["generated_utc"],
+        "summary": {},
+    }
 
     alerts1 = compute_alerts(run_kpis, reasons, diff, DEFAULT_CFG)
     alerts2 = compute_alerts(run_kpis, reasons, diff, DEFAULT_CFG)

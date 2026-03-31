@@ -93,61 +93,70 @@ def write_reconcile_report_csv(
     # Get cash values (prefer function params, fallback to result_dict)
     cash_match = result_dict.get("cash_match", False)
     cash_diff = result_dict.get("cash_diff", 0.0)
-    
+
     # Use provided cash values or extract from result_dict
     if ledger_cash is None:
         ledger_cash = result_dict.get("ledger_cash")
     if broker_cash is None:
         broker_cash = result_dict.get("broker_cash")
-    
-    report_rows.append({
-        "type": "cash",
-        "symbol": None,
-        "ledger_value": ledger_cash,
-        "broker_value": broker_cash,
-        "diff": cash_diff,
-        "match": cash_match,
-    })
+
+    report_rows.append(
+        {
+            "type": "cash",
+            "symbol": None,
+            "ledger_value": ledger_cash,
+            "broker_value": broker_cash,
+            "diff": cash_diff,
+            "match": cash_match,
+        }
+    )
 
     # Position difference rows
     position_diffs_df = result_dict.get("position_diffs_df")
     if position_diffs_df is not None and not position_diffs_df.empty:
         for _, row in position_diffs_df.iterrows():
-            report_rows.append({
-                "type": "position",
-                "symbol": row["symbol"],
-                "ledger_value": row["ledger_qty"],
-                "broker_value": row["broker_qty"],
-                "diff": row["diff_qty"],
-                "match": False,
-            })
+            report_rows.append(
+                {
+                    "type": "position",
+                    "symbol": row["symbol"],
+                    "ledger_value": row["ledger_qty"],
+                    "broker_value": row["broker_qty"],
+                    "diff": row["diff_qty"],
+                    "match": False,
+                }
+            )
 
     # Missing symbols rows
     missing_in_ledger = result_dict.get("missing_in_ledger", [])
     for symbol in missing_in_ledger:
-        report_rows.append({
-            "type": "missing_in_ledger",
-            "symbol": symbol,
-            "ledger_value": None,
-            "broker_value": None,
-            "diff": None,
-            "match": False,
-        })
+        report_rows.append(
+            {
+                "type": "missing_in_ledger",
+                "symbol": symbol,
+                "ledger_value": None,
+                "broker_value": None,
+                "diff": None,
+                "match": False,
+            }
+        )
 
     missing_in_broker = result_dict.get("missing_in_broker", [])
     for symbol in missing_in_broker:
-        report_rows.append({
-            "type": "missing_in_broker",
-            "symbol": symbol,
-            "ledger_value": None,
-            "broker_value": None,
-            "diff": None,
-            "match": False,
-        })
+        report_rows.append(
+            {
+                "type": "missing_in_broker",
+                "symbol": symbol,
+                "ledger_value": None,
+                "broker_value": None,
+                "diff": None,
+                "match": False,
+            }
+        )
 
     # Build DataFrame
     if report_rows:
         report_df = pd.DataFrame(report_rows)
+
         # Deterministic sort: by abs(diff) desc, then symbol asc
         # For cash row (symbol=None), put it first
         def _sort_key_func(row: pd.Series) -> tuple[int, float, str]:
@@ -155,10 +164,16 @@ def write_reconcile_report_csv(
                 return (0, 0.0, "")  # Cash first
             diff_abs = abs(row["diff"]) if pd.notna(row["diff"]) else 0.0
             symbol_str = str(row["symbol"]) if pd.notna(row["symbol"]) else ""
-            return (1, -diff_abs, symbol_str)  # Position rows: by abs(diff) desc, then symbol asc
+            return (
+                1,
+                -diff_abs,
+                symbol_str,
+            )  # Position rows: by abs(diff) desc, then symbol asc
 
         report_df["_sort_key"] = report_df.apply(_sort_key_func, axis=1)
-        report_df = report_df.sort_values("_sort_key", kind="mergesort").reset_index(drop=True)
+        report_df = report_df.sort_values("_sort_key", kind="mergesort").reset_index(
+            drop=True
+        )
         report_df = report_df.drop(columns=["_sort_key"])
     else:
         # Empty DataFrame with fixed schema (including broker_meta and schema_version columns)
@@ -286,16 +301,18 @@ def write_reconcile_report_json(
             "n_missing_in_ledger": len(result_dict.get("missing_in_ledger", [])),
             "n_missing_in_broker": len(result_dict.get("missing_in_broker", [])),
         },
-        "position_diffs": result_dict.get("position_diffs_df", pd.DataFrame()).to_dict(
-            orient="records"
-        )
-        if not result_dict.get("position_diffs_df", pd.DataFrame()).empty
-        else [],
+        "position_diffs": (
+            result_dict.get("position_diffs_df", pd.DataFrame()).to_dict(
+                orient="records"
+            )
+            if not result_dict.get("position_diffs_df", pd.DataFrame()).empty
+            else []
+        ),
         "missing_in_ledger": result_dict.get("missing_in_ledger", []),
         "missing_in_broker": result_dict.get("missing_in_broker", []),
         "message": result_dict.get("message", ""),
     }
-    
+
     # Add broker_meta if provided
     if broker_meta is not None:
         report_dict["broker_meta"] = broker_meta
@@ -364,14 +381,14 @@ def write_reconcile_report_md(
     status = "[PASS]" if ok else "[FAIL]"
     lines.append(f"**Status:** {status}")
     lines.append("")
-    
+
     # Broker source information
     if broker_meta is not None:
         source = broker_meta.get("broker_view_source", "unknown")
         snapshot_run_id = broker_meta.get("broker_snapshot_run_id")
         snapshot_date = broker_meta.get("broker_snapshot_date")
         snapshot_path = broker_meta.get("broker_snapshot_path")
-        
+
         lines.append("## Broker Source")
         lines.append("")
         lines.append(f"- **Source:** {source}")
@@ -388,7 +405,7 @@ def write_reconcile_report_md(
     lines.append("")
     cash_match = result_dict.get("cash_match", False)
     cash_diff = result_dict.get("cash_diff", 0.0)
-    
+
     # Get cash values (prefer function params, fallback to result_dict)
     if ledger_cash is None:
         ledger_cash = result_dict.get("ledger_cash")
@@ -398,7 +415,9 @@ def write_reconcile_report_md(
     if cash_match:
         lines.append(f"- ✅ Cash match: {ledger_cash:.2f} == {broker_cash:.2f}")
     else:
-        lines.append(f"- ❌ Cash mismatch: ledger={ledger_cash:.2f}, broker={broker_cash:.2f}, diff={cash_diff:.2f}")
+        lines.append(
+            f"- ❌ Cash mismatch: ledger={ledger_cash:.2f}, broker={broker_cash:.2f}, diff={cash_diff:.2f}"
+        )
     lines.append("")
 
     # Positions section
@@ -409,26 +428,38 @@ def write_reconcile_report_md(
     missing_in_ledger = result_dict.get("missing_in_ledger", [])
     missing_in_broker = result_dict.get("missing_in_broker", [])
 
-    if len(position_diffs_df) == 0 and len(missing_in_ledger) == 0 and len(missing_in_broker) == 0:
+    if (
+        len(position_diffs_df) == 0
+        and len(missing_in_ledger) == 0
+        and len(missing_in_broker) == 0
+    ):
         lines.append("- ✅ All positions match")
     else:
         if len(position_diffs_df) > 0:
-            lines.append(f"- ❌ **{len(position_diffs_df)} position qty mismatch(es):**")
+            lines.append(
+                f"- ❌ **{len(position_diffs_df)} position qty mismatch(es):**"
+            )
             lines.append("")
             lines.append("| Symbol | Ledger Qty | Broker Qty | Diff |")
             lines.append("|--------|------------|------------|------|")
             for _, row in position_diffs_df.iterrows():
-                lines.append(f"| {row['symbol']} | {row['ledger_qty']:.2f} | {row['broker_qty']:.2f} | {row['diff_qty']:.2f} |")
+                lines.append(
+                    f"| {row['symbol']} | {row['ledger_qty']:.2f} | {row['broker_qty']:.2f} | {row['diff_qty']:.2f} |"
+                )
             lines.append("")
 
         if len(missing_in_ledger) > 0:
-            lines.append(f"- ❌ **{len(missing_in_ledger)} symbol(s) missing in ledger:** {', '.join(missing_in_ledger[:10])}")
+            lines.append(
+                f"- ❌ **{len(missing_in_ledger)} symbol(s) missing in ledger:** {', '.join(missing_in_ledger[:10])}"
+            )
             if len(missing_in_ledger) > 10:
                 lines.append(f"  (showing first 10 of {len(missing_in_ledger)})")
             lines.append("")
 
         if len(missing_in_broker) > 0:
-            lines.append(f"- ❌ **{len(missing_in_broker)} symbol(s) missing in broker:** {', '.join(missing_in_broker[:10])}")
+            lines.append(
+                f"- ❌ **{len(missing_in_broker)} symbol(s) missing in broker:** {', '.join(missing_in_broker[:10])}"
+            )
             if len(missing_in_broker) > 10:
                 lines.append(f"  (showing first 10 of {len(missing_in_broker)})")
             lines.append("")

@@ -332,9 +332,7 @@ def _split_time_series(
 
     # Calculate test size (approximately equal splits)
     total_days = (unique_timestamps.max() - unique_timestamps.min()).days
-    total_days // (
-        n_splits + 1
-    )  # Reserve some data for first train set
+    total_days // (n_splits + 1)  # Reserve some data for first train set
 
     splits = []
 

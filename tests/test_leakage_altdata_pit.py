@@ -31,19 +31,25 @@ def test_future_event_inserted_feature_remains_zero() -> None:
     """Test that event with disclosure far in future -> feature remains 0 before disclosure."""
     # Create synthetic prices
     dates = pd.date_range("2024-01-10", periods=10, freq="D", tz="UTC")
-    prices = pd.DataFrame({
-        "timestamp": dates,
-        "symbol": ["AAPL"] * 10,
-        "close": [150.0] * 10,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": dates,
+            "symbol": ["AAPL"] * 10,
+            "close": [150.0] * 10,
+        }
+    )
 
     # Create event with disclosure_date far in future
-    events = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "event_date": pd.to_datetime(["2024-01-05"], utc=True),
-        "disclosure_date": pd.to_datetime(["2024-02-01"], utc=True),  # Far in future
-        "effective_date": pd.to_datetime(["2024-02-01"], utc=True),
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2024-01-05"], utc=True),
+            "disclosure_date": pd.to_datetime(
+                ["2024-02-01"], utc=True
+            ),  # Far in future
+            "effective_date": pd.to_datetime(["2024-02-01"], utc=True),
+        }
+    )
 
     # Define feature function
     def feature_fn(p, e, as_of):
@@ -63,19 +69,23 @@ def test_late_arrival_event_date_old_disclosure_late() -> None:
     """Test late arrival: event_date old, disclosure_date late -> 0 before, >0 after."""
     # Create synthetic prices
     dates = pd.date_range("2024-01-10", periods=10, freq="D", tz="UTC")
-    prices = pd.DataFrame({
-        "timestamp": dates,
-        "symbol": ["AAPL"] * 10,
-        "close": [150.0] * 10,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": dates,
+            "symbol": ["AAPL"] * 10,
+            "close": [150.0] * 10,
+        }
+    )
 
     # Create event with old event_date but late disclosure_date (late arrival)
-    events = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "event_date": pd.to_datetime(["2024-01-01"], utc=True),  # Old
-        "disclosure_date": pd.to_datetime(["2024-01-15"], utc=True),  # Late
-        "effective_date": pd.to_datetime(["2024-01-15"], utc=True),
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2024-01-01"], utc=True),  # Old
+            "disclosure_date": pd.to_datetime(["2024-01-15"], utc=True),  # Late
+            "effective_date": pd.to_datetime(["2024-01-15"], utc=True),
+        }
+    )
 
     # Define feature function
     def feature_fn(p, e, as_of):
@@ -95,19 +105,23 @@ def test_multiple_symbols_only_affected_symbol_rises() -> None:
     """Test multiple symbols: only affected symbol rises, others remain 0."""
     # Create synthetic prices for two symbols
     dates = pd.date_range("2024-01-10", periods=5, freq="D", tz="UTC")
-    prices = pd.DataFrame({
-        "timestamp": dates.tolist() * 2,
-        "symbol": ["AAPL"] * 5 + ["MSFT"] * 5,
-        "close": [150.0] * 10,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": dates.tolist() * 2,
+            "symbol": ["AAPL"] * 5 + ["MSFT"] * 5,
+            "close": [150.0] * 10,
+        }
+    )
 
     # Create event only for AAPL (not MSFT)
-    events = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "event_date": pd.to_datetime(["2024-01-05"], utc=True),
-        "disclosure_date": pd.to_datetime(["2024-01-15"], utc=True),
-        "effective_date": pd.to_datetime(["2024-01-15"], utc=True),
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2024-01-05"], utc=True),
+            "disclosure_date": pd.to_datetime(["2024-01-15"], utc=True),
+            "effective_date": pd.to_datetime(["2024-01-15"], utc=True),
+        }
+    )
 
     # Define feature function
     def feature_fn(p, e, as_of):
@@ -124,8 +138,12 @@ def test_multiple_symbols_only_affected_symbol_rises() -> None:
     )
 
     # Additional check: MSFT should remain zero even after disclosure
-    result_after = feature_fn(prices.copy(), events.copy(), pd.Timestamp("2024-01-15", tz="UTC"))
-    msft_features = result_after[result_after["symbol"] == "MSFT"]["alt_disclosure_count_30d_v1"]
+    result_after = feature_fn(
+        prices.copy(), events.copy(), pd.Timestamp("2024-01-15", tz="UTC")
+    )
+    msft_features = result_after[result_after["symbol"] == "MSFT"][
+        "alt_disclosure_count_30d_v1"
+    ]
     assert (msft_features == 0).all(), "MSFT should have zero features (no events)"
 
 
@@ -133,20 +151,24 @@ def test_build_event_feature_panel_leakage() -> None:
     """Test that build_event_feature_panel does not leak future information."""
     # Create synthetic prices
     dates = pd.date_range("2024-01-10", periods=10, freq="D", tz="UTC")
-    prices = pd.DataFrame({
-        "timestamp": dates,
-        "symbol": ["AAPL"] * 10,
-        "close": [150.0] * 10,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": dates,
+            "symbol": ["AAPL"] * 10,
+            "close": [150.0] * 10,
+        }
+    )
 
     # Create events with different disclosure dates
-    events = pd.DataFrame({
-        "symbol": ["AAPL", "AAPL"],
-        "event_date": pd.to_datetime(["2024-01-05", "2024-01-06"], utc=True),
-        "disclosure_date": pd.to_datetime(["2024-01-12", "2024-01-18"], utc=True),
-        "effective_date": pd.to_datetime(["2024-01-12", "2024-01-18"], utc=True),
-        "value": [1000.0, 2000.0],
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "AAPL"],
+            "event_date": pd.to_datetime(["2024-01-05", "2024-01-06"], utc=True),
+            "disclosure_date": pd.to_datetime(["2024-01-12", "2024-01-18"], utc=True),
+            "effective_date": pd.to_datetime(["2024-01-12", "2024-01-18"], utc=True),
+            "value": [1000.0, 2000.0],
+        }
+    )
 
     # Define feature function
     def feature_fn(p, e, as_of):
@@ -166,19 +188,23 @@ def test_leakage_detection_clear_error_message() -> None:
     """Test that leakage detection provides clear error messages."""
     # Create synthetic prices
     dates = pd.date_range("2024-01-10", periods=5, freq="D", tz="UTC")
-    prices = pd.DataFrame({
-        "timestamp": dates,
-        "symbol": ["AAPL"] * 5,
-        "close": [150.0] * 5,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": dates,
+            "symbol": ["AAPL"] * 5,
+            "close": [150.0] * 5,
+        }
+    )
 
     # Create event with late disclosure
-    events = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "event_date": pd.to_datetime(["2024-01-05"], utc=True),
-        "disclosure_date": pd.to_datetime(["2024-01-15"], utc=True),
-        "effective_date": pd.to_datetime(["2024-01-15"], utc=True),
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2024-01-05"], utc=True),
+            "disclosure_date": pd.to_datetime(["2024-01-15"], utc=True),
+            "effective_date": pd.to_datetime(["2024-01-15"], utc=True),
+        }
+    )
 
     # Define a "leaky" feature function (uses event_date instead of disclosure_date)
     def leaky_feature_fn(p, e, as_of):

@@ -61,7 +61,10 @@ def test_feature_config_unknown_key_forbidden() -> None:
     """Test that FeatureConfig rejects unknown keys (extra='forbid')."""
     with pytest.raises(ValidationError) as exc_info:
         FeatureConfig(unknown_key="value")
-    assert "unknown_key" in str(exc_info.value).lower() or "extra" in str(exc_info.value).lower()
+    assert (
+        "unknown_key" in str(exc_info.value).lower()
+        or "extra" in str(exc_info.value).lower()
+    )
 
 
 def test_feature_config_ma_windows_validation() -> None:
@@ -274,11 +277,13 @@ def test_trading_context_backward_compatibility() -> None:
     import pandas as pd
 
     # Create minimal prices DataFrame
-    prices = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=10, freq="1d", tz="UTC"),
-        "symbol": ["AAPL"] * 10,
-        "close": [150.0] * 10,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=10, freq="1d", tz="UTC"),
+            "symbol": ["AAPL"] * 10,
+            "close": [150.0] * 10,
+        }
+    )
 
     # Test with dict configs (backward compatible)
     ctx = TradingContext(
@@ -300,11 +305,13 @@ def test_trading_context_with_models() -> None:
     import pandas as pd
 
     # Create minimal prices DataFrame
-    prices = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=10, freq="1d", tz="UTC"),
-        "symbol": ["AAPL"] * 10,
-        "close": [150.0] * 10,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=10, freq="1d", tz="UTC"),
+            "symbol": ["AAPL"] * 10,
+            "close": [150.0] * 10,
+        }
+    )
 
     # Test with Pydantic model configs
     ctx = TradingContext(

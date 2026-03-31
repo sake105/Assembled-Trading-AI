@@ -37,14 +37,14 @@ def sample_prices_with_features() -> pd.DataFrame:
                     "low": 99.0 + i * 0.5,
                     "volume": 1000000,
                     # Insider features
-                    "insider_net_buy_20d": 2000.0
-                    if i < 2
-                    else -1500.0,  # First 2: buy, rest: sell
+                    "insider_net_buy_20d": (
+                        2000.0 if i < 2 else -1500.0
+                    ),  # First 2: buy, rest: sell
                     "insider_trade_count_20d": 3 if i < 2 else 2,
                     # Shipping features
-                    "shipping_congestion_score_7d": 20.0
-                    if i < 2
-                    else 80.0,  # First 2: low, rest: high
+                    "shipping_congestion_score_7d": (
+                        20.0 if i < 2 else 80.0
+                    ),  # First 2: low, rest: high
                     "shipping_ships_count_7d": 10.0 if i < 2 else 50.0,
                 }
             )

@@ -98,17 +98,21 @@ def build_tca_report(
         trades["timestamp"] = pd.to_datetime(trades["timestamp"], utc=True)
     elif trades["timestamp"].dt.tz is None:
         trades["timestamp"] = pd.to_datetime(trades["timestamp"], utc=True)
-    
+
     # Extract date (UTC-normalized)
     trades["date"] = trades["timestamp"].dt.date
 
     # Compute notional based on fill_qty if available, else use original qty
     # For partial fills, TCA should use filled notional (fill_qty * fill_price)
     if "fill_qty" in trades.columns and "fill_price" in trades.columns:
-        trades["notional"] = (trades["fill_qty"].abs() * trades["fill_price"].abs()).astype(np.float64)
+        trades["notional"] = (
+            trades["fill_qty"].abs() * trades["fill_price"].abs()
+        ).astype(np.float64)
     else:
         # Fallback: use original qty * price (for backward compatibility)
-        trades["notional"] = (trades["qty"].abs() * trades["price"].abs()).astype(np.float64)
+        trades["notional"] = (trades["qty"].abs() * trades["price"].abs()).astype(
+            np.float64
+        )
 
     # Aggregate per day+symbol
     agg_dict = {
@@ -136,7 +140,13 @@ def build_tca_report(
     ).astype(np.float64)
 
     # Ensure no NaNs in key columns (fill with 0.0)
-    cost_cols = ["commission_cash", "spread_cash", "slippage_cash", "total_cost_cash", "cost_bps"]
+    cost_cols = [
+        "commission_cash",
+        "spread_cash",
+        "slippage_cash",
+        "total_cost_cash",
+        "cost_bps",
+    ]
     for col in cost_cols:
         tca_report[col] = tca_report[col].fillna(0.0).astype(np.float64)
 
@@ -217,7 +227,9 @@ def write_tca_report_md(
                 total_cost = tca_report["total_cost_cash"].sum()
                 total_trades = tca_report["n_trades"].sum()
                 avg_cost_bps = (
-                    (total_cost / total_notional * 10000.0) if total_notional > 0.0 else 0.0
+                    (total_cost / total_notional * 10000.0)
+                    if total_notional > 0.0
+                    else 0.0
                 )
 
                 f.write("### Summary\n\n")
@@ -246,13 +258,18 @@ def write_tca_report_md(
                 )
                 symbol_summary["cost_bps"] = np.where(
                     symbol_summary["notional"] > 0.0,
-                    (symbol_summary["total_cost_cash"] / symbol_summary["notional"]) * 10000.0,
+                    (symbol_summary["total_cost_cash"] / symbol_summary["notional"])
+                    * 10000.0,
                     0.0,
                 )
 
                 f.write("### Per-Symbol Summary\n\n")
-                f.write("| Symbol | Notional | Commission | Spread | Slippage | Total Cost | Cost (bps) | Trades |\n")
-                f.write("|--------|----------|------------|--------|----------|------------|------------|--------|\n")
+                f.write(
+                    "| Symbol | Notional | Commission | Spread | Slippage | Total Cost | Cost (bps) | Trades |\n"
+                )
+                f.write(
+                    "|--------|----------|------------|--------|----------|------------|------------|--------|\n"
+                )
                 for _, row in symbol_summary.iterrows():
                     f.write(
                         f"| {row['symbol']} | ${row['notional']:,.2f} | "
@@ -279,13 +296,18 @@ def write_tca_report_md(
                 )
                 day_summary["cost_bps"] = np.where(
                     day_summary["notional"] > 0.0,
-                    (day_summary["total_cost_cash"] / day_summary["notional"]) * 10000.0,
+                    (day_summary["total_cost_cash"] / day_summary["notional"])
+                    * 10000.0,
                     0.0,
                 )
 
                 f.write("### Per-Day Summary\n\n")
-                f.write("| Date | Notional | Commission | Spread | Slippage | Total Cost | Cost (bps) | Trades |\n")
-                f.write("|------|----------|------------|--------|----------|------------|------------|--------|\n")
+                f.write(
+                    "| Date | Notional | Commission | Spread | Slippage | Total Cost | Cost (bps) | Trades |\n"
+                )
+                f.write(
+                    "|------|----------|------------|--------|----------|------------|------------|--------|\n"
+                )
                 for _, row in day_summary.iterrows():
                     f.write(
                         f"| {row['date']} | ${row['notional']:,.2f} | "
@@ -300,6 +322,8 @@ def write_tca_report_md(
 
         logger.info(f"TCA report (Markdown) written to {output_path}")
     except (IOError, OSError) as e:
-        raise OSError(f"Failed to write TCA report (Markdown) to {output_path}: {e}") from e
+        raise OSError(
+            f"Failed to write TCA report (Markdown) to {output_path}: {e}"
+        ) from e
 
     return output_path

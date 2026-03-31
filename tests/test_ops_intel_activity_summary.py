@@ -25,31 +25,49 @@ def test_build_intel_activity_summary_synthetic(tmp_path: Path) -> None:
     """Synthetic run dirs with minimal run_kpis; assert schema and counts."""
     # Day 1: news OK, discl OK, WATCH, geo_score 0
     d1 = tmp_path / "2025-06-26"
-    _write_kpis(d1, {
-        "intel_orchestration": {"news": {"ran": True, "status": "OK"}, "disclosures": {"ran": True, "status": "OK"}},
-        "risk_state": {"state": "WATCH", "reason": "watch_hold"},
-        "news_geo": {"geo_score": 0, "geo_confidence": 0.0},
-        "triggers_summary": {},
-        "top_triggers": [],
-    })
+    _write_kpis(
+        d1,
+        {
+            "intel_orchestration": {
+                "news": {"ran": True, "status": "OK"},
+                "disclosures": {"ran": True, "status": "OK"},
+            },
+            "risk_state": {"state": "WATCH", "reason": "watch_hold"},
+            "news_geo": {"geo_score": 0, "geo_confidence": 0.0},
+            "triggers_summary": {},
+            "top_triggers": [],
+        },
+    )
     # Day 2: news OK, geo_score 2, has triggers
     d2 = tmp_path / "2025-06-27"
-    _write_kpis(d2, {
-        "intel_orchestration": {"news": {"ran": True, "status": "OK"}, "disclosures": {"ran": True, "status": "DEGRADED"}},
-        "risk_state": {"state": "WATCH", "reason": "watch_hold"},
-        "news_geo": {"geo_score": 2, "geo_confidence": 0.8},
-        "triggers_summary": {"max_severity": 1},
-        "top_triggers": [{"severity": 1}, {"severity": 2}],
-    })
+    _write_kpis(
+        d2,
+        {
+            "intel_orchestration": {
+                "news": {"ran": True, "status": "OK"},
+                "disclosures": {"ran": True, "status": "DEGRADED"},
+            },
+            "risk_state": {"state": "WATCH", "reason": "watch_hold"},
+            "news_geo": {"geo_score": 2, "geo_confidence": 0.8},
+            "triggers_summary": {"max_severity": 1},
+            "top_triggers": [{"severity": 1}, {"severity": 2}],
+        },
+    )
     # Day 3: news ERROR, ACTIVE
     d3 = tmp_path / "2025-06-30"
-    _write_kpis(d3, {
-        "intel_orchestration": {"news": {"ran": True, "status": "ERROR"}, "disclosures": {"ran": True, "status": "OK"}},
-        "risk_state": {"state": "ACTIVE", "reason": "activate"},
-        "news_geo": {"geo_score": 3, "geo_confidence": 0.9},
-        "triggers_summary": {"max_severity": 2},
-        "top_triggers": [{"severity": 2}],
-    })
+    _write_kpis(
+        d3,
+        {
+            "intel_orchestration": {
+                "news": {"ran": True, "status": "ERROR"},
+                "disclosures": {"ran": True, "status": "OK"},
+            },
+            "risk_state": {"state": "ACTIVE", "reason": "activate"},
+            "news_geo": {"geo_score": 3, "geo_confidence": 0.9},
+            "triggers_summary": {"max_severity": 2},
+            "top_triggers": [{"severity": 2}],
+        },
+    )
 
     summary = build_intel_activity_summary(tmp_path)
 
@@ -82,26 +100,58 @@ def test_build_intel_activity_summary_prefers_per_run_summaries(tmp_path: Path) 
     """OPS-14: Prefer news_triggers_summary and disclosures_triggers_summary over triggers_summary/top_triggers."""
     # Day with only per-run summaries (no top_triggers / triggers_summary)
     d1 = tmp_path / "2025-07-01"
-    _write_kpis(d1, {
-        "intel_orchestration": {"news": {"status": "OK"}, "disclosures": {"status": "OK"}},
-        "risk_state": {"state": "WATCH"},
-        "news_geo": None,
-        "triggers_summary": {},
-        "top_triggers": [],
-        "news_triggers_summary": {"count": 3, "max_severity": 2, "count_sev1plus": 2, "count_sev2plus": 1},
-        "disclosures_triggers_summary": {"count": 5, "max_severity": 1, "count_sev1plus": 5, "count_sev2plus": 0},
-    })
+    _write_kpis(
+        d1,
+        {
+            "intel_orchestration": {
+                "news": {"status": "OK"},
+                "disclosures": {"status": "OK"},
+            },
+            "risk_state": {"state": "WATCH"},
+            "news_geo": None,
+            "triggers_summary": {},
+            "top_triggers": [],
+            "news_triggers_summary": {
+                "count": 3,
+                "max_severity": 2,
+                "count_sev1plus": 2,
+                "count_sev2plus": 1,
+            },
+            "disclosures_triggers_summary": {
+                "count": 5,
+                "max_severity": 1,
+                "count_sev1plus": 5,
+                "count_sev2plus": 0,
+            },
+        },
+    )
     # Day with zero disclosures per-run summary
     d2 = tmp_path / "2025-07-02"
-    _write_kpis(d2, {
-        "intel_orchestration": {"news": {"status": "OK"}, "disclosures": {"status": "OK"}},
-        "risk_state": {"state": "WATCH"},
-        "news_geo": None,
-        "triggers_summary": {},
-        "top_triggers": [],
-        "news_triggers_summary": {"count": 0, "max_severity": 0, "count_sev1plus": 0, "count_sev2plus": 0},
-        "disclosures_triggers_summary": {"count": 0, "max_severity": 0, "count_sev1plus": 0, "count_sev2plus": 0},
-    })
+    _write_kpis(
+        d2,
+        {
+            "intel_orchestration": {
+                "news": {"status": "OK"},
+                "disclosures": {"status": "OK"},
+            },
+            "risk_state": {"state": "WATCH"},
+            "news_geo": None,
+            "triggers_summary": {},
+            "top_triggers": [],
+            "news_triggers_summary": {
+                "count": 0,
+                "max_severity": 0,
+                "count_sev1plus": 0,
+                "count_sev2plus": 0,
+            },
+            "disclosures_triggers_summary": {
+                "count": 0,
+                "max_severity": 0,
+                "count_sev1plus": 0,
+                "count_sev2plus": 0,
+            },
+        },
+    )
 
     summary = build_intel_activity_summary(tmp_path)
     assert summary["n_days"] == 2
@@ -113,15 +163,23 @@ def test_build_intel_activity_summary_prefers_per_run_summaries(tmp_path: Path) 
 
 def test_build_intel_activity_summary_geo_score_thresholds(tmp_path: Path) -> None:
     """Assert days_geo_score_ge_1/2/3 counts."""
-    for i, (date, geo_score) in enumerate([("2025-07-01", 0), ("2025-07-02", 1), ("2025-07-03", 2), ("2025-07-04", 3)]):
+    for i, (date, geo_score) in enumerate(
+        [("2025-07-01", 0), ("2025-07-02", 1), ("2025-07-03", 2), ("2025-07-04", 3)]
+    ):
         d = tmp_path / date
-        _write_kpis(d, {
-            "intel_orchestration": {"news": {"status": "OK"}, "disclosures": {"status": "OK"}},
-            "risk_state": {"state": "WATCH"},
-            "news_geo": {"geo_score": geo_score},
-            "triggers_summary": {},
-            "top_triggers": [],
-        })
+        _write_kpis(
+            d,
+            {
+                "intel_orchestration": {
+                    "news": {"status": "OK"},
+                    "disclosures": {"status": "OK"},
+                },
+                "risk_state": {"state": "WATCH"},
+                "news_geo": {"geo_score": geo_score},
+                "triggers_summary": {},
+                "top_triggers": [],
+            },
+        )
 
     summary = build_intel_activity_summary(tmp_path)
     assert summary["n_days"] == 4
@@ -143,41 +201,53 @@ def test_build_intel_activity_summary_empty_runs_root(tmp_path: Path) -> None:
 def test_build_intel_activity_summary_aggregates_news_funnel(tmp_path: Path) -> None:
     """NEWS-DEBUG-1: When run_kpis contain news_debug_funnel, summary aggregates into news.news_funnel."""
     d1 = tmp_path / "2025-07-01"
-    _write_kpis(d1, {
-        "intel_orchestration": {"news": {"status": "OK"}, "disclosures": {"status": "OK"}},
-        "risk_state": {"state": "WATCH"},
-        "news_geo": None,
-        "news_debug_funnel": {
-            "raw_items_count": 10,
-            "normalized_events_count": 9,
-            "deduped_events_count": 8,
-            "clusters_count": 3,
-            "candidate_triggers_count": 2,
-            "triggers_count": 1,
-            "triggers_severity_ge_1_count": 1,
-            "triggers_severity_ge_2_count": 0,
-            "triggers_evidence_blocked_count": 0,
-            "triggers_qc_capped_count": 0,
+    _write_kpis(
+        d1,
+        {
+            "intel_orchestration": {
+                "news": {"status": "OK"},
+                "disclosures": {"status": "OK"},
+            },
+            "risk_state": {"state": "WATCH"},
+            "news_geo": None,
+            "news_debug_funnel": {
+                "raw_items_count": 10,
+                "normalized_events_count": 9,
+                "deduped_events_count": 8,
+                "clusters_count": 3,
+                "candidate_triggers_count": 2,
+                "triggers_count": 1,
+                "triggers_severity_ge_1_count": 1,
+                "triggers_severity_ge_2_count": 0,
+                "triggers_evidence_blocked_count": 0,
+                "triggers_qc_capped_count": 0,
+            },
         },
-    })
+    )
     d2 = tmp_path / "2025-07-02"
-    _write_kpis(d2, {
-        "intel_orchestration": {"news": {"status": "OK"}, "disclosures": {"status": "OK"}},
-        "risk_state": {"state": "WATCH"},
-        "news_geo": None,
-        "news_debug_funnel": {
-            "raw_items_count": 5,
-            "normalized_events_count": 5,
-            "deduped_events_count": 4,
-            "clusters_count": 5,
-            "candidate_triggers_count": 3,
-            "triggers_count": 2,
-            "triggers_severity_ge_1_count": 2,
-            "triggers_severity_ge_2_count": 1,
-            "triggers_evidence_blocked_count": 1,
-            "triggers_qc_capped_count": 1,
+    _write_kpis(
+        d2,
+        {
+            "intel_orchestration": {
+                "news": {"status": "OK"},
+                "disclosures": {"status": "OK"},
+            },
+            "risk_state": {"state": "WATCH"},
+            "news_geo": None,
+            "news_debug_funnel": {
+                "raw_items_count": 5,
+                "normalized_events_count": 5,
+                "deduped_events_count": 4,
+                "clusters_count": 5,
+                "candidate_triggers_count": 3,
+                "triggers_count": 2,
+                "triggers_severity_ge_1_count": 2,
+                "triggers_severity_ge_2_count": 1,
+                "triggers_evidence_blocked_count": 1,
+                "triggers_qc_capped_count": 1,
+            },
         },
-    })
+    )
 
     summary = build_intel_activity_summary(tmp_path)
     funnel = summary["news"]["news_funnel"]
@@ -202,11 +272,16 @@ def test_summarize_intel_activity_cli_writes_file(tmp_path: Path) -> None:
     exp_root_real.mkdir(parents=True)
     (exp_root_real / "runs" / "2025-10-31").mkdir(parents=True)
     (exp_root_real / "runs" / "2025-10-31" / "run_kpis.json").write_text(
-        json.dumps({
-            "intel_orchestration": {"news": {"status": "OK"}, "disclosures": {"status": "OK"}},
-            "risk_state": {"state": "WATCH"},
-            "news_geo": None,
-        }),
+        json.dumps(
+            {
+                "intel_orchestration": {
+                    "news": {"status": "OK"},
+                    "disclosures": {"status": "OK"},
+                },
+                "risk_state": {"state": "WATCH"},
+                "news_geo": None,
+            }
+        ),
         encoding="utf-8",
     )
     args = type("Args", (), {"experiment": exp_name, "output_root": output_runs})()

@@ -28,20 +28,27 @@ def test_cli_batch_backtest_help() -> None:
 
     # Verify subcommand exists by checking parser structure
     # The batch_backtest subcommand should be registered
-    _subcommand_names = [name for action in parser._actions if hasattr(action, "choices") and action.choices for name in action.choices.keys()]
-    
+    _subcommand_names = [
+        name
+        for action in parser._actions
+        if hasattr(action, "choices") and action.choices
+        for name in action.choices.keys()
+    ]
+
     # Alternatively, try to parse the subcommand (will fail due to missing required args, but that's ok)
     try:
         args = parser.parse_args(["batch_backtest", "--help"])
     except SystemExit as e:
         # Help command exits with code 0 (success)
         assert e.code == 0
-    
+
     # Verify we can parse with required args (even if config file doesn't exist)
     # This just verifies the argument structure is correct
     args = parser.parse_args(["batch_backtest", "--config-file", "dummy.yaml"])
     # argparse converts Path arguments to Path objects
-    assert str(args.config_file) == "dummy.yaml" or args.config_file == Path("dummy.yaml")
+    assert str(args.config_file) == "dummy.yaml" or args.config_file == Path(
+        "dummy.yaml"
+    )
     assert hasattr(args, "serial")
     assert hasattr(args, "dry_run")
     assert hasattr(args, "max_workers")
@@ -136,7 +143,12 @@ runs:
             RunResult(
                 run_id="run1",
                 status="success",
-                output_dir=tmp_path / "output" / "test_batch" / "runs" / "0000_run1" / "backtest",
+                output_dir=tmp_path
+                / "output"
+                / "test_batch"
+                / "runs"
+                / "0000_run1"
+                / "backtest",
                 runtime_sec=5.0,
             ),
         ],
@@ -210,9 +222,12 @@ runs:
 
     # Test serial path
     with patch(
-        "src.assembled_core.experiments.batch_runner.run_batch_serial", return_value=mock_result
+        "src.assembled_core.experiments.batch_runner.run_batch_serial",
+        return_value=mock_result,
     ) as mock_serial:
-        with patch("src.assembled_core.experiments.batch_runner.run_batch_parallel") as mock_parallel:
+        with patch(
+            "src.assembled_core.experiments.batch_runner.run_batch_parallel"
+        ) as mock_parallel:
             args = argparse.Namespace(
                 config_file=config_file,
                 output_root=None,
@@ -231,9 +246,12 @@ runs:
             assert not mock_parallel.called
 
     # Test parallel path
-    with patch("src.assembled_core.experiments.batch_runner.run_batch_serial") as mock_serial:
+    with patch(
+        "src.assembled_core.experiments.batch_runner.run_batch_serial"
+    ) as mock_serial:
         with patch(
-            "src.assembled_core.experiments.batch_runner.run_batch_parallel", return_value=mock_result
+            "src.assembled_core.experiments.batch_runner.run_batch_parallel",
+            return_value=mock_result,
         ) as mock_parallel:
             args = argparse.Namespace(
                 config_file=config_file,
@@ -290,7 +308,12 @@ runs:
             RunResult(
                 run_id="run1",
                 status="success",
-                output_dir=tmp_path / "output" / "test_batch" / "runs" / "0000_run1" / "backtest",
+                output_dir=tmp_path
+                / "output"
+                / "test_batch"
+                / "runs"
+                / "0000_run1"
+                / "backtest",
                 runtime_sec=5.0,
             ),
         ],
@@ -300,7 +323,8 @@ runs:
 
     # Mock both runner and ROOT
     with patch(
-        "src.assembled_core.experiments.batch_runner.run_batch_serial", return_value=mock_result
+        "src.assembled_core.experiments.batch_runner.run_batch_serial",
+        return_value=mock_result,
     ):
         from pathlib import Path
 

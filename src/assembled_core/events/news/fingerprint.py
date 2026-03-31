@@ -43,4 +43,3 @@ def hamming_distance(a: int, b: int) -> int:
 
 
 __all__ = ["simhash64", "hamming_distance"]
-

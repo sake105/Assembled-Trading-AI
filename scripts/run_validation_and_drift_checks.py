@@ -259,14 +259,20 @@ def run_drift_checks(
 
                 results["feature_drift"] = {
                     "total_features_checked": len(feature_drift_df),
-                    "features_with_drift": drift_features.to_dict("records")
-                    if not drift_features.empty
-                    else [],
-                    "overall_severity": "SEVERE"
-                    if (feature_drift_df["drift_flag"] == "SEVERE").any()
-                    else "MODERATE"
-                    if (feature_drift_df["drift_flag"] == "MODERATE").any()
-                    else "NONE",
+                    "features_with_drift": (
+                        drift_features.to_dict("records")
+                        if not drift_features.empty
+                        else []
+                    ),
+                    "overall_severity": (
+                        "SEVERE"
+                        if (feature_drift_df["drift_flag"] == "SEVERE").any()
+                        else (
+                            "MODERATE"
+                            if (feature_drift_df["drift_flag"] == "MODERATE").any()
+                            else "NONE"
+                        )
+                    ),
                 }
             else:
                 results["feature_drift"] = {
@@ -418,9 +424,7 @@ def write_summary_report(
         severity_prefix = (
             "[SEVERE]"
             if overall_severity == "SEVERE"
-            else "[MODERATE]"
-            if overall_severity == "MODERATE"
-            else "[OK]"
+            else "[MODERATE]" if overall_severity == "MODERATE" else "[OK]"
         )
         lines.append(f"**Feature Drift:** {severity_prefix} {overall_severity}")
         lines.append("")
@@ -457,9 +461,7 @@ def write_summary_report(
         severity_prefix = (
             "[SEVERE]"
             if drift_severity == "SEVERE"
-            else "[MODERATE]"
-            if drift_severity == "MODERATE"
-            else "[OK]"
+            else "[MODERATE]" if drift_severity == "MODERATE" else "[OK]"
         )
         lines.append(
             f"**Label Drift:** {severity_prefix} {drift_severity} (PSI: {psi:.4f})"
@@ -614,12 +616,12 @@ def run_validation_and_drift_checks(
     drift_results = run_drift_checks(
         current_dataset=current_dataset,
         reference_dataset=reference_dataset,
-        psi_threshold=validation_config.get("psi_threshold", 0.2)
-        if validation_config
-        else 0.2,
-        severe_threshold=validation_config.get("severe_threshold", 0.3)
-        if validation_config
-        else 0.3,
+        psi_threshold=(
+            validation_config.get("psi_threshold", 0.2) if validation_config else 0.2
+        ),
+        severe_threshold=(
+            validation_config.get("severe_threshold", 0.3) if validation_config else 0.3
+        ),
     )
 
     # Write summary report

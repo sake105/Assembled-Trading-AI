@@ -137,7 +137,9 @@ def test_generate_performance_profile_report_from_fixtures(
     (eod_run / "profile_EOD_SMALL.prof").write_bytes(b"fake_prof_data")
 
     # Mock hotspot extraction (since we can't easily create valid pstats files)
-    def mock_extract_hotspots(pstats_path: Path, top_n: int = 3) -> list[dict[str, Any]]:
+    def mock_extract_hotspots(
+        pstats_path: Path, top_n: int = 3
+    ) -> list[dict[str, Any]]:
         return [
             {
                 "function": "test_func",
@@ -214,4 +216,3 @@ def test_run_job_without_profiling_no_side_effects(
     finally:
         pj.JOB_MAP.clear()
         pj.JOB_MAP.update(original_job_map)
-

@@ -17,11 +17,13 @@ from src.assembled_core.qa.robustness import apply_disclosure_delay
 def test_apply_disclosure_delay_positive_delay_pit_safe():
     """Test that positive delay (d>0) preserves PIT-safety (events visible later)."""
     # Create events with disclosure_date
-    events_df = pd.DataFrame({
-        "symbol": ["AAPL", "AAPL"],
-        "event_date": pd.to_datetime(["2020-01-01", "2020-01-02"], utc=True),
-        "disclosure_date": pd.to_datetime(["2020-01-05", "2020-01-06"], utc=True),
-    })
+    events_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "AAPL"],
+            "event_date": pd.to_datetime(["2020-01-01", "2020-01-02"], utc=True),
+            "disclosure_date": pd.to_datetime(["2020-01-05", "2020-01-06"], utc=True),
+        }
+    )
 
     # Apply positive delay (+2 days)
     delayed_df = apply_disclosure_delay(events_df, delay_days=2)
@@ -50,11 +52,13 @@ def test_apply_disclosure_delay_positive_delay_pit_safe():
 def test_apply_disclosure_delay_negative_delay_may_introduce_leakage():
     """Test that negative delay (d<0) may introduce leakage (events visible earlier)."""
     # Create events with disclosure_date
-    events_df = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "event_date": pd.to_datetime(["2020-01-01"], utc=True),
-        "disclosure_date": pd.to_datetime(["2020-01-05"], utc=True),
-    })
+    events_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2020-01-01"], utc=True),
+            "disclosure_date": pd.to_datetime(["2020-01-05"], utc=True),
+        }
+    )
 
     # Apply negative delay (-2 days)
     delayed_df = apply_disclosure_delay(events_df, delay_days=-2)
@@ -80,11 +84,13 @@ def test_apply_disclosure_delay_negative_delay_may_introduce_leakage():
 
 def test_apply_disclosure_delay_zero_delay_no_change():
     """Test that zero delay leaves events unchanged."""
-    events_df = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "event_date": pd.to_datetime(["2020-01-01"], utc=True),
-        "disclosure_date": pd.to_datetime(["2020-01-05"], utc=True),
-    })
+    events_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2020-01-01"], utc=True),
+            "disclosure_date": pd.to_datetime(["2020-01-05"], utc=True),
+        }
+    )
 
     delayed_df = apply_disclosure_delay(events_df, delay_days=0)
 
@@ -94,12 +100,14 @@ def test_apply_disclosure_delay_zero_delay_no_change():
 
 def test_apply_disclosure_delay_effective_date():
     """Test that effective_date is also shifted if present."""
-    events_df = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "event_date": pd.to_datetime(["2020-01-01"], utc=True),
-        "disclosure_date": pd.to_datetime(["2020-01-05"], utc=True),
-        "effective_date": pd.to_datetime(["2020-01-06"], utc=True),
-    })
+    events_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2020-01-01"], utc=True),
+            "disclosure_date": pd.to_datetime(["2020-01-05"], utc=True),
+            "effective_date": pd.to_datetime(["2020-01-06"], utc=True),
+        }
+    )
 
     delayed_df = apply_disclosure_delay(events_df, delay_days=2)
 
@@ -122,25 +130,31 @@ def test_apply_disclosure_delay_empty_dataframe():
 
 def test_apply_disclosure_delay_missing_disclosure_date():
     """Test that missing disclosure_date column raises ValueError."""
-    events_df = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "event_date": pd.to_datetime(["2020-01-01"], utc=True),
-        # Missing disclosure_date
-    })
+    events_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2020-01-01"], utc=True),
+            # Missing disclosure_date
+        }
+    )
 
-    with pytest.raises(ValueError, match="disclosure_date_col 'disclosure_date' not found"):
+    with pytest.raises(
+        ValueError, match="disclosure_date_col 'disclosure_date' not found"
+    ):
         apply_disclosure_delay(events_df, delay_days=2)
 
 
 def test_apply_disclosure_delay_preserves_other_columns():
     """Test that other columns are preserved unchanged."""
-    events_df = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "event_date": pd.to_datetime(["2020-01-01"], utc=True),
-        "disclosure_date": pd.to_datetime(["2020-01-05"], utc=True),
-        "event_type": ["BUY"],
-        "value": [1000.0],
-    })
+    events_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2020-01-01"], utc=True),
+            "disclosure_date": pd.to_datetime(["2020-01-05"], utc=True),
+            "event_type": ["BUY"],
+            "value": [1000.0],
+        }
+    )
 
     delayed_df = apply_disclosure_delay(events_df, delay_days=2)
 

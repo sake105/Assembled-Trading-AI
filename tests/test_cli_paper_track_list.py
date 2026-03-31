@@ -179,7 +179,9 @@ def test_find_config_by_strategy_name_not_found(
     rpt_module.ROOT = original_root
 
 
-def test_cli_list_flag(temp_configs_dir: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_cli_list_flag(
+    temp_configs_dir: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     """Test that CLI --list flag works."""
 
     # Create a mock args object
@@ -245,4 +247,3 @@ def test_cli_strategy_name_not_found(
 
     # Restore original ROOT
     rpt_module.ROOT = original_root
-

@@ -29,19 +29,23 @@ from src.assembled_core.risk.group_exposures import (
 def test_toy_exposures_expected_gross_net_weights_per_group() -> None:
     """Test that group exposures compute expected gross/net weights."""
     # Create toy exposures
-    exposures_df = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "GOOGL", "TSLA"],
-        "notional": [10000.0, 8000.0, 6000.0, -4000.0],  # TSLA is short
-        "weight": [0.10, 0.08, 0.06, -0.04],
-    })
+    exposures_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "GOOGL", "TSLA"],
+            "notional": [10000.0, 8000.0, 6000.0, -4000.0],  # TSLA is short
+            "weight": [0.10, 0.08, 0.06, -0.04],
+        }
+    )
 
     # Create security metadata
-    security_meta_df = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "GOOGL", "TSLA"],
-        "sector": ["Technology", "Technology", "Technology", "Consumer"],
-        "region": ["US", "US", "US", "US"],
-        "currency": ["USD", "USD", "USD", "USD"],
-    })
+    security_meta_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "GOOGL", "TSLA"],
+            "sector": ["Technology", "Technology", "Technology", "Consumer"],
+            "region": ["US", "US", "US", "US"],
+            "currency": ["USD", "USD", "USD", "USD"],
+        }
+    )
 
     # Compute sector exposures
     sector_df, sector_summary = compute_group_exposures(
@@ -76,18 +80,22 @@ def test_toy_exposures_expected_gross_net_weights_per_group() -> None:
 
 def test_deterministic_ordering() -> None:
     """Test that results are deterministically sorted."""
-    exposures_df = pd.DataFrame({
-        "symbol": ["MSFT", "AAPL", "GOOGL"],
-        "notional": [8000.0, 10000.0, 6000.0],
-        "weight": [0.08, 0.10, 0.06],
-    })
+    exposures_df = pd.DataFrame(
+        {
+            "symbol": ["MSFT", "AAPL", "GOOGL"],
+            "notional": [8000.0, 10000.0, 6000.0],
+            "weight": [0.08, 0.10, 0.06],
+        }
+    )
 
-    security_meta_df = pd.DataFrame({
-        "symbol": ["MSFT", "AAPL", "GOOGL"],
-        "sector": ["Technology", "Technology", "Technology"],
-        "region": ["US", "US", "US"],
-        "currency": ["USD", "USD", "USD"],
-    })
+    security_meta_df = pd.DataFrame(
+        {
+            "symbol": ["MSFT", "AAPL", "GOOGL"],
+            "sector": ["Technology", "Technology", "Technology"],
+            "region": ["US", "US", "US"],
+            "currency": ["USD", "USD", "USD"],
+        }
+    )
 
     # Run twice
     result1, _ = compute_group_exposures(exposures_df, security_meta_df, "sector")
@@ -107,17 +115,21 @@ def test_deterministic_ordering() -> None:
 
 def test_missing_mapping_raises_valueerror_with_symbol_list() -> None:
     """Test that missing mapping raises ValueError with symbol list."""
-    exposures_df = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "INVALID"],
-        "notional": [10000.0, 8000.0, 5000.0],
-        "weight": [0.10, 0.08, 0.05],
-    })
+    exposures_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "INVALID"],
+            "notional": [10000.0, 8000.0, 5000.0],
+            "weight": [0.10, 0.08, 0.05],
+        }
+    )
 
     # Security metadata missing INVALID
-    security_meta_df = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "sector": ["Technology", "Technology"],
-    })
+    security_meta_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "sector": ["Technology", "Technology"],
+        }
+    )
 
     # Should raise ValueError with missing symbol list
     with pytest.raises(ValueError) as exc_info:
@@ -130,19 +142,23 @@ def test_missing_mapping_raises_valueerror_with_symbol_list() -> None:
 
 def test_unknown_group_values_allowed_but_stable() -> None:
     """Test that unknown group values are allowed (string) but stable."""
-    exposures_df = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "UNKNOWN_SYMBOL"],
-        "notional": [10000.0, 8000.0, 5000.0],
-        "weight": [0.10, 0.08, 0.05],
-    })
+    exposures_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "UNKNOWN_SYMBOL"],
+            "notional": [10000.0, 8000.0, 5000.0],
+            "weight": [0.10, 0.08, 0.05],
+        }
+    )
 
     # Security metadata with unknown sector value
-    security_meta_df = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "UNKNOWN_SYMBOL"],
-        "sector": ["Technology", "Technology", "UNKNOWN_SECTOR"],
-        "region": ["US", "US", "UNKNOWN_REGION"],
-        "currency": ["USD", "USD", "USD"],
-    })
+    security_meta_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "UNKNOWN_SYMBOL"],
+            "sector": ["Technology", "Technology", "UNKNOWN_SECTOR"],
+            "region": ["US", "US", "UNKNOWN_REGION"],
+            "currency": ["USD", "USD", "USD"],
+        }
+    )
 
     # Should work (unknown values are just strings)
     sector_df, _ = compute_group_exposures(exposures_df, security_meta_df, "sector")
@@ -164,18 +180,22 @@ def test_unknown_group_values_allowed_but_stable() -> None:
 
 def test_compute_all_group_exposures() -> None:
     """Test that compute_all_group_exposures returns all group types."""
-    exposures_df = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "notional": [10000.0, 8000.0],
-        "weight": [0.10, 0.08],
-    })
+    exposures_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "notional": [10000.0, 8000.0],
+            "weight": [0.10, 0.08],
+        }
+    )
 
-    security_meta_df = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "sector": ["Technology", "Technology"],
-        "region": ["US", "US"],
-        "currency": ["USD", "USD"],
-    })
+    security_meta_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "sector": ["Technology", "Technology"],
+            "region": ["US", "US"],
+            "currency": ["USD", "USD"],
+        }
+    )
 
     # Compute all group exposures
     result = compute_all_group_exposures(exposures_df, security_meta_df)
@@ -195,16 +215,20 @@ def test_compute_all_group_exposures() -> None:
 
 def test_region_exposures() -> None:
     """Test region group exposures."""
-    exposures_df = pd.DataFrame({
-        "symbol": ["AAPL", "TSLA", "ASML"],
-        "notional": [10000.0, 8000.0, 6000.0],
-        "weight": [0.10, 0.08, 0.06],
-    })
+    exposures_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "TSLA", "ASML"],
+            "notional": [10000.0, 8000.0, 6000.0],
+            "weight": [0.10, 0.08, 0.06],
+        }
+    )
 
-    security_meta_df = pd.DataFrame({
-        "symbol": ["AAPL", "TSLA", "ASML"],
-        "region": ["US", "US", "EU"],
-    })
+    security_meta_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "TSLA", "ASML"],
+            "region": ["US", "US", "EU"],
+        }
+    )
 
     region_df, region_summary = compute_group_exposures(
         exposures_df,
@@ -225,16 +249,20 @@ def test_region_exposures() -> None:
 
 def test_currency_exposures() -> None:
     """Test currency group exposures."""
-    exposures_df = pd.DataFrame({
-        "symbol": ["AAPL", "SAP", "TSLA"],
-        "notional": [10000.0, 8000.0, -4000.0],  # TSLA short
-        "weight": [0.10, 0.08, -0.04],
-    })
+    exposures_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "SAP", "TSLA"],
+            "notional": [10000.0, 8000.0, -4000.0],  # TSLA short
+            "weight": [0.10, 0.08, -0.04],
+        }
+    )
 
-    security_meta_df = pd.DataFrame({
-        "symbol": ["AAPL", "SAP", "TSLA"],
-        "currency": ["USD", "EUR", "USD"],
-    })
+    security_meta_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "SAP", "TSLA"],
+            "currency": ["USD", "EUR", "USD"],
+        }
+    )
 
     currency_df, currency_summary = compute_group_exposures(
         exposures_df,
@@ -257,16 +285,20 @@ def test_currency_exposures() -> None:
 
 def test_invalid_group_col_raises_valueerror() -> None:
     """Test that invalid group_col raises ValueError."""
-    exposures_df = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "notional": [10000.0],
-        "weight": [0.10],
-    })
+    exposures_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "notional": [10000.0],
+            "weight": [0.10],
+        }
+    )
 
-    security_meta_df = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "sector": ["Technology"],
-    })
+    security_meta_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "sector": ["Technology"],
+        }
+    )
 
     with pytest.raises(ValueError, match="Invalid group_col"):
         compute_group_exposures(exposures_df, security_meta_df, "invalid_type")
@@ -274,15 +306,19 @@ def test_invalid_group_col_raises_valueerror() -> None:
 
 def test_missing_required_columns_raises_valueerror() -> None:
     """Test that missing required columns raises ValueError."""
-    exposures_df = pd.DataFrame({
-        "symbol": ["AAPL"],
-        # Missing: notional, weight
-    })
+    exposures_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            # Missing: notional, weight
+        }
+    )
 
-    security_meta_df = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "sector": ["Technology"],
-    })
+    security_meta_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "sector": ["Technology"],
+        }
+    )
 
     with pytest.raises(ValueError, match="missing required columns"):
         compute_group_exposures(exposures_df, security_meta_df, "sector")
@@ -292,10 +328,12 @@ def test_empty_exposures_handled_gracefully() -> None:
     """Test that empty exposures are handled gracefully."""
     exposures_df = pd.DataFrame(columns=["symbol", "notional", "weight"])
 
-    security_meta_df = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "sector": ["Technology"],
-    })
+    security_meta_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "sector": ["Technology"],
+        }
+    )
 
     # Should work (empty exposures -> empty group exposures)
     sector_df, summary = compute_group_exposures(

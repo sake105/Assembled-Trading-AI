@@ -190,9 +190,7 @@ def compute_exposures(
     elif "price" in prices_df.columns:
         price_col = "price"
     else:
-        raise ValueError(
-            "prices_latest must have 'close' or 'price' column"
-        )
+        raise ValueError("prices_latest must have 'close' or 'price' column")
 
     # Merge target positions with prices
     exposures_df = target_df.merge(

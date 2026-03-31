@@ -52,16 +52,28 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Create annotated release tag (Sprint 13). Optional --push to origin."
     )
-    parser.add_argument("--tag", type=str, required=True, metavar="vX.Y.Z", help="Tag name (e.g. v0.1.0)")
-    parser.add_argument("--dry-run", action="store_true", help="Print commands only, do not run")
-    parser.add_argument("--push", action="store_true", help="Run git push origin <tag> after creating tag")
+    parser.add_argument(
+        "--tag",
+        type=str,
+        required=True,
+        metavar="vX.Y.Z",
+        help="Tag name (e.g. v0.1.0)",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Print commands only, do not run"
+    )
+    parser.add_argument(
+        "--push",
+        action="store_true",
+        help="Run git push origin <tag> after creating tag",
+    )
     args = parser.parse_args()
     tag = args.tag.strip()
     dry_run = args.dry_run
     do_push = args.push
 
     if dry_run:
-        print(_ascii(f"[dry-run] git tag -a {tag} -m \"Release {tag} (Sprint 13)\""))
+        print(_ascii(f'[dry-run] git tag -a {tag} -m "Release {tag} (Sprint 13)"'))
         if do_push:
             print(_ascii(f"[dry-run] git push origin {tag}"))
         print(_ascii(f"OK: tag_created={tag} pushed={str(do_push).lower()}"))
@@ -74,7 +86,11 @@ def main() -> int:
             from src.assembled_core import __version__ as pkg_version
         except Exception:
             pkg_version = "?"
-        print(_ascii(f"ERROR: tag {tag} does not match assembled_core.__version__ ({pkg_version})"))
+        print(
+            _ascii(
+                f"ERROR: tag {tag} does not match assembled_core.__version__ ({pkg_version})"
+            )
+        )
         return 1
 
     # Check git available
@@ -89,7 +105,11 @@ def main() -> int:
         print(_ascii(f"ERROR: git status failed: {out}"))
         return 1
     if out.strip():
-        print(_ascii("ERROR: working tree not clean (git status --porcelain must be empty)"))
+        print(
+            _ascii(
+                "ERROR: working tree not clean (git status --porcelain must be empty)"
+            )
+        )
         return 1
 
     # Tag must not exist

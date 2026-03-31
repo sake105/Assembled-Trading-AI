@@ -38,7 +38,10 @@ def test_deep_merge_policy_overrides() -> None:
     merged = deep_merge_policy(base, overrides)
     assert merged["risk_state_machine"]["enabled"] is True
     assert merged["risk_state_machine"]["hysteresis"]["activate_score"] == 2
-    assert merged["risk_state_machine"]["hysteresis"]["require_disclosures_confirm"] is True
+    assert (
+        merged["risk_state_machine"]["hysteresis"]["require_disclosures_confirm"]
+        is True
+    )
     assert merged["georisk_overlay"]["enabled"] is True
 
 
@@ -93,7 +96,11 @@ def test_deep_merge_app_overrides() -> None:
     }
     overrides = {
         "paper_runner": {
-            "intel": {"mode": "real", "run_news_pipeline": True, "run_disclosures_pipeline": True},
+            "intel": {
+                "mode": "real",
+                "run_news_pipeline": True,
+                "run_disclosures_pipeline": True,
+            },
         },
     }
     merged = deep_merge_policy(base, overrides)
@@ -109,10 +116,17 @@ def test_run_experiment_writes_app_snapshot(tmp_path: Path) -> None:
 
     app_overrides = {"paper_runner": {"intel": {"mode": "real"}}}
     policy_overrides = {}
-    prices = pd.DataFrame({"timestamp": ["2025-06-26T00:00:00Z"], "symbol": ["AAPL"], "close": [100.0]})
-    with patch("src.assembled_core.data.prices_ingest.load_eod_prices", return_value=prices), patch(
-        "src.assembled_core.ops.paper_runner.run_paper_daily_one",
-        return_value=(0, MagicMock()),
+    prices = pd.DataFrame(
+        {"timestamp": ["2025-06-26T00:00:00Z"], "symbol": ["AAPL"], "close": [100.0]}
+    )
+    with (
+        patch(
+            "src.assembled_core.data.prices_ingest.load_eod_prices", return_value=prices
+        ),
+        patch(
+            "src.assembled_core.ops.paper_runner.run_paper_daily_one",
+            return_value=(0, MagicMock()),
+        ),
     ):
         exp_root = run_experiment(
             name="test_app_snap",
@@ -143,15 +157,24 @@ def test_cli_parse_app_overrides() -> None:
         captured_kwargs["kwargs"] = kwargs
         return Path("/tmp/dummy_exp")
 
-    args = type("Args", (), {
-        "name": "cli_test",
-        "start": "2025-06-26",
-        "end": "2025-06-27",
-        "mode": "paper",
-        "output_root": None,
-        "overrides": "{}",
-        "app_overrides": '{"paper_runner":{"intel":{"mode":"real"}}}',
-    })()
-    with patch("src.assembled_core.ops.experiment_runner.run_experiment", side_effect=capture_run_experiment):
+    args = type(
+        "Args",
+        (),
+        {
+            "name": "cli_test",
+            "start": "2025-06-26",
+            "end": "2025-06-27",
+            "mode": "paper",
+            "output_root": None,
+            "overrides": "{}",
+            "app_overrides": '{"paper_runner":{"intel":{"mode":"real"}}}',
+        },
+    )()
+    with patch(
+        "src.assembled_core.ops.experiment_runner.run_experiment",
+        side_effect=capture_run_experiment,
+    ):
         run_paper_experiment_subcommand(args)
-    assert captured_kwargs.get("app_overrides") == {"paper_runner": {"intel": {"mode": "real"}}}
+    assert captured_kwargs.get("app_overrides") == {
+        "paper_runner": {"intel": {"mode": "real"}}
+    }

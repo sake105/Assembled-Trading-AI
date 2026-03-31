@@ -33,18 +33,18 @@ def compute_ema_signal_for_symbol(
 
     # Ensure timestamp is UTC-aware
     timestamp_vals = d["timestamp"].values
-    if hasattr(timestamp_vals, 'tz') and timestamp_vals.tz is None:
+    if hasattr(timestamp_vals, "tz") and timestamp_vals.tz is None:
         # Convert to UTC if timezone-naive
         timestamp_vals = pd.to_datetime(timestamp_vals, utc=True)
-    elif not hasattr(timestamp_vals, 'tz'):
+    elif not hasattr(timestamp_vals, "tz"):
         # If it's a numpy array, convert to pandas Series first
         timestamp_vals = pd.to_datetime(timestamp_vals, utc=True)
-    
+
     # Ensure timestamp is UTC-aware (preserve if already UTC, convert if naive)
     timestamp_series = d["timestamp"]
     if timestamp_series.dt.tz is None:
         timestamp_series = pd.to_datetime(timestamp_series, utc=True)
-    
+
     return pd.DataFrame(
         {
             "timestamp": timestamp_series,

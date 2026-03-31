@@ -4,7 +4,9 @@ import math
 from typing import Any, Dict, List, Tuple
 
 
-def _accumulate_counts(clusters: List[Dict[str, Any]]) -> Tuple[Dict[str, int], Dict[str, int]]:
+def _accumulate_counts(
+    clusters: List[Dict[str, Any]],
+) -> Tuple[Dict[str, int], Dict[str, int]]:
     ent_counts: Dict[str, int] = {}
     phr_counts: Dict[str, int] = {}
     for clu in clusters:
@@ -44,7 +46,9 @@ def compute_bursts_for_window(
         if not isinstance(base_phrases, dict):
             base_phrases = {}
 
-    def _compute_items(kind: str, cur: Dict[str, int], base: Dict[str, int]) -> List[Dict[str, Any]]:
+    def _compute_items(
+        kind: str, cur: Dict[str, int], base: Dict[str, int]
+    ) -> List[Dict[str, Any]]:
         res: List[Dict[str, Any]] = []
         for key, current in cur.items():
             if current < min_doc_count:
@@ -85,8 +89,10 @@ def compute_bursts_for_window(
 
     cluster_items: List[Dict[str, Any]] = []
     for clu in clusters:
-        keys = list(clu.get("top_entities") or []) + list(clu.get("entities") or []) + list(
-            clu.get("top_phrases") or []
+        keys = (
+            list(clu.get("top_entities") or [])
+            + list(clu.get("entities") or [])
+            + list(clu.get("top_phrases") or [])
         )
         best = float("-inf")
         for k in keys:
@@ -110,4 +116,3 @@ def compute_bursts_for_window(
 
 
 __all__ = ["compute_bursts_for_window"]
-

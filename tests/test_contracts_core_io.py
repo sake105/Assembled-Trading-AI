@@ -37,9 +37,7 @@ from src.assembled_core.utils.dataframe import coerce_price_types, ensure_cols
 
 def assert_utc_timestamp(series: pd.Series, name: str = "timestamp") -> None:
     """Assert that a timestamp series is UTC-aware."""
-    assert pd.api.types.is_datetime64_any_dtype(series), (
-        f"{name} must be datetime type"
-    )
+    assert pd.api.types.is_datetime64_any_dtype(series), f"{name} must be datetime type"
     assert series.dt.tz is not None, f"{name} must be timezone-aware"
     assert str(series.dt.tz) == "UTC", f"{name} must be UTC (got {series.dt.tz})"
 
@@ -49,9 +47,7 @@ def assert_no_nans_in_required(df: pd.DataFrame, required_cols: list[str]) -> No
     for col in required_cols:
         assert col in df.columns, f"Required column '{col}' missing"
         nan_count = df[col].isna().sum()
-        assert nan_count == 0, (
-            f"Column '{col}' has {nan_count} NaNs in required field"
-        )
+        assert nan_count == 0, f"Column '{col}' has {nan_count} NaNs in required field"
 
 
 # ============================================================================
@@ -61,11 +57,13 @@ def assert_no_nans_in_required(df: pd.DataFrame, required_cols: list[str]) -> No
 
 def test_price_contract_required_columns() -> None:
     """Test that price DataFrame has required columns."""
-    prices = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=10, freq="1d", tz="UTC"),
-        "symbol": ["AAPL"] * 10,
-        "close": [150.0] * 10,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=10, freq="1d", tz="UTC"),
+            "symbol": ["AAPL"] * 10,
+            "close": [150.0] * 10,
+        }
+    )
 
     # Should pass validation
     result = ensure_cols(prices, ["timestamp", "symbol", "close"])
@@ -76,11 +74,13 @@ def test_price_contract_required_columns() -> None:
 
 def test_price_contract_datatypes() -> None:
     """Test that price DataFrame has correct datatypes."""
-    prices = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=10, freq="1d", tz="UTC"),
-        "symbol": ["AAPL"] * 10,
-        "close": [150.0] * 10,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=10, freq="1d", tz="UTC"),
+            "symbol": ["AAPL"] * 10,
+            "close": [150.0] * 10,
+        }
+    )
 
     result = coerce_price_types(prices)
 
@@ -96,11 +96,13 @@ def test_price_contract_datatypes() -> None:
 
 def test_price_contract_no_nans() -> None:
     """Test that price DataFrame has no NaNs in required fields."""
-    prices = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=10, freq="1d", tz="UTC"),
-        "symbol": ["AAPL"] * 10,
-        "close": [150.0] * 10,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=10, freq="1d", tz="UTC"),
+            "symbol": ["AAPL"] * 10,
+            "close": [150.0] * 10,
+        }
+    )
 
     result = coerce_price_types(prices)
 
@@ -110,11 +112,16 @@ def test_price_contract_no_nans() -> None:
 
 def test_price_contract_sorting() -> None:
     """Test that price DataFrame is sorted correctly."""
-    prices = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=5, freq="1d", tz="UTC").tolist() * 2,
-        "symbol": ["AAPL"] * 5 + ["GOOGL"] * 5,
-        "close": [150.0] * 10,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": pd.date_range(
+                "2024-01-01", periods=5, freq="1d", tz="UTC"
+            ).tolist()
+            * 2,
+            "symbol": ["AAPL"] * 5 + ["GOOGL"] * 5,
+            "close": [150.0] * 10,
+        }
+    )
 
     # Shuffle to test sorting
     prices = prices.sample(frac=1).reset_index(drop=True)
@@ -129,11 +136,15 @@ def test_price_contract_sorting() -> None:
 def test_price_contract_utc_only() -> None:
     """Test that price DataFrame enforces UTC-only policy."""
     # Test with non-UTC timestamp (should be coerced to UTC)
-    prices = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=10, freq="1d", tz="US/Eastern"),
-        "symbol": ["AAPL"] * 10,
-        "close": [150.0] * 10,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": pd.date_range(
+                "2024-01-01", periods=10, freq="1d", tz="US/Eastern"
+            ),
+            "symbol": ["AAPL"] * 10,
+            "close": [150.0] * 10,
+        }
+    )
 
     result = coerce_price_types(prices)
 
@@ -148,11 +159,13 @@ def test_price_contract_utc_only() -> None:
 
 def test_signal_contract_required_columns() -> None:
     """Test that signal DataFrame has required columns."""
-    prices = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=20, freq="1d", tz="UTC"),
-        "symbol": ["AAPL"] * 20,
-        "close": [150.0 + i * 0.5 for i in range(20)],
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=20, freq="1d", tz="UTC"),
+            "symbol": ["AAPL"] * 20,
+            "close": [150.0 + i * 0.5 for i in range(20)],
+        }
+    )
 
     signals = compute_ema_signals(prices, fast=5, slow=10)
 
@@ -165,11 +178,13 @@ def test_signal_contract_required_columns() -> None:
 
 def test_signal_contract_datatypes() -> None:
     """Test that signal DataFrame has correct datatypes."""
-    prices = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=20, freq="1d", tz="UTC"),
-        "symbol": ["AAPL"] * 20,
-        "close": [150.0 + i * 0.5 for i in range(20)],
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=20, freq="1d", tz="UTC"),
+            "symbol": ["AAPL"] * 20,
+            "close": [150.0 + i * 0.5 for i in range(20)],
+        }
+    )
 
     signals = compute_ema_signals(prices, fast=5, slow=10)
 
@@ -185,27 +200,31 @@ def test_signal_contract_datatypes() -> None:
 
 def test_signal_contract_sig_values() -> None:
     """Test that signal values are only -1, 0, or +1."""
-    prices = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=20, freq="1d", tz="UTC"),
-        "symbol": ["AAPL"] * 20,
-        "close": [150.0 + i * 0.5 for i in range(20)],
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=20, freq="1d", tz="UTC"),
+            "symbol": ["AAPL"] * 20,
+            "close": [150.0 + i * 0.5 for i in range(20)],
+        }
+    )
 
     signals = compute_ema_signals(prices, fast=5, slow=10)
 
     # Should only contain -1, 0, or +1
-    assert signals["sig"].isin([-1, 0, 1]).all(), (
-        f"Signal values must be -1, 0, or +1 (got {signals['sig'].unique()})"
-    )
+    assert (
+        signals["sig"].isin([-1, 0, 1]).all()
+    ), f"Signal values must be -1, 0, or +1 (got {signals['sig'].unique()})"
 
 
 def test_signal_contract_no_nans() -> None:
     """Test that signal DataFrame has no NaNs in required fields."""
-    prices = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=20, freq="1d", tz="UTC"),
-        "symbol": ["AAPL"] * 20,
-        "close": [150.0 + i * 0.5 for i in range(20)],
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=20, freq="1d", tz="UTC"),
+            "symbol": ["AAPL"] * 20,
+            "close": [150.0 + i * 0.5 for i in range(20)],
+        }
+    )
 
     signals = compute_ema_signals(prices, fast=5, slow=10)
 
@@ -220,12 +239,14 @@ def test_signal_contract_no_nans() -> None:
 
 def test_orders_contract_required_columns() -> None:
     """Test that orders DataFrame has required columns."""
-    signals = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=20, freq="1d", tz="UTC"),
-        "symbol": ["AAPL"] * 20,
-        "sig": np.array([0, 1, 1, -1, 0] * 4, dtype=np.int8),
-        "price": [150.0 + i * 0.5 for i in range(20)],
-    })
+    signals = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=20, freq="1d", tz="UTC"),
+            "symbol": ["AAPL"] * 20,
+            "sig": np.array([0, 1, 1, -1, 0] * 4, dtype=np.int8),
+            "price": [150.0 + i * 0.5 for i in range(20)],
+        }
+    )
 
     orders = signals_to_orders(signals)
 
@@ -239,12 +260,14 @@ def test_orders_contract_required_columns() -> None:
 
 def test_orders_contract_datatypes() -> None:
     """Test that orders DataFrame has correct datatypes."""
-    signals = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=20, freq="1d", tz="UTC"),
-        "symbol": ["AAPL"] * 20,
-        "sig": np.array([0, 1, 1, -1, 0] * 4, dtype=np.int8),
-        "price": [150.0 + i * 0.5 for i in range(20)],
-    })
+    signals = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=20, freq="1d", tz="UTC"),
+            "symbol": ["AAPL"] * 20,
+            "sig": np.array([0, 1, 1, -1, 0] * 4, dtype=np.int8),
+            "price": [150.0 + i * 0.5 for i in range(20)],
+        }
+    )
 
     orders = signals_to_orders(signals)
 
@@ -263,54 +286,62 @@ def test_orders_contract_datatypes() -> None:
 
 def test_orders_contract_side_values() -> None:
     """Test that side values are only 'BUY' or 'SELL'."""
-    signals = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=20, freq="1d", tz="UTC"),
-        "symbol": ["AAPL"] * 20,
-        "sig": np.array([0, 1, 1, -1, 0] * 4, dtype=np.int8),
-        "price": [150.0 + i * 0.5 for i in range(20)],
-    })
+    signals = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=20, freq="1d", tz="UTC"),
+            "symbol": ["AAPL"] * 20,
+            "sig": np.array([0, 1, 1, -1, 0] * 4, dtype=np.int8),
+            "price": [150.0 + i * 0.5 for i in range(20)],
+        }
+    )
 
     orders = signals_to_orders(signals)
 
     if not orders.empty:
         # Should only contain 'BUY' or 'SELL'
-        assert orders["side"].isin(["BUY", "SELL"]).all(), (
-            f"Side values must be 'BUY' or 'SELL' (got {orders['side'].unique()})"
-        )
+        assert (
+            orders["side"].isin(["BUY", "SELL"]).all()
+        ), f"Side values must be 'BUY' or 'SELL' (got {orders['side'].unique()})"
 
 
 def test_orders_contract_qty_positive() -> None:
     """Test that qty is always positive."""
-    signals = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=20, freq="1d", tz="UTC"),
-        "symbol": ["AAPL"] * 20,
-        "sig": np.array([0, 1, 1, -1, 0] * 4, dtype=np.int8),
-        "price": [150.0 + i * 0.5 for i in range(20)],
-    })
+    signals = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=20, freq="1d", tz="UTC"),
+            "symbol": ["AAPL"] * 20,
+            "sig": np.array([0, 1, 1, -1, 0] * 4, dtype=np.int8),
+            "price": [150.0 + i * 0.5 for i in range(20)],
+        }
+    )
 
     orders = signals_to_orders(signals)
 
     if not orders.empty:
         # Should always be positive
-        assert (orders["qty"] > 0).all(), (
-            f"Qty must always be positive (got min={orders['qty'].min()})"
-        )
+        assert (
+            orders["qty"] > 0
+        ).all(), f"Qty must always be positive (got min={orders['qty'].min()})"
 
 
 def test_orders_contract_no_nans() -> None:
     """Test that orders DataFrame has no NaNs in required fields."""
-    signals = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=20, freq="1d", tz="UTC"),
-        "symbol": ["AAPL"] * 20,
-        "sig": np.array([0, 1, 1, -1, 0] * 4, dtype=np.int8),
-        "price": [150.0 + i * 0.5 for i in range(20)],
-    })
+    signals = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=20, freq="1d", tz="UTC"),
+            "symbol": ["AAPL"] * 20,
+            "sig": np.array([0, 1, 1, -1, 0] * 4, dtype=np.int8),
+            "price": [150.0 + i * 0.5 for i in range(20)],
+        }
+    )
 
     orders = signals_to_orders(signals)
 
     if not orders.empty:
         # Should have no NaNs
-        assert_no_nans_in_required(orders, ["timestamp", "symbol", "side", "qty", "price"])
+        assert_no_nans_in_required(
+            orders, ["timestamp", "symbol", "side", "qty", "price"]
+        )
 
 
 # ============================================================================
@@ -320,10 +351,12 @@ def test_orders_contract_no_nans() -> None:
 
 def test_target_positions_contract_required_columns() -> None:
     """Test that target positions DataFrame has required columns."""
-    targets = pd.DataFrame({
-        "symbol": ["AAPL", "GOOGL", "MSFT"],
-        "target_qty": [100.0, 50.0, -25.0],
-    })
+    targets = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "GOOGL", "MSFT"],
+            "target_qty": [100.0, 50.0, -25.0],
+        }
+    )
 
     # Should have required columns
     assert "symbol" in targets.columns
@@ -332,10 +365,12 @@ def test_target_positions_contract_required_columns() -> None:
 
 def test_target_positions_contract_no_nans() -> None:
     """Test that target positions DataFrame has no NaNs in required fields."""
-    targets = pd.DataFrame({
-        "symbol": ["AAPL", "GOOGL", "MSFT"],
-        "target_qty": [100.0, 50.0, -25.0],
-    })
+    targets = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "GOOGL", "MSFT"],
+            "target_qty": [100.0, 50.0, -25.0],
+        }
+    )
 
     # Should have no NaNs
     assert_no_nans_in_required(targets, ["symbol", "target_qty"])
@@ -348,10 +383,12 @@ def test_target_positions_contract_no_nans() -> None:
 
 def test_equity_curve_contract_required_columns() -> None:
     """Test that equity curve DataFrame has required columns."""
-    equity = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=10, freq="1d", tz="UTC"),
-        "equity": [10000.0 + i * 100.0 for i in range(10)],
-    })
+    equity = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=10, freq="1d", tz="UTC"),
+            "equity": [10000.0 + i * 100.0 for i in range(10)],
+        }
+    )
 
     # Should have required columns
     assert "timestamp" in equity.columns
@@ -360,10 +397,12 @@ def test_equity_curve_contract_required_columns() -> None:
 
 def test_equity_curve_contract_datatypes() -> None:
     """Test that equity curve DataFrame has correct datatypes."""
-    equity = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=10, freq="1d", tz="UTC"),
-        "equity": [10000.0 + i * 100.0 for i in range(10)],
-    })
+    equity = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=10, freq="1d", tz="UTC"),
+            "equity": [10000.0 + i * 100.0 for i in range(10)],
+        }
+    )
 
     # Check timestamp is UTC-aware
     assert_utc_timestamp(equity["timestamp"])
@@ -374,23 +413,27 @@ def test_equity_curve_contract_datatypes() -> None:
 
 def test_equity_curve_contract_positive_equity() -> None:
     """Test that equity is always positive."""
-    equity = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=10, freq="1d", tz="UTC"),
-        "equity": [10000.0 + i * 100.0 for i in range(10)],
-    })
+    equity = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=10, freq="1d", tz="UTC"),
+            "equity": [10000.0 + i * 100.0 for i in range(10)],
+        }
+    )
 
     # Should always be positive
-    assert (equity["equity"] > 0).all(), (
-        f"Equity must always be positive (got min={equity['equity'].min()})"
-    )
+    assert (
+        equity["equity"] > 0
+    ).all(), f"Equity must always be positive (got min={equity['equity'].min()})"
 
 
 def test_equity_curve_contract_no_nans() -> None:
     """Test that equity curve DataFrame has no NaNs in required fields."""
-    equity = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=10, freq="1d", tz="UTC"),
-        "equity": [10000.0 + i * 100.0 for i in range(10)],
-    })
+    equity = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=10, freq="1d", tz="UTC"),
+            "equity": [10000.0 + i * 100.0 for i in range(10)],
+        }
+    )
 
     # Should have no NaNs
     assert_no_nans_in_required(equity, ["timestamp", "equity"])
@@ -406,11 +449,13 @@ def test_price_contract_integration(tmp_path: Path) -> None:
     """Test price contract with actual load_prices function."""
     # Create a test price file
     price_file = tmp_path / "test_prices.parquet"
-    prices = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=10, freq="1d", tz="UTC"),
-        "symbol": ["AAPL"] * 10,
-        "close": [150.0] * 10,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=10, freq="1d", tz="UTC"),
+            "symbol": ["AAPL"] * 10,
+            "close": [150.0] * 10,
+        }
+    )
     prices.to_parquet(price_file, index=False)
 
     # Load and validate
@@ -427,13 +472,15 @@ def test_orders_contract_integration(tmp_path: Path) -> None:
     """Test orders contract with actual load_orders function."""
     # Create a test orders file
     orders_file = tmp_path / "orders_1d.csv"
-    orders = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-01", periods=3, freq="1d", tz="UTC"),
-        "symbol": ["AAPL", "GOOGL", "AAPL"],
-        "side": ["BUY", "BUY", "SELL"],
-        "qty": [100.0, 50.0, 50.0],
-        "price": [150.0, 2500.0, 151.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-01", periods=3, freq="1d", tz="UTC"),
+            "symbol": ["AAPL", "GOOGL", "AAPL"],
+            "side": ["BUY", "BUY", "SELL"],
+            "qty": [100.0, 50.0, 50.0],
+            "price": [150.0, 2500.0, 151.0],
+        }
+    )
     orders.to_csv(orders_file, index=False)
 
     # Load and validate

@@ -45,14 +45,14 @@ def test_deflated_sharpe_leq_raw():
             n_tests=n_tests,
         )
 
-        assert not np.isnan(dsr), (
-            f"DSR should not be NaN for sharpe={sharpe_annual}, n_obs={n_obs}, n_tests={n_tests}"
-        )
+        assert not np.isnan(
+            dsr
+        ), f"DSR should not be NaN for sharpe={sharpe_annual}, n_obs={n_obs}, n_tests={n_tests}"
         # DSR is a z-score, so it can be larger than raw Sharpe in absolute terms
         # But we verify it's finite and in a reasonable range
-        assert np.isfinite(dsr), (
-            f"DSR should be finite for sharpe={sharpe_annual}, n_obs={n_obs}, n_tests={n_tests}"
-        )
+        assert np.isfinite(
+            dsr
+        ), f"DSR should be finite for sharpe={sharpe_annual}, n_obs={n_obs}, n_tests={n_tests}"
         # For n_tests > 1, DSR should generally be lower (more conservative)
         # For n_tests=1, DSR can be higher than raw Sharpe (it's a z-score)
 
@@ -104,9 +104,9 @@ def test_deflated_sharpe_decreases_with_more_tests():
 
     # Check monotonicity: each DSR should be <= previous (allowing small numerical errors)
     for i in range(1, len(dsr_values)):
-        assert dsr_values[i] <= dsr_values[i - 1] + 1e-10, (
-            f"DSR should decrease with n_tests. n_tests={n_tests_values[i]}: {dsr_values[i]:.4f} > {dsr_values[i - 1]:.4f} (n_tests={n_tests_values[i - 1]})"
-        )
+        assert (
+            dsr_values[i] <= dsr_values[i - 1] + 1e-10
+        ), f"DSR should decrease with n_tests. n_tests={n_tests_values[i]}: {dsr_values[i]:.4f} > {dsr_values[i - 1]:.4f} (n_tests={n_tests_values[i - 1]})"
 
 
 @pytest.mark.advanced
@@ -132,9 +132,9 @@ def test_deflated_sharpe_from_returns_smoke():
     # DSR is a z-score, so it can be larger than raw Sharpe
     # For normal returns with good Sharpe, DSR can be in range [-10, +20] or even higher
     # We just verify it's finite and in a reasonable range for z-scores
-    assert -50.0 <= dsr <= 50.0, (
-        f"DSR ({dsr:.4f}) should be in reasonable z-score range [-50, 50]"
-    )
+    assert (
+        -50.0 <= dsr <= 50.0
+    ), f"DSR ({dsr:.4f}) should be in reasonable z-score range [-50, 50]"
 
     # Test with n_tests=100 (should give lower DSR)
     dsr_many_tests = deflated_sharpe_ratio_from_returns(
@@ -144,9 +144,9 @@ def test_deflated_sharpe_from_returns_smoke():
     )
 
     assert not np.isnan(dsr_many_tests), "DSR should not be NaN for n_tests=100"
-    assert dsr_many_tests <= dsr, (
-        f"DSR with n_tests=100 ({dsr_many_tests:.4f}) should be <= DSR with n_tests=1 ({dsr:.4f})"
-    )
+    assert (
+        dsr_many_tests <= dsr
+    ), f"DSR with n_tests=100 ({dsr_many_tests:.4f}) should be <= DSR with n_tests=1 ({dsr:.4f})"
 
 
 @pytest.mark.advanced
@@ -173,18 +173,18 @@ def test_deflated_sharpe_edge_cases():
     assert not np.isnan(dsr_zero), "DSR should not be NaN for n_tests=0 (clamped to 1)"
     assert not np.isnan(dsr_one), "DSR should not be NaN for n_tests=1"
     # Should be equal (or very close) since n_tests=0 is clamped to 1
-    assert abs(dsr_zero - dsr_one) < 1e-10, (
-        f"DSR for n_tests=0 ({dsr_zero:.4f}) should equal DSR for n_tests=1 ({dsr_one:.4f})"
-    )
+    assert (
+        abs(dsr_zero - dsr_one) < 1e-10
+    ), f"DSR for n_tests=0 ({dsr_zero:.4f}) should equal DSR for n_tests=1 ({dsr_one:.4f})"
 
     # Edge case: n_tests negative
     dsr_neg = deflated_sharpe_ratio(sharpe_annual=1.0, n_obs=252, n_tests=-5)
-    assert not np.isnan(dsr_neg), (
-        "DSR should not be NaN for negative n_tests (clamped to 1)"
-    )
-    assert abs(dsr_neg - dsr_one) < 1e-10, (
-        f"DSR for n_tests=-5 ({dsr_neg:.4f}) should equal DSR for n_tests=1 ({dsr_one:.4f})"
-    )
+    assert not np.isnan(
+        dsr_neg
+    ), "DSR should not be NaN for negative n_tests (clamped to 1)"
+    assert (
+        abs(dsr_neg - dsr_one) < 1e-10
+    ), f"DSR for n_tests=-5 ({dsr_neg:.4f}) should equal DSR for n_tests=1 ({dsr_one:.4f})"
 
 
 @pytest.mark.advanced
@@ -227,9 +227,9 @@ def test_deflated_sharpe_with_skew_kurtosis():
 
     # DSR values should differ (distribution adjustment)
     # Note: The exact relationship depends on the formula, but they should be different
-    assert dsr_normal != dsr_skew_pos or dsr_normal != dsr_kurt_high, (
-        "DSR should differ for different skew/kurtosis values"
-    )
+    assert (
+        dsr_normal != dsr_skew_pos or dsr_normal != dsr_kurt_high
+    ), "DSR should differ for different skew/kurtosis values"
 
 
 @pytest.mark.advanced
@@ -261,9 +261,9 @@ def test_deflated_sharpe_from_returns_edge_cases():
     dsr = deflated_sharpe_ratio_from_returns(returns_constant, n_tests=1)
     # Should be NaN because std=0, so Sharpe cannot be computed (compute_sharpe_ratio returns None)
     # Note: If compute_sharpe_ratio returns None, we return NaN
-    assert np.isnan(dsr) or dsr is None, (
-        f"DSR should be NaN/None for constant returns (std=0), got: {dsr}"
-    )
+    assert (
+        np.isnan(dsr) or dsr is None
+    ), f"DSR should be NaN/None for constant returns (std=0), got: {dsr}"
 
 
 @pytest.mark.advanced
@@ -286,6 +286,6 @@ def test_deflated_sharpe_increases_with_n_obs():
 
     # Check monotonicity: each DSR should be >= previous (more data = more significance)
     for i in range(1, len(dsr_values)):
-        assert dsr_values[i] >= dsr_values[i - 1] - 1e-10, (
-            f"DSR should increase (or stay same) with n_obs. n_obs={n_obs_values[i]}: {dsr_values[i]:.4f} < {dsr_values[i - 1]:.4f} (n_obs={n_obs_values[i - 1]})"
-        )
+        assert (
+            dsr_values[i] >= dsr_values[i - 1] - 1e-10
+        ), f"DSR should increase (or stay same) with n_obs. n_obs={n_obs_values[i]}: {dsr_values[i]:.4f} < {dsr_values[i - 1]:.4f} (n_obs={n_obs_values[i - 1]})"

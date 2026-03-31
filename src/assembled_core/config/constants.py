@@ -28,4 +28,3 @@ MAX_ORDERS_PER_RESPONSE = 10000  # Maximum number of orders in API response
 
 # Paper track constants
 PAPER_TRACK_STATE_VERSION = "2.0"  # Current state format version
-

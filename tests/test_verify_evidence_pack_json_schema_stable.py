@@ -48,7 +48,9 @@ def _build_ok_zip(tmp_path: Path) -> Path:
     as_of_date = "2025-01-15"
     date_str = "2025-01-15"
 
-    broker_snapshot_path = output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    broker_snapshot_path = (
+        output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    )
     ledger_pack_path = output_dir / "ledger_run" / "ledger_events.parquet"
     reconcile_report_path = output_dir / "reconcile_run" / f"reconcile_{date_str}.json"
 
@@ -110,7 +112,10 @@ def test_verify_json_schema_stable_ok_zip(tmp_path: Path) -> None:
     assert isinstance(out1["source_path"], str) and len(out1["source_path"]) > 0
     assert out1["zip_compression"] in ("deflated", "stored")
     assert isinstance(out1["tool_version"], str) and len(out1["tool_version"]) > 0
-    assert out1["tool_version"].encode("ascii", errors="ignore").decode("ascii") == out1["tool_version"]
+    assert (
+        out1["tool_version"].encode("ascii", errors="ignore").decode("ascii")
+        == out1["tool_version"]
+    )
     assert "details" in out1
     assert isinstance(out1["details"], dict)
     assert out1["details"] == {}
@@ -122,4 +127,6 @@ def test_verify_json_schema_stable_ok_zip(tmp_path: Path) -> None:
     )
     assert run2.returncode == 0
     out2_bytes = run2.stdout
-    assert out1_bytes == out2_bytes, "Two runs must produce identical JSON bytes (deterministic)"
+    assert (
+        out1_bytes == out2_bytes
+    ), "Two runs must produce identical JSON bytes (deterministic)"

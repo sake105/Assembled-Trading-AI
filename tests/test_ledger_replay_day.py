@@ -22,25 +22,33 @@ def test_ledger_events_identical_on_replay(tmp_path: Path):
     run_id = "replay_test_001"
 
     # Create test data
-    orders_df = pd.DataFrame({
-        "timestamp": pd.to_datetime(["2024-01-15 10:00:00", "2024-01-15 11:00:00"], utc=True),
-        "symbol": ["AAPL", "MSFT"],
-        "side": ["BUY", "SELL"],
-        "qty": [100.0, 50.0],
-        "price": [150.0, 200.0],
-    })
+    orders_df = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(
+                ["2024-01-15 10:00:00", "2024-01-15 11:00:00"], utc=True
+            ),
+            "symbol": ["AAPL", "MSFT"],
+            "side": ["BUY", "SELL"],
+            "qty": [100.0, 50.0],
+            "price": [150.0, 200.0],
+        }
+    )
 
-    trades_df = pd.DataFrame({
-        "timestamp": pd.to_datetime(["2024-01-15 10:00:00", "2024-01-15 11:00:00"], utc=True),
-        "symbol": ["AAPL", "MSFT"],
-        "side": ["BUY", "SELL"],
-        "qty": [100.0, 50.0],
-        "price": [150.0, 200.0],
-        "fill_qty": [100.0, 50.0],
-        "fill_price": [150.0, 200.0],
-        "status": ["filled", "filled"],
-        "total_cost_cash": [1.5, 1.0],
-    })
+    trades_df = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(
+                ["2024-01-15 10:00:00", "2024-01-15 11:00:00"], utc=True
+            ),
+            "symbol": ["AAPL", "MSFT"],
+            "side": ["BUY", "SELL"],
+            "qty": [100.0, 50.0],
+            "price": [150.0, 200.0],
+            "fill_qty": [100.0, 50.0],
+            "fill_price": [150.0, 200.0],
+            "status": ["filled", "filled"],
+            "total_cost_cash": [1.5, 1.0],
+        }
+    )
 
     # Build ledger events first time
     order_events1 = events_from_orders(orders_df, run_id=run_id, source="test")
@@ -64,8 +72,12 @@ def test_ledger_events_identical_on_replay(tmp_path: Path):
 
     # Should be identical (same event_ids, same order)
     pd.testing.assert_frame_equal(
-        loaded1.sort_values(["event_ts", "event_type", "symbol", "event_id"]).reset_index(drop=True),
-        loaded2.sort_values(["event_ts", "event_type", "symbol", "event_id"]).reset_index(drop=True),
+        loaded1.sort_values(
+            ["event_ts", "event_type", "symbol", "event_id"]
+        ).reset_index(drop=True),
+        loaded2.sort_values(
+            ["event_ts", "event_type", "symbol", "event_id"]
+        ).reset_index(drop=True),
     )
 
     # Verify event_ids are stable
@@ -77,25 +89,33 @@ def test_positions_cash_identical_on_replay(tmp_path: Path):
     run_id = "replay_test_002"
 
     # Create test data
-    orders_df = pd.DataFrame({
-        "timestamp": pd.to_datetime(["2024-01-15 10:00:00", "2024-01-15 11:00:00"], utc=True),
-        "symbol": ["AAPL", "MSFT"],
-        "side": ["BUY", "SELL"],
-        "qty": [100.0, 50.0],
-        "price": [150.0, 200.0],
-    })
+    orders_df = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(
+                ["2024-01-15 10:00:00", "2024-01-15 11:00:00"], utc=True
+            ),
+            "symbol": ["AAPL", "MSFT"],
+            "side": ["BUY", "SELL"],
+            "qty": [100.0, 50.0],
+            "price": [150.0, 200.0],
+        }
+    )
 
-    trades_df = pd.DataFrame({
-        "timestamp": pd.to_datetime(["2024-01-15 10:00:00", "2024-01-15 11:00:00"], utc=True),
-        "symbol": ["AAPL", "MSFT"],
-        "side": ["BUY", "SELL"],
-        "qty": [100.0, 50.0],
-        "price": [150.0, 200.0],
-        "fill_qty": [100.0, 50.0],
-        "fill_price": [150.0, 200.0],
-        "status": ["filled", "filled"],
-        "total_cost_cash": [1.5, 1.0],
-    })
+    trades_df = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(
+                ["2024-01-15 10:00:00", "2024-01-15 11:00:00"], utc=True
+            ),
+            "symbol": ["AAPL", "MSFT"],
+            "side": ["BUY", "SELL"],
+            "qty": [100.0, 50.0],
+            "price": [150.0, 200.0],
+            "fill_qty": [100.0, 50.0],
+            "fill_price": [150.0, 200.0],
+            "status": ["filled", "filled"],
+            "total_cost_cash": [1.5, 1.0],
+        }
+    )
 
     # Build ledger events
     order_events = events_from_orders(orders_df, run_id=run_id, source="test")
@@ -135,15 +155,19 @@ def test_reconciliation_result_identical_on_replay(tmp_path: Path):
     from src.assembled_core.accounting.reconciliation import reconcile_ledger_vs_broker
 
     # Create test positions
-    ledger_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "qty": [100.0, 50.0],
-    })
+    ledger_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [100.0, 50.0],
+        }
+    )
 
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "qty": [100.0, 50.0],
-    })
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [100.0, 50.0],
+        }
+    )
 
     # Reconcile first time
     result1 = reconcile_ledger_vs_broker(

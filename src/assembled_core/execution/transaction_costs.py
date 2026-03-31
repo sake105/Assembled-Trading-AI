@@ -38,11 +38,17 @@ class CommissionModel:
     def __post_init__(self) -> None:
         """Validate commission model parameters."""
         if self.mode not in ("bps", "fixed", "bps_plus_fixed"):
-            raise ValueError(f"Invalid mode: {self.mode}. Must be 'bps', 'fixed', or 'bps_plus_fixed'")
+            raise ValueError(
+                f"Invalid mode: {self.mode}. Must be 'bps', 'fixed', or 'bps_plus_fixed'"
+            )
         if self.commission_bps < 0.0:
-            raise ValueError(f"commission_bps must be >= 0.0, got {self.commission_bps}")
+            raise ValueError(
+                f"commission_bps must be >= 0.0, got {self.commission_bps}"
+            )
         if self.fixed_per_trade < 0.0:
-            raise ValueError(f"fixed_per_trade must be >= 0.0, got {self.fixed_per_trade}")
+            raise ValueError(
+                f"fixed_per_trade must be >= 0.0, got {self.fixed_per_trade}"
+            )
 
 
 def compute_commission_cash(
@@ -64,7 +70,9 @@ def compute_commission_cash(
         ValueError: If n_trades doesn't match len(notional) or model is invalid
     """
     if len(notional) != n_trades:
-        raise ValueError(f"notional length ({len(notional)}) must match n_trades ({n_trades})")
+        raise ValueError(
+            f"notional length ({len(notional)}) must match n_trades ({n_trades})"
+        )
 
     # Handle empty arrays
     if n_trades == 0:
@@ -126,23 +134,34 @@ def add_cost_columns_to_trades(
     required_cols = ["timestamp", "symbol", "side", "qty", "price"]
     missing_cols = [col for col in required_cols if col not in trades.columns]
     if missing_cols:
-        raise ValueError(f"Missing required columns in trades DataFrame: {missing_cols}")
+        raise ValueError(
+            f"Missing required columns in trades DataFrame: {missing_cols}"
+        )
 
     # Make a copy to avoid modifying original
     trades_with_costs = trades.copy()
 
     # Compute notional based on fill_qty if available, else use original qty
     # For partial fills, costs should be based on filled notional (fill_qty * fill_price)
-    if "fill_qty" in trades_with_costs.columns and "fill_price" in trades_with_costs.columns:
+    if (
+        "fill_qty" in trades_with_costs.columns
+        and "fill_price" in trades_with_costs.columns
+    ):
         # Use filled notional for cost calculation
-        notional = (trades_with_costs["fill_qty"].abs() * trades_with_costs["fill_price"].abs()).values
+        notional = (
+            trades_with_costs["fill_qty"].abs() * trades_with_costs["fill_price"].abs()
+        ).values
     else:
         # Fallback: use original qty * price (for backward compatibility)
-        notional = (trades_with_costs["qty"].abs() * trades_with_costs["price"].abs()).values
+        notional = (
+            trades_with_costs["qty"].abs() * trades_with_costs["price"].abs()
+        ).values
 
     # Compute commission cash
     if commission_model is None:
-        commission_model = CommissionModel(mode="bps", commission_bps=0.0, fixed_per_trade=0.0)
+        commission_model = CommissionModel(
+            mode="bps", commission_bps=0.0, fixed_per_trade=0.0
+        )
 
     n_trades = len(trades_with_costs)
     commission_cash = compute_commission_cash(notional, n_trades, commission_model)
@@ -152,7 +171,7 @@ def add_cost_columns_to_trades(
         try:
             # Compute ADV proxy
             adv_df = compute_adv_proxy(prices, adv_window=spread_model.adv_window)
-            
+
             # Merge ADV with trades (on timestamp and symbol)
             trades_with_adv = trades_with_costs.merge(
                 adv_df,
@@ -160,16 +179,18 @@ def add_cost_columns_to_trades(
                 how="left",
                 suffixes=("", "_adv"),
             )
-            
+
             # Assign spread_bps based on ADV buckets
             adv_usd = trades_with_adv["adv_usd"].values
             spread_bps = assign_spread_bps(adv_usd, spread_model)
-            
+
             # Compute spread cash
             spread_cash = compute_spread_cash(notional, spread_bps)
         except Exception:
             # Fallback: use fallback_spread_bps for all trades
-            spread_bps = np.full(n_trades, spread_model.fallback_spread_bps, dtype=np.float64)
+            spread_bps = np.full(
+                n_trades, spread_model.fallback_spread_bps, dtype=np.float64
+            )
             spread_cash = compute_spread_cash(notional, spread_bps)
     else:
         # No spread model or prices: default to 0.0
@@ -186,10 +207,12 @@ def add_cost_columns_to_trades(
                 # Compute ADV for slippage (use slippage_model.vol_window as fallback, but ADV needs its own window)
                 # For now, use vol_window as adv_window (can be refined later)
                 adv_df = compute_adv_proxy(prices, adv_window=slippage_model.vol_window)
-            
+
             # Compute volatility proxy
-            vol_df = compute_volatility_proxy(prices, vol_window=slippage_model.vol_window)
-            
+            vol_df = compute_volatility_proxy(
+                prices, vol_window=slippage_model.vol_window
+            )
+
             # Merge ADV and volatility with trades
             trades_with_adv_vol = trades_with_costs.merge(
                 adv_df,
@@ -203,17 +226,21 @@ def add_cost_columns_to_trades(
                 how="left",
                 suffixes=("", "_vol"),
             )
-            
+
             # Assign slippage_bps based on volatility and participation
             adv_usd = trades_with_adv_vol["adv_usd"].values
             volatility = trades_with_adv_vol["volatility"].values
-            slippage_bps = compute_slippage_bps(notional, adv_usd, volatility, slippage_model)
-            
+            slippage_bps = compute_slippage_bps(
+                notional, adv_usd, volatility, slippage_model
+            )
+
             # Compute slippage cash
             slippage_cash = compute_slippage_cash(notional, slippage_bps)
         except Exception:
             # Fallback: use fallback_slippage_bps for all trades
-            slippage_bps = np.full(n_trades, slippage_model.fallback_slippage_bps, dtype=np.float64)
+            slippage_bps = np.full(
+                n_trades, slippage_model.fallback_slippage_bps, dtype=np.float64
+            )
             slippage_cash = compute_slippage_cash(notional, slippage_bps)
     else:
         # No slippage model or prices: default to 0.0
@@ -232,9 +259,9 @@ def add_cost_columns_to_trades(
     # Ensure fill schema compliance (add fill_qty, fill_price, status, remaining_qty if missing)
     # For backward compatibility, assume full fills
     from src.assembled_core.execution.fill_model import ensure_fill_schema
-    
+
     trades_with_costs = ensure_fill_schema(trades_with_costs, default_full_fill=True)
-    
+
     # Adjust costs for rejected fills: costs should be 0 if fill_qty == 0
     # Note: Costs are already computed based on fill_qty (via notional = fill_qty * fill_price)
     # But we need to explicitly set costs to 0 for rejected fills (status == "rejected")
@@ -327,16 +354,22 @@ class SpreadModel:
         if self.adv_window < 1:
             raise ValueError(f"adv_window must be >= 1, got {self.adv_window}")
         if self.fallback_spread_bps < 0.0:
-            raise ValueError(f"fallback_spread_bps must be >= 0.0, got {self.fallback_spread_bps}")
+            raise ValueError(
+                f"fallback_spread_bps must be >= 0.0, got {self.fallback_spread_bps}"
+            )
         if self.buckets is not None:
             # Validate buckets are sorted by threshold (ascending)
             thresholds = [b[0] for b in self.buckets]
             if thresholds != sorted(thresholds):
-                raise ValueError(f"buckets must be sorted by threshold (ascending), got {thresholds}")
+                raise ValueError(
+                    f"buckets must be sorted by threshold (ascending), got {thresholds}"
+                )
             # Validate spread_bps are non-negative
             for threshold, spread_bps in self.buckets:
                 if spread_bps < 0.0:
-                    raise ValueError(f"spread_bps in buckets must be >= 0.0, got {spread_bps} at threshold {threshold}")
+                    raise ValueError(
+                        f"spread_bps in buckets must be >= 0.0, got {spread_bps} at threshold {threshold}"
+                    )
 
 
 def compute_adv_proxy(
@@ -369,20 +402,24 @@ def compute_adv_proxy(
     required_cols = ["timestamp", "symbol", "close"]
     missing_cols = [col for col in required_cols if col not in prices.columns]
     if missing_cols:
-        raise ValueError(f"Missing required columns in prices DataFrame: {missing_cols}")
+        raise ValueError(
+            f"Missing required columns in prices DataFrame: {missing_cols}"
+        )
 
     # Make a copy to avoid modifying original
     prices_copy = prices.copy()
 
     # Ensure sorted by (symbol, timestamp) for rolling window
     if not prices_copy.empty:
-        prices_copy = prices_copy.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
+        prices_copy = prices_copy.sort_values(["symbol", "timestamp"]).reset_index(
+            drop=True
+        )
 
     # Compute ADV proxy: rolling mean of (close * volume)
     if "volume" in prices_copy.columns:
         # Compute dollar volume: close * volume
         prices_copy["dollar_volume"] = prices_copy["close"] * prices_copy["volume"]
-        
+
         # Rolling mean per symbol
         adv = (
             prices_copy.groupby("symbol")["dollar_volume"]
@@ -395,11 +432,13 @@ def compute_adv_proxy(
         adv = pd.Series(np.nan, index=prices_copy.index)
 
     # Create result DataFrame
-    result = pd.DataFrame({
-        "timestamp": prices_copy["timestamp"],
-        "symbol": prices_copy["symbol"],
-        "adv_usd": adv.values,
-    })
+    result = pd.DataFrame(
+        {
+            "timestamp": prices_copy["timestamp"],
+            "symbol": prices_copy["symbol"],
+            "adv_usd": adv.values,
+        }
+    )
 
     return result
 
@@ -479,11 +518,17 @@ class SlippageModel:
         if self.min_bps < 0.0:
             raise ValueError(f"min_bps must be >= 0.0, got {self.min_bps}")
         if self.max_bps < self.min_bps:
-            raise ValueError(f"max_bps ({self.max_bps}) must be >= min_bps ({self.min_bps})")
+            raise ValueError(
+                f"max_bps ({self.max_bps}) must be >= min_bps ({self.min_bps})"
+            )
         if self.participation_rate_cap <= 0.0:
-            raise ValueError(f"participation_rate_cap must be > 0.0, got {self.participation_rate_cap}")
+            raise ValueError(
+                f"participation_rate_cap must be > 0.0, got {self.participation_rate_cap}"
+            )
         if self.fallback_slippage_bps < 0.0:
-            raise ValueError(f"fallback_slippage_bps must be >= 0.0, got {self.fallback_slippage_bps}")
+            raise ValueError(
+                f"fallback_slippage_bps must be >= 0.0, got {self.fallback_slippage_bps}"
+            )
 
 
 def compute_volatility_proxy(
@@ -516,14 +561,18 @@ def compute_volatility_proxy(
     required_cols = ["timestamp", "symbol", "close"]
     missing_cols = [col for col in required_cols if col not in prices.columns]
     if missing_cols:
-        raise ValueError(f"Missing required columns in prices DataFrame: {missing_cols}")
+        raise ValueError(
+            f"Missing required columns in prices DataFrame: {missing_cols}"
+        )
 
     # Make a copy to avoid modifying original
     prices_copy = prices.copy()
 
     # Ensure sorted by (symbol, timestamp) for rolling window
     if not prices_copy.empty:
-        prices_copy = prices_copy.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
+        prices_copy = prices_copy.sort_values(["symbol", "timestamp"]).reset_index(
+            drop=True
+        )
 
     # Compute log returns per symbol
     prices_copy["log_return"] = (
@@ -541,11 +590,13 @@ def compute_volatility_proxy(
     )
 
     # Create result DataFrame
-    result = pd.DataFrame({
-        "timestamp": prices_copy["timestamp"],
-        "symbol": prices_copy["symbol"],
-        "volatility": volatility.values,
-    })
+    result = pd.DataFrame(
+        {
+            "timestamp": prices_copy["timestamp"],
+            "symbol": prices_copy["symbol"],
+            "volatility": volatility.values,
+        }
+    )
 
     return result
 
@@ -607,7 +658,10 @@ def compute_slippage_bps(
 
     if np.any(valid_mask):
         slippage_bps[valid_mask] = (
-            model.k * volatility[valid_mask] * np.sqrt(participation[valid_mask]) * 10000.0
+            model.k
+            * volatility[valid_mask]
+            * np.sqrt(participation[valid_mask])
+            * 10000.0
         )
         # Clamp to [min_bps, max_bps]
         slippage_bps[valid_mask] = np.clip(

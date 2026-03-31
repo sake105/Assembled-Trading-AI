@@ -36,7 +36,9 @@ def test_equity_curve_regression(golden_mini_backtest_data, position_sizing_fn):
     start_capital = golden_mini_backtest_data["expected_equity_start"]
 
     # Generate orders from signals
-    from src.assembled_core.execution.order_generation import generate_orders_from_targets
+    from src.assembled_core.execution.order_generation import (
+        generate_orders_from_targets,
+    )
 
     # Group signals by timestamp and generate orders
     all_orders = []
@@ -54,13 +56,18 @@ def test_equity_curve_regression(golden_mini_backtest_data, position_sizing_fn):
         if not orders.empty:
             all_orders.append(orders)
             # Update positions (simplified, just for order generation)
-            from src.assembled_core.qa.backtest_engine import _update_positions_vectorized
+            from src.assembled_core.qa.backtest_engine import (
+                _update_positions_vectorized,
+            )
+
             current_positions = _update_positions_vectorized(orders, current_positions)
 
     if all_orders:
         orders_df = pd.concat(all_orders, ignore_index=True)
     else:
-        orders_df = pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
+        orders_df = pd.DataFrame(
+            columns=["timestamp", "symbol", "side", "qty", "price"]
+        )
 
     # Run optimized implementation
     equity_new = simulate_equity(prices, orders_df, start_capital)
@@ -97,7 +104,9 @@ def test_metrics_regression(golden_mini_backtest_data, position_sizing_fn):
     start_capital = golden_mini_backtest_data["expected_equity_start"]
 
     # Generate orders
-    from src.assembled_core.execution.order_generation import generate_orders_from_targets
+    from src.assembled_core.execution.order_generation import (
+        generate_orders_from_targets,
+    )
 
     all_orders = []
     current_positions = pd.DataFrame(columns=["symbol", "qty"])
@@ -113,13 +122,18 @@ def test_metrics_regression(golden_mini_backtest_data, position_sizing_fn):
         )
         if not orders.empty:
             all_orders.append(orders)
-            from src.assembled_core.qa.backtest_engine import _update_positions_vectorized
+            from src.assembled_core.qa.backtest_engine import (
+                _update_positions_vectorized,
+            )
+
             current_positions = _update_positions_vectorized(orders, current_positions)
 
     if all_orders:
         orders_df = pd.concat(all_orders, ignore_index=True)
     else:
-        orders_df = pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
+        orders_df = pd.DataFrame(
+            columns=["timestamp", "symbol", "side", "qty", "price"]
+        )
 
     # Run both implementations
     equity_new = simulate_equity(prices, orders_df, start_capital)
@@ -137,7 +151,9 @@ def test_metrics_regression(golden_mini_backtest_data, position_sizing_fn):
     # Sharpe can be NaN if no variance, so handle that case
     if not (np.isnan(metrics_new["sharpe"]) and np.isnan(metrics_legacy["sharpe"])):
         if not (np.isnan(metrics_new["sharpe"]) or np.isnan(metrics_legacy["sharpe"])):
-            assert abs(metrics_new["sharpe"] - metrics_legacy["sharpe"]) < METRICS_ATOL + (
+            assert abs(
+                metrics_new["sharpe"] - metrics_legacy["sharpe"]
+            ) < METRICS_ATOL + (
                 METRICS_RTOL * abs(metrics_legacy["sharpe"])
             ), f"sharpe mismatch: {metrics_new['sharpe']} vs {metrics_legacy['sharpe']}"
 
@@ -152,7 +168,9 @@ def test_orders_count_regression(golden_mini_backtest_data, position_sizing_fn):
     start_capital = golden_mini_backtest_data["expected_equity_start"]
 
     # Generate orders (using optimized path)
-    from src.assembled_core.execution.order_generation import generate_orders_from_targets
+    from src.assembled_core.execution.order_generation import (
+        generate_orders_from_targets,
+    )
 
     all_orders = []
     current_positions = pd.DataFrame(columns=["symbol", "qty"])
@@ -168,13 +186,18 @@ def test_orders_count_regression(golden_mini_backtest_data, position_sizing_fn):
         )
         if not orders.empty:
             all_orders.append(orders)
-            from src.assembled_core.qa.backtest_engine import _update_positions_vectorized
+            from src.assembled_core.qa.backtest_engine import (
+                _update_positions_vectorized,
+            )
+
             current_positions = _update_positions_vectorized(orders, current_positions)
 
     if all_orders:
         orders_df = pd.concat(all_orders, ignore_index=True)
     else:
-        orders_df = pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
+        orders_df = pd.DataFrame(
+            columns=["timestamp", "symbol", "side", "qty", "price"]
+        )
 
     # Verify orders count is reasonable (not zero, not excessive)
     assert len(orders_df) > 0, "Should generate at least some orders"
@@ -264,7 +287,6 @@ def test_equity_mark_to_market_numba_vs_numpy(golden_mini_backtest_data):
     )
 
     # Results should be identical (within numerical precision)
-    assert abs(equity_numpy - equity_numba) < EQUITY_ATOL, (
-        f"Equity mismatch: NumPy={equity_numpy}, Numba={equity_numba}"
-    )
-
+    assert (
+        abs(equity_numpy - equity_numba) < EQUITY_ATOL
+    ), f"Equity mismatch: NumPy={equity_numpy}, Numba={equity_numba}"

@@ -187,9 +187,7 @@ def test_compute_model_feature_importance_random_forest(sample_X_y_tree):
     factor_mom_importance = importance_df[importance_df["feature"] == "factor_mom"][
         "importance"
     ].iloc[0]
-    importance_df[
-        importance_df["feature"] == "factor_quality"
-    ]["importance"].iloc[0]
+    importance_df[importance_df["feature"] == "factor_quality"]["importance"].iloc[0]
     # This should be true for this dataset, but allow for some randomness
     assert factor_mom_importance >= 0.0  # At least non-negative
 
@@ -466,9 +464,9 @@ def test_integration_ml_validation_with_feature_importance(tmp_path: Path):
 
     # Check that feature importance CSV was created
     feature_importance_files = list(output_dir.glob("ml_feature_importance_*.csv"))
-    assert len(feature_importance_files) > 0, (
-        f"No feature importance CSV found in {output_dir}"
-    )
+    assert (
+        len(feature_importance_files) > 0
+    ), f"No feature importance CSV found in {output_dir}"
 
     # Load and check the file
     feature_importance_df = pd.read_csv(feature_importance_files[0])

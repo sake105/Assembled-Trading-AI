@@ -59,7 +59,9 @@ def fetch_gdelt_events(
             stats["ok"] = True
             return items_cached, None, stats
 
-    api_query = query if query.startswith("(") else f"({query})" if " OR " in query else query
+    api_query = (
+        query if query.startswith("(") else f"({query})" if " OR " in query else query
+    )
     params = {
         "query": api_query,
         "format": "json",
@@ -87,7 +89,10 @@ def fetch_gdelt_events(
         cached_ok = False
         if isinstance(cached_entry, dict):
             cached_utc = cached_entry.get("cached_utc")
-            if isinstance(cached_utc, str) and _age_minutes(cached_utc) <= stale_on_error_minutes:
+            if (
+                isinstance(cached_utc, str)
+                and _age_minutes(cached_utc) <= stale_on_error_minutes
+            ):
                 items = cached_entry.get("items") or []
                 stats["cached"] = True
                 stats["items"] = len(items)
@@ -142,4 +147,3 @@ def fetch_gdelt_events(
     stats["items"] = len(items)
     stats["duration_ms"] = int((time.time() - start) * 1000)
     return items, None, stats
-

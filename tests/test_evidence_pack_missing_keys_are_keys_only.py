@@ -59,7 +59,9 @@ def test_evidence_pack_optional_missing_invalid_path_raises(tmp_path: Path) -> N
                 strict=False,
             )
     msg = str(exc_info.value)
-    assert msg.encode("ascii", errors="ignore").decode("ascii") == msg, "ValueError must be ASCII-only"
+    assert (
+        msg.encode("ascii", errors="ignore").decode("ascii") == msg
+    ), "ValueError must be ASCII-only"
     assert "optional_missing" in msg or "allowed keys" in msg or "invalid" in msg
 
 

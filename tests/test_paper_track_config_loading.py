@@ -22,7 +22,7 @@ def config_dir() -> Path:
 def test_load_trend_baseline_example_config(config_dir: Path) -> None:
     """Test loading trend_baseline_example.yaml config."""
     config_path = config_dir / "trend_baseline_example.yaml"
-    
+
     if not config_path.exists():
         pytest.skip(f"Config file not found: {config_path}")
 
@@ -39,13 +39,15 @@ def test_load_trend_baseline_example_config(config_dir: Path) -> None:
     assert config.strategy_params.get("ma_fast") == 20
     assert config.strategy_params.get("ma_slow") == 50
     assert config.strategy_params.get("top_n") == 5
-    assert config.universe_file.exists(), f"Universe file should exist: {config.universe_file}"
+    assert (
+        config.universe_file.exists()
+    ), f"Universe file should exist: {config.universe_file}"
 
 
 def test_load_multifactor_long_short_example_config(config_dir: Path) -> None:
     """Test loading multifactor_long_short_example.yaml config."""
     config_path = config_dir / "multifactor_long_short_example.yaml"
-    
+
     if not config_path.exists():
         pytest.skip(f"Config file not found: {config_path}")
 
@@ -57,13 +59,15 @@ def test_load_multifactor_long_short_example_config(config_dir: Path) -> None:
     assert config.freq == "1d"
     assert config.seed_capital == 100000.0
     assert config.strategy_params.get("bundle_path") is not None
-    assert config.universe_file.exists(), f"Universe file should exist: {config.universe_file}"
+    assert (
+        config.universe_file.exists()
+    ), f"Universe file should exist: {config.universe_file}"
 
 
 def test_config_optional_fields(config_dir: Path) -> None:
     """Test that optional fields in config are handled correctly."""
     config_path = config_dir / "trend_baseline_example.yaml"
-    
+
     if not config_path.exists():
         pytest.skip(f"Config file not found: {config_path}")
 
@@ -72,4 +76,3 @@ def test_config_optional_fields(config_dir: Path) -> None:
     # Optional fields should have defaults
     assert config.output_root is not None  # Should be computed from strategy_name
     assert config.enable_pit_checks is True  # Default value
-

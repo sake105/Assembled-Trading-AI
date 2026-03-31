@@ -58,7 +58,9 @@ def test_evidence_index_accounting_backfill_sets_relative_posix(tmp_path: Path) 
         "accounting_report_path": str(accounting_rel),
     }
 
-    _backfill_evidence_index_accounting_path(base_dir=output_dir, ledger_result=ledger_result)
+    _backfill_evidence_index_accounting_path(
+        base_dir=output_dir, ledger_result=ledger_result
+    )
 
     data = json.loads(evidence_path.read_text(encoding="utf-8"))
     assert "paths" in data
@@ -108,10 +110,14 @@ def test_evidence_index_accounting_backfill_byte_determinism(tmp_path: Path) -> 
         "accounting_report_path": str(accounting_rel),
     }
 
-    _backfill_evidence_index_accounting_path(base_dir=output_dir, ledger_result=ledger_result)
+    _backfill_evidence_index_accounting_path(
+        base_dir=output_dir, ledger_result=ledger_result
+    )
     content1 = evidence_path.read_bytes()
 
-    _backfill_evidence_index_accounting_path(base_dir=output_dir, ledger_result=ledger_result)
+    _backfill_evidence_index_accounting_path(
+        base_dir=output_dir, ledger_result=ledger_result
+    )
     content2 = evidence_path.read_bytes()
 
     assert content1 == content2
@@ -153,7 +159,9 @@ def test_evidence_index_accounting_backfill_does_not_overwrite(tmp_path: Path) -
         "accounting_report_path": "other/accounting_report_new/report.csv",
     }
 
-    _backfill_evidence_index_accounting_path(base_dir=output_dir, ledger_result=ledger_result)
+    _backfill_evidence_index_accounting_path(
+        base_dir=output_dir, ledger_result=ledger_result
+    )
 
     data = json.loads(evidence_path.read_text(encoding="utf-8"))
     assert data["paths"].get("accounting_report_path") == existing_value

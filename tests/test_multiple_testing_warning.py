@@ -18,10 +18,28 @@ from src.assembled_core.qa.robustness import build_multiple_testing_warnings
 def test_build_multiple_testing_warnings_inflated():
     """Test that inflated best metric triggers warning."""
     # Create synthetic results with inflated best Sharpe
-    results_df = pd.DataFrame({
-        "param": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
-        "sharpe": [0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 5.0],  # Inflated best
-    })
+    results_df = pd.DataFrame(
+        {
+            "param": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+            "sharpe": [
+                0.5,
+                0.6,
+                0.7,
+                0.8,
+                0.9,
+                1.0,
+                1.1,
+                1.2,
+                1.3,
+                1.4,
+                1.5,
+                1.6,
+                1.7,
+                1.8,
+                5.0,
+            ],  # Inflated best
+        }
+    )
 
     warnings = build_multiple_testing_warnings(results_df, metric_col="sharpe")
 
@@ -37,10 +55,12 @@ def test_build_multiple_testing_warnings_inflated():
 def test_build_multiple_testing_warnings_no_warning():
     """Test that small spread or few trials don't trigger warning."""
     # Small number of trials
-    results_df = pd.DataFrame({
-        "param": [1, 2, 3],
-        "sharpe": [1.0, 1.1, 1.2],
-    })
+    results_df = pd.DataFrame(
+        {
+            "param": [1, 2, 3],
+            "sharpe": [1.0, 1.1, 1.2],
+        }
+    )
 
     warnings = build_multiple_testing_warnings(results_df, metric_col="sharpe")
 
@@ -48,10 +68,12 @@ def test_build_multiple_testing_warnings_no_warning():
     assert warnings["warning_inflated"] is False
 
     # Small spread (even with many trials)
-    results_df2 = pd.DataFrame({
-        "param": list(range(1, 21)),
-        "sharpe": [1.0] * 20,  # All same (spread = 0)
-    })
+    results_df2 = pd.DataFrame(
+        {
+            "param": list(range(1, 21)),
+            "sharpe": [1.0] * 20,  # All same (spread = 0)
+        }
+    )
 
     warnings2 = build_multiple_testing_warnings(results_df2, metric_col="sharpe")
 
@@ -61,10 +83,12 @@ def test_build_multiple_testing_warnings_no_warning():
 
 def test_build_multiple_testing_warnings_deterministic():
     """Test that same input produces identical warnings."""
-    results_df = pd.DataFrame({
-        "param": list(range(1, 16)),
-        "sharpe": [0.5 + i * 0.1 for i in range(15)],
-    })
+    results_df = pd.DataFrame(
+        {
+            "param": list(range(1, 16)),
+            "sharpe": [0.5 + i * 0.1 for i in range(15)],
+        }
+    )
 
     warnings1 = build_multiple_testing_warnings(results_df, metric_col="sharpe")
     warnings2 = build_multiple_testing_warnings(results_df, metric_col="sharpe")
@@ -75,10 +99,12 @@ def test_build_multiple_testing_warnings_deterministic():
 
 def test_build_multiple_testing_warnings_missing_column():
     """Test that missing metric column returns empty warnings."""
-    results_df = pd.DataFrame({
-        "param": [1, 2, 3],
-        "other_metric": [1.0, 2.0, 3.0],
-    })
+    results_df = pd.DataFrame(
+        {
+            "param": [1, 2, 3],
+            "other_metric": [1.0, 2.0, 3.0],
+        }
+    )
 
     warnings = build_multiple_testing_warnings(results_df, metric_col="sharpe")
 
@@ -89,10 +115,12 @@ def test_build_multiple_testing_warnings_missing_column():
 
 def test_build_multiple_testing_warnings_all_nan():
     """Test that all-NaN metrics return empty warnings."""
-    results_df = pd.DataFrame({
-        "param": [1, 2, 3],
-        "sharpe": [float("nan"), float("nan"), float("nan")],
-    })
+    results_df = pd.DataFrame(
+        {
+            "param": [1, 2, 3],
+            "sharpe": [float("nan"), float("nan"), float("nan")],
+        }
+    )
 
     warnings = build_multiple_testing_warnings(results_df, metric_col="sharpe")
 
@@ -103,10 +131,12 @@ def test_build_multiple_testing_warnings_all_nan():
 
 def test_build_multiple_testing_warnings_some_nan():
     """Test that some NaN values are filtered out."""
-    results_df = pd.DataFrame({
-        "param": [1, 2, 3, 4, 5],
-        "sharpe": [1.0, float("nan"), 1.2, float("nan"), 1.5],
-    })
+    results_df = pd.DataFrame(
+        {
+            "param": [1, 2, 3, 4, 5],
+            "sharpe": [1.0, float("nan"), 1.2, float("nan"), 1.5],
+        }
+    )
 
     warnings = build_multiple_testing_warnings(results_df, metric_col="sharpe")
 
@@ -118,10 +148,12 @@ def test_build_multiple_testing_warnings_some_nan():
 
 def test_build_multiple_testing_warnings_custom_metric():
     """Test that custom metric column works."""
-    results_df = pd.DataFrame({
-        "param": list(range(1, 16)),
-        "cagr": [0.05 + i * 0.01 for i in range(15)],
-    })
+    results_df = pd.DataFrame(
+        {
+            "param": list(range(1, 16)),
+            "cagr": [0.05 + i * 0.01 for i in range(15)],
+        }
+    )
 
     warnings = build_multiple_testing_warnings(results_df, metric_col="cagr")
 
@@ -133,10 +165,12 @@ def test_build_multiple_testing_warnings_custom_metric():
 def test_build_multiple_testing_warnings_threshold_edge_case():
     """Test threshold edge cases (n_trials=10, spread=2.0)."""
     # Exactly at threshold (should trigger warning)
-    results_df = pd.DataFrame({
-        "param": list(range(1, 11)),  # n_trials = 10
-        "sharpe": [1.0] * 9 + [3.0],  # spread = 2.0
-    })
+    results_df = pd.DataFrame(
+        {
+            "param": list(range(1, 11)),  # n_trials = 10
+            "sharpe": [1.0] * 9 + [3.0],  # spread = 2.0
+        }
+    )
 
     warnings = build_multiple_testing_warnings(results_df, metric_col="sharpe")
 
@@ -145,10 +179,12 @@ def test_build_multiple_testing_warnings_threshold_edge_case():
     assert warnings["warning_inflated"] is True
 
     # Just below threshold (spread = 1.99)
-    results_df2 = pd.DataFrame({
-        "param": list(range(1, 11)),
-        "sharpe": [1.0] * 9 + [2.99],  # spread = 1.99
-    })
+    results_df2 = pd.DataFrame(
+        {
+            "param": list(range(1, 11)),
+            "sharpe": [1.0] * 9 + [2.99],  # spread = 1.99
+        }
+    )
 
     warnings2 = build_multiple_testing_warnings(results_df2, metric_col="sharpe")
 

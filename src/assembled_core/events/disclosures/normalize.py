@@ -12,6 +12,7 @@ from .models import DisclosureEvent
 def now_utc_iso() -> str:
     """Current UTC timestamp as ISO string."""
     from datetime import datetime, timezone
+
     return datetime.now(timezone.utc).isoformat()
 
 
@@ -20,12 +21,16 @@ def _canonical_key(raw: Dict[str, Any], source_id: str, published_utc: str) -> s
     # House PTR
     if source_id == "house_ptr":
         base = "house_ptr|" + str(raw.get("doc_id") or raw.get("link") or "")
-        pdf_meta = raw.get("pdf_meta") if isinstance(raw.get("pdf_meta"), dict) else None
+        pdf_meta = (
+            raw.get("pdf_meta") if isinstance(raw.get("pdf_meta"), dict) else None
+        )
         if pdf_meta and pdf_meta.get("sha256"):
             base = base + "|" + str(pdf_meta["sha256"])
         return base
     # Form 4 (edgar): fingerprint by edgar_form4|accession|link
-    if raw.get("link") and (raw.get("company") is not None or raw.get("cik") is not None):
+    if raw.get("link") and (
+        raw.get("company") is not None or raw.get("cik") is not None
+    ):
         key = "edgar_form4|" + str(raw.get("accession") or raw.get("link") or "")
         return key
     parts = [
@@ -59,13 +64,17 @@ def normalize_raw_item(
         action_type = "HOUSE_PTR_FILED"
         notional = None
     # Form 4 (edgar): raw has link + company/cik -> action_type FORM4_FILED
-    elif raw.get("link") and (raw.get("company") is not None or raw.get("cik") is not None):
+    elif raw.get("link") and (
+        raw.get("company") is not None or raw.get("cik") is not None
+    ):
         person_or_entity = str(raw.get("company") or "").strip()
         ticker = None
         action_type = "FORM4_FILED"
         notional = None
     else:
-        person_or_entity = str(raw.get("person_or_entity") or raw.get("person") or "").strip()
+        person_or_entity = str(
+            raw.get("person_or_entity") or raw.get("person") or ""
+        ).strip()
         ticker = raw.get("ticker")
         if ticker is not None:
             ticker = str(ticker).strip() or None

@@ -67,40 +67,40 @@ def _simulate_fills_per_order(
                 prices = orders_at_timestamp["price"].values.astype(np.float64)
 
                 # Filter invalid orders (NaN prices, zero qty)
-                valid_mask = (
-                    ~np.isnan(prices)
-                    & (qtys > 0.0)
-                    & (qtys != 0.0)
-                )
-                
+                valid_mask = ~np.isnan(prices) & (qtys > 0.0) & (qtys != 0.0)
+
                 if not np.any(valid_mask):
                     return cash, positions.copy()
-                
+
                 # Filter to valid orders
                 symbols_valid = symbols[valid_mask]
                 sides_valid = sides[valid_mask]
                 qtys_valid = qtys[valid_mask]
                 prices_valid = prices[valid_mask]
-                
+
                 # Convert sides to integers (0=BUY, 1=SELL) for Numba
                 side_map = {"BUY": 0, "SELL": 1}
-                sides_int = np.array([side_map.get(side, -1) for side in sides_valid], dtype=np.int32)
-                
+                sides_int = np.array(
+                    [side_map.get(side, -1) for side in sides_valid], dtype=np.int32
+                )
+
                 # Filter out invalid sides
                 valid_side_mask = (sides_int == 0) | (sides_int == 1)
                 if not np.any(valid_side_mask):
                     return cash, positions.copy()
-                
+
                 symbols_final = symbols_valid[valid_side_mask]
                 sides_final = sides_int[valid_side_mask]
                 qtys_final = qtys_valid[valid_side_mask]
                 prices_final = prices_valid[valid_side_mask]
-                
+
                 # Create symbol index mapping for Numba
                 unique_symbols = np.unique(symbols_final)
                 symbol_to_idx = {sym: idx for idx, sym in enumerate(unique_symbols)}
-                symbol_indices = np.array([symbol_to_idx[sym] for sym in symbols_final], dtype=np.int32)
-                
+                symbol_indices = np.array(
+                    [symbol_to_idx[sym] for sym in symbols_final], dtype=np.int32
+                )
+
                 # Compute cash delta with Numba
                 total_cash_delta = apply_fills_cash_delta_numba(
                     sides_final,
@@ -111,20 +111,22 @@ def _simulate_fills_per_order(
                     commission_bps,
                 )
                 updated_cash = cash + total_cash_delta
-                
+
                 # Compute position deltas with Numba
                 unique_indices, position_deltas = apply_fills_position_deltas_numba(
                     sides_final,
                     qtys_final,
                     symbol_indices,
                 )
-                
+
                 # Convert back to symbol names and update positions
                 updated_positions = positions.copy()
                 for idx, delta in zip(unique_indices, position_deltas):
                     symbol = unique_symbols[idx]
-                    updated_positions[symbol] = updated_positions.get(symbol, 0.0) + delta
-                
+                    updated_positions[symbol] = (
+                        updated_positions.get(symbol, 0.0) + delta
+                    )
+
                 return updated_cash, updated_positions
         except (ImportError, AttributeError, KeyError):
             # Fall through to pure NumPy implementation
@@ -214,9 +216,7 @@ def _simulate_fills_per_order(
 
     # Aggregate position deltas by symbol (using pandas groupby for efficiency)
     # Convert to DataFrame for groupby, then back to dict
-    position_df = pd.DataFrame(
-        {"symbol": symbols, "qty_delta": position_deltas}
-    )
+    position_df = pd.DataFrame({"symbol": symbols, "qty_delta": position_deltas})
     position_agg = position_df.groupby("symbol")["qty_delta"].sum().to_dict()
 
     # Update positions dictionary
@@ -263,10 +263,14 @@ def _update_equity_mark_to_market(
 
     # Extract price row as numpy array (aligned with symbols)
     row = price_pivot.loc[timestamp]
-    prices_array = np.array([float(row.get(sym, np.nan)) for sym in symbols], dtype=np.float64)
+    prices_array = np.array(
+        [float(row.get(sym, np.nan)) for sym in symbols], dtype=np.float64
+    )
 
     # Extract position quantities as numpy array (aligned with symbols)
-    positions_array = np.array([positions.get(sym, 0.0) for sym in symbols], dtype=np.float64)
+    positions_array = np.array(
+        [positions.get(sym, 0.0) for sym in symbols], dtype=np.float64
+    )
 
     # Try Numba-accelerated path if available and requested
     if use_numba:

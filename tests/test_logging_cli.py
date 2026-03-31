@@ -13,6 +13,9 @@ sys.path.insert(0, str(ROOT))
 
 from src.assembled_core.logging_utils import setup_logging
 
+import src.assembled_core.execution.safe_bridge  # noqa: F401 - ensure submodule is loaded for monkeypatch
+import src.assembled_core.config  # noqa: F401 - ensure submodule is loaded for monkeypatch
+
 
 def test_setup_logging():
     """Test that setup_logging creates a logger with correct level."""

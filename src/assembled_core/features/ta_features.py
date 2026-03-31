@@ -68,7 +68,11 @@ def add_log_returns(
     result[out_col] = log_ret.astype("float64")
 
     # Compatibility: also add legacy name if using namespace (deprecation)
-    if use_namespace and out_col == "ta_log_return_v1" and "log_return" not in result.columns:
+    if (
+        use_namespace
+        and out_col == "ta_log_return_v1"
+        and "log_return" not in result.columns
+    ):
         result["log_return"] = result[out_col]
 
     return result
@@ -124,9 +128,13 @@ def add_moving_averages(
             )
         else:
             df[col_name] = df[price_col].rolling(window=window, min_periods=1).mean()
-        
+
         # Compatibility: also add legacy name if using namespace (deprecation)
-        if use_namespace and col_name.startswith("ta_") and f"ma_{window}" not in df.columns:
+        if (
+            use_namespace
+            and col_name.startswith("ta_")
+            and f"ma_{window}" not in df.columns
+        ):
             legacy_name = col_name.replace("ta_", "").replace("_v1", "")
             df[legacy_name] = df[col_name]
 
@@ -190,7 +198,7 @@ def add_atr(
     # Use namespaced name by default (Sprint 5 / F2)
     col_name = f"ta_atr_{window}_v1"
     result[col_name] = atr.astype("float64")
-    
+
     # Compatibility: also add legacy name (deprecation)
     legacy_name = f"atr_{window}"
     if legacy_name not in result.columns:
@@ -258,7 +266,7 @@ def add_rsi(
     # Use namespaced name by default (Sprint 5 / F2)
     col_name = f"ta_rsi_{window}_v1"
     result[col_name] = rsi.astype("float64")
-    
+
     # Compatibility: also add legacy name (deprecation)
     legacy_name = f"rsi_{window}"
     if legacy_name not in result.columns:

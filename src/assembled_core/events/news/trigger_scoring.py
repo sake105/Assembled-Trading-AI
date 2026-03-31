@@ -15,21 +15,43 @@ TOPIC_RULES: List[Dict[str, Any]] = [
     {
         "topic_id": "geopolitical_conflict",
         "trigger_type": "geo_risk",
-        "keywords": ["war", "conflict", "military", "attack", "missile", "invasion", "troops"],
+        "keywords": [
+            "war",
+            "conflict",
+            "military",
+            "attack",
+            "missile",
+            "invasion",
+            "troops",
+        ],
         "base_severity": 2,
     },
     {
         "topic_id": "sanctions_trade",
         "trigger_type": "geo_risk",
-        "keywords": ["sanctions", "export controls", "trade war", "tariff", "embargo", "ban"],
+        "keywords": [
+            "sanctions",
+            "export controls",
+            "trade war",
+            "tariff",
+            "embargo",
+            "ban",
+        ],
         "base_severity": 2,
     },
     {
         "topic_id": "shipping_disruption",
         "trigger_type": "supply_chain",
         "keywords": [
-            "red sea", "suez", "strait of hormuz", "shipping", "freight",
-            "supply chain", "port", "blockade", "reroute",
+            "red sea",
+            "suez",
+            "strait of hormuz",
+            "shipping",
+            "freight",
+            "supply chain",
+            "port",
+            "blockade",
+            "reroute",
         ],
         "base_severity": 2,
     },
@@ -42,19 +64,42 @@ TOPIC_RULES: List[Dict[str, Any]] = [
     {
         "topic_id": "energy_crisis",
         "trigger_type": "commodity",
-        "keywords": ["oil price", "energy crisis", "opec", "gas price", "crude", "oil surge"],
+        "keywords": [
+            "oil price",
+            "energy crisis",
+            "opec",
+            "gas price",
+            "crude",
+            "oil surge",
+        ],
         "base_severity": 2,
     },
     {
         "topic_id": "market_crash",
         "trigger_type": "market_stress",
-        "keywords": ["crash", "slump", "plunge", "sell-off", "selloff", "panic", "circuit breaker"],
+        "keywords": [
+            "crash",
+            "slump",
+            "plunge",
+            "sell-off",
+            "selloff",
+            "panic",
+            "circuit breaker",
+        ],
         "base_severity": 2,
     },
     {
         "topic_id": "central_bank",
         "trigger_type": "macro",
-        "keywords": ["fed", "ecb", "rate hike", "rate cut", "interest rate", "monetary policy", "central bank"],
+        "keywords": [
+            "fed",
+            "ecb",
+            "rate hike",
+            "rate cut",
+            "interest rate",
+            "monetary policy",
+            "central bank",
+        ],
         "base_severity": 1,
     },
     {
@@ -109,8 +154,16 @@ def score_triggers(
             ev = events_by_id.get(eid)
             if ev is None:
                 continue
-            title = getattr(ev, "title", "") if hasattr(ev, "title") else ev.get("title", "")
-            summary = getattr(ev, "summary", "") if hasattr(ev, "summary") else ev.get("summary", "")
+            title = (
+                getattr(ev, "title", "")
+                if hasattr(ev, "title")
+                else ev.get("title", "")
+            )
+            summary = (
+                getattr(ev, "summary", "")
+                if hasattr(ev, "summary")
+                else ev.get("summary", "")
+            )
             cluster_text_parts.append(str(title or ""))
             cluster_text_parts.append(str(summary or ""))
 
@@ -136,20 +189,22 @@ def score_triggers(
             trigger_id_raw = f"{cluster_id}:{rule['topic_id']}"
             trigger_id = f"trg_{sha256(trigger_id_raw.encode()).hexdigest()[:12]}"
 
-            triggers.append({
-                "trigger_id": trigger_id,
-                "cluster_id": cluster_id,
-                "trigger_type": rule["trigger_type"],
-                "topic_id": rule["topic_id"],
-                "severity": severity,
-                "confidence": round(confidence, 3),
-                "keyword_hits": hits,
-                "event_count": len(event_ids),
-                "countries": countries,
-                "evidence_ok": evidence_ok,
-                "sample_title": sample_titles[0] if sample_titles else "",
-                "generated_utc": generated_utc,
-            })
+            triggers.append(
+                {
+                    "trigger_id": trigger_id,
+                    "cluster_id": cluster_id,
+                    "trigger_type": rule["trigger_type"],
+                    "topic_id": rule["topic_id"],
+                    "severity": severity,
+                    "confidence": round(confidence, 3),
+                    "keyword_hits": hits,
+                    "event_count": len(event_ids),
+                    "countries": countries,
+                    "evidence_ok": evidence_ok,
+                    "sample_title": sample_titles[0] if sample_titles else "",
+                    "generated_utc": generated_utc,
+                }
+            )
 
     triggers.sort(key=lambda t: (-t["severity"], -t["confidence"], t["trigger_id"]))
     return triggers

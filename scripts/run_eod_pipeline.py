@@ -105,7 +105,7 @@ def parse_eod_args() -> argparse.Namespace:
         default=str(OUTPUT_DIR),
         help="Output directory (default: from config)",
     )
-    
+
     # Broker snapshot arguments (Sprint 13 extension)
     p.add_argument(
         "--broker-snapshot-policy",
@@ -113,7 +113,7 @@ def parse_eod_args() -> argparse.Namespace:
         choices=["ignore", "prefer", "require"],
         default="prefer",
         help="Broker snapshot usage for reconciliation. "
-             "ignore=always paper view, prefer=snapshot if present else paper (default), require=fail if missing.",
+        "ignore=always paper view, prefer=snapshot if present else paper (default), require=fail if missing.",
     )
     p.add_argument(
         "--write-broker-snapshot",

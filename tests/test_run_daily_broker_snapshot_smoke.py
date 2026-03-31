@@ -32,18 +32,20 @@ def test_run_daily_with_broker_snapshot_file(tmp_path: Path):
         json.dump(snapshot_data, f)
 
     # Create minimal price data (required for run_daily_eod)
-    price_data = pd.DataFrame([
-        {
-            "timestamp": pd.Timestamp("2025-01-15", tz="UTC"),
-            "symbol": "AAPL",
-            "close": 150.0,
-            "open": 149.0,
-            "high": 151.0,
-            "low": 148.0,
-            "volume": 1000000,
-        },
-    ])
-    
+    price_data = pd.DataFrame(
+        [
+            {
+                "timestamp": pd.Timestamp("2025-01-15", tz="UTC"),
+                "symbol": "AAPL",
+                "close": 150.0,
+                "open": 149.0,
+                "high": 151.0,
+                "low": 148.0,
+                "volume": 1000000,
+            },
+        ]
+    )
+
     # Write price file
     price_file = tmp_path / "prices.parquet"
     price_data.to_parquet(price_file)
@@ -63,14 +65,16 @@ def test_run_daily_with_broker_snapshot_file(tmp_path: Path):
             broker_snapshot_date="2025-01-15",
             broker_snapshot_policy="prefer",
         )
-        
+
         # Verify snapshot was imported (check output directory)
         snapshot_dir = output_dir / "broker_snapshot_daily_snapshot"
-        assert snapshot_dir.exists(), "Broker snapshot directory should exist after import"
-        
+        assert (
+            snapshot_dir.exists()
+        ), "Broker snapshot directory should exist after import"
+
         snapshot_json = snapshot_dir / "snapshot_2025-01-15.json"
         assert snapshot_json.exists(), "Broker snapshot JSON should exist after import"
-        
+
     except (FileNotFoundError, ValueError):
         # Expected if universe/price data is incomplete, but import should have been attempted
         # Check that snapshot was imported before any other errors
@@ -89,29 +93,31 @@ def test_run_daily_broker_snapshot_policy_require_missing_file(tmp_path: Path):
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Create minimal price data
-    price_data = pd.DataFrame([
-        {
-            "timestamp": pd.Timestamp("2025-01-15", tz="UTC"),
-            "symbol": "AAPL",
-            "close": 150.0,
-            "open": 149.0,
-            "high": 151.0,
-            "low": 148.0,
-            "volume": 1000000,
-        },
-    ])
-    
+    price_data = pd.DataFrame(
+        [
+            {
+                "timestamp": pd.Timestamp("2025-01-15", tz="UTC"),
+                "symbol": "AAPL",
+                "close": 150.0,
+                "open": 149.0,
+                "high": 151.0,
+                "low": 148.0,
+                "volume": 1000000,
+            },
+        ]
+    )
+
     price_file = tmp_path / "prices.parquet"
     price_data.to_parquet(price_file)
 
     # Call with policy=require and missing file
     import sys
     from io import StringIO
-    
+
     # Capture stderr to check error message
     old_stderr = sys.stderr
     sys.stderr = StringIO()
-    
+
     try:
         _ = run_daily_eod(
             date_str="2025-01-15",

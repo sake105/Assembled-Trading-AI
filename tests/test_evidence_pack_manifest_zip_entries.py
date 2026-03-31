@@ -23,7 +23,9 @@ def _build_pack(tmp_path: Path) -> tuple[Path, Path]:
     as_of_date = "2025-01-15"
     date_str = "2025-01-15"
 
-    broker_snapshot_path = output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    broker_snapshot_path = (
+        output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    )
     ledger_pack_path = output_dir / "ledger_run" / "ledger_events.parquet"
     reconcile_report_path = output_dir / "reconcile_run" / f"reconcile_{date_str}.json"
     for p in [broker_snapshot_path, ledger_pack_path, reconcile_report_path]:
@@ -73,7 +75,9 @@ def test_manifest_has_zip_entries_and_count(tmp_path: Path) -> None:
     assert zip_entries == sorted(zip_entries), "zip_entries must be sorted"
 
     # pack_manifest_*.json must be in zip_entries
-    manifest_names = [e for e in zip_entries if e.startswith("pack_manifest_") and e.endswith(".json")]
+    manifest_names = [
+        e for e in zip_entries if e.startswith("pack_manifest_") and e.endswith(".json")
+    ]
     assert len(manifest_names) >= 1, "pack_manifest_*.json must appear in zip_entries"
 
     # files[] length should match zip_entries_count
@@ -93,6 +97,7 @@ def test_manifest_has_zip_entries_and_count(tmp_path: Path) -> None:
         REQUIRED_KEYS_BY_SOURCE,
         OPTIONAL_KEYS_BY_SOURCE,
     )
+
     src = manifest_data.get("source")
     allowed_req = set(REQUIRED_KEYS_BY_SOURCE.get(src, []))
     allowed_opt = set(OPTIONAL_KEYS_BY_SOURCE.get(src, []))

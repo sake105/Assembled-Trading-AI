@@ -72,7 +72,8 @@ def test_run_summary_json_exists_and_contains_run_id(
 
     monkeypatch.setattr(rpt_module, "write_paper_day_outputs", mock_write_outputs)
     monkeypatch.setattr(
-        "src.assembled_core.paper.paper_track.write_paper_day_outputs", mock_write_outputs
+        "src.assembled_core.paper.paper_track.write_paper_day_outputs",
+        mock_write_outputs,
     )
 
     # Mock save_paper_state
@@ -211,7 +212,8 @@ def test_run_summary_json_includes_skipped_days(
         run_dir.mkdir(parents=True, exist_ok=True)
 
     monkeypatch.setattr(
-        "src.assembled_core.paper.paper_track.write_paper_day_outputs", mock_write_outputs
+        "src.assembled_core.paper.paper_track.write_paper_day_outputs",
+        mock_write_outputs,
     )
 
     # Mock save_paper_state
@@ -278,7 +280,9 @@ def test_run_summary_json_includes_skipped_days(
         assert summary["days_successful"] == 2  # Two days were processed
 
         # Check per_day_statuses includes skipped day
-        skipped_statuses = [s for s in summary["per_day_statuses"] if s["status"] == "skipped"]
+        skipped_statuses = [
+            s for s in summary["per_day_statuses"] if s["status"] == "skipped"
+        ]
         assert len(skipped_statuses) == 1
         assert skipped_statuses[0]["date"] == "2025-01-15"
 
@@ -395,4 +399,3 @@ def test_run_id_not_in_manifest_if_not_provided(
     # run_id should be None if not provided
     assert "run_id" in manifest
     assert manifest["run_id"] is None
-

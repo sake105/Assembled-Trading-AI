@@ -888,7 +888,11 @@ def run_paper_track_health_checks(
         days_threshold = (
             args.paper_track_days
             if args.paper_track_days is not None
-            else (config_thresholds.get("days") if config_thresholds.get("days") is not None else 3)
+            else (
+                config_thresholds.get("days")
+                if config_thresholds.get("days") is not None
+                else 3
+            )
         )
         max_daily_pnl_pct = (
             args.paper_track_max_daily_pnl_pct
@@ -924,7 +928,11 @@ def run_paper_track_health_checks(
             "max_daily_pnl_pct": max_daily_pnl_pct,
             "max_drawdown_min": max_drawdown_min,
             "max_gap_days": max_gap_days,
-            "source": "CLI" if args.paper_track_days is not None else ("config" if config_thresholds else "default"),
+            "source": (
+                "CLI"
+                if args.paper_track_days is not None
+                else ("config" if config_thresholds else "default")
+            ),
         }
 
         # Find latest run
@@ -935,7 +943,9 @@ def run_paper_track_health_checks(
         freshness_check.name = f"paper_track_freshness_{strategy_name}"
         # Add threshold details to freshness check
         if freshness_check.details:
-            freshness_check.details = f"{freshness_check.details} (thresholds: {threshold_details})"
+            freshness_check.details = (
+                f"{freshness_check.details} (thresholds: {threshold_details})"
+            )
         else:
             freshness_check.details = f"thresholds: {threshold_details}"
         checks.append(freshness_check)
@@ -991,7 +1001,9 @@ def find_batch_directories(batch_root: Path) -> list[Path]:
             batch_dirs.append(item)
 
     # Sort by modification time (newest first)
-    batch_dirs.sort(key=lambda p: (p / "batch_manifest.json").stat().st_mtime, reverse=True)
+    batch_dirs.sort(
+        key=lambda p: (p / "batch_manifest.json").stat().st_mtime, reverse=True
+    )
 
     return batch_dirs
 
@@ -1961,9 +1973,9 @@ def run_health_checks_from_cli(args: argparse.Namespace) -> int:
             "max_drawdown_min": args.max_drawdown_min,
             "max_drawdown_max": args.max_drawdown_max,
             "max_turnover": args.max_turnover,
-            "paper_track_root": str(args.paper_track_root)
-            if args.paper_track_root
-            else "auto-detected",
+            "paper_track_root": (
+                str(args.paper_track_root) if args.paper_track_root else "auto-detected"
+            ),
             "paper_track_days": args.paper_track_days,
             "batch_root": str(args.batch_root) if args.batch_root else "auto-detected",
             "batch_max_failure_rate": args.batch_max_failure_rate,

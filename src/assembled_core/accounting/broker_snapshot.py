@@ -75,7 +75,9 @@ def normalize_broker_snapshot(
     aggregated = aggregated[aggregated["qty"].abs() > qty_tol].copy()
 
     # Deterministic sort by symbol
-    normalized = aggregated.sort_values("symbol", kind="mergesort").reset_index(drop=True)
+    normalized = aggregated.sort_values("symbol", kind="mergesort").reset_index(
+        drop=True
+    )
 
     # Extract metadata (any additional columns beyond symbol, qty)
     metadata_cols = [col for col in positions_df.columns if col not in required_cols]

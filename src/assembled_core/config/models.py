@@ -84,7 +84,9 @@ class SignalConfig(BaseModel):
                 raise ValueError(f"ma_slow ({v}) must be > ma_fast ({ma_fast})")
         return v
 
-    model_config = ConfigDict(extra="allow", frozen=False)  # Allow extra for strategy-specific params
+    model_config = ConfigDict(
+        extra="allow", frozen=False
+    )  # Allow extra for strategy-specific params
 
 
 # ============================================================================
@@ -110,7 +112,9 @@ class RiskConfig(BaseModel):
         default=True, description="Enable pre-trade checks"
     )
 
-    model_config = ConfigDict(extra="allow", frozen=False)  # Allow extra for future risk params
+    model_config = ConfigDict(
+        extra="allow", frozen=False
+    )  # Allow extra for future risk params
 
 
 # ============================================================================

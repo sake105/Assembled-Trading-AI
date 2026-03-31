@@ -144,12 +144,16 @@ def get_performance_metrics(freq: Frequency) -> dict:
             "final_pf": metrics["final_pf"],
             "sharpe": metrics["sharpe"],
             "rows": metrics["rows"],
-            "first": metrics["first"].isoformat()
-            if hasattr(metrics["first"], "isoformat")
-            else str(metrics["first"]),
-            "last": metrics["last"].isoformat()
-            if hasattr(metrics["last"], "isoformat")
-            else str(metrics["last"]),
+            "first": (
+                metrics["first"].isoformat()
+                if hasattr(metrics["first"], "isoformat")
+                else str(metrics["first"])
+            ),
+            "last": (
+                metrics["last"].isoformat()
+                if hasattr(metrics["last"], "isoformat")
+                else str(metrics["last"])
+            ),
         }
 
     except HTTPException:

@@ -101,7 +101,9 @@ def test_trend_adapter_generates_targets(
 
 
 def test_multifactor_adapter_generates_targets_with_patched_runtime(
-    monkeypatch: pytest.MonkeyPatch, synthetic_prices_5days: pd.DataFrame, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch,
+    synthetic_prices_5days: pd.DataFrame,
+    tmp_path: Path,
 ) -> None:
     """Multi-factor adapter should generate target positions via patched strategy runtime.
 
@@ -113,9 +115,7 @@ def test_multifactor_adapter_generates_targets_with_patched_runtime(
     def mock_load_prices(universe_file, freq):  # type: ignore[override]
         return synthetic_prices_5days.copy()
 
-    monkeypatch.setattr(
-        paper_module, "load_eod_prices_for_universe", mock_load_prices
-    )
+    monkeypatch.setattr(paper_module, "load_eod_prices_for_universe", mock_load_prices)
 
     # Patch multifactor signal generator
     def fake_generate_multifactor_long_short_signals(
@@ -196,5 +196,3 @@ def test_multifactor_adapter_generates_targets_with_patched_runtime(
     assert result.status == "success"
     # With patched adapter we expect some positions or at least orders
     assert not result.orders.empty or not result.state_after.positions.empty
-
-

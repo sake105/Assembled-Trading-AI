@@ -142,6 +142,7 @@ def test_run_paper_day_with_nan_symbol_no_orders(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test that run_paper_day handles NaN symbols gracefully and produces no orders for them."""
+
     # Mock load_eod_prices_for_universe to return our synthetic data
     def _mock_load_eod_prices_for_universe(universe_file, freq):
         return prices_with_nan_symbol
@@ -247,6 +248,7 @@ def test_daily_summary_includes_universe_stats(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test that daily_summary.json includes n_symbols_requested, n_tradeable, n_missing."""
+
     # Mock load_eod_prices_for_universe
     def _mock_load_eod_prices_for_universe(universe_file, freq):
         return prices_with_nan_symbol
@@ -304,4 +306,3 @@ def test_daily_summary_includes_universe_stats(
     assert "Symbols Requested: 3" in md_content
     assert "Tradeable: 2" in md_content
     assert "Missing/Invalid: 1" in md_content
-

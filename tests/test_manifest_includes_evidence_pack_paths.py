@@ -9,17 +9,24 @@ from pathlib import Path
 
 import json
 
-from src.assembled_core.pipeline.orchestrator import _manifest_path_str, _write_manifest_json
+from src.assembled_core.pipeline.orchestrator import (
+    _manifest_path_str,
+    _write_manifest_json,
+)
 
 
-def test_manifest_includes_evidence_pack_paths_and_is_deterministic(tmp_path: Path) -> None:
+def test_manifest_includes_evidence_pack_paths_and_is_deterministic(
+    tmp_path: Path,
+) -> None:
     """Manifest includes evidence_* fields with POSIX-relative paths and is byte-deterministic."""
     base = tmp_path
 
     # Create dummy evidence files under base/output-style structure
     evidence_index_file = base / "evidence_run_1d" / "evidence_2025-01-15.json"
     evidence_pack_file = base / "evidence_run_1d" / "pack_2025-01-15.zip"
-    evidence_pack_manifest_file = base / "evidence_run_1d" / "pack_manifest_2025-01-15.json"
+    evidence_pack_manifest_file = (
+        base / "evidence_run_1d" / "pack_manifest_2025-01-15.json"
+    )
 
     for p in [evidence_index_file, evidence_pack_file, evidence_pack_manifest_file]:
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -57,11 +64,18 @@ def test_manifest_includes_evidence_pack_paths_and_is_deterministic(tmp_path: Pa
     # Load manifest and verify evidence_* fields and POSIX-relative paths
     loaded = json.loads(manifest_path.read_text(encoding="utf-8"))
 
-    for key in ("evidence_index_path", "evidence_pack_path", "evidence_pack_manifest_path"):
+    for key in (
+        "evidence_index_path",
+        "evidence_pack_path",
+        "evidence_pack_manifest_path",
+    ):
         assert key in loaded
         value = loaded[key]
         # Paths should be relative to base and use POSIX slashes
         assert isinstance(value, str)
-        assert "\\" not in value, f"Manifest path should not contain backslashes: {value}"
-        assert not Path(value).is_absolute(), f"Manifest path should be relative: {value}"
-
+        assert (
+            "\\" not in value
+        ), f"Manifest path should not contain backslashes: {value}"
+        assert not Path(
+            value
+        ).is_absolute(), f"Manifest path should be relative: {value}"

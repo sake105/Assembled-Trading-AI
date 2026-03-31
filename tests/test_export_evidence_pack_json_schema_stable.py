@@ -52,7 +52,9 @@ def _build_minimal_output_dir(tmp_path: Path) -> Path:
     as_of_date = "2025-01-15"
     date_str = "2025-01-15"
 
-    broker_snapshot_path = output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    broker_snapshot_path = (
+        output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    )
     ledger_pack_path = output_dir / "ledger_run" / "ledger_events.parquet"
     reconcile_report_path = output_dir / "reconcile_run" / f"reconcile_{date_str}.json"
 
@@ -126,11 +128,15 @@ def test_export_json_schema_stable(tmp_path: Path) -> None:
     assert out1["pack_manifest_schema_version"] == 1
 
     # Pack manifest must contain zip_entries_count (offline audit)
-    manifest_path = output_dir / "evidence_schema_stable_export" / "pack_manifest_2025-01-15.json"
+    manifest_path = (
+        output_dir / "evidence_schema_stable_export" / "pack_manifest_2025-01-15.json"
+    )
     assert manifest_path.exists()
     manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert "zip_entries_count" in manifest_data
-    assert manifest_data["zip_entries_count"] == len(manifest_data.get("zip_entries", []))
+    assert manifest_data["zip_entries_count"] == len(
+        manifest_data.get("zip_entries", [])
+    )
     # Export JSON source/source_path must match pack manifest (single source of truth)
     assert out1["source"] == manifest_data.get("source")
     assert out1["source_path"] == manifest_data.get("source_path")
@@ -151,4 +157,6 @@ def test_export_json_schema_stable(tmp_path: Path) -> None:
     )
     assert run2.returncode == 0
     out2_bytes = run2.stdout
-    assert out1_bytes == out2_bytes, "Two runs must produce identical JSON bytes (deterministic)"
+    assert (
+        out1_bytes == out2_bytes
+    ), "Two runs must produce identical JSON bytes (deterministic)"

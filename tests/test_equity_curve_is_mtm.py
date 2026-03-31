@@ -25,16 +25,20 @@ def _synthetic_prices_three_symbols_upward() -> pd.DataFrame:
         close = base * np.exp(trend + np.cumsum(noise))
         for i, ts in enumerate(dates):
             c = close[i]
-            rows.append({
-                "timestamp": ts,
-                "symbol": sym,
-                "open": c * 0.99,
-                "high": c * 1.02,
-                "low": c * 0.98,
-                "close": c,
-                "volume": 1_000_000,
-            })
-    return pd.DataFrame(rows).sort_values(["symbol", "timestamp"]).reset_index(drop=True)
+            rows.append(
+                {
+                    "timestamp": ts,
+                    "symbol": sym,
+                    "open": c * 0.99,
+                    "high": c * 1.02,
+                    "low": c * 0.98,
+                    "close": c,
+                    "volume": 1_000_000,
+                }
+            )
+    return (
+        pd.DataFrame(rows).sort_values(["symbol", "timestamp"]).reset_index(drop=True)
+    )
 
 
 def _dummy_signal_fn(prices: pd.DataFrame) -> pd.DataFrame:
@@ -47,7 +51,11 @@ def _dummy_signal_fn(prices: pd.DataFrame) -> pd.DataFrame:
 
 def _dummy_position_sizing_fn(signals: pd.DataFrame, capital: float) -> pd.DataFrame:
     """Allocate ~1/4 of capital per symbol (target_qty = notional for order generation)."""
-    out = signals[["timestamp", "symbol"]].copy() if "timestamp" in signals.columns else signals.copy()
+    out = (
+        signals[["timestamp", "symbol"]].copy()
+        if "timestamp" in signals.columns
+        else signals.copy()
+    )
     out["target_weight"] = 0.25
     out["target_qty"] = capital * 0.25  # notional per symbol
     return out
@@ -77,13 +85,17 @@ def test_equity_curve_is_mtm():
 
     # MTM equity: with upward trend and filled buys, equity max should exceed start capital
     equity_max = equity_df["equity"].max()
-    assert equity_max > start_capital, (
-        f"With upward trend and fills, equity_max ({equity_max}) should be > start_capital ({start_capital})"
-    )
+    assert (
+        equity_max > start_capital
+    ), f"With upward trend and fills, equity_max ({equity_max}) should be > start_capital ({start_capital})"
 
     # Cash column present (for cash_curve CSV)
     assert "cash" in equity_df.columns, "equity DataFrame should include cash column"
 
     # Equity and cash should differ when there are positions (MTM = cash + positions_value)
-    same = np.isclose(equity_df["equity"].values, equity_df["cash"].values, rtol=1e-9, atol=1e-9)
-    assert not np.all(same), "equity and cash series should differ when there are positions"
+    same = np.isclose(
+        equity_df["equity"].values, equity_df["cash"].values, rtol=1e-9, atol=1e-9
+    )
+    assert not np.all(
+        same
+    ), "equity and cash series should differ when there are positions"

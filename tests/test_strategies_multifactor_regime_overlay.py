@@ -94,15 +94,15 @@ def regime_factors_df(regime_price_panel) -> pd.DataFrame:
                 "rv_20": 0.25 - symbol_idx * 0.03,  # Lower vol is better
                 "close": group["close"].iloc[0],
                 # Add macro factors for regime detection
-                "macro_growth_regime": 1.0
-                if day_idx < 41
-                else (-1.0 if day_idx < 81 else -1.0),
-                "macro_inflation_regime": 0.5
-                if day_idx < 41
-                else (-0.5 if day_idx < 81 else -0.3),
-                "macro_risk_aversion_proxy": -0.5
-                if day_idx < 41
-                else (0.7 if day_idx < 81 else 0.9),
+                "macro_growth_regime": (
+                    1.0 if day_idx < 41 else (-1.0 if day_idx < 81 else -1.0)
+                ),
+                "macro_inflation_regime": (
+                    0.5 if day_idx < 41 else (-0.5 if day_idx < 81 else -0.3)
+                ),
+                "macro_risk_aversion_proxy": (
+                    -0.5 if day_idx < 41 else (0.7 if day_idx < 81 else 0.9)
+                ),
             }
         )
 
@@ -326,19 +326,17 @@ class TestExposureChangesByRegime:
                         expected_gross = default_regime_risk_map["bull"][
                             "max_gross_exposure"
                         ]
-                        default_regime_risk_map["bull"][
-                            "target_net_exposure"
-                        ]
+                        default_regime_risk_map["bull"]["target_net_exposure"]
 
                         gross_exposure = total_long + total_short
                         # Allow some tolerance (positions might not exactly match due to quantile selection)
-                        assert abs(gross_exposure - expected_gross) < 0.3, (
-                            f"Expected gross exposure ~{expected_gross}, got {gross_exposure}"
-                        )
+                        assert (
+                            abs(gross_exposure - expected_gross) < 0.3
+                        ), f"Expected gross exposure ~{expected_gross}, got {gross_exposure}"
 
-                        assert net_exposure > 0, (
-                            f"Expected positive net exposure in bull, got {net_exposure}"
-                        )
+                        assert (
+                            net_exposure > 0
+                        ), f"Expected positive net exposure in bull, got {net_exposure}"
 
     def test_crisis_regime_low_exposure(
         self,
@@ -445,9 +443,9 @@ class TestExposureChangesByRegime:
                             ).get("max_gross_exposure", 0.6)
 
                             # Crisis should have lower exposure than default
-                            assert gross_exposure <= expected_gross + 0.2, (
-                                f"Expected gross exposure <= {expected_gross + 0.2} in {regime_label}, got {gross_exposure}"
-                            )
+                            assert (
+                                gross_exposure <= expected_gross + 0.2
+                            ), f"Expected gross exposure <= {expected_gross + 0.2} in {regime_label}, got {gross_exposure}"
 
 
 class TestNoOverlayBehaviourUnchanged:
@@ -523,9 +521,9 @@ class TestNoOverlayBehaviourUnchanged:
 
                 # Should use fixed max_gross_exposure (approximately)
                 # Allow tolerance due to equal-weighting within quantiles
-                assert abs(gross_exposure - config.max_gross_exposure) < 0.3, (
-                    f"Expected gross exposure ~{config.max_gross_exposure}, got {gross_exposure}"
-                )
+                assert (
+                    abs(gross_exposure - config.max_gross_exposure) < 0.3
+                ), f"Expected gross exposure ~{config.max_gross_exposure}, got {gross_exposure}"
 
 
 class TestRegimeOverlayIntegration:

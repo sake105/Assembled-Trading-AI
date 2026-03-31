@@ -57,7 +57,7 @@ def generate_demo_daily(
         price = base_price
         for day in bdays:
             daily_return = rng.normal(0.0003, 0.015)
-            price *= (1.0 + daily_return)
+            price *= 1.0 + daily_return
             price = max(price, 1.0)
 
             intra_range = abs(rng.normal(0.0, 0.01))
@@ -66,15 +66,17 @@ def generate_demo_daily(
             open_price = price * (1.0 + rng.normal(0, 0.003))
             volume = int(rng.lognormal(12, 1.5))
 
-            rows.append({
-                "timestamp": pd.Timestamp(day, tz="UTC"),
-                "symbol": sym,
-                "open": round(open_price, 4),
-                "high": round(high, 4),
-                "low": round(low, 4),
-                "close": round(price, 4),
-                "volume": volume,
-            })
+            rows.append(
+                {
+                    "timestamp": pd.Timestamp(day, tz="UTC"),
+                    "symbol": sym,
+                    "open": round(open_price, 4),
+                    "high": round(high, 4),
+                    "low": round(low, 4),
+                    "close": round(price, 4),
+                    "volume": volume,
+                }
+            )
 
     df = pd.DataFrame(rows)
     df = df.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
@@ -89,7 +91,9 @@ def generate_demo_daily(
     n_days = df["timestamp"].dt.date.nunique()
     n_symbols = df["symbol"].nunique()
     print(f"Generated {len(df)} rows: {n_symbols} symbols × {n_days} days")
-    print(f"Date range: {df['timestamp'].min().date()} to {df['timestamp'].max().date()}")
+    print(
+        f"Date range: {df['timestamp'].min().date()} to {df['timestamp'].max().date()}"
+    )
     print(f"Written to: {out}")
 
     return df

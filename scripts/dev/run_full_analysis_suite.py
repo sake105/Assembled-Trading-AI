@@ -24,10 +24,18 @@ BENCH_SCRIPT = ROOT / "scripts" / "dev" / "run_strategy_benchmark.py"
 def main() -> int:
     ap = argparse.ArgumentParser(description="Run benchmark and write SUMMARY.md")
     ap.add_argument("--output-root", type=Path, default=Path("output/system_run"))
-    ap.add_argument("--quick", action="store_true", default=True, help="Quick run (1y only)")
+    ap.add_argument(
+        "--quick", action="store_true", default=True, help="Quick run (1y only)"
+    )
     ap.add_argument("--max-variants", type=int, default=6)
-    ap.add_argument("--include-synthetic", action="store_true", help="Use synthetic if no real data")
-    ap.add_argument("--skip-run", action="store_true", help="Only write SUMMARY from existing benchmark output")
+    ap.add_argument(
+        "--include-synthetic", action="store_true", help="Use synthetic if no real data"
+    )
+    ap.add_argument(
+        "--skip-run",
+        action="store_true",
+        help="Only write SUMMARY from existing benchmark output",
+    )
     args = ap.parse_args()
     out_root = args.output_root.resolve()
     if not out_root.is_absolute():
@@ -36,9 +44,13 @@ def main() -> int:
 
     if not args.skip_run:
         cmd = [
-            sys.executable, str(BENCH_SCRIPT),
-            "--output-root", str(out_root),
-            "--quick", "--max-variants", str(args.max_variants),
+            sys.executable,
+            str(BENCH_SCRIPT),
+            "--output-root",
+            str(out_root),
+            "--quick",
+            "--max-variants",
+            str(args.max_variants),
         ]
         if args.include_synthetic:
             cmd.append("--include-synthetic")
@@ -62,29 +74,49 @@ def main() -> int:
     if not valid:
         lines.append("No valid runs in scoreboard.")
     else:
-        by_stability = sorted(valid, key=lambda x: (x.get("stability_score") or 0), reverse=True)[:1]
-        by_return = sorted(valid, key=lambda x: (x.get("total_return") or 0), reverse=True)[:1]
-        by_sharpe = sorted([r for r in valid if r.get("sharpe_ratio") is not None], key=lambda x: (x.get("sharpe_ratio") or 0), reverse=True)[:1]
-        by_calmar = sorted([r for r in valid if r.get("calmar_ratio") is not None], key=lambda x: (x.get("calmar_ratio") or 0), reverse=True)[:1]
+        by_stability = sorted(
+            valid, key=lambda x: (x.get("stability_score") or 0), reverse=True
+        )[:1]
+        by_return = sorted(
+            valid, key=lambda x: (x.get("total_return") or 0), reverse=True
+        )[:1]
+        by_sharpe = sorted(
+            [r for r in valid if r.get("sharpe_ratio") is not None],
+            key=lambda x: (x.get("sharpe_ratio") or 0),
+            reverse=True,
+        )[:1]
+        by_calmar = sorted(
+            [r for r in valid if r.get("calmar_ratio") is not None],
+            key=lambda x: (x.get("calmar_ratio") or 0),
+            reverse=True,
+        )[:1]
         lines.append("## Best variant by stability_score")
         lines.append("")
         for r in by_stability:
-            lines.append(f"- {r.get('variant_id')} / {r.get('horizon')}: stability_score={r.get('stability_score')}")
+            lines.append(
+                f"- {r.get('variant_id')} / {r.get('horizon')}: stability_score={r.get('stability_score')}"
+            )
         lines.append("")
         lines.append("## Best by total return")
         lines.append("")
         for r in by_return:
-            lines.append(f"- {r.get('variant_id')} / {r.get('horizon')}: return={r.get('total_return')}")
+            lines.append(
+                f"- {r.get('variant_id')} / {r.get('horizon')}: return={r.get('total_return')}"
+            )
         lines.append("")
         lines.append("## Best by Sharpe")
         lines.append("")
         for r in by_sharpe:
-            lines.append(f"- {r.get('variant_id')} / {r.get('horizon')}: sharpe={r.get('sharpe_ratio')}")
+            lines.append(
+                f"- {r.get('variant_id')} / {r.get('horizon')}: sharpe={r.get('sharpe_ratio')}"
+            )
         lines.append("")
         lines.append("## Best by Calmar")
         lines.append("")
         for r in by_calmar:
-            lines.append(f"- {r.get('variant_id')} / {r.get('horizon')}: calmar={r.get('calmar_ratio')}")
+            lines.append(
+                f"- {r.get('variant_id')} / {r.get('horizon')}: calmar={r.get('calmar_ratio')}"
+            )
         lines.append("")
 
     anom_count = 0
@@ -98,7 +130,9 @@ def main() -> int:
     lines.append("")
     lines.append(f"Total anomalies: {anom_count}")
     lines.append("")
-    lines.append("See benchmark/BENCHMARK_REPORT.md and benchmark/anomalies.json for details.")
+    lines.append(
+        "See benchmark/BENCHMARK_REPORT.md and benchmark/anomalies.json for details."
+    )
     lines.append("")
 
     (out_root / "SUMMARY.md").write_text("\n".join(lines), encoding="utf-8")

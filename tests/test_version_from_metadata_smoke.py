@@ -36,6 +36,6 @@ def test_version_matches_pyproject_when_available() -> None:
     expected = raw.strip()
     if __version__ == "0.0.0+unknown":
         return  # Metadata not available (e.g. not installed); skip equality
-    assert __version__ == expected, (
-        f"__version__ {__version__!r} should match pyproject.toml project.version {expected!r}"
-    )
+    assert (
+        __version__ == expected
+    ), f"__version__ {__version__!r} should match pyproject.toml project.version {expected!r}"

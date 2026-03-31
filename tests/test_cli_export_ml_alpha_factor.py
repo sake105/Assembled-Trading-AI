@@ -120,9 +120,9 @@ def test_export_ml_alpha_factor_basic(sample_factor_panel_file, tmp_path: Path):
     assert len(ml_alpha_cols) > 0, "ML alpha column should be present"
 
     ml_alpha_col = ml_alpha_cols[0]
-    assert ml_alpha_col == "ml_alpha_ridge_20d", (
-        f"Expected ml_alpha_ridge_20d, got {ml_alpha_col}"
-    )
+    assert (
+        ml_alpha_col == "ml_alpha_ridge_20d"
+    ), f"Expected ml_alpha_ridge_20d, got {ml_alpha_col}"
 
     # Check that some rows have predictions (test samples from CV)
     n_with_predictions = ml_alpha_panel_df[ml_alpha_col].notna().sum()
@@ -135,9 +135,9 @@ def test_export_ml_alpha_factor_basic(sample_factor_panel_file, tmp_path: Path):
             ml_alpha_valid["fwd_return_20d"]
         )
         # Correlation should be positive (model should learn the relationship)
-        assert correlation > 0.3, (
-            f"ML alpha should correlate with forward returns, got {correlation:.4f}"
-        )
+        assert (
+            correlation > 0.3
+        ), f"ML alpha should correlate with forward returns, got {correlation:.4f}"
 
     # Check that original factor columns are preserved
     assert "factor_mom" in ml_alpha_panel_df.columns
@@ -168,12 +168,12 @@ def test_export_ml_alpha_factor_custom_column_name(
     ml_alpha_panel_df = pd.read_parquet(output_path)
 
     # Check custom column name is used
-    assert custom_column_name in ml_alpha_panel_df.columns, (
-        "Custom column name should be present"
-    )
-    assert ml_alpha_panel_df[custom_column_name].notna().sum() > 0, (
-        "Custom column should have predictions"
-    )
+    assert (
+        custom_column_name in ml_alpha_panel_df.columns
+    ), "Custom column name should be present"
+    assert (
+        ml_alpha_panel_df[custom_column_name].notna().sum() > 0
+    ), "Custom column should have predictions"
 
 
 @pytest.mark.advanced
@@ -239,9 +239,9 @@ def test_export_ml_alpha_factor_cli_subcommand(
     )
 
     # Check exit code
-    assert result.returncode == 0, (
-        f"CLI command failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
-    )
+    assert (
+        result.returncode == 0
+    ), f"CLI command failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
 
     # Check output file was created
     output_files = list(output_dir.glob("ml_alpha_panel_*.parquet"))
@@ -282,9 +282,9 @@ def test_export_ml_alpha_factor_preserves_original_columns(
 
     # Check all original columns are present (plus ML alpha column)
     for col in original_columns:
-        assert col in ml_alpha_panel_df.columns, (
-            f"Original column {col} should be preserved"
-        )
+        assert (
+            col in ml_alpha_panel_df.columns
+        ), f"Original column {col} should be preserved"
 
     # Check ML alpha column was added
     ml_alpha_cols = [
@@ -322,15 +322,15 @@ def test_export_ml_alpha_factor_only_test_samples_have_predictions(
 
     # Check that some rows have NaN (training samples)
     n_with_nan = ml_alpha_panel_df[ml_alpha_col].isna().sum()
-    assert n_with_nan > 0, (
-        "Some rows should have NaN (training samples don't have predictions)"
-    )
+    assert (
+        n_with_nan > 0
+    ), "Some rows should have NaN (training samples don't have predictions)"
 
     # Check that some rows have predictions (test samples)
     n_with_predictions = ml_alpha_panel_df[ml_alpha_col].notna().sum()
     assert n_with_predictions > 0, "Some rows should have predictions (test samples)"
 
     # Total should match
-    assert n_with_nan + n_with_predictions == len(ml_alpha_panel_df), (
-        "All rows should be either NaN or have predictions"
-    )
+    assert n_with_nan + n_with_predictions == len(
+        ml_alpha_panel_df
+    ), "All rows should be either NaN or have predictions"

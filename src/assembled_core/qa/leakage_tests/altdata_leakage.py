@@ -54,23 +54,23 @@ def assert_feature_zero_before_disclosure(
 
     Example:
         >>> from src.assembled_core.features.event_features import add_disclosure_count_feature
-        >>> 
+        >>>
         >>> prices = pd.DataFrame({
         ...     "timestamp": pd.date_range("2024-01-10", periods=5, freq="D", tz="UTC"),
         ...     "symbol": ["AAPL"] * 5,
         ...     "close": [150.0] * 5,
         ... })
-        >>> 
+        >>>
         >>> events = pd.DataFrame({
         ...     "symbol": ["AAPL"],
         ...     "event_date": pd.to_datetime(["2024-01-05"], utc=True),
         ...     "disclosure_date": pd.to_datetime(["2024-01-15"], utc=True),
         ...     "effective_date": pd.to_datetime(["2024-01-15"], utc=True),
         ... })
-        >>> 
+        >>>
         >>> def feature_fn(p, e, as_of):
         ...     return add_disclosure_count_feature(p, e, window_days=30, as_of=as_of)
-        >>> 
+        >>>
         >>> assert_feature_zero_before_disclosure(
         ...     prices,
         ...     events,

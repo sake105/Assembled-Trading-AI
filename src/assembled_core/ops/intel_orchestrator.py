@@ -11,7 +11,9 @@ log = logging.getLogger(__name__)
 PipelineStatus = str  # "OK" | "DEGRADED" | "ERROR" | "SKIPPED"
 
 
-def run_intel_pipelines(app_cfg: Dict[str, Any], root: Path | None = None) -> Dict[str, Any]:
+def run_intel_pipelines(
+    app_cfg: Dict[str, Any], root: Path | None = None
+) -> Dict[str, Any]:
     """Run NEWS and/or DISCLOSURES pipelines when paper_runner.intel.mode == "real".
 
     Returns:
@@ -48,6 +50,7 @@ def run_intel_pipelines(app_cfg: Dict[str, Any], root: Path | None = None) -> Di
             output_dir = str(base / output_dir)
         try:
             from src.assembled_core.events.news import run_news_pipeline
+
             result = run_news_pipeline(
                 sources_path=sources_path,
                 news_path=config_path,
@@ -65,8 +68,12 @@ def run_intel_pipelines(app_cfg: Dict[str, Any], root: Path | None = None) -> Di
 
     if run_disclosures:
         disc_cfg = intel_cfg.get("disclosures") or {}
-        sources_path = disc_cfg.get("sources_path") or "configs/disclosures/sources.yaml"
-        config_path = disc_cfg.get("config_path") or "configs/disclosures/disclosures.yaml"
+        sources_path = (
+            disc_cfg.get("sources_path") or "configs/disclosures/sources.yaml"
+        )
+        config_path = (
+            disc_cfg.get("config_path") or "configs/disclosures/disclosures.yaml"
+        )
         cadence = disc_cfg.get("cadence") or "daily"
         output_dir = disc_cfg.get("output_dir") or "output/intel/disclosures"
         if not Path(sources_path).is_absolute():
@@ -77,6 +84,7 @@ def run_intel_pipelines(app_cfg: Dict[str, Any], root: Path | None = None) -> Di
             output_dir = str(base / output_dir)
         try:
             from src.assembled_core.events.disclosures import run_disclosures_pipeline
+
             result = run_disclosures_pipeline(
                 sources_path=sources_path,
                 disclosures_path=config_path,

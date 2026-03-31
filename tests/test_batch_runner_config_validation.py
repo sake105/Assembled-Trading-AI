@@ -509,4 +509,3 @@ runs:
         assert cfg.runs[0].id != cfg.runs[1].id
     finally:
         config_path.unlink()
-

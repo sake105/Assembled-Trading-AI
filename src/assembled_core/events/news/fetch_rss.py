@@ -68,15 +68,14 @@ def fetch_rss_feed(
         except Exception as exc:
             transient_codes = {429, 500, 502, 503, 504}
             status = getattr(locals().get("resp", None), "status_code", None)
-            should_retry = (
-                isinstance(exc, requests.RequestException)
-                and (status in transient_codes or status is None)
+            should_retry = isinstance(exc, requests.RequestException) and (
+                status in transient_codes or status is None
             )
             # 403 höchstens ein Retry
             if status == 403 and attempt >= 1:
                 should_retry = False
             if attempt < retries and should_retry:
-                sleep_s = backoff_base_s * (2 ** attempt)
+                sleep_s = backoff_base_s * (2**attempt)
                 time.sleep(max(sleep_s, 0.0))
                 attempt += 1
                 continue
@@ -114,9 +113,11 @@ def fetch_rss_feed(
                 "link": getattr(e, "link", "") or "",
                 "published": getattr(e, "published", None)
                 or getattr(e, "updated", None),
-                "summary": sanitize_text(summary_raw, strip_html, summary_max)
-                if summary_raw is not None
-                else None,
+                "summary": (
+                    sanitize_text(summary_raw, strip_html, summary_max)
+                    if summary_raw is not None
+                    else None
+                ),
                 "raw": dict(e),  # type: ignore[arg-type]
             }
             items.append(item)
@@ -134,4 +135,3 @@ def fetch_rss_feed(
 
     stats["duration_ms"] = int((time.time() - start) * 1000)
     return items, failure, stats
-

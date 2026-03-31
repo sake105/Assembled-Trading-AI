@@ -57,9 +57,7 @@ def v2_state_dict() -> dict:
     }
 
 
-def test_load_v1_state_migrates_to_v2(
-    tmp_path: Path, v1_state_dict: dict
-) -> None:
+def test_load_v1_state_migrates_to_v2(tmp_path: Path, v1_state_dict: dict) -> None:
     """Test that loading a v1.0 state file migrates to v2.0 with default values."""
     state_path = tmp_path / "state_v1.json"
 
@@ -71,7 +69,9 @@ def test_load_v1_state_migrates_to_v2(
     state = load_paper_state(state_path, strategy_name="test_strategy")
 
     assert state is not None
-    assert state.version == PAPER_TRACK_STATE_VERSION  # Should be migrated to current version
+    assert (
+        state.version == PAPER_TRACK_STATE_VERSION
+    )  # Should be migrated to current version
     assert state.strategy_name == "test_strategy"
     assert state.equity == 100000.0
     assert state.cash == 50000.0
@@ -80,9 +80,7 @@ def test_load_v1_state_migrates_to_v2(
     assert state.last_positions_value is None
 
 
-def test_load_v2_state_preserves_fields(
-    tmp_path: Path, v2_state_dict: dict
-) -> None:
+def test_load_v2_state_preserves_fields(tmp_path: Path, v2_state_dict: dict) -> None:
     """Test that loading a v2.0 state file preserves all fields."""
     state_path = tmp_path / "state_v2.json"
 
@@ -199,4 +197,3 @@ def test_save_state_updates_version_to_current(tmp_path: Path) -> None:
     with open(state_path, "r", encoding="utf-8") as f:
         data = json.load(f)
     assert data["version"] == PAPER_TRACK_STATE_VERSION
-

@@ -25,34 +25,37 @@ def create_test_positions_result() -> dict:
     """Create a test positions result for accounting report."""
     # Create minimal trades
     base_time = datetime(2025, 1, 15, 10, 0, 0)
-    trades = pd.DataFrame([
-        {
-            "timestamp": pd.Timestamp(base_time, tz="UTC"),
-            "symbol": "AAPL",
-            "side": "BUY",
-            "qty": 100.0,
-            "price": 150.0,
-            "fill_qty": 100.0,
-            "fill_price": 150.0,
-            "status": "filled",
-            "total_cost_cash": 0.15,
-        },
-        {
-            "timestamp": pd.Timestamp(base_time, tz="UTC") + pd.Timedelta(minutes=5),
-            "symbol": "MSFT",
-            "side": "SELL",
-            "qty": 50.0,
-            "price": 200.0,
-            "fill_qty": 50.0,
-            "fill_price": 200.0,
-            "status": "filled",
-            "total_cost_cash": 0.10,
-        },
-    ])
-    
+    trades = pd.DataFrame(
+        [
+            {
+                "timestamp": pd.Timestamp(base_time, tz="UTC"),
+                "symbol": "AAPL",
+                "side": "BUY",
+                "qty": 100.0,
+                "price": 150.0,
+                "fill_qty": 100.0,
+                "fill_price": 150.0,
+                "status": "filled",
+                "total_cost_cash": 0.15,
+            },
+            {
+                "timestamp": pd.Timestamp(base_time, tz="UTC")
+                + pd.Timedelta(minutes=5),
+                "symbol": "MSFT",
+                "side": "SELL",
+                "qty": 50.0,
+                "price": 200.0,
+                "fill_qty": 50.0,
+                "fill_price": 200.0,
+                "status": "filled",
+                "total_cost_cash": 0.10,
+            },
+        ]
+    )
+
     # Generate events
     events = events_from_trades(trades, run_id="test_accounting", source="test")
-    
+
     # Build positions
     positions_result = build_positions_from_ledger(
         events,
@@ -61,7 +64,7 @@ def create_test_positions_result() -> dict:
         start_cash=10000.0,
         missing_price_policy="zero",
     )
-    
+
     return positions_result
 
 
@@ -81,7 +84,7 @@ def test_accounting_report_csv_written(tmp_path: Path):
     )
 
     assert csv_path.exists(), "CSV file should exist"
-    
+
     # Load and verify schema
     df = pd.read_csv(csv_path)
     assert "section" in df.columns
@@ -115,11 +118,11 @@ def test_accounting_report_json_written(tmp_path: Path):
     )
 
     assert json_path.exists(), "JSON file should exist"
-    
+
     # Load and verify schema
     with json_path.open("r", encoding="utf-8") as f:
         report = json.load(f)
-    
+
     assert "schema_version" in report
     assert report["schema_version"] == 1
     assert "as_of_date" in report
@@ -128,7 +131,7 @@ def test_accounting_report_json_written(tmp_path: Path):
     assert "pnl" in report
     assert "positions" in report
     assert "summary" in report
-    
+
     assert report["cash"]["start"] == 10000.0
     assert "total_realized" in report["pnl"]
     assert "total_unrealized" in report["pnl"]
@@ -149,7 +152,7 @@ def test_accounting_report_deterministic_sorting(tmp_path: Path):
         as_of=as_of_date,
         start_cash=start_cash,
     )
-    
+
     csv_path2 = write_accounting_report_csv(
         positions_result=positions_result,
         output_dir=tmp_path / "run2",
@@ -165,7 +168,7 @@ def test_accounting_report_deterministic_sorting(tmp_path: Path):
     # Positions should be sorted identically
     pos1 = df1[df1["section"] == "POSITION"].sort_values("symbol")
     pos2 = df2[df2["section"] == "POSITION"].sort_values("symbol")
-    
+
     if len(pos1) > 0 and len(pos2) > 0:
         assert list(pos1["symbol"]) == list(pos2["symbol"])
 
@@ -173,18 +176,20 @@ def test_accounting_report_deterministic_sorting(tmp_path: Path):
 def test_accounting_report_nan_handling(tmp_path: Path):
     """Test that NaN values are handled correctly (converted to None in JSON)."""
     # Create positions result with NaN values (missing prices)
-    positions_df = pd.DataFrame([
-        {
-            "symbol": "AAPL",
-            "qty": 100.0,
-            "avg_price": 150.0,
-            "realized_pnl": 50.0,
-            "unrealized_pnl": pd.NA,  # Missing price
-            "notional": 0.0,
-            "last_price": pd.NA,
-        },
-    ])
-    
+    positions_df = pd.DataFrame(
+        [
+            {
+                "symbol": "AAPL",
+                "qty": 100.0,
+                "avg_price": 150.0,
+                "realized_pnl": 50.0,
+                "unrealized_pnl": pd.NA,  # Missing price
+                "notional": 0.0,
+                "last_price": pd.NA,
+            },
+        ]
+    )
+
     positions_result = {
         "positions_df": positions_df,
         "cash_balance": 10000.0,
@@ -197,7 +202,7 @@ def test_accounting_report_nan_handling(tmp_path: Path):
             "net_exposure": 0.0,
         },
     }
-    
+
     run_id = "test_nan"
     as_of_date = pd.Timestamp("2025-01-15", tz="UTC")
     start_cash = 10000.0
@@ -213,12 +218,14 @@ def test_accounting_report_nan_handling(tmp_path: Path):
     # Load JSON (should not have NaN, should have None)
     with json_path.open("r", encoding="utf-8") as f:
         report = json.load(f)
-    
+
     # Check that positions with NaN are handled
     if len(report["positions"]) > 0:
         pos = report["positions"][0]
         # unrealized_pnl should be None (not NaN string)
-        assert pos.get("unrealized_pnl") is None or isinstance(pos.get("unrealized_pnl"), (int, float))
+        assert pos.get("unrealized_pnl") is None or isinstance(
+            pos.get("unrealized_pnl"), (int, float)
+        )
 
 
 def test_accounting_report_with_costs(tmp_path: Path):
@@ -227,7 +234,7 @@ def test_accounting_report_with_costs(tmp_path: Path):
     run_id = "test_costs"
     as_of_date = pd.Timestamp("2025-01-15", tz="UTC")
     start_cash = 10000.0
-    
+
     costs_breakdown = {
         "commission_cash": 0.25,
         "spread_cash": 0.15,
@@ -247,7 +254,7 @@ def test_accounting_report_with_costs(tmp_path: Path):
     # Load JSON
     with json_path.open("r", encoding="utf-8") as f:
         report = json.load(f)
-    
+
     assert "costs" in report
     assert report["costs"]["commission_cash"] == 0.25
     assert report["costs"]["total_cost_cash"] == 0.50
@@ -259,7 +266,7 @@ def test_accounting_report_with_reconciliation(tmp_path: Path):
     run_id = "test_recon"
     as_of_date = pd.Timestamp("2025-01-15", tz="UTC")
     start_cash = 10000.0
-    
+
     reconciliation_result = {
         "ok": True,
         "cash_match": True,
@@ -280,7 +287,7 @@ def test_accounting_report_with_reconciliation(tmp_path: Path):
     # Load JSON
     with json_path.open("r", encoding="utf-8") as f:
         report = json.load(f)
-    
+
     assert "reconciliation" in report
     assert report["reconciliation"]["ok"] is True
     assert "ledger_pack_path" in report

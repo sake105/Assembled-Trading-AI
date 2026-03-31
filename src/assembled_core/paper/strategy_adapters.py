@@ -132,5 +132,3 @@ def generate_signals_and_targets_for_day(
         return signals, target_positions
 
     raise ValueError(f"Unsupported strategy_type in adapter: {strategy_type}")
-
-

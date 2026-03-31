@@ -8,7 +8,10 @@ from typing import Any
 
 import pytest
 
-from src.assembled_core.ops.paper_summary import build_paper_summary, write_paper_summary
+from src.assembled_core.ops.paper_summary import (
+    build_paper_summary,
+    write_paper_summary,
+)
 
 
 pytestmark = [pytest.mark.unit, pytest.mark.phase6]
@@ -31,7 +34,11 @@ def test_build_paper_summary_from_synthetic_artifacts(tmp_path: Path) -> None:
             },
             "risk_state": {
                 "state": "ACTIVE" if i != 1 else "COOLDOWN",
-                "reason": "activate_score" if i == 0 else ("cooldown_timer" if i == 1 else "cooldown_to_active"),
+                "reason": (
+                    "activate_score"
+                    if i == 0
+                    else ("cooldown_timer" if i == 1 else "cooldown_to_active")
+                ),
             },
         }
         (day_dir / "run_kpis.json").write_text(json.dumps(kpis), encoding="utf-8")
@@ -41,7 +48,9 @@ def test_build_paper_summary_from_synthetic_artifacts(tmp_path: Path) -> None:
             "schema_version": "paper.ledger_state.v1",
             "cash": 10000 - i * 50,
             "positions": {},
-            "equity_curve": [{"utc": f"2026-02-0{i+1}T12:00:00+00:00", "equity": equity}],
+            "equity_curve": [
+                {"utc": f"2026-02-0{i+1}T12:00:00+00:00", "equity": equity}
+            ],
         }
         (day_dir / "ledger_state.json").write_text(json.dumps(ledger), encoding="utf-8")
         # alerts_latest.json
@@ -49,10 +58,16 @@ def test_build_paper_summary_from_synthetic_artifacts(tmp_path: Path) -> None:
             "schema_version": "run.alerts.v1",
             "count": 1,
             "items": [
-                {"alert_id": "abc", "level": "info" if i == 0 else "warn", "kind": "NO_PREV" if i == 0 else "QC_DEGRADED"},
+                {
+                    "alert_id": "abc",
+                    "level": "info" if i == 0 else "warn",
+                    "kind": "NO_PREV" if i == 0 else "QC_DEGRADED",
+                },
             ],
         }
-        (day_dir / "alerts_latest.json").write_text(json.dumps(alerts), encoding="utf-8")
+        (day_dir / "alerts_latest.json").write_text(
+            json.dumps(alerts), encoding="utf-8"
+        )
 
     summary = build_paper_summary(output_root, dates)
     assert summary["schema_version"] == "paper.summary.v1"

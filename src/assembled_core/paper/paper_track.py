@@ -100,9 +100,11 @@ def _compute_config_hash(config: PaperTrackConfig) -> str:
         "commission_bps": config.commission_bps,
         "spread_w": config.spread_w,
         "impact_w": config.impact_w,
-        "strategy_params": sorted(config.strategy_params.items())
-        if isinstance(config.strategy_params, dict)
-        else config.strategy_params,
+        "strategy_params": (
+            sorted(config.strategy_params.items())
+            if isinstance(config.strategy_params, dict)
+            else config.strategy_params
+        ),
         "random_seed": config.random_seed,
         "output_format": config.output_format,
     }
@@ -222,7 +224,9 @@ class PaperTrackDayResult:
     trades_count: int
     buy_count: int
     sell_count: int
-    daily_turnover: float = 0.0  # Daily turnover (sum(abs(trade_notional)) / equity_prev)
+    daily_turnover: float = (
+        0.0  # Daily turnover (sum(abs(trade_notional)) / equity_prev)
+    )
     gross_exposure: float = 0.0  # Gross exposure in currency
     net_exposure: float = 0.0  # Net exposure in currency
     gross_exposure_pct: float = 0.0  # Gross exposure as % of equity
@@ -312,7 +316,7 @@ def _filter_prices_for_date(
         return pd.DataFrame(columns=prices.columns)
 
     # Group by symbol and take last row (most recent timestamp per symbol)
-    # Note: groupby puts 'symbol' in the index, so reset_index() (without drop=True) 
+    # Note: groupby puts 'symbol' in the index, so reset_index() (without drop=True)
     # makes it a column again
     filtered = filtered.groupby("symbol", group_keys=False, dropna=False).last()
     filtered = filtered.reset_index()  # Keep 'symbol' as column (don't drop index)
@@ -343,7 +347,13 @@ def filter_tradeable_universe(
 
     if prices_filtered.empty:
         return (
-            pd.DataFrame(columns=prices_filtered.columns if not prices_filtered.empty else ["symbol", "close"]),
+            pd.DataFrame(
+                columns=(
+                    prices_filtered.columns
+                    if not prices_filtered.empty
+                    else ["symbol", "close"]
+                )
+            ),
             n_symbols_requested,
             0,
             n_symbols_requested,
@@ -380,7 +390,11 @@ def filter_tradeable_universe(
     if n_missing > 0:
         logger.warning(
             f"Missing or invalid data for {n_missing} symbol(s): {sorted(missing_symbols)[:10]}"
-            + (f" (showing first 10 of {len(missing_symbols)})" if len(missing_symbols) > 10 else "")
+            + (
+                f" (showing first 10 of {len(missing_symbols)})"
+                if len(missing_symbols) > 10
+                else ""
+            )
         )
 
     return tradeable, n_symbols_requested, n_tradeable, n_missing
@@ -581,19 +595,20 @@ def compute_paper_performance_panel(
 
             # Turnover (annualized) using trades within window
             turnover_annualized: float | None
-            if trades is not None and not trades.empty and "timestamp" in trades.columns:
+            if (
+                trades is not None
+                and not trades.empty
+                and "timestamp" in trades.columns
+            ):
                 start_ts = df.loc[start_idx, "timestamp"]
                 end_ts = df.loc[end_idx, "timestamp"]
                 trades_window = trades[
-                    (trades["timestamp"] >= start_ts)
-                    & (trades["timestamp"] <= end_ts)
+                    (trades["timestamp"] >= start_ts) & (trades["timestamp"] <= end_ts)
                 ].copy()
                 if not trades_window.empty:
                     equity_df = pd.DataFrame(
                         {
-                            "timestamp": df.loc[
-                                start_idx : end_idx, "timestamp"
-                            ].values,
+                            "timestamp": df.loc[start_idx:end_idx, "timestamp"].values,
                             "equity": window_equity.values,
                         }
                     )
@@ -632,12 +647,16 @@ def compute_paper_performance_panel(
                     "n_obs": n_obs,
                     "sharpe": float(sharpe) if sharpe is not None else None,
                     "max_drawdown_pct": float(max_dd_pct),
-                    "turnover_annualized": float(turnover_annualized)
-                    if turnover_annualized is not None
-                    else None,
-                    "deflated_sharpe": float(dsr)
-                    if not (isinstance(dsr, float) and math.isnan(dsr))
-                    else None,
+                    "turnover_annualized": (
+                        float(turnover_annualized)
+                        if turnover_annualized is not None
+                        else None
+                    ),
+                    "deflated_sharpe": (
+                        float(dsr)
+                        if not (isinstance(dsr, float) and math.isnan(dsr))
+                        else None
+                    ),
                 }
             )
 
@@ -729,7 +748,9 @@ def _simulate_order_fills(
     return filled, float(new_cash)
 
 
-def _migrate_state_dict(state_dict: dict[str, Any], from_version: str) -> dict[str, Any]:
+def _migrate_state_dict(
+    state_dict: dict[str, Any], from_version: str
+) -> dict[str, Any]:
     """Migrate state dictionary from older version to current version.
 
     Args:
@@ -749,7 +770,9 @@ def _migrate_state_dict(state_dict: dict[str, Any], from_version: str) -> dict[s
         migrated["last_equity"] = None
         migrated["last_positions_value"] = None
         migrated["version"] = current_version
-        logger.debug("State migration v1.0 -> v2.0: Added last_equity, last_positions_value")
+        logger.debug(
+            "State migration v1.0 -> v2.0: Added last_equity, last_positions_value"
+        )
 
     # Future migrations can be added here:
     # if from_version == "2.0" and current_version == "3.0":
@@ -888,13 +911,15 @@ def save_paper_state(state: PaperTrackState, state_path: Path) -> None:
     # Prepare data for JSON serialization
     data = {
         "strategy_name": state.strategy_name,
-        "last_run_date": state.last_run_date.isoformat()
-        if state.last_run_date
-        else None,
+        "last_run_date": (
+            state.last_run_date.isoformat() if state.last_run_date else None
+        ),
         "version": state.version,
-        "positions": state.positions.to_dict(orient="records")
-        if not state.positions.empty
-        else [],
+        "positions": (
+            state.positions.to_dict(orient="records")
+            if not state.positions.empty
+            else []
+        ),
         "cash": state.cash,
         "equity": state.equity,
         "seed_capital": state.seed_capital,
@@ -963,13 +988,9 @@ def run_paper_day(
             f"commission_bps must be >= 0 and finite, got {config.commission_bps}"
         )
     if config.spread_w < 0 or not math.isfinite(config.spread_w):
-        raise ValueError(
-            f"spread_w must be >= 0 and finite, got {config.spread_w}"
-        )
+        raise ValueError(f"spread_w must be >= 0 and finite, got {config.spread_w}")
     if config.impact_w < 0 or not math.isfinite(config.impact_w):
-        raise ValueError(
-            f"impact_w must be >= 0 and finite, got {config.impact_w}"
-        )
+        raise ValueError(f"impact_w must be >= 0 and finite, got {config.impact_w}")
 
     # Validate as_of
     now = pd.Timestamp.utcnow()
@@ -1021,7 +1042,11 @@ def run_paper_day(
     try:
         # Step 1: Load universe symbols
         universe_symbols: list[str] = []
-        universe_file_path = Path(config.universe_file) if isinstance(config.universe_file, str) else config.universe_file
+        universe_file_path = (
+            Path(config.universe_file)
+            if isinstance(config.universe_file, str)
+            else config.universe_file
+        )
         if universe_file_path.exists():
             with open(universe_file_path, "r", encoding="utf-8") as f:
                 for line in f:
@@ -1045,10 +1070,12 @@ def run_paper_day(
         prices_filtered = _filter_prices_for_date(prices, as_of)
 
         # Step 3: Filter to tradeable universe (exclude NaNs, missing data)
-        prices_tradeable, n_symbols_requested, n_tradeable, n_missing = filter_tradeable_universe(
-            prices_filtered=prices_filtered,
-            universe_symbols=universe_symbols,
-            min_history_days=0,
+        prices_tradeable, n_symbols_requested, n_tradeable, n_missing = (
+            filter_tradeable_universe(
+                prices_filtered=prices_filtered,
+                universe_symbols=universe_symbols,
+                min_history_days=0,
+            )
         )
 
         if prices_tradeable.empty:
@@ -1060,7 +1087,7 @@ def run_paper_day(
 
         # Step 4-7: Run unified trading cycle (features/signals/positions/orders)
         logger.debug("Running trading cycle (features/signals/positions/orders)")
-        
+
         # Build signal and sizing functions from strategy adapter
         # We need to wrap the strategy adapter to work with trading_cycle
         def signal_fn(df_with_features: pd.DataFrame) -> pd.DataFrame:
@@ -1081,23 +1108,32 @@ def run_paper_day(
                     .reset_index()
                 )
             if config.ranking_hysteresis_enabled and not signals.empty:
-                from src.assembled_core.paper.ranking_hysteresis import apply_ranking_hysteresis
-                held = set(
-                    current_positions["symbol"].tolist()
-                ) if not current_positions.empty else set()
+                from src.assembled_core.paper.ranking_hysteresis import (
+                    apply_ranking_hysteresis,
+                )
+
+                held = (
+                    set(current_positions["symbol"].tolist())
+                    if not current_positions.empty
+                    else set()
+                )
                 signals, hyst_meta = apply_ranking_hysteresis(
-                    signals, held,
+                    signals,
+                    held,
                     entry_n=config.ranking_entry_n,
                     hold_n=config.ranking_hold_n,
                 )
-                if hyst_meta.get("kept_by_hysteresis", 0) > 0 or hyst_meta.get("blocked_entry", 0) > 0:
+                if (
+                    hyst_meta.get("kept_by_hysteresis", 0) > 0
+                    or hyst_meta.get("blocked_entry", 0) > 0
+                ):
                     logger.info(
                         f"Ranking hysteresis: kept={hyst_meta['kept_by_hysteresis']}, "
                         f"blocked={hyst_meta['blocked_entry']}, "
                         f"entry_n={config.ranking_entry_n}, hold_n={config.ranking_hold_n}"
                     )
             return signals
-        
+
         def sizing_fn(signals: pd.DataFrame, capital: float) -> pd.DataFrame:
             """Position sizing function wrapper for trading_cycle."""
             # For trend_baseline, we can compute target positions directly from signals
@@ -1106,6 +1142,7 @@ def run_paper_day(
                 from src.assembled_core.portfolio.position_sizing import (
                     compute_target_positions_from_trend_signals,
                 )
+
                 params = config.strategy_params or {}
                 return compute_target_positions_from_trend_signals(
                     signals,
@@ -1117,7 +1154,9 @@ def run_paper_day(
                 # For other strategies (e.g., multifactor), we need to call the adapter
                 # We'll need prices_with_features, so we compute them again (cached in cycle)
                 # This is a limitation, but acceptable for now
-                prices_with_features_temp = _compute_features_for_strategy(config, prices_tradeable)
+                prices_with_features_temp = _compute_features_for_strategy(
+                    config, prices_tradeable
+                )
                 _, target_positions = _generate_signals_and_targets_for_day(
                     config=config,
                     state_before=state_before,
@@ -1133,11 +1172,13 @@ def run_paper_day(
                         target_positions["symbol"].isin(signal_symbols)
                     ].copy()
                 return target_positions
-        
+
         # Build TradingContext
         current_positions = state_before.positions.copy()
         tradeable_symbols = set(prices_tradeable["symbol"].unique())
-        prices_for_cycle = prices_history[prices_history["symbol"].isin(tradeable_symbols)].copy()
+        prices_for_cycle = prices_history[
+            prices_history["symbol"].isin(tradeable_symbols)
+        ].copy()
         ctx = TradingContext(
             prices=prices_for_cycle,
             mode="backtest",  # Need full history for feature/EMA computation
@@ -1160,9 +1201,9 @@ def run_paper_day(
             signal_config=config.strategy_params,
             position_sizing_fn=sizing_fn,
             capital=state_before.equity,  # Use current equity as capital
-            current_positions=current_positions
-            if not current_positions.empty
-            else None,
+            current_positions=(
+                current_positions if not current_positions.empty else None
+            ),
             order_timestamp=as_of,
             enable_risk_controls=False,  # Paper track handles risk separately
             risk_config={},
@@ -1174,13 +1215,13 @@ def run_paper_day(
             logger=logger,
             timings=None,
         )
-        
+
         # Run trading cycle
         cycle_result = run_trading_cycle(ctx)
-        
+
         if cycle_result.status != "success":
             raise ValueError(f"Trading cycle failed: {cycle_result.error_message}")
-        
+
         # PIT check (if enabled) - now on cycle_result.prices_with_features
         enable_pit = _should_enable_pit_checks(config)
         if enable_pit:
@@ -1192,7 +1233,7 @@ def run_paper_day(
                 feature_source="paper_track",
             )
             logger.debug("PIT checks passed")
-        
+
         # Extract results (cycle_result.orders already generated from targets)
         orders = cycle_result.orders
 
@@ -1202,6 +1243,7 @@ def run_paper_day(
             from src.assembled_core.paper.georisk_gate import (
                 apply_georisk_to_orders,
             )
+
             georisk_multiplier_applied = getattr(config, "_georisk_multiplier", 1.0)
             if georisk_multiplier_applied < 1.0 and not orders.empty:
                 pre_count = len(orders)
@@ -1214,7 +1256,10 @@ def run_paper_day(
         # Rebalance filter: drop small orders to reduce churn
         rebalance_filter_stats = None
         if config.rebalance_filter_enabled and not orders.empty:
-            from src.assembled_core.paper.rebalance_filter import filter_small_rebalances
+            from src.assembled_core.paper.rebalance_filter import (
+                filter_small_rebalances,
+            )
+
             orders, rebalance_filter_stats = filter_small_rebalances(
                 orders,
                 min_notional=config.rebalance_min_notional,
@@ -1230,7 +1275,10 @@ def run_paper_day(
         # Dead-zone filter: suppress micro-rebalances
         deadzone_stats = None
         if config.deadzone_enabled and not orders.empty:
-            from src.assembled_core.paper.deadzone_rebalance import filter_deadzone_orders
+            from src.assembled_core.paper.deadzone_rebalance import (
+                filter_deadzone_orders,
+            )
+
             orders, deadzone_stats = filter_deadzone_orders(
                 orders,
                 current_positions=current_positions,
@@ -1323,9 +1371,7 @@ def run_paper_day(
         # Compute gross/net exposure from positions
         if not updated_positions.empty and not prices_tradeable.empty:
             # Get latest prices for each symbol
-            latest_prices = (
-                prices_tradeable.groupby("symbol")["close"].last().to_dict()
-            )
+            latest_prices = prices_tradeable.groupby("symbol")["close"].last().to_dict()
             # Calculate position values
             positions_with_prices = updated_positions.copy()
             positions_with_prices["price"] = positions_with_prices["symbol"].map(
@@ -1414,7 +1460,10 @@ def run_paper_day(
 
 
 def write_paper_day_outputs(
-    result: PaperTrackDayResult, output_dir: Path, config: PaperTrackConfig | None = None, run_id: str | None = None
+    result: PaperTrackDayResult,
+    output_dir: Path,
+    config: PaperTrackConfig | None = None,
+    run_id: str | None = None,
 ) -> None:
     """Write daily outputs for paper track run.
 
@@ -1448,9 +1497,11 @@ def write_paper_day_outputs(
         "positions_value": positions_value,
         "seed_capital": state.seed_capital,
         "total_pnl": state.total_pnl,
-        "total_return_pct": (state.total_pnl / state.seed_capital * 100.0)
-        if state.seed_capital > 0
-        else 0.0,
+        "total_return_pct": (
+            (state.total_pnl / state.seed_capital * 100.0)
+            if state.seed_capital > 0
+            else 0.0
+        ),
     }
     with open(run_dir / "equity_snapshot.json", "w", encoding="utf-8") as f:
         json.dump(equity_snapshot, f, indent=2, ensure_ascii=True)
@@ -1530,21 +1581,29 @@ def write_paper_day_outputs(
         )
         f.write(f"- Positions: {len(state.positions)}\n")
         f.write(f"- Daily Turnover: {result.daily_turnover:.4f}\n")
-        f.write(f"- Gross Exposure: ${result.gross_exposure:,.2f} ({result.gross_exposure_pct:.2f}%)\n")
-        f.write(f"- Net Exposure: ${result.net_exposure:,.2f} ({result.net_exposure_pct:.2f}%)\n\n")
+        f.write(
+            f"- Gross Exposure: ${result.gross_exposure:,.2f} ({result.gross_exposure_pct:.2f}%)\n"
+        )
+        f.write(
+            f"- Net Exposure: ${result.net_exposure:,.2f} ({result.net_exposure_pct:.2f}%)\n\n"
+        )
         f.write("## Universe\n")
         f.write(f"- Symbols Requested: {result.n_symbols_requested}\n")
         f.write(f"- Tradeable: {result.n_tradeable}\n")
         f.write(f"- Missing/Invalid: {result.n_missing}\n")
         if result.n_missing > 0:
-            f.write(f"  ⚠️  Warning: {result.n_missing} symbol(s) have missing data or NaN prices\n")
+            f.write(
+                f"  ⚠️  Warning: {result.n_missing} symbol(s) have missing data or NaN prices\n"
+            )
         f.write("\n")
         f.write("## Performance\n")
         total_return_pct = daily_summary.get(
             "total_return_pct",
-            (state.total_pnl / state.seed_capital * 100.0)
-            if state.seed_capital > 0
-            else 0.0,
+            (
+                (state.total_pnl / state.seed_capital * 100.0)
+                if state.seed_capital > 0
+                else 0.0
+            ),
         )
         f.write(f"- Total Return: {total_return_pct:+.2f}%\n")
         f.write(f"- Total PnL: ${state.total_pnl:+,.2f}\n")
@@ -1553,7 +1612,9 @@ def write_paper_day_outputs(
             f.write(f"- Status: {result.status}\n")
             f.write(f"- Error: {result.error_message}\n")
         f.write("\n## Metadata\n")
-        f.write("- See `manifest.json` for run metadata, config hash, and git commit hash.\n")
+        f.write(
+            "- See `manifest.json` for run metadata, config hash, and git commit hash.\n"
+        )
 
     logger.info(f"Wrote paper day outputs to {run_dir}")
 
@@ -1567,7 +1628,10 @@ def write_paper_day_outputs(
 
 
 def _write_run_manifest(
-    result: PaperTrackDayResult, run_dir: Path, config: PaperTrackConfig | None, run_id: str | None = None
+    result: PaperTrackDayResult,
+    run_dir: Path,
+    config: PaperTrackConfig | None,
+    run_id: str | None = None,
 ) -> None:
     """Write run manifest.json with metadata for this paper track run.
 
@@ -1610,7 +1674,11 @@ def _write_run_manifest(
         "date": result.date.strftime("%Y-%m-%d"),
         "timestamp": result.date.isoformat(),
         "run_id": run_id,  # Run-ID from runner execution (if provided)
-        "strategy_name": state_after.strategy_name if state_after else (config.strategy_name if config else "unknown"),
+        "strategy_name": (
+            state_after.strategy_name
+            if state_after
+            else (config.strategy_name if config else "unknown")
+        ),
         "run_directory": str(run_dir.name),  # Just the YYYYMMDD part
         "config_hash": config_hash,
         "config_path": config_path,
@@ -1618,14 +1686,30 @@ def _write_run_manifest(
         "state_before": {
             "equity": float(state_before.equity) if state_before else None,
             "cash": float(state_before.cash) if state_before else None,
-            "positions_count": len(state_before.positions) if state_before and not state_before.positions.empty else 0,
-            "last_run_date": state_before.last_run_date.isoformat() if state_before and state_before.last_run_date else None,
+            "positions_count": (
+                len(state_before.positions)
+                if state_before and not state_before.positions.empty
+                else 0
+            ),
+            "last_run_date": (
+                state_before.last_run_date.isoformat()
+                if state_before and state_before.last_run_date
+                else None
+            ),
         },
         "state_after": {
             "equity": float(state_after.equity) if state_after else None,
             "cash": float(state_after.cash) if state_after else None,
-            "positions_count": len(state_after.positions) if state_after and not state_after.positions.empty else 0,
-            "last_run_date": state_after.last_run_date.isoformat() if state_after and state_after.last_run_date else None,
+            "positions_count": (
+                len(state_after.positions)
+                if state_after and not state_after.positions.empty
+                else 0
+            ),
+            "last_run_date": (
+                state_after.last_run_date.isoformat()
+                if state_after and state_after.last_run_date
+                else None
+            ),
         },
         "run_summary": {
             "status": result.status,
@@ -1652,7 +1736,9 @@ def _write_run_manifest(
 
 
 def _write_aggregated_artifacts(
-    result: PaperTrackDayResult, output_dir: Path, output_format: Literal["csv", "parquet"] = "csv"
+    result: PaperTrackDayResult,
+    output_dir: Path,
+    output_format: Literal["csv", "parquet"] = "csv",
 ) -> None:
     """Write aggregated artifacts (equity_curve, trades_all, positions_history).
 
@@ -1797,7 +1883,9 @@ def _write_aggregated_artifacts(
             existing = existing[existing["date"] != date_str]
         # Append new positions
         if not positions_today.empty:
-            positions_history = pd.concat([existing, positions_today], ignore_index=True)
+            positions_history = pd.concat(
+                [existing, positions_today], ignore_index=True
+            )
         else:
             positions_history = existing
     else:
@@ -1837,9 +1925,7 @@ def _write_aggregated_artifacts(
                     [existing_perf, performance_panel], ignore_index=True
                 )
                 merged = merged.drop_duplicates(subset=key_cols, keep="last")
-                performance_panel = merged.sort_values(key_cols).reset_index(
-                    drop=True
-                )
+                performance_panel = merged.sort_values(key_cols).reset_index(drop=True)
 
             temp_perf_path = perf_path.with_suffix(f".tmp.{output_format}")
             if output_format == "parquet":
@@ -1854,4 +1940,3 @@ def _write_aggregated_artifacts(
         )
 
     logger.debug(f"Updated aggregated artifacts in {aggregates_dir}")
-

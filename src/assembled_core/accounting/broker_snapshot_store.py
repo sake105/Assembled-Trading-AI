@@ -72,7 +72,7 @@ def store_broker_snapshot_json(
 
     # Write JSON deterministically (sort_keys=True, indent=2, trailing newline)
     snapshot_path = snapshot_dir / f"snapshot_{date_str}.json"
-    
+
     # Atomic write (Windows-safe)
     with tempfile.NamedTemporaryFile(
         mode="w",
@@ -84,10 +84,10 @@ def store_broker_snapshot_json(
         json.dump(snapshot, tmp_file, sort_keys=True, indent=2, default=str)
         tmp_file.write("\n")
         tmp_path = Path(tmp_file.name)
-    
+
     # Atomic rename (Windows-safe)
     tmp_path.replace(snapshot_path)
-    
+
     logger.info(f"Stored broker snapshot JSON: {snapshot_path}")
     return snapshot_path
 
@@ -129,7 +129,7 @@ def store_broker_snapshot_parquet(
 
     # Atomic write (Windows-safe)
     positions_path = snapshot_dir / f"positions_{date_str}.parquet"
-    
+
     with tempfile.NamedTemporaryFile(
         mode="wb",
         dir=positions_path.parent,
@@ -138,10 +138,10 @@ def store_broker_snapshot_parquet(
     ) as tmp_file:
         positions_with_date.to_parquet(tmp_file.name, index=False)
         tmp_path = Path(tmp_file.name)
-    
+
     # Atomic rename (Windows-safe)
     tmp_path.replace(positions_path)
-    
+
     logger.info(f"Stored broker snapshot Parquet: {positions_path}")
     return positions_path
 
@@ -169,7 +169,9 @@ def load_broker_snapshot_json(
         as_of_date = as_of_date.tz_localize("UTC")
     date_str = as_of_date.strftime("%Y-%m-%d")
 
-    snapshot_path = broker_snapshot_base_path(output_dir, run_id) / f"snapshot_{date_str}.json"
+    snapshot_path = (
+        broker_snapshot_base_path(output_dir, run_id) / f"snapshot_{date_str}.json"
+    )
 
     if not snapshot_path.exists():
         # Caller decides whether this is fatal (e.g. policy=require) or a fallback case.
@@ -223,7 +225,9 @@ def load_broker_snapshot_parquet(
         as_of_date = as_of_date.tz_localize("UTC")
     date_str = as_of_date.strftime("%Y-%m-%d")
 
-    positions_path = broker_snapshot_base_path(output_dir, run_id) / f"positions_{date_str}.parquet"
+    positions_path = (
+        broker_snapshot_base_path(output_dir, run_id) / f"positions_{date_str}.parquet"
+    )
 
     if not positions_path.exists():
         logger.debug(

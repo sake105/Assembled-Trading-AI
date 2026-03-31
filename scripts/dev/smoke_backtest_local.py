@@ -45,26 +45,33 @@ def main() -> int:
     for sym in symbols:
         for i, d in enumerate(dates):
             close = 100.0 + i * 0.05 + (i % 20) * 0.5
-            rows.append({
-                "timestamp": d,
-                "symbol": sym,
-                "open": close * 0.99,
-                "high": close * 1.01,
-                "low": close * 0.98,
-                "close": close,
-                "volume": 1_000_000.0,
-            })
+            rows.append(
+                {
+                    "timestamp": d,
+                    "symbol": sym,
+                    "open": close * 0.99,
+                    "high": close * 1.01,
+                    "low": close * 0.98,
+                    "close": close,
+                    "volume": 1_000_000.0,
+                }
+            )
     df = pd.DataFrame(rows)
     df.to_parquet(price_file, index=False)
 
     cmd = [
         sys.executable,
         str(ROOT / "scripts" / "run_backtest_strategy.py"),
-        "--freq", "1d",
-        "--price-file", str(price_file),
-        "--strategy", "trend_baseline",
-        "--start-capital", "10000",
-        "--out", str(out_base),
+        "--freq",
+        "1d",
+        "--price-file",
+        str(price_file),
+        "--strategy",
+        "trend_baseline",
+        "--start-capital",
+        "10000",
+        "--out",
+        str(out_base),
         "--no-ledger",
     ]
     r = subprocess.run(cmd, cwd=str(ROOT), timeout=120)
@@ -76,8 +83,10 @@ def main() -> int:
         cmd2 = [
             sys.executable,
             str(ROOT / "scripts" / "dev" / "analyze_backtest_results.py"),
-            "--out", str(out_base),
-            "--summary-dir", str(ROOT / "output" / "analysis_run"),
+            "--out",
+            str(out_base),
+            "--summary-dir",
+            str(ROOT / "output" / "analysis_run"),
         ]
         r2 = subprocess.run(cmd2, cwd=str(ROOT), timeout=30)
         if r2.returncode != 0:

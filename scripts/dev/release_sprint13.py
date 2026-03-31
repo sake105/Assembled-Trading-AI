@@ -56,7 +56,14 @@ def main() -> int:
         steps.append(
             (
                 "ops_evidence",
-                [python, str(RUN_CHECKS), "--preset", "ops_evidence", "--skip-compile", "--skip-ruff"],
+                [
+                    python,
+                    str(RUN_CHECKS),
+                    "--preset",
+                    "ops_evidence",
+                    "--skip-compile",
+                    "--skip-ruff",
+                ],
             )
         )
 
@@ -74,7 +81,9 @@ def main() -> int:
     print(_ascii(summary))
 
     # Exit 0 only if blocking steps (release_sprint13, evidence_pack) passed
-    blocking_ok = all(c == 0 for name, c in results if name in ("release_sprint13", "evidence_pack"))
+    blocking_ok = all(
+        c == 0 for name, c in results if name in ("release_sprint13", "evidence_pack")
+    )
     return 0 if blocking_ok else 1
 
 

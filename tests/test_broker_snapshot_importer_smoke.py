@@ -15,7 +15,9 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.assembled_core.accounting.broker_snapshot_importer import import_broker_snapshot
+from src.assembled_core.accounting.broker_snapshot_importer import (
+    import_broker_snapshot,
+)
 from src.assembled_core.accounting.broker_snapshot_store import (
     load_broker_snapshot_json,
 )
@@ -212,10 +214,12 @@ def test_import_csv_basic(tmp_path: Path):
     """Test CSV import with cash override."""
     # Create external CSV snapshot
     external_path = tmp_path / "external_snapshot.csv"
-    df = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "qty": [100.0, 50.0],
-    })
+    df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [100.0, 50.0],
+        }
+    )
     df.to_csv(external_path, index=False)
 
     output_dir = tmp_path / "output"

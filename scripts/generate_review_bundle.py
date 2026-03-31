@@ -136,7 +136,9 @@ def main() -> None:
                     content = p.read_text(encoding="utf-8", errors="replace")
                     first_lines = content.split("\n")[:100]
                     lines.append("\n".join(first_lines) + "\n")
-                    lines.append(f"\n[... {len(content.split(chr(10))) - 100} more lines ...]\n")
+                    lines.append(
+                        f"\n[... {len(content.split(chr(10))) - 100} more lines ...]\n"
+                    )
                 except Exception as e:
                     lines.append(f"[Could not read: {e}]\n")
             else:
@@ -152,4 +154,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

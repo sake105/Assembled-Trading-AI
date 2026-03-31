@@ -90,7 +90,11 @@ def write_run_kpis(
     if isinstance(target_positions, pd.DataFrame) and not target_positions.empty:
         n_targets = int(len(target_positions))
         if "target_weight" in target_positions.columns:
-            sum_target_weight = float(pd.to_numeric(target_positions["target_weight"], errors="coerce").fillna(0.0).sum())
+            sum_target_weight = float(
+                pd.to_numeric(target_positions["target_weight"], errors="coerce")
+                .fillna(0.0)
+                .sum()
+            )
         else:
             sum_target_weight = None
     else:
@@ -118,10 +122,18 @@ def write_run_kpis(
             "n_targets": n_targets,
             "sum_target_weight": sum_target_weight,
         },
-        "intel_orchestration": (getattr(result, "meta", None) or {}).get("intel_orchestration"),
-        "news_triggers_summary": (getattr(result, "meta", None) or {}).get("news_triggers_summary"),
-        "disclosures_triggers_summary": (getattr(result, "meta", None) or {}).get("disclosures_triggers_summary"),
-        "news_debug_funnel": (getattr(result, "meta", None) or {}).get("news_debug_funnel"),
+        "intel_orchestration": (getattr(result, "meta", None) or {}).get(
+            "intel_orchestration"
+        ),
+        "news_triggers_summary": (getattr(result, "meta", None) or {}).get(
+            "news_triggers_summary"
+        ),
+        "disclosures_triggers_summary": (getattr(result, "meta", None) or {}).get(
+            "disclosures_triggers_summary"
+        ),
+        "news_debug_funnel": (getattr(result, "meta", None) or {}).get(
+            "news_debug_funnel"
+        ),
     }
 
     return _atomic_write_json(path, payload)
@@ -220,7 +232,9 @@ def write_reasons_artifact(
     risk_state_obj = getattr(ctx, "risk_state", None)
     if isinstance(risk_state_obj, dict):
         risk_state_state = risk_state_obj.get("state")
-        risk_state_reason = risk_state_obj.get("reason") or risk_state_obj.get("reason_code")
+        risk_state_reason = risk_state_obj.get("reason") or risk_state_obj.get(
+            "reason_code"
+        )
     else:
         risk_state_state = getattr(risk_state_obj, "state", None)
         risk_state_reason = getattr(risk_state_obj, "reason", None)
@@ -237,7 +251,11 @@ def write_reasons_artifact(
         geo_state_hint = getattr(news_geo, "state_hint", None)
 
     # Include full news_geo (e.g. boost block from disclosures_confirm) for transparency
-    news_geo_raw = news_geo if isinstance(news_geo, dict) else (getattr(news_geo, "__dict__", None) or {})
+    news_geo_raw = (
+        news_geo
+        if isinstance(news_geo, dict)
+        else (getattr(news_geo, "__dict__", None) or {})
+    )
 
     # Market stress
     market_stress = getattr(ctx, "market_stress", None) or {}
@@ -246,7 +264,9 @@ def write_reasons_artifact(
         stress_ok = market_stress.get("stress_ok")
 
     # Turnover gate from policy + meta
-    tb_policy = (policy.get("turnover_budget") or {}) if isinstance(policy, dict) else {}
+    tb_policy = (
+        (policy.get("turnover_budget") or {}) if isinstance(policy, dict) else {}
+    )
     turnover_cap = _safe_float(tb_policy.get("cap"))
     turnover_behavior = tb_policy.get("behavior")
 
@@ -323,8 +343,12 @@ def write_diff_vs_prev(
         and (prev_dir_path / "targets_latest.json").exists()
     ):
         try:
-            prev_kpis = json.loads((prev_dir_path / "run_kpis.json").read_text(encoding="utf-8"))
-            prev_targets_json = json.loads((prev_dir_path / "targets_latest.json").read_text(encoding="utf-8"))
+            prev_kpis = json.loads(
+                (prev_dir_path / "run_kpis.json").read_text(encoding="utf-8")
+            )
+            prev_targets_json = json.loads(
+                (prev_dir_path / "targets_latest.json").read_text(encoding="utf-8")
+            )
             prev_targets_items = list(prev_targets_json.get("items", []))
         except Exception:  # pragma: no cover - defensive
             notes.append("prev_run_read_error")
@@ -337,14 +361,18 @@ def write_diff_vs_prev(
     prev_date = None
     if prev_kpis and "generated_utc" in prev_kpis:
         try:
-            prev_date = datetime.fromisoformat(prev_kpis["generated_utc"]).date().isoformat()
+            prev_date = (
+                datetime.fromisoformat(prev_kpis["generated_utc"]).date().isoformat()
+            )
         except Exception:  # pragma: no cover
             prev_date = None
 
     curr_date = None
     if "generated_utc" in current_kpis:
         try:
-            curr_date = datetime.fromisoformat(current_kpis["generated_utc"]).date().isoformat()
+            curr_date = (
+                datetime.fromisoformat(current_kpis["generated_utc"]).date().isoformat()
+            )
         except Exception:  # pragma: no cover
             curr_date = None
 
@@ -353,7 +381,12 @@ def write_diff_vs_prev(
     if prev_kpis and "multipliers" in prev_kpis:
         prev_m = prev_kpis.get("multipliers") or {}
         curr_m = current_kpis.get("multipliers") or {}
-        for key in ("georisk", "profit_lock", "final_exposure_multiplier", "turnover_scale_factor"):
+        for key in (
+            "georisk",
+            "profit_lock",
+            "final_exposure_multiplier",
+            "turnover_scale_factor",
+        ):
             pv = _safe_float(prev_m.get(key))
             cv = _safe_float(curr_m.get(key))
             if pv is not None or cv is not None:
@@ -380,7 +413,11 @@ def write_diff_vs_prev(
         prev_weights[str(sym)] = _safe_float(it.get("target_weight")) or 0.0
 
     curr_weights: Dict[str, float] = {}
-    if isinstance(current_targets, pd.DataFrame) and not current_targets.empty and "symbol" in current_targets.columns:
+    if (
+        isinstance(current_targets, pd.DataFrame)
+        and not current_targets.empty
+        and "symbol" in current_targets.columns
+    ):
         has_weight = "target_weight" in current_targets.columns
         for _, row in current_targets.iterrows():
             sym = row.get("symbol")
@@ -427,4 +464,3 @@ def write_diff_vs_prev(
     }
 
     return _atomic_write_json(path, payload)
-

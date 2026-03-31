@@ -19,7 +19,12 @@ from src.assembled_core.risk.state_machine import (
     load_risk_state,
     save_risk_state,
 )
-from src.assembled_core.intel.disclosures_triggers_loader import DisclosuresTriggerSnapshot
+from src.assembled_core.intel.disclosures_triggers_loader import (
+    DisclosuresTriggerSnapshot,
+)
+
+import src.assembled_core.pipeline.trading_cycle  # noqa: F401 - ensure submodule is loaded for monkeypatch
+import src.assembled_core.risk.state_machine  # noqa: F401 - ensure submodule is loaded for monkeypatch
 
 
 pytestmark = [pytest.mark.unit, pytest.mark.phase6]
@@ -52,11 +57,22 @@ def _ctx(
 ) -> TradingContext:
     """Minimal TradingContext with optional news_geo / intel_health_flags / market_stress / disclosures_triggers."""
     import pandas as pd
-    df = pd.DataFrame({"timestamp": [pd.Timestamp("2025-01-01", tz="UTC")], "symbol": ["X"], "close": [100.0]})
+
+    df = pd.DataFrame(
+        {
+            "timestamp": [pd.Timestamp("2025-01-01", tz="UTC")],
+            "symbol": ["X"],
+            "close": [100.0],
+        }
+    )
     ctx = TradingContext(
         prices=df,
-        signal_fn=lambda _: pd.DataFrame(columns=["timestamp", "symbol", "direction", "score"]),
-        position_sizing_fn=lambda s, c: compute_target_positions(s, total_capital=c) if not s.empty else s,
+        signal_fn=lambda _: pd.DataFrame(
+            columns=["timestamp", "symbol", "direction", "score"]
+        ),
+        position_sizing_fn=lambda s, c: (
+            compute_target_positions(s, total_capital=c) if not s.empty else s
+        ),
         capital=1.0,
     )
     if news_geo is not None:
@@ -93,7 +109,10 @@ def test_watch_to_active_blocked_without_stress() -> None:
     """WATCH + score >= activate_score but require_market_stress_confirm and no stress_ok -> stay WATCH, reason stress_confirm."""
     policy = _policy()
     policy["risk_state_machine"]["hysteresis"]["require_market_stress_confirm"] = True
-    ctx = _ctx(news_geo={"geo_score": 2, "geo_confidence": 0.8, "state_hint": "ACTIVE"}, market_stress={"stress_ok": False})
+    ctx = _ctx(
+        news_geo={"geo_score": 2, "geo_confidence": 0.8, "state_hint": "ACTIVE"},
+        market_stress={"stress_ok": False},
+    )
     now = "2025-01-15T12:00:00Z"
     prev = RiskStateRecord(
         state="WATCH",
@@ -112,7 +131,10 @@ def test_watch_to_active_allowed_with_stress() -> None:
     """WATCH + score >= activate_score and stress_ok True -> ACTIVE."""
     policy = _policy()
     policy["risk_state_machine"]["hysteresis"]["require_market_stress_confirm"] = True
-    ctx = _ctx(news_geo={"geo_score": 2, "geo_confidence": 0.8, "state_hint": "ACTIVE"}, market_stress={"stress_ok": True})
+    ctx = _ctx(
+        news_geo={"geo_score": 2, "geo_confidence": 0.8, "state_hint": "ACTIVE"},
+        market_stress={"stress_ok": True},
+    )
     now = "2025-01-15T12:00:00Z"
     prev = RiskStateRecord(
         state="WATCH",
@@ -243,7 +265,9 @@ def test_run_trading_cycle_fills_risk_state(monkeypatch: Any) -> None:
 
     with tempfile.TemporaryDirectory() as tmp:
         base = Path(tmp)
-        monkeypatch.setattr("src.assembled_core.pipeline.trading_cycle.get_base_dir", lambda: base)
+        monkeypatch.setattr(
+            "src.assembled_core.pipeline.trading_cycle.get_base_dir", lambda: base
+        )
         monkeypatch.setattr(
             "src.assembled_core.pipeline.trading_cycle.load_policy",
             lambda: {
@@ -254,20 +278,26 @@ def test_run_trading_cycle_fills_risk_state(monkeypatch: Any) -> None:
                 }
             },
         )
-        prices = pd.DataFrame({
-            "timestamp": [pd.Timestamp("2025-01-01", tz="UTC")] * 2,
-            "symbol": ["A", "B"],
-            "close": [100.0, 200.0],
-        })
-        ctx = TradingContext(
-            prices=prices,
-            signal_fn=lambda _: pd.DataFrame({
+        prices = pd.DataFrame(
+            {
                 "timestamp": [pd.Timestamp("2025-01-01", tz="UTC")] * 2,
                 "symbol": ["A", "B"],
-                "direction": ["LONG", "LONG"],
-                "score": [1.0, 1.0],
-            }),
-            position_sizing_fn=lambda s, c: compute_target_positions(s, total_capital=c),
+                "close": [100.0, 200.0],
+            }
+        )
+        ctx = TradingContext(
+            prices=prices,
+            signal_fn=lambda _: pd.DataFrame(
+                {
+                    "timestamp": [pd.Timestamp("2025-01-01", tz="UTC")] * 2,
+                    "symbol": ["A", "B"],
+                    "direction": ["LONG", "LONG"],
+                    "score": [1.0, 1.0],
+                }
+            ),
+            position_sizing_fn=lambda s, c: compute_target_positions(
+                s, total_capital=c
+            ),
             capital=1.0,
         )
         result = run_trading_cycle(ctx)
@@ -285,7 +315,9 @@ def test_ephemeral_mode_does_not_write_file(monkeypatch: Any) -> None:
 
     with tempfile.TemporaryDirectory() as tmp:
         base = Path(tmp)
-        monkeypatch.setattr("src.assembled_core.pipeline.trading_cycle.get_base_dir", lambda: base)
+        monkeypatch.setattr(
+            "src.assembled_core.pipeline.trading_cycle.get_base_dir", lambda: base
+        )
         monkeypatch.setattr(
             "src.assembled_core.pipeline.trading_cycle.load_policy",
             lambda: {
@@ -296,20 +328,26 @@ def test_ephemeral_mode_does_not_write_file(monkeypatch: Any) -> None:
                 }
             },
         )
-        prices = pd.DataFrame({
-            "timestamp": [pd.Timestamp("2025-01-01", tz="UTC")] * 2,
-            "symbol": ["A", "B"],
-            "close": [100.0, 200.0],
-        })
-        ctx = TradingContext(
-            prices=prices,
-            signal_fn=lambda _: pd.DataFrame({
+        prices = pd.DataFrame(
+            {
                 "timestamp": [pd.Timestamp("2025-01-01", tz="UTC")] * 2,
                 "symbol": ["A", "B"],
-                "direction": ["LONG", "LONG"],
-                "score": [1.0, 1.0],
-            }),
-            position_sizing_fn=lambda s, c: compute_target_positions(s, total_capital=c),
+                "close": [100.0, 200.0],
+            }
+        )
+        ctx = TradingContext(
+            prices=prices,
+            signal_fn=lambda _: pd.DataFrame(
+                {
+                    "timestamp": [pd.Timestamp("2025-01-01", tz="UTC")] * 2,
+                    "symbol": ["A", "B"],
+                    "direction": ["LONG", "LONG"],
+                    "score": [1.0, 1.0],
+                }
+            ),
+            position_sizing_fn=lambda s, c: compute_target_positions(
+                s, total_capital=c
+            ),
             capital=1.0,
         )
         result = run_trading_cycle(ctx)
@@ -325,7 +363,9 @@ def test_per_run_mode_writes_to_unique_path(monkeypatch: Any) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         base = Path(tmp)
         run_id = "test_run_123"
-        monkeypatch.setattr("src.assembled_core.pipeline.trading_cycle.get_base_dir", lambda: base)
+        monkeypatch.setattr(
+            "src.assembled_core.pipeline.trading_cycle.get_base_dir", lambda: base
+        )
         monkeypatch.setattr(
             "src.assembled_core.pipeline.trading_cycle.load_policy",
             lambda: {
@@ -339,20 +379,26 @@ def test_per_run_mode_writes_to_unique_path(monkeypatch: Any) -> None:
                 }
             },
         )
-        prices = pd.DataFrame({
-            "timestamp": [pd.Timestamp("2025-01-01", tz="UTC")] * 2,
-            "symbol": ["A", "B"],
-            "close": [100.0, 200.0],
-        })
-        ctx = TradingContext(
-            prices=prices,
-            signal_fn=lambda _: pd.DataFrame({
+        prices = pd.DataFrame(
+            {
                 "timestamp": [pd.Timestamp("2025-01-01", tz="UTC")] * 2,
                 "symbol": ["A", "B"],
-                "direction": ["LONG", "LONG"],
-                "score": [1.0, 1.0],
-            }),
-            position_sizing_fn=lambda s, c: compute_target_positions(s, total_capital=c),
+                "close": [100.0, 200.0],
+            }
+        )
+        ctx = TradingContext(
+            prices=prices,
+            signal_fn=lambda _: pd.DataFrame(
+                {
+                    "timestamp": [pd.Timestamp("2025-01-01", tz="UTC")] * 2,
+                    "symbol": ["A", "B"],
+                    "direction": ["LONG", "LONG"],
+                    "score": [1.0, 1.0],
+                }
+            ),
+            position_sizing_fn=lambda s, c: compute_target_positions(
+                s, total_capital=c
+            ),
             capital=1.0,
             run_id=run_id,
         )
@@ -377,13 +423,16 @@ def test_atomic_write_retry_handles_permissionerror(monkeypatch: Any) -> None:
                 raise PermissionError(32, "File in use")
             original_replace(src, dst)
 
-        monkeypatch.setattr("src.assembled_core.risk.state_machine.os.replace", replacing)
+        monkeypatch.setattr(
+            "src.assembled_core.risk.state_machine.os.replace", replacing
+        )
         atomic_write_json_with_retry(path, {"state": "WATCH"}, retries=3, backoff_ms=1)
         assert path.exists()
         assert call_count == 2
 
 
 # --- Disclosures confirm gate (DISCL-5) ---
+
 
 def test_activation_blocked_without_disclosures_confirm_when_required() -> None:
     """WATCH -> ACTIVE blocked when require_disclosures_confirm True and disclosures missing/degraded or max_sev < min."""
@@ -458,7 +507,12 @@ def test_activation_not_blocked_when_flag_false() -> None:
     """When require_disclosures_confirm False, activation does not require disclosures (default behavior)."""
     policy = _policy()
     # default: require_disclosures_confirm not set / False
-    assert policy["risk_state_machine"]["hysteresis"].get("require_disclosures_confirm", False) is False
+    assert (
+        policy["risk_state_machine"]["hysteresis"].get(
+            "require_disclosures_confirm", False
+        )
+        is False
+    )
     ctx = _ctx(
         news_geo={"geo_score": 2, "geo_confidence": 0.8, "state_hint": "ACTIVE"},
         market_stress={"stress_ok": True},

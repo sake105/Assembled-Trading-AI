@@ -101,9 +101,9 @@ def test_compare_script_runs_and_creates_summary(
     # Check file content
     content = summary_md.read_text(encoding="utf-8")
     assert "trend baseline" in content.lower(), "Summary should mention trend baseline"
-    assert "event insider shipping" in content.lower(), (
-        "Summary should mention event insider shipping"
-    )
+    assert (
+        "event insider shipping" in content.lower()
+    ), "Summary should mention event insider shipping"
 
     # Check that comparison_summary.csv exists
     summary_csv = tmp_path / "comparison_summary.csv"
@@ -113,12 +113,12 @@ def test_compare_script_runs_and_creates_summary(
     df = pd.read_csv(summary_csv)
     assert "strategy" in df.columns, "CSV should have 'strategy' column"
     assert len(df) == 2, "CSV should have 2 rows (one for each strategy)"
-    assert "trend_baseline" in df["strategy"].values, (
-        "CSV should contain trend_baseline"
-    )
-    assert "event_insider_shipping" in df["strategy"].values, (
-        "CSV should contain event_insider_shipping"
-    )
+    assert (
+        "trend_baseline" in df["strategy"].values
+    ), "CSV should contain trend_baseline"
+    assert (
+        "event_insider_shipping" in df["strategy"].values
+    ), "CSV should contain event_insider_shipping"
 
 
 def test_compare_script_with_no_costs(sample_price_file: Path, tmp_path: Path):

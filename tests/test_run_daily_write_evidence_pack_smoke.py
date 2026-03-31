@@ -23,7 +23,9 @@ def test_cli_accepts_write_evidence_pack() -> None:
         cwd=str(ROOT),
     )
     assert result.returncode == 0
-    assert "write-evidence-pack" in result.stdout or "write_evidence_pack" in result.stdout
+    assert (
+        "write-evidence-pack" in result.stdout or "write_evidence_pack" in result.stdout
+    )
 
 
 def test_daily_manifest_contains_evidence_pack_fields(tmp_path: Path) -> None:
@@ -104,7 +106,13 @@ def test_daily_manifest_evidence_pack_paths_when_set(tmp_path: Path) -> None:
     with manifest_path.open("r", encoding="utf-8") as f:
         data = json.load(f)
 
-    assert data["evidence_index_path"] == "evidence_daily_20250115/evidence_2025-01-15.json"
+    assert (
+        data["evidence_index_path"]
+        == "evidence_daily_20250115/evidence_2025-01-15.json"
+    )
     assert data["evidence_pack_path"] == "evidence_daily_20250115/pack_2025-01-15.zip"
-    assert data["evidence_pack_manifest_path"] == "evidence_daily_20250115/pack_manifest_2025-01-15.json"
+    assert (
+        data["evidence_pack_manifest_path"]
+        == "evidence_daily_20250115/pack_manifest_2025-01-15.json"
+    )
     assert "\\" not in data["evidence_pack_path"]

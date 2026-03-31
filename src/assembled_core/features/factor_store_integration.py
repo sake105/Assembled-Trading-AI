@@ -109,11 +109,13 @@ def build_or_load_factors(
                     f"[cache_hit] Factors loaded from store: {factor_group}/{freq}/{universe_key}, "
                     f"date_range=[{cached_start.date()}, {cached_end.date()}], rows={len(cached_factors)}"
                 )
-                
+
                 # Apply PIT filtering if as_of is provided (even on cache hit, load_factors may return full range)
                 if as_of is not None:
-                    cached_factors = cached_factors[cached_factors["timestamp"] <= as_of].copy()
-                
+                    cached_factors = cached_factors[
+                        cached_factors["timestamp"] <= as_of
+                    ].copy()
+
                 return cached_factors
             else:
                 logger.debug(
@@ -144,7 +146,9 @@ def build_or_load_factors(
     required_cols = ["timestamp", "symbol"]
     missing_cols = [col for col in required_cols if col not in factors_df.columns]
     if missing_cols:
-        raise ValueError(f"Builder function must return DataFrame with columns: {missing_cols}")
+        raise ValueError(
+            f"Builder function must return DataFrame with columns: {missing_cols}"
+        )
 
     # Store factors in cache
     # Use append mode (not overwrite) to avoid rewriting existing year partitions
@@ -157,7 +161,11 @@ def build_or_load_factors(
         mode="overwrite" if force_rebuild else "append",
         factors_root=factors_root,
         metadata={
-            "builder_fn": builder_fn.__name__ if hasattr(builder_fn, "__name__") else str(builder_fn),
+            "builder_fn": (
+                builder_fn.__name__
+                if hasattr(builder_fn, "__name__")
+                else str(builder_fn)
+            ),
             "builder_kwargs": builder_kwargs,
         },
     )
@@ -169,4 +177,3 @@ def build_or_load_factors(
         factors_df = factors_df[factors_df["timestamp"] <= as_of].copy()
 
     return factors_df
-

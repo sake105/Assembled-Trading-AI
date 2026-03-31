@@ -226,9 +226,9 @@ def test_run_daily_creates_order_file_structure(
                 )
 
                 # Verify file exists
-                assert order_file.exists(), (
-                    f"Order file should be created: {order_file}"
-                )
+                assert (
+                    order_file.exists()
+                ), f"Order file should be created: {order_file}"
 
                 # Verify file structure
                 order_df = pd.read_csv(order_file)
@@ -237,18 +237,19 @@ def test_run_daily_creates_order_file_structure(
                 # Check for expected columns (SAFE-CSV format uses: Ticker, Side, Quantity, PriceType, Comment)
                 required_cols = ["Ticker", "Side", "Quantity"]
                 for col in required_cols:
-                    assert col in order_df.columns, (
-                        f"Order file should have '{col}' column"
-                    )
+                    assert (
+                        col in order_df.columns
+                    ), f"Order file should have '{col}' column"
 
                 # Verify data types
                 assert order_df["Ticker"].dtype == object, "Ticker should be string"
-                assert order_df["Side"].isin(["BUY", "SELL"]).all(), (
-                    "Side should be BUY or SELL"
-                )
-                assert order_df["Quantity"].dtype in [float, "float64"], (
-                    "Quantity should be numeric"
-                )
+                assert (
+                    order_df["Side"].isin(["BUY", "SELL"]).all()
+                ), "Side should be BUY or SELL"
+                assert order_df["Quantity"].dtype in [
+                    float,
+                    "float64",
+                ], "Quantity should be numeric"
 
 
 def test_run_daily_handles_empty_signals(

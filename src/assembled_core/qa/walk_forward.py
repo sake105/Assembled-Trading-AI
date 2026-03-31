@@ -868,17 +868,27 @@ def run_walk_forward(
                 normalized_metrics[normalized_key] = value
 
             # Ensure we have standard metrics
-            sharpe = normalized_metrics.get("sharpe", normalized_metrics.get("test_sharpe", 0.0))
-            cagr = normalized_metrics.get("cagr", normalized_metrics.get("test_cagr", 0.0))
-            max_dd = normalized_metrics.get("max_drawdown", normalized_metrics.get("test_max_dd", 0.0))
-            total_return = normalized_metrics.get("total_return", normalized_metrics.get("test_return", 0.0))
+            sharpe = normalized_metrics.get(
+                "sharpe", normalized_metrics.get("test_sharpe", 0.0)
+            )
+            cagr = normalized_metrics.get(
+                "cagr", normalized_metrics.get("test_cagr", 0.0)
+            )
+            max_dd = normalized_metrics.get(
+                "max_drawdown", normalized_metrics.get("test_max_dd", 0.0)
+            )
+            total_return = normalized_metrics.get(
+                "total_return", normalized_metrics.get("test_return", 0.0)
+            )
 
             split_metrics = {
                 "split_index": window.split_index,
                 "sharpe": float(sharpe) if not pd.isna(sharpe) else 0.0,
                 "cagr": float(cagr) if not pd.isna(cagr) else 0.0,
                 "max_drawdown": float(max_dd) if not pd.isna(max_dd) else 0.0,
-                "total_return": float(total_return) if not pd.isna(total_return) else 0.0,
+                "total_return": (
+                    float(total_return) if not pd.isna(total_return) else 0.0
+                ),
             }
 
             all_metrics.append(split_metrics)
@@ -919,7 +929,9 @@ def run_walk_forward(
             summary_rows.append(summary_row)
 
     if not all_metrics:
-        raise ValueError("All splits failed. Check backtest_fn implementation and logs.")
+        raise ValueError(
+            "All splits failed. Check backtest_fn implementation and logs."
+        )
 
     # Build metrics DataFrame
     metrics_df = pd.DataFrame(all_metrics)
@@ -994,7 +1006,13 @@ def export_walk_forward_results(
     # Export splits.json
     splits_json = wf_output_dir / "splits.json"
     with splits_json.open("w", encoding="utf-8") as f:
-        json.dump(wf_result["splits"], f, sort_keys=True, indent=2, default=_json_serialize_nan)
+        json.dump(
+            wf_result["splits"],
+            f,
+            sort_keys=True,
+            indent=2,
+            default=_json_serialize_nan,
+        )
 
     # Export wf_summary.csv
     summary_csv = wf_output_dir / "wf_summary.csv"
@@ -1009,7 +1027,9 @@ def export_walk_forward_results(
         "oos_first_metrics": wf_result["oos_first_metrics"],
     }
     with metrics_json.open("w", encoding="utf-8") as f:
-        json.dump(metrics_dict, f, sort_keys=True, indent=2, default=_json_serialize_nan)
+        json.dump(
+            metrics_dict, f, sort_keys=True, indent=2, default=_json_serialize_nan
+        )
 
     logger.info(f"Walk-forward results exported to {wf_output_dir}")
 

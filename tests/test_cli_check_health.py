@@ -197,9 +197,10 @@ def test_health_check_warn_when_risk_report_missing(
 
     # Exit code should be 1 for WARN (or 0 if overall is OK with other checks)
     # But we should see WARN for risk_report_exists check
-    assert result.returncode in [0, 1], (
-        f"Expected exit code 0 or 1, got {result.returncode}"
-    )
+    assert result.returncode in [
+        0,
+        1,
+    ], f"Expected exit code 0 or 1, got {result.returncode}"
 
     # Check JSON content
     summary_json = output_dir / "health_summary.json"
@@ -214,12 +215,12 @@ def test_health_check_warn_when_risk_report_missing(
                 risk_report_check = check
                 break
 
-        assert risk_report_check is not None, (
-            "risk_report_exists check should be present"
-        )
-        assert risk_report_check["status"] == "WARN", (
-            f"Expected WARN for missing risk report, got {risk_report_check['status']}"
-        )
+        assert (
+            risk_report_check is not None
+        ), "risk_report_exists check should be present"
+        assert (
+            risk_report_check["status"] == "WARN"
+        ), f"Expected WARN for missing risk report, got {risk_report_check['status']}"
 
 
 @pytest.mark.advanced
@@ -272,9 +273,10 @@ def test_health_check_critical_when_equity_missing(tmp_path: Path):
         )
 
         # If no backtest dir found, we should have CRITICAL
-        assert has_critical or overall_status in ["CRITICAL", "WARN"], (
-            "Should have CRITICAL or WARN when equity is missing"
-        )
+        assert has_critical or overall_status in [
+            "CRITICAL",
+            "WARN",
+        ], "Should have CRITICAL or WARN when equity is missing"
 
 
 @pytest.mark.advanced
@@ -309,9 +311,10 @@ def test_health_check_warn_when_sharpe_below_threshold(
     )
 
     # Exit code should be 1 for WARN (or 2 for CRITICAL if drawdown is also bad)
-    assert result.returncode in [1, 2], (
-        f"Expected exit code 1 or 2, got {result.returncode}"
-    )
+    assert result.returncode in [
+        1,
+        2,
+    ], f"Expected exit code 1 or 2, got {result.returncode}"
 
     # Check JSON content
     summary_json = output_dir / "health_summary.json"
@@ -327,9 +330,10 @@ def test_health_check_warn_when_sharpe_below_threshold(
                 break
 
         if sharpe_check is not None:
-            assert sharpe_check["status"] in ["WARN", "CRITICAL"], (
-                f"Expected WARN or CRITICAL for low Sharpe, got {sharpe_check['status']}"
-            )
+            assert sharpe_check["status"] in [
+                "WARN",
+                "CRITICAL",
+            ], f"Expected WARN or CRITICAL for low Sharpe, got {sharpe_check['status']}"
 
 
 @pytest.mark.advanced
@@ -385,9 +389,9 @@ def test_check_health_subcommand_in_cli():
     )
 
     assert result_info.returncode == 0, "info should exit with code 0"
-    assert "check_health" in result_info.stdout, (
-        "info should list check_health subcommand"
-    )
+    assert (
+        "check_health" in result_info.stdout
+    ), "info should list check_health subcommand"
 
 
 @pytest.mark.advanced
@@ -415,14 +419,16 @@ def test_check_health_smoke_test_minimal(tmp_path: Path):
     )
 
     # Should not crash (exit code 0, 1, or 2 is acceptable)
-    assert result.returncode in [0, 1, 2], (
-        f"check_health should exit with 0/1/2, got {result.returncode}. stderr: {result.stderr}"
-    )
+    assert result.returncode in [
+        0,
+        1,
+        2,
+    ], f"check_health should exit with 0/1/2, got {result.returncode}. stderr: {result.stderr}"
 
     # Should create output files
-    assert (output_dir / "health_summary.json").exists(), (
-        "health_summary.json should be created"
-    )
-    assert (output_dir / "health_summary.md").exists(), (
-        "health_summary.md should be created"
-    )
+    assert (
+        output_dir / "health_summary.json"
+    ).exists(), "health_summary.json should be created"
+    assert (
+        output_dir / "health_summary.md"
+    ).exists(), "health_summary.md should be created"

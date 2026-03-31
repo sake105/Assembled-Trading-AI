@@ -154,4 +154,3 @@ def test_compute_date_list_catchup_ignored_with_explicit_range(
     assert len(dates) == 6  # 20, 21, 22, 23, 24, 25
     assert dates[0] == pd.Timestamp("2025-01-20", tz="UTC").normalize()
     assert dates[-1] == pd.Timestamp("2025-01-25", tz="UTC").normalize()
-

@@ -58,7 +58,9 @@ class ReferenceJobSpec:
 
     name: str
     description: str
-    job_func: Callable[..., None]  # Accepts variable args for warm_cache, use_factor_store, etc.
+    job_func: Callable[
+        ..., None
+    ]  # Accepts variable args for warm_cache, use_factor_store, etc.
     seed: int | None = None
 
 
@@ -112,6 +114,7 @@ def run_eod_small_job(warm_cache: bool = False, use_factor_store: bool = False) 
 
     # Set seed for determinism (if numpy/pandas random state is used)
     import numpy as np
+
     np.random.seed(42)
 
     logger.info("Running EOD_SMALL reference job...")
@@ -132,14 +135,14 @@ def run_eod_small_job(warm_cache: bool = False, use_factor_store: bool = False) 
             end_date,
             "--use-factor-store",
         ]
-        
+
         result_cold = subprocess.run(
             cmd_cold,
             cwd=str(root),
             capture_output=False,
             check=False,
         )
-        
+
         if result_cold.returncode != 0:
             logger.warning(
                 "EOD_SMALL cold build exited with code %d. This may be expected if data is missing.",
@@ -147,7 +150,7 @@ def run_eod_small_job(warm_cache: bool = False, use_factor_store: bool = False) 
             )
         else:
             logger.info("EOD_SMALL cold build completed successfully")
-        
+
         logger.info("Step 2: Warm load (loading factors from cache)...")
         cmd_warm = [
             sys.executable,
@@ -156,14 +159,14 @@ def run_eod_small_job(warm_cache: bool = False, use_factor_store: bool = False) 
             end_date,
             "--use-factor-store",
         ]
-        
+
         result_warm = subprocess.run(
             cmd_warm,
             cwd=str(root),
             capture_output=False,
             check=False,
         )
-        
+
         if result_warm.returncode != 0:
             logger.warning(
                 "EOD_SMALL warm load exited with code %d.",
@@ -179,17 +182,17 @@ def run_eod_small_job(warm_cache: bool = False, use_factor_store: bool = False) 
             "--date",
             end_date,
         ]
-        
+
         if use_factor_store:
             cmd.append("--use-factor-store")
-        
+
         result = subprocess.run(
             cmd,
             cwd=str(root),
             capture_output=False,
             check=False,
         )
-        
+
         if result.returncode != 0:
             logger.warning(
                 "EOD_SMALL job exited with code %d. This may be expected if data is missing.",
@@ -199,7 +202,11 @@ def run_eod_small_job(warm_cache: bool = False, use_factor_store: bool = False) 
             logger.info("EOD_SMALL job completed successfully")
 
 
-def run_backtest_medium_job(use_factor_store: bool = False, enable_timings: bool = False, timings_out: pathlib.Path | None = None) -> None:
+def run_backtest_medium_job(
+    use_factor_store: bool = False,
+    enable_timings: bool = False,
+    timings_out: pathlib.Path | None = None,
+) -> None:
     """
     Run BACKTEST_MEDIUM reference job: 10 years, ~200 symbols, trend_baseline backtest.
 
@@ -218,6 +225,7 @@ def run_backtest_medium_job(use_factor_store: bool = False, enable_timings: bool
     """
     # Set seed for determinism
     import numpy as np
+
     np.random.seed(42)
 
     logger.info("Running BACKTEST_MEDIUM reference job...")
@@ -236,7 +244,7 @@ def run_backtest_medium_job(use_factor_store: bool = False, enable_timings: bool
         use_fs = use_factor_store
         enable_tim = enable_timings
         timings_out_str = str(timings_out) if timings_out else None
-        
+
         class BacktestArgs:
             freq = "1d"
             strategy = "trend_baseline"
@@ -273,7 +281,7 @@ def run_backtest_medium_job(use_factor_store: bool = False, enable_timings: bool
 
         args = BacktestArgs()
         exit_code = run_backtest_from_args(args)
-        
+
         if exit_code != 0:
             logger.warning(
                 "BACKTEST_MEDIUM job exited with code %d. This may be expected if data is missing.",
@@ -302,6 +310,7 @@ def run_ml_job() -> None:
 
     # Set seed for determinism
     import numpy as np
+
     np.random.seed(42)
 
     logger.info("Running ML_JOB reference job...")
@@ -402,11 +411,11 @@ def run_ml_job() -> None:
                 "Could not find exported factor panel - skipping ML validation step"
             )
     else:
-        logger.warning(
-            "Factor panel export failed - skipping ML validation step"
-        )
+        logger.warning("Factor panel export failed - skipping ML validation step")
 
-    logger.info("ML_JOB completed (some steps may have been skipped if data is missing)")
+    logger.info(
+        "ML_JOB completed (some steps may have been skipped if data is missing)"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -773,7 +782,9 @@ def profile_job(
 
     job_func = JOB_MAP[job_name]
 
-    logger.info("Starting profiled job %s at %s (profiler=%s)", job_name, timestamp, profiler)
+    logger.info(
+        "Starting profiled job %s at %s (profiler=%s)", job_name, timestamp, profiler
+    )
     if warm_cache:
         logger.info("  warm_cache=True: will run cold build, then warm load")
     if use_factor_store:
@@ -910,13 +921,16 @@ def run_job_without_profiling(
         )
 
     job_func = JOB_MAP[job_name]
-    
+
     # Set seed if this is a reference job
     for ref_job in REFERENCE_JOBS:
         if ref_job.name == job_name and ref_job.seed is not None:
             import numpy as np
+
             np.random.seed(ref_job.seed)
-            logger.info(f"Set random seed to {ref_job.seed} for deterministic execution")
+            logger.info(
+                f"Set random seed to {ref_job.seed} for deterministic execution"
+            )
             break
 
     # Prepare job function arguments based on job name
@@ -1001,18 +1015,20 @@ def main(argv: list[str] | None = None) -> int:
     """Main entry point."""
     _setup_logging()
     args = parse_args(argv)
-    
+
     # Handle --list option
     if args.list:
         list_reference_jobs()
         return 0
-    
+
     # Require --job if not listing
     if not args.job:
-        parser = argparse.ArgumentParser(description="Profile common assembled-trading-ai jobs.")
+        parser = argparse.ArgumentParser(
+            description="Profile common assembled-trading-ai jobs."
+        )
         parser.error("Either --list or --job must be specified")
         return 1
-    
+
     try:
         # Determine profiler (backward compatibility: --with-cprofile maps to --profiler cprofile)
         profiler = args.profiler
@@ -1023,9 +1039,11 @@ def main(argv: list[str] | None = None) -> int:
             profiler = "cprofile"
 
         profile_out = pathlib.Path(args.profile_out) if args.profile_out else None
-        
+
         # Determine use_factor_store: --warm-cache implies --use-factor-store for EOD_SMALL
-        use_factor_store = args.use_factor_store or (args.warm_cache and args.job == "EOD_SMALL")
+        use_factor_store = args.use_factor_store or (
+            args.warm_cache and args.job == "EOD_SMALL"
+        )
 
         if profiler == "none":
             # Run job without profiling

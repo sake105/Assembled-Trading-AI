@@ -14,7 +14,9 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.assembled_core.accounting.evidence_index import write_evidence_index_json  # noqa: E402
+from src.assembled_core.accounting.evidence_index import (
+    write_evidence_index_json,
+)  # noqa: E402
 from src.assembled_core.accounting.evidence_pack import (  # noqa: E402
     build_evidence_pack,
     read_pack_manifest_from_zip,
@@ -32,7 +34,9 @@ def _build_sample_evidence_pack(tmp_path: Path) -> tuple[Path, Path]:
     date_str = "2025-01-15"
 
     # Create dummy artifact files
-    broker_snapshot_path = output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    broker_snapshot_path = (
+        output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    )
     ledger_pack_path = output_dir / "ledger_run" / "ledger_events.parquet"
     reconcile_report_path = output_dir / "reconcile_run" / f"reconcile_{date_str}.json"
 
@@ -161,7 +165,9 @@ def test_verify_detects_paths_not_in_zip_entries(tmp_path: Path) -> None:
     manifest_data["zip_entries"] = [e for e in zip_entries if e != omitted]
     manifest_data["zip_entries_count"] = len(manifest_data["zip_entries"])
 
-    manifest_path.write_text(json.dumps(manifest_data, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    manifest_path.write_text(
+        json.dumps(manifest_data, sort_keys=True, indent=2) + "\n", encoding="utf-8"
+    )
 
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         for f in extracted_dir.rglob("*"):
@@ -229,14 +235,21 @@ def test_verify_detects_illegal_paths(tmp_path: Path) -> None:
         "source": None,
         "source_path": None,
         "files": [
-            {"path": "good_file.txt", "size_bytes": 3, "sha256": None, "source_type": "other"},
+            {
+                "path": "good_file.txt",
+                "size_bytes": 3,
+                "sha256": None,
+                "source_type": "other",
+            },
         ],
         "required_missing": [],
         "optional_missing": [],
         "tool_version": "test",
     }
 
-    manifest_bytes = (json.dumps(manifest, sort_keys=True, indent=2) + "\n").encode("utf-8")
+    manifest_bytes = (json.dumps(manifest, sort_keys=True, indent=2) + "\n").encode(
+        "utf-8"
+    )
 
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         # Good file

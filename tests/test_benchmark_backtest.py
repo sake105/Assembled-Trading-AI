@@ -12,7 +12,6 @@ import json
 from pathlib import Path
 
 
-
 def test_benchmark_harness_imports() -> None:
     """Test that benchmark harness module can be imported."""
     import scripts.benchmark_backtest
@@ -100,4 +99,3 @@ def test_benchmark_harness_function_signature() -> None:
     assert sig.parameters["job_name"].default == "BACKTEST_MEDIUM"
     assert sig.parameters["num_runs"].default == 3
     assert sig.parameters["output_dir"].default is None
-

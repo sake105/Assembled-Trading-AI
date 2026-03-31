@@ -128,17 +128,25 @@ def simulate_fills(
             fill_price = base_price * slippage_mult
         # Commission (per-share approximation)
         commission_per_share = base_price * (commission_bps / 10000.0)
-        fill_price = fill_price + (commission_per_share if str(side).upper() == "BUY" else -commission_per_share)
-        fills.append({
-            "symbol": symbol,
-            "side": str(side).upper() if side else "BUY",
-            "qty": qty_f,
-            "price": fill_price,
-        })
+        fill_price = fill_price + (
+            commission_per_share
+            if str(side).upper() == "BUY"
+            else -commission_per_share
+        )
+        fills.append(
+            {
+                "symbol": symbol,
+                "side": str(side).upper() if side else "BUY",
+                "qty": qty_f,
+                "price": fill_price,
+            }
+        )
     return fills
 
 
-def apply_fills_to_ledger(state: dict[str, Any], fills: list[dict[str, Any]]) -> dict[str, Any]:
+def apply_fills_to_ledger(
+    state: dict[str, Any], fills: list[dict[str, Any]]
+) -> dict[str, Any]:
     """Update cash and positions from fills. Positions: qty and avg_price (weighted). Returns new state (copy)."""
     out = {
         "schema_version": state.get("schema_version") or SCHEMA_VERSION,
@@ -214,7 +222,8 @@ def write_ledger_snapshot(
         "cash": state.get("cash"),
         "positions": state.get("positions"),
         "equity": equity,
-        "updated_utc": state.get("updated_utc") or datetime.now(timezone.utc).isoformat(),
+        "updated_utc": state.get("updated_utc")
+        or datetime.now(timezone.utc).isoformat(),
     }
     out_dir.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")

@@ -77,9 +77,13 @@ def store_ledger_events_parquet(
 
     # Ensure event_ts is UTC-aware
     if "event_ts" in events_normalized.columns:
-        events_normalized["event_ts"] = pd.to_datetime(events_normalized["event_ts"], utc=True)
+        events_normalized["event_ts"] = pd.to_datetime(
+            events_normalized["event_ts"], utc=True
+        )
         if events_normalized["event_ts"].dt.tz is None:
-            events_normalized["event_ts"] = events_normalized["event_ts"].dt.tz_localize("UTC")
+            events_normalized["event_ts"] = events_normalized[
+                "event_ts"
+            ].dt.tz_localize("UTC")
 
     # Load existing data if append mode
     if mode == "append" and ledger_path.exists():
@@ -210,7 +214,9 @@ def list_ledger_runs(output_dir: Path | str) -> list[str]:
         return []
 
     # Find all ledger_* directories
-    ledger_dirs = [d for d in output_path.iterdir() if d.is_dir() and d.name.startswith("ledger_")]
+    ledger_dirs = [
+        d for d in output_path.iterdir() if d.is_dir() and d.name.startswith("ledger_")
+    ]
 
     # Extract run IDs
     run_ids = []

@@ -385,4 +385,3 @@ def test_risk_report_output_directory_structure(
     assert date == friday
     # Verify output_root structure (risk_reports will be created inside _generate_risk_report_for_paper_track)
     assert "paper_track" in str(output_root) or "test_strategy" in str(output_root)
-

@@ -14,4 +14,3 @@ from __future__ import annotations
 from .pipeline import run_news_pipeline
 
 __all__ = ["run_news_pipeline"]
-

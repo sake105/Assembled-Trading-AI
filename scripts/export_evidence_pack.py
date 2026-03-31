@@ -95,7 +95,12 @@ def _export_json_result(
         "files_count": files_count,
     }
     # ASCII-only for path fields (machine-readable logs)
-    for key in ("output_dir", "output_dir_resolved", "pack_path_resolved", "pack_manifest_path_resolved"):
+    for key in (
+        "output_dir",
+        "output_dir_resolved",
+        "pack_path_resolved",
+        "pack_manifest_path_resolved",
+    ):
         if out.get(key) is not None:
             out[key] = _ascii_path(str(out[key]))
     return out
@@ -180,7 +185,9 @@ def main() -> int:
         logger_err = logging.getLogger()
         logger_err.error("--text and --print-pack-path are mutually exclusive")
         return 1
-    json_output = not args.text and not args.print_pack_path  # Default: JSON. --text or --print-pack-path override.
+    json_output = (
+        not args.text and not args.print_pack_path
+    )  # Default: JSON. --text or --print-pack-path override.
 
     # Setup logging: always send logs to stderr so stdout is clean (JSON or single status line)
     logger = setup_logging(level="INFO")
@@ -195,7 +202,12 @@ def main() -> int:
         try:
             # Validate format first (YYYY-MM-DD)
             parts = args.as_of_date.split("-")
-            if len(parts) != 3 or len(parts[0]) != 4 or len(parts[1]) != 2 or len(parts[2]) != 2:
+            if (
+                len(parts) != 3
+                or len(parts[0]) != 4
+                or len(parts[1]) != 2
+                or len(parts[2]) != 2
+            ):
                 msg = f"Invalid date format: {args.as_of_date}. Use YYYY-MM-DD"
                 logger.error(msg)
                 if json_output:
@@ -208,7 +220,10 @@ def main() -> int:
                         source=None,
                         source_path=None,
                     )
-                    print(json.dumps(out, sort_keys=True, indent=2, default=str) + "\n", end="")
+                    print(
+                        json.dumps(out, sort_keys=True, indent=2, default=str) + "\n",
+                        end="",
+                    )
                 else:
                     print(f"ERROR: {msg}", file=sys.stderr)
                 return 1
@@ -227,7 +242,10 @@ def main() -> int:
                     source=None,
                     source_path=None,
                 )
-                print(json.dumps(out, sort_keys=True, indent=2, default=str) + "\n", end="")
+                print(
+                    json.dumps(out, sort_keys=True, indent=2, default=str) + "\n",
+                    end="",
+                )
             else:
                 print(f"ERROR: {msg}", file=sys.stderr)
             return 1
@@ -253,7 +271,10 @@ def main() -> int:
             )
         except ValueError as exc:
             exc_str = str(exc)
-            if "No evidence files found" in exc_str or "Evidence index and manifest may be missing" in exc_str:
+            if (
+                "No evidence files found" in exc_str
+                or "Evidence index and manifest may be missing" in exc_str
+            ):
                 error_code = EXPORT_ERROR_NO_SOURCE
             elif "Required files missing" in exc_str:
                 error_code = EXPORT_ERROR_MISSING_REQUIRED
@@ -277,7 +298,10 @@ def main() -> int:
                     pack_path_resolved=None,
                     pack_manifest_path_resolved=None,
                 )
-                print(json.dumps(out, sort_keys=True, indent=2, default=str) + "\n", end="")
+                print(
+                    json.dumps(out, sort_keys=True, indent=2, default=str) + "\n",
+                    end="",
+                )
             else:
                 print(f"ERROR: {msg}", file=sys.stderr)
             return 1
@@ -298,7 +322,10 @@ def main() -> int:
                     pack_path_resolved=None,
                     pack_manifest_path_resolved=None,
                 )
-                print(json.dumps(out, sort_keys=True, indent=2, default=str) + "\n", end="")
+                print(
+                    json.dumps(out, sort_keys=True, indent=2, default=str) + "\n",
+                    end="",
+                )
             else:
                 print(f"ERROR: {msg}", file=sys.stderr)
             return 1
@@ -323,7 +350,9 @@ def main() -> int:
             _atomic_copy(manifest_src, Path(args.out_manifest))
             out_manifest_path_str = str(Path(args.out_manifest).resolve().as_posix())
 
-        pack_path_resolved_str = str((output_dir / pack_path.replace("\\", "/")).resolve().as_posix())
+        pack_path_resolved_str = str(
+            (output_dir / pack_path.replace("\\", "/")).resolve().as_posix()
+        )
         pack_manifest_path_resolved_str = str(
             (output_dir / pack_manifest_path.replace("\\", "/")).resolve().as_posix()
         )
@@ -340,7 +369,9 @@ def main() -> int:
         manifest_source_path: str | None = source_path
         if manifest_path_full.exists():
             try:
-                manifest_data = json.loads(manifest_path_full.read_text(encoding="utf-8"))
+                manifest_data = json.loads(
+                    manifest_path_full.read_text(encoding="utf-8")
+                )
                 zip_entries_count_val = manifest_data.get("zip_entries_count")
                 files_count_val = manifest_data.get("files_count")
                 if not isinstance(zip_entries_count_val, int):
@@ -348,8 +379,14 @@ def main() -> int:
                 if not isinstance(files_count_val, int):
                     files_count_val = None
                 pm_sv = manifest_data.get("schema_version")
-                pack_manifest_schema_version_val = pm_sv if isinstance(pm_sv, int) else None
-                manifest_source = manifest_data.get("source") if isinstance(manifest_data.get("source"), str) else source
+                pack_manifest_schema_version_val = (
+                    pm_sv if isinstance(pm_sv, int) else None
+                )
+                manifest_source = (
+                    manifest_data.get("source")
+                    if isinstance(manifest_data.get("source"), str)
+                    else source
+                )
                 sp = manifest_data.get("source_path")
                 manifest_source_path = sp if isinstance(sp, str) else source_path
             except (json.JSONDecodeError, OSError):
@@ -389,7 +426,10 @@ def main() -> int:
                         pack_path_resolved=pack_path_resolved_str,
                         pack_manifest_path_resolved=pack_manifest_path_resolved_str,
                     )
-                    print(json.dumps(out, sort_keys=True, indent=2, default=str) + "\n", end="")
+                    print(
+                        json.dumps(out, sort_keys=True, indent=2, default=str) + "\n",
+                        end="",
+                    )
                 return 1
         if json_output:
             out = _export_json_result(
@@ -424,12 +464,16 @@ def main() -> int:
                 f"required_missing={len(missing_required)} "
                 f"optional_missing={len(missing_optional)}"
             )
-            status_line_ascii = status_line.encode("ascii", errors="ignore").decode("ascii")
+            status_line_ascii = status_line.encode("ascii", errors="ignore").decode(
+                "ascii"
+            )
             print(status_line_ascii)
 
         # Warn about missing optional files (if any; strict would have raised already)
         if missing_optional:
-            msg_raw = f"Missing optional files (not included in pack): {missing_optional}"
+            msg_raw = (
+                f"Missing optional files (not included in pack): {missing_optional}"
+            )
             msg = msg_raw.encode("ascii", errors="ignore").decode("ascii")
             logger.warning(msg)
 
@@ -464,7 +508,11 @@ def main() -> int:
                             pack_path_resolved=pack_path_resolved_str,
                             pack_manifest_path_resolved=pack_manifest_path_resolved_str,
                         )
-                        print(json.dumps(out, sort_keys=True, indent=2, default=str) + "\n", end="")
+                        print(
+                            json.dumps(out, sort_keys=True, indent=2, default=str)
+                            + "\n",
+                            end="",
+                        )
                     else:
                         print(f"ERROR: {msg}", file=sys.stderr)
                     return 1
@@ -488,7 +536,10 @@ def main() -> int:
                         pack_path_resolved=pack_path_resolved_str,
                         pack_manifest_path_resolved=pack_manifest_path_resolved_str,
                     )
-                    print(json.dumps(out, sort_keys=True, indent=2, default=str) + "\n", end="")
+                    print(
+                        json.dumps(out, sort_keys=True, indent=2, default=str) + "\n",
+                        end="",
+                    )
                 else:
                     print(f"ERROR: {msg}", file=sys.stderr)
                 return 1

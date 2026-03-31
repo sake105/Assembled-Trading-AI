@@ -24,4 +24,6 @@ def test_release_notes_header_contains_release_and_tag() -> None:
     assert "Tag:" in combined, "Header must contain 'Tag:' in first 5 lines"
     # Header area must be ASCII (version line is machine-readable)
     for line in first_lines:
-        assert line.encode("ascii", errors="ignore").decode("ascii") == line, "Header lines must be ASCII-only"
+        assert (
+            line.encode("ascii", errors="ignore").decode("ascii") == line
+        ), "Header lines must be ASCII-only"

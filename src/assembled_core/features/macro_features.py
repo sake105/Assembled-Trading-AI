@@ -8,7 +8,10 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from src.assembled_core.data.macro.contract import filter_macro_pit, normalize_macro_releases
+from src.assembled_core.data.macro.contract import (
+    filter_macro_pit,
+    normalize_macro_releases,
+)
 
 
 def add_latest_macro_value(
@@ -72,7 +75,9 @@ def add_latest_macro_value(
         return result
 
     # Sort by available_ts for merge_asof
-    macro_sorted = macro_pit.sort_values("available_ts", kind="mergesort").reset_index(drop=True)
+    macro_sorted = macro_pit.sort_values("available_ts", kind="mergesort").reset_index(
+        drop=True
+    )
 
     # Use merge_asof to join latest available value to each timestamp
     # Implement stable row mapping to preserve original order
@@ -80,7 +85,9 @@ def add_latest_macro_value(
     panel_in["_row_id"] = np.arange(len(panel_in), dtype=np.int64)
 
     # Sort panel for merge_asof (stable sort: timestamp, then _row_id)
-    panel_sorted = panel_in.sort_values(["timestamp", "_row_id"], kind="mergesort").reset_index(drop=True)
+    panel_sorted = panel_in.sort_values(
+        ["timestamp", "_row_id"], kind="mergesort"
+    ).reset_index(drop=True)
 
     # Perform merge_asof
     merged = pd.merge_asof(
@@ -106,6 +113,10 @@ def add_latest_macro_value(
     )
 
     # Sort by _row_id to restore original order, then drop helper column
-    result = result.sort_values("_row_id", kind="mergesort").drop(columns=["_row_id"]).reset_index(drop=True)
+    result = (
+        result.sort_values("_row_id", kind="mergesort")
+        .drop(columns=["_row_id"])
+        .reset_index(drop=True)
+    )
 
     return result

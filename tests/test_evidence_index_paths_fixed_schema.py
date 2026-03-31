@@ -9,7 +9,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.assembled_core.accounting.evidence_index import PATHS_KEYS, write_evidence_index_json
+from src.assembled_core.accounting.evidence_index import (
+    PATHS_KEYS,
+    write_evidence_index_json,
+)
 
 
 def test_evidence_index_paths_contains_all_keys_with_null(tmp_path: Path) -> None:

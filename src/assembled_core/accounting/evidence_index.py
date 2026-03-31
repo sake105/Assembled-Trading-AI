@@ -133,4 +133,3 @@ def write_evidence_index_json(
                 pass
 
     return json_path
-

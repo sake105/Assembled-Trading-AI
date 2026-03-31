@@ -138,7 +138,9 @@ def build_ledger_from_trades(
         logger.info(f"No positions to snapshot for {as_of_date.date()}")
 
     # Determine broker snapshot run_id (for loading/writing)
-    snapshot_run_id = broker_snapshot_run_id if broker_snapshot_run_id is not None else run_id
+    snapshot_run_id = (
+        broker_snapshot_run_id if broker_snapshot_run_id is not None else run_id
+    )
 
     # Try to reconcile with broker snapshot
     # Decision logic based on broker_snapshot_policy
@@ -148,16 +150,22 @@ def build_ledger_from_trades(
     broker_snapshot_path = None
 
     # Decision logic (outside try/except so ValueError for "require" propagates)
-    logger.info(f"Attempting reconciliation with broker snapshot (policy: {broker_snapshot_policy})")
-    
+    logger.info(
+        f"Attempting reconciliation with broker snapshot (policy: {broker_snapshot_policy})"
+    )
+
     # Initialize broker_meta to track which source was used
     broker_meta = {
         "broker_view_source": None,
         "broker_snapshot_run_id": snapshot_run_id,
-        "broker_snapshot_date": as_of_date.isoformat() if isinstance(as_of_date, pd.Timestamp) else str(as_of_date),
+        "broker_snapshot_date": (
+            as_of_date.isoformat()
+            if isinstance(as_of_date, pd.Timestamp)
+            else str(as_of_date)
+        ),
         "broker_snapshot_path": None,
     }
-    
+
     if broker_snapshot_policy == "ignore":
         # Always use paper view
         logger.info("Broker snapshot policy is 'ignore', using paper broker view")
@@ -166,14 +174,18 @@ def build_ledger_from_trades(
         broker_meta["broker_view_source"] = "paper_view"
     else:
         # Try to load broker snapshot from store
-        broker_snapshot_json = load_broker_snapshot_json(output_dir, snapshot_run_id, as_of_date)
-        broker_snapshot_parquet = load_broker_snapshot_parquet(output_dir, snapshot_run_id, as_of_date)
-        
+        broker_snapshot_json = load_broker_snapshot_json(
+            output_dir, snapshot_run_id, as_of_date
+        )
+        broker_snapshot_parquet = load_broker_snapshot_parquet(
+            output_dir, snapshot_run_id, as_of_date
+        )
+
         if broker_snapshot_json is not None:
             # Use stored broker snapshot
             logger.info("Using stored broker snapshot for reconciliation")
             broker_cash = broker_snapshot_json["cash"]
-            
+
             # Load positions from Parquet if available, otherwise from JSON
             if broker_snapshot_parquet is not None:
                 broker_positions_df = broker_snapshot_parquet[["symbol", "qty"]].copy()
@@ -181,10 +193,12 @@ def build_ledger_from_trades(
                 # Convert JSON positions list to DataFrame
                 positions_list = broker_snapshot_json["positions"]
                 if positions_list:
-                    broker_positions_df = pd.DataFrame(positions_list)[["symbol", "qty"]].copy()
+                    broker_positions_df = pd.DataFrame(positions_list)[
+                        ["symbol", "qty"]
+                    ].copy()
                 else:
                     broker_positions_df = pd.DataFrame(columns=["symbol", "qty"])
-            
+
             # Normalize broker snapshot (trimming, sorting, filter tiny residuals)
             normalized = normalize_broker_snapshot(
                 cash=broker_cash,
@@ -193,17 +207,25 @@ def build_ledger_from_trades(
             )
             broker_positions_df = normalized["positions_df"]
             broker_cash = normalized["cash"]
-            
+
             # Set broker_snapshot_path for manifest and broker_meta
-            from src.assembled_core.accounting.broker_snapshot_store import broker_snapshot_base_path
+            from src.assembled_core.accounting.broker_snapshot_store import (
+                broker_snapshot_base_path,
+            )
+
             snapshot_base = broker_snapshot_base_path(output_dir, snapshot_run_id)
             broker_snapshot_path = snapshot_base
             broker_meta["broker_view_source"] = "stored_snapshot"
-            broker_meta["broker_snapshot_path"] = str(snapshot_base.relative_to(output_dir))
+            broker_meta["broker_snapshot_path"] = str(
+                snapshot_base.relative_to(output_dir)
+            )
         else:
             # Snapshot not found
             if broker_snapshot_policy == "require":
-                from src.assembled_core.accounting.broker_snapshot_store import broker_snapshot_base_path
+                from src.assembled_core.accounting.broker_snapshot_store import (
+                    broker_snapshot_base_path,
+                )
+
                 expected_path = broker_snapshot_base_path(output_dir, snapshot_run_id)
                 raise ValueError(
                     f"Broker snapshot required but not found: "
@@ -211,7 +233,9 @@ def build_ledger_from_trades(
                     f"Expected path: {expected_path}"
                 )
             # Fallback: Use positions_df as broker snapshot (paper broker view)
-            logger.info("No stored broker snapshot found, using paper broker view (fallback)")
+            logger.info(
+                "No stored broker snapshot found, using paper broker view (fallback)"
+            )
             broker_positions_df = positions_df[["symbol", "qty"]].copy()
             broker_cash = cash_balance
             broker_meta["broker_view_source"] = "paper_view"
@@ -233,9 +257,7 @@ def build_ledger_from_trades(
         if reconciliation_ok:
             logger.info("Reconciliation PASSED: ledger matches broker snapshot")
         else:
-            logger.warning(
-                f"Reconciliation FAILED: {reconciliation_result['message']}"
-            )
+            logger.warning(f"Reconciliation FAILED: {reconciliation_result['message']}")
 
         # Write reconciliation report
         csv_path = write_reconcile_report_csv(
@@ -273,11 +295,11 @@ def build_ledger_from_trades(
                 store_broker_snapshot_json,
                 store_broker_snapshot_parquet,
             )
-            
+
             # Use paper view (positions_df + cash_balance)
             paper_positions_df = positions_df[["symbol", "qty"]].copy()
             paper_cash = cash_balance
-            
+
             # Store JSON snapshot
             _ = store_broker_snapshot_json(
                 cash=paper_cash,
@@ -286,7 +308,7 @@ def build_ledger_from_trades(
                 run_id=snapshot_run_id,
                 as_of_date=as_of_date,
             )
-            
+
             # Store Parquet snapshot (optional, only if positions exist)
             if not paper_positions_df.empty:
                 store_broker_snapshot_parquet(
@@ -295,10 +317,15 @@ def build_ledger_from_trades(
                     run_id=snapshot_run_id,
                     as_of_date=as_of_date,
                 )
-            
+
             # Set broker_snapshot_path for manifest
-            from src.assembled_core.accounting.broker_snapshot_store import broker_snapshot_base_path
-            broker_snapshot_path = broker_snapshot_base_path(output_dir, snapshot_run_id)
+            from src.assembled_core.accounting.broker_snapshot_store import (
+                broker_snapshot_base_path,
+            )
+
+            broker_snapshot_path = broker_snapshot_base_path(
+                output_dir, snapshot_run_id
+            )
             logger.info(f"Paper broker snapshot written: {broker_snapshot_path}")
         except Exception as e:
             logger.warning(f"Failed to write paper broker snapshot: {e}", exc_info=True)
@@ -310,17 +337,29 @@ def build_ledger_from_trades(
     evidence_pack_manifest_path = None
     try:
         logger.info("Writing accounting report")
-        
+
         # Extract costs breakdown from trades_df if available
         costs_breakdown = None
         if not trades_df.empty and "total_cost_cash" in trades_df.columns:
             costs_breakdown = {
-                "commission_cash": float(trades_df["commission_cash"].sum()) if "commission_cash" in trades_df.columns else 0.0,
-                "spread_cash": float(trades_df["spread_cash"].sum()) if "spread_cash" in trades_df.columns else 0.0,
-                "slippage_cash": float(trades_df["slippage_cash"].sum()) if "slippage_cash" in trades_df.columns else 0.0,
+                "commission_cash": (
+                    float(trades_df["commission_cash"].sum())
+                    if "commission_cash" in trades_df.columns
+                    else 0.0
+                ),
+                "spread_cash": (
+                    float(trades_df["spread_cash"].sum())
+                    if "spread_cash" in trades_df.columns
+                    else 0.0
+                ),
+                "slippage_cash": (
+                    float(trades_df["slippage_cash"].sum())
+                    if "slippage_cash" in trades_df.columns
+                    else 0.0
+                ),
                 "total_cost_cash": float(trades_df["total_cost_cash"].sum()),
             }
-        
+
         # Write accounting report (CSV and JSON)
         csv_path = write_accounting_report_csv(
             positions_result=positions_result,
@@ -330,7 +369,9 @@ def build_ledger_from_trades(
             start_cash=start_cash,
             reconciliation_result=reconciliation_result,
             ledger_pack_path=ledger_base.relative_to(output_dir).as_posix(),
-            reconcile_report_path=reconcile_report_path.as_posix() if reconcile_report_path else None,
+            reconcile_report_path=(
+                reconcile_report_path.as_posix() if reconcile_report_path else None
+            ),
             costs_breakdown=costs_breakdown,
             broker_meta=broker_meta,
         )
@@ -342,7 +383,9 @@ def build_ledger_from_trades(
             start_cash=start_cash,
             reconciliation_result=reconciliation_result,
             ledger_pack_path=ledger_base.relative_to(output_dir).as_posix(),
-            reconcile_report_path=reconcile_report_path.as_posix() if reconcile_report_path else None,
+            reconcile_report_path=(
+                reconcile_report_path.as_posix() if reconcile_report_path else None
+            ),
             costs_breakdown=costs_breakdown,
             broker_meta=broker_meta,
         )
@@ -364,12 +407,16 @@ def build_ledger_from_trades(
             evidence_paths = {
                 "broker_snapshot_path": broker_snapshot_file,
                 "ledger_pack_path": ledger_events_path,
-                "reconcile_report_path": output_dir / reconcile_report_path
-                if reconcile_report_path
-                else None,
-                "accounting_report_path": output_dir / accounting_report_path
-                if accounting_report_path
-                else None,
+                "reconcile_report_path": (
+                    output_dir / reconcile_report_path
+                    if reconcile_report_path
+                    else None
+                ),
+                "accounting_report_path": (
+                    output_dir / accounting_report_path
+                    if accounting_report_path
+                    else None
+                ),
                 "manifest_path": None,
             }
             evidence_json_path = write_evidence_index_json(
@@ -382,7 +429,7 @@ def build_ledger_from_trades(
             )
             evidence_index_path = evidence_json_path.relative_to(output_dir)
             logger.info(f"Evidence index written: {evidence_index_path}")
-            
+
             # Build evidence pack if requested
             if write_evidence_pack:
                 try:
@@ -402,7 +449,7 @@ def build_ledger_from_trades(
                     logger.warning(f"Failed to build evidence pack: {e}", exc_info=True)
         except Exception as e:  # best-effort, should not fail the run
             logger.warning(f"Failed to write evidence index: {e}", exc_info=True)
-        
+
     except Exception as e:
         logger.warning(f"Accounting report generation failed: {e}", exc_info=True)
 
@@ -419,13 +466,22 @@ def build_ledger_from_trades(
         "positions_df": positions_df,
         "cash_balance": cash_balance,
         "reconciliation_result": reconciliation_result,
-        "reconcile_report_path": _posix_path(reconcile_report_path) if reconcile_report_path else None,
+        "reconcile_report_path": (
+            _posix_path(reconcile_report_path) if reconcile_report_path else None
+        ),
         "reconciliation_ok": reconciliation_ok,
-        "accounting_report_path": _posix_path(accounting_report_path) if accounting_report_path else None,
-        "broker_snapshot_path": broker_snapshot_path.relative_to(output_dir).as_posix() if broker_snapshot_path else None,
+        "accounting_report_path": (
+            _posix_path(accounting_report_path) if accounting_report_path else None
+        ),
+        "broker_snapshot_path": (
+            broker_snapshot_path.relative_to(output_dir).as_posix()
+            if broker_snapshot_path
+            else None
+        ),
         "broker_meta": broker_meta,
-        "evidence_index_path": _posix_path(evidence_index_path) if evidence_index_path else None,
+        "evidence_index_path": (
+            _posix_path(evidence_index_path) if evidence_index_path else None
+        ),
         "evidence_pack_path": evidence_pack_path,
         "evidence_pack_manifest_path": evidence_pack_manifest_path,
     }
-

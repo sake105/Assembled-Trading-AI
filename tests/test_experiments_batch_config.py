@@ -492,4 +492,3 @@ def test_batch_config_validation() -> None:
             max_workers=0,
             runs=[],
         )
-

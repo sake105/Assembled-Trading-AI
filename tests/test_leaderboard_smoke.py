@@ -29,20 +29,20 @@ def create_mock_summary_csv(tmp_path: Path) -> Path:
         "cagr": [0.15, 0.20, 0.10, None],
         "trades": [100, 150, 80, None],
     }
-    
+
     df = pd.DataFrame(summary_data)
     summary_csv = tmp_path / "summary.csv"
     df.to_csv(summary_csv, index=False)
-    
+
     return summary_csv.parent
 
 
 def test_load_batch_summary_success(tmp_path: Path):
     """Test loading batch summary CSV."""
     batch_output_dir = create_mock_summary_csv(tmp_path)
-    
+
     df = load_batch_summary(batch_output_dir)
-    
+
     assert isinstance(df, pd.DataFrame)
     assert len(df) == 4
     assert "run_id" in df.columns
@@ -60,9 +60,9 @@ def test_rank_runs_by_sharpe(tmp_path: Path):
     """Test ranking runs by Sharpe ratio."""
     batch_output_dir = create_mock_summary_csv(tmp_path)
     df = load_batch_summary(batch_output_dir)
-    
+
     ranked = rank_runs(df, sort_by="sharpe", top_k=3)
-    
+
     assert len(ranked) == 3
     # Should be sorted descending by sharpe
     assert ranked.iloc[0]["sharpe"] == 2.0  # Highest
@@ -74,9 +74,9 @@ def test_rank_runs_by_final_pf(tmp_path: Path):
     """Test ranking runs by final performance factor."""
     batch_output_dir = create_mock_summary_csv(tmp_path)
     df = load_batch_summary(batch_output_dir)
-    
+
     ranked = rank_runs(df, sort_by="final_pf", top_k=2)
-    
+
     assert len(ranked) == 2
     # Should be sorted descending by final_pf
     assert ranked.iloc[0]["final_pf"] == 1.456  # Highest
@@ -87,9 +87,9 @@ def test_rank_runs_by_max_drawdown_ascending(tmp_path: Path):
     """Test ranking runs by max drawdown (ascending = best)."""
     batch_output_dir = create_mock_summary_csv(tmp_path)
     df = load_batch_summary(batch_output_dir)
-    
+
     ranked = rank_runs(df, sort_by="max_drawdown_pct", top_k=3)
-    
+
     assert len(ranked) == 3
     # Should be sorted ascending (least negative = best)
     assert ranked.iloc[0]["max_drawdown_pct"] == -8.2  # Best (least negative)
@@ -101,7 +101,7 @@ def test_rank_runs_invalid_column(tmp_path: Path):
     """Test error handling for invalid sort column."""
     batch_output_dir = create_mock_summary_csv(tmp_path)
     df = load_batch_summary(batch_output_dir)
-    
+
     with pytest.raises(ValueError, match="Column 'invalid_column' not found"):
         rank_runs(df, sort_by="invalid_column", top_k=10)
 
@@ -110,9 +110,9 @@ def test_rank_runs_top_k_larger_than_data(tmp_path: Path):
     """Test that top_k larger than available data works."""
     batch_output_dir = create_mock_summary_csv(tmp_path)
     df = load_batch_summary(batch_output_dir)
-    
+
     ranked = rank_runs(df, sort_by="sharpe", top_k=100)
-    
+
     # Should return all available rows (4 rows, but only 3 with valid sharpe)
     assert len(ranked) <= len(df)
 
@@ -122,9 +122,9 @@ def test_format_leaderboard_table(tmp_path: Path):
     batch_output_dir = create_mock_summary_csv(tmp_path)
     df = load_batch_summary(batch_output_dir)
     ranked = rank_runs(df, sort_by="sharpe", top_k=3)
-    
+
     table_str = format_leaderboard_table(ranked, sort_by="sharpe")
-    
+
     assert isinstance(table_str, str)
     assert len(table_str) > 0
     # Should contain run_ids
@@ -136,16 +136,16 @@ def test_export_leaderboard_json(tmp_path: Path):
     batch_output_dir = create_mock_summary_csv(tmp_path)
     df = load_batch_summary(batch_output_dir)
     ranked = rank_runs(df, sort_by="sharpe", top_k=3)
-    
+
     json_path = tmp_path / "leaderboard.json"
     export_leaderboard_json(ranked, json_path)
-    
+
     assert json_path.exists()
-    
+
     # Verify JSON content
     with json_path.open("r", encoding="utf-8") as f:
         data = json.load(f)
-    
+
     assert isinstance(data, list)
     assert len(data) == 3
     assert "run_id" in data[0]
@@ -156,10 +156,10 @@ def test_rank_runs_handles_nan_values(tmp_path: Path):
     """Test that ranking handles NaN values correctly."""
     batch_output_dir = create_mock_summary_csv(tmp_path)
     df = load_batch_summary(batch_output_dir)
-    
+
     # Rank by sharpe (run4 has NaN)
     ranked = rank_runs(df, sort_by="sharpe", top_k=10)
-    
+
     # NaN values should be at the end
     valid_sharpe = ranked["sharpe"].dropna()
     assert len(valid_sharpe) == 3  # Only 3 runs have valid sharpe
@@ -170,4 +170,3 @@ def test_rank_runs_handles_nan_values(tmp_path: Path):
         # This is a bit tricky, but in general, valid values should come first
         # We'll just check that we have the expected number of valid values
         assert len(valid_sharpe) == 3
-

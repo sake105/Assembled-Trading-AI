@@ -34,17 +34,17 @@ def create_synthetic_prices(
     days: int = 20,
 ) -> pd.DataFrame:
     """Create synthetic price data for testing.
-    
+
     Args:
         symbols: List of symbols to generate
         start_date: Start date string
         days: Number of days to generate
-        
+
     Returns:
         DataFrame with columns: timestamp, symbol, close (and OHLCV for features)
     """
     dates = pd.date_range(start=start_date, periods=days, freq="D", tz="UTC")
-    
+
     all_prices = []
     for symbol in symbols:
         # Generate synthetic prices with some trend and volatility
@@ -52,31 +52,39 @@ def create_synthetic_prices(
         base_price = 100.0 + hash(symbol) % 50
         returns = np.random.normal(0.001, 0.02, days)  # Daily returns
         prices = base_price * np.exp(np.cumsum(returns))
-        
+
         for date, price in zip(dates, prices):
-            all_prices.append({
-                "timestamp": date,
-                "symbol": symbol,
-                "open": price * 0.99,
-                "high": price * 1.01,
-                "low": price * 0.99,
-                "close": price,
-                "volume": 1000000,
-            })
-    
-    return pd.DataFrame(all_prices).sort_values(["symbol", "timestamp"]).reset_index(drop=True)
+            all_prices.append(
+                {
+                    "timestamp": date,
+                    "symbol": symbol,
+                    "open": price * 0.99,
+                    "high": price * 1.01,
+                    "low": price * 0.99,
+                    "close": price,
+                    "volume": 1000000,
+                }
+            )
+
+    return (
+        pd.DataFrame(all_prices)
+        .sort_values(["symbol", "timestamp"])
+        .reset_index(drop=True)
+    )
 
 
 def create_signal_fn():
     """Create a simple signal function for testing."""
+
     def signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
         return generate_trend_signals_from_prices(prices_df, ma_fast=5, ma_slow=10)
-    
+
     return signal_fn
 
 
 def create_position_sizing_fn():
     """Create a simple position sizing function for testing."""
+
     def position_sizing_fn(signals_df: pd.DataFrame, capital: float) -> pd.DataFrame:
         return compute_target_positions_from_trend_signals(
             signals_df,
@@ -84,7 +92,7 @@ def create_position_sizing_fn():
             top_n=None,
             min_score=0.0,
         )
-    
+
     return position_sizing_fn
 
 
@@ -99,9 +107,13 @@ def positions_dict_to_df(positions: dict[str, float]) -> pd.DataFrame:
     """Convert positions dictionary to DataFrame."""
     if not positions:
         return pd.DataFrame(columns=["symbol", "qty"])
-    return pd.DataFrame(
-        {"symbol": list(positions.keys()), "qty": list(positions.values())}
-    ).sort_values("symbol").reset_index(drop=True)
+    return (
+        pd.DataFrame(
+            {"symbol": list(positions.keys()), "qty": list(positions.values())}
+        )
+        .sort_values("symbol")
+        .reset_index(drop=True)
+    )
 
 
 def compute_equity_from_positions(
@@ -111,30 +123,30 @@ def compute_equity_from_positions(
     timestamp: pd.Timestamp,
 ) -> float:
     """Compute equity from positions and cash at a given timestamp.
-    
+
     Args:
         positions: Dictionary mapping symbol -> quantity
         cash: Cash balance
         prices: Full prices DataFrame
         timestamp: Timestamp to compute equity at
-        
+
     Returns:
         Total equity (cash + positions value)
     """
     equity = cash
-    
+
     # Get prices at timestamp
     prices_at_ts = prices[prices["timestamp"] == timestamp]
     if prices_at_ts.empty:
         return equity
-    
+
     # Sum position values (qty * price for each symbol)
     for symbol, qty in positions.items():
         symbol_prices = prices_at_ts[prices_at_ts["symbol"] == symbol]
         if not symbol_prices.empty:
             price = symbol_prices["close"].iloc[0]
             equity += qty * price
-    
+
     return equity
 
 
@@ -142,25 +154,25 @@ def test_backtest_vs_two_eod_cycles():
     """Test that 2-day backtest matches two sequential EOD cycles."""
     # Create synthetic prices: 2-3 symbols, 20 days, extract 2 trading days
     prices_full = create_synthetic_prices(symbols=["AAPL", "MSFT"], days=20)
-    
+
     # Extract 2 trading days (day 10 and day 11)
     dates = sorted(prices_full["timestamp"].unique())
     as_of_1 = dates[10]  # Day 11 (0-indexed)
     as_of_2 = dates[11]  # Day 12
-    
+
     # Filter prices to only include data up to and including the 2 trading days
     prices_test = prices_full[prices_full["timestamp"] <= as_of_2].copy()
-    
+
     # Parameters
     start_capital = 10000.0
     commission_bps = 0.5
     spread_w = 0.25
     impact_w = 0.5
-    
+
     # Create signal and position sizing functions
     signal_fn = create_signal_fn()
     position_sizing_fn = create_position_sizing_fn()
-    
+
     # ===== PFAD A: Backtest über 2 Tage (trading_cycle mode backtest) =====
     # Create TradingContext template for backtest
     ctx_template_backtest = TradingContext(
@@ -174,7 +186,7 @@ def test_backtest_vs_two_eod_cycles():
         write_outputs=False,
         enable_risk_controls=False,
     )
-    
+
     # Create cycle_fn
     cycle_fn = make_cycle_fn(
         ctx_template_backtest,
@@ -182,7 +194,7 @@ def test_backtest_vs_two_eod_cycles():
         position_sizing_fn=position_sizing_fn,
         capital=start_capital,
     )
-    
+
     # Run backtest over 2 days (only the 2 trading days) via rebalance_timestamps
     result_backtest = run_portfolio_backtest(
         prices=prices_test,  # Full prices for feature computation (MAs need history)
@@ -202,7 +214,7 @@ def test_backtest_vs_two_eod_cycles():
         rebalance_timestamps=[as_of_1, as_of_2],  # Same 2 days as EOD path for parity
         strict_session_gate=False,  # Avoid exchange_calendars dependency; EOD path uses _simulate_fills_per_order without session gate
     )
-    
+
     # Extract final positions from backtest (reconstruct from orders)
     # Backtest engine uses _update_positions_vectorized for positions (no costs in position updates)
     # Costs are applied in equity calculation via simulate_with_costs
@@ -211,17 +223,21 @@ def test_backtest_vs_two_eod_cycles():
         positions_backtest = pd.DataFrame(columns=["symbol", "qty"])
         # Apply all orders sequentially using _update_positions_vectorized (same as engine)
         for timestamp in sorted(result_backtest.trades["timestamp"].unique()):
-            orders_at_ts = result_backtest.trades[result_backtest.trades["timestamp"] == timestamp]
+            orders_at_ts = result_backtest.trades[
+                result_backtest.trades["timestamp"] == timestamp
+            ]
             if not orders_at_ts.empty:
-                positions_backtest = _update_positions_vectorized(orders_at_ts, positions_backtest)
+                positions_backtest = _update_positions_vectorized(
+                    orders_at_ts, positions_backtest
+                )
     else:
         positions_backtest = pd.DataFrame(columns=["symbol", "qty"])
-    
+
     positions_backtest_dict = positions_df_to_dict(positions_backtest)
-    
+
     # Extract equity from backtest result (last equity value - includes costs)
     equity_backtest_final = result_backtest.equity["equity"].iloc[-1]
-    
+
     # ===== PFAD B: Zwei manuelle EOD-Zyklen =====
     # Create TradingContext template for EOD
     ctx_template_eod = TradingContext(
@@ -235,13 +251,13 @@ def test_backtest_vs_two_eod_cycles():
         write_outputs=False,
         enable_risk_controls=False,
     )
-    
+
     # Day 1: Run EOD cycle
     from dataclasses import replace
-    
+
     positions_eod = {}  # Start with empty positions
     cash_eod = start_capital
-    
+
     # Day 1: EOD cycle
     ctx_day1 = replace(
         ctx_template_eod,
@@ -253,17 +269,19 @@ def test_backtest_vs_two_eod_cycles():
         signal_fn=signal_fn,
         position_sizing_fn=position_sizing_fn,
     )
-    
+
     cycle_result_day1 = run_trading_cycle(ctx_day1)
-    assert cycle_result_day1.status == "success", f"Day 1 cycle failed: {cycle_result_day1.error_message}"
-    
+    assert (
+        cycle_result_day1.status == "success"
+    ), f"Day 1 cycle failed: {cycle_result_day1.error_message}"
+
     # Apply fills and update positions for day 1
     orders_day1 = (
         cycle_result_day1.orders_filtered
         if not cycle_result_day1.orders_filtered.empty
         else cycle_result_day1.orders
     )
-    
+
     if not orders_day1.empty:
         # Apply fills (simulate costs) - same as backtest engine uses
         # For EOD, we use _simulate_fills_per_order which updates both cash and positions
@@ -278,10 +296,10 @@ def test_backtest_vs_two_eod_cycles():
 
     # Regression: after first EOD cycle, positions should be non-empty when orders were generated
     if not orders_day1.empty:
-        assert len(positions_eod) > 0, (
-            "EOD day 1: orders were generated but positions_eod is still empty after fills"
-        )
-    
+        assert (
+            len(positions_eod) > 0
+        ), "EOD day 1: orders were generated but positions_eod is still empty after fills"
+
     # Day 2: EOD cycle (with updated positions and cash)
     ctx_day2 = replace(
         ctx_template_eod,
@@ -293,17 +311,19 @@ def test_backtest_vs_two_eod_cycles():
         signal_fn=signal_fn,
         position_sizing_fn=position_sizing_fn,
     )
-    
+
     cycle_result_day2 = run_trading_cycle(ctx_day2)
-    assert cycle_result_day2.status == "success", f"Day 2 cycle failed: {cycle_result_day2.error_message}"
-    
+    assert (
+        cycle_result_day2.status == "success"
+    ), f"Day 2 cycle failed: {cycle_result_day2.error_message}"
+
     # Apply fills and update positions for day 2
     orders_day2 = (
         cycle_result_day2.orders_filtered
         if not cycle_result_day2.orders_filtered.empty
         else cycle_result_day2.orders
     )
-    
+
     if not orders_day2.empty:
         # Apply fills (simulate costs)
         cash_eod, positions_eod = _simulate_fills_per_order(
@@ -317,28 +337,28 @@ def test_backtest_vs_two_eod_cycles():
 
     # Regression: after second EOD cycle, positions persist (non-empty) and keys stable when we had orders
     if not orders_day1.empty or not orders_day2.empty:
-        assert len(positions_eod) > 0, (
-            "EOD day 2: positions_eod empty after two cycles despite having orders"
-        )
-    
+        assert (
+            len(positions_eod) > 0
+        ), "EOD day 2: positions_eod empty after two cycles despite having orders"
+
     # Compute final equity for EOD path
     # Note: simulate_with_costs in backtest only tracks cash deltas, not position values
     # For consistency, we need to compute equity the same way: cash + positions value
     equity_eod_final = compute_equity_from_positions(
         positions_eod, cash_eod, prices_test, as_of_2
     )
-    
+
     # ===== ASSERTIONS =====
-    
+
     # 1. End positions identical
     positions_backtest_sorted = dict(sorted(positions_backtest_dict.items()))
     positions_eod_sorted = dict(sorted(positions_eod.items()))
-    
+
     # Compare positions (allowing for floating point tolerance)
     assert set(positions_backtest_sorted.keys()) == set(
         positions_eod_sorted.keys()
     ), f"Position symbols differ: backtest={set(positions_backtest_sorted.keys())}, eod={set(positions_eod_sorted.keys())}"
-    
+
     for symbol in positions_backtest_sorted:
         backtest_qty = positions_backtest_sorted[symbol]
         eod_qty = positions_eod_sorted.get(symbol, 0.0)
@@ -346,32 +366,39 @@ def test_backtest_vs_two_eod_cycles():
             f"Position qty differs for {symbol}: "
             f"backtest={backtest_qty}, eod={eod_qty}, diff={abs(backtest_qty - eod_qty)}"
         )
-    
+
     # 2. Equity identical (within tolerance: small differences from cost/fill model between backtest and EOD path)
     equity_diff = abs(equity_backtest_final - equity_eod_final)
     assert equity_diff < 50.0, (  # allow ~0.5% of 10k for cost model / fill differences
         f"Equity differs: backtest={equity_backtest_final:.4f}, "
         f"eod={equity_eod_final:.4f}, diff={equity_diff:.4f}"
     )
-    
+
     # 3. Orders structure ok, deterministically sorted
     if not result_backtest.trades.empty:
         # Check that orders are sorted by timestamp, then symbol
-        orders_sorted = result_backtest.trades.sort_values(["timestamp", "symbol"]).reset_index(drop=True)
+        orders_sorted = result_backtest.trades.sort_values(
+            ["timestamp", "symbol"]
+        ).reset_index(drop=True)
         pd.testing.assert_frame_equal(
-            result_backtest.trades.sort_values(["timestamp", "symbol"]).reset_index(drop=True),
+            result_backtest.trades.sort_values(["timestamp", "symbol"]).reset_index(
+                drop=True
+            ),
             orders_sorted,
             check_exact=False,
             rtol=1e-6,
         )
-        
+
         # Check required columns
         required_cols = ["timestamp", "symbol", "side", "qty", "price"]
-        assert all(col in result_backtest.trades.columns for col in required_cols), (
-            f"Missing required columns in trades: {set(required_cols) - set(result_backtest.trades.columns)}"
-        )
-    
-    print(f"✓ Positions match: {positions_backtest_sorted}")
-    print(f"✓ Equity matches: backtest={equity_backtest_final:.4f}, eod={equity_eod_final:.4f}")
-    print(f"✓ Orders structure valid: {len(result_backtest.trades) if result_backtest.trades is not None else 0} trades")
+        assert all(
+            col in result_backtest.trades.columns for col in required_cols
+        ), f"Missing required columns in trades: {set(required_cols) - set(result_backtest.trades.columns)}"
 
+    print(f"✓ Positions match: {positions_backtest_sorted}")
+    print(
+        f"✓ Equity matches: backtest={equity_backtest_final:.4f}, eod={equity_eod_final:.4f}"
+    )
+    print(
+        f"✓ Orders structure valid: {len(result_backtest.trades) if result_backtest.trades is not None else 0} trades"
+    )

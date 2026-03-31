@@ -63,16 +63,16 @@ def build_clusters(events: List[NewsEvent], cfg: Dict) -> List[Dict]:
             uf.union(i, j)
 
     # (Step 1) TF-IDF + cosine similarity unions
-    if bool(cfg.get("enabled", True)) and cfg.get("algorithm", "tfidf_cosine") == "tfidf_cosine":
+    if (
+        bool(cfg.get("enabled", True))
+        and cfg.get("algorithm", "tfidf_cosine") == "tfidf_cosine"
+    ):
         similarity_threshold = float(cfg.get("similarity_threshold", 0.45))
         require_overlap = bool(cfg.get("require_overlap", True))
         same_day_only = bool(cfg.get("same_day_only", True))
         max_checks = int(cfg.get("max_pair_checks", 2000) or 0)
         if similarity_threshold > 0.0 and max_checks > 0:
-            texts = [
-                f"{e.title or ''} {e.summary or ''}".strip()
-                for e in events
-            ]
+            texts = [f"{e.title or ''} {e.summary or ''}".strip() for e in events]
             vectors = build_tfidf_vectors(texts)
             checks = 0
             for i in range(n):
@@ -145,7 +145,11 @@ def build_clusters(events: List[NewsEvent], cfg: Dict) -> List[Dict]:
             ent_counts.items(),
             key=lambda kv: (-kv[1], kv[0]),
         )
-        top_entities = [name for name, _ in sorted_ents[:top_entities_k]] if top_entities_k > 0 else []
+        top_entities = (
+            [name for name, _ in sorted_ents[:top_entities_k]]
+            if top_entities_k > 0
+            else []
+        )
 
         # Top phrases (2- and 3-grams) from group text
         phrase_counts: Dict[str, int] = {}
@@ -161,7 +165,9 @@ def build_clusters(events: List[NewsEvent], cfg: Dict) -> List[Dict]:
         # Optional min_count >= 2 filter
         phrase_items = [(p, c) for p, c in phrase_counts.items() if c >= 2]
         phrase_items.sort(key=lambda kv: (-kv[1], kv[0]))
-        top_phrases = [p for p, _ in phrase_items[:top_phrases_k]] if top_phrases_k > 0 else []
+        top_phrases = (
+            [p for p, _ in phrase_items[:top_phrases_k]] if top_phrases_k > 0 else []
+        )
 
         # Deterministic sample titles (up to 3)
         ordered = sorted(
@@ -195,4 +201,3 @@ def build_clusters(events: List[NewsEvent], cfg: Dict) -> List[Dict]:
 
 
 __all__ = ["UnionFind", "build_clusters"]
-

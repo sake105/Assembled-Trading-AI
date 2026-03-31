@@ -16,7 +16,9 @@ log = logging.getLogger(__name__)
 __all__ = ["deep_merge_policy", "run_experiment"]
 
 
-def deep_merge_policy(base: Dict[str, Any], overrides: Dict[str, Any]) -> Dict[str, Any]:
+def deep_merge_policy(
+    base: Dict[str, Any], overrides: Dict[str, Any]
+) -> Dict[str, Any]:
     """Deep-merge overrides into base. Only override keys are changed; nested dicts merged recursively."""
     out = dict(base)
     for k, v in overrides.items():
@@ -62,7 +64,13 @@ def run_experiment(
     merged_policy = deep_merge_policy(base_policy, policy_overrides)
     policy_snapshot_path = experiment_root / "policy_snapshot.yaml"
     with policy_snapshot_path.open("w", encoding="utf-8") as f:
-        yaml.dump(merged_policy, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        yaml.dump(
+            merged_policy,
+            f,
+            default_flow_style=False,
+            allow_unicode=True,
+            sort_keys=False,
+        )
 
     app_cfg_path = repo_root / "configs" / "app.yaml"
     app_cfg = {}
@@ -75,7 +83,9 @@ def run_experiment(
     app_cfg = deep_merge_policy(app_cfg, app_overrides or {})
     app_snapshot_path = experiment_root / "app_snapshot.yaml"
     with app_snapshot_path.open("w", encoding="utf-8") as f:
-        yaml.dump(app_cfg, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        yaml.dump(
+            app_cfg, f, default_flow_style=False, allow_unicode=True, sort_keys=False
+        )
 
     original_load_policy = pl.load_policy
     pl.load_policy = lambda _path=None: merged_policy
@@ -108,7 +118,9 @@ def run_experiment(
         ledger_dir = experiment_root / "_paper_ledger"
         ledger_dir.mkdir(parents=True, exist_ok=True)
         experiment_ledger_path = ledger_dir / "ledger_state.json"
-        if "paper_runner" not in app_cfg or not isinstance(app_cfg["paper_runner"], dict):
+        if "paper_runner" not in app_cfg or not isinstance(
+            app_cfg["paper_runner"], dict
+        ):
             app_cfg["paper_runner"] = {}
         app_cfg["paper_runner"] = dict(app_cfg["paper_runner"])
         app_cfg["paper_runner"]["ledger_path"] = str(experiment_ledger_path.resolve())
@@ -118,11 +130,16 @@ def run_experiment(
             pr["intel"] = {}
         pr["intel"] = dict(pr["intel"])
         pr["intel"]["news"] = dict(pr["intel"].get("news") or {})
-        pr["intel"]["news"]["output_dir"] = str((experiment_root / "intel" / "news").resolve())
+        pr["intel"]["news"]["output_dir"] = str(
+            (experiment_root / "intel" / "news").resolve()
+        )
         pr["intel"]["disclosures"] = dict(pr["intel"].get("disclosures") or {})
-        pr["intel"]["disclosures"]["output_dir"] = str((experiment_root / "intel" / "disclosures").resolve())
+        pr["intel"]["disclosures"]["output_dir"] = str(
+            (experiment_root / "intel" / "disclosures").resolve()
+        )
 
         import os
+
         _prev_run_id = os.environ.get("ASSEMBLED_RUN_ID")
         try:
             os.environ["ASSEMBLED_RUN_ID"] = f"exp_{name}"
@@ -131,10 +148,22 @@ def run_experiment(
                 day_ts = pd.Timestamp(d, tz="UTC")
                 out_dir = runs_root / date_str
                 out_dir.mkdir(parents=True, exist_ok=True)
-                log.info("Experiment %s: run paper daily for %s (%d/%d)", name, date_str, i + 1, len(trading_dates))
-                exit_code, _ = run_paper_daily_one(day_ts, out_dir, mode, app_cfg, prices, root=repo_root, day_index=i)
+                log.info(
+                    "Experiment %s: run paper daily for %s (%d/%d)",
+                    name,
+                    date_str,
+                    i + 1,
+                    len(trading_dates),
+                )
+                exit_code, _ = run_paper_daily_one(
+                    day_ts, out_dir, mode, app_cfg, prices, root=repo_root, day_index=i
+                )
                 if exit_code != 0:
-                    log.warning("run_paper_daily failed for %s (exit_code=%d)", date_str, exit_code)
+                    log.warning(
+                        "run_paper_daily failed for %s (exit_code=%d)",
+                        date_str,
+                        exit_code,
+                    )
         finally:
             if _prev_run_id is not None:
                 os.environ["ASSEMBLED_RUN_ID"] = _prev_run_id
@@ -143,7 +172,9 @@ def run_experiment(
 
         summary = build_paper_summary(runs_root, date_strs)
         summary_path = experiment_root / "summary.json"
-        summary_path.write_text(json.dumps(summary, indent=2, ensure_ascii=True), encoding="utf-8")
+        summary_path.write_text(
+            json.dumps(summary, indent=2, ensure_ascii=True), encoding="utf-8"
+        )
         log.info("Summary written to %s", summary_path)
         return experiment_root
     finally:

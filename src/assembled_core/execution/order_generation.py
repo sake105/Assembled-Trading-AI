@@ -26,15 +26,15 @@ def generate_orders_from_targets_fast(
     prices_latest: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """Fast-path order generation when target and current positions are already aligned.
-    
+
     This function avoids expensive pandas merge operations by assuming that:
     - target_positions and current_positions have the same symbols in the same order
     - Both DataFrames are sorted by symbol
     - Columns are minimal: symbol, target_qty (or qty for current)
-    
+
     This is optimized for performance-critical backtest loops where positions
     are already aligned (e.g., from TradingCycle result).
-    
+
     Args:
         target_positions: DataFrame with columns: symbol, target_qty (or qty)
             Must be sorted by symbol
@@ -44,20 +44,20 @@ def generate_orders_from_targets_fast(
         timestamp: Order timestamp (default: current UTC time)
         prices_latest: Optional DataFrame with columns: symbol, close (one row per symbol)
             For fast price lookup (already aligned/latest per symbol)
-            
+
     Returns:
         DataFrame with columns: timestamp, symbol, side, qty, price
         side: "BUY" or "SELL"
         qty: Quantity (always positive)
         price: Order price (from prices_latest if available, else 0.0)
         Sorted by symbol
-        
+
     Raises:
         ValueError: If alignment assumption is violated (symbols don't match)
     """
     if target_positions.empty:
         return pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
-    
+
     # Extract columns (handle both "target_qty" and "qty" in target)
     if "target_qty" in target_positions.columns:
         target_qty_col = "target_qty"
@@ -65,37 +65,47 @@ def generate_orders_from_targets_fast(
         target_qty_col = "qty"
     else:
         raise ValueError("target_positions must have 'target_qty' or 'qty' column")
-    
+
     # Ensure target is sorted by symbol (required for alignment)
     if not target_positions["symbol"].is_monotonic_increasing:
         target_positions = target_positions.sort_values("symbol").reset_index(drop=True)
-    
+
     # Use current timestamp if not provided
     if timestamp is None:
         timestamp = pd.Timestamp.utcnow()
-    
+
     # Extract numpy arrays directly (no merge, no sort)
     symbols = target_positions["symbol"].values
     target_notional = target_positions[target_qty_col].values.astype(np.float64)
-    
+
     # Get prices first (needed to convert target notional to shares)
-    if prices_latest is not None and "close" in prices_latest.columns and "symbol" in prices_latest.columns:
-        price_map = dict(zip(prices_latest["symbol"].values, prices_latest["close"].values))
-        prices_array = np.array([price_map.get(sym, 0.0) for sym in symbols], dtype=np.float64)
+    if (
+        prices_latest is not None
+        and "close" in prices_latest.columns
+        and "symbol" in prices_latest.columns
+    ):
+        price_map = dict(
+            zip(prices_latest["symbol"].values, prices_latest["close"].values)
+        )
+        prices_array = np.array(
+            [price_map.get(sym, 0.0) for sym in symbols], dtype=np.float64
+        )
     else:
         prices_array = np.zeros(len(symbols), dtype=np.float64)
-    
+
     # target_qty from position_sizing is NOTIONAL; current_positions.qty is SHARES -> convert target to shares
     safe_price = np.where(prices_array > 1e-10, prices_array, np.nan)
     target_qty = np.where(np.isfinite(safe_price), target_notional / safe_price, 0.0)
-    
+
     # Get current quantities in shares (assume aligned if current_positions provided)
     if current_positions is None or current_positions.empty:
         current_qty = np.zeros(len(symbols), dtype=np.float64)
     else:
         # Ensure current is sorted by symbol (required for alignment check)
         if not current_positions["symbol"].is_monotonic_increasing:
-            current_positions = current_positions.sort_values("symbol").reset_index(drop=True)
+            current_positions = current_positions.sort_values("symbol").reset_index(
+                drop=True
+            )
         # Fast-path: assume same symbols in same order
         if len(current_positions) != len(target_positions):
             raise ValueError(
@@ -107,33 +117,35 @@ def generate_orders_from_targets_fast(
                 "Fast-path requires current_positions to have same symbols in same order as target_positions"
             )
         current_qty = current_positions["qty"].values.astype(np.float64)
-    
+
     # Delta in SHARES (target_shares - current_shares)
     qty_delta = target_qty - current_qty
-    
+
     # Filter for non-zero deltas (vectorized)
     abs_delta = np.abs(qty_delta)
     non_zero_mask = abs_delta > 1e-6
-    
+
     if not np.any(non_zero_mask):
         return pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
-    
+
     # Extract non-zero deltas (all in shares now)
     symbols_filtered = symbols[non_zero_mask]
     qty_delta_filtered = qty_delta[non_zero_mask]
     sides = np.where(qty_delta_filtered > 0, "BUY", "SELL")
     qtys = np.abs(qty_delta_filtered)
     prices_filtered = prices_array[non_zero_mask]
-    
+
     # Build DataFrame directly (no pandas operations except construction)
-    result = pd.DataFrame({
-        "timestamp": timestamp,
-        "symbol": symbols_filtered,
-        "side": sides,
-        "qty": qtys,
-        "price": prices_filtered,
-    })
-    
+    result = pd.DataFrame(
+        {
+            "timestamp": timestamp,
+            "symbol": symbols_filtered,
+            "side": sides,
+            "qty": qtys,
+            "price": prices_filtered,
+        }
+    )
+
     # Ensure columns are in correct order
     result = result[["timestamp", "symbol", "side", "qty", "price"]]
     result.attrs["qty_unit"] = "shares"
@@ -200,15 +212,37 @@ def generate_orders_from_targets(
         current_symbols = set(current_positions["symbol"].unique())
         # Fast-path: exact same symbols, can use aligned arrays
         if target_symbols == current_symbols:
-            target_sorted = target_positions[["symbol", "target_qty"]].sort_values("symbol").reset_index(drop=True)
-            current_sorted = current_positions[["symbol", "qty"]].sort_values("symbol").reset_index(drop=True)
+            target_sorted = (
+                target_positions[["symbol", "target_qty"]]
+                .sort_values("symbol")
+                .reset_index(drop=True)
+            )
+            current_sorted = (
+                current_positions[["symbol", "qty"]]
+                .sort_values("symbol")
+                .reset_index(drop=True)
+            )
             # Check if symbols match exactly (same order after sort)
-            if (target_sorted["symbol"].values == current_sorted["symbol"].values).all():
+            if (
+                target_sorted["symbol"].values == current_sorted["symbol"].values
+            ).all():
                 # Use fast-path with prices_latest (extract latest per symbol if prices provided)
                 prices_latest = None
-                if prices is not None and "close" in prices.columns and "symbol" in prices.columns:
-                    prices_latest = prices.groupby("symbol", group_keys=False)["close"].last().reset_index()
-                    prices_latest = prices_latest[prices_latest["symbol"].isin(target_symbols)].sort_values("symbol").reset_index(drop=True)
+                if (
+                    prices is not None
+                    and "close" in prices.columns
+                    and "symbol" in prices.columns
+                ):
+                    prices_latest = (
+                        prices.groupby("symbol", group_keys=False)["close"]
+                        .last()
+                        .reset_index()
+                    )
+                    prices_latest = (
+                        prices_latest[prices_latest["symbol"].isin(target_symbols)]
+                        .sort_values("symbol")
+                        .reset_index(drop=True)
+                    )
                 try:
                     return generate_orders_from_targets_fast(
                         target_sorted,
@@ -219,11 +253,21 @@ def generate_orders_from_targets(
                 except (ValueError, KeyError):
                     # Fallback to merge-based path if fast-path fails
                     pass
-    
+
     # Fallback to merge-based path (handles misaligned or missing symbols)
     # Ensure both DataFrames are sorted by symbol for stable alignment
-    target_sorted = target_positions[["symbol", "target_qty"]].sort_values("symbol").reset_index(drop=True)
-    current_sorted = current_positions[["symbol", "qty"]].sort_values("symbol").reset_index(drop=True) if current_positions is not None and not current_positions.empty else pd.DataFrame(columns=["symbol", "qty"])
+    target_sorted = (
+        target_positions[["symbol", "target_qty"]]
+        .sort_values("symbol")
+        .reset_index(drop=True)
+    )
+    current_sorted = (
+        current_positions[["symbol", "qty"]]
+        .sort_values("symbol")
+        .reset_index(drop=True)
+        if current_positions is not None and not current_positions.empty
+        else pd.DataFrame(columns=["symbol", "qty"])
+    )
 
     # Merge target and current positions (outer join to include all symbols)
     merged = target_sorted.merge(
@@ -252,7 +296,11 @@ def generate_orders_from_targets(
         merged["price"] = 0.0
     price_vals = merged["price"].values.astype(np.float64)
     safe_price = np.where(price_vals > 1e-10, price_vals, np.nan)
-    target_shares = np.where(np.isfinite(safe_price), merged["target_qty"].values.astype(np.float64) / safe_price, 0.0)
+    target_shares = np.where(
+        np.isfinite(safe_price),
+        merged["target_qty"].values.astype(np.float64) / safe_price,
+        0.0,
+    )
     current_shares = merged["qty"].fillna(0.0).values.astype(np.float64)
     merged["qty_delta"] = target_shares - current_shares
 

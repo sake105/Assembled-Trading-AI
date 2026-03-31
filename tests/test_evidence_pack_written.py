@@ -31,11 +31,15 @@ def test_evidence_pack_written_with_files(tmp_path: Path) -> None:
     date_str = "2025-01-15"
 
     # Create dummy artifact files
-    broker_snapshot_path = output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    broker_snapshot_path = (
+        output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    )
     ledger_pack_path = output_dir / "ledger_run" / "ledger_events.parquet"
     reconcile_report_path = output_dir / "reconcile_run" / f"reconcile_{date_str}.json"
     reconcile_csv_path = output_dir / "reconcile_run" / f"reconcile_{date_str}.csv"
-    accounting_report_path = output_dir / "accounting_report_run" / f"accounting_{date_str}.json"
+    accounting_report_path = (
+        output_dir / "accounting_report_run" / f"accounting_{date_str}.json"
+    )
 
     # Create directories and files
     for p in [
@@ -105,13 +109,13 @@ def test_evidence_pack_written_with_files(tmp_path: Path) -> None:
     with zipfile.ZipFile(zip_path, "r") as zf:
         namelist = zf.namelist()
         assert len(namelist) == result["n_files"]
-        
+
         # Check that evidence index is included
         evidence_index_name = f"evidence_{run_id}/evidence_{date_str}.json"
         assert evidence_index_name in namelist or any(
             "evidence_" in name and name.endswith(".json") for name in namelist
         ), "Evidence index should be in ZIP"
-        
+
         # Check that pack manifest is included in ZIP
         manifest_zip_name = f"pack_manifest_{date_str}.json"
         assert manifest_zip_name in namelist, "Pack manifest should be in ZIP"
@@ -130,24 +134,25 @@ def test_evidence_pack_written_with_files(tmp_path: Path) -> None:
     evidence_index_name = f"evidence_{run_id}/evidence_{date_str}.json"
     assert manifest_data.get("source_path") == evidence_index_name
     source_entries = [
-        entry for entry in manifest_data["files"]
+        entry
+        for entry in manifest_data["files"]
         if entry.get("path") == evidence_index_name
     ]
     assert len(source_entries) == 1
     assert source_entries[0].get("path") == manifest_data["source_path"]
     assert source_entries[0].get("source_type") == "evidence_index"
-    
+
     # Verify required_missing and optional_missing fields
     assert "required_missing" in manifest_data
     assert "optional_missing" in manifest_data
-    
+
     # Verify each file entry has required fields
     for file_entry in manifest_data["files"]:
         assert "path" in file_entry
         assert "size_bytes" in file_entry
         assert "sha256" in file_entry or file_entry.get("sha256") is None
         assert "source_type" in file_entry
-        
+
         # Verify path is relative and POSIX (no backslashes, no .., no leading /)
         path = file_entry["path"]
         assert "\\" not in path, f"Path should not contain backslashes: {path}"
@@ -170,9 +175,13 @@ def test_evidence_pack_handles_missing_optional_files(tmp_path: Path) -> None:
 
     # Write evidence index with missing optional files
     evidence_paths = {
-        "broker_snapshot_path": output_dir / "broker_snapshot_run" / "snapshot_2025-01-15.json",  # Missing
+        "broker_snapshot_path": output_dir
+        / "broker_snapshot_run"
+        / "snapshot_2025-01-15.json",  # Missing
         "ledger_pack_path": ledger_pack_path,
-        "reconcile_report_path": output_dir / "reconcile_run" / "reconcile_2025-01-15.json",  # Missing
+        "reconcile_report_path": output_dir
+        / "reconcile_run"
+        / "reconcile_2025-01-15.json",  # Missing
         "accounting_report_path": None,  # None
         "manifest_path": None,
     }
@@ -205,9 +214,12 @@ def test_evidence_pack_handles_missing_optional_files(tmp_path: Path) -> None:
     assert len(missing_opt) > 0
     # Pack manifest and return use keys, not paths
     for key in missing_opt:
-        assert key in ("broker_snapshot_path", "reconcile_report_path", "accounting_report_path", "manifest_path"), (
-            f"missing_optional should contain keys, not paths: {missing_opt}"
-        )
+        assert key in (
+            "broker_snapshot_path",
+            "reconcile_report_path",
+            "accounting_report_path",
+            "manifest_path",
+        ), f"missing_optional should contain keys, not paths: {missing_opt}"
 
     # Verify ZIP exists
     zip_path = output_dir / result["pack_path"]
@@ -218,15 +230,20 @@ def test_evidence_pack_handles_missing_optional_files(tmp_path: Path) -> None:
         pack_manifest = json.load(f)
     assert "optional_missing" in pack_manifest
     for key in pack_manifest["optional_missing"]:
-        assert key in ("broker_snapshot_path", "reconcile_report_path", "accounting_report_path", "manifest_path"), (
-            f"optional_missing should be keys: {pack_manifest['optional_missing']}"
-        )
+        assert key in (
+            "broker_snapshot_path",
+            "reconcile_report_path",
+            "accounting_report_path",
+            "manifest_path",
+        ), f"optional_missing should be keys: {pack_manifest['optional_missing']}"
 
     # Count fields should be consistent: one required present (ledger), no required missing,
     # optional_missing_count matches optional_missing length, optional_present_count is zero here.
     assert pack_manifest.get("required_present_count") == 1
     assert pack_manifest.get("required_missing_count") == 0
-    assert pack_manifest.get("optional_missing_count") == len(pack_manifest["optional_missing"])
+    assert pack_manifest.get("optional_missing_count") == len(
+        pack_manifest["optional_missing"]
+    )
     assert pack_manifest.get("optional_present_count") == 0
 
 
@@ -243,9 +260,13 @@ def test_evidence_pack_strict_raises_when_optional_missing(tmp_path: Path) -> No
     ledger_pack_path.write_text("dummy ledger", encoding="utf-8")
 
     evidence_paths = {
-        "broker_snapshot_path": output_dir / "broker_snapshot_run" / "snapshot_2025-01-15.json",
+        "broker_snapshot_path": output_dir
+        / "broker_snapshot_run"
+        / "snapshot_2025-01-15.json",
         "ledger_pack_path": ledger_pack_path,
-        "reconcile_report_path": output_dir / "reconcile_run" / "reconcile_2025-01-15.json",
+        "reconcile_report_path": output_dir
+        / "reconcile_run"
+        / "reconcile_2025-01-15.json",
         "accounting_report_path": None,
         "manifest_path": None,
     }
@@ -282,10 +303,14 @@ def test_evidence_pack_includes_manifest_from_evidence_index(tmp_path: Path) -> 
     date_str = "2025-01-15"
 
     # Create required artifacts
-    broker_snapshot_path = output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    broker_snapshot_path = (
+        output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    )
     ledger_pack_path = output_dir / "ledger_run" / "ledger_events.parquet"
     reconcile_report_path = output_dir / "reconcile_run" / f"reconcile_{date_str}.json"
-    accounting_report_path = output_dir / "accounting_report_run" / f"accounting_{date_str}.json"
+    accounting_report_path = (
+        output_dir / "accounting_report_run" / f"accounting_{date_str}.json"
+    )
 
     for p in [
         broker_snapshot_path,
@@ -348,7 +373,9 @@ def test_evidence_pack_includes_manifest_from_evidence_index(tmp_path: Path) -> 
     # source_path is the evidence index path (pack source is evidence_index); must match exactly one files[] entry
     evidence_index_path = f"evidence_{run_id}/evidence_{date_str}.json"
     assert pack_manifest.get("source_path") == evidence_index_path
-    source_entries = [e for e in pack_manifest["files"] if e.get("path") == evidence_index_path]
+    source_entries = [
+        e for e in pack_manifest["files"] if e.get("path") == evidence_index_path
+    ]
     assert len(source_entries) == 1
 
 
@@ -380,7 +407,10 @@ def test_source_path_mismatch_raises(tmp_path: Path) -> None:
             "optional_present_keys": [],
         }
 
-    with patch("src.assembled_core.accounting.evidence_pack.collect_evidence_files", side_effect=fake_collect):
+    with patch(
+        "src.assembled_core.accounting.evidence_pack.collect_evidence_files",
+        side_effect=fake_collect,
+    ):
         with pytest.raises(ValueError) as exc_info:
             build_evidence_pack(
                 output_dir=output_dir,

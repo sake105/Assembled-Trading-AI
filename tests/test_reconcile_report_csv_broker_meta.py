@@ -7,7 +7,9 @@ from pathlib import Path
 import pandas as pd
 
 from src.assembled_core.accounting.reconciliation import reconcile_ledger_vs_broker
-from src.assembled_core.accounting.reconciliation_report import write_reconcile_report_csv
+from src.assembled_core.accounting.reconciliation_report import (
+    write_reconcile_report_csv,
+)
 
 
 def test_csv_includes_broker_meta_columns_stored_snapshot(tmp_path: Path):
@@ -16,14 +18,18 @@ def test_csv_includes_broker_meta_columns_stored_snapshot(tmp_path: Path):
     as_of = pd.Timestamp("2024-01-15", tz="UTC")
 
     # Create reconciliation result
-    ledger_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "qty": [100.0, 50.0],
-    })
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "qty": [100.0, 50.0],
-    })
+    ledger_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [100.0, 50.0],
+        }
+    )
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [100.0, 50.0],
+        }
+    )
 
     result = reconcile_ledger_vs_broker(
         ledger_positions_df=ledger_positions,
@@ -45,7 +51,13 @@ def test_csv_includes_broker_meta_columns_stored_snapshot(tmp_path: Path):
 
     # Write CSV
     csv_path = write_reconcile_report_csv(
-        result, tmp_path, run_id, as_of, ledger_cash=10000.0, broker_cash=10000.0, broker_meta=broker_meta
+        result,
+        tmp_path,
+        run_id,
+        as_of,
+        ledger_cash=10000.0,
+        broker_cash=10000.0,
+        broker_meta=broker_meta,
     )
 
     # Read back
@@ -71,7 +83,10 @@ def test_csv_includes_broker_meta_columns_stored_snapshot(tmp_path: Path):
     assert all(df["broker_view_source"] == "stored_snapshot")
     assert all(df["broker_snapshot_run_id"] == "snapshot_run_csv_001")
     assert all(df["broker_snapshot_date"] == "2024-01-15T00:00:00+00:00")
-    assert all(df["broker_snapshot_path"] == "broker_snapshot_snapshot_run_csv_001/snapshot_2024-01-15.json")
+    assert all(
+        df["broker_snapshot_path"]
+        == "broker_snapshot_snapshot_run_csv_001/snapshot_2024-01-15.json"
+    )
 
     # Verify deterministic sorting is preserved (cash row first)
     assert df.iloc[0]["type"] == "cash"
@@ -83,14 +98,18 @@ def test_csv_includes_broker_meta_columns_paper_view(tmp_path: Path):
     as_of = pd.Timestamp("2024-01-15", tz="UTC")
 
     # Create reconciliation result
-    ledger_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [100.0],
-    })
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [100.0],
-    })
+    ledger_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [100.0],
+        }
+    )
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [100.0],
+        }
+    )
 
     result = reconcile_ledger_vs_broker(
         ledger_positions_df=ledger_positions,
@@ -112,7 +131,13 @@ def test_csv_includes_broker_meta_columns_paper_view(tmp_path: Path):
 
     # Write CSV
     csv_path = write_reconcile_report_csv(
-        result, tmp_path, run_id, as_of, ledger_cash=10000.0, broker_cash=10000.0, broker_meta=broker_meta
+        result,
+        tmp_path,
+        run_id,
+        as_of,
+        ledger_cash=10000.0,
+        broker_cash=10000.0,
+        broker_meta=broker_meta,
     )
 
     # Read back
@@ -137,14 +162,18 @@ def test_csv_includes_broker_meta_columns_when_none(tmp_path: Path):
     as_of = pd.Timestamp("2024-01-15", tz="UTC")
 
     # Create reconciliation result
-    ledger_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [100.0],
-    })
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [100.0],
-    })
+    ledger_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [100.0],
+        }
+    )
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [100.0],
+        }
+    )
 
     result = reconcile_ledger_vs_broker(
         ledger_positions_df=ledger_positions,
@@ -158,7 +187,13 @@ def test_csv_includes_broker_meta_columns_when_none(tmp_path: Path):
 
     # Write CSV without broker_meta (None)
     csv_path = write_reconcile_report_csv(
-        result, tmp_path, run_id, as_of, ledger_cash=10000.0, broker_cash=10000.0, broker_meta=None
+        result,
+        tmp_path,
+        run_id,
+        as_of,
+        ledger_cash=10000.0,
+        broker_cash=10000.0,
+        broker_meta=None,
     )
 
     # Read back
@@ -193,14 +228,18 @@ def test_csv_deterministic_sorting_preserved_with_broker_meta(tmp_path: Path):
     as_of = pd.Timestamp("2024-01-15", tz="UTC")
 
     # Create reconciliation result with multiple position diffs
-    ledger_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "GOOGL"],
-        "qty": [100.0, 50.0, 200.0],
-    })
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "GOOGL"],
-        "qty": [105.0, 50.0, 190.0],  # AAPL: +5, GOOGL: -10 (larger diff)
-    })
+    ledger_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "GOOGL"],
+            "qty": [100.0, 50.0, 200.0],
+        }
+    )
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "GOOGL"],
+            "qty": [105.0, 50.0, 190.0],  # AAPL: +5, GOOGL: -10 (larger diff)
+        }
+    )
 
     result = reconcile_ledger_vs_broker(
         ledger_positions_df=ledger_positions,
@@ -222,7 +261,13 @@ def test_csv_deterministic_sorting_preserved_with_broker_meta(tmp_path: Path):
 
     # Write CSV
     csv_path = write_reconcile_report_csv(
-        result, tmp_path, run_id, as_of, ledger_cash=10000.0, broker_cash=10000.0, broker_meta=broker_meta
+        result,
+        tmp_path,
+        run_id,
+        as_of,
+        ledger_cash=10000.0,
+        broker_cash=10000.0,
+        broker_meta=broker_meta,
     )
 
     # Read back

@@ -14,17 +14,19 @@ from src.assembled_core.accounting.position_engine import build_positions_from_l
 def test_partial_fill_uses_fill_qty():
     """Test that partial fills use fill_qty (not qty) for cash_delta calculation."""
     # Create trade with partial fill: order qty=100, fill_qty=50
-    trades_df = pd.DataFrame({
-        "timestamp": pd.to_datetime(["2024-01-15 10:00:00"], utc=True),
-        "symbol": ["AAPL"],
-        "side": ["BUY"],
-        "qty": [100.0],  # Order qty
-        "price": [150.0],
-        "fill_qty": [50.0],  # Partial fill: only 50 filled
-        "fill_price": [150.0],
-        "status": ["partial"],
-        "total_cost_cash": [0.75],  # Cost based on fill_qty
-    })
+    trades_df = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(["2024-01-15 10:00:00"], utc=True),
+            "symbol": ["AAPL"],
+            "side": ["BUY"],
+            "qty": [100.0],  # Order qty
+            "price": [150.0],
+            "fill_qty": [50.0],  # Partial fill: only 50 filled
+            "fill_price": [150.0],
+            "status": ["partial"],
+            "total_cost_cash": [0.75],  # Cost based on fill_qty
+        }
+    )
 
     # Generate events
     events = events_from_trades(trades_df, run_id="test_partial", source="test")
@@ -45,17 +47,19 @@ def test_partial_fill_uses_fill_qty():
 def test_rejected_fill_has_zero_cash_delta():
     """Test that rejected fills have cash_delta=0 and costs=0."""
     # Create rejected trade
-    trades_df = pd.DataFrame({
-        "timestamp": pd.to_datetime(["2024-01-15 10:00:00"], utc=True),
-        "symbol": ["AAPL"],
-        "side": ["BUY"],
-        "qty": [100.0],
-        "price": [150.0],
-        "fill_qty": [0.0],  # Rejected: no fill
-        "fill_price": [150.0],
-        "status": ["rejected"],
-        "total_cost_cash": [0.0],  # Costs should be 0 for rejected
-    })
+    trades_df = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(["2024-01-15 10:00:00"], utc=True),
+            "symbol": ["AAPL"],
+            "side": ["BUY"],
+            "qty": [100.0],
+            "price": [150.0],
+            "fill_qty": [0.0],  # Rejected: no fill
+            "fill_price": [150.0],
+            "status": ["rejected"],
+            "total_cost_cash": [0.0],  # Costs should be 0 for rejected
+        }
+    )
 
     # Generate events
     events = events_from_trades(trades_df, run_id="test_rejected", source="test")
@@ -71,19 +75,21 @@ def test_rejected_fill_has_zero_cash_delta():
 def test_partial_fill_position_accounting():
     """Test that partial fills result in correct position quantities."""
     # Create trades with partial fills
-    trades_df = pd.DataFrame({
-        "timestamp": pd.to_datetime(
-            ["2024-01-15 10:00:00", "2024-01-15 11:00:00"], utc=True
-        ),
-        "symbol": ["AAPL", "AAPL"],
-        "side": ["BUY", "BUY"],
-        "qty": [100.0, 50.0],  # Order qtys
-        "price": [150.0, 155.0],
-        "fill_qty": [50.0, 30.0],  # Partial fills
-        "fill_price": [150.0, 155.0],
-        "status": ["partial", "partial"],
-        "total_cost_cash": [0.75, 0.465],
-    })
+    trades_df = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(
+                ["2024-01-15 10:00:00", "2024-01-15 11:00:00"], utc=True
+            ),
+            "symbol": ["AAPL", "AAPL"],
+            "side": ["BUY", "BUY"],
+            "qty": [100.0, 50.0],  # Order qtys
+            "price": [150.0, 155.0],
+            "fill_qty": [50.0, 30.0],  # Partial fills
+            "fill_price": [150.0, 155.0],
+            "status": ["partial", "partial"],
+            "total_cost_cash": [0.75, 0.465],
+        }
+    )
 
     # Generate events
     events = events_from_trades(trades_df, run_id="test_partial_pos", source="test")
@@ -122,30 +128,34 @@ def test_partial_fill_position_accounting():
 def test_full_fill_vs_partial_fill_cash_delta():
     """Test that full fill and partial fill have different cash_deltas."""
     # Full fill
-    full_fill_df = pd.DataFrame({
-        "timestamp": pd.to_datetime(["2024-01-15 10:00:00"], utc=True),
-        "symbol": ["AAPL"],
-        "side": ["BUY"],
-        "qty": [100.0],
-        "price": [150.0],
-        "fill_qty": [100.0],  # Full fill
-        "fill_price": [150.0],
-        "status": ["filled"],
-        "total_cost_cash": [1.5],
-    })
+    full_fill_df = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(["2024-01-15 10:00:00"], utc=True),
+            "symbol": ["AAPL"],
+            "side": ["BUY"],
+            "qty": [100.0],
+            "price": [150.0],
+            "fill_qty": [100.0],  # Full fill
+            "fill_price": [150.0],
+            "status": ["filled"],
+            "total_cost_cash": [1.5],
+        }
+    )
 
     # Partial fill (50%)
-    partial_fill_df = pd.DataFrame({
-        "timestamp": pd.to_datetime(["2024-01-15 10:00:00"], utc=True),
-        "symbol": ["AAPL"],
-        "side": ["BUY"],
-        "qty": [100.0],  # Same order qty
-        "price": [150.0],
-        "fill_qty": [50.0],  # Partial fill
-        "fill_price": [150.0],
-        "status": ["partial"],
-        "total_cost_cash": [0.75],  # Half the cost
-    })
+    partial_fill_df = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(["2024-01-15 10:00:00"], utc=True),
+            "symbol": ["AAPL"],
+            "side": ["BUY"],
+            "qty": [100.0],  # Same order qty
+            "price": [150.0],
+            "fill_qty": [50.0],  # Partial fill
+            "fill_price": [150.0],
+            "status": ["partial"],
+            "total_cost_cash": [0.75],  # Half the cost
+        }
+    )
 
     # Generate events
     full_events = events_from_trades(full_fill_df, run_id="test_full", source="test")
@@ -154,11 +164,17 @@ def test_full_fill_vs_partial_fill_cash_delta():
     )
 
     # Compare cash_deltas
-    full_cash_delta = full_events[full_events["event_type"] == "FILL"].iloc[0]["cash_delta"]
-    partial_cash_delta = partial_events[partial_events["event_type"] == "FILL"].iloc[0]["cash_delta"]
+    full_cash_delta = full_events[full_events["event_type"] == "FILL"].iloc[0][
+        "cash_delta"
+    ]
+    partial_cash_delta = partial_events[partial_events["event_type"] == "FILL"].iloc[0][
+        "cash_delta"
+    ]
 
     # Partial should be half of full (approximately, accounting for costs)
     # Full: -(100 * 150 + 1.5) = -15001.5
     # Partial: -(50 * 150 + 0.75) = -7500.75
     # Partial should be approximately half
-    assert abs(partial_cash_delta - full_cash_delta / 2.0) < 1.0  # Allow small tolerance for cost differences
+    assert (
+        abs(partial_cash_delta - full_cash_delta / 2.0) < 1.0
+    )  # Allow small tolerance for cost differences

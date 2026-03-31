@@ -415,9 +415,9 @@ class TestComputeRegimeTransitionStats:
                 prob_sum = from_transitions["transition_probability"].sum()
 
                 # Allow small floating point errors
-                assert abs(prob_sum - 1.0) < 0.01, (
-                    f"Probabilities for {from_regime} sum to {prob_sum}, not 1.0"
-                )
+                assert (
+                    abs(prob_sum - 1.0) < 0.01
+                ), f"Probabilities for {from_regime} sum to {prob_sum}, not 1.0"
 
     def test_empty_regime_dataframe(self):
         """Test that compute_regime_transition_stats handles empty DataFrame gracefully."""
@@ -501,9 +501,9 @@ class TestEvaluateFactorIcByRegime:
                 mean_ic_bear = factor1_bear["mean_ic"].iloc[0]
 
                 # Factor1 should work better in bull (by construction)
-                assert mean_ic_bull > mean_ic_bear, (
-                    f"Expected factor1 IC higher in bull ({mean_ic_bull}) than bear ({mean_ic_bear})"
-                )
+                assert (
+                    mean_ic_bull > mean_ic_bear
+                ), f"Expected factor1 IC higher in bull ({mean_ic_bull}) than bear ({mean_ic_bear})"
 
     def test_empty_inputs(self):
         """Test that evaluate_factor_ic_by_regime handles empty inputs gracefully."""

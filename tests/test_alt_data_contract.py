@@ -30,20 +30,24 @@ from src.assembled_core.data.altdata.contract import (
 def test_utc_normalization_naive_and_tz_aware() -> None:
     """Test that naive and tz-aware timestamps normalize to same UTC timestamps."""
     # Create events with naive timestamps
-    events_naive = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "event_date": pd.to_datetime(["2024-01-15", "2024-01-16"]),
-        "disclosure_date": pd.to_datetime(["2024-01-17", "2024-01-18"]),
-        "effective_date": pd.to_datetime(["2024-01-17", "2024-01-18"]),
-    })
+    events_naive = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "event_date": pd.to_datetime(["2024-01-15", "2024-01-16"]),
+            "disclosure_date": pd.to_datetime(["2024-01-17", "2024-01-18"]),
+            "effective_date": pd.to_datetime(["2024-01-17", "2024-01-18"]),
+        }
+    )
 
     # Create events with tz-aware timestamps (EST -> UTC)
-    events_tz = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "event_date": pd.to_datetime(["2024-01-15", "2024-01-16"], utc=True),
-        "disclosure_date": pd.to_datetime(["2024-01-17", "2024-01-18"], utc=True),
-        "effective_date": pd.to_datetime(["2024-01-17", "2024-01-18"], utc=True),
-    })
+    events_tz = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "event_date": pd.to_datetime(["2024-01-15", "2024-01-16"], utc=True),
+            "disclosure_date": pd.to_datetime(["2024-01-17", "2024-01-18"], utc=True),
+            "effective_date": pd.to_datetime(["2024-01-17", "2024-01-18"], utc=True),
+        }
+    )
 
     # Normalize both
     normalized_naive = normalize_alt_events(events_naive)
@@ -58,18 +62,22 @@ def test_utc_normalization_naive_and_tz_aware() -> None:
 
     # Verify: all timestamps are UTC-aware
     for col in ["event_date", "disclosure_date", "effective_date"]:
-        assert normalized_naive[col].dt.tz is not None, f"{col} should be timezone-aware"
+        assert (
+            normalized_naive[col].dt.tz is not None
+        ), f"{col} should be timezone-aware"
         assert str(normalized_naive[col].dt.tz) == "UTC", f"{col} should be UTC"
 
 
 def test_effective_date_fallback() -> None:
     """Test that missing effective_date falls back to disclosure_date."""
-    events = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "event_date": pd.to_datetime(["2024-01-15"], utc=True),
-        "disclosure_date": pd.to_datetime(["2024-01-17"], utc=True),
-        # effective_date missing
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2024-01-15"], utc=True),
+            "disclosure_date": pd.to_datetime(["2024-01-17"], utc=True),
+            # effective_date missing
+        }
+    )
 
     normalized = normalize_alt_events(events)
 
@@ -84,29 +92,38 @@ def test_effective_date_fallback() -> None:
 
 def test_effective_date_fallback_partial_nan() -> None:
     """Test that NaN effective_date values are filled with disclosure_date."""
-    events = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "event_date": pd.to_datetime(["2024-01-15", "2024-01-16"], utc=True),
-        "disclosure_date": pd.to_datetime(["2024-01-17", "2024-01-18"], utc=True),
-        "effective_date": [pd.NaT, pd.to_datetime("2024-01-18", utc=True)],
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "event_date": pd.to_datetime(["2024-01-15", "2024-01-16"], utc=True),
+            "disclosure_date": pd.to_datetime(["2024-01-17", "2024-01-18"], utc=True),
+            "effective_date": [pd.NaT, pd.to_datetime("2024-01-18", utc=True)],
+        }
+    )
 
     normalized = normalize_alt_events(events)
 
     # Verify: NaN filled with disclosure_date
     assert normalized.loc[0, "effective_date"] == normalized.loc[0, "disclosure_date"]
     # Second row unchanged (not NaN)
-    assert normalized.loc[1, "effective_date"] == pd.to_datetime("2024-01-18", utc=True).normalize()
+    assert (
+        normalized.loc[1, "effective_date"]
+        == pd.to_datetime("2024-01-18", utc=True).normalize()
+    )
 
 
 def test_constraint_validation_effective_ge_disclosure() -> None:
     """Test that effective_date >= disclosure_date constraint is enforced."""
-    events = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "event_date": pd.to_datetime(["2024-01-15"], utc=True),
-        "disclosure_date": pd.to_datetime(["2024-01-17"], utc=True),
-        "effective_date": pd.to_datetime(["2024-01-16"], utc=True),  # < disclosure_date
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2024-01-15"], utc=True),
+            "disclosure_date": pd.to_datetime(["2024-01-17"], utc=True),
+            "effective_date": pd.to_datetime(
+                ["2024-01-16"], utc=True
+            ),  # < disclosure_date
+        }
+    )
 
     with pytest.raises(ValueError, match="effective_date < disclosure_date"):
         normalize_alt_events(events)
@@ -114,12 +131,14 @@ def test_constraint_validation_effective_ge_disclosure() -> None:
 
 def test_constraint_validation_disclosure_ge_event() -> None:
     """Test that disclosure_date >= event_date constraint is enforced."""
-    events = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "event_date": pd.to_datetime(["2024-01-17"], utc=True),
-        "disclosure_date": pd.to_datetime(["2024-01-15"], utc=True),  # < event_date
-        "effective_date": pd.to_datetime(["2024-01-17"], utc=True),
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2024-01-17"], utc=True),
+            "disclosure_date": pd.to_datetime(["2024-01-15"], utc=True),  # < event_date
+            "effective_date": pd.to_datetime(["2024-01-17"], utc=True),
+        }
+    )
 
     with pytest.raises(ValueError, match="disclosure_date < event_date"):
         normalize_alt_events(events)
@@ -127,12 +146,20 @@ def test_constraint_validation_disclosure_ge_event() -> None:
 
 def test_deterministic_sorting() -> None:
     """Test that output is sorted deterministically."""
-    events = pd.DataFrame({
-        "symbol": ["MSFT", "AAPL", "AAPL"],
-        "event_date": pd.to_datetime(["2024-01-16", "2024-01-15", "2024-01-14"], utc=True),
-        "disclosure_date": pd.to_datetime(["2024-01-18", "2024-01-17", "2024-01-16"], utc=True),
-        "effective_date": pd.to_datetime(["2024-01-18", "2024-01-17", "2024-01-16"], utc=True),
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["MSFT", "AAPL", "AAPL"],
+            "event_date": pd.to_datetime(
+                ["2024-01-16", "2024-01-15", "2024-01-14"], utc=True
+            ),
+            "disclosure_date": pd.to_datetime(
+                ["2024-01-18", "2024-01-17", "2024-01-16"], utc=True
+            ),
+            "effective_date": pd.to_datetime(
+                ["2024-01-18", "2024-01-17", "2024-01-16"], utc=True
+            ),
+        }
+    )
 
     normalized = normalize_alt_events(events)
 
@@ -146,12 +173,20 @@ def test_deterministic_sorting() -> None:
 
 def test_filter_events_pit_future_disclosure_filtered() -> None:
     """Test that events with disclosure_date > as_of are filtered out."""
-    events = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "GOOGL"],
-        "event_date": pd.to_datetime(["2024-01-15", "2024-01-16", "2024-01-17"], utc=True),
-        "disclosure_date": pd.to_datetime(["2024-01-17", "2024-01-18", "2024-01-19"], utc=True),
-        "effective_date": pd.to_datetime(["2024-01-17", "2024-01-18", "2024-01-19"], utc=True),
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "GOOGL"],
+            "event_date": pd.to_datetime(
+                ["2024-01-15", "2024-01-16", "2024-01-17"], utc=True
+            ),
+            "disclosure_date": pd.to_datetime(
+                ["2024-01-17", "2024-01-18", "2024-01-19"], utc=True
+            ),
+            "effective_date": pd.to_datetime(
+                ["2024-01-17", "2024-01-18", "2024-01-19"], utc=True
+            ),
+        }
+    )
 
     # Normalize first
     normalized = normalize_alt_events(events)
@@ -163,17 +198,22 @@ def test_filter_events_pit_future_disclosure_filtered() -> None:
     # Verify: Only AAPL (disclosure_date 2024-01-17 <= as_of)
     assert len(filtered) == 1
     assert filtered.iloc[0]["symbol"] == "AAPL"
-    assert filtered.iloc[0]["disclosure_date"] == pd.Timestamp("2024-01-17", tz="UTC").normalize()
+    assert (
+        filtered.iloc[0]["disclosure_date"]
+        == pd.Timestamp("2024-01-17", tz="UTC").normalize()
+    )
 
 
 def test_filter_events_pit_inclusive_boundary() -> None:
     """Test that disclosure_date == as_of is included (inclusive boundary)."""
-    events = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "event_date": pd.to_datetime(["2024-01-15"], utc=True),
-        "disclosure_date": pd.to_datetime(["2024-01-17"], utc=True),
-        "effective_date": pd.to_datetime(["2024-01-17"], utc=True),
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2024-01-15"], utc=True),
+            "disclosure_date": pd.to_datetime(["2024-01-17"], utc=True),
+            "effective_date": pd.to_datetime(["2024-01-17"], utc=True),
+        }
+    )
 
     normalized = normalize_alt_events(events)
 
@@ -188,13 +228,21 @@ def test_filter_events_pit_inclusive_boundary() -> None:
 
 def test_deduplication_deterministic() -> None:
     """Test that duplicates are removed deterministically."""
-    events = pd.DataFrame({
-        "symbol": ["AAPL", "AAPL", "AAPL"],
-        "event_date": pd.to_datetime(["2024-01-15", "2024-01-15", "2024-01-15"], utc=True),
-        "disclosure_date": pd.to_datetime(["2024-01-17", "2024-01-17", "2024-01-17"], utc=True),
-        "effective_date": pd.to_datetime(["2024-01-17", "2024-01-17", "2024-01-17"], utc=True),
-        "value": [1000.0, 2000.0, 3000.0],  # Different values, but same dates
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "AAPL", "AAPL"],
+            "event_date": pd.to_datetime(
+                ["2024-01-15", "2024-01-15", "2024-01-15"], utc=True
+            ),
+            "disclosure_date": pd.to_datetime(
+                ["2024-01-17", "2024-01-17", "2024-01-17"], utc=True
+            ),
+            "effective_date": pd.to_datetime(
+                ["2024-01-17", "2024-01-17", "2024-01-17"], utc=True
+            ),
+            "value": [1000.0, 2000.0, 3000.0],  # Different values, but same dates
+        }
+    )
 
     normalized = normalize_alt_events(events)
 
@@ -207,12 +255,18 @@ def test_deduplication_deterministic() -> None:
 
 def test_deduplication_different_dates_not_deduped() -> None:
     """Test that events with different dates are not deduplicated."""
-    events = pd.DataFrame({
-        "symbol": ["AAPL", "AAPL"],
-        "event_date": pd.to_datetime(["2024-01-15", "2024-01-15"], utc=True),
-        "disclosure_date": pd.to_datetime(["2024-01-17", "2024-01-18"], utc=True),  # Different
-        "effective_date": pd.to_datetime(["2024-01-17", "2024-01-18"], utc=True),  # Different
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "AAPL"],
+            "event_date": pd.to_datetime(["2024-01-15", "2024-01-15"], utc=True),
+            "disclosure_date": pd.to_datetime(
+                ["2024-01-17", "2024-01-18"], utc=True
+            ),  # Different
+            "effective_date": pd.to_datetime(
+                ["2024-01-17", "2024-01-18"], utc=True
+            ),  # Different
+        }
+    )
 
     normalized = normalize_alt_events(events)
 
@@ -222,14 +276,16 @@ def test_deduplication_different_dates_not_deduped() -> None:
 
 def test_string_trimming() -> None:
     """Test that string columns are trimmed."""
-    events = pd.DataFrame({
-        "symbol": ["  AAPL  ", "MSFT"],
-        "event_date": pd.to_datetime(["2024-01-15", "2024-01-16"], utc=True),
-        "disclosure_date": pd.to_datetime(["2024-01-17", "2024-01-18"], utc=True),
-        "effective_date": pd.to_datetime(["2024-01-17", "2024-01-18"], utc=True),
-        "event_type": ["  BUY  ", "SELL"],
-        "source": ["  SEC_FORM4  ", "SEC_FORM4"],
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["  AAPL  ", "MSFT"],
+            "event_date": pd.to_datetime(["2024-01-15", "2024-01-16"], utc=True),
+            "disclosure_date": pd.to_datetime(["2024-01-17", "2024-01-18"], utc=True),
+            "effective_date": pd.to_datetime(["2024-01-17", "2024-01-18"], utc=True),
+            "event_type": ["  BUY  ", "SELL"],
+            "source": ["  SEC_FORM4  ", "SEC_FORM4"],
+        }
+    )
 
     normalized = normalize_alt_events(events)
 
@@ -241,12 +297,14 @@ def test_string_trimming() -> None:
 
 def test_missing_required_columns_raises_error() -> None:
     """Test that missing required columns raise ValueError."""
-    events = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "event_date": pd.to_datetime(["2024-01-15"], utc=True),
-        # disclosure_date missing
-        # effective_date missing
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2024-01-15"], utc=True),
+            # disclosure_date missing
+            # effective_date missing
+        }
+    )
 
     with pytest.raises(ValueError, match="Missing required columns"):
         normalize_alt_events(events)
@@ -261,7 +319,9 @@ def test_empty_dataframe_handling() -> None:
     # Verify: Empty DataFrame with required columns
     assert normalized.empty
     # is_public is now in OPTIONAL_COLUMNS
-    assert set(normalized.columns) == set(REQUIRED_COLUMNS + ["event_type", "source", "value", "is_public"])
+    assert set(normalized.columns) == set(
+        REQUIRED_COLUMNS + ["event_type", "source", "value", "is_public"]
+    )
 
 
 def test_filter_events_pit_empty_returns_empty() -> None:
@@ -276,12 +336,14 @@ def test_filter_events_pit_empty_returns_empty() -> None:
 
 def test_filter_events_pit_missing_disclosure_date_raises_error() -> None:
     """Test that filtering without disclosure_date raises ValueError."""
-    events = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "event_date": pd.to_datetime(["2024-01-15"], utc=True),
-        # disclosure_date missing
-        "effective_date": pd.to_datetime(["2024-01-17"], utc=True),
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2024-01-15"], utc=True),
+            # disclosure_date missing
+            "effective_date": pd.to_datetime(["2024-01-17"], utc=True),
+        }
+    )
 
     as_of = pd.Timestamp("2024-01-17", tz="UTC")
 
@@ -291,15 +353,17 @@ def test_filter_events_pit_missing_disclosure_date_raises_error() -> None:
 
 def test_optional_columns_preserved() -> None:
     """Test that optional columns are preserved during normalization."""
-    events = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "event_date": pd.to_datetime(["2024-01-15"], utc=True),
-        "disclosure_date": pd.to_datetime(["2024-01-17"], utc=True),
-        "effective_date": pd.to_datetime(["2024-01-17"], utc=True),
-        "event_type": ["BUY"],
-        "source": ["SEC_FORM4"],
-        "value": [1000.0],
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2024-01-15"], utc=True),
+            "disclosure_date": pd.to_datetime(["2024-01-17"], utc=True),
+            "effective_date": pd.to_datetime(["2024-01-17"], utc=True),
+            "event_type": ["BUY"],
+            "source": ["SEC_FORM4"],
+            "value": [1000.0],
+        }
+    )
 
     normalized = normalize_alt_events(events)
 
@@ -314,13 +378,15 @@ def test_optional_columns_preserved() -> None:
 
 def test_is_public_false_raises_error() -> None:
     """Test that is_public=False raises ValueError (Public Disclosures Only policy)."""
-    events = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "event_date": pd.to_datetime(["2024-01-15"], utc=True),
-        "disclosure_date": pd.to_datetime(["2024-01-17"], utc=True),
-        "effective_date": pd.to_datetime(["2024-01-17"], utc=True),
-        "is_public": [False],  # Non-public data
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2024-01-15"], utc=True),
+            "disclosure_date": pd.to_datetime(["2024-01-17"], utc=True),
+            "effective_date": pd.to_datetime(["2024-01-17"], utc=True),
+            "is_public": [False],  # Non-public data
+        }
+    )
 
     with pytest.raises(ValueError, match="Public Disclosures Only policy violated"):
         normalize_alt_events(events)
@@ -328,13 +394,15 @@ def test_is_public_false_raises_error() -> None:
 
 def test_is_public_true_allowed() -> None:
     """Test that is_public=True is allowed."""
-    events = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "event_date": pd.to_datetime(["2024-01-15"], utc=True),
-        "disclosure_date": pd.to_datetime(["2024-01-17"], utc=True),
-        "effective_date": pd.to_datetime(["2024-01-17"], utc=True),
-        "is_public": [True],  # Public data
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2024-01-15"], utc=True),
+            "disclosure_date": pd.to_datetime(["2024-01-17"], utc=True),
+            "effective_date": pd.to_datetime(["2024-01-17"], utc=True),
+            "is_public": [True],  # Public data
+        }
+    )
 
     normalized = normalize_alt_events(events)
 
@@ -347,13 +415,15 @@ def test_is_public_true_allowed() -> None:
 
 def test_is_public_mixed_raises_error() -> None:
     """Test that mixed is_public values (some False) raise ValueError."""
-    events = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "event_date": pd.to_datetime(["2024-01-15", "2024-01-16"], utc=True),
-        "disclosure_date": pd.to_datetime(["2024-01-17", "2024-01-18"], utc=True),
-        "effective_date": pd.to_datetime(["2024-01-17", "2024-01-18"], utc=True),
-        "is_public": [True, False],  # One non-public
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "event_date": pd.to_datetime(["2024-01-15", "2024-01-16"], utc=True),
+            "disclosure_date": pd.to_datetime(["2024-01-17", "2024-01-18"], utc=True),
+            "effective_date": pd.to_datetime(["2024-01-17", "2024-01-18"], utc=True),
+            "is_public": [True, False],  # One non-public
+        }
+    )
 
     with pytest.raises(ValueError, match="Public Disclosures Only policy violated"):
         normalize_alt_events(events)
@@ -361,11 +431,15 @@ def test_is_public_mixed_raises_error() -> None:
 
 def test_missing_disclosure_date_raises_error_with_policy_message() -> None:
     """Test that missing disclosure_date raises ValueError with policy message."""
-    events = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "event_date": pd.to_datetime(["2024-01-15"], utc=True),
-        # disclosure_date missing
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2024-01-15"], utc=True),
+            # disclosure_date missing
+        }
+    )
 
-    with pytest.raises(ValueError, match="disclosure_date is mandatory for PIT-safe filtering"):
+    with pytest.raises(
+        ValueError, match="disclosure_date is mandatory for PIT-safe filtering"
+    ):
         normalize_alt_events(events)

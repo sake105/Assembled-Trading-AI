@@ -23,4 +23,3 @@ __all__ = [
     "run_batch_serial",
     "run_batch_parallel",
 ]
-

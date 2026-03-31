@@ -57,35 +57,38 @@ Do **not** leave a session after meaningful work without checking whether this f
 ## 4. Current execution position
 
 ### Current milestone
-- ID: M7
-- Name: Realism Upgrades v2
-- Overall milestone status: locally tested (all 4 tasks implemented and verified)
+- ID: CI-Stabilization (between M7 and M8)
+- Name: CI Blocker Fixes
+- Overall milestone status: locally tested (2026-03-31)
 
 ### Current task
-- ID: M7 COMPLETE (all tasks done)
-- Name: M7 Realism Upgrades v2
-- Task status: complete — 242/242 phase12 tests pass
+- ID: CI-FIX COMPLETE (all 9 blockers addressed)
+- Task status: complete — 242/242 phase12, 51/52 targeted tests pass
 
 ### Current objective
-- M1/M2/M3/M4/M5/M6/M7 locally tested (complete).
-- M7 implemented:
-  - `data/calendar.py` patch — `filter_prices_to_trading_days()`, `is_trading_day_safe()`, `is_weekday()`, `calendar_mode()`, fallback mode when exchange_calendars unavailable (M7-T01)
-  - `data/corporate_actions.py` patch — `adjust_prices_for_splits()` real implementation: backward split adjustment (was stub, M7-T02)
-  - `data/cost_model_policy.py` new — `estimate_rebalance_cost_fraction()`, `compute_cost_drag_per_period()`, `get_effective_cost_params()` (M7-T03)
-  - `data/realism_meta.py` new — `build_realism_label()`, `build_realism_label_from_policy()`, realism scoring 0–10 → none/minimal/standard/high (M7-T04)
-  - `tests/test_m7_calendar.py` — 18 tests
-  - `tests/test_m7_corporate_actions.py` — 10 tests
-  - `tests/test_m7_cost_model_policy.py` — 18 tests
-  - `tests/test_m7_realism_meta.py` — 22 tests
-- Total phase12: 242/242 pass.
-- Pre-existing failures unchanged (circular import in pre-trade integration, drift-check format bug).
+- M1–M7 locally tested (complete).
+- CI-Stabilization implemented (2026-03-31):
+  - B1: `fill_model_pipeline.py` — catch `(ImportError, RuntimeError)` in session gate
+  - B2: `execution/risk_controls.py` — `QAGatesSummary` import moved to `TYPE_CHECKING` guard (circular import fix)
+  - B3: `data/latency.py` — added `required_cols`, `strict`, `disclosure_col`, `days`/`event_date_col` params (14/14 tests)
+  - B4: `data/snapshot.py` — complete rewrite: 64-char hash, required-cols validation, order/dtype/tz invariance, dedup, freq param (15/15 tests)
+  - B5: `scripts/leaderboard.py` + `qa/factor_ranking.py` — `na_last=True` → `na_position='last'`
+  - B6: `tests/test_metrics_json_written.py` — `pd.isinf` → `math.isinf` (2 occurrences); `json.load(f)` after `f.read()` bug fixed
+  - B7: `data/macro/contract.py` — complete rewrite: required-cols validation, metric→series_id, available_ts sanity check, string trimming, standard cols, filter_macro_pit on available_ts (13/13 tests)
+  - B8: 4 test files — `import submodule` before monkeypatch calls (17/17 risk state machine tests)
+  - B10: `black==25.11.0` pinned in `pyproject.toml`; 421 files reformatted; `ruff` clean (0 errors)
+  - Dependency sync: `exchange-calendars` added to `pyproject.toml`; `feedparser` added to `requirements.txt`
+  - `scripts/00_seed_demo_data.py` — ambiguous variable `l` → `low`
+- Total phase12: 242/242 pass (2026-03-31).
+- 1 pre-existing failure: `test_order_flow_respects_pre_trade_checks` (logic assertion, unrelated to blocker fixes).
 
 ### Next smallest safe step
-- Optional: M8 / Evidence Engine, or stabilization + CI confirmation push.
-- Open items: M3 numeric drawdown thresholds in policy.yaml; M5 spec doc; CI confirmation pending for all milestones.
+- Push CI fixes to remote + confirm CI run.
+- Then: M8 / Evidence Engine, or further CI stabilization if CI still fails.
+- Open items: M3 numeric drawdown thresholds in policy.yaml; M5 spec doc.
 
 ### After that
-- M7 — Realism Upgrades v2 (exchange calendars, cost model, corporate actions, universe snapshots).
+- M8 — Evidence Engine (if CI confirmed green).
 
 ---
 

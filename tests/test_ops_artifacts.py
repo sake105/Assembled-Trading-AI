@@ -104,7 +104,9 @@ def test_diff_vs_prev_computes_deltas(tmp_path) -> None:
             {"symbol": "B", "target_weight": 0.5},
         ],
     }
-    (prev_dir / "targets_latest.json").write_text(json.dumps(prev_targets), encoding="utf-8")
+    (prev_dir / "targets_latest.json").write_text(
+        json.dumps(prev_targets), encoding="utf-8"
+    )
 
     # Current run
     curr_dir = tmp_path / "run_curr"
@@ -178,7 +180,9 @@ def test_write_reasons_artifact_basic(tmp_path) -> None:
     }
 
     out_dir = tmp_path / "run1"
-    path = write_reasons_artifact(out_dir, ctx=ctx, result=result, policy=policy, mode="shadow")
+    path = write_reasons_artifact(
+        out_dir, ctx=ctx, result=result, policy=policy, mode="shadow"
+    )
     assert path.exists()
 
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -186,4 +190,3 @@ def test_write_reasons_artifact_basic(tmp_path) -> None:
     assert data["risk_state"]["state"] == "ACTIVE"
     assert data["geo"]["geo_score"] == 2
     assert data["turnover_gate"]["behavior"] == "scale"
-

@@ -58,14 +58,20 @@ def test_profit_lock_cooldown_applies() -> None:
         "cooldown_days": 10,
     }
     state: dict = {}
-    mult0, state = compute_profit_lock_multiplier(equity, policy, now_idx=20, state=state)
+    mult0, state = compute_profit_lock_multiplier(
+        equity, policy, now_idx=20, state=state
+    )
     assert mult0 == pytest.approx(0.80)
     assert state.get("trigger_idx") == 20
     # Within cooldown: bar 25
-    mult1, state = compute_profit_lock_multiplier(equity, policy, now_idx=25, state=state)
+    mult1, state = compute_profit_lock_multiplier(
+        equity, policy, now_idx=25, state=state
+    )
     assert mult1 == pytest.approx(0.80)
     # Bar 31: 31 - 20 = 11 > cooldown_days(10); re-check. Lookback 31-20=11 -> start_idx=11, now_val=108, start_val=100, ret=0.08 -> re-trigger
-    mult2, state = compute_profit_lock_multiplier(equity, policy, now_idx=31, state=state)
+    mult2, state = compute_profit_lock_multiplier(
+        equity, policy, now_idx=31, state=state
+    )
     assert mult2 == pytest.approx(0.80)
     assert state.get("trigger_idx") == 31
 
@@ -84,7 +90,9 @@ def test_profit_lock_cooldown_expires_then_no_retrigger() -> None:
         "cooldown_days": 10,
     }
     state = {"trigger_idx": 20}
-    mult, state = compute_profit_lock_multiplier(equity, policy, now_idx=31, state=state)
+    mult, state = compute_profit_lock_multiplier(
+        equity, policy, now_idx=31, state=state
+    )
     assert mult == pytest.approx(1.0)
     assert "trigger_idx" not in state or state.get("trigger_idx") is None
 
@@ -127,27 +135,36 @@ def test_profit_lock_curve_too_short_returns_one() -> None:
 
 def test_equity_curve_in_ctx_triggers_profit_lock() -> None:
     """With equity_curve and equity_curve_index set in ctx (e.g. from backtest), profit_lock can trigger."""
-    from src.assembled_core.pipeline.trading_cycle import TradingContext, run_trading_cycle
+    from src.assembled_core.pipeline.trading_cycle import (
+        TradingContext,
+        run_trading_cycle,
+    )
 
     def _signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
         ts = prices_df["timestamp"].iloc[0]
         syms = prices_df["symbol"].unique().tolist()
-        return pd.DataFrame({
-            "timestamp": [ts] * len(syms),
-            "symbol": syms,
-            "direction": ["LONG"] * len(syms),
-            "score": [1.0] * len(syms),
-        })
+        return pd.DataFrame(
+            {
+                "timestamp": [ts] * len(syms),
+                "symbol": syms,
+                "direction": ["LONG"] * len(syms),
+                "score": [1.0] * len(syms),
+            }
+        )
 
     def _sizing_fn(signals: pd.DataFrame, capital: float) -> pd.DataFrame:
-        return compute_target_positions(signals, total_capital=capital, equal_weight=True)
+        return compute_target_positions(
+            signals, total_capital=capital, equal_weight=True
+        )
 
     # Minimal prices so cycle runs
-    prices = pd.DataFrame({
-        "timestamp": [pd.Timestamp("2025-01-15", tz="UTC")] * 2,
-        "symbol": ["A", "B"],
-        "close": [10.0, 20.0],
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": [pd.Timestamp("2025-01-15", tz="UTC")] * 2,
+            "symbol": ["A", "B"],
+            "close": [10.0, 20.0],
+        }
+    )
     # Up 8% over 20 bars: triggers profit_lock (policy from configs/policy.yaml has profit_lock.enabled)
     equity_curve = pd.Series([100.0] * 20 + [108.0])
     ctx = TradingContext(

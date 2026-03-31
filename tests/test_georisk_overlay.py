@@ -122,4 +122,3 @@ def test_pause_multiplier_zero() -> None:
     # geo_score 4 not in by_geo_score -> use mapping[PAUSE] = 0.0
     m = compute_exposure_multiplier(cast(TradingContext, ctx), policy)
     assert m == pytest.approx(0.0)
-

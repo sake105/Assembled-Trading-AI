@@ -291,17 +291,34 @@ def write_risk_report_markdown(
                 else:
                     first_date = None
                     last_date = None
-                    equity_series = equity_df["equity"].values if "equity" in equity_df.columns else None
+                    equity_series = (
+                        equity_df["equity"].values
+                        if "equity" in equity_df.columns
+                        else None
+                    )
 
-                if first_date is not None and last_date is not None and equity_series is not None and len(equity_series) >= 2:
+                if (
+                    first_date is not None
+                    and last_date is not None
+                    and equity_series is not None
+                    and len(equity_series) >= 2
+                ):
                     # Compute since inception metrics
                     start_equity = float(equity_series[0])
                     end_equity = float(equity_series[-1])
-                    total_return = (end_equity / start_equity - 1.0) * 100.0 if start_equity > 0 else 0.0
+                    total_return = (
+                        (end_equity / start_equity - 1.0) * 100.0
+                        if start_equity > 0
+                        else 0.0
+                    )
 
                     # Compute returns for volatility and Sharpe
                     returns = pd.Series(equity_series).pct_change().dropna()
-                    vol_annualized = float(returns.std() * (252**0.5)) * 100.0 if len(returns) > 1 else None
+                    vol_annualized = (
+                        float(returns.std() * (252**0.5)) * 100.0
+                        if len(returns) > 1
+                        else None
+                    )
                     sharpe_since_inception = (
                         float(returns.mean() / returns.std() * (252**0.5))
                         if len(returns) > 1 and returns.std() > 0
@@ -312,25 +329,37 @@ def write_risk_report_markdown(
                     cumulative = pd.Series(equity_series) / equity_series[0]
                     running_max = cumulative.expanding().max()
                     drawdown = (cumulative - running_max) / running_max * 100.0
-                    max_dd_since_inception = float(drawdown.min()) if len(drawdown) > 0 else None
+                    max_dd_since_inception = (
+                        float(drawdown.min()) if len(drawdown) > 0 else None
+                    )
 
                     # Compute days since inception
                     days_since_inception = (last_date - first_date).days
 
                     f.write("| Metric | Value |\n")
                     f.write("|--------|-------|\n")
-                    f.write(f"| **Inception Date** | {first_date.strftime('%Y-%m-%d')} |\n")
+                    f.write(
+                        f"| **Inception Date** | {first_date.strftime('%Y-%m-%d')} |\n"
+                    )
                     f.write(f"| **Days Since Inception** | {days_since_inception} |\n")
                     f.write(f"| **Total Return** | {total_return:.2f}% |\n")
                     if vol_annualized is not None:
-                        f.write(f"| **Volatility (Annualized)** | {vol_annualized:.2f}% |\n")
+                        f.write(
+                            f"| **Volatility (Annualized)** | {vol_annualized:.2f}% |\n"
+                        )
                     if sharpe_since_inception is not None:
-                        f.write(f"| **Sharpe Ratio** | {sharpe_since_inception:.4f} |\n")
+                        f.write(
+                            f"| **Sharpe Ratio** | {sharpe_since_inception:.4f} |\n"
+                        )
                     if max_dd_since_inception is not None:
-                        f.write(f"| **Max Drawdown** | {max_dd_since_inception:.2f}% |\n")
+                        f.write(
+                            f"| **Max Drawdown** | {max_dd_since_inception:.2f}% |\n"
+                        )
                     f.write("\n")
             except Exception as e:
-                logger.warning(f"Failed to compute 'since inception' metrics: {e}", exc_info=True)
+                logger.warning(
+                    f"Failed to compute 'since inception' metrics: {e}", exc_info=True
+                )
                 f.write("*Could not compute 'since inception' metrics.*\n\n")
 
         # Global Risk Metrics

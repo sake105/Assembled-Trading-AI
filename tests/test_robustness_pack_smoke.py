@@ -16,6 +16,7 @@ from src.assembled_core.qa.robustness import build_robustness_pack
 
 def test_build_robustness_pack_smoke(tmp_path: Path):
     """Test that build_robustness_pack produces stable outputs."""
+
     # Create toy backtest function
     def backtest_fn(config: dict[str, Any]) -> dict[str, float | int]:
         return {
@@ -29,11 +30,13 @@ def test_build_robustness_pack_smoke(tmp_path: Path):
 
     # Create toy prices DataFrame for RB1
     dates = pd.date_range("2020-01-01", "2022-12-31", freq="D", tz="UTC")
-    prices_df = pd.DataFrame({
-        "timestamp": dates,
-        "symbol": "AAPL",
-        "close": 100.0,
-    })
+    prices_df = pd.DataFrame(
+        {
+            "timestamp": dates,
+            "symbol": "AAPL",
+            "close": 100.0,
+        }
+    )
 
     # Create toy parameter grid for RB2
     param_grid = {
@@ -86,6 +89,7 @@ def test_build_robustness_pack_smoke(tmp_path: Path):
 
 def test_build_robustness_pack_no_inputs(tmp_path: Path):
     """Test that build_robustness_pack handles missing inputs gracefully."""
+
     def backtest_fn(config: dict[str, Any]) -> dict[str, float | int]:
         return {"sharpe": 1.0}
 

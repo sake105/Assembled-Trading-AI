@@ -25,4 +25,6 @@ def test_compile_exclude_constants_exist_and_contain_expected() -> None:
 
     assert "scripts/data" in subdirs, "Excludes must contain scripts/data (SSOT)"
     assert "scripts/tools" in subdirs, "Excludes must contain scripts/tools (SSOT)"
-    assert "00_seed_demo_data.py" in names, "Excludes must contain 00_seed_demo_data.py (SSOT)"
+    assert (
+        "00_seed_demo_data.py" in names
+    ), "Excludes must contain 00_seed_demo_data.py (SSOT)"

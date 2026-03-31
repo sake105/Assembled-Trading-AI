@@ -63,6 +63,7 @@ def run_benchmark_harness(
     for ref_job in REFERENCE_JOBS:
         if ref_job.name == job_name and ref_job.seed is not None:
             import numpy as np
+
             np.random.seed(ref_job.seed)
             break
 
@@ -74,7 +75,9 @@ def run_benchmark_harness(
 
         try:
             # Run job (using run_job_without_profiling for clean execution)
-            run_job_without_profiling(job_name, warm_cache=False, use_factor_store=False)
+            run_job_without_profiling(
+                job_name, warm_cache=False, use_factor_store=False
+            )
             elapsed = time.time() - start_time
             runtimes.append(elapsed)
             print(f"[BENCHMARK] Run {run_idx + 1} completed in {elapsed:.2f}s")
@@ -163,4 +166,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

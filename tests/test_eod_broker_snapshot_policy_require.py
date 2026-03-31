@@ -27,32 +27,36 @@ def test_eod_policy_require_raises_when_snapshot_missing(tmp_path: Path) -> None
     output_dir = tmp_path
 
     # Minimal orders and trades
-    orders_df = pd.DataFrame([
-        {
-            "timestamp": pd.Timestamp("2024-01-02T00:00:00Z", tz="UTC"),
-            "symbol": "AAPL",
-            "side": "BUY",
-            "qty": 10.0,
-            "price": 100.0,
-        }
-    ])
-    
-    trades_df = pd.DataFrame([
-        {
-            "timestamp": pd.Timestamp("2024-01-02T00:00:00Z", tz="UTC"),
-            "symbol": "AAPL",
-            "side": "BUY",
-            "qty": 10.0,
-            "price": 100.0,  # Required column
-            "fill_qty": 10.0,
-            "fill_price": 100.0,
-            "status": "filled",
-            "commission_cash": 0.0,
-            "spread_cash": 0.0,
-            "slippage_cash": 0.0,
-            "total_cost_cash": 0.0,
-        }
-    ])
+    orders_df = pd.DataFrame(
+        [
+            {
+                "timestamp": pd.Timestamp("2024-01-02T00:00:00Z", tz="UTC"),
+                "symbol": "AAPL",
+                "side": "BUY",
+                "qty": 10.0,
+                "price": 100.0,
+            }
+        ]
+    )
+
+    trades_df = pd.DataFrame(
+        [
+            {
+                "timestamp": pd.Timestamp("2024-01-02T00:00:00Z", tz="UTC"),
+                "symbol": "AAPL",
+                "side": "BUY",
+                "qty": 10.0,
+                "price": 100.0,  # Required column
+                "fill_qty": 10.0,
+                "fill_price": 100.0,
+                "status": "filled",
+                "commission_cash": 0.0,
+                "spread_cash": 0.0,
+                "slippage_cash": 0.0,
+                "total_cost_cash": 0.0,
+            }
+        ]
+    )
 
     # Run build_ledger_from_trades with policy="require" - should raise ValueError
     with pytest.raises(ValueError, match="Broker snapshot required but not found"):

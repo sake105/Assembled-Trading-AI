@@ -41,14 +41,16 @@ def fetch_symbol(symbol: str, start: str, end: str) -> pd.DataFrame | None:
             return None
 
         df = df.reset_index()
-        df = df.rename(columns={
-            "Date": "timestamp",
-            "Open": "open",
-            "High": "high",
-            "Low": "low",
-            "Close": "close",
-            "Volume": "volume",
-        })
+        df = df.rename(
+            columns={
+                "Date": "timestamp",
+                "Open": "open",
+                "High": "high",
+                "Low": "low",
+                "Close": "close",
+                "Volume": "volume",
+            }
+        )
         df["symbol"] = symbol
         df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
 
@@ -60,7 +62,9 @@ def fetch_symbol(symbol: str, start: str, end: str) -> pd.DataFrame | None:
             if c in df.columns:
                 df[c] = pd.to_numeric(df[c], errors="coerce")
         if "volume" in df.columns:
-            df["volume"] = pd.to_numeric(df["volume"], errors="coerce").fillna(0).astype(float)
+            df["volume"] = (
+                pd.to_numeric(df["volume"], errors="coerce").fillna(0).astype(float)
+            )
 
         return df
     except Exception as exc:
@@ -79,19 +83,27 @@ def validate_ohlc(df: pd.DataFrame) -> int:
     )
     n_bad = int(bad.sum())
     if n_bad > 0:
-        logger.warning(f"OHLC validation: {n_bad} rows with invalid relationships ({n_bad/len(df)*100:.1f}%)")
+        logger.warning(
+            f"OHLC validation: {n_bad} rows with invalid relationships ({n_bad/len(df)*100:.1f}%)"
+        )
     else:
         logger.info("OHLC validation: all rows consistent")
     return n_bad
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Fetch real daily data from Yahoo Finance")
+    parser = argparse.ArgumentParser(
+        description="Fetch real daily data from Yahoo Finance"
+    )
     parser.add_argument("--start", type=str, default="2025-01-01")
     parser.add_argument("--end", type=str, default="2025-12-31")
     parser.add_argument("--universe", type=str, default="watchlist.txt")
-    parser.add_argument("--output", type=str, default="output/aggregates/daily_real.parquet")
-    parser.add_argument("--sleep", type=float, default=0.3, help="Seconds between requests")
+    parser.add_argument(
+        "--output", type=str, default="output/aggregates/daily_real.parquet"
+    )
+    parser.add_argument(
+        "--sleep", type=float, default=0.3, help="Seconds between requests"
+    )
     args = parser.parse_args()
 
     universe_path = ROOT / args.universe

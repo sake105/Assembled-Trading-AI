@@ -10,7 +10,10 @@ import pandas as pd
 import pytest
 
 from src.assembled_core.ops.paper_ledger import apply_fills_to_ledger, simulate_fills
-from src.assembled_core.ops.reconcile import build_reconcile_report, write_reconcile_artifact
+from src.assembled_core.ops.reconcile import (
+    build_reconcile_report,
+    write_reconcile_artifact,
+)
 
 
 pytestmark = [pytest.mark.unit, pytest.mark.phase6]
@@ -19,7 +22,11 @@ pytestmark = [pytest.mark.unit, pytest.mark.phase6]
 def test_reconcile_ok_basic_buy() -> None:
     """Reconcile report status OK for a simple buy: cash delta negative, equity finite, invariants pass."""
     as_of = "2025-01-15T12:00:00+00:00"
-    ledger_before: dict[str, Any] = {"cash": 10000.0, "positions": {}, "equity_curve": []}
+    ledger_before: dict[str, Any] = {
+        "cash": 10000.0,
+        "positions": {},
+        "equity_curve": [],
+    }
     orders = pd.DataFrame([{"symbol": "A", "side": "BUY", "qty": 10.0, "price": 100.0}])
     prices = pd.DataFrame({"symbol": ["A"], "close": [100.0]})
     fills = simulate_fills(orders, prices, None)
@@ -76,10 +83,18 @@ def test_reconcile_fail_negative_cash() -> None:
 
 def test_reconcile_writes_and_alerts_on_fail(tmp_path: Path) -> None:
     """When reconcile status is FAIL, reconcile_latest.json is written and RECONCILE_FAIL alert is added to alerts."""
-    from src.assembled_core.ops.alerts import compute_alerts, make_reconcile_fail_alert, write_alerts_artifact
+    from src.assembled_core.ops.alerts import (
+        compute_alerts,
+        make_reconcile_fail_alert,
+        write_alerts_artifact,
+    )
 
     as_of = "2025-01-15T12:00:00+00:00"
-    ledger_before: dict[str, Any] = {"cash": 10000.0, "positions": {}, "equity_curve": []}
+    ledger_before: dict[str, Any] = {
+        "cash": 10000.0,
+        "positions": {},
+        "equity_curve": [],
+    }
     ledger_after = {"cash": -0.01, "positions": {}, "equity_curve": []}
     orders = pd.DataFrame(columns=["symbol", "side", "qty", "price"])
     prices = pd.DataFrame({"symbol": [], "close": []})
@@ -105,12 +120,23 @@ def test_reconcile_writes_and_alerts_on_fail(tmp_path: Path) -> None:
     run_kpis = {"generated_utc": as_of}
     reasons: dict[str, Any] = {}
     diff: dict[str, Any] = {"notes": [], "summary": {}}
-    cfg: dict[str, Any] = {"alerts": {"enabled": True, "severity_map": {"info": 0, "warn": 1, "critical": 2}}}
+    cfg: dict[str, Any] = {
+        "alerts": {
+            "enabled": True,
+            "severity_map": {"info": 0, "warn": 1, "critical": 2},
+        }
+    }
     alerts_list = compute_alerts(run_kpis, reasons, diff, cfg)
     alerts_list = list(alerts_list)
     alerts_list.append(make_reconcile_fail_alert(as_of))
-    severity_map = cfg.get("alerts", {}).get("severity_map") or {"info": 0, "warn": 1, "critical": 2}
-    alerts_list.sort(key=lambda a: (-severity_map.get(a["level"], 0), a["kind"], a["alert_id"]))
+    severity_map = cfg.get("alerts", {}).get("severity_map") or {
+        "info": 0,
+        "warn": 1,
+        "critical": 2,
+    }
+    alerts_list.sort(
+        key=lambda a: (-severity_map.get(a["level"], 0), a["kind"], a["alert_id"])
+    )
     write_alerts_artifact(tmp_path, alerts_list, as_of, cfg)
     alerts_path = tmp_path / "alerts_latest.json"
     assert alerts_path.exists()

@@ -108,7 +108,7 @@ def generate_qa_report(
         logger = logging.getLogger(__name__)
         logger.error("Failed to write QA report to %s: %s", report_path, exc)
         raise RuntimeError(f"Failed to write QA report: {report_path}") from exc
-    
+
     # Export metrics as JSON (same directory as report)
     metrics_json_path = report_path.parent / "metrics.json"
     try:
@@ -116,6 +116,7 @@ def generate_qa_report(
     except Exception as exc:
         # Log but don't fail report generation if metrics export fails
         import logging
+
         logger = logging.getLogger(__name__)
         logger.warning(f"Failed to export metrics JSON: {exc}", exc_info=True)
 

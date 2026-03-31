@@ -34,11 +34,13 @@ def golden_mini_backtest_data():
             base_price = 100.0 + (i * 10.0)  # AAPL=100, MSFT=110, GOOGL=120
             day_offset = float((date - dates[0]).days) * 0.5  # Small daily increment
             price = base_price + day_offset
-            prices_data.append({
-                "timestamp": date,
-                "symbol": symbol,
-                "close": price,
-            })
+            prices_data.append(
+                {
+                    "timestamp": date,
+                    "symbol": symbol,
+                    "close": price,
+                }
+            )
 
     prices = pd.DataFrame(prices_data)
 
@@ -60,12 +62,14 @@ def golden_mini_backtest_data():
                 direction = "NEUTRAL"
                 score = 0.0
 
-            signals_data.append({
-                "timestamp": date,
-                "symbol": symbol,
-                "direction": direction,
-                "score": score,
-            })
+            signals_data.append(
+                {
+                    "timestamp": date,
+                    "symbol": symbol,
+                    "direction": direction,
+                    "score": score,
+                }
+            )
 
     signals = pd.DataFrame(signals_data)
 
@@ -89,8 +93,10 @@ def golden_mini_backtest_data():
 @pytest.fixture
 def position_sizing_fn():
     """Position sizing function for golden backtest."""
+
     def sizing_fn(signals_df, capital):
         return compute_target_positions(
             signals_df, total_capital=capital, equal_weight=True, top_n=3
         )
+
     return sizing_fn

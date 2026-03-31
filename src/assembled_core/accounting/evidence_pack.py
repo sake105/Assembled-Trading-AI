@@ -33,9 +33,15 @@ REQUIRED_KEYS_BY_SOURCE: dict[str, list[str]] = {
     "manifest": ["ledger_pack_path", "reconcile_report_path", "accounting_report_path"],
 }
 OPTIONAL_KEYS_BY_SOURCE: dict[str, list[str]] = {
-    "evidence_index": ["broker_snapshot_path", "reconcile_report_path", "accounting_report_path", "manifest_path"],
+    "evidence_index": [
+        "broker_snapshot_path",
+        "reconcile_report_path",
+        "accounting_report_path",
+        "manifest_path",
+    ],
     "manifest": ["broker_snapshot_path", "evidence_index_path"],
 }
+
 
 def _ascii_only(msg: str) -> str:
     """Return msg stripped to ASCII-only (lossy)."""
@@ -78,8 +84,10 @@ def _validate_manifest_consistency(
         raise ValueError(msg)
 
     pack_manifest_entries = [
-        e for e in files_list
-        if isinstance(e.get("source_type"), str) and e.get("source_type") == "pack_manifest"
+        e
+        for e in files_list
+        if isinstance(e.get("source_type"), str)
+        and e.get("source_type") == "pack_manifest"
     ]
     if len(pack_manifest_entries) != 1:
         msg = _ascii_only(
@@ -139,10 +147,10 @@ def _validate_manifest_files_schema(
 
 def _sha256_file(path: Path) -> str:
     """Calculate SHA256 hash of a file.
-    
+
     Args:
         path: Path to file
-        
+
     Returns:
         SHA256 hash as lowercase hex string
     """
@@ -162,29 +170,31 @@ def _sha256_bytes(data: bytes) -> str:
 
 def _normalize_zip_path(file_path: Path, base_dir: Path) -> str:
     """Normalize file path to POSIX relative path for ZIP entry.
-    
+
     Args:
         file_path: Absolute or relative file path
         base_dir: Base directory (output_dir)
-        
+
     Returns:
         POSIX-style relative path (e.g., "ledger_run1/ledger_events.parquet")
-        
+
     Raises:
         ValueError: If file_path is outside base_dir or contains '..' segments
     """
     try:
         rel = file_path.relative_to(base_dir)
         posix_path = rel.as_posix()
-        
+
         # Ensure no '..' segments and no absolute paths
         if ".." in posix_path or posix_path.startswith("/"):
-            raise ValueError(_ascii_only(f"Path contains '..' or is absolute: {posix_path}"))
-        
+            raise ValueError(
+                _ascii_only(f"Path contains '..' or is absolute: {posix_path}")
+            )
+
         # Ensure no backslashes (Windows paths)
         if "\\" in posix_path:
             raise ValueError(_ascii_only(f"Path contains backslashes: {posix_path}"))
-        
+
         return posix_path
     except ValueError as e:
         # Re-raise if it's our validation error
@@ -202,7 +212,7 @@ def _write_zip_deterministic(
     compression: str = "deflated",
 ) -> None:
     """Write ZIP file with deterministic ordering and timestamps.
-    
+
     Args:
         zip_path: Path to output ZIP file
         files: List of (file_path, zip_entry_path) tuples (already sorted)
@@ -211,37 +221,51 @@ def _write_zip_deterministic(
         compression: "deflated" (default) or "stored" (no compression, max reproducibility)
     """
     if compression not in ("deflated", "stored"):
-        raise ValueError(_ascii_only(f"compression must be 'deflated' or 'stored'; got {compression!r}"))
-    compress_type = zipfile.ZIP_STORED if compression == "stored" else zipfile.ZIP_DEFLATED
+        raise ValueError(
+            _ascii_only(
+                f"compression must be 'deflated' or 'stored'; got {compression!r}"
+            )
+        )
+    compress_type = (
+        zipfile.ZIP_STORED if compression == "stored" else zipfile.ZIP_DEFLATED
+    )
 
     # Files should already be sorted by caller, but ensure deterministic order
     sorted_files = sorted(files, key=lambda x: x[1])
-    
+
     # Write to temp file first (Windows-safe atomic write)
     tmp_path = zip_path.with_suffix(".tmp.zip")
-    
+
     try:
         with zipfile.ZipFile(tmp_path, "w", compress_type) as zf:
             for file_path, zip_entry_path in sorted_files:
                 if not file_path.exists():
                     logger.warning(f"File not found, skipping: {file_path}")
                     continue
-                
+
                 # Validate zip_entry_path is relative and POSIX
                 if ".." in zip_entry_path or zip_entry_path.startswith("/"):
-                    raise ValueError(_ascii_only(f"Invalid ZIP entry path (contains '..' or absolute): {zip_entry_path}"))
+                    raise ValueError(
+                        _ascii_only(
+                            f"Invalid ZIP entry path (contains '..' or absolute): {zip_entry_path}"
+                        )
+                    )
                 if "\\" in zip_entry_path:
-                    raise ValueError(_ascii_only(f"Invalid ZIP entry path (contains backslashes): {zip_entry_path}"))
-                
+                    raise ValueError(
+                        _ascii_only(
+                            f"Invalid ZIP entry path (contains backslashes): {zip_entry_path}"
+                        )
+                    )
+
                 # Create ZipInfo with fixed timestamp and compression
                 zip_info = zipfile.ZipInfo(filename=zip_entry_path)
                 zip_info.date_time = fixed_timestamp
                 zip_info.compress_type = compress_type
-                
+
                 # Add file to ZIP
                 with open(file_path, "rb") as f:
                     zf.writestr(zip_info, f.read())
-        
+
         # Atomic rename (Windows-safe)
         shutil.move(str(tmp_path), str(zip_path))
     except Exception:
@@ -253,27 +277,27 @@ def _write_zip_deterministic(
 
 def _find_related_files(base_path: Path) -> list[Path]:
     """Find related files in the same directory (CSV, MD, Parquet variants).
-    
+
     Args:
         base_path: Base file path (e.g., reconcile_2025-01-15.json)
-        
+
     Returns:
         List of related files found (e.g., reconcile_2025-01-15.csv, reconcile_2025-01-15.md)
     """
     related = []
     base_name = base_path.stem
     parent_dir = base_path.parent
-    
+
     # Check for CSV variant
     csv_path = parent_dir / f"{base_name}.csv"
     if csv_path.exists():
         related.append(csv_path)
-    
+
     # Check for Markdown variant
     md_path = parent_dir / f"{base_name}.md"
     if md_path.exists():
         related.append(md_path)
-    
+
     # Check for Parquet variant (for broker snapshots: positions_YYYY-MM-DD.parquet)
     # Extract date from filename (e.g., snapshot_2025-01-15.json -> 2025-01-15)
     if "snapshot_" in base_path.name:
@@ -283,13 +307,13 @@ def _find_related_files(base_path: Path) -> list[Path]:
             parquet_path = parent_dir / f"positions_{date_part}.parquet"
             if parquet_path.exists():
                 related.append(parquet_path)
-    
+
     return related
 
 
 def _find_manifest_for_run(base_dir: Path, run_id: str) -> Path | None:
     """Find orchestrator manifest JSON for a run (fallback when no evidence index).
-    
+
     Search order (deterministic):
     1. manifest_<run_id>.json (if present)
     2. lexicographically smallest run_manifest_*.json
@@ -298,12 +322,12 @@ def _find_manifest_for_run(base_dir: Path, run_id: str) -> Path | None:
     direct_manifest = base_dir / f"manifest_{run_id}.json"
     if direct_manifest.exists():
         return direct_manifest
-    
+
     # 2) Any run_manifest_*.json in base_dir, pick lexicographically smallest name
     candidates = sorted(base_dir.glob("run_manifest_*.json"), key=lambda p: p.name)
     if candidates:
         return candidates[0]
-    
+
     return None
 
 
@@ -313,12 +337,12 @@ def collect_evidence_files(
     as_of_date: str | pd.Timestamp,
 ) -> dict[str, Any]:
     """Collect all evidence files referenced in Evidence Index or manifest.
-    
+
     Args:
         output_dir: Base output directory
         run_id: Run identifier
         as_of_date: Report date (YYYY-MM-DD string or pd.Timestamp)
-        
+
     Returns:
         Dictionary with:
             - files: List of (file_path, zip_entry_path) tuples
@@ -331,7 +355,7 @@ def collect_evidence_files(
             - source_path: Relative POSIX path to source JSON (or None)
     """
     base_dir = Path(output_dir)
-    
+
     # Normalize as_of_date
     if isinstance(as_of_date, str):
         as_of_ts = pd.to_datetime(as_of_date, utc=True)
@@ -340,7 +364,7 @@ def collect_evidence_files(
     if as_of_ts.tz is None:
         as_of_ts = as_of_ts.tz_localize("UTC")
     date_str = as_of_ts.strftime("%Y-%m-%d")
-    
+
     # Try Evidence Index first
     evidence_dir = base_dir / f"evidence_{run_id}"
     evidence_index_path = evidence_dir / f"evidence_{date_str}.json"
@@ -348,7 +372,7 @@ def collect_evidence_files(
     manifest_path: Path | None = None
     source: str | None = None
     source_path_rel: str | None = None
-    
+
     paths: dict[str, Any] = {}
     files: list[tuple[Path, str]] = []
     missing_required: list[str] = []
@@ -356,7 +380,7 @@ def collect_evidence_files(
     required_present_keys: list[str] = []
     optional_present_keys: list[str] = []
     optional_zip_paths: list[str] = []
-    
+
     # First preference: Evidence Index JSON
     if evidence_index_path.exists():
         try:
@@ -373,7 +397,7 @@ def collect_evidence_files(
         except Exception as exc:
             logger.error(f"Failed to read evidence index {evidence_index_path}: {exc}")
             # Fall through to manifest fallback
-    
+
     # Fallback: orchestrator manifest if no usable evidence index
     if not evidence_index_used:
         manifest_path = _find_manifest_for_run(base_dir, run_id)
@@ -407,12 +431,12 @@ def collect_evidence_files(
                 "source": None,
                 "source_path": None,
             }
-        
+
         source = "manifest"
         source_path_rel = _normalize_zip_path(manifest_path, base_dir)
         # Add manifest itself as a file in the pack (optional evidence)
         files.append((manifest_path, source_path_rel))
-        
+
         # Extract paths directly from manifest top-level
         paths = {
             "ledger_pack_path": manifest.get("ledger_pack_path"),
@@ -421,11 +445,11 @@ def collect_evidence_files(
             "broker_snapshot_path": manifest.get("broker_snapshot_path"),
             "evidence_index_path": manifest.get("evidence_index_path"),
         }
-    
+
     # Use centralized required/optional keys per source
     required_keys = REQUIRED_KEYS_BY_SOURCE.get(source, [])
     optional_keys = OPTIONAL_KEYS_BY_SOURCE.get(source, [])
-    
+
     # Process required files (missing -> keys in missing_required)
     for key in required_keys:
         rel_path_str = paths.get(key)
@@ -433,7 +457,7 @@ def collect_evidence_files(
             missing_required.append(key)
             logger.error(f"Required path missing in source={source}: {key}")
             continue
-        
+
         file_path = (base_dir / rel_path_str).resolve()
         if not file_path.exists():
             missing_required.append(key)
@@ -448,11 +472,11 @@ def collect_evidence_files(
                 )
             )
             continue
-        
+
         zip_entry_path = _normalize_zip_path(file_path, base_dir)
         files.append((file_path, zip_entry_path))
         required_present_keys.append(key)
-        
+
         related = _find_related_files(file_path)
         for related_path in related:
             try:
@@ -460,14 +484,16 @@ def collect_evidence_files(
                 related_zip_path = _normalize_zip_path(related_path, base_dir)
                 files.append((related_path, related_zip_path))
             except ValueError:
-                logger.warning(f"Related file outside output_dir, skipping: {related_path}")
-    
+                logger.warning(
+                    f"Related file outside output_dir, skipping: {related_path}"
+                )
+
     # Process optional files (missing -> keys in missing_optional; included -> zip paths in optional_zip_paths)
     for key in optional_keys:
         rel_path_str = paths.get(key)
         if rel_path_str is None:
             continue
-        
+
         file_path = (base_dir / rel_path_str).resolve()
         if not file_path.exists():
             missing_optional.append(key)
@@ -482,12 +508,12 @@ def collect_evidence_files(
                 )
             )
             continue
-        
+
         zip_entry_path = _normalize_zip_path(file_path, base_dir)
         optional_zip_paths.append(zip_entry_path)
         files.append((file_path, zip_entry_path))
         optional_present_keys.append(key)
-        
+
         related = _find_related_files(file_path)
         for related_path in related:
             try:
@@ -496,8 +522,10 @@ def collect_evidence_files(
                 optional_zip_paths.append(related_zip_path)
                 files.append((related_path, related_zip_path))
             except ValueError:
-                logger.warning(f"Related file outside output_dir, skipping: {related_path}")
-    
+                logger.warning(
+                    f"Related file outside output_dir, skipping: {related_path}"
+                )
+
     # Deduplicate files by zip_entry_path to avoid duplicate entries in pack/ZIP.
     # Keep the first occurrence for each zip_entry_path.
     unique_files: dict[str, Path] = {}
@@ -521,7 +549,7 @@ def collect_evidence_files(
         if zp not in seen_opt:
             seen_opt.add(zp)
             deduped_optional_zip_paths.append(zp)
-    
+
     return {
         "files": deduped_files,
         "missing_required": missing_required,
@@ -547,10 +575,10 @@ def build_evidence_pack(
     compression: str = "deflated",
 ) -> dict[str, Any]:
     """Build evidence pack (ZIP + manifest) from Evidence Index.
-    
+
     Policy: Required missing -> always fail. Optional missing -> fail if strict=True,
     else warning (and excluded from pack if include_optional=False).
-    
+
     Args:
         output_dir: Base output directory
         run_id: Run identifier
@@ -560,7 +588,7 @@ def build_evidence_pack(
         strict: If True, raise ValueError when any optional file is missing.
         fixed_timestamp: Fixed ZIP timestamp (default: 1980-01-01 00:00:00)
         compression: "deflated" (default) or "stored" (no compression, max reproducibility)
-        
+
     Returns:
         Dictionary (return schema stable):
             - pack_path: Relative path to ZIP file (POSIX)
@@ -579,8 +607,12 @@ def build_evidence_pack(
     """
     base_dir = Path(output_dir)
     if compression not in ("deflated", "stored"):
-        raise ValueError(_ascii_only(f"compression must be 'deflated' or 'stored'; got {compression!r}"))
-    
+        raise ValueError(
+            _ascii_only(
+                f"compression must be 'deflated' or 'stored'; got {compression!r}"
+            )
+        )
+
     # Normalize as_of_date
     if isinstance(as_of_date, str):
         as_of_ts = pd.to_datetime(as_of_date, utc=True)
@@ -589,23 +621,25 @@ def build_evidence_pack(
     if as_of_ts.tz is None:
         as_of_ts = as_of_ts.tz_localize("UTC")
     date_str = as_of_ts.strftime("%Y-%m-%d")
-    
+
     # Collect evidence files (from evidence index or manifest fallback)
     collection = collect_evidence_files(base_dir, run_id, as_of_date)
-    
+
     if not collection["files"]:
         raise ValueError(
             f"No evidence files found for run_id={run_id}, as_of_date={date_str}. "
             f"Evidence index and manifest may be missing or empty."
         )
-    
+
     # Check for missing required files (fail-fast)
     missing_required = collection.get("missing_required", [])
     if missing_required:
-        raise ValueError(_ascii_only(
-            f"Required files missing for run_id={run_id}, as_of_date={date_str}: {missing_required}"
-        ))
-    
+        raise ValueError(
+            _ascii_only(
+                f"Required files missing for run_id={run_id}, as_of_date={date_str}: {missing_required}"
+            )
+        )
+
     # Strict: fail if any optional file is missing (ASCII-only message)
     missing_optional = collection.get("missing_optional", [])
     if strict and missing_optional:
@@ -614,32 +648,34 @@ def build_evidence_pack(
             f"{missing_optional}"
         )
         raise ValueError(msg.encode("ascii", errors="ignore").decode("ascii"))
-    
+
     # Filter out optional files from ZIP when include_optional=False (policy: still report optional_missing keys in manifest)
     files = list(collection["files"])
     if not include_optional:
         optional_set = set(collection.get("optional_zip_paths", []))
         files = [(fp, zp) for fp, zp in files if zp not in optional_set]
-    
+
     # Use fixed timestamp or default
-    zip_timestamp = fixed_timestamp if fixed_timestamp is not None else FIXED_ZIP_TIMESTAMP
-    
+    zip_timestamp = (
+        fixed_timestamp if fixed_timestamp is not None else FIXED_ZIP_TIMESTAMP
+    )
+
     # Create output directory
     evidence_dir = base_dir / f"evidence_{run_id}"
     evidence_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Build ZIP file
     zip_path = evidence_dir / f"pack_{date_str}.zip"
-    
+
     # Calculate checksums before writing ZIP
     checksums: dict[str, str] = {}
     files_to_zip: list[tuple[Path, str]] = []
-    
+
     for file_path, zip_entry_path in files:
         if not file_path.exists():
             logger.warning(f"File not found, skipping: {file_path}")
             continue
-        
+
         try:
             checksum = _sha256_file(file_path)
             checksums[zip_entry_path] = checksum
@@ -648,7 +684,7 @@ def build_evidence_pack(
             logger.warning(f"Failed to calculate checksum for {file_path}: {e}")
             # Still include file, but without checksum
             files_to_zip.append((file_path, zip_entry_path))
-    
+
     # Enforce keys-only: required_missing and optional_missing must only contain allowed keys
     source = collection.get("source")
     allowed_required = set(REQUIRED_KEYS_BY_SOURCE.get(source, []))
@@ -721,14 +757,16 @@ def build_evidence_pack(
             if entry.get("path") == source_path:
                 entry["source_type"] = source
                 break
-    
+
     # Write pack manifest JSON to disk (deterministic)
     manifest_path = evidence_dir / f"pack_manifest_{date_str}.json"
     manifest_zip_path = f"pack_manifest_{date_str}.json"
-    
+
     # First, write manifest without self-reference (temporary)
-    manifest_json_content_temp = json.dumps(pack_manifest, sort_keys=True, indent=2, default=str) + "\n"
-    
+    manifest_json_content_temp = (
+        json.dumps(pack_manifest, sort_keys=True, indent=2, default=str) + "\n"
+    )
+
     # Atomic write (Windows-safe) - temporary version
     with tempfile.NamedTemporaryFile(
         mode="w",
@@ -739,23 +777,25 @@ def build_evidence_pack(
     ) as tmp_file:
         tmp_file.write(manifest_json_content_temp)
         tmp_path = Path(tmp_file.name)
-    
+
     tmp_path.replace(manifest_path)
-    
+
     # Calculate checksum for manifest (without self-reference)
     manifest_checksum = _sha256_file(manifest_path)
-    
+
     # Add manifest to files list (for ZIP)
     files_to_zip.append((manifest_path, manifest_zip_path))
     checksums[manifest_zip_path] = manifest_checksum
-    
+
     # Update manifest to include itself (with checksum)
-    pack_manifest["files"].append({
-        "path": manifest_zip_path,
-        "size_bytes": manifest_path.stat().st_size,
-        "sha256": manifest_checksum,
-        "source_type": "pack_manifest",
-    })
+    pack_manifest["files"].append(
+        {
+            "path": manifest_zip_path,
+            "size_bytes": manifest_path.stat().st_size,
+            "sha256": manifest_checksum,
+            "source_type": "pack_manifest",
+        }
+    )
 
     # Guard: every files[] entry must have path, sha256, size_bytes, source_type
     _validate_manifest_files_schema(pack_manifest["files"], run_id, date_str)
@@ -789,8 +829,10 @@ def build_evidence_pack(
     _validate_manifest_consistency(pack_manifest, run_id, date_str)
 
     # Re-serialize manifest with self-reference (final version)
-    manifest_json_content_final = json.dumps(pack_manifest, sort_keys=True, indent=2, default=str) + "\n"
-    
+    manifest_json_content_final = (
+        json.dumps(pack_manifest, sort_keys=True, indent=2, default=str) + "\n"
+    )
+
     # Re-write manifest to disk (final version with self-reference)
     with tempfile.NamedTemporaryFile(
         mode="w",
@@ -801,21 +843,23 @@ def build_evidence_pack(
     ) as tmp_file:
         tmp_file.write(manifest_json_content_final)
         tmp_path = Path(tmp_file.name)
-    
+
     tmp_path.replace(manifest_path)
 
     # Write ZIP deterministically (including manifest with self-reference)
-    _write_zip_deterministic(zip_path, files_to_zip, base_dir, zip_timestamp, compression=compression)
-    
+    _write_zip_deterministic(
+        zip_path, files_to_zip, base_dir, zip_timestamp, compression=compression
+    )
+
     # Return relative paths
     pack_path_rel = zip_path.relative_to(base_dir)
     manifest_path_rel = manifest_path.relative_to(base_dir)
-    
+
     logger.info(
         f"Evidence pack created: {pack_path_rel} "
         f"({len(files_to_zip)} files, {zip_path.stat().st_size} bytes)"
     )
-    
+
     return {
         "pack_path": str(pack_path_rel.as_posix()),
         "pack_manifest_path": str(manifest_path_rel.as_posix()),
@@ -833,15 +877,15 @@ def build_evidence_pack(
 
 def _infer_source_type(zip_entry_path: str) -> str:
     """Infer source type from ZIP entry path.
-    
+
     Args:
         zip_entry_path: POSIX path inside ZIP
-        
+
     Returns:
         Source type string (e.g., "evidence_index", "broker_snapshot", "ledger_pack")
     """
     path_lower = zip_entry_path.lower()
-    
+
     if "evidence_" in path_lower and path_lower.endswith(".json"):
         return "evidence_index"
     elif "broker_snapshot" in path_lower:
@@ -883,7 +927,9 @@ def read_pack_manifest_from_zip(zip_path: Path | str) -> dict[str, Any]:
         manifest_names = [
             name
             for name in namelist
-            if name.startswith("pack_manifest_") and name.endswith(".json") and "/" not in name.strip("/")
+            if name.startswith("pack_manifest_")
+            and name.endswith(".json")
+            and "/" not in name.strip("/")
         ]
         if not manifest_names:
             raise ValueError(_ascii_only("No pack_manifest_*.json found in ZIP root"))
@@ -893,23 +939,27 @@ def read_pack_manifest_from_zip(zip_path: Path | str) -> dict[str, Any]:
         try:
             return json.loads(manifest_bytes.decode("utf-8"))
         except json.JSONDecodeError as exc:
-            raise ValueError(_ascii_only(f"Failed to parse pack manifest JSON: {exc}")) from exc
+            raise ValueError(
+                _ascii_only(f"Failed to parse pack manifest JSON: {exc}")
+            ) from exc
         except Exception as exc:
-            raise ValueError(_ascii_only(f"Failed to read pack manifest: {exc}")) from exc
+            raise ValueError(
+                _ascii_only(f"Failed to read pack manifest: {exc}")
+            ) from exc
 
 
 def verify_evidence_pack_zip(zip_path: Path | str) -> dict[str, Any]:
     """Verify an evidence pack ZIP file offline (no repo context required).
-    
+
     Checks:
     - ZIP contains a pack_manifest_*.json file in the root
     - Manifest schema_version is supported (currently: 1)
     - SHA256 checksums in manifest match actual file contents in ZIP
     - No illegal ZIP paths (no '..', no absolute paths, no backslashes)
-    
+
     Args:
         zip_path: Path to evidence pack ZIP file
-    
+
     Returns:
         Dictionary (return schema stable):
             - ok: True if manifest present, schema ok, checksums match, no illegal paths
@@ -923,27 +973,34 @@ def verify_evidence_pack_zip(zip_path: Path | str) -> dict[str, Any]:
     zpath = Path(zip_path)
     if not zpath.exists():
         raise FileNotFoundError(f"ZIP file not found: {zpath}")
-    
+
     bad_paths: list[str] = []
     checksum_mismatches: list[str] = []
     missing_manifest = False
-    
+
     with zipfile.ZipFile(zpath, "r") as zf:
         namelist = zf.namelist()
         n_files = len(namelist)
-        
+
         # Validate all entry paths (no '..', no absolute, no backslashes)
         for name in namelist:
-            if "\\" in name or ".." in name or name.startswith("/") or name.startswith("\\"):
+            if (
+                "\\" in name
+                or ".." in name
+                or name.startswith("/")
+                or name.startswith("\\")
+            ):
                 bad_paths.append(name)
-        
+
         # Find pack_manifest_*.json in root of ZIP
         manifest_names = [
             name
             for name in namelist
-            if name.startswith("pack_manifest_") and name.endswith(".json") and "/" not in name.strip("/")
+            if name.startswith("pack_manifest_")
+            and name.endswith(".json")
+            and "/" not in name.strip("/")
         ]
-        
+
         if not manifest_names:
             missing_manifest = True
             return {
@@ -962,40 +1019,56 @@ def verify_evidence_pack_zip(zip_path: Path | str) -> dict[str, Any]:
                 "missing_manifest": True,
                 "details": {"bad_paths": bad_paths[:20]} if bad_paths else {},
             }
-        
+
         # Deterministic choice if multiple: lexicographically smallest
         manifest_name = sorted(manifest_names)[0]
-        
+
         # Read and parse manifest JSON
         with zf.open(manifest_name) as mf:
             manifest_bytes = mf.read()
-        
+
         try:
             manifest = json.loads(manifest_bytes.decode("utf-8"))
         except Exception as exc:
-            raise ValueError(_ascii_only(f"Failed to parse pack manifest JSON: {exc}")) from exc
-        
+            raise ValueError(
+                _ascii_only(f"Failed to parse pack manifest JSON: {exc}")
+            ) from exc
+
         # Validate schema_version
         schema_version = manifest.get("schema_version")
         if schema_version != 1:
-            raise ValueError(_ascii_only(f"Unsupported pack manifest schema_version: {schema_version}"))
-        
+            raise ValueError(
+                _ascii_only(
+                    f"Unsupported pack manifest schema_version: {schema_version}"
+                )
+            )
+
         files_meta = manifest.get("files", [])
         if not isinstance(files_meta, list):
-            raise ValueError(_ascii_only("Invalid pack manifest: 'files' must be a list"))
+            raise ValueError(
+                _ascii_only("Invalid pack manifest: 'files' must be a list")
+            )
 
         # Manifest integrity: every files[].path must exist in ZIP (except pack_manifest optional for hash check)
-        manifest_paths = [e.get("path") for e in files_meta if isinstance(e.get("path"), str)]
+        manifest_paths = [
+            e.get("path") for e in files_meta if isinstance(e.get("path"), str)
+        ]
         namelist_set = set(namelist)
         missing_entries = [p for p in manifest_paths if p not in namelist_set]
 
         # If manifest has zip_entries: report paths in files[] that are not in zip_entries
         paths_not_in_zip_entries: list[str] = []
-        manifest_zip_entries = manifest.get("zip_entries") if isinstance(manifest.get("zip_entries"), list) else None
+        manifest_zip_entries = (
+            manifest.get("zip_entries")
+            if isinstance(manifest.get("zip_entries"), list)
+            else None
+        )
         if manifest_zip_entries is not None:
             zip_entries_set = set(manifest_zip_entries)
-            paths_not_in_zip_entries = [p for p in manifest_paths if p not in zip_entries_set]
-        
+            paths_not_in_zip_entries = [
+                p for p in manifest_paths if p not in zip_entries_set
+            ]
+
         # Build lookup for manifest checksums, skipping the pack manifest itself
         manifest_checksums: dict[str, str] = {}
         for entry in files_meta:
@@ -1007,13 +1080,13 @@ def verify_evidence_pack_zip(zip_path: Path | str) -> dict[str, Any]:
                 continue
             if isinstance(path, str) and isinstance(checksum, str):
                 manifest_checksums[path] = checksum.lower()
-        
+
         # Verify checksums for all paths that have a checksum in manifest
         for rel_path, expected_hash in manifest_checksums.items():
             if rel_path not in namelist:
                 checksum_mismatches.append(rel_path)
                 continue
-            
+
             with zf.open(rel_path) as f:
                 data = f.read()
             actual_hash = _sha256_bytes(data)
@@ -1038,12 +1111,24 @@ def verify_evidence_pack_zip(zip_path: Path | str) -> dict[str, Any]:
             details["checksum_mismatches"] = checksum_mismatches[:20]
 
         manifest_files_count = len(files_meta) if isinstance(files_meta, list) else 0
-        manifest_source = manifest.get("source") if isinstance(manifest.get("source"), str) else None
+        manifest_source = (
+            manifest.get("source") if isinstance(manifest.get("source"), str) else None
+        )
         manifest_source_path = manifest.get("source_path")
-        if manifest_source_path is not None and not isinstance(manifest_source_path, str):
+        if manifest_source_path is not None and not isinstance(
+            manifest_source_path, str
+        ):
             manifest_source_path = None
-        manifest_zip_compression = manifest.get("zip_compression") if isinstance(manifest.get("zip_compression"), str) else None
-        manifest_tool_version = manifest.get("tool_version") if isinstance(manifest.get("tool_version"), str) else None
+        manifest_zip_compression = (
+            manifest.get("zip_compression")
+            if isinstance(manifest.get("zip_compression"), str)
+            else None
+        )
+        manifest_tool_version = (
+            manifest.get("tool_version")
+            if isinstance(manifest.get("tool_version"), str)
+            else None
+        )
         return {
             "ok": ok,
             "n_files": n_files,

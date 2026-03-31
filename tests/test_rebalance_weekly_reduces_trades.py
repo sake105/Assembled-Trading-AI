@@ -18,11 +18,20 @@ def _synthetic_prices() -> pd.DataFrame:
         base = 100.0
         for i, ts in enumerate(dates):
             c = base + i * 0.1
-            rows.append({
-                "timestamp": ts, "symbol": sym,
-                "open": c * 0.99, "high": c * 1.01, "low": c * 0.98, "close": c, "volume": 1e6,
-            })
-    return pd.DataFrame(rows).sort_values(["symbol", "timestamp"]).reset_index(drop=True)
+            rows.append(
+                {
+                    "timestamp": ts,
+                    "symbol": sym,
+                    "open": c * 0.99,
+                    "high": c * 1.01,
+                    "low": c * 0.98,
+                    "close": c,
+                    "volume": 1e6,
+                }
+            )
+    return (
+        pd.DataFrame(rows).sort_values(["symbol", "timestamp"]).reset_index(drop=True)
+    )
 
 
 def _dummy_signal(prices: pd.DataFrame) -> pd.DataFrame:
@@ -33,7 +42,11 @@ def _dummy_signal(prices: pd.DataFrame) -> pd.DataFrame:
 
 
 def _dummy_sizing(signals: pd.DataFrame, capital: float) -> pd.DataFrame:
-    out = signals[["timestamp", "symbol"]].copy() if "timestamp" in signals.columns else signals.copy()
+    out = (
+        signals[["timestamp", "symbol"]].copy()
+        if "timestamp" in signals.columns
+        else signals.copy()
+    )
     out["target_weight"] = 0.25
     out["target_qty"] = capital * 0.25
     return out
@@ -64,12 +77,20 @@ def test_rebalance_weekly_reduces_trades():
         rebalance_schedule="weekly",
     )
     # Same equity timeline (one row per bar)
-    assert len(result_daily.equity) == len(result_weekly.equity), (
-        "equity DataFrame length must be equal (same timeline)"
-    )
+    assert len(result_daily.equity) == len(
+        result_weekly.equity
+    ), "equity DataFrame length must be equal (same timeline)"
     # Weekly should have fewer filled trades
-    filled_daily = (result_daily.trades["fill_qty"].fillna(0).astype(float) > 0).sum() if result_daily.trades is not None and not result_daily.trades.empty else 0
-    filled_weekly = (result_weekly.trades["fill_qty"].fillna(0).astype(float) > 0).sum() if result_weekly.trades is not None and not result_weekly.trades.empty else 0
-    assert filled_weekly < filled_daily, (
-        f"weekly rebalance should have fewer fills: weekly={filled_weekly}, daily={filled_daily}"
+    filled_daily = (
+        (result_daily.trades["fill_qty"].fillna(0).astype(float) > 0).sum()
+        if result_daily.trades is not None and not result_daily.trades.empty
+        else 0
     )
+    filled_weekly = (
+        (result_weekly.trades["fill_qty"].fillna(0).astype(float) > 0).sum()
+        if result_weekly.trades is not None and not result_weekly.trades.empty
+        else 0
+    )
+    assert (
+        filled_weekly < filled_daily
+    ), f"weekly rebalance should have fewer fills: weekly={filled_weekly}, daily={filled_daily}"

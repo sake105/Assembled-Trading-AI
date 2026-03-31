@@ -94,7 +94,9 @@ def create_trend_rsi_filter_signal_fn(
     """Trend baseline + RSI filter: only LONG if rsi_entry <= RSI <= rsi_overbought. Dev-only, no default change."""
 
     def signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
-        sig = generate_trend_signals_from_prices(prices_df, ma_fast=ma_fast, ma_slow=ma_slow)
+        sig = generate_trend_signals_from_prices(
+            prices_df, ma_fast=ma_fast, ma_slow=ma_slow
+        )
         rsi_col = None
         for c in ("rsi_14", "ta_rsi_14_v1"):
             if c in prices_df.columns:
@@ -103,7 +105,9 @@ def create_trend_rsi_filter_signal_fn(
         if rsi_col is None:
             return sig
         merged = sig.merge(
-            prices_df[["timestamp", "symbol", rsi_col]].drop_duplicates(["timestamp", "symbol"]),
+            prices_df[["timestamp", "symbol", rsi_col]].drop_duplicates(
+                ["timestamp", "symbol"]
+            ),
             on=["timestamp", "symbol"],
             how="left",
         )
@@ -126,7 +130,9 @@ def create_trend_vol_filter_signal_fn(
     """Trend baseline + vol filter: only LONG if ATR_pct <= vol_cap. Dev-only."""
 
     def signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
-        sig = generate_trend_signals_from_prices(prices_df, ma_fast=ma_fast, ma_slow=ma_slow)
+        sig = generate_trend_signals_from_prices(
+            prices_df, ma_fast=ma_fast, ma_slow=ma_slow
+        )
         atr_col, close_col = None, "close"
         for c in ("atr_14", "ta_atr_14_v1"):
             if c in prices_df.columns:
@@ -135,7 +141,9 @@ def create_trend_vol_filter_signal_fn(
         if atr_col is None or close_col not in prices_df.columns:
             return sig
         merged = sig.merge(
-            prices_df[["timestamp", "symbol", atr_col, close_col]].drop_duplicates(["timestamp", "symbol"]),
+            prices_df[["timestamp", "symbol", atr_col, close_col]].drop_duplicates(
+                ["timestamp", "symbol"]
+            ),
             on=["timestamp", "symbol"],
             how="left",
         )
@@ -158,16 +166,22 @@ def create_trend_regime_gate_signal_fn(
     """Trend baseline + regime gate: only LONG when risk_on_off_score > threshold. Dev-only."""
 
     def signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
-        from src.assembled_core.features.market_breadth import compute_risk_on_off_indicator
+        from src.assembled_core.features.market_breadth import (
+            compute_risk_on_off_indicator,
+        )
 
-        sig = generate_trend_signals_from_prices(prices_df, ma_fast=ma_fast, ma_slow=ma_slow)
+        sig = generate_trend_signals_from_prices(
+            prices_df, ma_fast=ma_fast, ma_slow=ma_slow
+        )
         try:
             risk_df = compute_risk_on_off_indicator(prices_df)
         except Exception:
             return sig
         if risk_df.empty or "risk_on_off_score" not in risk_df.columns:
             return sig
-        risk_df = risk_df[["timestamp", "risk_on_off_score"]].drop_duplicates("timestamp")
+        risk_df = risk_df[["timestamp", "risk_on_off_score"]].drop_duplicates(
+            "timestamp"
+        )
         merged = sig.merge(risk_df, on="timestamp", how="left")
         risk_on = (merged["risk_on_off_score"] > risk_on_threshold).fillna(False)
         merged["direction"] = np.where(
@@ -187,19 +201,29 @@ def create_trend_realized_vol_filter_signal_fn(
     """Trend baseline + realized vol filter: only LONG when rv <= vol_cap. Dev-only."""
 
     def signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
-        from src.assembled_core.features.ta_liquidity_vol_factors import add_realized_volatility
+        from src.assembled_core.features.ta_liquidity_vol_factors import (
+            add_realized_volatility,
+        )
 
         rv_col = f"rv_{rv_window}"
         if rv_col not in prices_df.columns:
             try:
                 prices_df = add_realized_volatility(prices_df, windows=[rv_window])
             except Exception:
-                return generate_trend_signals_from_prices(prices_df, ma_fast=ma_fast, ma_slow=ma_slow)
+                return generate_trend_signals_from_prices(
+                    prices_df, ma_fast=ma_fast, ma_slow=ma_slow
+                )
         if rv_col not in prices_df.columns:
-            return generate_trend_signals_from_prices(prices_df, ma_fast=ma_fast, ma_slow=ma_slow)
-        sig = generate_trend_signals_from_prices(prices_df, ma_fast=ma_fast, ma_slow=ma_slow)
+            return generate_trend_signals_from_prices(
+                prices_df, ma_fast=ma_fast, ma_slow=ma_slow
+            )
+        sig = generate_trend_signals_from_prices(
+            prices_df, ma_fast=ma_fast, ma_slow=ma_slow
+        )
         merged = sig.merge(
-            prices_df[["timestamp", "symbol", rv_col]].drop_duplicates(["timestamp", "symbol"]),
+            prices_df[["timestamp", "symbol", rv_col]].drop_duplicates(
+                ["timestamp", "symbol"]
+            ),
             on=["timestamp", "symbol"],
             how="left",
         )
@@ -222,18 +246,28 @@ def create_trend_liquidity_filter_signal_fn(
     """Trend baseline + liquidity filter: only LONG when volume_zscore >= liquidity_min. Dev-only."""
 
     def signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
-        from src.assembled_core.features.ta_liquidity_vol_factors import add_turnover_and_liquidity_proxies
+        from src.assembled_core.features.ta_liquidity_vol_factors import (
+            add_turnover_and_liquidity_proxies,
+        )
 
         if "volume_zscore" not in prices_df.columns and "volume" in prices_df.columns:
             try:
                 prices_df = add_turnover_and_liquidity_proxies(prices_df)
             except Exception:
-                return generate_trend_signals_from_prices(prices_df, ma_fast=ma_fast, ma_slow=ma_slow)
+                return generate_trend_signals_from_prices(
+                    prices_df, ma_fast=ma_fast, ma_slow=ma_slow
+                )
         if "volume_zscore" not in prices_df.columns:
-            return generate_trend_signals_from_prices(prices_df, ma_fast=ma_fast, ma_slow=ma_slow)
-        sig = generate_trend_signals_from_prices(prices_df, ma_fast=ma_fast, ma_slow=ma_slow)
+            return generate_trend_signals_from_prices(
+                prices_df, ma_fast=ma_fast, ma_slow=ma_slow
+            )
+        sig = generate_trend_signals_from_prices(
+            prices_df, ma_fast=ma_fast, ma_slow=ma_slow
+        )
         merged = sig.merge(
-            prices_df[["timestamp", "symbol", "volume_zscore"]].drop_duplicates(["timestamp", "symbol"]),
+            prices_df[["timestamp", "symbol", "volume_zscore"]].drop_duplicates(
+                ["timestamp", "symbol"]
+            ),
             on=["timestamp", "symbol"],
             how="left",
         )
@@ -251,13 +285,18 @@ def create_trend_liquidity_filter_signal_fn(
 
 
 def create_trend_rsi_vol_combo_signal_fn(
-    ma_fast: int, ma_slow: int,
-    rsi_entry: float = 55.0, rsi_overbought: float = 80.0, vol_cap: float = 0.30,
+    ma_fast: int,
+    ma_slow: int,
+    rsi_entry: float = 55.0,
+    rsi_overbought: float = 80.0,
+    vol_cap: float = 0.30,
 ):
     """Trend baseline + RSI band AND ATR vol cap. Dev-only."""
 
     def signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
-        sig = generate_trend_signals_from_prices(prices_df, ma_fast=ma_fast, ma_slow=ma_slow)
+        sig = generate_trend_signals_from_prices(
+            prices_df, ma_fast=ma_fast, ma_slow=ma_slow
+        )
         rsi_col = None
         for c in ("rsi_14", "ta_rsi_14_v1"):
             if c in prices_df.columns:
@@ -272,7 +311,9 @@ def create_trend_rsi_vol_combo_signal_fn(
             return sig
         merge_cols = ["timestamp", "symbol", rsi_col, atr_col, "close"]
         merged = sig.merge(
-            prices_df[[c for c in merge_cols if c in prices_df.columns]].drop_duplicates(["timestamp", "symbol"]),
+            prices_df[
+                [c for c in merge_cols if c in prices_df.columns]
+            ].drop_duplicates(["timestamp", "symbol"]),
             on=["timestamp", "symbol"],
             how="left",
         )
@@ -579,21 +620,61 @@ Examples:
         type=str,
         default="trend_baseline",
         choices=[
-            "trend_baseline", "event_insider_shipping", "multifactor_long_short",
-            "trend_baseline_rsi_filter", "trend_baseline_vol_filter",
-            "trend_baseline_regime_gate", "trend_baseline_realized_vol_filter",
-            "trend_baseline_liquidity_filter", "trend_baseline_rsi_vol_combo_filter",
+            "trend_baseline",
+            "event_insider_shipping",
+            "multifactor_long_short",
+            "trend_baseline_rsi_filter",
+            "trend_baseline_vol_filter",
+            "trend_baseline_regime_gate",
+            "trend_baseline_realized_vol_filter",
+            "trend_baseline_liquidity_filter",
+            "trend_baseline_rsi_vol_combo_filter",
         ],
         help="Strategy: trend_baseline, event, multifactor, trend_*_filter, trend_*_regime_gate, trend_*_rsi_vol_combo",
     )
 
-    parser.add_argument("--rsi-entry", type=float, default=55.0, help="RSI min for LONG (trend_baseline_rsi_filter)")
-    parser.add_argument("--rsi-overbought", type=float, default=80.0, help="RSI max for LONG (trend_baseline_rsi_filter)")
-    parser.add_argument("--vol-cap", type=float, default=0.30, help="ATR/close cap for LONG (trend_baseline_vol_filter)")
-    parser.add_argument("--risk-on-threshold", type=float, default=0.0, help="risk_on_off_score min (trend_baseline_regime_gate)")
-    parser.add_argument("--rv-cap", type=float, default=0.30, help="realized vol cap (trend_baseline_realized_vol_filter)")
-    parser.add_argument("--rv-window", type=int, default=20, help="RV window (trend_baseline_realized_vol_filter)")
-    parser.add_argument("--liquidity-min", type=float, default=0.0, help="volume_zscore min (trend_baseline_liquidity_filter)")
+    parser.add_argument(
+        "--rsi-entry",
+        type=float,
+        default=55.0,
+        help="RSI min for LONG (trend_baseline_rsi_filter)",
+    )
+    parser.add_argument(
+        "--rsi-overbought",
+        type=float,
+        default=80.0,
+        help="RSI max for LONG (trend_baseline_rsi_filter)",
+    )
+    parser.add_argument(
+        "--vol-cap",
+        type=float,
+        default=0.30,
+        help="ATR/close cap for LONG (trend_baseline_vol_filter)",
+    )
+    parser.add_argument(
+        "--risk-on-threshold",
+        type=float,
+        default=0.0,
+        help="risk_on_off_score min (trend_baseline_regime_gate)",
+    )
+    parser.add_argument(
+        "--rv-cap",
+        type=float,
+        default=0.30,
+        help="realized vol cap (trend_baseline_realized_vol_filter)",
+    )
+    parser.add_argument(
+        "--rv-window",
+        type=int,
+        default=20,
+        help="RV window (trend_baseline_realized_vol_filter)",
+    )
+    parser.add_argument(
+        "--liquidity-min",
+        type=float,
+        default=0.0,
+        help="volume_zscore min (trend_baseline_liquidity_filter)",
+    )
 
     parser.add_argument(
         "--start-capital",
@@ -643,21 +724,21 @@ Examples:
         default=None,
         help="Output directory (default: from settings.output_dir)",
     )
-    
+
     parser.add_argument(
         "--use-factor-store",
         action="store_true",
         default=False,
         help="Enable factor store caching (load factors from cache if available, otherwise compute and store)",
     )
-    
+
     parser.add_argument(
         "--factor-store-root",
         type=Path,
         default=None,
         help="Factor store root directory (default: from settings.factors_dir if available)",
     )
-    
+
     parser.add_argument(
         "--factor-group",
         type=str,
@@ -922,10 +1003,10 @@ def load_price_data(
         from src.assembled_core.data.data_source import get_price_data_source
 
         settings = get_settings()
-        
+
         # Hard Gate: Backtests must use local data only (Sprint 3 / D3)
         # External fetches (yahoo, finnhub, etc.) are forbidden in backtest mode
-        
+
         # Determine symbols (priority: --symbols > --symbols-file > --universe > default)
         symbols = None
 
@@ -1020,7 +1101,9 @@ def load_price_data(
             universe_file=None, data_dir=output_dir, freq=args.freq
         )
 
-        logger.info(f"Loaded {len(prices)} rows for {prices['symbol'].nunique()} symbols")
+        logger.info(
+            f"Loaded {len(prices)} rows for {prices['symbol'].nunique()} symbols"
+        )
     if not prices.empty:
         logger.info(
             f"Date range: {prices['timestamp'].min()} to {prices['timestamp'].max()}"
@@ -1030,21 +1113,24 @@ def load_price_data(
     qa_block_trading = False
     qa_block_reason = None
     try:
-        from src.assembled_core.qa.data_qc import run_price_panel_qc, write_qc_report_json
-        
+        from src.assembled_core.qa.data_qc import (
+            run_price_panel_qc,
+            write_qc_report_json,
+        )
+
         logger.info("Running data quality control (QC)...")
         qc_report = run_price_panel_qc(
             prices=prices,
             freq=args.freq,
             calendar="NYSE",
         )
-        
+
         # Write QC report to output directory
         if output_dir:
             qc_report_path = Path(output_dir) / "qc_report.json"
             write_qc_report_json(qc_report, qc_report_path)
             logger.info(f"QC report written: {qc_report_path}")
-        
+
         # Set QA Gate if QC has FAIL issues
         if not qc_report.ok:
             qa_block_trading = True
@@ -1052,7 +1138,9 @@ def load_price_data(
             logger.warning(f"QC FAILED: {qa_block_reason}")
             logger.warning("Trading will be blocked (no orders generated in backtest)")
         elif qc_report.summary.get("warn_count", 0) > 0:
-            logger.warning(f"QC WARN: {qc_report.summary.get('warn_count', 0)} WARN issues (backtest will proceed)")
+            logger.warning(
+                f"QC WARN: {qc_report.summary.get('warn_count', 0)} WARN issues (backtest will proceed)"
+            )
     except ImportError:
         logger.warning(
             "QC module not available - skipping QC checks. "
@@ -1082,9 +1170,11 @@ def get_cost_model(args: argparse.Namespace) -> CostModel:
         # Use CLI overrides
         default = get_default_cost_model()
         return CostModel(
-            commission_bps=args.commission_bps
-            if args.commission_bps is not None
-            else default.commission_bps,
+            commission_bps=(
+                args.commission_bps
+                if args.commission_bps is not None
+                else default.commission_bps
+            ),
             spread_w=args.spread_w if args.spread_w is not None else default.spread_w,
             impact_w=args.impact_w if args.impact_w is not None else default.impact_w,
         )
@@ -1213,7 +1303,9 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         logger.info("")
         logger.info("Loading price data...")
         step_name = "load_data"
-        step_context = timed_step(step_name, timings, logger) if enable_timings else nullcontext()
+        step_context = (
+            timed_step(step_name, timings, logger) if enable_timings else nullcontext()
+        )
         with step_context:
             prices, qa_block_trading, qa_block_reason = load_price_data(args)
 
@@ -1519,30 +1611,33 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             universe_symbols = load_symbols_from_file(args.symbols_file)
         elif args.universe:
             universe_symbols = load_symbols_from_file(args.universe)
-        
+
         # Build feature_config from strategy (if applicable)
         feature_config = None
         if args.strategy == "trend_baseline":
             # Default feature config for TA features (can be customized later)
             feature_config = {}
-        
+
         # Precompute features for entire time range (once, not per timestamp)
         # This is a performance optimization: compute features once upfront instead of per timestamp
         precomputed_prices_with_features = None
         if not prices.empty:
             from src.assembled_core.features.ta_features import add_all_features
-            from src.assembled_core.features.factor_store_integration import build_or_load_factors
+            from src.assembled_core.features.factor_store_integration import (
+                build_or_load_factors,
+            )
             from src.assembled_core.data.factor_store import compute_universe_key
-            
+
             # Check if we have required columns for features (ATR needs high/low)
             has_ohlc = all(col in prices.columns for col in ["high", "low", "open"])
-            
+
             # Use factor store if enabled via CLI args
             use_factor_store = getattr(args, "use_factor_store", False)
             factor_group = getattr(args, "factor_group", "core_ta")
-            
+
             # Determine factor_store_root: CLI arg > settings > default
             from src.assembled_core.data.factor_store import get_factor_store_root
+
             factor_store_root_arg = getattr(args, "factor_store_root", None)
             if factor_store_root_arg is not None:
                 factor_store_root = Path(factor_store_root_arg)
@@ -1550,24 +1645,31 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 # Try to get from settings, otherwise use default
                 try:
                     settings = get_settings()
-                    if hasattr(settings, 'factors_dir') and settings.factors_dir:
+                    if hasattr(settings, "factors_dir") and settings.factors_dir:
                         factor_store_root = Path(settings.factors_dir)
                     else:
                         factor_store_root = get_factor_store_root()
                 except Exception:
                     # Fallback to default
                     factor_store_root = get_factor_store_root()
-            
+
             # Sprint 5 / F4: Prefer factor store (even if use_factor_store=False, try to load first)
             # Hard Gate: No external fetches in backtest mode (local-only)
-            universe_key = compute_universe_key(symbols=universe_symbols if universe_symbols else sorted(prices["symbol"].unique().tolist()))
+            universe_key = compute_universe_key(
+                symbols=(
+                    universe_symbols
+                    if universe_symbols
+                    else sorted(prices["symbol"].unique().tolist())
+                )
+            )
             start_date = prices["timestamp"].min() if not prices.empty else None
             end_date = prices["timestamp"].max() if not prices.empty else None
-            
+
             # Try to load from factor store first (preferred path)
             from src.assembled_core.data.factor_store import load_factors_parquet
+
             precomputed_prices_with_features = None
-            
+
             try:
                 factors_loaded = load_factors_parquet(
                     group=factor_group,
@@ -1577,7 +1679,7 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                     end=end_date,
                     root=factor_store_root,
                 )
-                
+
                 if factors_loaded is not None and not factors_loaded.empty:
                     # Factor store hit: use loaded factors
                     logger.info(
@@ -1593,34 +1695,73 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                         suffixes=("", "_factor"),
                     )
                     # Remove duplicate columns (keep prices columns, add factor columns)
-                    factor_cols = [col for col in factors_loaded.columns if col not in ["timestamp", "symbol", "date"]]
+                    factor_cols = [
+                        col
+                        for col in factors_loaded.columns
+                        if col not in ["timestamp", "symbol", "date"]
+                    ]
                     for col in factor_cols:
                         if f"{col}_factor" in precomputed_prices_with_features.columns:
-                            precomputed_prices_with_features[col] = precomputed_prices_with_features[f"{col}_factor"]
-                            precomputed_prices_with_features = precomputed_prices_with_features.drop(columns=[f"{col}_factor"])
+                            precomputed_prices_with_features[col] = (
+                                precomputed_prices_with_features[f"{col}_factor"]
+                            )
+                            precomputed_prices_with_features = (
+                                precomputed_prices_with_features.drop(
+                                    columns=[f"{col}_factor"]
+                                )
+                            )
                 else:
-                    logger.debug(f"[factor_store_miss] No factors found in store (group={factor_group}, universe={universe_key})")
+                    logger.debug(
+                        f"[factor_store_miss] No factors found in store (group={factor_group}, universe={universe_key})"
+                    )
             except Exception as e:
-                logger.debug(f"[factor_store_miss] Failed to load from factor store: {e}")
-            
+                logger.debug(
+                    f"[factor_store_miss] Failed to load from factor store: {e}"
+                )
+
             # Fallback: compute features directly (if factor store miss or use_factor_store=True with force_rebuild)
-            if precomputed_prices_with_features is None or precomputed_prices_with_features.empty:
+            if (
+                precomputed_prices_with_features is None
+                or precomputed_prices_with_features.empty
+            ):
                 if use_factor_store:
                     # Use build_or_load_factors (will compute and store)
-                    logger.info(f"[factor_store_build] Computing and storing factors: group={factor_group}, root={factor_store_root}")
+                    logger.info(
+                        f"[factor_store_build] Computing and storing factors: group={factor_group}, root={factor_store_root}"
+                    )
                     # Prepare builder_kwargs
                     if has_ohlc:
                         builder_kwargs = {
-                            "ma_windows": feature_config.get("ma_windows", (20, 50, 200)) if feature_config else (20, 50, 200),
-                            "atr_window": feature_config.get("atr_window", 14) if feature_config else 14,
-                            "rsi_window": feature_config.get("rsi_window", 14) if feature_config else 14,
-                            "include_rsi": feature_config.get("include_rsi", True) if feature_config else True,
+                            "ma_windows": (
+                                feature_config.get("ma_windows", (20, 50, 200))
+                                if feature_config
+                                else (20, 50, 200)
+                            ),
+                            "atr_window": (
+                                feature_config.get("atr_window", 14)
+                                if feature_config
+                                else 14
+                            ),
+                            "rsi_window": (
+                                feature_config.get("rsi_window", 14)
+                                if feature_config
+                                else 14
+                            ),
+                            "include_rsi": (
+                                feature_config.get("include_rsi", True)
+                                if feature_config
+                                else True
+                            ),
                         }
                     else:
                         builder_kwargs = {
-                            "windows": feature_config.get("ma_windows", (20, 50, 200)) if feature_config else (20, 50, 200),
+                            "windows": (
+                                feature_config.get("ma_windows", (20, 50, 200))
+                                if feature_config
+                                else (20, 50, 200)
+                            ),
                         }
-                    
+
                     precomputed_prices_with_features = build_or_load_factors(
                         prices=prices,
                         factor_group=factor_group,
@@ -1634,41 +1775,79 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                         builder_kwargs=builder_kwargs,
                         factors_root=factor_store_root,
                     )
-                    logger.info(f"[factor_store_build] Computed and stored features: {len(precomputed_prices_with_features)} rows")
+                    logger.info(
+                        f"[factor_store_build] Computed and stored features: {len(precomputed_prices_with_features)} rows"
+                    )
                 else:
                     # Direct computation: add features to prices (no factor store, local-only)
-                    logger.info("[fallback] Computing features directly (factor store not available, local-only)")
+                    logger.info(
+                        "[fallback] Computing features directly (factor store not available, local-only)"
+                    )
                     if has_ohlc:
                         precomputed_prices_with_features = add_all_features(
                             prices.copy(),
-                            ma_windows=feature_config.get("ma_windows", (20, 50, 200)) if feature_config else (20, 50, 200),
-                            atr_window=feature_config.get("atr_window", 14) if feature_config else 14,
-                            rsi_window=feature_config.get("rsi_window", 14) if feature_config else 14,
-                            include_rsi=feature_config.get("include_rsi", True) if feature_config else True,
+                            ma_windows=(
+                                feature_config.get("ma_windows", (20, 50, 200))
+                                if feature_config
+                                else (20, 50, 200)
+                            ),
+                            atr_window=(
+                                feature_config.get("atr_window", 14)
+                                if feature_config
+                                else 14
+                            ),
+                            rsi_window=(
+                                feature_config.get("rsi_window", 14)
+                                if feature_config
+                                else 14
+                            ),
+                            include_rsi=(
+                                feature_config.get("include_rsi", True)
+                                if feature_config
+                                else True
+                            ),
                         )
                     else:
                         # If OHLC not available, only compute features that don't need them
-                        from src.assembled_core.features.ta_features import add_log_returns, add_moving_averages
-                        precomputed_prices_with_features = add_log_returns(prices.copy())
+                        from src.assembled_core.features.ta_features import (
+                            add_log_returns,
+                            add_moving_averages,
+                        )
+
+                        precomputed_prices_with_features = add_log_returns(
+                            prices.copy()
+                        )
                         precomputed_prices_with_features = add_moving_averages(
                             precomputed_prices_with_features,
-                            windows=feature_config.get("ma_windows", (20, 50, 200)) if feature_config else (20, 50, 200),
+                            windows=(
+                                feature_config.get("ma_windows", (20, 50, 200))
+                                if feature_config
+                                else (20, 50, 200)
+                            ),
                         )
-                    logger.info(f"[fallback] Computed features directly: {len(precomputed_prices_with_features)} rows")
-        
+                    logger.info(
+                        f"[fallback] Computed features directly: {len(precomputed_prices_with_features)} rows"
+                    )
+
         # Load security master (if available) for sector/region/FX limits
         security_meta_df = None
         try:
             security_master_path = get_default_security_master_path()
             if security_master_path.exists():
                 security_meta_df = load_security_master(security_master_path)
-                logger.info(f"Loaded security master: {len(security_meta_df)} symbols from {security_master_path}")
+                logger.info(
+                    f"Loaded security master: {len(security_meta_df)} symbols from {security_master_path}"
+                )
             else:
-                logger.debug(f"Security master not found at {security_master_path} - group exposure limits will be skipped")
+                logger.debug(
+                    f"Security master not found at {security_master_path} - group exposure limits will be skipped"
+                )
         except Exception as e:
-            logger.warning(f"Failed to load security master: {e} - group exposure limits will be skipped")
+            logger.warning(
+                f"Failed to load security master: {e} - group exposure limits will be skipped"
+            )
             logger.debug(f"Security master error details: {e}", exc_info=True)
-        
+
         # Create TradingContext template
         # Note: use_factor_store is set to False here because features are already precomputed
         # (either from factor store or direct computation). The factor store was used during
@@ -1689,7 +1868,7 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             qa_block_reason=qa_block_reason,
             backtest_use_snapshot=False,  # Need full history slice for EMA/trend signals (snapshot = 1 row/symbol -> no signals)
         )
-        
+
         # Create cycle_fn using make_cycle_fn
         cycle_fn = make_cycle_fn(
             ctx_template,
@@ -1697,12 +1876,14 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             position_sizing_fn=position_sizing_fn,
             capital=args.start_capital,
         )
-        
+
         # Run backtest
         logger.info("")
         logger.info("Running backtest...")
         step_name = "backtest"
-        step_context = timed_step(step_name, timings, logger) if enable_timings else nullcontext()
+        step_context = (
+            timed_step(step_name, timings, logger) if enable_timings else nullcontext()
+        )
         with step_context:
             # Generate run_id for ledger integration (if enabled)
             run_id = None
@@ -1710,67 +1891,85 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 # Generate deterministic run_id from strategy, freq, and timestamp
                 from datetime import datetime
                 import hashlib
+
                 run_id_base = f"{args.strategy}_{args.freq}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                run_id = f"backtest_{hashlib.sha256(run_id_base.encode()).hexdigest()[:12]}"
-            
+                run_id = (
+                    f"backtest_{hashlib.sha256(run_id_base.encode()).hexdigest()[:12]}"
+                )
+
             result: BacktestResult = run_portfolio_backtest(
-            prices=prices,
-            signal_fn=signal_fn,  # Still pass for backward compatibility/validation
-            position_sizing_fn=position_sizing_fn,  # Still pass for backward compatibility/validation
-            start_capital=args.start_capital,
-            commission_bps=cost_model.commission_bps,
-            spread_w=cost_model.spread_w,
-            impact_w=cost_model.impact_w,
-            include_costs=args.with_costs,
-            include_trades=True,  # Always include trades for QA
-            include_signals=False,
-            include_targets=False,
-            rebalance_freq=args.freq
-            if args.strategy != "multifactor_long_short"
-            else args.rebalance_freq,
-            compute_features=False,  # Features already precomputed once and passed via ctx_template.precomputed_prices_with_features
-            # Meta-model ensemble parameters (not supported with cycle_fn for now - features/signals computed per timestamp)
-            use_meta_model=False,  # Meta-model not supported with TradingCycle integration yet
-            meta_model_path=None,
-            meta_min_confidence=0.5,
-            meta_ensemble_mode="filter",
-            # Trading cycle integration (B1)
-            cycle_fn=cycle_fn,
-            # Ledger/Reconciliation integration (Sprint 13)
-            include_ledger=not args.no_ledger,
-            run_id=run_id,
-            output_dir=output_dir,
-            # Broker snapshot controls (Sprint 13 extension)
-            broker_snapshot_policy=args.broker_snapshot_policy,
-            write_broker_snapshot=args.write_broker_snapshot,
-            broker_snapshot_run_id=getattr(args, "broker_snapshot_run_id", None),
-            broker_snapshot_file=getattr(args, "broker_snapshot_file", None),
-            broker_snapshot_date=getattr(args, "broker_snapshot_date", None),
-            # Evidence pack controls
-            write_evidence_pack=getattr(args, "write_evidence_pack", False),
-            # Fill pipeline: relax session gate for 1d EOD data (e.g. timestamps 00:00 UTC)
-            strict_session_gate=not getattr(args, "no_strict_session_gate", False),
-            rebalance_schedule=getattr(args, "rebalance", "daily"),
-        )
+                prices=prices,
+                signal_fn=signal_fn,  # Still pass for backward compatibility/validation
+                position_sizing_fn=position_sizing_fn,  # Still pass for backward compatibility/validation
+                start_capital=args.start_capital,
+                commission_bps=cost_model.commission_bps,
+                spread_w=cost_model.spread_w,
+                impact_w=cost_model.impact_w,
+                include_costs=args.with_costs,
+                include_trades=True,  # Always include trades for QA
+                include_signals=False,
+                include_targets=False,
+                rebalance_freq=(
+                    args.freq
+                    if args.strategy != "multifactor_long_short"
+                    else args.rebalance_freq
+                ),
+                compute_features=False,  # Features already precomputed once and passed via ctx_template.precomputed_prices_with_features
+                # Meta-model ensemble parameters (not supported with cycle_fn for now - features/signals computed per timestamp)
+                use_meta_model=False,  # Meta-model not supported with TradingCycle integration yet
+                meta_model_path=None,
+                meta_min_confidence=0.5,
+                meta_ensemble_mode="filter",
+                # Trading cycle integration (B1)
+                cycle_fn=cycle_fn,
+                # Ledger/Reconciliation integration (Sprint 13)
+                include_ledger=not args.no_ledger,
+                run_id=run_id,
+                output_dir=output_dir,
+                # Broker snapshot controls (Sprint 13 extension)
+                broker_snapshot_policy=args.broker_snapshot_policy,
+                write_broker_snapshot=args.write_broker_snapshot,
+                broker_snapshot_run_id=getattr(args, "broker_snapshot_run_id", None),
+                broker_snapshot_file=getattr(args, "broker_snapshot_file", None),
+                broker_snapshot_date=getattr(args, "broker_snapshot_date", None),
+                # Evidence pack controls
+                write_evidence_pack=getattr(args, "write_evidence_pack", False),
+                # Fill pipeline: relax session gate for 1d EOD data (e.g. timestamps 00:00 UTC)
+                strict_session_gate=not getattr(args, "no_strict_session_gate", False),
+                rebalance_schedule=getattr(args, "rebalance", "daily"),
+            )
 
         logger.info(f"Backtest completed: {len(result.equity)} equity points")
         if result.trades is not None and not result.trades.empty:
             logger.info(f"Generated {len(result.trades)} trades")
-        
+
         # Write TCA Report (always, even if trades are empty)
         logger.info("")
         logger.info("Writing TCA report...")
         from src.assembled_core.qa.tca import build_tca_report, write_tca_report_csv
-        
+
         # Build TCA report from trades (even if empty, for schema stability)
         tca_report = build_tca_report(
-            trades_df=result.trades if result.trades is not None and not result.trades.empty else pd.DataFrame(columns=[
-                "timestamp", "symbol", "qty", "price", "commission_cash", "spread_cash", "slippage_cash", "total_cost_cash"
-            ]),
+            trades_df=(
+                result.trades
+                if result.trades is not None and not result.trades.empty
+                else pd.DataFrame(
+                    columns=[
+                        "timestamp",
+                        "symbol",
+                        "qty",
+                        "price",
+                        "commission_cash",
+                        "spread_cash",
+                        "slippage_cash",
+                        "total_cost_cash",
+                    ]
+                )
+            ),
             freq=args.freq,
             strategy_name=args.strategy,
         )
-        
+
         # Write TCA report to output directory
         tca_report_path = output_dir / f"tca_report_{args.freq}.csv"
         write_tca_report_csv(tca_report, tca_report_path)
@@ -1790,22 +1989,26 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         logger.info("")
         logger.info("Computing performance metrics...")
         step_name = "metrics"
-        step_context = timed_step(step_name, timings, logger) if enable_timings else nullcontext()
+        step_context = (
+            timed_step(step_name, timings, logger) if enable_timings else nullcontext()
+        )
         with step_context:
             metrics = compute_all_metrics(
-            equity=result.equity,
-            trades=result.trades,
-            start_capital=args.start_capital,
-            freq=args.freq,
-            risk_free_rate=0.0,
-        )
-        
+                equity=result.equity,
+                trades=result.trades,
+                start_capital=args.start_capital,
+                freq=args.freq,
+                risk_free_rate=0.0,
+            )
+
         # Compute Gross vs Net metrics if costs are enabled
         if args.with_costs and result.trades is not None and not result.trades.empty:
             # Equity is "net" (with costs), compute "gross" by adding cumulative costs
             if "total_cost_cash" in result.trades.columns:
                 # Aggregate cumulative costs per timestamp
-                cumulative_costs = result.trades.groupby("timestamp")["total_cost_cash"].sum().cumsum()
+                cumulative_costs = (
+                    result.trades.groupby("timestamp")["total_cost_cash"].sum().cumsum()
+                )
                 # Merge with equity to add gross equity
                 equity_with_gross = result.equity.merge(
                     cumulative_costs.reset_index(),
@@ -1813,12 +2016,20 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                     how="left",
                     suffixes=("", "_costs"),
                 )
-                equity_with_gross["total_cost_cash"] = equity_with_gross["total_cost_cash"].fillna(0.0)
-                equity_with_gross["equity_gross"] = equity_with_gross["equity"] + equity_with_gross["total_cost_cash"]
-                
+                equity_with_gross["total_cost_cash"] = equity_with_gross[
+                    "total_cost_cash"
+                ].fillna(0.0)
+                equity_with_gross["equity_gross"] = (
+                    equity_with_gross["equity"] + equity_with_gross["total_cost_cash"]
+                )
+
                 # Compute gross metrics
-                gross_equity_df = equity_with_gross[["timestamp", "equity_gross"]].copy()
-                gross_equity_df = gross_equity_df.rename(columns={"equity_gross": "equity"})
+                gross_equity_df = equity_with_gross[
+                    ["timestamp", "equity_gross"]
+                ].copy()
+                gross_equity_df = gross_equity_df.rename(
+                    columns={"equity_gross": "equity"}
+                )
                 gross_metrics = compute_all_metrics(
                     equity=gross_equity_df,
                     trades=result.trades,
@@ -1826,25 +2037,37 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                     freq=args.freq,
                     risk_free_rate=0.0,
                 )
-                
+
                 # Add gross metrics to metrics dict (for reporting)
                 metrics_dict = metrics.__dict__.copy()
                 metrics_dict["total_return_gross"] = gross_metrics.total_return
                 metrics_dict["final_pf_gross"] = gross_metrics.final_pf
                 metrics_dict["cagr_gross"] = gross_metrics.cagr
                 metrics_dict["sharpe_ratio_gross"] = gross_metrics.sharpe_ratio
-                
+
                 # Total cost breakdown
                 total_cost = float(result.trades["total_cost_cash"].sum())
-                total_commission = float(result.trades["commission_cash"].sum()) if "commission_cash" in result.trades.columns else 0.0
-                total_spread = float(result.trades["spread_cash"].sum()) if "spread_cash" in result.trades.columns else 0.0
-                total_slippage = float(result.trades["slippage_cash"].sum()) if "slippage_cash" in result.trades.columns else 0.0
-                
+                total_commission = (
+                    float(result.trades["commission_cash"].sum())
+                    if "commission_cash" in result.trades.columns
+                    else 0.0
+                )
+                total_spread = (
+                    float(result.trades["spread_cash"].sum())
+                    if "spread_cash" in result.trades.columns
+                    else 0.0
+                )
+                total_slippage = (
+                    float(result.trades["slippage_cash"].sum())
+                    if "slippage_cash" in result.trades.columns
+                    else 0.0
+                )
+
                 metrics_dict["total_cost_cash"] = total_cost
                 metrics_dict["commission_cash"] = total_commission
                 metrics_dict["spread_cash"] = total_spread
                 metrics_dict["slippage_cash"] = total_slippage
-                
+
                 # Store in metrics object (as dict for now, can be extended later)
                 # Use __dict__ to add fields dynamically (PerformanceMetrics is a dataclass)
                 metrics.__dict__["gross_metrics"] = gross_metrics
@@ -1872,17 +2095,27 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         # Log Gross vs Net metrics
         if hasattr(metrics, "gross_metrics") and metrics.gross_metrics is not None:
             logger.info("=== GROSS vs NET PERFORMANCE ===")
-            logger.info(f"Gross Return: {metrics.gross_metrics.total_return:.2%} | Net Return: {metrics.total_return:.2%}")
-            logger.info(f"Gross PF: {metrics.gross_metrics.final_pf:.4f} | Net PF: {metrics.final_pf:.4f}")
+            logger.info(
+                f"Gross Return: {metrics.gross_metrics.total_return:.2%} | Net Return: {metrics.total_return:.2%}"
+            )
+            logger.info(
+                f"Gross PF: {metrics.gross_metrics.final_pf:.4f} | Net PF: {metrics.final_pf:.4f}"
+            )
             if metrics.gross_metrics.cagr and metrics.cagr:
-                logger.info(f"Gross CAGR: {metrics.gross_metrics.cagr:.2%} | Net CAGR: {metrics.cagr:.2%}")
+                logger.info(
+                    f"Gross CAGR: {metrics.gross_metrics.cagr:.2%} | Net CAGR: {metrics.cagr:.2%}"
+                )
             if metrics.gross_metrics.sharpe_ratio and metrics.sharpe_ratio:
-                logger.info(f"Gross Sharpe: {metrics.gross_metrics.sharpe_ratio:.4f} | Net Sharpe: {metrics.sharpe_ratio:.4f}")
+                logger.info(
+                    f"Gross Sharpe: {metrics.gross_metrics.sharpe_ratio:.4f} | Net Sharpe: {metrics.sharpe_ratio:.4f}"
+                )
             if hasattr(metrics, "cost_breakdown") and metrics.cost_breakdown:
-                logger.info(f"Total Costs: ${metrics.cost_breakdown['total_cost_cash']:.2f} "
-                          f"(Commission: ${metrics.cost_breakdown['commission_cash']:.2f}, "
-                          f"Spread: ${metrics.cost_breakdown['spread_cash']:.2f}, "
-                          f"Slippage: ${metrics.cost_breakdown['slippage_cash']:.2f})")
+                logger.info(
+                    f"Total Costs: ${metrics.cost_breakdown['total_cost_cash']:.2f} "
+                    f"(Commission: ${metrics.cost_breakdown['commission_cash']:.2f}, "
+                    f"Spread: ${metrics.cost_breakdown['spread_cash']:.2f}, "
+                    f"Slippage: ${metrics.cost_breakdown['slippage_cash']:.2f})"
+                )
             logger.info("=" * 60)
         else:
             logger.info(f"Total Return: {metrics.total_return:.2%}")
@@ -1892,7 +2125,7 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 if metrics.sharpe_ratio
                 else "Sharpe Ratio: N/A"
             )
-        
+
         logger.info(f"Max Drawdown: {metrics.max_drawdown_pct:.2f}%")
         logger.info(
             f"Total Trades: {metrics.total_trades if metrics.total_trades else 0}"
@@ -1919,9 +2152,7 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             status_icon = (
                 "✓"
                 if gate.result == QAResult.OK
-                else "⚠"
-                if gate.result == QAResult.WARNING
-                else "✗"
+                else "⚠" if gate.result == QAResult.WARNING else "✗"
             )
             logger.info(
                 f"  {status_icon} {gate.gate_name}: {gate.result.value.upper()} - {gate.reason}"
@@ -1933,33 +2164,37 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             logger.info("Generating QA report...")
 
             step_name = "outputs"
-            step_context = timed_step(step_name, timings, logger) if enable_timings else nullcontext()
+            step_context = (
+                timed_step(step_name, timings, logger)
+                if enable_timings
+                else nullcontext()
+            )
             with step_context:
                 # Build config info
                 ema_config = get_default_ema_config(args.freq)
                 config_info = {
-                "strategy": args.strategy,
-                "freq": args.freq,
-                "start_capital": args.start_capital,
-                "ema_fast": ema_config.fast,
-                "ema_slow": ema_config.slow,
-                "with_costs": args.with_costs,
-                "commission_bps": cost_model.commission_bps,
-                "spread_w": cost_model.spread_w,
-                "impact_w": cost_model.impact_w,
+                    "strategy": args.strategy,
+                    "freq": args.freq,
+                    "start_capital": args.start_capital,
+                    "ema_fast": ema_config.fast,
+                    "ema_slow": ema_config.slow,
+                    "with_costs": args.with_costs,
+                    "commission_bps": cost_model.commission_bps,
+                    "spread_w": cost_model.spread_w,
+                    "impact_w": cost_model.impact_w,
                 }
 
                 # Generate report
                 report_path = generate_qa_report(
-                metrics=metrics,
-                gate_result=gate_result,
-                strategy_name=args.strategy,
-                freq=args.freq,
-                equity_curve_path=None,  # Could save equity curve to file if needed
-                data_start_date=metrics.start_date,
-                data_end_date=metrics.end_date,
-                config_info=config_info,
-                output_dir=output_dir / "reports",
+                    metrics=metrics,
+                    gate_result=gate_result,
+                    strategy_name=args.strategy,
+                    freq=args.freq,
+                    equity_curve_path=None,  # Could save equity curve to file if needed
+                    data_start_date=metrics.start_date,
+                    data_end_date=metrics.end_date,
+                    config_info=config_info,
+                    output_dir=output_dir / "reports",
                 )
 
                 logger.info(f"QA Report written: {report_path}")
@@ -1972,12 +2207,20 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         logger.info("=" * 60)
         # Summary with Gross vs Net
         if hasattr(metrics, "gross_metrics") and metrics.gross_metrics is not None:
-            logger.info(f"Gross PF: {metrics.gross_metrics.final_pf:.4f} | Net PF: {metrics.final_pf:.4f}")
-            logger.info(f"Gross Return: {metrics.gross_metrics.total_return:.2%} | Net Return: {metrics.total_return:.2%}")
+            logger.info(
+                f"Gross PF: {metrics.gross_metrics.final_pf:.4f} | Net PF: {metrics.final_pf:.4f}"
+            )
+            logger.info(
+                f"Gross Return: {metrics.gross_metrics.total_return:.2%} | Net Return: {metrics.total_return:.2%}"
+            )
             if metrics.gross_metrics.cagr and metrics.cagr:
-                logger.info(f"Gross CAGR: {metrics.gross_metrics.cagr:.2%} | Net CAGR: {metrics.cagr:.2%}")
+                logger.info(
+                    f"Gross CAGR: {metrics.gross_metrics.cagr:.2%} | Net CAGR: {metrics.cagr:.2%}"
+                )
             if hasattr(metrics, "cost_breakdown") and metrics.cost_breakdown:
-                logger.info(f"Total Costs: ${metrics.cost_breakdown['total_cost_cash']:.2f}")
+                logger.info(
+                    f"Total Costs: ${metrics.cost_breakdown['total_cost_cash']:.2f}"
+                )
         else:
             logger.info(f"Final PF: {metrics.final_pf:.4f}")
             logger.info(f"Total Return: {metrics.total_return:.2%}")
@@ -2003,26 +2246,31 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             else:
                 # Default: use run_timings.json (or timings.json for backward compatibility)
                 timings_path = output_dir / "run_timings.json"
-            
+
             job_meta = {
                 "strategy": args.strategy,
                 "freq": args.freq,
                 "start_capital": args.start_capital,
                 "with_costs": args.with_costs,
             }
-            
+
             # Add EMA config if trend strategy
             if args.strategy == "trend_baseline":
                 ema_config = get_default_ema_config(args.freq)
                 job_meta["ema_fast"] = ema_config.fast
                 job_meta["ema_slow"] = ema_config.slow
-            
+
             # Add cost model config
             job_meta["commission_bps"] = cost_model.commission_bps
             job_meta["spread_w"] = cost_model.spread_w
             job_meta["impact_w"] = cost_model.impact_w
-            
-            write_timings_json(timings, timings_path, job_name="run_backtest_strategy", job_meta=job_meta)
+
+            write_timings_json(
+                timings,
+                timings_path,
+                job_name="run_backtest_strategy",
+                job_meta=job_meta,
+            )
 
         # Log metrics to experiment tracking if enabled
         if experiment_run:

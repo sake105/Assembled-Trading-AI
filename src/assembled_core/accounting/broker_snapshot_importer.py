@@ -146,7 +146,9 @@ def load_external_broker_snapshot(
         )
 
 
-def _load_external_broker_snapshot_json(path: Path) -> tuple[float | None, pd.DataFrame]:
+def _load_external_broker_snapshot_json(
+    path: Path,
+) -> tuple[float | None, pd.DataFrame]:
     """Load broker snapshot from JSON file.
 
     Expected JSON schema:
@@ -306,9 +308,7 @@ def _load_external_broker_snapshot_csv(path: Path) -> tuple[float | None, pd.Dat
 
         symbol = _normalize_symbol(raw_symbol)
         if not symbol:
-            raise ValueError(
-                f"Empty symbol in CSV file {path} at row {row_idx}"
-            )
+            raise ValueError(f"Empty symbol in CSV file {path} at row {row_idx}")
 
         try:
             qty_parsed = _parse_float_like(raw_qty)
@@ -318,9 +318,7 @@ def _load_external_broker_snapshot_csv(path: Path) -> tuple[float | None, pd.Dat
             ) from exc
 
         if qty_parsed is None:
-            raise ValueError(
-                f"Missing qty value in CSV file {path} at row {row_idx}"
-            )
+            raise ValueError(f"Missing qty value in CSV file {path} at row {row_idx}")
 
         positions_rows.append({"symbol": symbol, "qty": qty_parsed})
 
@@ -424,12 +422,16 @@ def import_broker_snapshot(
 
     # Return paths relative to output_dir (POSIX for portability)
     broker_snapshot_path = json_path.relative_to(output_dir_obj)
-    broker_positions_path = parquet_path.relative_to(output_dir_obj) if parquet_path else None
+    broker_positions_path = (
+        parquet_path.relative_to(output_dir_obj) if parquet_path else None
+    )
 
     logger.info(f"Imported broker snapshot: {broker_snapshot_path}")
 
     return {
         "broker_snapshot_path": broker_snapshot_path.as_posix(),
-        "broker_positions_path": broker_positions_path.as_posix() if broker_positions_path else None,
+        "broker_positions_path": (
+            broker_positions_path.as_posix() if broker_positions_path else None
+        ),
         "cash": normalized_cash,
     }

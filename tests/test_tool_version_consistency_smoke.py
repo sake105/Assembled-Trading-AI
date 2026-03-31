@@ -46,11 +46,15 @@ def test_tool_version_consistent_across_evidence_artifacts(tmp_path: Path) -> No
         reconciliation_ok=None,
     )
 
-    evidence_index_path = output_dir / f"evidence_{run_id}" / f"evidence_{date_str}.json"
+    evidence_index_path = (
+        output_dir / f"evidence_{run_id}" / f"evidence_{date_str}.json"
+    )
     with evidence_index_path.open("r", encoding="utf-8") as f:
         evidence_index_data = json.load(f)
     index_tool_version = evidence_index_data.get("tool_version")
-    assert index_tool_version == CORE_VERSION, "Evidence Index tool_version must match core"
+    assert (
+        index_tool_version == CORE_VERSION
+    ), "Evidence Index tool_version must match core"
 
     result = build_evidence_pack(
         output_dir=output_dir,
@@ -62,7 +66,9 @@ def test_tool_version_consistent_across_evidence_artifacts(tmp_path: Path) -> No
     with pack_manifest_path.open("r", encoding="utf-8") as f:
         pack_manifest_data = json.load(f)
     pack_tool_version = pack_manifest_data.get("tool_version")
-    assert pack_tool_version == CORE_VERSION, "Pack manifest tool_version must match core"
+    assert (
+        pack_tool_version == CORE_VERSION
+    ), "Pack manifest tool_version must match core"
 
     zip_path = output_dir / result["pack_path"]
     verify_script = ROOT / "scripts" / "verify_evidence_pack.py"
@@ -75,7 +81,9 @@ def test_tool_version_consistent_across_evidence_artifacts(tmp_path: Path) -> No
     assert verify_result.returncode == 0
     verify_data = json.loads(verify_result.stdout)
     verify_tool_version = verify_data.get("tool_version")
-    assert verify_tool_version == CORE_VERSION, "Verify JSON tool_version must match core"
+    assert (
+        verify_tool_version == CORE_VERSION
+    ), "Verify JSON tool_version must match core"
 
     export_script = ROOT / "scripts" / "export_evidence_pack.py"
     export_result = subprocess.run(
@@ -97,8 +105,13 @@ def test_tool_version_consistent_across_evidence_artifacts(tmp_path: Path) -> No
     assert export_result.returncode == 0
     export_data = json.loads(export_result.stdout)
     export_tool_version = export_data.get("tool_version")
-    assert export_tool_version == CORE_VERSION, "Export JSON tool_version must match core"
+    assert (
+        export_tool_version == CORE_VERSION
+    ), "Export JSON tool_version must match core"
 
-    assert index_tool_version == pack_tool_version == verify_tool_version == export_tool_version, (
-        "All tool_version values must be identical"
-    )
+    assert (
+        index_tool_version
+        == pack_tool_version
+        == verify_tool_version
+        == export_tool_version
+    ), "All tool_version values must be identical"

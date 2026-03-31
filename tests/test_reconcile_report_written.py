@@ -20,14 +20,18 @@ def test_files_exist(tmp_path: Path):
     as_of = pd.Timestamp("2024-01-15", tz="UTC")
 
     # Create reconciliation result
-    ledger_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "qty": [100.0, 50.0],
-    })
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "qty": [100.0, 50.0],
-    })
+    ledger_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [100.0, 50.0],
+        }
+    )
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [100.0, 50.0],
+        }
+    )
 
     result = reconcile_ledger_vs_broker(
         ledger_positions_df=ledger_positions,
@@ -68,14 +72,18 @@ def test_schema_stable(tmp_path: Path):
     as_of = pd.Timestamp("2024-01-15", tz="UTC")
 
     # Create reconciliation result with mismatches
-    ledger_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "qty": [100.0, 50.0],
-    })
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "qty": [100.0, 55.0],  # MSFT mismatch
-    })
+    ledger_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [100.0, 50.0],
+        }
+    )
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [100.0, 55.0],  # MSFT mismatch
+        }
+    )
 
     result = reconcile_ledger_vs_broker(
         ledger_positions_df=ledger_positions,
@@ -127,14 +135,18 @@ def test_json_deterministic_keys(tmp_path: Path):
     as_of = pd.Timestamp("2024-01-15", tz="UTC")
 
     # Create reconciliation result
-    ledger_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [100.0],
-    })
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [100.0],
-    })
+    ledger_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [100.0],
+        }
+    )
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [100.0],
+        }
+    )
 
     result = reconcile_ledger_vs_broker(
         ledger_positions_df=ledger_positions,
@@ -155,7 +167,9 @@ def test_json_deterministic_keys(tmp_path: Path):
     import json
     import shutil
 
-    json_path2 = tmp_path / f"reconcile_report_{run_id}" / "reconcile_2024-01-15_copy.json"
+    json_path2 = (
+        tmp_path / f"reconcile_report_{run_id}" / "reconcile_2024-01-15_copy.json"
+    )
     shutil.copy(json_path1, json_path2)
 
     # Read both
@@ -183,14 +197,18 @@ def test_csv_sort_deterministic(tmp_path: Path):
     as_of = pd.Timestamp("2024-01-15", tz="UTC")
 
     # Create reconciliation result with multiple position diffs
-    ledger_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "GOOGL"],
-        "qty": [100.0, 50.0, 200.0],
-    })
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "GOOGL"],
-        "qty": [105.0, 50.0, 190.0],  # AAPL: +5, GOOGL: -10 (larger diff)
-    })
+    ledger_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "GOOGL"],
+            "qty": [100.0, 50.0, 200.0],
+        }
+    )
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "GOOGL"],
+            "qty": [105.0, 50.0, 190.0],  # AAPL: +5, GOOGL: -10 (larger diff)
+        }
+    )
 
     result = reconcile_ledger_vs_broker(
         ledger_positions_df=ledger_positions,
@@ -229,14 +247,18 @@ def test_json_nan_handling(tmp_path: Path):
     as_of = pd.Timestamp("2024-01-15", tz="UTC")
 
     # Create reconciliation result with missing cash values
-    ledger_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [100.0],
-    })
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [100.0],
-    })
+    ledger_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [100.0],
+        }
+    )
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [100.0],
+        }
+    )
 
     result = reconcile_ledger_vs_broker(
         ledger_positions_df=ledger_positions,
@@ -247,9 +269,7 @@ def test_json_nan_handling(tmp_path: Path):
 
     # Don't add cash values (should be None in JSON)
     # Write JSON
-    json_path = write_reconcile_report_json(
-        result, tmp_path, run_id, as_of
-    )
+    json_path = write_reconcile_report_json(result, tmp_path, run_id, as_of)
 
     # Read back
     import json
@@ -272,14 +292,18 @@ def test_json_broker_meta_stored_snapshot(tmp_path: Path):
     as_of = pd.Timestamp("2024-01-15", tz="UTC")
 
     # Create reconciliation result
-    ledger_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [100.0],
-    })
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [100.0],
-    })
+    ledger_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [100.0],
+        }
+    )
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [100.0],
+        }
+    )
 
     result = reconcile_ledger_vs_broker(
         ledger_positions_df=ledger_positions,
@@ -301,7 +325,13 @@ def test_json_broker_meta_stored_snapshot(tmp_path: Path):
 
     # Write JSON
     json_path = write_reconcile_report_json(
-        result, tmp_path, run_id, as_of, ledger_cash=10000.0, broker_cash=10000.0, broker_meta=broker_meta
+        result,
+        tmp_path,
+        run_id,
+        as_of,
+        ledger_cash=10000.0,
+        broker_cash=10000.0,
+        broker_meta=broker_meta,
     )
 
     # Read back
@@ -314,8 +344,13 @@ def test_json_broker_meta_stored_snapshot(tmp_path: Path):
     assert "broker_meta" in json_data
     assert json_data["broker_meta"]["broker_view_source"] == "stored_snapshot"
     assert json_data["broker_meta"]["broker_snapshot_run_id"] == "snapshot_run_001"
-    assert json_data["broker_meta"]["broker_snapshot_date"] == "2024-01-15T00:00:00+00:00"
-    assert json_data["broker_meta"]["broker_snapshot_path"] == "broker_snapshot_snapshot_run_001/snapshot_2024-01-15.json"
+    assert (
+        json_data["broker_meta"]["broker_snapshot_date"] == "2024-01-15T00:00:00+00:00"
+    )
+    assert (
+        json_data["broker_meta"]["broker_snapshot_path"]
+        == "broker_snapshot_snapshot_run_001/snapshot_2024-01-15.json"
+    )
 
 
 def test_json_broker_meta_paper_view(tmp_path: Path):
@@ -324,14 +359,18 @@ def test_json_broker_meta_paper_view(tmp_path: Path):
     as_of = pd.Timestamp("2024-01-15", tz="UTC")
 
     # Create reconciliation result
-    ledger_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [100.0],
-    })
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [100.0],
-    })
+    ledger_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [100.0],
+        }
+    )
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [100.0],
+        }
+    )
 
     result = reconcile_ledger_vs_broker(
         ledger_positions_df=ledger_positions,
@@ -353,7 +392,13 @@ def test_json_broker_meta_paper_view(tmp_path: Path):
 
     # Write JSON
     json_path = write_reconcile_report_json(
-        result, tmp_path, run_id, as_of, ledger_cash=10000.0, broker_cash=10000.0, broker_meta=broker_meta
+        result,
+        tmp_path,
+        run_id,
+        as_of,
+        ledger_cash=10000.0,
+        broker_cash=10000.0,
+        broker_meta=broker_meta,
     )
 
     # Read back
@@ -374,14 +419,18 @@ def test_md_broker_meta_stored_snapshot(tmp_path: Path):
     as_of = pd.Timestamp("2024-01-15", tz="UTC")
 
     # Create reconciliation result
-    ledger_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [100.0],
-    })
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [100.0],
-    })
+    ledger_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [100.0],
+        }
+    )
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [100.0],
+        }
+    )
 
     result = reconcile_ledger_vs_broker(
         ledger_positions_df=ledger_positions,
@@ -403,7 +452,13 @@ def test_md_broker_meta_stored_snapshot(tmp_path: Path):
 
     # Write Markdown
     md_path = write_reconcile_report_md(
-        result, tmp_path, run_id, as_of, ledger_cash=10000.0, broker_cash=10000.0, broker_meta=broker_meta
+        result,
+        tmp_path,
+        run_id,
+        as_of,
+        ledger_cash=10000.0,
+        broker_cash=10000.0,
+        broker_meta=broker_meta,
     )
 
     # Read back
@@ -415,7 +470,10 @@ def test_md_broker_meta_stored_snapshot(tmp_path: Path):
     assert "**Source:** stored_snapshot" in md_content
     assert "**Snapshot Run ID:** snapshot_run_002" in md_content
     assert "**Snapshot Date:** 2024-01-15T00:00:00+00:00" in md_content
-    assert "**Snapshot Path:** broker_snapshot_snapshot_run_002/snapshot_2024-01-15.json" in md_content
+    assert (
+        "**Snapshot Path:** broker_snapshot_snapshot_run_002/snapshot_2024-01-15.json"
+        in md_content
+    )
 
 
 def test_md_broker_meta_paper_view(tmp_path: Path):
@@ -424,14 +482,18 @@ def test_md_broker_meta_paper_view(tmp_path: Path):
     as_of = pd.Timestamp("2024-01-15", tz="UTC")
 
     # Create reconciliation result
-    ledger_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [100.0],
-    })
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [100.0],
-    })
+    ledger_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [100.0],
+        }
+    )
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [100.0],
+        }
+    )
 
     result = reconcile_ledger_vs_broker(
         ledger_positions_df=ledger_positions,
@@ -453,7 +515,13 @@ def test_md_broker_meta_paper_view(tmp_path: Path):
 
     # Write Markdown
     md_path = write_reconcile_report_md(
-        result, tmp_path, run_id, as_of, ledger_cash=10000.0, broker_cash=10000.0, broker_meta=broker_meta
+        result,
+        tmp_path,
+        run_id,
+        as_of,
+        ledger_cash=10000.0,
+        broker_cash=10000.0,
+        broker_meta=broker_meta,
     )
 
     # Read back

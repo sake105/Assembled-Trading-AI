@@ -169,4 +169,3 @@ def test_fill_model_zero_costs():
     assert filled["costs"].iloc[0] == pytest.approx(0.0, rel=1e-10)
     assert filled["cash_delta"].iloc[0] == pytest.approx(-15000.0, rel=1e-10)
     assert new_cash == pytest.approx(35000.0, rel=1e-10)
-

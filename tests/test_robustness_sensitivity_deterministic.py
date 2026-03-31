@@ -21,6 +21,7 @@ from src.assembled_core.qa.robustness import (
 
 def test_run_sensitivity_suite_deterministic():
     """Test that same input produces identical variant order."""
+
     # Define simple backtest function
     def backtest_fn(config):
         commission = config.get("commission_bps", 0.0)
@@ -73,6 +74,7 @@ def test_run_sensitivity_suite_deterministic():
 
 def test_run_sensitivity_suite_costs_x2():
     """Test that costs_x2 variant doubles all cost parameters."""
+
     def backtest_fn(config):
         return {
             "sharpe": 1.0,
@@ -105,6 +107,7 @@ def test_run_sensitivity_suite_costs_x2():
 
 def test_run_sensitivity_suite_slippage_x2():
     """Test that slippage_x2 variant only doubles impact_w."""
+
     def backtest_fn(config):
         return {
             "sharpe": 1.0,
@@ -137,6 +140,7 @@ def test_run_sensitivity_suite_slippage_x2():
 
 def test_run_sensitivity_suite_alt_delay():
     """Test that alt_delay variants apply delay to events_df."""
+
     def backtest_fn(config):
         events_df = config.get("events_df")
         if events_df is not None and not events_df.empty:
@@ -146,11 +150,13 @@ def test_run_sensitivity_suite_alt_delay():
         return {"sharpe": 1.0, "delay_applied": False}
 
     # Create synthetic events
-    events_df = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "event_date": pd.to_datetime(["2020-01-01"], utc=True),
-        "disclosure_date": pd.to_datetime(["2020-01-05"], utc=True),
-    })
+    events_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2020-01-01"], utc=True),
+            "disclosure_date": pd.to_datetime(["2020-01-05"], utc=True),
+        }
+    )
 
     base_config: dict[str, Any] = {
         "events_df": events_df,
@@ -173,15 +179,18 @@ def test_run_sensitivity_suite_alt_delay():
 
 def test_run_sensitivity_suite_negative_delay_warning():
     """Test that negative delay_days generates warning."""
+
     def backtest_fn(config):
         return {"sharpe": 1.0}
 
     base_config: dict[str, Any] = {
-        "events_df": pd.DataFrame({
-            "symbol": ["AAPL"],
-            "event_date": pd.to_datetime(["2020-01-01"], utc=True),
-            "disclosure_date": pd.to_datetime(["2020-01-05"], utc=True),
-        }),
+        "events_df": pd.DataFrame(
+            {
+                "symbol": ["AAPL"],
+                "event_date": pd.to_datetime(["2020-01-01"], utc=True),
+                "disclosure_date": pd.to_datetime(["2020-01-05"], utc=True),
+            }
+        ),
     }
 
     results = run_sensitivity_suite(
@@ -231,6 +240,7 @@ def test_run_sensitivity_suite_handles_failures():
 
 def test_run_sensitivity_suite_empty_delay_list():
     """Test that empty delay_days_list only runs cost variants."""
+
     def backtest_fn(config):
         return {"sharpe": 1.0}
 
@@ -258,12 +268,14 @@ def test_run_sensitivity_suite_empty_delay_list():
 def test_export_sensitivity_results_smoke(tmp_path: Path):
     """Test that export_sensitivity_results produces stable CSV file."""
     # Create synthetic results
-    results_df = pd.DataFrame({
-        "variant_name": ["baseline", "costs_x2", "slippage_x2"],
-        "sharpe": [1.5, 1.2, 1.3],
-        "cagr": [0.15, 0.12, 0.13],
-        "warnings": [None, None, None],
-    })
+    results_df = pd.DataFrame(
+        {
+            "variant_name": ["baseline", "costs_x2", "slippage_x2"],
+            "sharpe": [1.5, 1.2, 1.3],
+            "cagr": [0.15, 0.12, 0.13],
+            "warnings": [None, None, None],
+        }
+    )
 
     # Export
     csv_path = export_sensitivity_results(

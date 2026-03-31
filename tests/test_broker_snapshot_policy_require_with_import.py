@@ -16,7 +16,9 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.assembled_core.accounting.broker_snapshot_importer import import_broker_snapshot
+from src.assembled_core.accounting.broker_snapshot_importer import (
+    import_broker_snapshot,
+)
 from src.assembled_core.accounting.ledger_integration import build_ledger_from_trades
 
 
@@ -35,19 +37,21 @@ def test_policy_require_with_imported_snapshot(tmp_path: Path):
 
     # Create minimal trades
     base_time = datetime(2025, 1, 15, 10, 0, 0)
-    trades = pd.DataFrame([
-        {
-            "timestamp": pd.Timestamp(base_time, tz="UTC"),
-            "symbol": "AAPL",
-            "side": "BUY",
-            "qty": 5.0,
-            "price": 150.0,
-            "fill_qty": 5.0,
-            "fill_price": 150.0,
-            "status": "filled",
-            "total_cost_cash": 0.0,
-        },
-    ])
+    trades = pd.DataFrame(
+        [
+            {
+                "timestamp": pd.Timestamp(base_time, tz="UTC"),
+                "symbol": "AAPL",
+                "side": "BUY",
+                "qty": 5.0,
+                "price": 150.0,
+                "fill_qty": 5.0,
+                "fill_price": 150.0,
+                "status": "filled",
+                "total_cost_cash": 0.0,
+            },
+        ]
+    )
     orders = trades.copy()
     run_id = "test_require_import"
     snapshot_run_id = "test_require_import"  # Same as run_id
@@ -102,19 +106,21 @@ def test_policy_require_with_imported_snapshot_different_run_id(tmp_path: Path):
 
     # Create minimal trades
     base_time = datetime(2025, 1, 15, 10, 0, 0)
-    trades = pd.DataFrame([
-        {
-            "timestamp": pd.Timestamp(base_time, tz="UTC"),
-            "symbol": "AAPL",
-            "side": "BUY",
-            "qty": 5.0,
-            "price": 150.0,
-            "fill_qty": 5.0,
-            "fill_price": 150.0,
-            "status": "filled",
-            "total_cost_cash": 0.0,
-        },
-    ])
+    trades = pd.DataFrame(
+        [
+            {
+                "timestamp": pd.Timestamp(base_time, tz="UTC"),
+                "symbol": "AAPL",
+                "side": "BUY",
+                "qty": 5.0,
+                "price": 150.0,
+                "fill_qty": 5.0,
+                "fill_price": 150.0,
+                "status": "filled",
+                "total_cost_cash": 0.0,
+            },
+        ]
+    )
     orders = trades.copy()
     run_id = "test_ledger_run"
     snapshot_run_id = "test_snapshot_run"  # Different from run_id
@@ -191,4 +197,7 @@ def test_import_deterministic_path_layout(tmp_path: Path):
 
     # Verify return path is relative
     assert import_result["broker_snapshot_path"].startswith(f"broker_snapshot_{run_id}")
-    assert "/" in import_result["broker_snapshot_path"] or "\\" in import_result["broker_snapshot_path"]
+    assert (
+        "/" in import_result["broker_snapshot_path"]
+        or "\\" in import_result["broker_snapshot_path"]
+    )

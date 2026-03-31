@@ -104,6 +104,7 @@ def test_load_strategy_thresholds_from_configs_dir(tmp_path: Path) -> None:
 
     # Mock ROOT to point to tmp_path
     import scripts.check_health as ch_module
+
     original_root = ch_module.ROOT
     ch_module.ROOT = tmp_path
 
@@ -119,6 +120,7 @@ def test_threshold_precedence_cli_overrides_config(
     strategy_dir_with_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Test that CLI arguments override config thresholds."""
+
     # Create a mock args object with CLI values
     class MockArgs:
         paper_track_days = 5  # Override config value (2)
@@ -133,13 +135,25 @@ def test_threshold_precedence_cli_overrides_config(
     def _mock_find_strategies(root):
         return [strategy_dir_with_config]
 
-    monkeypatch.setattr("scripts.check_health.find_paper_track_strategies", _mock_find_strategies)
-    monkeypatch.setattr("scripts.check_health.find_latest_paper_track_run", lambda x: None)
-    monkeypatch.setattr("scripts.check_health.check_paper_track_freshness", lambda x, y: HealthCheck(
-        name="test", status="OK", value=0, expected="", details=""
-    ))
-    monkeypatch.setattr("scripts.check_health.check_paper_track_artifacts", lambda x, y: [])
-    monkeypatch.setattr("scripts.check_health.check_paper_track_metrics_plausible", lambda x, y, z, w: [])
+    monkeypatch.setattr(
+        "scripts.check_health.find_paper_track_strategies", _mock_find_strategies
+    )
+    monkeypatch.setattr(
+        "scripts.check_health.find_latest_paper_track_run", lambda x: None
+    )
+    monkeypatch.setattr(
+        "scripts.check_health.check_paper_track_freshness",
+        lambda x, y: HealthCheck(
+            name="test", status="OK", value=0, expected="", details=""
+        ),
+    )
+    monkeypatch.setattr(
+        "scripts.check_health.check_paper_track_artifacts", lambda x, y: []
+    )
+    monkeypatch.setattr(
+        "scripts.check_health.check_paper_track_metrics_plausible",
+        lambda x, y, z, w: [],
+    )
 
     # Run health checks
     checks = run_paper_track_health_checks(strategy_dir_with_config.parent, args)
@@ -155,6 +169,7 @@ def test_threshold_precedence_config_when_no_cli(
     strategy_dir_with_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Test that config thresholds are used when CLI args are None."""
+
     # Create a mock args object with None values (CLI not provided)
     class MockArgs:
         paper_track_days = None  # Use config value
@@ -169,8 +184,12 @@ def test_threshold_precedence_config_when_no_cli(
     def _mock_find_strategies(root):
         return [strategy_dir_with_config]
 
-    monkeypatch.setattr("scripts.check_health.find_paper_track_strategies", _mock_find_strategies)
-    monkeypatch.setattr("scripts.check_health.find_latest_paper_track_run", lambda x: None)
+    monkeypatch.setattr(
+        "scripts.check_health.find_paper_track_strategies", _mock_find_strategies
+    )
+    monkeypatch.setattr(
+        "scripts.check_health.find_latest_paper_track_run", lambda x: None
+    )
 
     # Track the threshold values passed to freshness check
     captured_days = []
@@ -179,9 +198,16 @@ def test_threshold_precedence_config_when_no_cli(
         captured_days.append(days)
         return HealthCheck(name="test", status="OK", value=0, expected="", details="")
 
-    monkeypatch.setattr("scripts.check_health.check_paper_track_freshness", _mock_freshness)
-    monkeypatch.setattr("scripts.check_health.check_paper_track_artifacts", lambda x, y: [])
-    monkeypatch.setattr("scripts.check_health.check_paper_track_metrics_plausible", lambda x, y, z, w: [])
+    monkeypatch.setattr(
+        "scripts.check_health.check_paper_track_freshness", _mock_freshness
+    )
+    monkeypatch.setattr(
+        "scripts.check_health.check_paper_track_artifacts", lambda x, y: []
+    )
+    monkeypatch.setattr(
+        "scripts.check_health.check_paper_track_metrics_plausible",
+        lambda x, y, z, w: [],
+    )
 
     # Run health checks
     _ = run_paper_track_health_checks(strategy_dir_with_config.parent, args)
@@ -195,6 +221,7 @@ def test_threshold_precedence_default_when_no_config_no_cli(
     strategy_dir_without_config: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Test that default thresholds are used when neither config nor CLI provided."""
+
     # Create a mock args object with None values
     class MockArgs:
         paper_track_days = None
@@ -209,8 +236,12 @@ def test_threshold_precedence_default_when_no_config_no_cli(
     def _mock_find_strategies(root):
         return [strategy_dir_without_config]
 
-    monkeypatch.setattr("scripts.check_health.find_paper_track_strategies", _mock_find_strategies)
-    monkeypatch.setattr("scripts.check_health.find_latest_paper_track_run", lambda x: None)
+    monkeypatch.setattr(
+        "scripts.check_health.find_paper_track_strategies", _mock_find_strategies
+    )
+    monkeypatch.setattr(
+        "scripts.check_health.find_latest_paper_track_run", lambda x: None
+    )
 
     # Track the threshold values passed to freshness check
     captured_days = []
@@ -219,9 +250,16 @@ def test_threshold_precedence_default_when_no_config_no_cli(
         captured_days.append(days)
         return HealthCheck(name="test", status="OK", value=0, expected="", details="")
 
-    monkeypatch.setattr("scripts.check_health.check_paper_track_freshness", _mock_freshness)
-    monkeypatch.setattr("scripts.check_health.check_paper_track_artifacts", lambda x, y: [])
-    monkeypatch.setattr("scripts.check_health.check_paper_track_metrics_plausible", lambda x, y, z, w: [])
+    monkeypatch.setattr(
+        "scripts.check_health.check_paper_track_freshness", _mock_freshness
+    )
+    monkeypatch.setattr(
+        "scripts.check_health.check_paper_track_artifacts", lambda x, y: []
+    )
+    monkeypatch.setattr(
+        "scripts.check_health.check_paper_track_metrics_plausible",
+        lambda x, y, z, w: [],
+    )
 
     # Run health checks
     _ = run_paper_track_health_checks(strategy_dir_without_config.parent, args)
@@ -251,8 +289,16 @@ def test_check_paper_track_metrics_uses_config_thresholds(
     # Create equity curve
     equity_df = pd.DataFrame(
         [
-            {"date": "2025-01-15", "timestamp": "2025-01-15T00:00:00+00:00", "equity": 100000.0},
-            {"date": "2025-01-16", "timestamp": "2025-01-16T00:00:00+00:00", "equity": 106000.0},
+            {
+                "date": "2025-01-15",
+                "timestamp": "2025-01-15T00:00:00+00:00",
+                "equity": 100000.0,
+            },
+            {
+                "date": "2025-01-16",
+                "timestamp": "2025-01-16T00:00:00+00:00",
+                "equity": 106000.0,
+            },
         ]
     )
     aggregates_dir = strategy_dir_with_config / "aggregates"
@@ -311,4 +357,3 @@ def test_check_paper_track_metrics_uses_default_when_no_config(
     pnl_checks = [c for c in checks if "daily_pnl" in c.name]
     assert len(pnl_checks) == 1
     assert pnl_checks[0].status == "WARN"  # Exceeds default threshold (10.0%)
-

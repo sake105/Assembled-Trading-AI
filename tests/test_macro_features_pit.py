@@ -16,29 +16,42 @@ from src.assembled_core.features.macro_features import add_latest_macro_value
 
 def test_add_latest_macro_value_pit_safe() -> None:
     """Test that add_latest_macro_value is PIT-safe."""
-    panel_index = pd.DataFrame({
-        "timestamp": pd.to_datetime([
-            "2024-01-10 10:00:00",
-            "2024-01-15 10:00:00",
-            "2024-01-20 10:00:00",
-        ], utc=True),
-        "symbol": ["AAPL"] * 3,
-    })
+    panel_index = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(
+                [
+                    "2024-01-10 10:00:00",
+                    "2024-01-15 10:00:00",
+                    "2024-01-20 10:00:00",
+                ],
+                utc=True,
+            ),
+            "symbol": ["AAPL"] * 3,
+        }
+    )
 
-    macro_df = pd.DataFrame({
-        "series_id": ["GDP_US"] * 3,
-        "release_ts": pd.to_datetime([
-            "2024-01-05 08:30:00",
-            "2024-01-10 08:30:00",
-            "2024-01-15 08:30:00",
-        ], utc=True),
-        "available_ts": pd.to_datetime([
-            "2024-01-05 09:00:00",  # Available before as_of
-            "2024-01-10 09:00:00",  # Available before as_of
-            "2024-01-20 09:00:00",  # Available AFTER as_of (should be filtered)
-        ], utc=True),
-        "value": [2.5, 2.6, 2.7],
-    })
+    macro_df = pd.DataFrame(
+        {
+            "series_id": ["GDP_US"] * 3,
+            "release_ts": pd.to_datetime(
+                [
+                    "2024-01-05 08:30:00",
+                    "2024-01-10 08:30:00",
+                    "2024-01-15 08:30:00",
+                ],
+                utc=True,
+            ),
+            "available_ts": pd.to_datetime(
+                [
+                    "2024-01-05 09:00:00",  # Available before as_of
+                    "2024-01-10 09:00:00",  # Available before as_of
+                    "2024-01-20 09:00:00",  # Available AFTER as_of (should be filtered)
+                ],
+                utc=True,
+            ),
+            "value": [2.5, 2.6, 2.7],
+        }
+    )
 
     as_of = pd.Timestamp("2024-01-15 10:00:00", tz="UTC")
     result = add_latest_macro_value(panel_index, macro_df, as_of, series_id="GDP_US")
@@ -53,20 +66,27 @@ def test_add_latest_macro_value_pit_safe() -> None:
 
 def test_add_latest_macro_value_future_availability_filtered() -> None:
     """Test that future available_ts values are filtered out."""
-    panel_index = pd.DataFrame({
-        "timestamp": pd.to_datetime(["2024-01-10 10:00:00"], utc=True),
-        "symbol": ["AAPL"],
-    })
+    panel_index = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(["2024-01-10 10:00:00"], utc=True),
+            "symbol": ["AAPL"],
+        }
+    )
 
-    macro_df = pd.DataFrame({
-        "series_id": ["GDP_US"] * 2,
-        "release_ts": pd.to_datetime(["2024-01-05 08:30:00"] * 2, utc=True),
-        "available_ts": pd.to_datetime([
-            "2024-01-05 09:00:00",  # Available before as_of
-            "2024-01-20 09:00:00",  # Available AFTER as_of (should be filtered)
-        ], utc=True),
-        "value": [2.5, 2.7],
-    })
+    macro_df = pd.DataFrame(
+        {
+            "series_id": ["GDP_US"] * 2,
+            "release_ts": pd.to_datetime(["2024-01-05 08:30:00"] * 2, utc=True),
+            "available_ts": pd.to_datetime(
+                [
+                    "2024-01-05 09:00:00",  # Available before as_of
+                    "2024-01-20 09:00:00",  # Available AFTER as_of (should be filtered)
+                ],
+                utc=True,
+            ),
+            "value": [2.5, 2.7],
+        }
+    )
 
     as_of = pd.Timestamp("2024-01-10 10:00:00", tz="UTC")
     result = add_latest_macro_value(panel_index, macro_df, as_of, series_id="GDP_US")
@@ -77,17 +97,21 @@ def test_add_latest_macro_value_future_availability_filtered() -> None:
 
 def test_add_latest_macro_value_empty_series() -> None:
     """Test that empty macro series returns NaN."""
-    panel_index = pd.DataFrame({
-        "timestamp": pd.to_datetime(["2024-01-10 10:00:00"], utc=True),
-        "symbol": ["AAPL"],
-    })
+    panel_index = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(["2024-01-10 10:00:00"], utc=True),
+            "symbol": ["AAPL"],
+        }
+    )
 
-    macro_df = pd.DataFrame({
-        "series_id": ["OTHER_SERIES"],  # Different series_id
-        "release_ts": pd.to_datetime(["2024-01-05 08:30:00"], utc=True),
-        "available_ts": pd.to_datetime(["2024-01-05 09:00:00"], utc=True),
-        "value": [2.5],
-    })
+    macro_df = pd.DataFrame(
+        {
+            "series_id": ["OTHER_SERIES"],  # Different series_id
+            "release_ts": pd.to_datetime(["2024-01-05 08:30:00"], utc=True),
+            "available_ts": pd.to_datetime(["2024-01-05 09:00:00"], utc=True),
+            "value": [2.5],
+        }
+    )
 
     as_of = pd.Timestamp("2024-01-10 10:00:00", tz="UTC")
     result = add_latest_macro_value(panel_index, macro_df, as_of, series_id="GDP_US")
@@ -97,28 +121,41 @@ def test_add_latest_macro_value_empty_series() -> None:
 
 def test_add_latest_macro_value_merge_asof_behavior() -> None:
     """Test that merge_asof correctly joins latest available value."""
-    panel_index = pd.DataFrame({
-        "timestamp": pd.to_datetime([
-            "2024-01-05 08:00:00",  # Before any availability
-            "2024-01-05 09:00:00",  # At first availability
-            "2024-01-10 09:00:00",  # At second availability
-            "2024-01-15 09:00:00",  # After second availability
-        ], utc=True),
-        "symbol": ["AAPL"] * 4,
-    })
+    panel_index = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(
+                [
+                    "2024-01-05 08:00:00",  # Before any availability
+                    "2024-01-05 09:00:00",  # At first availability
+                    "2024-01-10 09:00:00",  # At second availability
+                    "2024-01-15 09:00:00",  # After second availability
+                ],
+                utc=True,
+            ),
+            "symbol": ["AAPL"] * 4,
+        }
+    )
 
-    macro_df = pd.DataFrame({
-        "series_id": ["GDP_US"] * 2,
-        "release_ts": pd.to_datetime([
-            "2024-01-05 08:30:00",
-            "2024-01-10 08:30:00",  # Different release_ts to avoid deduplication
-        ], utc=True),
-        "available_ts": pd.to_datetime([
-            "2024-01-05 09:00:00",
-            "2024-01-10 09:00:00",
-        ], utc=True),
-        "value": [2.5, 2.6],
-    })
+    macro_df = pd.DataFrame(
+        {
+            "series_id": ["GDP_US"] * 2,
+            "release_ts": pd.to_datetime(
+                [
+                    "2024-01-05 08:30:00",
+                    "2024-01-10 08:30:00",  # Different release_ts to avoid deduplication
+                ],
+                utc=True,
+            ),
+            "available_ts": pd.to_datetime(
+                [
+                    "2024-01-05 09:00:00",
+                    "2024-01-10 09:00:00",
+                ],
+                utc=True,
+            ),
+            "value": [2.5, 2.6],
+        }
+    )
 
     as_of = pd.Timestamp("2024-01-20 10:00:00", tz="UTC")
     result = add_latest_macro_value(panel_index, macro_df, as_of, series_id="GDP_US")

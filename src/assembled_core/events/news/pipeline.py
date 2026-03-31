@@ -101,7 +101,11 @@ def _collect_raw_items(
             failures.append({"source": src.source_id, "reason": "gdelt_missing_query"})
             continue
         src_items, failure, stats = fetch_gdelt_events(
-            src.source_id, query, gdelt_cfg=gdelt_cfg, cadence="hourly", fetch_state=fetch_state
+            src.source_id,
+            query,
+            gdelt_cfg=gdelt_cfg,
+            cadence="hourly",
+            fetch_state=fetch_state,
         )
         per_source_stats.append(stats)
         if failure is not None:
@@ -141,7 +145,11 @@ def run_news_pipeline(
     min_sources_ok = int(health_cfg.get("min_sources_ok", 1))
 
     # Determine base output directory
-    base_dir = Path(output_dir) if output_dir is not None else Path("output") / "intel" / "news"
+    base_dir = (
+        Path(output_dir)
+        if output_dir is not None
+        else Path("output") / "intel" / "news"
+    )
 
     # Load persistent fetch state (rss etag/last-modified + gdelt cache)
     cache_dir = base_dir / "cache"
@@ -169,10 +177,14 @@ def run_news_pipeline(
     if dedupe_enabled:
         store_cfg = dedupe_cfg.get("store") or {}
         cfg_store_path = store_cfg.get("path")
-        if output_dir is not None and (not cfg_store_path or not Path(cfg_store_path).is_absolute()):
+        if output_dir is not None and (
+            not cfg_store_path or not Path(cfg_store_path).is_absolute()
+        ):
             store_path = base_dir / "cache" / "dedupe_store.sqlite"
         else:
-            store_path = Path(str(cfg_store_path or (base_dir / "cache" / "dedupe_store.sqlite")))
+            store_path = Path(
+                str(cfg_store_path or (base_dir / "cache" / "dedupe_store.sqlite"))
+            )
         dedupe_store = DedupeStoreSQLite(store_path)
 
         # Prune old entries
@@ -244,24 +256,32 @@ def run_news_pipeline(
         except Exception as exc:
             funnel_counts["normalize_exception_count"] += 1
             reason = f"{type(exc).__name__}: {str(exc)[:200]}"
-            normalize_exception_reasons[reason] = normalize_exception_reasons.get(reason, 0) + 1
+            normalize_exception_reasons[reason] = (
+                normalize_exception_reasons.get(reason, 0) + 1
+            )
             if len(normalize_failure_samples) < MAX_NORMALIZE_SAMPLES:
-                normalize_failure_samples.append({
-                    "kind": "exception",
-                    "reason": reason,
-                    "raw_preview": raw_preview,
-                })
+                normalize_failure_samples.append(
+                    {
+                        "kind": "exception",
+                        "reason": reason,
+                        "raw_preview": raw_preview,
+                    }
+                )
             continue
         if ev is None:
             funnel_counts["normalize_none_count"] += 1
             none_reason = "returned_none"
-            normalize_none_reasons[none_reason] = normalize_none_reasons.get(none_reason, 0) + 1
+            normalize_none_reasons[none_reason] = (
+                normalize_none_reasons.get(none_reason, 0) + 1
+            )
             if len(normalize_failure_samples) < MAX_NORMALIZE_SAMPLES:
-                normalize_failure_samples.append({
-                    "kind": "returned_none",
-                    "reason": none_reason,
-                    "raw_preview": raw_preview,
-                })
+                normalize_failure_samples.append(
+                    {
+                        "kind": "returned_none",
+                        "reason": none_reason,
+                        "raw_preview": raw_preview,
+                    }
+                )
             dropped_short_title += 1
             continue
 
@@ -303,7 +323,11 @@ def run_news_pipeline(
                             if best_dist is None or dist < best_dist:
                                 best_dist = dist
                                 best_event_id = cand_event_id
-                        if best_event_id is not None and best_dist is not None and best_dist <= threshold:
+                        if (
+                            best_event_id is not None
+                            and best_dist is not None
+                            and best_dist <= threshold
+                        ):
                             if not isinstance(ev.raw, dict):
                                 ev.raw = {}
                             ev.raw["near_duplicate_of"] = best_event_id
@@ -375,7 +399,9 @@ def run_news_pipeline(
         try:
             import json
 
-            baseline_latest = json.loads(baseline_latest_path.read_text(encoding="utf-8"))
+            baseline_latest = json.loads(
+                baseline_latest_path.read_text(encoding="utf-8")
+            )
             baseline_loaded = isinstance(baseline_latest, dict)
         except Exception:
             baseline_latest = None
@@ -400,9 +426,11 @@ def run_news_pipeline(
             bursts_windows.append(bw)
 
         # Determine primary window for backward-compatible count/items
-        primary_map = (burst_cfg.get("primary_window_by_cadence") or {}) if isinstance(
-            burst_cfg.get("primary_window_by_cadence"), dict
-        ) else {}
+        primary_map = (
+            (burst_cfg.get("primary_window_by_cadence") or {})
+            if isinstance(burst_cfg.get("primary_window_by_cadence"), dict)
+            else {}
+        )
         if cadence in primary_map:
             window_hours_primary = int(primary_map[cadence])
         else:
@@ -411,7 +439,11 @@ def run_news_pipeline(
             window_hours_primary = windows[0]
 
         primary = next(
-            (bw for bw in bursts_windows if int(bw.get("window_hours")) == window_hours_primary),
+            (
+                bw
+                for bw in bursts_windows
+                if int(bw.get("window_hours")) == window_hours_primary
+            ),
             {"top_entities_burst": [], "top_phrases_burst": []},
         )
 
@@ -578,7 +610,9 @@ def run_news_pipeline(
         "generated_utc": fetched_utc,
         "cadence": cadence,
         "window_hours": int(window_hours_primary),
-        "baseline_version_hash": baseline_latest.get("version_hash") if baseline_latest else None,
+        "baseline_version_hash": (
+            baseline_latest.get("version_hash") if baseline_latest else None
+        ),
         # Backward-compatible primary window view
         "count": len(bursts_primary),
         "items": bursts_primary,
@@ -618,9 +652,7 @@ def run_news_pipeline(
         def _age_minutes(ts: str) -> float:
             try:
                 dt = date_parser.parse(ts)
-                return (
-                    date_parser.parse(fetched_utc) - dt
-                ).total_seconds() / 60.0
+                return (date_parser.parse(fetched_utc) - dt).total_seconds() / 60.0
             except Exception:
                 return 1e9
 
@@ -673,4 +705,3 @@ def run_news_pipeline(
         )
 
     return {"events": deduped, "health": health}
-

@@ -11,10 +11,12 @@ pytestmark = [pytest.mark.unit]
 
 
 def _make_orders(entries: list[tuple[str, str, float, float]]) -> pd.DataFrame:
-    return pd.DataFrame([
-        {"timestamp": "2025-10-15", "symbol": s, "side": sd, "qty": q, "price": p}
-        for s, sd, q, p in entries
-    ])
+    return pd.DataFrame(
+        [
+            {"timestamp": "2025-10-15", "symbol": s, "side": sd, "qty": q, "price": p}
+            for s, sd, q, p in entries
+        ]
+    )
 
 
 def _make_positions(entries: list[tuple[str, float]]) -> pd.DataFrame:
@@ -65,10 +67,12 @@ class TestFilterDeadzoneOrders:
 
     def test_mixed_small_and_large(self):
         """2 orders: one small (drop), one large (keep)."""
-        orders = _make_orders([
-            ("AAPL", "SELL", 3, 150.0),
-            ("MSFT", "BUY", 50, 300.0),
-        ])
+        orders = _make_orders(
+            [
+                ("AAPL", "SELL", 3, 150.0),
+                ("MSFT", "BUY", 50, 300.0),
+            ]
+        )
         positions = _make_positions([("AAPL", 100), ("MSFT", 100)])
         filtered, stats = filter_deadzone_orders(orders, positions, deadzone_pct=0.05)
         assert len(filtered) == 1

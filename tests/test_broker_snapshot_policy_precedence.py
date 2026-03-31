@@ -25,32 +25,36 @@ def test_broker_snapshot_precedence_over_paper_view(tmp_path: Path):
     """Test that stored broker snapshot is used when policy is 'prefer'."""
     # Create minimal trades
     base_time = datetime(2025, 1, 15, 10, 0, 0)
-    trades = pd.DataFrame([
-        {
-            "timestamp": pd.Timestamp(base_time, tz="UTC"),
-            "symbol": "AAPL",
-            "side": "BUY",
-            "qty": 5.0,  # Paper view will have AAPL=5
-            "price": 150.0,
-            "fill_qty": 5.0,
-            "fill_price": 150.0,
-            "status": "filled",
-            "total_cost_cash": 0.0,
-        },
-    ])
-    
+    trades = pd.DataFrame(
+        [
+            {
+                "timestamp": pd.Timestamp(base_time, tz="UTC"),
+                "symbol": "AAPL",
+                "side": "BUY",
+                "qty": 5.0,  # Paper view will have AAPL=5
+                "price": 150.0,
+                "fill_qty": 5.0,
+                "fill_price": 150.0,
+                "status": "filled",
+                "total_cost_cash": 0.0,
+            },
+        ]
+    )
+
     orders = trades.copy()
     run_id = "test_precedence"
     as_of_date = pd.Timestamp(base_time, tz="UTC")
-    
+
     # Create a broker snapshot with different position (AAPL=10)
     # This will intentionally differ from paper view (AAPL=5)
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [10.0],  # Different from paper view
-    })
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [10.0],  # Different from paper view
+        }
+    )
     broker_cash = 10000.0
-    
+
     # Store broker snapshot
     store_broker_snapshot_json(
         cash=broker_cash,
@@ -59,7 +63,7 @@ def test_broker_snapshot_precedence_over_paper_view(tmp_path: Path):
         run_id=run_id,
         as_of_date=as_of_date,
     )
-    
+
     # Build ledger with policy "prefer"
     result = build_ledger_from_trades(
         orders_df=orders,
@@ -72,17 +76,21 @@ def test_broker_snapshot_precedence_over_paper_view(tmp_path: Path):
         broker_snapshot_policy="prefer",
         write_paper_broker_snapshot=False,
     )
-    
+
     # Verify reconciliation was performed
-    assert result["reconciliation_result"] is not None, "Reconciliation should be performed"
-    
+    assert (
+        result["reconciliation_result"] is not None
+    ), "Reconciliation should be performed"
+
     # The reconciliation should use broker snapshot (AAPL=10), not paper view (AAPL=5)
     # Since ledger has AAPL=5 and broker snapshot has AAPL=10, there should be a mismatch
     # (unless the reconciliation logic matches them somehow, but the key is that snapshot was used)
-    
+
     # Verify broker_snapshot_path is set (snapshot was found and used)
-    assert result["broker_snapshot_path"] is not None, "broker_snapshot_path should be set when snapshot is used"
-    
+    assert (
+        result["broker_snapshot_path"] is not None
+    ), "broker_snapshot_path should be set when snapshot is used"
+
     # Verify the reconciliation result reflects the broker snapshot usage
     # The exact outcome depends on reconciliation logic, but snapshot should be preferred
     reconciliation = result["reconciliation_result"]

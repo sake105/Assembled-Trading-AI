@@ -133,7 +133,9 @@ def write_accounting_report_csv(
     broker_snapshot_path = ""
     if broker_meta is not None:
         broker_view_source = str(broker_meta.get("broker_view_source", "") or "")
-        broker_snapshot_run_id = str(broker_meta.get("broker_snapshot_run_id", "") or "")
+        broker_snapshot_run_id = str(
+            broker_meta.get("broker_snapshot_run_id", "") or ""
+        )
         broker_snapshot_date = str(broker_meta.get("broker_snapshot_date", "") or "")
         broker_snapshot_path = str(broker_meta.get("broker_snapshot_path", "") or "")
 
@@ -148,19 +150,21 @@ def write_accounting_report_csv(
             "realized_pnl": total_realized_pnl,
             "unrealized_pnl": total_unrealized_pnl,
             "total_pnl": total_pnl,
-            "commission_cash": costs_breakdown.get("commission_cash", 0.0)
-            if costs_breakdown
-            else 0.0,
-            "spread_cash": costs_breakdown.get("spread_cash", 0.0)
-            if costs_breakdown
-            else 0.0,
-            "slippage_cash": costs_breakdown.get("slippage_cash", 0.0)
-            if costs_breakdown
-            else 0.0,
-            "total_cost_cash": costs_breakdown.get("total_cost_cash", 0.0)
-            if costs_breakdown
-            else 0.0,
-            "reconciliation_ok": reconciliation_result.get("ok") if reconciliation_result else None,
+            "commission_cash": (
+                costs_breakdown.get("commission_cash", 0.0) if costs_breakdown else 0.0
+            ),
+            "spread_cash": (
+                costs_breakdown.get("spread_cash", 0.0) if costs_breakdown else 0.0
+            ),
+            "slippage_cash": (
+                costs_breakdown.get("slippage_cash", 0.0) if costs_breakdown else 0.0
+            ),
+            "total_cost_cash": (
+                costs_breakdown.get("total_cost_cash", 0.0) if costs_breakdown else 0.0
+            ),
+            "reconciliation_ok": (
+                reconciliation_result.get("ok") if reconciliation_result else None
+            ),
             "cash_end_matches_reconcile_cash": cash_end_matches_reconcile_cash,
             "reconcile_report_path": reconcile_report_path or "",
             "broker_view_source": broker_view_source,
@@ -181,15 +185,22 @@ def write_accounting_report_csv(
                     "cash_start": None,
                     "cash_end": None,
                     "cash_change": None,
-                    "realized_pnl": float(row["realized_pnl"])
-                    if pd.notna(row["realized_pnl"])
-                    else 0.0,
-                    "unrealized_pnl": float(row["unrealized_pnl"])
-                    if pd.notna(row["unrealized_pnl"])
-                    else 0.0,
-                    "total_pnl": float(row["realized_pnl"] + row["unrealized_pnl"])
-                    if pd.notna(row["realized_pnl"]) and pd.notna(row["unrealized_pnl"])
-                    else None,
+                    "realized_pnl": (
+                        float(row["realized_pnl"])
+                        if pd.notna(row["realized_pnl"])
+                        else 0.0
+                    ),
+                    "unrealized_pnl": (
+                        float(row["unrealized_pnl"])
+                        if pd.notna(row["unrealized_pnl"])
+                        else 0.0
+                    ),
+                    "total_pnl": (
+                        float(row["realized_pnl"] + row["unrealized_pnl"])
+                        if pd.notna(row["realized_pnl"])
+                        and pd.notna(row["unrealized_pnl"])
+                        else None
+                    ),
                     "commission_cash": None,
                     "spread_cash": None,
                     "slippage_cash": None,
@@ -281,16 +292,39 @@ def write_accounting_report_json(
     if not positions_df.empty:
         positions_sorted = positions_df.sort_values("symbol", kind="mergesort")
         for _, row in positions_sorted.iterrows():
-            positions_list.append({
-                "symbol": str(row["symbol"]),
-                "qty": float(row["qty"]) if pd.notna(row["qty"]) else 0.0,
-                "avg_price": float(row["avg_price"]) if pd.notna(row["avg_price"]) else None,
-                "realized_pnl": float(row["realized_pnl"]) if pd.notna(row["realized_pnl"]) else 0.0,
-                "unrealized_pnl": float(row["unrealized_pnl"]) if pd.notna(row["unrealized_pnl"]) else 0.0,
-                "total_pnl": float(row["realized_pnl"] + row["unrealized_pnl"]) if pd.notna(row["realized_pnl"]) and pd.notna(row["unrealized_pnl"]) else None,
-                "notional": float(row["notional"]) if pd.notna(row["notional"]) else 0.0,
-                "last_price": float(row["last_price"]) if pd.notna(row["last_price"]) else None,
-            })
+            positions_list.append(
+                {
+                    "symbol": str(row["symbol"]),
+                    "qty": float(row["qty"]) if pd.notna(row["qty"]) else 0.0,
+                    "avg_price": (
+                        float(row["avg_price"]) if pd.notna(row["avg_price"]) else None
+                    ),
+                    "realized_pnl": (
+                        float(row["realized_pnl"])
+                        if pd.notna(row["realized_pnl"])
+                        else 0.0
+                    ),
+                    "unrealized_pnl": (
+                        float(row["unrealized_pnl"])
+                        if pd.notna(row["unrealized_pnl"])
+                        else 0.0
+                    ),
+                    "total_pnl": (
+                        float(row["realized_pnl"] + row["unrealized_pnl"])
+                        if pd.notna(row["realized_pnl"])
+                        and pd.notna(row["unrealized_pnl"])
+                        else None
+                    ),
+                    "notional": (
+                        float(row["notional"]) if pd.notna(row["notional"]) else 0.0
+                    ),
+                    "last_price": (
+                        float(row["last_price"])
+                        if pd.notna(row["last_price"])
+                        else None
+                    ),
+                }
+            )
 
     # Build report dict
     report = {

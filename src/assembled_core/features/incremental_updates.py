@@ -14,7 +14,7 @@ Use Case:
     1. Load existing factors from store
     2. Compute only last session (or last N sessions)
     3. Append to store (mode="append" with deduplication)
-    
+
 This avoids full recompute of historical features, improving performance.
 """
 
@@ -71,7 +71,7 @@ def filter_prices_for_incremental(
     # Filter to last window_days
     cutoff_date = as_of.date() if hasattr(as_of, "date") else pd.Timestamp(as_of).date()
     start_date = cutoff_date - pd.Timedelta(days=window_days - 1)
-    
+
     # Filter prices within window
     filtered = prices[
         (prices["timestamp"].dt.date >= start_date) & (prices["timestamp"] <= as_of)
@@ -155,14 +155,20 @@ def compute_last_N_sessions(
         builder_kwargs = {}
 
     # Filter to last N sessions
-    prices_filtered = filter_prices_for_incremental(prices, as_of=as_of, window_days=window_days)
+    prices_filtered = filter_prices_for_incremental(
+        prices, as_of=as_of, window_days=window_days
+    )
 
     if prices_filtered.empty:
-        logger.warning(f"No prices found for last {window_days} sessions, returning empty DataFrame")
+        logger.warning(
+            f"No prices found for last {window_days} sessions, returning empty DataFrame"
+        )
         return pd.DataFrame()
 
     # Compute features for last N sessions
     factors = builder_fn(prices_filtered, **builder_kwargs)
 
-    logger.info(f"Computed features for last {window_days} sessions: {len(factors)} rows")
+    logger.info(
+        f"Computed features for last {window_days} sessions: {len(factors)} rows"
+    )
     return factors

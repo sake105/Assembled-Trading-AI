@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_doc_schema_with_name_alias(tmp_path: Path) -> None:
     """Test that 'name' can be used as alias for 'id'."""
     import sys
+
     sys.path.insert(0, str(ROOT))
 
     from scripts.batch_runner import load_batch_config
@@ -42,6 +43,7 @@ runs:
 def test_doc_schema_with_params(tmp_path: Path) -> None:
     """Test that params dict is accepted and included in run config."""
     import sys
+
     sys.path.insert(0, str(ROOT))
 
     from scripts.batch_runner import load_batch_config
@@ -77,6 +79,7 @@ runs:
 def test_run_id_changes_with_params(tmp_path: Path) -> None:
     """Test that run_id changes when params change."""
     import sys
+
     sys.path.insert(0, str(ROOT))
 
     from scripts.batch_runner import load_batch_config, _compute_run_id_hash
@@ -132,6 +135,7 @@ runs:
 def test_params_in_args(tmp_path: Path) -> None:
     """Test that params are mapped to CLI flags in args."""
     import sys
+
     sys.path.insert(0, str(ROOT))
 
     from scripts.batch_runner import load_batch_config, build_args_from_run_config
@@ -177,6 +181,7 @@ runs:
 def test_batch_defaults_applied(tmp_path: Path) -> None:
     """Test that batch-level defaults are applied to runs."""
     import sys
+
     sys.path.insert(0, str(ROOT))
 
     from scripts.batch_runner import load_batch_config
@@ -215,6 +220,7 @@ runs:
 def test_params_in_manifest(tmp_path: Path) -> None:
     """Test that params are included in manifest for reproducibility."""
     import sys
+
     sys.path.insert(0, str(ROOT))
 
     from datetime import datetime
@@ -267,4 +273,3 @@ runs:
     assert "params" in manifest, "Manifest should contain params"
     assert "params" in manifest["params"], "Manifest params should contain params dict"
     assert manifest["params"]["params"] == {"ema_fast": 20, "ema_slow": 50}
-

@@ -100,15 +100,21 @@ def _result_dict_for_output(
         "missing_manifest": result.get("missing_manifest", False),
         "bad_paths_count": len(result.get("bad_paths", [])),
         "missing_entries_count": len(result.get("missing_entries", []) or []),
-        "paths_not_in_zip_entries_count": len(result.get("paths_not_in_zip_entries", [])),
+        "paths_not_in_zip_entries_count": len(
+            result.get("paths_not_in_zip_entries", [])
+        ),
         "checksum_mismatches_count": len(result.get("checksum_mismatches", [])),
         "details": details if details is not None else {},
         "tool_version": TOOL_VERSION,
     }
     if zip_path_resolved is not None:
-        out["zip_path_resolved"] = zip_path_resolved.encode("ascii", errors="ignore").decode("ascii")
+        out["zip_path_resolved"] = zip_path_resolved.encode(
+            "ascii", errors="ignore"
+        ).decode("ascii")
     if out.get("source_path") is not None:
-        out["source_path"] = str(out["source_path"]).encode("ascii", errors="ignore").decode("ascii")
+        out["source_path"] = (
+            str(out["source_path"]).encode("ascii", errors="ignore").decode("ascii")
+        )
     return out
 
 
@@ -152,7 +158,13 @@ def main() -> int:
     except FileNotFoundError as exc:
         if json_output:
             out = _result_dict_for_output(
-                {"ok": False, "n_files": 0, "missing_manifest": False, "bad_paths": [], "checksum_mismatches": []},
+                {
+                    "ok": False,
+                    "n_files": 0,
+                    "missing_manifest": False,
+                    "bad_paths": [],
+                    "checksum_mismatches": [],
+                },
                 zip_path_str,
                 error_code=ERROR_CODE_FILE_NOT_FOUND,
                 zip_path_resolved=zip_path_resolved_str,
@@ -160,14 +172,26 @@ def main() -> int:
             print(json.dumps(out, sort_keys=True, indent=2) + "\n", end="")
         else:
             msg = _ascii(str(exc))
-            print(f"ERROR: error_code={ERROR_CODE_FILE_NOT_FOUND} {msg}", file=sys.stderr)
+            print(
+                f"ERROR: error_code={ERROR_CODE_FILE_NOT_FOUND} {msg}", file=sys.stderr
+            )
         return 1
     except ValueError as exc:
         exc_str = str(exc)
-        ec = ERROR_CODE_UNSUPPORTED_SCHEMA if "schema" in exc_str.lower() or "schema_version" in exc_str else ERROR_CODE_UNEXPECTED
+        ec = (
+            ERROR_CODE_UNSUPPORTED_SCHEMA
+            if "schema" in exc_str.lower() or "schema_version" in exc_str
+            else ERROR_CODE_UNEXPECTED
+        )
         if json_output:
             out = _result_dict_for_output(
-                {"ok": False, "n_files": 0, "missing_manifest": False, "bad_paths": [], "checksum_mismatches": []},
+                {
+                    "ok": False,
+                    "n_files": 0,
+                    "missing_manifest": False,
+                    "bad_paths": [],
+                    "checksum_mismatches": [],
+                },
                 zip_path_str,
                 error_code=ec,
                 zip_path_resolved=zip_path_resolved_str,
@@ -180,7 +204,13 @@ def main() -> int:
     except Exception as exc:
         if json_output:
             out = _result_dict_for_output(
-                {"ok": False, "n_files": 0, "missing_manifest": False, "bad_paths": [], "checksum_mismatches": []},
+                {
+                    "ok": False,
+                    "n_files": 0,
+                    "missing_manifest": False,
+                    "bad_paths": [],
+                    "checksum_mismatches": [],
+                },
                 zip_path_str,
                 error_code=ERROR_CODE_UNEXPECTED,
                 zip_path_resolved=zip_path_resolved_str,
@@ -191,7 +221,9 @@ def main() -> int:
             print(f"ERROR: error_code={ERROR_CODE_UNEXPECTED} {msg}", file=sys.stderr)
         return 1
 
-    out = _result_dict_for_output(result, zip_path_str, zip_path_resolved=zip_path_resolved_str)
+    out = _result_dict_for_output(
+        result, zip_path_str, zip_path_resolved=zip_path_resolved_str
+    )
 
     if json_output:
         json_str = json.dumps(out, sort_keys=True, indent=2) + "\n"

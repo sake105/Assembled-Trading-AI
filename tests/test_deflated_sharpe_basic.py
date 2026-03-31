@@ -110,13 +110,19 @@ def test_compute_deflated_sharpe_with_skew_kurt():
     n_trials = 20
 
     # Normal distribution (skew=0, kurt=3)
-    ds_normal = compute_deflated_sharpe(sharpe, n_obs, n_trials=n_trials, skew=0.0, kurt=3.0)
+    ds_normal = compute_deflated_sharpe(
+        sharpe, n_obs, n_trials=n_trials, skew=0.0, kurt=3.0
+    )
 
     # Skewed distribution
-    ds_skewed = compute_deflated_sharpe(sharpe, n_obs, n_trials=n_trials, skew=1.0, kurt=3.0)
+    ds_skewed = compute_deflated_sharpe(
+        sharpe, n_obs, n_trials=n_trials, skew=1.0, kurt=3.0
+    )
 
     # High kurtosis
-    ds_high_kurt = compute_deflated_sharpe(sharpe, n_obs, n_trials=n_trials, skew=0.0, kurt=5.0)
+    ds_high_kurt = compute_deflated_sharpe(
+        sharpe, n_obs, n_trials=n_trials, skew=0.0, kurt=5.0
+    )
 
     # All should be valid
     assert ds_normal is not None

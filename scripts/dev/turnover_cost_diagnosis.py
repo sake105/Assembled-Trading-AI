@@ -6,6 +6,7 @@ Usage:
 
 Prints: status counts, total_cost_cash sum, gross_traded_notional, cost_bps_est.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -15,7 +16,9 @@ from pathlib import Path
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Turnover/cost diagnosis from run dir")
-    ap.add_argument("--run", type=Path, required=True, help="Run directory (contains trades_1d.csv)")
+    ap.add_argument(
+        "--run", type=Path, required=True, help="Run directory (contains trades_1d.csv)"
+    )
     args = ap.parse_args()
     run = args.run.resolve()
     tr_path = run / "trades_1d.csv"
@@ -37,7 +40,10 @@ def main() -> int:
         print("cost_bps_est=N/A")
         return 0
     cost_sum = sum(float(r.get("total_cost_cash") or 0) for r in filled)
-    turn = sum(abs(float(r.get("fill_qty") or 0) * float(r.get("fill_price") or 0)) for r in filled)
+    turn = sum(
+        abs(float(r.get("fill_qty") or 0) * float(r.get("fill_price") or 0))
+        for r in filled
+    )
     print(f"total_cost_cash_sum={cost_sum}")
     print(f"gross_traded_notional={turn}")
     if turn and turn > 0:

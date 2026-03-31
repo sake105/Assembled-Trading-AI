@@ -17,10 +17,12 @@ Main modules:
 
 from __future__ import annotations
 
+
 def _get_version() -> str:
     """Read version from installed package metadata (pyproject.toml project.version). ASCII-only fallback."""
     try:
         from importlib.metadata import version
+
         v = version("assembled-trading-core")
         if v and isinstance(v, str):
             return v.encode("ascii", errors="ignore").decode("ascii") or "0.0.0+unknown"

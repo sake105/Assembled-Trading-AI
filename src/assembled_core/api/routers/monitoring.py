@@ -102,14 +102,16 @@ def get_qa_status_summary(
                 return QAStatusSummary(
                     overall_result=overall_result,
                     gate_counts=gate_counts,
-                    key_metrics=key_metrics
-                    if key_metrics
-                    else {
-                        "sharpe_ratio": None,
-                        "max_drawdown_pct": None,
-                        "total_return": None,
-                        "cagr": None,
-                    },
+                    key_metrics=(
+                        key_metrics
+                        if key_metrics
+                        else {
+                            "sharpe_ratio": None,
+                            "max_drawdown_pct": None,
+                            "total_return": None,
+                            "cagr": None,
+                        }
+                    ),
                     last_updated=last_updated,
                 )
             except Exception as e:

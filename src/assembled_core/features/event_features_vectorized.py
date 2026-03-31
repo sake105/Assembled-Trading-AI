@@ -114,12 +114,20 @@ def build_event_feature_panel_vectorized(
         )
 
         # Assign features back to result
-        result.loc[symbol_mask, f"{feature_prefix}_count_{lookback_days}d"] = features["count"].values
-        result.loc[symbol_mask, f"{feature_prefix}_sum_{lookback_days}d"] = features["sum"].values
-        result.loc[symbol_mask, f"{feature_prefix}_mean_{lookback_days}d"] = features["mean"].values
+        result.loc[symbol_mask, f"{feature_prefix}_count_{lookback_days}d"] = features[
+            "count"
+        ].values
+        result.loc[symbol_mask, f"{feature_prefix}_sum_{lookback_days}d"] = features[
+            "sum"
+        ].values
+        result.loc[symbol_mask, f"{feature_prefix}_mean_{lookback_days}d"] = features[
+            "mean"
+        ].values
 
     # Final deterministic sort (same as legacy)
-    result = result.sort_values(["symbol", "timestamp"], kind="mergesort").reset_index(drop=True)
+    result = result.sort_values(["symbol", "timestamp"], kind="mergesort").reset_index(
+        drop=True
+    )
 
     return result
 
@@ -139,27 +147,45 @@ def _compute_features_for_symbol_vectorized(
     - Uses cumulative counting via merge_asof for O(N log N) performance
     """
     # Normalize timestamps (same as legacy: price_time.normalize())
-    prices_sorted = prices_group.sort_values("timestamp", kind="mergesort").reset_index(drop=True)
+    prices_sorted = prices_group.sort_values("timestamp", kind="mergesort").reset_index(
+        drop=True
+    )
     prices_sorted["timestamp_normalized"] = prices_sorted["timestamp"].dt.normalize()
     prices_sorted["_row_id"] = range(len(prices_sorted))
 
     # Prepare events: normalize disclosure_date and sort
     events_sorted = events.copy()
-    events_sorted["disclosure_date_normalized"] = events_sorted["disclosure_date"].dt.normalize()
-    events_sorted = events_sorted.sort_values("disclosure_date_normalized", kind="mergesort").reset_index(drop=True)
+    events_sorted["disclosure_date_normalized"] = events_sorted[
+        "disclosure_date"
+    ].dt.normalize()
+    events_sorted = events_sorted.sort_values(
+        "disclosure_date_normalized", kind="mergesort"
+    ).reset_index(drop=True)
 
     # Build cumulative counts/sums per disclosure_date
     # Group by disclosure_date to handle multiple events on same day
     if value_col and value_col in events_sorted.columns:
-        events_cum = events_sorted.groupby("disclosure_date_normalized", sort=False).agg({
-            "disclosure_date": "count",  # Count events per day
-            value_col: "sum",  # Sum of values per day
-        }).reset_index()
+        events_cum = (
+            events_sorted.groupby("disclosure_date_normalized", sort=False)
+            .agg(
+                {
+                    "disclosure_date": "count",  # Count events per day
+                    value_col: "sum",  # Sum of values per day
+                }
+            )
+            .reset_index()
+        )
         events_cum.columns = ["disclosure_date_normalized", "event_count", "value_sum"]
     else:
-        events_cum = events_sorted.groupby("disclosure_date_normalized", sort=False).agg({
-            "disclosure_date": "count",
-        }).reset_index()
+        events_cum = (
+            events_sorted.groupby("disclosure_date_normalized", sort=False)
+            .agg(
+                {
+                    "disclosure_date": "count",
+                }
+            )
+            .reset_index()
+        )
         events_cum.columns = ["disclosure_date_normalized", "event_count"]
         events_cum["value_sum"] = 0.0
 
@@ -180,7 +206,9 @@ def _compute_features_for_symbol_vectorized(
 
     # For window start (price_time - lookback_days), find cumulative count/sum
     # Legacy uses strict >, so we need events <= (timestamp - lookback_days)
-    prices_sorted["window_start"] = prices_sorted["timestamp_normalized"] - pd.Timedelta(days=lookback_days)
+    prices_sorted["window_start"] = prices_sorted[
+        "timestamp_normalized"
+    ] - pd.Timedelta(days=lookback_days)
     merged_at_start = pd.merge_asof(
         prices_sorted[["window_start", "_row_id"]],
         events_cum[["disclosure_date_normalized", "cum_count", "cum_sum"]],
@@ -192,11 +220,19 @@ def _compute_features_for_symbol_vectorized(
 
     # Compute window features: cum_at_t - cum_at_start
     # Handle NaNs (no events before timestamp or window_start)
-    features = pd.DataFrame({
-        "_row_id": prices_sorted["_row_id"],
-        "count": (merged_at_t["cum_count"].fillna(0) - merged_at_start["cum_count"].fillna(0)).astype(int),
-        "sum": (merged_at_t["cum_sum"].fillna(0.0) - merged_at_start["cum_sum"].fillna(0.0)),
-    })
+    features = pd.DataFrame(
+        {
+            "_row_id": prices_sorted["_row_id"],
+            "count": (
+                merged_at_t["cum_count"].fillna(0)
+                - merged_at_start["cum_count"].fillna(0)
+            ).astype(int),
+            "sum": (
+                merged_at_t["cum_sum"].fillna(0.0)
+                - merged_at_start["cum_sum"].fillna(0.0)
+            ),
+        }
+    )
 
     # Compute mean: sum / count (if count > 0)
     # Legacy computes mean from window_events[value_col].mean()
@@ -294,7 +330,9 @@ def add_disclosure_count_feature_vectorized(
         result.loc[symbol_mask, out_col] = counts.values
 
     # Final deterministic sort (same as legacy)
-    result = result.sort_values(["symbol", "timestamp"], kind="mergesort").reset_index(drop=True)
+    result = result.sort_values(["symbol", "timestamp"], kind="mergesort").reset_index(
+        drop=True
+    )
 
     return result
 
@@ -313,14 +351,20 @@ def _compute_count_for_symbol_vectorized(
     - Uses cumulative counting via merge_asof for O(N log N) performance
     """
     # Normalize timestamps (same as legacy: price_time.normalize())
-    prices_sorted = prices_group.sort_values("timestamp", kind="mergesort").reset_index(drop=True)
+    prices_sorted = prices_group.sort_values("timestamp", kind="mergesort").reset_index(
+        drop=True
+    )
     prices_sorted["timestamp_normalized"] = prices_sorted["timestamp"].dt.normalize()
     prices_sorted["_row_id"] = range(len(prices_sorted))
 
     # Prepare events: normalize disclosure_date and sort
     events_sorted = events.copy()
-    events_sorted["disclosure_date_normalized"] = events_sorted["disclosure_date"].dt.normalize()
-    events_sorted = events_sorted.sort_values("disclosure_date_normalized", kind="mergesort").reset_index(drop=True)
+    events_sorted["disclosure_date_normalized"] = events_sorted[
+        "disclosure_date"
+    ].dt.normalize()
+    events_sorted = events_sorted.sort_values(
+        "disclosure_date_normalized", kind="mergesort"
+    ).reset_index(drop=True)
 
     # If as_of is None, we need per-row PIT filtering
     # This means we can't pre-filter events globally
@@ -329,9 +373,15 @@ def _compute_count_for_symbol_vectorized(
     # So we just need to ensure events are sorted and use merge_asof correctly
 
     # Build cumulative counts per disclosure_date
-    events_cum = events_sorted.groupby("disclosure_date_normalized", sort=False).agg({
-        "disclosure_date": "count",
-    }).reset_index()
+    events_cum = (
+        events_sorted.groupby("disclosure_date_normalized", sort=False)
+        .agg(
+            {
+                "disclosure_date": "count",
+            }
+        )
+        .reset_index()
+    )
     events_cum.columns = ["disclosure_date_normalized", "event_count"]
 
     # Compute cumulative sum
@@ -351,7 +401,9 @@ def _compute_count_for_symbol_vectorized(
 
     # For window start (price_time - window_days), find cumulative count
     # Legacy uses strict >, so we need events <= (timestamp - window_days)
-    prices_sorted["window_start"] = prices_sorted["timestamp_normalized"] - pd.Timedelta(days=window_days)
+    prices_sorted["window_start"] = prices_sorted[
+        "timestamp_normalized"
+    ] - pd.Timedelta(days=window_days)
     merged_at_start = pd.merge_asof(
         prices_sorted[["window_start", "_row_id"]],
         events_cum[["disclosure_date_normalized", "cum_count"]],
@@ -362,16 +414,22 @@ def _compute_count_for_symbol_vectorized(
     )
 
     # Compute window count: cum_at_t - cum_at_start
-    counts = (merged_at_t["cum_count"].fillna(0) - merged_at_start["cum_count"].fillna(0)).astype(int)
+    counts = (
+        merged_at_t["cum_count"].fillna(0) - merged_at_start["cum_count"].fillna(0)
+    ).astype(int)
 
     # Ensure count >= 0
     counts = counts.clip(lower=0)
 
     # Restore original order via _row_id
-    counts_df = pd.DataFrame({
-        "_row_id": prices_sorted["_row_id"],
-        "count": counts,
-    })
-    counts_df = counts_df.sort_values("_row_id", kind="mergesort").reset_index(drop=True)
+    counts_df = pd.DataFrame(
+        {
+            "_row_id": prices_sorted["_row_id"],
+            "count": counts,
+        }
+    )
+    counts_df = counts_df.sort_values("_row_id", kind="mergesort").reset_index(
+        drop=True
+    )
 
     return counts_df["count"]

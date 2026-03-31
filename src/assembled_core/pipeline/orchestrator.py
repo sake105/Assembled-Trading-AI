@@ -539,7 +539,9 @@ def run_eod_pipeline(
                             if line and not line.startswith("#"):
                                 symbols.append(line.upper())
                 except (IOError, OSError) as exc:
-                    logger.warning(f"Failed to read watchlist file {settings.watchlist_file}: {exc}. Using default universe.")
+                    logger.warning(
+                        f"Failed to read watchlist file {settings.watchlist_file}: {exc}. Using default universe."
+                    )
                     symbols = settings.default_universe
                 if not symbols:
                     symbols = settings.default_universe
@@ -637,10 +639,16 @@ def run_eod_pipeline(
 
     # Step 4b: Ledger/Accounting (Sprint 13 L5)
     ledger_result = None
-    if not skip_portfolio and portfolio_trades_df is not None and not portfolio_trades_df.empty:
+    if (
+        not skip_portfolio
+        and portfolio_trades_df is not None
+        and not portfolio_trades_df.empty
+    ):
         try:
             logger.info("Step 4b: Ledger/Accounting")
-            from src.assembled_core.accounting.ledger_integration import build_ledger_from_trades
+            from src.assembled_core.accounting.ledger_integration import (
+                build_ledger_from_trades,
+            )
 
             # Generate run_id from timestamp
             run_id = f"run_{started_at.strftime('%Y%m%d_%H%M%S')}"
@@ -656,19 +664,30 @@ def run_eod_pipeline(
                 logger.warning("Could not load prices for unrealized PnL calculation")
 
             # Default: use run_id as snapshot namespace unless explicitly overridden
-            snapshot_run_id = broker_snapshot_run_id if broker_snapshot_run_id is not None else run_id
+            snapshot_run_id = (
+                broker_snapshot_run_id if broker_snapshot_run_id is not None else run_id
+            )
 
             # Step 4b.1: Import external broker snapshot if provided
             if broker_snapshot_file:
                 try:
-                    logger.info(f"Importing external broker snapshot from: {broker_snapshot_file}")
-                    from src.assembled_core.accounting.broker_snapshot_importer import import_broker_snapshot
+                    logger.info(
+                        f"Importing external broker snapshot from: {broker_snapshot_file}"
+                    )
+                    from src.assembled_core.accounting.broker_snapshot_importer import (
+                        import_broker_snapshot,
+                    )
 
                     # Determine snapshot date (use provided date, or last trade date, or today)
                     snapshot_date = broker_snapshot_date
                     if snapshot_date is None:
-                        if not portfolio_trades_df.empty and "timestamp" in portfolio_trades_df.columns:
-                            snapshot_date = pd.to_datetime(portfolio_trades_df["timestamp"].max(), utc=True)
+                        if (
+                            not portfolio_trades_df.empty
+                            and "timestamp" in portfolio_trades_df.columns
+                        ):
+                            snapshot_date = pd.to_datetime(
+                                portfolio_trades_df["timestamp"].max(), utc=True
+                            )
                         else:
                             snapshot_date = pd.Timestamp.utcnow()
                     else:
@@ -688,7 +707,9 @@ def run_eod_pipeline(
                         f"cash={import_result['cash']}"
                     )
                 except Exception as e:
-                    logger.error(f"Failed to import broker snapshot: {e}", exc_info=True)
+                    logger.error(
+                        f"Failed to import broker snapshot: {e}", exc_info=True
+                    )
                     # If policy is require, we should fail here
                     if broker_snapshot_policy == "require":
                         raise ValueError(
@@ -939,11 +960,13 @@ def run_eod_pipeline(
         "qa_overall_status": qa_result["overall_status"] if qa_result else None,
         "qa_checks": qa_result["checks"] if qa_result else [],
         "qa_metrics": _metrics_to_dict(qa_metrics) if qa_metrics else None,
-        "qa_gate_result": _gate_result_to_dict(qa_gate_result)
-        if qa_gate_result
-        else None,
+        "qa_gate_result": (
+            _gate_result_to_dict(qa_gate_result) if qa_gate_result else None
+        ),
         "qa_report_path": (
-            _manifest_path_str(qa_report_path_rel, base_dir=base) if qa_report_path_rel else None
+            _manifest_path_str(qa_report_path_rel, base_dir=base)
+            if qa_report_path_rel
+            else None
         ),
         # Sprint 12: Robustness Pack fields (backward compatible: None if not run)
         "robustness_pack_path": None,
@@ -961,12 +984,16 @@ def run_eod_pipeline(
             else None
         ),
         "reconcile_report_path": (
-            _manifest_path_str(ledger_result.get("reconcile_report_path"), base_dir=base)
+            _manifest_path_str(
+                ledger_result.get("reconcile_report_path"), base_dir=base
+            )
             if ledger_result
             else None
         ),
         "accounting_report_path": (
-            _manifest_path_str(ledger_result.get("accounting_report_path"), base_dir=base)
+            _manifest_path_str(
+                ledger_result.get("accounting_report_path"), base_dir=base
+            )
             if ledger_result
             else None
         ),
@@ -981,7 +1008,9 @@ def run_eod_pipeline(
             else None
         ),
         "evidence_pack_manifest_path": (
-            _manifest_path_str(ledger_result.get("evidence_pack_manifest_path"), base_dir=base)
+            _manifest_path_str(
+                ledger_result.get("evidence_pack_manifest_path"), base_dir=base
+            )
             if ledger_result
             else None
         ),
@@ -990,7 +1019,9 @@ def run_eod_pipeline(
             if ledger_result
             else None
         ),
-        "reconciliation_ok": ledger_result["reconciliation_ok"] if ledger_result else None,
+        "reconciliation_ok": (
+            ledger_result["reconciliation_ok"] if ledger_result else None
+        ),
         "timestamps": {
             "started": started_at.isoformat(),
             "finished": finished_at.isoformat(),
@@ -1018,7 +1049,9 @@ def run_eod_pipeline(
         raise RuntimeError(f"Failed to write manifest to {manifest_path}") from exc
     except (TypeError, ValueError) as exc:
         logger.error("Failed to serialize manifest to JSON: %s", exc)
-        raise ValueError(f"Failed to serialize manifest to JSON: {manifest_path}") from exc
+        raise ValueError(
+            f"Failed to serialize manifest to JSON: {manifest_path}"
+        ) from exc
 
     logger.info(f"Manifest written: {manifest_path}")
 

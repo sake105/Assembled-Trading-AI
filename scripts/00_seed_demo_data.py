@@ -67,7 +67,7 @@ for sym, g in rawu.groupby("symbol"):
     g = g.set_index("timestamp").sort_index()
     o = g["open"].resample("5min").first()
     h = g["high"].resample("5min").max()
-    l = g["low"].resample("5min").min()
+    low = g["low"].resample("5min").min()
     c = g["close"].resample("5min").last()
     v = g["volume"].resample("5min").sum()
     out = pd.DataFrame(
@@ -76,7 +76,7 @@ for sym, g in rawu.groupby("symbol"):
             "symbol": sym,
             "open": o.values,
             "high": h.values,
-            "low": l.values,
+            "low": low.values,
             "close": c.values,
             "volume": v.values,
         }

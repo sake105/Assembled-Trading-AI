@@ -144,4 +144,3 @@ output:
     assert config.freq == "1d"
     assert config.seed_capital == 100000.0
     assert config.output_format == "csv"
-

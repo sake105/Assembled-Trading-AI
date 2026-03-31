@@ -25,10 +25,15 @@ def test_run_real_intel_once_calls_news_pipeline(tmp_path, monkeypatch):
         captured["output_dir"] = str(output_dir)
 
         from src.assembled_core.events.news.models import NewsHealth
+
         health = NewsHealth(
-            status="OK", fetched_utc="2025-01-01T00:00:00Z",
-            sources_total=2, sources_ok=2, sources_failed=0,
-            items_raw=10, items_after_dedupe=10,
+            status="OK",
+            fetched_utc="2025-01-01T00:00:00Z",
+            sources_total=2,
+            sources_ok=2,
+            sources_failed=0,
+            items_raw=10,
+            items_after_dedupe=10,
         )
         return {"events": [], "health": health}
 
@@ -48,6 +53,7 @@ def test_run_real_intel_once_calls_news_pipeline(tmp_path, monkeypatch):
 
 def test_run_real_intel_once_handles_failure(tmp_path, monkeypatch):
     """NEWS pipeline failure is caught and returns ERROR."""
+
     def failing_pipeline(**kwargs):
         raise RuntimeError("simulated failure")
 
@@ -100,10 +106,20 @@ def test_compute_news_geo_from_triggers(tmp_path):
         "schema_version": "news.triggers.v1",
         "count": 2,
         "items": [
-            {"trigger_id": "trg_1", "topic_id": "geo_risk", "severity": 3,
-             "confidence": 0.85, "sample_title": "War escalates"},
-            {"trigger_id": "trg_2", "topic_id": "shipping", "severity": 2,
-             "confidence": 0.6, "sample_title": "Shipping disruption"},
+            {
+                "trigger_id": "trg_1",
+                "topic_id": "geo_risk",
+                "severity": 3,
+                "confidence": 0.85,
+                "sample_title": "War escalates",
+            },
+            {
+                "trigger_id": "trg_2",
+                "topic_id": "shipping",
+                "severity": 2,
+                "confidence": 0.6,
+                "sample_title": "Shipping disruption",
+            },
         ],
     }
     (news_dir / "triggers_latest.json").write_text(json.dumps(triggers))
@@ -131,8 +147,15 @@ def test_compute_news_geo_low_severity(tmp_path):
     triggers = {
         "schema_version": "news.triggers.v1",
         "count": 1,
-        "items": [{"severity": 1, "confidence": 0.4, "trigger_id": "t1",
-                    "topic_id": "macro", "sample_title": "Rate cut"}],
+        "items": [
+            {
+                "severity": 1,
+                "confidence": 0.4,
+                "trigger_id": "t1",
+                "topic_id": "macro",
+                "sample_title": "Rate cut",
+            }
+        ],
     }
     (news_dir / "triggers_latest.json").write_text(json.dumps(triggers))
 
@@ -145,9 +168,24 @@ def test_build_intel_summary_schema():
     """Intel summary has required schema fields."""
     summary = build_intel_summary(
         intel_orchestration={"mode": "real", "news": {"ran": True, "status": "OK"}},
-        news_triggers_summary={"count": 5, "max_severity": 2, "sev1plus": 5, "sev2plus": 3},
-        disclosures_triggers_summary={"count": 0, "max_severity": 0, "sev1plus": 0, "sev2plus": 0},
-        news_geo={"geo_score": 2, "geo_confidence": 0.6, "state_hint": "ACTIVE", "top_triggers": []},
+        news_triggers_summary={
+            "count": 5,
+            "max_severity": 2,
+            "sev1plus": 5,
+            "sev2plus": 3,
+        },
+        disclosures_triggers_summary={
+            "count": 0,
+            "max_severity": 0,
+            "sev1plus": 0,
+            "sev2plus": 0,
+        },
+        news_geo={
+            "geo_score": 2,
+            "geo_confidence": 0.6,
+            "state_hint": "ACTIVE",
+            "top_triggers": [],
+        },
     )
     assert summary["schema_version"] == "paper.intel_summary.v1"
     assert "generated_utc" in summary
@@ -164,11 +202,24 @@ def test_runner_writes_intel_summary_with_real_mode(tmp_path, monkeypatch):
         call_log.append("intel_called")
         news_dir = output_dir / "intel" / "news"
         news_dir.mkdir(parents=True, exist_ok=True)
-        triggers = {"schema_version": "news.triggers.v1", "count": 1,
-                     "items": [{"severity": 2, "confidence": 0.5, "trigger_id": "t1",
-                                "topic_id": "shipping_disruption", "sample_title": "Test"}]}
+        triggers = {
+            "schema_version": "news.triggers.v1",
+            "count": 1,
+            "items": [
+                {
+                    "severity": 2,
+                    "confidence": 0.5,
+                    "trigger_id": "t1",
+                    "topic_id": "shipping_disruption",
+                    "sample_title": "Test",
+                }
+            ],
+        }
         (news_dir / "triggers_latest.json").write_text(json.dumps(triggers))
-        return {"news": {"ran": True, "status": "OK"}, "disclosures": {"ran": False, "status": "SKIPPED"}}
+        return {
+            "news": {"ran": True, "status": "OK"},
+            "disclosures": {"ran": False, "status": "SKIPPED"},
+        }
 
     monkeypatch.setattr(
         "src.assembled_core.paper.intel_runner.run_real_intel_once",

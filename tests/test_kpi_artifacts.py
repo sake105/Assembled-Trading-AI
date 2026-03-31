@@ -88,7 +88,9 @@ def test_run_kpis_contains_news_and_disclosures_trigger_summaries(tmp_path) -> N
     assert path.exists()
     data = json.loads(path.read_text(encoding="utf-8"))
     assert data.get("news_triggers_summary") == meta["news_triggers_summary"]
-    assert data.get("disclosures_triggers_summary") == meta["disclosures_triggers_summary"]
+    assert (
+        data.get("disclosures_triggers_summary") == meta["disclosures_triggers_summary"]
+    )
 
 
 def test_run_kpis_includes_news_debug_funnel(tmp_path) -> None:
@@ -131,4 +133,3 @@ def test_shadow_mode_does_not_execute_orders() -> None:
     # shadow mode does not call any external fill/ledger simulation.
     out = maybe_execute_orders("shadow", orders)
     pd.testing.assert_frame_equal(out, orders)
-

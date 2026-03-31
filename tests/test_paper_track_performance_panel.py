@@ -70,6 +70,3 @@ def test_compute_paper_performance_panel_sharpe_and_dsr() -> None:
     # DSR may be NaN for edge cases, but normally should be finite here
     if last["deflated_sharpe"] is not None:
         assert np.isfinite(last["deflated_sharpe"])
-
-
-

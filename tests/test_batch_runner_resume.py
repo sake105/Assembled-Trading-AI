@@ -13,9 +13,14 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_load_existing_manifest(tmp_path: Path) -> None:
     """Test loading an existing manifest."""
     import sys
+
     sys.path.insert(0, str(ROOT))
 
-    from scripts.batch_runner import RunConfig, load_existing_manifest, write_run_manifest
+    from scripts.batch_runner import (
+        RunConfig,
+        load_existing_manifest,
+        write_run_manifest,
+    )
 
     run_output_dir = tmp_path / "run1"
     run_output_dir.mkdir(parents=True)
@@ -57,6 +62,7 @@ def test_load_existing_manifest(tmp_path: Path) -> None:
 def test_load_existing_manifest_not_found(tmp_path: Path) -> None:
     """Test loading manifest when it doesn't exist."""
     import sys
+
     sys.path.insert(0, str(ROOT))
 
     from scripts.batch_runner import load_existing_manifest
@@ -72,6 +78,7 @@ def test_load_existing_manifest_not_found(tmp_path: Path) -> None:
 def test_resume_skip_successful_run(tmp_path: Path) -> None:
     """Test that resume skips successful runs."""
     import sys
+
     sys.path.insert(0, str(ROOT))
 
     from scripts.batch_runner import BatchConfig, RunConfig, run_batch
@@ -98,6 +105,7 @@ def test_resume_skip_successful_run(tmp_path: Path) -> None:
 
     # Write a successful manifest
     from scripts.batch_runner import write_run_manifest
+
     started_at = datetime.utcnow()
     finished_at = datetime.utcnow()
 
@@ -121,6 +129,7 @@ def test_resume_skip_successful_run(tmp_path: Path) -> None:
 def test_resume_skip_failed_run(tmp_path: Path) -> None:
     """Test that resume skips failed runs by default."""
     import sys
+
     sys.path.insert(0, str(ROOT))
 
     from scripts.batch_runner import BatchConfig, RunConfig, run_batch
@@ -147,6 +156,7 @@ def test_resume_skip_failed_run(tmp_path: Path) -> None:
 
     # Write a failed manifest
     from scripts.batch_runner import write_run_manifest
+
     started_at = datetime.utcnow()
     finished_at = datetime.utcnow()
 
@@ -164,7 +174,9 @@ def test_resume_skip_failed_run(tmp_path: Path) -> None:
     )
 
     # Run with resume (without rerun-failed) - should skip failed
-    exit_code = run_batch(batch_cfg, max_workers=1, dry_run=False, resume=True, rerun_failed=False)
+    exit_code = run_batch(
+        batch_cfg, max_workers=1, dry_run=False, resume=True, rerun_failed=False
+    )
     # Exit code should be 1 (because run is still failed, even if skipped)
     assert exit_code == 1
 
@@ -172,6 +184,7 @@ def test_resume_skip_failed_run(tmp_path: Path) -> None:
 def test_resume_rerun_failed(tmp_path: Path) -> None:
     """Test that --rerun-failed reruns failed runs."""
     import sys
+
     sys.path.insert(0, str(ROOT))
 
     from scripts.batch_runner import BatchConfig, RunConfig, run_single_backtest
@@ -198,6 +211,7 @@ def test_resume_rerun_failed(tmp_path: Path) -> None:
 
     # Write a failed manifest
     from scripts.batch_runner import write_run_manifest
+
     started_at = datetime.utcnow()
     finished_at = datetime.utcnow()
 
@@ -233,6 +247,7 @@ def test_resume_rerun_failed(tmp_path: Path) -> None:
 def test_resume_no_manifest_runs_normally(tmp_path: Path) -> None:
     """Test that resume doesn't affect runs without existing manifest."""
     import sys
+
     sys.path.insert(0, str(ROOT))
 
     from scripts.batch_runner import RunConfig, run_single_backtest
@@ -266,6 +281,7 @@ def test_resume_no_manifest_runs_normally(tmp_path: Path) -> None:
 def test_manifest_contains_required_fields(tmp_path: Path) -> None:
     """Test that manifest contains required fields for resume functionality."""
     import sys
+
     sys.path.insert(0, str(ROOT))
 
     from scripts.batch_runner import RunConfig, write_run_manifest
@@ -312,4 +328,3 @@ def test_manifest_contains_required_fields(tmp_path: Path) -> None:
     assert "error" in manifest
     assert manifest["status"] == "failed"
     assert manifest["error"] == "Test error message"
-

@@ -33,27 +33,35 @@ from src.assembled_core.execution.pre_trade_checks import (
 def test_max_weight_reduces_buy_order() -> None:
     """Test that max_weight_per_symbol reduces BUY order based on post-trade exposure."""
     # Setup: Current positions (below limit)
-    current_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [5.0],  # 5 shares @ 150 = 750 (7.5% of 10000 equity, below 10% limit)
-    })
+    current_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [
+                5.0
+            ],  # 5 shares @ 150 = 750 (7.5% of 10000 equity, below 10% limit)
+        }
+    )
 
     # Prices
-    prices_latest = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "close": [150.0],
-    })
+    prices_latest = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "close": [150.0],
+        }
+    )
 
     # Equity
     equity = 10000.0
 
     # Generate orders: BUY 10 more AAPL → would be 15 shares @ 150 = 2250 (22.5% of equity, exceeds 10% limit)
-    orders = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "side": ["BUY"],
-        "qty": [10.0],
-        "price": [150.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "side": ["BUY"],
+            "qty": [10.0],
+            "price": [150.0],
+        }
+    )
 
     # Config: max_weight_per_symbol = 10% (1000 notional max)
     config = PreTradeConfig(max_weight_per_symbol=0.10)
@@ -76,12 +84,15 @@ def test_max_weight_reduces_buy_order() -> None:
     assert len(filtered) == 1, "Order should remain (reduced, not blocked)"
     assert filtered["qty"].iloc[0] < 10.0, "Order qty should be reduced"
     assert filtered["qty"].iloc[0] > 0.0, "Order qty should be positive"
-    assert abs(filtered["qty"].iloc[0] - 1.67) < 0.1, "Order qty should be reduced to ~1.67"
+    assert (
+        abs(filtered["qty"].iloc[0] - 1.67) < 0.1
+    ), "Order qty should be reduced to ~1.67"
 
     # Verify reduction reason
     assert len(result.reduced_orders) > 0, "Should have reduction reasons"
     assert any(
-        r["reason"] == "RISK_REDUCE_MAX_WEIGHT_PER_SYMBOL" for r in result.reduced_orders
+        r["reason"] == "RISK_REDUCE_MAX_WEIGHT_PER_SYMBOL"
+        for r in result.reduced_orders
     ), "Should have RISK_REDUCE_MAX_WEIGHT_PER_SYMBOL reason"
 
     # Verify deterministic: run twice, get same result
@@ -100,9 +111,9 @@ def test_max_weight_reduces_buy_order() -> None:
         check_dtype=False,
     )
     assert (
-        filtered.sort_values("symbol").reset_index(drop=True).equals(
-            filtered2.sort_values("symbol").reset_index(drop=True)
-        )
+        filtered.sort_values("symbol")
+        .reset_index(drop=True)
+        .equals(filtered2.sort_values("symbol").reset_index(drop=True))
     ), "Results should be deterministic"
 
 
@@ -119,12 +130,14 @@ def test_turnover_reduces_portfolio_wide() -> None:
     # MSFT: 50 @ 200 = 10000
     # GOOGL: 10 @ 2500 = 25000
     # Total notional = 50000, turnover = 50000/10000 = 5.0 (500%)
-    orders = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "GOOGL"],
-        "side": ["BUY", "BUY", "BUY"],
-        "qty": [100.0, 50.0, 10.0],
-        "price": [150.0, 200.0, 2500.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "GOOGL"],
+            "side": ["BUY", "BUY", "BUY"],
+            "qty": [100.0, 50.0, 10.0],
+            "price": [150.0, 200.0, 2500.0],
+        }
+    )
 
     # Config: turnover_cap = 0.5 (50%)
     config = PreTradeConfig(turnover_cap=0.5)
@@ -177,12 +190,14 @@ def test_drawdown_derisk_scales_or_blocks() -> None:
     peak_equity = 10000.0
 
     # Generate orders
-    orders = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "side": ["BUY"],
-        "qty": [100.0],
-        "price": [150.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "side": ["BUY"],
+            "qty": [100.0],
+            "price": [150.0],
+        }
+    )
 
     # Config: drawdown_threshold = 20%, de_risk_scale = 0.25 (25% of original)
     config = PreTradeConfig(drawdown_threshold=0.2, de_risk_scale=0.25)
@@ -205,8 +220,12 @@ def test_drawdown_derisk_scales_or_blocks() -> None:
 
     # Verify reduction reason
     assert len(result.reduced_orders) == 1, "Should have 1 reduction reason"
-    assert result.reduced_orders[0]["reason"] == "RISK_DERISK_DRAWDOWN", "Should have RISK_DERISK_DRAWDOWN reason"
-    assert abs(result.reduced_orders[0]["explain"]["drawdown"] - 0.3) < 1e-10, "Drawdown should be 0.3"
+    assert (
+        result.reduced_orders[0]["reason"] == "RISK_DERISK_DRAWDOWN"
+    ), "Should have RISK_DERISK_DRAWDOWN reason"
+    assert (
+        abs(result.reduced_orders[0]["explain"]["drawdown"] - 0.3) < 1e-10
+    ), "Drawdown should be 0.3"
 
     # Test full block: de_risk_scale = 0.0
     config_block = PreTradeConfig(drawdown_threshold=0.2, de_risk_scale=0.0)
@@ -221,24 +240,34 @@ def test_drawdown_derisk_scales_or_blocks() -> None:
     )
 
     # Verify: All orders should be blocked
-    assert len(filtered_block) == 0, "All orders should be blocked when de_risk_scale = 0.0"
-    assert len(result_block.reduced_orders) == 1, "Should have 1 reduction reason (dropped)"
-    assert result_block.reduced_orders[0]["new_qty"] == 0.0, "new_qty should be 0.0 (dropped)"
+    assert (
+        len(filtered_block) == 0
+    ), "All orders should be blocked when de_risk_scale = 0.0"
+    assert (
+        len(result_block.reduced_orders) == 1
+    ), "Should have 1 reduction reason (dropped)"
+    assert (
+        result_block.reduced_orders[0]["new_qty"] == 0.0
+    ), "new_qty should be 0.0 (dropped)"
 
 
 def test_rule_order_drawdown_then_max_weight_then_turnover() -> None:
     """Test that rules are applied in correct order: drawdown → max_weight → turnover."""
     # Setup: Current positions
-    current_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [50.0],  # 50 shares @ 150 = 7500 (75% of 10000 equity)
-    })
+    current_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [50.0],  # 50 shares @ 150 = 7500 (75% of 10000 equity)
+        }
+    )
 
     # Prices
-    prices_latest = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "close": [150.0],
-    })
+    prices_latest = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "close": [150.0],
+        }
+    )
 
     # Equity: Current = 7000, Peak = 10000 (drawdown = 30%)
     current_equity = 7000.0
@@ -249,12 +278,14 @@ def test_rule_order_drawdown_then_max_weight_then_turnover() -> None:
     # Original: 50 @ 150 = 7500
     # After order: 100 @ 150 = 15000 (150% of equity, exceeds max_weight)
     # Also: turnover = 50 * 150 = 7500, turnover = 7500/10000 = 0.75 (75%, exceeds cap)
-    orders = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "side": ["BUY"],
-        "qty": [50.0],
-        "price": [150.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "side": ["BUY"],
+            "qty": [50.0],
+            "price": [150.0],
+        }
+    )
 
     # Config: All rules active
     config = PreTradeConfig(
@@ -284,11 +315,15 @@ def test_rule_order_drawdown_then_max_weight_then_turnover() -> None:
     # So drawdown is applied last, which means it scales the already-reduced order from max_weight
 
     # Order is dropped because drawdown scales the already-small order to 0
-    assert len(filtered) == 0, "Order should be dropped (reduced to 0 by drawdown after max_weight)"
+    assert (
+        len(filtered) == 0
+    ), "Order should be dropped (reduced to 0 by drawdown after max_weight)"
 
     # Verify reduction reasons
     reasons = [r["reason"] for r in result.reduced_orders]
-    assert "RISK_REDUCE_MAX_WEIGHT_PER_SYMBOL" in reasons, "Should have max_weight reduction"
+    assert (
+        "RISK_REDUCE_MAX_WEIGHT_PER_SYMBOL" in reasons
+    ), "Should have max_weight reduction"
     # Note: Drawdown is applied after max_weight (Step 6 after Step 4).
     # If max_weight drops the order (qty becomes 0), drawdown won't see it (filtered_orders is empty).
     # This is correct behavior: rules are applied sequentially, and drawdown only applies to remaining orders.
@@ -298,26 +333,32 @@ def test_rule_order_drawdown_then_max_weight_then_turnover() -> None:
 def test_deterministic_behavior_same_inputs() -> None:
     """Test that same inputs always produce same outputs (deterministic)."""
     # Setup
-    current_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [50.0],
-    })
+    current_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [50.0],
+        }
+    )
 
-    prices_latest = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "close": [150.0],
-    })
+    prices_latest = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "close": [150.0],
+        }
+    )
 
     equity = 10000.0
     current_equity = 7000.0
     peak_equity = 10000.0
 
-    orders = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "side": ["BUY"],
-        "qty": [50.0],
-        "price": [150.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "side": ["BUY"],
+            "qty": [50.0],
+            "price": [150.0],
+        }
+    )
 
     config = PreTradeConfig(
         drawdown_threshold=0.2,
@@ -351,8 +392,12 @@ def test_deterministic_behavior_same_inputs() -> None:
             filtered2.sort_values("symbol").reset_index(drop=True),
             check_dtype=False,
         )
-        assert filtered1.sort_values("symbol").reset_index(drop=True).equals(
-            filtered2.sort_values("symbol").reset_index(drop=True)
+        assert (
+            filtered1.sort_values("symbol")
+            .reset_index(drop=True)
+            .equals(filtered2.sort_values("symbol").reset_index(drop=True))
         ), f"Results should be identical (run {i+1})"
 
-        assert result1.reduced_orders == result2.reduced_orders, f"Reduction reasons should be identical (run {i+1})"
+        assert (
+            result1.reduced_orders == result2.reduced_orders
+        ), f"Reduction reasons should be identical (run {i+1})"

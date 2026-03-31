@@ -29,19 +29,25 @@ def test_feature_zero_before_disclosure() -> None:
     """Test that feature is zero before disclosure_date."""
     # Create synthetic prices (10 days, 1 symbol)
     dates = pd.date_range("2024-01-10", periods=10, freq="D", tz="UTC")
-    prices = pd.DataFrame({
-        "timestamp": dates,
-        "symbol": ["AAPL"] * 10,
-        "close": [150.0] * 10,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": dates,
+            "symbol": ["AAPL"] * 10,
+            "close": [150.0] * 10,
+        }
+    )
 
     # Create event with early event_date but late disclosure_date
-    events = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "event_date": pd.to_datetime(["2024-01-05"], utc=True),  # Early
-        "disclosure_date": pd.to_datetime(["2024-01-15"], utc=True),  # Late (after some prices)
-        "effective_date": pd.to_datetime(["2024-01-15"], utc=True),
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2024-01-05"], utc=True),  # Early
+            "disclosure_date": pd.to_datetime(
+                ["2024-01-15"], utc=True
+            ),  # Late (after some prices)
+            "effective_date": pd.to_datetime(["2024-01-15"], utc=True),
+        }
+    )
 
     # Add feature with window_days=30
     result = add_disclosure_count_feature(
@@ -53,29 +59,37 @@ def test_feature_zero_before_disclosure() -> None:
 
     # Verify: feature is zero for prices before disclosure_date (2024-01-15)
     # Prices on 2024-01-10 to 2024-01-14 should have feature = 0
-    before_disclosure = result[result["timestamp"] < pd.Timestamp("2024-01-15", tz="UTC")]
-    assert (before_disclosure["alt_disclosure_count_30d_v1"] == 0).all(), (
-        "Feature should be zero before disclosure_date"
-    )
+    before_disclosure = result[
+        result["timestamp"] < pd.Timestamp("2024-01-15", tz="UTC")
+    ]
+    assert (
+        before_disclosure["alt_disclosure_count_30d_v1"] == 0
+    ).all(), "Feature should be zero before disclosure_date"
 
 
 def test_feature_positive_after_disclosure() -> None:
     """Test that feature > 0 after disclosure_date (in window)."""
     # Create synthetic prices (10 days, 1 symbol)
     dates = pd.date_range("2024-01-10", periods=10, freq="D", tz="UTC")
-    prices = pd.DataFrame({
-        "timestamp": dates,
-        "symbol": ["AAPL"] * 10,
-        "close": [150.0] * 10,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": dates,
+            "symbol": ["AAPL"] * 10,
+            "close": [150.0] * 10,
+        }
+    )
 
     # Create event with early event_date but late disclosure_date
-    events = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "event_date": pd.to_datetime(["2024-01-05"], utc=True),  # Early
-        "disclosure_date": pd.to_datetime(["2024-01-15"], utc=True),  # Late (after some prices)
-        "effective_date": pd.to_datetime(["2024-01-15"], utc=True),
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2024-01-05"], utc=True),  # Early
+            "disclosure_date": pd.to_datetime(
+                ["2024-01-15"], utc=True
+            ),  # Late (after some prices)
+            "effective_date": pd.to_datetime(["2024-01-15"], utc=True),
+        }
+    )
 
     # Add feature with window_days=30
     result = add_disclosure_count_feature(
@@ -87,12 +101,16 @@ def test_feature_positive_after_disclosure() -> None:
 
     # Verify: feature > 0 for prices on/after disclosure_date (2024-01-15)
     # Prices on 2024-01-15 to 2024-01-19 should have feature = 1 (within 30-day window)
-    after_disclosure = result[result["timestamp"] >= pd.Timestamp("2024-01-15", tz="UTC")]
-    assert (after_disclosure["alt_disclosure_count_30d_v1"] > 0).any(), (
-        "Feature should be > 0 after disclosure_date (in window)"
-    )
+    after_disclosure = result[
+        result["timestamp"] >= pd.Timestamp("2024-01-15", tz="UTC")
+    ]
+    assert (
+        after_disclosure["alt_disclosure_count_30d_v1"] > 0
+    ).any(), "Feature should be > 0 after disclosure_date (in window)"
     # Specifically, price on 2024-01-15 should have feature = 1
-    price_on_disclosure = result[result["timestamp"] == pd.Timestamp("2024-01-15", tz="UTC")]
+    price_on_disclosure = result[
+        result["timestamp"] == pd.Timestamp("2024-01-15", tz="UTC")
+    ]
     assert len(price_on_disclosure) == 1
     assert price_on_disclosure.iloc[0]["alt_disclosure_count_30d_v1"] == 1
 
@@ -101,27 +119,33 @@ def test_timezone_invariance() -> None:
     """Test that naive and tz-aware inputs produce identical results."""
     # Create prices with naive timestamps
     dates_naive = pd.date_range("2024-01-10", periods=5, freq="D")
-    prices_naive = pd.DataFrame({
-        "timestamp": dates_naive,
-        "symbol": ["AAPL"] * 5,
-        "close": [150.0] * 5,
-    })
+    prices_naive = pd.DataFrame(
+        {
+            "timestamp": dates_naive,
+            "symbol": ["AAPL"] * 5,
+            "close": [150.0] * 5,
+        }
+    )
 
     # Create prices with tz-aware timestamps
     dates_tz = pd.date_range("2024-01-10", periods=5, freq="D", tz="UTC")
-    prices_tz = pd.DataFrame({
-        "timestamp": dates_tz,
-        "symbol": ["AAPL"] * 5,
-        "close": [150.0] * 5,
-    })
+    prices_tz = pd.DataFrame(
+        {
+            "timestamp": dates_tz,
+            "symbol": ["AAPL"] * 5,
+            "close": [150.0] * 5,
+        }
+    )
 
     # Create events (tz-aware)
-    events = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "event_date": pd.to_datetime(["2024-01-05"], utc=True),
-        "disclosure_date": pd.to_datetime(["2024-01-12"], utc=True),
-        "effective_date": pd.to_datetime(["2024-01-12"], utc=True),
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2024-01-05"], utc=True),
+            "disclosure_date": pd.to_datetime(["2024-01-12"], utc=True),
+            "effective_date": pd.to_datetime(["2024-01-12"], utc=True),
+        }
+    )
 
     # Add feature to both
     result_naive = add_disclosure_count_feature(
@@ -150,19 +174,29 @@ def test_pit_filtering_respects_as_of() -> None:
     """Test that PIT filtering respects disclosure_date <= as_of."""
     # Create synthetic prices
     dates = pd.date_range("2024-01-10", periods=10, freq="D", tz="UTC")
-    prices = pd.DataFrame({
-        "timestamp": dates,
-        "symbol": ["AAPL"] * 10,
-        "close": [150.0] * 10,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": dates,
+            "symbol": ["AAPL"] * 10,
+            "close": [150.0] * 10,
+        }
+    )
 
     # Create events with different disclosure dates
-    events = pd.DataFrame({
-        "symbol": ["AAPL", "AAPL", "AAPL"],
-        "event_date": pd.to_datetime(["2024-01-05", "2024-01-06", "2024-01-07"], utc=True),
-        "disclosure_date": pd.to_datetime(["2024-01-12", "2024-01-14", "2024-01-18"], utc=True),  # Second event on as_of
-        "effective_date": pd.to_datetime(["2024-01-12", "2024-01-14", "2024-01-18"], utc=True),
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "AAPL", "AAPL"],
+            "event_date": pd.to_datetime(
+                ["2024-01-05", "2024-01-06", "2024-01-07"], utc=True
+            ),
+            "disclosure_date": pd.to_datetime(
+                ["2024-01-12", "2024-01-14", "2024-01-18"], utc=True
+            ),  # Second event on as_of
+            "effective_date": pd.to_datetime(
+                ["2024-01-12", "2024-01-14", "2024-01-18"], utc=True
+            ),
+        }
+    )
 
     # Add feature with as_of = 2024-01-14 (includes first two events)
     result = add_disclosure_count_feature(
@@ -179,7 +213,9 @@ def test_pit_filtering_respects_as_of() -> None:
     assert price_on_as_of.iloc[0]["alt_disclosure_count_30d_v1"] == 2
 
     # Price on 2024-01-15 should still have feature = 2 (third event not disclosed yet)
-    price_after_as_of = result[result["timestamp"] == pd.Timestamp("2024-01-15", tz="UTC")]
+    price_after_as_of = result[
+        result["timestamp"] == pd.Timestamp("2024-01-15", tz="UTC")
+    ]
     assert len(price_after_as_of) == 1
     assert price_after_as_of.iloc[0]["alt_disclosure_count_30d_v1"] == 2
 
@@ -188,20 +224,24 @@ def test_build_event_feature_panel_pit_safe() -> None:
     """Test that build_event_feature_panel is PIT-safe."""
     # Create synthetic prices
     dates = pd.date_range("2024-01-10", periods=10, freq="D", tz="UTC")
-    prices = pd.DataFrame({
-        "timestamp": dates,
-        "symbol": ["AAPL"] * 10,
-        "close": [150.0] * 10,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": dates,
+            "symbol": ["AAPL"] * 10,
+            "close": [150.0] * 10,
+        }
+    )
 
     # Create events with different disclosure dates
-    events = pd.DataFrame({
-        "symbol": ["AAPL", "AAPL"],
-        "event_date": pd.to_datetime(["2024-01-05", "2024-01-06"], utc=True),
-        "disclosure_date": pd.to_datetime(["2024-01-12", "2024-01-18"], utc=True),
-        "effective_date": pd.to_datetime(["2024-01-12", "2024-01-18"], utc=True),
-        "value": [1000.0, 2000.0],
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "AAPL"],
+            "event_date": pd.to_datetime(["2024-01-05", "2024-01-06"], utc=True),
+            "disclosure_date": pd.to_datetime(["2024-01-12", "2024-01-18"], utc=True),
+            "effective_date": pd.to_datetime(["2024-01-12", "2024-01-18"], utc=True),
+            "value": [1000.0, 2000.0],
+        }
+    )
 
     # Build features with as_of = 2024-01-14 (before second event disclosure)
     result = build_event_feature_panel(
@@ -221,18 +261,22 @@ def test_build_event_feature_panel_pit_safe() -> None:
 
 def test_build_event_feature_panel_requires_as_of() -> None:
     """Test that build_event_feature_panel requires as_of parameter."""
-    prices = pd.DataFrame({
-        "timestamp": pd.date_range("2024-01-10", periods=5, freq="D", tz="UTC"),
-        "symbol": ["AAPL"] * 5,
-        "close": [150.0] * 5,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2024-01-10", periods=5, freq="D", tz="UTC"),
+            "symbol": ["AAPL"] * 5,
+            "close": [150.0] * 5,
+        }
+    )
 
-    events = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "event_date": pd.to_datetime(["2024-01-05"], utc=True),
-        "disclosure_date": pd.to_datetime(["2024-01-12"], utc=True),
-        "effective_date": pd.to_datetime(["2024-01-12"], utc=True),
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2024-01-05"], utc=True),
+            "disclosure_date": pd.to_datetime(["2024-01-12"], utc=True),
+            "effective_date": pd.to_datetime(["2024-01-12"], utc=True),
+        }
+    )
 
     # Should raise ValueError if as_of is None
     with pytest.raises(ValueError, match="as_of is required"):
@@ -243,19 +287,23 @@ def test_window_based_on_disclosure_date() -> None:
     """Test that window is based on disclosure_date, not event_date."""
     # Create synthetic prices
     dates = pd.date_range("2024-01-10", periods=10, freq="D", tz="UTC")
-    prices = pd.DataFrame({
-        "timestamp": dates,
-        "symbol": ["AAPL"] * 10,
-        "close": [150.0] * 10,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": dates,
+            "symbol": ["AAPL"] * 10,
+            "close": [150.0] * 10,
+        }
+    )
 
     # Create event with early event_date but late disclosure_date
-    events = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "event_date": pd.to_datetime(["2024-01-01"], utc=True),  # Very early
-        "disclosure_date": pd.to_datetime(["2024-01-15"], utc=True),  # Late
-        "effective_date": pd.to_datetime(["2024-01-15"], utc=True),
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2024-01-01"], utc=True),  # Very early
+            "disclosure_date": pd.to_datetime(["2024-01-15"], utc=True),  # Late
+            "effective_date": pd.to_datetime(["2024-01-15"], utc=True),
+        }
+    )
 
     # Add feature with window_days=5 (small window)
     result = add_disclosure_count_feature(
@@ -285,19 +333,23 @@ def test_multiple_symbols() -> None:
     """Test that feature works with multiple symbols."""
     # Create synthetic prices for two symbols
     dates = pd.date_range("2024-01-10", periods=5, freq="D", tz="UTC")
-    prices = pd.DataFrame({
-        "timestamp": dates.tolist() * 2,
-        "symbol": ["AAPL"] * 5 + ["MSFT"] * 5,
-        "close": [150.0] * 10,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": dates.tolist() * 2,
+            "symbol": ["AAPL"] * 5 + ["MSFT"] * 5,
+            "close": [150.0] * 10,
+        }
+    )
 
     # Create events for both symbols
-    events = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "event_date": pd.to_datetime(["2024-01-05", "2024-01-06"], utc=True),
-        "disclosure_date": pd.to_datetime(["2024-01-12", "2024-01-13"], utc=True),
-        "effective_date": pd.to_datetime(["2024-01-12", "2024-01-13"], utc=True),
-    })
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "event_date": pd.to_datetime(["2024-01-05", "2024-01-06"], utc=True),
+            "disclosure_date": pd.to_datetime(["2024-01-12", "2024-01-13"], utc=True),
+            "effective_date": pd.to_datetime(["2024-01-12", "2024-01-13"], utc=True),
+        }
+    )
 
     # Add feature
     result = add_disclosure_count_feature(

@@ -30,7 +30,9 @@ def test_cli_export_creates_pack(tmp_path: Path) -> None:
     date_str = "2025-01-15"
 
     # Create dummy artifact files
-    broker_snapshot_path = output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    broker_snapshot_path = (
+        output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    )
     ledger_pack_path = output_dir / "ledger_run" / "ledger_events.parquet"
     reconcile_report_path = output_dir / "reconcile_run" / f"reconcile_{date_str}.json"
 
@@ -104,7 +106,9 @@ def test_cli_export_text_option_single_line(tmp_path: Path) -> None:
     """--text produces human-readable single-line OK status (legacy behavior)."""
     run_id = "cli_text"
     as_of_date = "2025-01-15"
-    output_dir = _build_output_dir_with_evidence_index(tmp_path, run_id=run_id, as_of_date=as_of_date)
+    output_dir = _build_output_dir_with_evidence_index(
+        tmp_path, run_id=run_id, as_of_date=as_of_date
+    )
     script_path = ROOT / "scripts" / "export_evidence_pack.py"
     result = subprocess.run(
         [
@@ -136,7 +140,9 @@ def test_cli_export_print_pack_path_one_line_file_exists(tmp_path: Path) -> None
     """--print-pack-path: stdout is exactly one line (pack_path_resolved); that path exists."""
     run_id = "cli_print_path"
     as_of_date = "2025-01-15"
-    output_dir = _build_output_dir_with_evidence_index(tmp_path, run_id=run_id, as_of_date=as_of_date)
+    output_dir = _build_output_dir_with_evidence_index(
+        tmp_path, run_id=run_id, as_of_date=as_of_date
+    )
     script_path = ROOT / "scripts" / "export_evidence_pack.py"
     result = subprocess.run(
         [
@@ -156,9 +162,13 @@ def test_cli_export_print_pack_path_one_line_file_exists(tmp_path: Path) -> None
     )
     assert result.returncode == 0, f"CLI failed: {result.stderr}"
     lines = [ln for ln in result.stdout.strip().split("\n") if ln]
-    assert len(lines) == 1, f"Expected exactly one line stdout, got {len(lines)}: {result.stdout!r}"
+    assert (
+        len(lines) == 1
+    ), f"Expected exactly one line stdout, got {len(lines)}: {result.stdout!r}"
     pack_path_resolved = lines[0].strip()
-    assert Path(pack_path_resolved).exists(), f"Pack path should exist: {pack_path_resolved}"
+    assert Path(
+        pack_path_resolved
+    ).exists(), f"Pack path should exist: {pack_path_resolved}"
     assert pack_path_resolved.endswith(".zip"), "Resolved path should be the ZIP file"
 
 
@@ -166,7 +176,9 @@ def test_cli_export_out_paths_written(tmp_path: Path) -> None:
     """--out-zip and --out-manifest copy artifacts to given paths; JSON has out_zip_path, out_manifest_path."""
     run_id = "cli_out"
     as_of_date = "2025-01-15"
-    output_dir = _build_output_dir_with_evidence_index(tmp_path, run_id=run_id, as_of_date=as_of_date)
+    output_dir = _build_output_dir_with_evidence_index(
+        tmp_path, run_id=run_id, as_of_date=as_of_date
+    )
     archive_dir = tmp_path / "archive"
     archive_dir.mkdir(parents=True, exist_ok=True)
     out_zip = archive_dir / "pack_out.zip"
@@ -204,7 +216,9 @@ def test_cli_export_out_paths_written(tmp_path: Path) -> None:
     assert "schema_version" in json.loads(out_manifest.read_text(encoding="utf-8"))
 
 
-def test_cli_export_json_resolved_paths_with_relative_output_dir(tmp_path: Path) -> None:
+def test_cli_export_json_resolved_paths_with_relative_output_dir(
+    tmp_path: Path,
+) -> None:
     """Relative --output-dir: JSON contains output_dir, output_dir_resolved, pack_path_resolved, pack_manifest_path_resolved; resolved paths exist."""
     rel_dir = "out_rel"
     output_dir = tmp_path / rel_dir
@@ -212,7 +226,9 @@ def test_cli_export_json_resolved_paths_with_relative_output_dir(tmp_path: Path)
     run_id = "cli_resolved"
     as_of_date = "2025-01-15"
     date_str = "2025-01-15"
-    broker_snapshot_path = output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    broker_snapshot_path = (
+        output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    )
     ledger_pack_path = output_dir / "ledger_run" / "ledger_events.parquet"
     reconcile_report_path = output_dir / "reconcile_run" / f"reconcile_{date_str}.json"
     for p in [broker_snapshot_path, ledger_pack_path, reconcile_report_path]:
@@ -264,15 +280,21 @@ def test_cli_export_json_resolved_paths_with_relative_output_dir(tmp_path: Path)
     assert manifest_resolved
     assert Path(out_resolved).exists(), "output_dir_resolved must point to existing dir"
     assert Path(pack_resolved).exists(), "pack_path_resolved must point to existing ZIP"
-    assert Path(manifest_resolved).exists(), "pack_manifest_path_resolved must point to existing manifest"
+    assert Path(
+        manifest_resolved
+    ).exists(), "pack_manifest_path_resolved must point to existing manifest"
 
 
-def _build_output_dir_with_evidence_index(tmp_path: Path, run_id: str = "cli_json", as_of_date: str = "2025-01-15") -> Path:
+def _build_output_dir_with_evidence_index(
+    tmp_path: Path, run_id: str = "cli_json", as_of_date: str = "2025-01-15"
+) -> Path:
     """Create output dir with artifacts and evidence index; return output_dir."""
     output_dir = tmp_path / "output"
     output_dir.mkdir(parents=True, exist_ok=True)
     date_str = as_of_date
-    broker_snapshot_path = output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    broker_snapshot_path = (
+        output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    )
     ledger_pack_path = output_dir / "ledger_run" / "ledger_events.parquet"
     reconcile_report_path = output_dir / "reconcile_run" / f"reconcile_{date_str}.json"
     for p in [broker_snapshot_path, ledger_pack_path, reconcile_report_path]:
@@ -303,22 +325,41 @@ def test_cli_export_json_output_is_valid_and_deterministic(tmp_path: Path) -> No
     as_of_date = "2025-01-15"
     script_path = ROOT / "scripts" / "export_evidence_pack.py"
     cmd = [
-        sys.executable, str(script_path),
-        "--run-id", run_id, "--as-of-date", as_of_date,
-        "--output-dir", str(output_dir), "--json",
+        sys.executable,
+        str(script_path),
+        "--run-id",
+        run_id,
+        "--as-of-date",
+        as_of_date,
+        "--output-dir",
+        str(output_dir),
+        "--json",
     ]
     result1 = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))
     result2 = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))
-    assert result1.returncode == 0 and result2.returncode == 0, f"stdout={result1.stdout!r} stderr={result1.stderr!r}"
+    assert (
+        result1.returncode == 0 and result2.returncode == 0
+    ), f"stdout={result1.stdout!r} stderr={result1.stderr!r}"
     out1 = result1.stdout
     out2 = result2.stdout
     assert out1 == out2, "Two runs must produce identical JSON bytes"
-    assert out1.strip().startswith("{") and out1.strip().endswith("}"), "stdout must be exactly JSON (no prefix/suffix)"
+    assert out1.strip().startswith("{") and out1.strip().endswith(
+        "}"
+    ), "stdout must be exactly JSON (no prefix/suffix)"
     data = json.loads(out1)
     required_keys = [
-        "schema_version", "ok", "error_code", "details", "tool_version",
-        "pack_path", "pack_manifest_path", "source", "source_path",
-        "n_files", "required_missing_count", "optional_missing_count",
+        "schema_version",
+        "ok",
+        "error_code",
+        "details",
+        "tool_version",
+        "pack_path",
+        "pack_manifest_path",
+        "source",
+        "source_path",
+        "n_files",
+        "required_missing_count",
+        "optional_missing_count",
     ]
     for k in required_keys:
         assert k in data, f"Missing key: {k}"
@@ -335,9 +376,15 @@ def test_cli_export_json_output_is_pure_json(tmp_path: Path) -> None:
     as_of_date = "2025-01-15"
     script_path = ROOT / "scripts" / "export_evidence_pack.py"
     cmd = [
-        sys.executable, str(script_path),
-        "--run-id", run_id, "--as-of-date", as_of_date,
-        "--output-dir", str(output_dir), "--json",
+        sys.executable,
+        str(script_path),
+        "--run-id",
+        run_id,
+        "--as-of-date",
+        as_of_date,
+        "--output-dir",
+        str(output_dir),
+        "--json",
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))
     assert result.returncode == 0
@@ -358,7 +405,9 @@ def test_cli_export_verify_after_build_ok_exits_zero(tmp_path: Path) -> None:
     run_id = "cli_verify_ok"
     as_of_date = "2025-01-15"
     date_str = "2025-01-15"
-    broker_snapshot_path = output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    broker_snapshot_path = (
+        output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    )
     ledger_pack_path = output_dir / "ledger_run" / "ledger_events.parquet"
     reconcile_report_path = output_dir / "reconcile_run" / f"reconcile_{date_str}.json"
     for p in [broker_snapshot_path, ledger_pack_path, reconcile_report_path]:
@@ -396,7 +445,9 @@ def test_cli_export_verify_after_build_ok_exits_zero(tmp_path: Path) -> None:
         text=True,
         cwd=str(ROOT),
     )
-    assert result.returncode == 0, f"CLI with --verify-after-build failed: {result.stderr}"
+    assert (
+        result.returncode == 0
+    ), f"CLI with --verify-after-build failed: {result.stderr}"
     data = json.loads(result.stdout)
     assert data.get("ok") is True
 
@@ -418,8 +469,12 @@ def test_cli_export_verify_after_build_fail_exits_one(tmp_path: Path) -> None:
     evidence_paths = {
         "broker_snapshot_path": None,
         "ledger_pack_path": output_dir / "ledger_run" / "ledger_events.parquet",
-        "reconcile_report_path": output_dir / "reconcile_run" / f"reconcile_{date_str}.json",
-        "accounting_report_path": output_dir / "accounting_run" / f"accounting_{date_str}.json",
+        "reconcile_report_path": output_dir
+        / "reconcile_run"
+        / f"reconcile_{date_str}.json",
+        "accounting_report_path": output_dir
+        / "accounting_run"
+        / f"accounting_{date_str}.json",
         "manifest_path": None,
     }
     write_evidence_index_json(
@@ -452,7 +507,9 @@ def test_cli_export_verify_after_build_fail_exits_one(tmp_path: Path) -> None:
     with zipfile.ZipFile(zip_path, "r") as zf:
         zf.extractall(extracted)
         namelist = zf.namelist()
-    target_name = next((n for n in namelist if not n.startswith("pack_manifest_")), None)
+    target_name = next(
+        (n for n in namelist if not n.startswith("pack_manifest_")), None
+    )
     assert target_name is not None
     (extracted / target_name).write_text("tampered", encoding="utf-8")
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -500,7 +557,9 @@ def test_cli_invalid_date_exits_with_error(tmp_path: Path) -> None:
 
     # Verify error message is ASCII-only
     error_output = (result.stdout + result.stderr).lower()
-    assert "invalid" in error_output or "date" in error_output or "format" in error_output
+    assert (
+        "invalid" in error_output or "date" in error_output or "format" in error_output
+    )
     assert error_output.encode("ascii", errors="ignore").decode("ascii") == error_output
 
 
@@ -564,9 +623,13 @@ def test_cli_strict_mode_fails_on_missing_optional(tmp_path: Path) -> None:
 
     # Write evidence index with missing optional files
     evidence_paths = {
-        "broker_snapshot_path": output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json",  # Missing
+        "broker_snapshot_path": output_dir
+        / "broker_snapshot_run"
+        / f"snapshot_{date_str}.json",  # Missing
         "ledger_pack_path": ledger_pack_path,
-        "reconcile_report_path": output_dir / "reconcile_run" / f"reconcile_{date_str}.json",  # Missing
+        "reconcile_report_path": output_dir
+        / "reconcile_run"
+        / f"reconcile_{date_str}.json",  # Missing
         "accounting_report_path": None,
         "manifest_path": None,
     }
@@ -600,7 +663,9 @@ def test_cli_strict_mode_fails_on_missing_optional(tmp_path: Path) -> None:
     )
 
     # Should fail with --strict when optional files are missing
-    assert result.returncode != 0, "Should exit with error in --strict mode when optional files missing"
+    assert (
+        result.returncode != 0
+    ), "Should exit with error in --strict mode when optional files missing"
 
 
 def test_cli_prints_source_and_missing_counts(tmp_path: Path) -> None:
@@ -615,7 +680,9 @@ def test_cli_prints_source_and_missing_counts(tmp_path: Path) -> None:
     # Create minimal required artifacts (no optional)
     ledger_pack_path = output_dir / "ledger_run" / "ledger_events.parquet"
     reconcile_report_path = output_dir / "reconcile_run" / f"reconcile_{date_str}.json"
-    accounting_report_path = output_dir / "accounting_run" / f"accounting_{date_str}.json"
+    accounting_report_path = (
+        output_dir / "accounting_run" / f"accounting_{date_str}.json"
+    )
 
     for p in [ledger_pack_path, reconcile_report_path, accounting_report_path]:
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -681,7 +748,9 @@ def test_cli_strict_fails_on_optional_missing_with_exit_1(tmp_path: Path) -> Non
 
     # Evidence index references missing optional paths
     evidence_paths = {
-        "broker_snapshot_path": output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json",  # missing
+        "broker_snapshot_path": output_dir
+        / "broker_snapshot_run"
+        / f"snapshot_{date_str}.json",  # missing
         "ledger_pack_path": ledger_pack_path,
         "reconcile_report_path": None,
         "accounting_report_path": None,
@@ -715,9 +784,11 @@ def test_cli_strict_fails_on_optional_missing_with_exit_1(tmp_path: Path) -> Non
         cwd=str(ROOT),
     )
 
-    assert result.returncode == 1, "Strict mode should exit with code 1 when optional files are missing"
+    assert (
+        result.returncode == 1
+    ), "Strict mode should exit with code 1 when optional files are missing"
     # Error output should be ASCII-only
-    error_output = (result.stdout + result.stderr)
+    error_output = result.stdout + result.stderr
     assert error_output.encode("ascii", errors="ignore").decode("ascii") == error_output
 
 
@@ -727,10 +798,14 @@ def test_cli_export_json_error_code_no_source(tmp_path: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     script_path = ROOT / "scripts" / "export_evidence_pack.py"
     cmd = [
-        sys.executable, str(script_path),
-        "--run-id", "nonexistent_run",
-        "--as-of-date", "2025-01-15",
-        "--output-dir", str(output_dir),
+        sys.executable,
+        str(script_path),
+        "--run-id",
+        "nonexistent_run",
+        "--as-of-date",
+        "2025-01-15",
+        "--output-dir",
+        str(output_dir),
         "--json",
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))
@@ -754,7 +829,9 @@ def test_cli_export_json_error_code_strict_optional_missing(tmp_path: Path) -> N
     ledger_pack_path.parent.mkdir(parents=True, exist_ok=True)
     ledger_pack_path.write_text("dummy", encoding="utf-8")
     evidence_paths = {
-        "broker_snapshot_path": output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json",
+        "broker_snapshot_path": output_dir
+        / "broker_snapshot_run"
+        / f"snapshot_{date_str}.json",
         "ledger_pack_path": ledger_pack_path,
         "reconcile_report_path": None,
         "accounting_report_path": None,
@@ -770,9 +847,16 @@ def test_cli_export_json_error_code_strict_optional_missing(tmp_path: Path) -> N
     )
     script_path = ROOT / "scripts" / "export_evidence_pack.py"
     cmd = [
-        sys.executable, str(script_path),
-        "--run-id", run_id, "--as-of-date", as_of_date,
-        "--output-dir", str(output_dir), "--strict", "--json",
+        sys.executable,
+        str(script_path),
+        "--run-id",
+        run_id,
+        "--as-of-date",
+        as_of_date,
+        "--output-dir",
+        str(output_dir),
+        "--strict",
+        "--json",
     ]
     result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))
     assert result.returncode == 1
@@ -789,16 +873,22 @@ def test_cli_export_json_error_determinism(tmp_path: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     script_path = ROOT / "scripts" / "export_evidence_pack.py"
     cmd = [
-        sys.executable, str(script_path),
-        "--run-id", "no_run",
-        "--as-of-date", "2025-01-15",
-        "--output-dir", str(output_dir),
+        sys.executable,
+        str(script_path),
+        "--run-id",
+        "no_run",
+        "--as-of-date",
+        "2025-01-15",
+        "--output-dir",
+        str(output_dir),
         "--json",
     ]
     result1 = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))
     result2 = subprocess.run(cmd, capture_output=True, text=True, cwd=str(ROOT))
     assert result1.returncode == 1 and result2.returncode == 1
-    assert result1.stdout == result2.stdout, "Same error must yield identical JSON bytes"
+    assert (
+        result1.stdout == result2.stdout
+    ), "Same error must yield identical JSON bytes"
     data = json.loads(result1.stdout)
     assert data.get("error_code") == "NO_SOURCE"
 
@@ -827,5 +917,5 @@ def test_cli_errors_ascii_only(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 1
-    error_output = (result.stdout + result.stderr)
+    error_output = result.stdout + result.stderr
     assert error_output.encode("ascii", errors="ignore").decode("ascii") == error_output

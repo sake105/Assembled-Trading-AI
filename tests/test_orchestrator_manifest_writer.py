@@ -6,7 +6,10 @@ from pathlib import Path
 
 import json
 
-from src.assembled_core.pipeline.orchestrator import _manifest_path_str, _write_manifest_json
+from src.assembled_core.pipeline.orchestrator import (
+    _manifest_path_str,
+    _write_manifest_json,
+)
 
 
 def test_write_manifest_twice_byte_identical(tmp_path: Path) -> None:
@@ -18,11 +21,18 @@ def test_write_manifest_twice_byte_identical(tmp_path: Path) -> None:
     manifest = {
         "freq": "1d",
         "start_capital": 10000.0,
-        "ledger_pack_path": _manifest_path_str(base / "ledger_run" / "ledger_events.parquet", base_dir=base),
-        "reconcile_report_path": _manifest_path_str(base / "reconcile" / "reconcile_2025-01-01.json", base_dir=base),
+        "ledger_pack_path": _manifest_path_str(
+            base / "ledger_run" / "ledger_events.parquet", base_dir=base
+        ),
+        "reconcile_report_path": _manifest_path_str(
+            base / "reconcile" / "reconcile_2025-01-01.json", base_dir=base
+        ),
         "reconciliation_ok": True,
         "qa_report_path": None,
-        "timestamps": {"started": "2025-01-01T00:00:00", "finished": "2025-01-01T00:00:01"},
+        "timestamps": {
+            "started": "2025-01-01T00:00:00",
+            "finished": "2025-01-01T00:00:01",
+        },
         "failure": False,
     }
 
@@ -56,4 +66,3 @@ def test_manifest_paths_are_relative_and_posix(tmp_path: Path) -> None:
 
     loaded = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert loaded["ledger_pack_path"] == "ledger_run/ledger_events.parquet"
-

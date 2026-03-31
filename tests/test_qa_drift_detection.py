@@ -185,9 +185,7 @@ class TestDetectFeatureDrift:
         np.random.seed(42)
         base_df = pd.DataFrame({"feature1": np.random.normal(0, 1, 100)})
         current_df = pd.DataFrame(
-            {
-                "feature1": np.random.normal(0.3, 1, 100)  # Small shift
-            }
+            {"feature1": np.random.normal(0.3, 1, 100)}  # Small shift
         )
 
         results = detect_feature_drift(
@@ -220,11 +218,7 @@ class TestDetectFeatureDrift:
     def test_detect_feature_drift_different_constant(self):
         """Test when constant feature changes value."""
         base_df = pd.DataFrame({"feature1": [5.0] * 100})
-        current_df = pd.DataFrame(
-            {
-                "feature1": [10.0] * 100  # Different constant
-            }
-        )
+        current_df = pd.DataFrame({"feature1": [10.0] * 100})  # Different constant
 
         results = detect_feature_drift(base_df, current_df)
 

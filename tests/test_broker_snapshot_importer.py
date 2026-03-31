@@ -79,10 +79,12 @@ def test_load_external_broker_snapshot_json_missing_positions(tmp_path: Path):
 def test_load_external_broker_snapshot_csv_basic(tmp_path: Path):
     """Test loading broker snapshot from CSV file."""
     csv_path = tmp_path / "snapshot.csv"
-    positions_df = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "qty": [100.0, 50.0],
-    })
+    positions_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [100.0, 50.0],
+        }
+    )
     positions_df.to_csv(csv_path, index=False)
 
     cash, loaded_df = load_external_broker_snapshot(csv_path)
@@ -96,11 +98,13 @@ def test_load_external_broker_snapshot_csv_basic(tmp_path: Path):
 def test_load_external_broker_snapshot_csv_with_cash(tmp_path: Path):
     """Test loading CSV with cash column."""
     csv_path = tmp_path / "snapshot_with_cash.csv"
-    df = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "qty": [100.0, 50.0],
-        "cash": [10000.0, 10000.0],  # Same cash for all rows
-    })
+    df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [100.0, 50.0],
+            "cash": [10000.0, 10000.0],  # Same cash for all rows
+        }
+    )
     df.to_csv(csv_path, index=False)
 
     cash, loaded_df = load_external_broker_snapshot(csv_path)
@@ -112,10 +116,12 @@ def test_load_external_broker_snapshot_csv_with_cash(tmp_path: Path):
 def test_load_external_broker_snapshot_csv_missing_columns(tmp_path: Path):
     """Test that missing required columns raises ValueError."""
     csv_path = tmp_path / "snapshot_invalid.csv"
-    df = pd.DataFrame({
-        "symbol": ["AAPL"],
-        # Missing "qty"
-    })
+    df = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            # Missing "qty"
+        }
+    )
     df.to_csv(csv_path, index=False)
 
     with pytest.raises(ValueError, match="Missing required columns"):
@@ -177,10 +183,12 @@ def test_import_broker_snapshot_csv_roundtrip(tmp_path: Path):
     """Test importing CSV snapshot and verifying stored output."""
     # Create external CSV snapshot
     external_path = tmp_path / "external_snapshot.csv"
-    df = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "qty": [100.0, 50.0],
-    })
+    df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [100.0, 50.0],
+        }
+    )
     df.to_csv(external_path, index=False)
 
     # Import snapshot (with cash override)

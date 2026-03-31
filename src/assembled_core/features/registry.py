@@ -178,12 +178,12 @@ def validate_registry_unique() -> tuple[bool, list[str]]:
     names = list(FEATURE_REGISTRY.keys())
     seen = set()
     duplicates = []
-    
+
     for name in names:
         if name in seen:
             duplicates.append(name)
         seen.add(name)
-    
+
     is_valid = len(duplicates) == 0
     return is_valid, duplicates
 
@@ -200,12 +200,12 @@ def validate_registry_documented() -> tuple[bool, list[str]]:
     """
     required_keys = {"description", "inputs", "version", "layer", "namespace"}
     missing = []
-    
+
     for name, metadata in FEATURE_REGISTRY.items():
         missing_keys = required_keys - set(metadata.keys())
         if missing_keys:
             missing.append(f"{name}: missing {missing_keys}")
-    
+
     is_valid = len(missing) == 0
     return is_valid, missing
 
@@ -224,21 +224,23 @@ def validate_registry_namespaced() -> tuple[bool, list[str]]:
     """
     valid_prefixes = {"ta_", "liq_", "vol_", "alt_", "macro_", "regime_", "ml_"}
     invalid = []
-    
+
     for name in FEATURE_REGISTRY.keys():
         # Check prefix
         has_valid_prefix = any(name.startswith(prefix) for prefix in valid_prefixes)
         if not has_valid_prefix:
             invalid.append(f"{name}: invalid prefix (must start with {valid_prefixes})")
             continue
-        
+
         # Check version suffix
         if not name.endswith("_v1") and not name.endswith("_v2"):
             # Allow _v{number} pattern
             parts = name.rsplit("_v", 1)
             if len(parts) != 2 or not parts[1].isdigit():
-                invalid.append(f"{name}: invalid version suffix (must end with _v{{number}})")
-    
+                invalid.append(
+                    f"{name}: invalid version suffix (must end with _v{{number}})"
+                )
+
     is_valid = len(invalid) == 0
     return is_valid, invalid
 

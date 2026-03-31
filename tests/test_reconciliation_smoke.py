@@ -10,14 +10,18 @@ from src.assembled_core.accounting.reconciliation import reconcile_ledger_vs_bro
 
 def test_exact_match_ok():
     """Test that exact match returns ok=True."""
-    ledger_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "qty": [100.0, 50.0],
-    })
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "qty": [100.0, 50.0],
-    })
+    ledger_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [100.0, 50.0],
+        }
+    )
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [100.0, 50.0],
+        }
+    )
 
     result = reconcile_ledger_vs_broker(
         ledger_positions_df=ledger_positions,
@@ -37,14 +41,18 @@ def test_exact_match_ok():
 
 def test_qty_mismatch_detected():
     """Test that qty mismatch is detected."""
-    ledger_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "qty": [100.0, 50.0],
-    })
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "qty": [100.0, 55.0],  # MSFT mismatch
-    })
+    ledger_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [100.0, 50.0],
+        }
+    )
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [100.0, 55.0],  # MSFT mismatch
+        }
+    )
 
     result = reconcile_ledger_vs_broker(
         ledger_positions_df=ledger_positions,
@@ -62,14 +70,18 @@ def test_qty_mismatch_detected():
 
 def test_cash_mismatch_detected():
     """Test that cash mismatch is detected."""
-    ledger_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [100.0],
-    })
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [100.0],
-    })
+    ledger_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [100.0],
+        }
+    )
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [100.0],
+        }
+    )
 
     result = reconcile_ledger_vs_broker(
         ledger_positions_df=ledger_positions,
@@ -86,14 +98,18 @@ def test_cash_mismatch_detected():
 
 def test_missing_symbol_detected():
     """Test that missing symbols are detected."""
-    ledger_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "qty": [100.0, 50.0],
-    })
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL"],  # MSFT missing
-        "qty": [100.0],
-    })
+    ledger_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [100.0, 50.0],
+        }
+    )
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],  # MSFT missing
+            "qty": [100.0],
+        }
+    )
 
     result = reconcile_ledger_vs_broker(
         ledger_positions_df=ledger_positions,
@@ -108,14 +124,18 @@ def test_missing_symbol_detected():
     assert "missing" in result["message"].lower()
 
     # Test missing in ledger
-    ledger_positions2 = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [100.0],
-    })
-    broker_positions2 = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],  # MSFT in broker but not ledger
-        "qty": [100.0, 50.0],
-    })
+    ledger_positions2 = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [100.0],
+        }
+    )
+    broker_positions2 = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],  # MSFT in broker but not ledger
+            "qty": [100.0, 50.0],
+        }
+    )
 
     result2 = reconcile_ledger_vs_broker(
         ledger_positions_df=ledger_positions2,
@@ -131,14 +151,18 @@ def test_missing_symbol_detected():
 
 def test_tolerance_behavior_deterministic():
     """Test that tolerance behavior is deterministic."""
-    ledger_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [100.0],
-    })
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [100.0 + 1e-9],  # Very small difference
-    })
+    ledger_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [100.0],
+        }
+    )
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [100.0 + 1e-9],  # Very small difference
+        }
+    )
 
     # With default tolerance (qty_tol=1e-8), this should be treated as match
     result1 = reconcile_ledger_vs_broker(
@@ -190,14 +214,18 @@ def test_tolerance_behavior_deterministic():
 
 def test_fail_fast_raises():
     """Test that fail_fast=True raises ValueError on mismatch."""
-    ledger_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [100.0],
-    })
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [105.0],  # Mismatch
-    })
+    ledger_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [100.0],
+        }
+    )
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [105.0],  # Mismatch
+        }
+    )
 
     with pytest.raises(ValueError, match="Reconciliation FAILED"):
         reconcile_ledger_vs_broker(
@@ -209,10 +237,12 @@ def test_fail_fast_raises():
         )
 
     # Exact match should not raise
-    broker_positions2 = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [100.0],
-    })
+    broker_positions2 = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [100.0],
+        }
+    )
 
     result = reconcile_ledger_vs_broker(
         ledger_positions_df=ledger_positions,
@@ -245,14 +275,18 @@ def test_empty_positions():
 
 def test_symbol_trimming():
     """Test that symbol trimming works correctly."""
-    ledger_positions = pd.DataFrame({
-        "symbol": [" AAPL ", "MSFT"],  # Extra spaces
-        "qty": [100.0, 50.0],
-    })
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL", " MSFT "],  # Extra spaces
-        "qty": [100.0, 50.0],
-    })
+    ledger_positions = pd.DataFrame(
+        {
+            "symbol": [" AAPL ", "MSFT"],  # Extra spaces
+            "qty": [100.0, 50.0],
+        }
+    )
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", " MSFT "],  # Extra spaces
+            "qty": [100.0, 50.0],
+        }
+    )
 
     result = reconcile_ledger_vs_broker(
         ledger_positions_df=ledger_positions,
@@ -267,14 +301,18 @@ def test_symbol_trimming():
 
 def test_zero_positions_ignored():
     """Test that zero positions are ignored."""
-    ledger_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "GOOGL"],
-        "qty": [100.0, 0.0, 50.0],  # MSFT is zero
-    })
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL", "GOOGL"],
-        "qty": [100.0, 50.0],
-    })
+    ledger_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "GOOGL"],
+            "qty": [100.0, 0.0, 50.0],  # MSFT is zero
+        }
+    )
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "GOOGL"],
+            "qty": [100.0, 50.0],
+        }
+    )
 
     result = reconcile_ledger_vs_broker(
         ledger_positions_df=ledger_positions,
@@ -291,14 +329,18 @@ def test_zero_positions_ignored():
 
 def test_tiny_residual_qty_ignored():
     """Test that tiny residual qty (1e-10) is ignored via qty_tol."""
-    ledger_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "qty": [100.0, 50.0],
-    })
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "GOOGL"],
-        "qty": [100.0, 50.0, 1e-10],  # GOOGL has tiny residual
-    })
+    ledger_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [100.0, 50.0],
+        }
+    )
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "GOOGL"],
+            "qty": [100.0, 50.0, 1e-10],  # GOOGL has tiny residual
+        }
+    )
 
     result = reconcile_ledger_vs_broker(
         ledger_positions_df=ledger_positions,
@@ -330,14 +372,18 @@ def test_tiny_residual_qty_ignored():
 
 def test_missing_lists_deterministically_sorted():
     """Test that missing_in_ledger and missing_in_broker are deterministically sorted."""
-    ledger_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "qty": [100.0, 50.0],
-    })
-    broker_positions = pd.DataFrame({
-        "symbol": ["GOOGL", "TSLA", "NVDA"],  # Different symbols, unsorted
-        "qty": [200.0, 150.0, 75.0],
-    })
+    ledger_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [100.0, 50.0],
+        }
+    )
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["GOOGL", "TSLA", "NVDA"],  # Different symbols, unsorted
+            "qty": [200.0, 150.0, 75.0],
+        }
+    )
 
     result = reconcile_ledger_vs_broker(
         ledger_positions_df=ledger_positions,
@@ -370,14 +416,18 @@ def test_missing_lists_deterministically_sorted():
 
 def test_fail_fast_message_contains_key_differences():
     """Test that fail_fast message contains cash_diff and all affected symbols."""
-    ledger_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "GOOGL"],
-        "qty": [100.0, 50.0, 25.0],
-    })
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "TSLA"],
-        "qty": [105.0, 45.0, 30.0],  # Mismatches + missing
-    })
+    ledger_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "GOOGL"],
+            "qty": [100.0, 50.0, 25.0],
+        }
+    )
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "TSLA"],
+            "qty": [105.0, 45.0, 30.0],  # Mismatches + missing
+        }
+    )
 
     with pytest.raises(ValueError) as exc_info:
         reconcile_ledger_vs_broker(

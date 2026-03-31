@@ -25,4 +25,3 @@ def load_policy(path: str | Path = "configs/policy.yaml") -> Dict[str, Any]:
 
 
 __all__ = ["load_policy"]
-

@@ -99,9 +99,9 @@ def test_generate_trend_signals_long_condition():
     assert len(flat_signals) > 0, "Should have some FLAT signals when ma_20 <= ma_50"
 
     # Check scores are in [0, 1]
-    assert (signals["score"] >= 0).all() and (signals["score"] <= 1.0).all(), (
-        "Scores should be in [0, 1]"
-    )
+    assert (signals["score"] >= 0).all() and (
+        signals["score"] <= 1.0
+    ).all(), "Scores should be in [0, 1]"
 
     # Check LONG signals have positive scores
     assert (long_signals["score"] > 0).all(), "LONG signals should have positive scores"
@@ -125,9 +125,9 @@ def test_generate_trend_signals_from_prices():
     assert len(signals) > 0, "Should generate signals"
 
     # Check directions are valid
-    assert signals["direction"].isin(["LONG", "FLAT"]).all(), (
-        "Directions should be LONG or FLAT"
-    )
+    assert (
+        signals["direction"].isin(["LONG", "FLAT"]).all()
+    ), "Directions should be LONG or FLAT"
 
 
 def test_generate_trend_signals_volume_filter():
@@ -156,9 +156,9 @@ def test_generate_trend_signals_volume_filter():
     )
     long_low = len(signals_low_threshold[signals_low_threshold["direction"] == "LONG"])
 
-    assert long_low >= long_high, (
-        "Lower volume threshold should allow more LONG signals"
-    )
+    assert (
+        long_low >= long_high
+    ), "Lower volume threshold should allow more LONG signals"
 
 
 def test_generate_trend_signals_no_volume():
@@ -170,9 +170,9 @@ def test_generate_trend_signals_no_volume():
 
     # Should still work without volume
     assert len(signals) > 0, "Should generate signals without volume"
-    assert signals["direction"].isin(["LONG", "FLAT"]).all(), (
-        "Directions should be valid"
-    )
+    assert (
+        signals["direction"].isin(["LONG", "FLAT"]).all()
+    ), "Directions should be valid"
 
 
 def test_generate_trend_signals_missing_columns():
@@ -197,6 +197,6 @@ def test_generate_trend_signals_ma_auto_compute():
     signals = generate_trend_signals(df, ma_fast=20, ma_slow=50)
 
     assert len(signals) > 0, "Should generate signals after auto-computing MAs"
-    assert signals["direction"].isin(["LONG", "FLAT"]).all(), (
-        "Directions should be valid"
-    )
+    assert (
+        signals["direction"].isin(["LONG", "FLAT"]).all()
+    ), "Directions should be valid"

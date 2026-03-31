@@ -88,7 +88,9 @@ def add_congress_features(
     # Apply PIT-safe filtering if as_of is provided
     if as_of is not None:
         if isinstance(as_of, pd.Timestamp):
-            events = filter_events_as_of(events, as_of, disclosure_col="disclosure_date")
+            events = filter_events_as_of(
+                events, as_of, disclosure_col="disclosure_date"
+            )
 
     events["timestamp"] = pd.to_datetime(events["timestamp"], utc=True)
 
@@ -124,7 +126,9 @@ def add_congress_features(
                 ].copy()
 
             # Use event_date or timestamp for window calculation
-            window_time_col = "event_date" if "event_date" in row_events.columns else "timestamp"
+            window_time_col = (
+                "event_date" if "event_date" in row_events.columns else "timestamp"
+            )
 
             # 60-day window (based on event_date, but only disclosed events)
             window_60d = row_events[
@@ -132,7 +136,11 @@ def add_congress_features(
                 & (row_events[window_time_col] > price_time - pd.Timedelta(days=60))
             ]
             result.loc[idx, "congress_trade_count_60d"] = len(window_60d)
-            result.loc[idx, "congress_total_amount_60d"] = window_60d["amount"].sum() if "amount" in window_60d.columns and len(window_60d) > 0 else 0.0
+            result.loc[idx, "congress_total_amount_60d"] = (
+                window_60d["amount"].sum()
+                if "amount" in window_60d.columns and len(window_60d) > 0
+                else 0.0
+            )
 
             # 90-day window
             window_90d = row_events[
@@ -140,6 +148,10 @@ def add_congress_features(
                 & (row_events[window_time_col] > price_time - pd.Timedelta(days=90))
             ]
             result.loc[idx, "congress_trade_count_90d"] = len(window_90d)
-            result.loc[idx, "congress_total_amount_90d"] = window_90d["amount"].sum() if "amount" in window_90d.columns and len(window_90d) > 0 else 0.0
+            result.loc[idx, "congress_total_amount_90d"] = (
+                window_90d["amount"].sum()
+                if "amount" in window_90d.columns and len(window_90d) > 0
+                else 0.0
+            )
 
     return result

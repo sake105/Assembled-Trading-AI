@@ -30,35 +30,43 @@ from src.assembled_core.execution.pre_trade_checks import (
 def test_sector_breach_reduces_only_that_sector_orders() -> None:
     """Test that sector breach reduces only orders in that sector."""
     # Setup: Current positions
-    current_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "GOOGL"],
-        "qty": [50.0, 40.0, 30.0],
-    })
+    current_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "GOOGL"],
+            "qty": [50.0, 40.0, 30.0],
+        }
+    )
 
     # Prices
-    prices_latest = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "GOOGL", "TSLA"],
-        "close": [150.0, 200.0, 2500.0, 200.0],
-    })
+    prices_latest = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "GOOGL", "TSLA"],
+            "close": [150.0, 200.0, 2500.0, 200.0],
+        }
+    )
 
     # Security metadata
-    security_meta_df = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "GOOGL", "TSLA"],
-        "sector": ["Technology", "Technology", "Technology", "Consumer"],
-        "region": ["US", "US", "US", "US"],
-        "currency": ["USD", "USD", "USD", "USD"],
-    })
+    security_meta_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "GOOGL", "TSLA"],
+            "sector": ["Technology", "Technology", "Technology", "Consumer"],
+            "region": ["US", "US", "US", "US"],
+            "currency": ["USD", "USD", "USD", "USD"],
+        }
+    )
 
     # Equity
     equity = 100000.0
 
     # Generate orders: BUY more Technology stocks
-    orders = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "GOOGL", "TSLA"],
-        "side": ["BUY", "BUY", "BUY", "BUY"],
-        "qty": [100.0, 80.0, 20.0, 50.0],
-        "price": [150.0, 200.0, 2500.0, 200.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "GOOGL", "TSLA"],
+            "side": ["BUY", "BUY", "BUY", "BUY"],
+            "qty": [100.0, 80.0, 20.0, 50.0],
+            "price": [150.0, 200.0, 2500.0, 200.0],
+        }
+    )
 
     # Config: max_sector_exposure = 30% (Technology will exceed this)
     config = PreTradeConfig(max_sector_exposure=0.30)
@@ -93,13 +101,18 @@ def test_sector_breach_reduces_only_that_sector_orders() -> None:
     assert googl_qty < 20.0, "GOOGL order should be reduced"
 
     # Consumer order (TSLA) should be unchanged
-    assert abs(tsla_qty - 50.0) < 1e-10, "TSLA order should be unchanged (different sector)"
+    assert (
+        abs(tsla_qty - 50.0) < 1e-10
+    ), "TSLA order should be unchanged (different sector)"
 
     # Verify reduction reasons
     reasons = [r["reason"] for r in result.reduced_orders]
-    assert "RISK_REDUCE_MAX_SECTOR_EXPOSURE" in reasons, "Should have sector reduction reasons"
+    assert (
+        "RISK_REDUCE_MAX_SECTOR_EXPOSURE" in reasons
+    ), "Should have sector reduction reasons"
     assert all(
-        r["explain"]["group_type"] == "sector" for r in result.reduced_orders
+        r["explain"]["group_type"] == "sector"
+        for r in result.reduced_orders
         if r["reason"] == "RISK_REDUCE_MAX_SECTOR_EXPOSURE"
     ), "All sector reductions should have group_type='sector'"
 
@@ -108,31 +121,39 @@ def test_region_breach_reduces_only_that_region_orders() -> None:
     """Test that region breach reduces only orders in that region."""
     # Setup: No ASML position, so EU exposure is only from order (50 * 600 = 30000, weight = 0.30)
     # But we want EU to be under 30%, so we reduce ASML order or position
-    current_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [50.0],  # No ASML position
-    })
+    current_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [50.0],  # No ASML position
+        }
+    )
 
-    prices_latest = pd.DataFrame({
-        "symbol": ["AAPL", "ASML", "TSLA"],
-        "close": [150.0, 600.0, 200.0],
-    })
+    prices_latest = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "ASML", "TSLA"],
+            "close": [150.0, 600.0, 200.0],
+        }
+    )
 
-    security_meta_df = pd.DataFrame({
-        "symbol": ["AAPL", "ASML", "TSLA"],
-        "sector": ["Technology", "Technology", "Consumer"],
-        "region": ["US", "EU", "US"],
-        "currency": ["USD", "EUR", "USD"],
-    })
+    security_meta_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "ASML", "TSLA"],
+            "sector": ["Technology", "Technology", "Consumer"],
+            "region": ["US", "EU", "US"],
+            "currency": ["USD", "EUR", "USD"],
+        }
+    )
 
     equity = 100000.0
 
-    orders = pd.DataFrame({
-        "symbol": ["AAPL", "ASML", "TSLA"],
-        "side": ["BUY", "BUY", "BUY"],
-        "qty": [100.0, 20.0, 80.0],  # Reduced ASML order to keep EU under 30%
-        "price": [150.0, 600.0, 200.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "ASML", "TSLA"],
+            "side": ["BUY", "BUY", "BUY"],
+            "qty": [100.0, 20.0, 80.0],  # Reduced ASML order to keep EU under 30%
+            "price": [150.0, 600.0, 200.0],
+        }
+    )
 
     # Config: max_region_exposure = 30% (US will exceed this: 38.5%, EU will be under: 0.20 = 20%)
     config = PreTradeConfig(max_region_exposure=0.30)
@@ -161,36 +182,46 @@ def test_region_breach_reduces_only_that_region_orders() -> None:
 
     # Verify reduction reasons
     reasons = [r["reason"] for r in result.reduced_orders]
-    assert "RISK_REDUCE_MAX_REGION_EXPOSURE" in reasons, "Should have region reduction reasons"
+    assert (
+        "RISK_REDUCE_MAX_REGION_EXPOSURE" in reasons
+    ), "Should have region reduction reasons"
 
 
 def test_deterministic_reduction_rounding() -> None:
     """Test that reduction and rounding are deterministic."""
-    current_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "qty": [50.0, 40.0],
-    })
+    current_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [50.0, 40.0],
+        }
+    )
 
-    prices_latest = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "close": [150.0, 200.0],
-    })
+    prices_latest = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "close": [150.0, 200.0],
+        }
+    )
 
-    security_meta_df = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "sector": ["Technology", "Technology"],
-        "region": ["US", "US"],
-        "currency": ["USD", "USD"],
-    })
+    security_meta_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "sector": ["Technology", "Technology"],
+            "region": ["US", "US"],
+            "currency": ["USD", "USD"],
+        }
+    )
 
     equity = 100000.0
 
-    orders = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "side": ["BUY", "BUY"],
-        "qty": [100.0, 80.0],
-        "price": [150.0, 200.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "side": ["BUY", "BUY"],
+            "qty": [100.0, 80.0],
+            "price": [150.0, 200.0],
+        }
+    )
 
     config = PreTradeConfig(max_sector_exposure=0.30)
 
@@ -223,37 +254,47 @@ def test_deterministic_reduction_rounding() -> None:
     )
 
     # Verify: reduction reasons are identical
-    assert result1.reduced_orders == result2.reduced_orders, "Reduction reasons should be identical"
+    assert (
+        result1.reduced_orders == result2.reduced_orders
+    ), "Reduction reasons should be identical"
 
 
 def test_missing_meta_raises_by_default() -> None:
     """Test that missing security metadata raises ValueError by default."""
-    current_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [50.0],
-    })
+    current_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [50.0],
+        }
+    )
 
-    prices_latest = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "close": [150.0],
-    })
+    prices_latest = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "close": [150.0],
+        }
+    )
 
     # Security metadata missing AAPL
-    security_meta_df = pd.DataFrame({
-        "symbol": ["MSFT"],
-        "sector": ["Technology"],
-        "region": ["US"],
-        "currency": ["USD"],
-    })
+    security_meta_df = pd.DataFrame(
+        {
+            "symbol": ["MSFT"],
+            "sector": ["Technology"],
+            "region": ["US"],
+            "currency": ["USD"],
+        }
+    )
 
     equity = 100000.0
 
-    orders = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "side": ["BUY"],
-        "qty": [100.0],
-        "price": [150.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "side": ["BUY"],
+            "qty": [100.0],
+            "price": [150.0],
+        }
+    )
 
     config = PreTradeConfig(max_sector_exposure=0.30, missing_security_meta="raise")
 
@@ -275,31 +316,39 @@ def test_missing_meta_raises_by_default() -> None:
 
 def test_fx_non_base_currency_fail_fast() -> None:
     """Test that FX check fails fast if non-base currency is present."""
-    current_positions = pd.DataFrame({
-        "symbol": ["AAPL", "SAP"],
-        "qty": [50.0, 30.0],
-    })
+    current_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "SAP"],
+            "qty": [50.0, 30.0],
+        }
+    )
 
-    prices_latest = pd.DataFrame({
-        "symbol": ["AAPL", "SAP"],
-        "close": [150.0, 100.0],
-    })
+    prices_latest = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "SAP"],
+            "close": [150.0, 100.0],
+        }
+    )
 
-    security_meta_df = pd.DataFrame({
-        "symbol": ["AAPL", "SAP"],
-        "sector": ["Technology", "Technology"],
-        "region": ["US", "EU"],
-        "currency": ["USD", "EUR"],  # Non-base currency present
-    })
+    security_meta_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "SAP"],
+            "sector": ["Technology", "Technology"],
+            "region": ["US", "EU"],
+            "currency": ["USD", "EUR"],  # Non-base currency present
+        }
+    )
 
     equity = 100000.0
 
-    orders = pd.DataFrame({
-        "symbol": ["AAPL", "SAP"],
-        "side": ["BUY", "BUY"],
-        "qty": [100.0, 50.0],
-        "price": [150.0, 100.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "SAP"],
+            "side": ["BUY", "BUY"],
+            "qty": [100.0, 50.0],
+            "price": [150.0, 100.0],
+        }
+    )
 
     config = PreTradeConfig(
         max_fx_exposure=0.20,
@@ -320,37 +369,49 @@ def test_fx_non_base_currency_fail_fast() -> None:
         )
 
     error_msg = str(exc_info.value)
-    assert "FX exposure" in error_msg or "FX rates" in error_msg or "non-base currency" in error_msg
+    assert (
+        "FX exposure" in error_msg
+        or "FX rates" in error_msg
+        or "non-base currency" in error_msg
+    )
     assert "EUR" in error_msg or "currency" in error_msg
 
 
 def test_fx_all_base_currency_passes() -> None:
     """Test that FX check passes if all currencies are base currency."""
-    current_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "qty": [50.0, 40.0],
-    })
+    current_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [50.0, 40.0],
+        }
+    )
 
-    prices_latest = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "close": [150.0, 200.0],
-    })
+    prices_latest = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "close": [150.0, 200.0],
+        }
+    )
 
-    security_meta_df = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "sector": ["Technology", "Technology"],
-        "region": ["US", "US"],
-        "currency": ["USD", "USD"],  # All base currency
-    })
+    security_meta_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "sector": ["Technology", "Technology"],
+            "region": ["US", "US"],
+            "currency": ["USD", "USD"],  # All base currency
+        }
+    )
 
     equity = 100000.0
 
-    orders = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "side": ["BUY", "BUY"],
-        "qty": [100.0, 80.0],
-        "price": [150.0, 200.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "side": ["BUY", "BUY"],
+            "qty": [100.0, 80.0],
+            "price": [150.0, 200.0],
+        }
+    )
 
     config = PreTradeConfig(
         max_fx_exposure=0.20,
@@ -370,39 +431,51 @@ def test_fx_all_base_currency_passes() -> None:
 
     # Verify: orders unchanged (no FX exposure)
     assert len(filtered) == 2, "All orders should remain"
-    assert "fx_exposure_check" in result.summary, "Should have fx_exposure_check in summary"
-    assert result.summary["fx_exposure_check"] == "all_base_currency", "Should indicate all base currency"
+    assert (
+        "fx_exposure_check" in result.summary
+    ), "Should have fx_exposure_check in summary"
+    assert (
+        result.summary["fx_exposure_check"] == "all_base_currency"
+    ), "Should indicate all base currency"
 
 
 def test_sell_orders_reduce_exposure_not_blocked() -> None:
     """Test that SELL orders that reduce sector exposure are not blocked."""
     # Setup: Current positions overweight in Technology
-    current_positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "qty": [200.0, 150.0],  # Large positions
-    })
+    current_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [200.0, 150.0],  # Large positions
+        }
+    )
 
-    prices_latest = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "close": [150.0, 200.0],
-    })
+    prices_latest = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "close": [150.0, 200.0],
+        }
+    )
 
-    security_meta_df = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "sector": ["Technology", "Technology"],
-        "region": ["US", "US"],
-        "currency": ["USD", "USD"],
-    })
+    security_meta_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "sector": ["Technology", "Technology"],
+            "region": ["US", "US"],
+            "currency": ["USD", "USD"],
+        }
+    )
 
     equity = 100000.0
 
     # Generate orders: SELL Technology stocks (reduces exposure)
-    orders = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "side": ["SELL", "SELL"],
-        "qty": [50.0, 40.0],
-        "price": [150.0, 200.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "side": ["SELL", "SELL"],
+            "qty": [50.0, 40.0],
+            "price": [150.0, 200.0],
+        }
+    )
 
     # Config: max_sector_exposure = 30%
     # Current Technology exposure: (200*150 + 150*200) / 100000 = 0.6 (60%)
@@ -428,31 +501,39 @@ def test_sell_orders_reduce_exposure_not_blocked() -> None:
 
 def test_multiple_sectors_only_violating_sector_reduced() -> None:
     """Test that only violating sector orders are reduced, other sectors unchanged."""
-    current_positions = pd.DataFrame({
-        "symbol": ["AAPL", "TSLA"],
-        "qty": [50.0, 30.0],
-    })
+    current_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "TSLA"],
+            "qty": [50.0, 30.0],
+        }
+    )
 
-    prices_latest = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "TSLA"],
-        "close": [150.0, 200.0, 200.0],
-    })
+    prices_latest = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "TSLA"],
+            "close": [150.0, 200.0, 200.0],
+        }
+    )
 
-    security_meta_df = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "TSLA"],
-        "sector": ["Technology", "Technology", "Consumer"],
-        "region": ["US", "US", "US"],
-        "currency": ["USD", "USD", "USD"],
-    })
+    security_meta_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "TSLA"],
+            "sector": ["Technology", "Technology", "Consumer"],
+            "region": ["US", "US", "US"],
+            "currency": ["USD", "USD", "USD"],
+        }
+    )
 
     equity = 100000.0
 
-    orders = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "TSLA"],
-        "side": ["BUY", "BUY", "BUY"],
-        "qty": [100.0, 80.0, 50.0],
-        "price": [150.0, 200.0, 200.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "TSLA"],
+            "side": ["BUY", "BUY", "BUY"],
+            "qty": [100.0, 80.0, 50.0],
+            "price": [150.0, 200.0, 200.0],
+        }
+    )
 
     # Config: max_sector_exposure = 30% (Technology will exceed, Consumer won't)
     config = PreTradeConfig(max_sector_exposure=0.30)
@@ -479,12 +560,14 @@ def test_multiple_sectors_only_violating_sector_reduced() -> None:
 
 def test_missing_security_meta_skips_check() -> None:
     """Test that missing security_meta_df skips group exposure checks."""
-    orders = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "side": ["BUY"],
-        "qty": [100.0],
-        "price": [150.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "side": ["BUY"],
+            "qty": [100.0],
+            "price": [150.0],
+        }
+    )
 
     config = PreTradeConfig(max_sector_exposure=0.30)
 
@@ -497,5 +580,9 @@ def test_missing_security_meta_skips_check() -> None:
 
     # Verify: orders unchanged (check skipped)
     assert len(filtered) == 1, "Order should remain unchanged"
-    assert "group_exposure_check" in result.summary, "Should have skip reason in summary"
-    assert result.summary["group_exposure_check"] == "skipped_no_security_meta", "Should skip due to missing security_meta"
+    assert (
+        "group_exposure_check" in result.summary
+    ), "Should have skip reason in summary"
+    assert (
+        result.summary["group_exposure_check"] == "skipped_no_security_meta"
+    ), "Should skip due to missing security_meta"

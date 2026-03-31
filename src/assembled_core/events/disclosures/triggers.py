@@ -96,9 +96,12 @@ def score_disclosure_triggers(
             sev = min(max_sev, sev)
             conf = max(min_conf_floor, conf * decay_factor)
 
-        trigger_id = "dtr_" + hashlib.sha256(
-            (ev.event_id + "|" + action_type).encode("utf-8")
-        ).hexdigest()[:12]
+        trigger_id = (
+            "dtr_"
+            + hashlib.sha256(
+                (ev.event_id + "|" + action_type).encode("utf-8")
+            ).hexdigest()[:12]
+        )
 
         trigger: Dict[str, Any] = {
             "trigger_id": trigger_id,
@@ -115,7 +118,9 @@ def score_disclosure_triggers(
             "evidence": {
                 "tierA_count": evidence.get("tierA_count", 0),
                 "tierB_count": evidence.get("tierB_count", 0),
-                "tierB_independent_domains": evidence.get("tierB_independent_domains", 0),
+                "tierB_independent_domains": evidence.get(
+                    "tierB_independent_domains", 0
+                ),
             },
             "ttl_hours": ttl_hours,
             "decay": {
@@ -126,12 +131,14 @@ def score_disclosure_triggers(
         }
         triggers.append(trigger)
 
-    triggers.sort(key=lambda t: (
-        -t["severity"],
-        -t["confidence"],
-        t.get("action_type", ""),
-        t.get("event_id", ""),
-    ))
+    triggers.sort(
+        key=lambda t: (
+            -t["severity"],
+            -t["confidence"],
+            t.get("action_type", ""),
+            t.get("event_id", ""),
+        )
+    )
     return triggers
 
 

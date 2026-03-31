@@ -80,7 +80,9 @@ def test_cash_invariant_partial_fills():
     assert "fill_qty" in trades_df.columns, "trades_df should have fill_qty column"
     assert "fill_price" in trades_df.columns, "trades_df should have fill_price column"
     assert "cash_delta" in trades_df.columns, "trades_df should have cash_delta column"
-    assert "total_cost_cash" in trades_df.columns, "trades_df should have total_cost_cash column"
+    assert (
+        "total_cost_cash" in trades_df.columns
+    ), "trades_df should have total_cost_cash column"
 
     # Calculate expected cash_delta manually using fill_qty
     # BUY: -(fill_qty * fill_price + total_cost_cash)
@@ -101,7 +103,9 @@ def test_cash_invariant_partial_fills():
         expected_cash_deltas.append(expected_delta)
 
     # Verify cash_delta matches expected (using fill_qty)
-    for idx, (expected, actual) in enumerate(zip(expected_cash_deltas, trades_df["cash_delta"])):
+    for idx, (expected, actual) in enumerate(
+        zip(expected_cash_deltas, trades_df["cash_delta"])
+    ):
         assert abs(expected - actual) < 1e-6, (
             f"Row {idx}: cash_delta mismatch. Expected {expected:.6f}, got {actual:.6f}. "
             f"Order: {trades_df.iloc[idx][['symbol', 'side', 'qty', 'fill_qty']].to_dict()}"
@@ -234,38 +238,42 @@ def test_partial_fill_uses_fill_qty_not_qty():
 def test_cash_invariant_multiple_partial_fills():
     """Test cash invariant with multiple partial fills."""
     base_time = datetime(2025, 1, 15, 10, 0, 0)
-    orders = pd.DataFrame([
-        {
-            "timestamp": pd.Timestamp(base_time, tz="UTC"),
-            "symbol": "AAPL",
-            "side": "BUY",
-            "qty": 100.0,
-            "price": 150.0,
-            "fill_qty": 30.0,  # 30% fill
-            "fill_price": 150.0,
-            "status": "partial",
-        },
-        {
-            "timestamp": pd.Timestamp(base_time, tz="UTC") + pd.Timedelta(minutes=5),
-            "symbol": "AAPL",
-            "side": "BUY",
-            "qty": 50.0,
-            "price": 151.0,
-            "fill_qty": 50.0,  # Full fill
-            "fill_price": 151.0,
-            "status": "filled",
-        },
-        {
-            "timestamp": pd.Timestamp(base_time, tz="UTC") + pd.Timedelta(minutes=10),
-            "symbol": "MSFT",
-            "side": "SELL",
-            "qty": 200.0,
-            "price": 200.0,
-            "fill_qty": 100.0,  # 50% fill
-            "fill_price": 200.0,
-            "status": "partial",
-        },
-    ])
+    orders = pd.DataFrame(
+        [
+            {
+                "timestamp": pd.Timestamp(base_time, tz="UTC"),
+                "symbol": "AAPL",
+                "side": "BUY",
+                "qty": 100.0,
+                "price": 150.0,
+                "fill_qty": 30.0,  # 30% fill
+                "fill_price": 150.0,
+                "status": "partial",
+            },
+            {
+                "timestamp": pd.Timestamp(base_time, tz="UTC")
+                + pd.Timedelta(minutes=5),
+                "symbol": "AAPL",
+                "side": "BUY",
+                "qty": 50.0,
+                "price": 151.0,
+                "fill_qty": 50.0,  # Full fill
+                "fill_price": 151.0,
+                "status": "filled",
+            },
+            {
+                "timestamp": pd.Timestamp(base_time, tz="UTC")
+                + pd.Timedelta(minutes=10),
+                "symbol": "MSFT",
+                "side": "SELL",
+                "qty": 200.0,
+                "price": 200.0,
+                "fill_qty": 100.0,  # 50% fill
+                "fill_price": 200.0,
+                "status": "partial",
+            },
+        ]
+    )
 
     start_cash = 10000.0
 

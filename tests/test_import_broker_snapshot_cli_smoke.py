@@ -16,7 +16,9 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.assembled_core.accounting.broker_snapshot_store import load_broker_snapshot_json
+from src.assembled_core.accounting.broker_snapshot_store import (
+    load_broker_snapshot_json,
+)
 
 
 def test_cli_json_import_roundtrip(tmp_path: Path):
@@ -87,10 +89,12 @@ def test_cli_csv_import_with_cash(tmp_path: Path):
     """Test that CSV import with --cash flag sets cash correctly."""
     # Create external CSV snapshot
     external_path = tmp_path / "external_snapshot.csv"
-    df = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "qty": [100.0, 50.0],
-    })
+    df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [100.0, 50.0],
+        }
+    )
     df.to_csv(external_path, index=False)
 
     output_dir = tmp_path / "output"
@@ -168,7 +172,9 @@ def test_cli_unsupported_format_exits_with_error(tmp_path: Path):
     assert result.returncode != 0, "CLI should fail for unsupported format"
 
     # Verify error message is ASCII-only (no Unicode issues)
-    assert all(ord(c) < 128 for c in result.stderr), "Error message should be ASCII-only"
+    assert all(
+        ord(c) < 128 for c in result.stderr
+    ), "Error message should be ASCII-only"
 
 
 def test_cli_missing_file_exits_with_error(tmp_path: Path):
@@ -249,7 +255,9 @@ def test_cli_invalid_date_format_exits_with_error(tmp_path: Path):
     assert "date" in output or "format" in output
 
     # Verify error message is ASCII-only
-    assert all(ord(c) < 128 for c in result.stderr), "Error message should be ASCII-only"
+    assert all(
+        ord(c) < 128 for c in result.stderr
+    ), "Error message should be ASCII-only"
     assert all(ord(c) < 128 for c in result.stdout), "Output should be ASCII-only"
 
 

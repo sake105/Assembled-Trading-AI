@@ -14,8 +14,8 @@ class NewsSource:
     source_id: str
     name: str
     domain: str
-    type: str                  # "rss" | "gdelt" | other
-    tier: str                  # "A" | "B"
+    type: str  # "rss" | "gdelt" | other
+    tier: str  # "A" | "B"
     weight: float
     active: bool
     config: Dict[str, Any]
@@ -182,7 +182,7 @@ def load_news_params(config_path: str | Path) -> Dict[str, Any]:
     burst_cfg.setdefault("min_doc_count", 3)
     burst_cfg.setdefault("top_k", 50)
     burst_cfg.setdefault("version_salt", "v1")
-     # windows for burst detection; default 1h/6h/24h
+    # windows for burst detection; default 1h/6h/24h
     windows = burst_cfg.get("windows_hours")
     if not isinstance(windows, list) or not windows:
         windows = [1, 6, 24]
@@ -205,4 +205,3 @@ def load_news_params(config_path: str | Path) -> Dict[str, Any]:
         "burst": burst_cfg,
         "trigger_scoring": trigger_cfg,
     }
-

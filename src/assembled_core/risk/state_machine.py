@@ -154,10 +154,15 @@ if TYPE_CHECKING:
 def _effective_geo(ctx: "TradingContext", policy: Dict[str, Any]) -> tuple[int, float]:
     """Return (geo_score, geo_confidence). Intel degraded or missing -> (0, 0)."""
     rsm = (policy or {}).get("risk_state_machine") or {}
-    conf_floor = float((rsm.get("hysteresis") or {}).get("confidence_floor", 0.60) or 0.60)
+    conf_floor = float(
+        (rsm.get("hysteresis") or {}).get("confidence_floor", 0.60) or 0.60
+    )
 
     intel_flags = getattr(ctx, "intel_health_flags", None) or {}
-    if intel_flags.get("intel_geo_score") == "DEGRADED" or intel_flags.get("intel_news_triggers") == "DEGRADED":
+    if (
+        intel_flags.get("intel_geo_score") == "DEGRADED"
+        or intel_flags.get("intel_news_triggers") == "DEGRADED"
+    ):
         return 0, 0.0
 
     news_geo = getattr(ctx, "news_geo", None)
@@ -188,7 +193,9 @@ def compute_next_state(
     deactivate_score = int(hyst.get("deactivate_score", 1))
     pause_score = int(hyst.get("pause_score", 3))
     confidence_floor = float(hyst.get("confidence_floor", 0.60) or 0.60)
-    require_market_stress_confirm = bool(hyst.get("require_market_stress_confirm", False))
+    require_market_stress_confirm = bool(
+        hyst.get("require_market_stress_confirm", False)
+    )
     require_disclosures_confirm = bool(hyst.get("require_disclosures_confirm", False))
     disclosures_min_severity = int(hyst.get("disclosures_min_severity", 1))
 
@@ -207,9 +214,10 @@ def compute_next_state(
     gate_enabled = bool(gate_cfg.get("enabled", False))
     gate_min_geo = int(gate_cfg.get("min_geo_score", 3))
     gate_apply_states = set(gate_cfg.get("on_states", ["WATCH", "COOLDOWN"]))
-    require_confirm_now = (
-        require_disclosures_confirm
-        or (gate_enabled and prev.state in gate_apply_states and geo_score_effective >= gate_min_geo)
+    require_confirm_now = require_disclosures_confirm or (
+        gate_enabled
+        and prev.state in gate_apply_states
+        and geo_score_effective >= gate_min_geo
     )
 
     # Disclosures confirm gate for WATCH/COOLDOWN -> ACTIVE (when require_confirm_now)
@@ -224,10 +232,12 @@ def compute_next_state(
                 disclosures_confirmed = False
             else:
                 max_sev = 0
-                if hasattr(disc_triggers, "summary") and isinstance(getattr(disc_triggers, "summary"), dict):
+                if hasattr(disc_triggers, "summary") and isinstance(
+                    getattr(disc_triggers, "summary"), dict
+                ):
                     max_sev = int((disc_triggers.summary or {}).get("max_severity", 0))
                 if max_sev == 0 and hasattr(disc_triggers, "triggers"):
-                    for t in (getattr(disc_triggers, "triggers") or []):
+                    for t in getattr(disc_triggers, "triggers") or []:
                         if isinstance(t, dict):
                             max_sev = max(max_sev, int(t.get("severity", 0)))
                 disclosures_confirmed = max_sev >= disclosures_min_severity
@@ -288,7 +298,11 @@ def compute_next_state(
         )
 
     if prev.state == "WATCH":
-        if score >= activate_score and stress_ok and (not require_confirm_now or disclosures_confirmed):
+        if (
+            score >= activate_score
+            and stress_ok
+            and (not require_confirm_now or disclosures_confirmed)
+        ):
             return RiskStateRecord(
                 state="ACTIVE",
                 since_utc=now_utc,
@@ -298,7 +312,12 @@ def compute_next_state(
                 geo_confidence=conf,
                 version=VERSION,
             )
-        if score >= activate_score and stress_ok and require_confirm_now and not disclosures_confirmed:
+        if (
+            score >= activate_score
+            and stress_ok
+            and require_confirm_now
+            and not disclosures_confirmed
+        ):
             return RiskStateRecord(
                 state="WATCH",
                 since_utc=prev.since_utc,
@@ -364,7 +383,11 @@ def compute_next_state(
             geo_confidence=conf,
             version=VERSION,
         )
-    if score >= activate_score and stress_ok and (not require_confirm_now or disclosures_confirmed):
+    if (
+        score >= activate_score
+        and stress_ok
+        and (not require_confirm_now or disclosures_confirmed)
+    ):
         return RiskStateRecord(
             state="ACTIVE",
             since_utc=now_utc,
@@ -374,7 +397,12 @@ def compute_next_state(
             geo_confidence=conf,
             version=VERSION,
         )
-    if score >= activate_score and stress_ok and require_confirm_now and not disclosures_confirmed:
+    if (
+        score >= activate_score
+        and stress_ok
+        and require_confirm_now
+        and not disclosures_confirmed
+    ):
         return RiskStateRecord(
             state="WATCH",
             since_utc=now_utc,

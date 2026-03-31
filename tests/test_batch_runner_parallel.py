@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_run_id_deterministic(tmp_path: Path) -> None:
     """Test that run IDs are deterministic (same params -> same hash)."""
     import sys
+
     sys.path.insert(0, str(ROOT))
 
     from scripts.batch_runner import RunConfig, _compute_run_id_hash
@@ -65,6 +66,7 @@ def test_run_id_deterministic(tmp_path: Path) -> None:
 def test_load_config_generates_run_ids(tmp_path: Path) -> None:
     """Test that config loading generates deterministic run IDs when not explicitly set."""
     import sys
+
     sys.path.insert(0, str(ROOT))
 
     from scripts.batch_runner import load_batch_config
@@ -100,6 +102,7 @@ runs:
 def test_load_config_preserves_explicit_run_ids(tmp_path: Path) -> None:
     """Test that explicit run IDs in config are preserved."""
     import sys
+
     sys.path.insert(0, str(ROOT))
 
     from scripts.batch_runner import load_batch_config
@@ -127,6 +130,7 @@ runs:
 def test_parallel_run_batch_dry_run(tmp_path: Path) -> None:
     """Test parallel batch execution in dry-run mode."""
     import sys
+
     sys.path.insert(0, str(ROOT))
 
     from scripts.batch_runner import BatchConfig, RunConfig, run_batch
@@ -164,6 +168,7 @@ def test_parallel_run_batch_dry_run(tmp_path: Path) -> None:
 def test_output_path_structure(tmp_path: Path) -> None:
     """Test that output paths follow structure: output/batch/<run_id>/"""
     import sys
+
     sys.path.insert(0, str(ROOT))
 
     from scripts.batch_runner import RunConfig, run_single_backtest
@@ -198,6 +203,7 @@ def test_output_path_structure(tmp_path: Path) -> None:
 def test_no_folder_collisions(tmp_path: Path) -> None:
     """Test that parallel runs don't create folder collisions."""
     import sys
+
     sys.path.insert(0, str(ROOT))
 
     from scripts.batch_runner import BatchConfig, RunConfig, run_batch
@@ -233,6 +239,7 @@ def test_no_folder_collisions(tmp_path: Path) -> None:
 
     # Generate IDs
     from scripts.batch_runner import _compute_run_id_hash
+
     for run_cfg in batch_cfg.runs:
         if not run_cfg.id:
             run_cfg.id = _compute_run_id_hash(run_cfg, batch_cfg.seed)
@@ -250,4 +257,3 @@ def test_no_folder_collisions(tmp_path: Path) -> None:
         assert run_dir.exists()
         # Each run should have its own directory
         assert run_dir.is_dir()
-

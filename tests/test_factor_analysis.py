@@ -119,9 +119,9 @@ class TestAddForwardReturns:
         for symbol in sample_price_panel["symbol"].unique():
             symbol_data = result[result["symbol"] == symbol].sort_values("timestamp")
             last_row = symbol_data.iloc[-1]
-            assert pd.isna(last_row["fwd_return_1d"]), (
-                "Last row should have NaN for forward returns"
-            )
+            assert pd.isna(
+                last_row["fwd_return_1d"]
+            ), "Last row should have NaN for forward returns"
 
     def test_custom_horizon(self, sample_price_panel):
         """Test with custom horizon."""
@@ -133,9 +133,9 @@ class TestAddForwardReturns:
         for symbol in sample_price_panel["symbol"].unique():
             symbol_data = result[result["symbol"] == symbol].sort_values("timestamp")
             last_5 = symbol_data.iloc[-5:]
-            assert last_5["fwd_return_5d"].isna().all(), (
-                "Last 5 rows should have NaN for 5d forward returns"
-            )
+            assert (
+                last_5["fwd_return_5d"].isna().all()
+            ), "Last 5 rows should have NaN for 5d forward returns"
 
     def test_custom_column_name(self, sample_price_panel):
         """Test with custom column name."""
@@ -209,9 +209,9 @@ class TestComputeFactorIc:
             ic_values = result["ic"].dropna()
             if len(ic_values) > 0:
                 # IC should be very close to 1.0 (allowing small numerical errors)
-                assert (ic_values > 0.95).all(), (
-                    f"Perfect factor should have IC ≈ 1, got {ic_values.mean()}"
-                )
+                assert (
+                    ic_values > 0.95
+                ).all(), f"Perfect factor should have IC ≈ 1, got {ic_values.mean()}"
 
     def test_inverse_correlation_ic(self, factor_panel_with_forward_returns):
         """Test that inverse correlation gives IC ≈ -1."""
@@ -225,9 +225,9 @@ class TestComputeFactorIc:
             ic_values = result["ic"].dropna()
             if len(ic_values) > 0:
                 # Inverse factor should have IC close to -1
-                assert (ic_values < -0.95).all(), (
-                    f"Inverse factor should have IC ≈ -1, got {ic_values.mean()}"
-                )
+                assert (
+                    ic_values < -0.95
+                ).all(), f"Inverse factor should have IC ≈ -1, got {ic_values.mean()}"
 
     def test_multiple_factors(self, factor_panel_with_forward_returns):
         """Test that multiple factors can be computed simultaneously."""
@@ -325,9 +325,9 @@ class TestComputeRankIc:
             regular_ic = result_regular["ic"].dropna()
 
             if len(rank_ic) > 0 and len(regular_ic) > 0:
-                assert (rank_ic > 0.9).all(), (
-                    "Rank-IC should be high for perfect factor"
-                )
+                assert (
+                    rank_ic > 0.9
+                ).all(), "Rank-IC should be high for perfect factor"
 
 
 class TestSummarizeFactorIc:
@@ -370,14 +370,14 @@ class TestSummarizeFactorIc:
             perfect_row = summary[summary["factor"] == "perfect_factor"]
             if len(perfect_row) > 0:
                 # Perfect factor should have high mean IC
-                assert perfect_row["mean_ic"].iloc[0] > 0.8, (
-                    "Perfect factor should have high mean IC"
-                )
+                assert (
+                    perfect_row["mean_ic"].iloc[0] > 0.8
+                ), "Perfect factor should have high mean IC"
 
                 # Hit ratio should be high (most days with positive IC)
-                assert perfect_row["hit_ratio"].iloc[0] > 0.8, (
-                    "Perfect factor should have high hit ratio"
-                )
+                assert (
+                    perfect_row["hit_ratio"].iloc[0] > 0.8
+                ), "Perfect factor should have high hit ratio"
 
                 # IC-IR should be positive (may be 0 if std_ic is very small, which is valid)
                 ic_ir_value = perfect_row["ic_ir"].iloc[0]
@@ -399,9 +399,9 @@ class TestSummarizeFactorIc:
             expected_ir = (
                 row["mean_ic"] / row["std_ic"] if row["std_ic"] > 1e-10 else 0.0
             )
-            assert abs(row["ic_ir"] - expected_ir) < 1e-6, (
-                "IC-IR should equal mean_ic / std_ic"
-            )
+            assert (
+                abs(row["ic_ir"] - expected_ir) < 1e-6
+            ), "IC-IR should equal mean_ic / std_ic"
 
     def test_hit_ratio_range(self, factor_panel_with_forward_returns):
         """Test that hit_ratio is between 0 and 1."""
@@ -429,9 +429,9 @@ class TestSummarizeFactorIc:
 
         # Should be sorted by IC-IR descending
         ic_ir_values = summary["ic_ir"].values
-        assert (ic_ir_values == sorted(ic_ir_values, reverse=True)).all(), (
-            "Summary should be sorted by IC-IR (descending)"
-        )
+        assert (
+            ic_ir_values == sorted(ic_ir_values, reverse=True)
+        ).all(), "Summary should be sorted by IC-IR (descending)"
 
 
 class TestIntegrationWithPhaseAFactors:

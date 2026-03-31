@@ -303,14 +303,15 @@ def test_backtest_engine_multi_year(synthetic_prices_multi_year):
 
     # Check equity values are sensible
     assert equity["equity"].min() >= 0, "Equity should not be negative"
-    assert equity["equity"].iloc[0] == pytest.approx(10000.0, abs=1.0), (
-        "Start equity should be ~10000"
-    )
+    assert equity["equity"].iloc[0] == pytest.approx(
+        10000.0, abs=1.0
+    ), "Start equity should be ~10000"
 
     # Check daily_return
-    assert equity["daily_return"].dtype in [np.float64, float], (
-        "daily_return should be float"
-    )
+    assert equity["daily_return"].dtype in [
+        np.float64,
+        float,
+    ], "daily_return should be float"
     assert not equity["daily_return"].isna().any(), "daily_return should not have NaNs"
 
     # Check metrics

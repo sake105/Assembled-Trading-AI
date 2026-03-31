@@ -57,4 +57,3 @@ def compute_health(
         failures=list(failures),
         notes=notes,
     )
-

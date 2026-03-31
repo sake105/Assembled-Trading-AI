@@ -22,10 +22,12 @@ from src.assembled_core.accounting.broker_snapshot_store import (
 
 def test_normalize_broker_snapshot_basic():
     """Test basic normalization of broker snapshot."""
-    positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "GOOGL"],
-        "qty": [100.0, 50.0, 25.0],
-    })
+    positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "GOOGL"],
+            "qty": [100.0, 50.0, 25.0],
+        }
+    )
     cash = 10000.0
 
     result = normalize_broker_snapshot(cash, positions)
@@ -38,26 +40,32 @@ def test_normalize_broker_snapshot_basic():
 
 def test_normalize_broker_snapshot_trimming():
     """Test that symbol strings are trimmed."""
-    positions = pd.DataFrame({
-        "symbol": ["  AAPL  ", " MSFT ", "GOOGL"],
-        "qty": [100.0, 50.0, 25.0],
-    })
+    positions = pd.DataFrame(
+        {
+            "symbol": ["  AAPL  ", " MSFT ", "GOOGL"],
+            "qty": [100.0, 50.0, 25.0],
+        }
+    )
     cash = 10000.0
 
     result = normalize_broker_snapshot(cash, positions)
 
     # Symbols should be trimmed
-    assert all(result["positions_df"]["symbol"].str.strip() == result["positions_df"]["symbol"])
+    assert all(
+        result["positions_df"]["symbol"].str.strip() == result["positions_df"]["symbol"]
+    )
     assert "AAPL" in result["positions_df"]["symbol"].values
     assert "MSFT" in result["positions_df"]["symbol"].values
 
 
 def test_normalize_broker_snapshot_tiny_residuals_ignored():
     """Test that tiny residual quantities are filtered out."""
-    positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "GOOGL"],
-        "qty": [100.0, 1e-10, 25.0],  # MSFT has tiny residual
-    })
+    positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "GOOGL"],
+            "qty": [100.0, 1e-10, 25.0],  # MSFT has tiny residual
+        }
+    )
     cash = 10000.0
 
     result = normalize_broker_snapshot(cash, positions, qty_tol=1e-8)
@@ -71,10 +79,12 @@ def test_normalize_broker_snapshot_tiny_residuals_ignored():
 
 def test_normalize_broker_snapshot_deterministic_sorting():
     """Test that positions are sorted deterministically."""
-    positions = pd.DataFrame({
-        "symbol": ["MSFT", "AAPL", "GOOGL", "TSLA"],
-        "qty": [100.0, 50.0, 25.0, 10.0],
-    })
+    positions = pd.DataFrame(
+        {
+            "symbol": ["MSFT", "AAPL", "GOOGL", "TSLA"],
+            "qty": [100.0, 50.0, 25.0, 10.0],
+        }
+    )
     cash = 10000.0
 
     result1 = normalize_broker_snapshot(cash, positions)
@@ -82,21 +92,27 @@ def test_normalize_broker_snapshot_deterministic_sorting():
 
     # Should be sorted alphabetically
     assert list(result1["positions_df"]["symbol"]) == ["AAPL", "GOOGL", "MSFT", "TSLA"]
-    assert list(result1["positions_df"]["symbol"]) == list(result2["positions_df"]["symbol"])
+    assert list(result1["positions_df"]["symbol"]) == list(
+        result2["positions_df"]["symbol"]
+    )
 
 
 def test_store_and_load_broker_snapshot_json(tmp_path: Path):
     """Test roundtrip: store and load broker snapshot JSON."""
-    positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "qty": [100.0, 50.0],
-    })
+    positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [100.0, 50.0],
+        }
+    )
     cash = 10000.0
     run_id = "test_snapshot"
     as_of_date = pd.Timestamp("2025-01-15", tz="UTC")
 
     # Store
-    stored_path = store_broker_snapshot_json(cash, positions, tmp_path, run_id, as_of_date)
+    stored_path = store_broker_snapshot_json(
+        cash, positions, tmp_path, run_id, as_of_date
+    )
     assert stored_path.exists()
 
     # Load
@@ -110,10 +126,12 @@ def test_store_and_load_broker_snapshot_json(tmp_path: Path):
 
 def test_store_and_load_broker_snapshot_parquet(tmp_path: Path):
     """Test roundtrip: store and load broker snapshot Parquet."""
-    positions = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "qty": [100.0, 50.0],
-    })
+    positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "qty": [100.0, 50.0],
+        }
+    )
     run_id = "test_snapshot"
     as_of_date = pd.Timestamp("2025-01-15", tz="UTC")
 
@@ -140,11 +158,15 @@ def test_store_broker_snapshot_empty_positions(tmp_path: Path):
     as_of_date = pd.Timestamp("2025-01-15", tz="UTC")
 
     # Store JSON (should work)
-    stored_path = store_broker_snapshot_json(cash, positions, tmp_path, run_id, as_of_date)
+    stored_path = store_broker_snapshot_json(
+        cash, positions, tmp_path, run_id, as_of_date
+    )
     assert stored_path.exists()
 
     # Store Parquet (should return None for empty)
-    stored_parquet = store_broker_snapshot_parquet(positions, tmp_path, run_id, as_of_date)
+    stored_parquet = store_broker_snapshot_parquet(
+        positions, tmp_path, run_id, as_of_date
+    )
     assert stored_parquet is None
 
     # Load JSON

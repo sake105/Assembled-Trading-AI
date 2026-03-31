@@ -59,11 +59,13 @@ def generate_synthetic_data(
 
     for symbol in symbols_list:
         for date in dates:
-            prices_list.append({
-                "timestamp": date,
-                "symbol": symbol,
-                "close": 100.0 + rng.uniform(-10, 10),
-            })
+            prices_list.append(
+                {
+                    "timestamp": date,
+                    "symbol": symbol,
+                    "close": 100.0 + rng.uniform(-10, 10),
+                }
+            )
 
     prices_df = pd.DataFrame(prices_list)
 
@@ -75,7 +77,8 @@ def generate_synthetic_data(
         event_dates = rng.choice(dates, size=n_events_per_symbol, replace=True)
         # Disclosure dates are T+1 to T+5 after event dates
         disclosure_dates = [
-            event_date + pd.Timedelta(days=int(1 + rng.integers(0, 5))) for event_date in event_dates
+            event_date + pd.Timedelta(days=int(1 + rng.integers(0, 5)))
+            for event_date in event_dates
         ]
 
         for event_date, disclosure_date in zip(event_dates, disclosure_dates):
@@ -83,13 +86,15 @@ def generate_synthetic_data(
             if disclosure_date > dates[-1]:
                 disclosure_date = dates[-1]
 
-            events_list.append({
-                "symbol": symbol,
-                "event_date": event_date,
-                "disclosure_date": disclosure_date,
-                "effective_date": disclosure_date,
-                "value": rng.uniform(100, 1000),
-            })
+            events_list.append(
+                {
+                    "symbol": symbol,
+                    "event_date": event_date,
+                    "disclosure_date": disclosure_date,
+                    "effective_date": disclosure_date,
+                    "value": rng.uniform(100, 1000),
+                }
+            )
 
     events_df = pd.DataFrame(events_list)
 
@@ -129,7 +134,9 @@ def main() -> None:
     )
 
     print(f"Generated {len(prices_df)} price rows, {len(events_df)} event rows")
-    print(f"Symbols: {prices_df['symbol'].nunique()}, Date range: {prices_df['timestamp'].min()} to {prices_df['timestamp'].max()}")
+    print(
+        f"Symbols: {prices_df['symbol'].nunique()}, Date range: {prices_df['timestamp'].min()} to {prices_df['timestamp'].max()}"
+    )
 
     as_of = pd.Timestamp("2024-12-31", tz="UTC")
     lookback_days = 30
@@ -181,7 +188,9 @@ def main() -> None:
     # Sanity checks
     assert legacy_panel_results["result_rows"] > 0, "Legacy result is empty"
     assert vectorized_panel_results["result_rows"] > 0, "Vectorized result is empty"
-    assert legacy_panel_results["result_rows"] == vectorized_panel_results["result_rows"], (
+    assert (
+        legacy_panel_results["result_rows"] == vectorized_panel_results["result_rows"]
+    ), (
         f"Row count mismatch: legacy={legacy_panel_results['result_rows']}, "
         f"vectorized={vectorized_panel_results['result_rows']}"
     )
@@ -189,7 +198,8 @@ def main() -> None:
     benchmark_results["build_event_feature_panel"] = {
         "legacy": legacy_panel_results,
         "vectorized": vectorized_panel_results,
-        "speedup": legacy_panel_results["elapsed_seconds"] / vectorized_panel_results["elapsed_seconds"],
+        "speedup": legacy_panel_results["elapsed_seconds"]
+        / vectorized_panel_results["elapsed_seconds"],
     }
 
     # Benchmark add_disclosure_count_feature
@@ -222,7 +232,9 @@ def main() -> None:
     # Sanity checks
     assert legacy_count_results["result_rows"] > 0, "Legacy result is empty"
     assert vectorized_count_results["result_rows"] > 0, "Vectorized result is empty"
-    assert legacy_count_results["result_rows"] == vectorized_count_results["result_rows"], (
+    assert (
+        legacy_count_results["result_rows"] == vectorized_count_results["result_rows"]
+    ), (
         f"Row count mismatch: legacy={legacy_count_results['result_rows']}, "
         f"vectorized={vectorized_count_results['result_rows']}"
     )
@@ -230,7 +242,8 @@ def main() -> None:
     benchmark_results["add_disclosure_count_feature"] = {
         "legacy": legacy_count_results,
         "vectorized": vectorized_count_results,
-        "speedup": legacy_count_results["elapsed_seconds"] / vectorized_count_results["elapsed_seconds"],
+        "speedup": legacy_count_results["elapsed_seconds"]
+        / vectorized_count_results["elapsed_seconds"],
     }
 
     # Write results to JSON file
@@ -245,8 +258,12 @@ def main() -> None:
 
     print(f"\nBenchmark results written to: {output_file}")
     print("\nSpeedup summary:")
-    print(f"  build_event_feature_panel: {benchmark_results['build_event_feature_panel']['speedup']:.2f}x")
-    print(f"  add_disclosure_count_feature: {benchmark_results['add_disclosure_count_feature']['speedup']:.2f}x")
+    print(
+        f"  build_event_feature_panel: {benchmark_results['build_event_feature_panel']['speedup']:.2f}x"
+    )
+    print(
+        f"  add_disclosure_count_feature: {benchmark_results['add_disclosure_count_feature']['speedup']:.2f}x"
+    )
 
 
 if __name__ == "__main__":

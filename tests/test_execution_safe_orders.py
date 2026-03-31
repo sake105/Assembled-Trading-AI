@@ -22,6 +22,7 @@ from src.assembled_core.execution.safe_bridge import (
     write_safe_orders_csv,
     write_safe_orders_csv_from_targets,
 )
+import src.assembled_core.execution.safe_bridge  # noqa: F401 - ensure submodule is loaded for monkeypatch
 
 
 def create_sample_target_positions() -> pd.DataFrame:

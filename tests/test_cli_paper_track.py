@@ -46,12 +46,12 @@ def test_paper_track_health_check_cli_help():
         cmd, capture_output=True, text=True, cwd=Path(__file__).parent.parent
     )
 
-    assert result.returncode == 0, (
-        f"Help should exit with code 0. stderr: {result.stderr}"
-    )
-    assert "paper-track" in result.stdout.lower(), (
-        "Help should mention paper-track arguments"
-    )
+    assert (
+        result.returncode == 0
+    ), f"Help should exit with code 0. stderr: {result.stderr}"
+    assert (
+        "paper-track" in result.stdout.lower()
+    ), "Help should mention paper-track arguments"
 
 
 @pytest.mark.advanced
@@ -90,12 +90,12 @@ def test_paper_track_health_check_cli_smoke(tmp_path: Path):
     )
 
     # Should create output files
-    assert (output_dir / "health_summary.json").exists(), (
-        "health_summary.json should be created"
-    )
-    assert (output_dir / "health_summary.md").exists(), (
-        "health_summary.md should be created"
-    )
+    assert (
+        output_dir / "health_summary.json"
+    ).exists(), "health_summary.json should be created"
+    assert (
+        output_dir / "health_summary.md"
+    ).exists(), "health_summary.md should be created"
 
 
 @pytest.mark.advanced
@@ -156,9 +156,9 @@ def test_paper_track_core_functions_callable():
 
     assert not filtered.empty, "Filtered prices should not be empty"
     assert len(filtered) == 1, "Should have one row (last available <= as_of)"
-    assert filtered["timestamp"].iloc[0] <= as_of, (
-        "Filtered timestamp should be <= as_of"
-    )
+    assert (
+        filtered["timestamp"].iloc[0] <= as_of
+    ), "Filtered timestamp should be <= as_of"
 
     # Test _compute_position_value
     positions = pd.DataFrame(

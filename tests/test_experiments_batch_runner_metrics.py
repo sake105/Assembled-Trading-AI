@@ -24,7 +24,7 @@ def test_collect_backtest_metrics_with_valid_equity(tmp_path: Path) -> None:
 
     # Create synthetic equity curve
     dates = pd.date_range("2020-01-01", periods=100, freq="D", tz="UTC")
-    equity_values = [10000.0 * (1.001 ** i) for i in range(100)]  # Slight upward trend
+    equity_values = [10000.0 * (1.001**i) for i in range(100)]  # Slight upward trend
 
     equity_df = pd.DataFrame({"timestamp": dates, "equity": equity_values})
     equity_file = backtest_dir / "portfolio_equity_1d.csv"
@@ -51,7 +51,7 @@ def test_collect_backtest_metrics_with_trades(tmp_path: Path) -> None:
 
     # Create equity curve
     dates = pd.date_range("2020-01-01", periods=50, freq="D", tz="UTC")
-    equity_values = [10000.0 * (1.001 ** i) for i in range(50)]
+    equity_values = [10000.0 * (1.001**i) for i in range(50)]
     equity_df = pd.DataFrame({"timestamp": dates, "equity": equity_values})
     equity_file = backtest_dir / "portfolio_equity_1d.csv"
     equity_df.to_csv(equity_file, index=False)
@@ -187,4 +187,3 @@ def test_collect_backtest_metrics_deflated_sharpe(tmp_path: Path) -> None:
 
     # Deflated Sharpe might be NaN if calculation fails, but should be attempted
     assert "deflated_sharpe" in metrics
-

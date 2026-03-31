@@ -21,7 +21,10 @@ from src.assembled_core.pipeline.backtest import (
 def test_equity_mark_to_market_vectorized() -> None:
     """Test that mark-to-market calculation uses vectorized operations."""
     # Create price pivot (timestamp x symbol)
-    timestamps = [pd.Timestamp("2024-01-01", tz="UTC"), pd.Timestamp("2024-01-02", tz="UTC")]
+    timestamps = [
+        pd.Timestamp("2024-01-01", tz="UTC"),
+        pd.Timestamp("2024-01-02", tz="UTC"),
+    ]
     symbols = ["AAPL", "MSFT", "GOOGL"]
     price_data = {
         "timestamp": timestamps * 3,
@@ -37,7 +40,11 @@ def test_equity_mark_to_market_vectorized() -> None:
 
     # Test first timestamp
     equity_1 = _update_equity_mark_to_market(
-        timestamp=timestamps[0], cash=cash, positions=positions, price_pivot=price_pivot, symbols=symbols
+        timestamp=timestamps[0],
+        cash=cash,
+        positions=positions,
+        price_pivot=price_pivot,
+        symbols=symbols,
     )
 
     # Expected: cash + (10 * 100) + (5 * 200) + (0 * 150) = 1000 + 1000 + 1000 + 0 = 3000
@@ -46,7 +53,11 @@ def test_equity_mark_to_market_vectorized() -> None:
 
     # Test second timestamp (prices changed)
     equity_2 = _update_equity_mark_to_market(
-        timestamp=timestamps[1], cash=cash, positions=positions, price_pivot=price_pivot, symbols=symbols
+        timestamp=timestamps[1],
+        cash=cash,
+        positions=positions,
+        price_pivot=price_pivot,
+        symbols=symbols,
     )
 
     # Expected: cash + (10 * 105) + (5 * 205) + (0 * 155) = 1000 + 1050 + 1025 + 0 = 3075
@@ -71,7 +82,11 @@ def test_equity_with_nan_prices() -> None:
     cash = 1000.0
 
     equity = _update_equity_mark_to_market(
-        timestamp=timestamps[0], cash=cash, positions=positions, price_pivot=price_pivot, symbols=symbols
+        timestamp=timestamps[0],
+        cash=cash,
+        positions=positions,
+        price_pivot=price_pivot,
+        symbols=symbols,
     )
 
     # Expected: cash + (10 * 100) + (5 * NaN) + (3 * 150)
@@ -98,7 +113,11 @@ def test_equity_missing_timestamp() -> None:
     # Missing timestamp should return cash only
     missing_ts = pd.Timestamp("2024-01-02", tz="UTC")
     equity = _update_equity_mark_to_market(
-        timestamp=missing_ts, cash=cash, positions=positions, price_pivot=price_pivot, symbols=symbols
+        timestamp=missing_ts,
+        cash=cash,
+        positions=positions,
+        price_pivot=price_pivot,
+        symbols=symbols,
     )
 
     assert equity == cash
@@ -107,30 +126,34 @@ def test_equity_missing_timestamp() -> None:
 def test_simulate_equity_regression() -> None:
     """Regression test: verify equity curve is identical to original implementation."""
     # Create simple price data (2 symbols, 3 timestamps)
-    prices = pd.DataFrame({
-        "timestamp": [
-            pd.Timestamp("2024-01-01", tz="UTC"),
-            pd.Timestamp("2024-01-01", tz="UTC"),
-            pd.Timestamp("2024-01-02", tz="UTC"),
-            pd.Timestamp("2024-01-02", tz="UTC"),
-            pd.Timestamp("2024-01-03", tz="UTC"),
-            pd.Timestamp("2024-01-03", tz="UTC"),
-        ],
-        "symbol": ["AAPL", "MSFT", "AAPL", "MSFT", "AAPL", "MSFT"],
-        "close": [100.0, 200.0, 105.0, 205.0, 110.0, 210.0],
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": [
+                pd.Timestamp("2024-01-01", tz="UTC"),
+                pd.Timestamp("2024-01-01", tz="UTC"),
+                pd.Timestamp("2024-01-02", tz="UTC"),
+                pd.Timestamp("2024-01-02", tz="UTC"),
+                pd.Timestamp("2024-01-03", tz="UTC"),
+                pd.Timestamp("2024-01-03", tz="UTC"),
+            ],
+            "symbol": ["AAPL", "MSFT", "AAPL", "MSFT", "AAPL", "MSFT"],
+            "close": [100.0, 200.0, 105.0, 205.0, 110.0, 210.0],
+        }
+    )
 
     # Create orders: BUY AAPL on day 1, SELL AAPL on day 2
-    orders = pd.DataFrame({
-        "timestamp": [
-            pd.Timestamp("2024-01-01", tz="UTC"),
-            pd.Timestamp("2024-01-02", tz="UTC"),
-        ],
-        "symbol": ["AAPL", "AAPL"],
-        "side": ["BUY", "SELL"],
-        "qty": [10.0, 10.0],
-        "price": [100.0, 105.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "timestamp": [
+                pd.Timestamp("2024-01-01", tz="UTC"),
+                pd.Timestamp("2024-01-02", tz="UTC"),
+            ],
+            "symbol": ["AAPL", "AAPL"],
+            "side": ["BUY", "SELL"],
+            "qty": [10.0, 10.0],
+            "price": [100.0, 105.0],
+        }
+    )
 
     start_capital = 10000.0
     equity = simulate_equity(prices, orders, start_capital)
@@ -145,9 +168,15 @@ def test_simulate_equity_regression() -> None:
     # Day 2: 9000 + (10 * 105) = 10050 cash, 0 AAPL, equity = 10050
     # Day 3: 10050 cash, 0 AAPL, equity = 10050
 
-    equity_1 = equity[equity["timestamp"] == pd.Timestamp("2024-01-01", tz="UTC")]["equity"].values[0]
-    equity_2 = equity[equity["timestamp"] == pd.Timestamp("2024-01-02", tz="UTC")]["equity"].values[0]
-    equity_3 = equity[equity["timestamp"] == pd.Timestamp("2024-01-03", tz="UTC")]["equity"].values[0]
+    equity_1 = equity[equity["timestamp"] == pd.Timestamp("2024-01-01", tz="UTC")][
+        "equity"
+    ].values[0]
+    equity_2 = equity[equity["timestamp"] == pd.Timestamp("2024-01-02", tz="UTC")][
+        "equity"
+    ].values[0]
+    equity_3 = equity[equity["timestamp"] == pd.Timestamp("2024-01-03", tz="UTC")][
+        "equity"
+    ].values[0]
 
     # Day 1: After BUY, cash = 9000, positions = 10 AAPL @ 100, equity = 9000 + 1000 = 10000
     assert abs(equity_1 - 10000.0) < 1e-6
@@ -162,27 +191,31 @@ def test_simulate_equity_regression() -> None:
 def test_simulate_equity_returns_regression() -> None:
     """Regression test: verify returns/metrics are identical to original implementation."""
     # Create price data
-    prices = pd.DataFrame({
-        "timestamp": [
-            pd.Timestamp("2024-01-01", tz="UTC"),
-            pd.Timestamp("2024-01-01", tz="UTC"),
-            pd.Timestamp("2024-01-02", tz="UTC"),
-            pd.Timestamp("2024-01-02", tz="UTC"),
-            pd.Timestamp("2024-01-03", tz="UTC"),
-            pd.Timestamp("2024-01-03", tz="UTC"),
-        ],
-        "symbol": ["AAPL", "MSFT", "AAPL", "MSFT", "AAPL", "MSFT"],
-        "close": [100.0, 200.0, 105.0, 205.0, 110.0, 210.0],
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": [
+                pd.Timestamp("2024-01-01", tz="UTC"),
+                pd.Timestamp("2024-01-01", tz="UTC"),
+                pd.Timestamp("2024-01-02", tz="UTC"),
+                pd.Timestamp("2024-01-02", tz="UTC"),
+                pd.Timestamp("2024-01-03", tz="UTC"),
+                pd.Timestamp("2024-01-03", tz="UTC"),
+            ],
+            "symbol": ["AAPL", "MSFT", "AAPL", "MSFT", "AAPL", "MSFT"],
+            "close": [100.0, 200.0, 105.0, 205.0, 110.0, 210.0],
+        }
+    )
 
     # Create orders
-    orders = pd.DataFrame({
-        "timestamp": [pd.Timestamp("2024-01-01", tz="UTC")],
-        "symbol": ["AAPL"],
-        "side": ["BUY"],
-        "qty": [10.0],
-        "price": [100.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "timestamp": [pd.Timestamp("2024-01-01", tz="UTC")],
+            "symbol": ["AAPL"],
+            "side": ["BUY"],
+            "qty": [10.0],
+            "price": [100.0],
+        }
+    )
 
     start_capital = 10000.0
     equity = simulate_equity(prices, orders, start_capital)
@@ -228,7 +261,11 @@ def test_equity_empty_positions() -> None:
     cash = 1000.0
 
     equity = _update_equity_mark_to_market(
-        timestamp=timestamps[0], cash=cash, positions=positions, price_pivot=price_pivot, symbols=symbols
+        timestamp=timestamps[0],
+        cash=cash,
+        positions=positions,
+        price_pivot=price_pivot,
+        symbols=symbols,
     )
 
     # Empty positions should return cash only
@@ -251,11 +288,14 @@ def test_equity_multiple_symbols_vectorized() -> None:
     cash = 1000.0
 
     equity = _update_equity_mark_to_market(
-        timestamp=timestamps[0], cash=cash, positions=positions, price_pivot=price_pivot, symbols=symbols
+        timestamp=timestamps[0],
+        cash=cash,
+        positions=positions,
+        price_pivot=price_pivot,
+        symbols=symbols,
     )
 
     # Expected: cash + (10*100) + (5*200) + (3*150) + (2*250)
     # = 1000 + 1000 + 1000 + 450 + 500 = 3950
     expected = cash + (10.0 * 100.0) + (5.0 * 200.0) + (3.0 * 150.0) + (2.0 * 250.0)
     assert abs(equity - expected) < 1e-6
-

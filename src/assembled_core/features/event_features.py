@@ -149,19 +149,24 @@ def build_event_feature_panel(
             # Filter by lookback window (disclosure_date in [price_time - lookback, price_time])
             window_events = row_events[
                 (row_events["disclosure_date"] <= price_time_normalized)
-                & (row_events["disclosure_date"] > price_time_normalized - pd.Timedelta(days=lookback_days))
+                & (
+                    row_events["disclosure_date"]
+                    > price_time_normalized - pd.Timedelta(days=lookback_days)
+                )
             ].copy()
 
             # Compute features
-            result.loc[idx, f"{feature_prefix}_count_{lookback_days}d"] = len(window_events)
+            result.loc[idx, f"{feature_prefix}_count_{lookback_days}d"] = len(
+                window_events
+            )
 
             if value_col and value_col in window_events.columns:
-                result.loc[idx, f"{feature_prefix}_sum_{lookback_days}d"] = window_events[
-                    value_col
-                ].sum()
-                result.loc[idx, f"{feature_prefix}_mean_{lookback_days}d"] = window_events[
-                    value_col
-                ].mean()
+                result.loc[idx, f"{feature_prefix}_sum_{lookback_days}d"] = (
+                    window_events[value_col].sum()
+                )
+                result.loc[idx, f"{feature_prefix}_mean_{lookback_days}d"] = (
+                    window_events[value_col].mean()
+                )
             else:
                 result.loc[idx, f"{feature_prefix}_sum_{lookback_days}d"] = 0.0
                 result.loc[idx, f"{feature_prefix}_mean_{lookback_days}d"] = pd.NA
@@ -268,11 +273,13 @@ def add_disclosure_count_feature(
             # Filter by lookback window (disclosure_date in [price_time - window, price_time])
             window_events = row_events[
                 (row_events["disclosure_date"] <= price_time_normalized)
-                & (row_events["disclosure_date"] > price_time_normalized - pd.Timedelta(days=window_days))
+                & (
+                    row_events["disclosure_date"]
+                    > price_time_normalized - pd.Timedelta(days=window_days)
+                )
             ].copy()
 
             # Count events
             result.loc[idx, out_col] = len(window_events)
 
     return result
-

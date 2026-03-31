@@ -143,9 +143,9 @@ class TestComputeMarketBreadthMa:
             later_fractions = result.iloc[30:]["fraction_above_ma_20"].dropna()
             if len(later_fractions) > 0:
                 avg_fraction = later_fractions.mean()
-                assert avg_fraction > 0.7, (
-                    f"For uptrend, fraction should be high, got {avg_fraction}"
-                )
+                assert (
+                    avg_fraction > 0.7
+                ), f"For uptrend, fraction should be high, got {avg_fraction}"
 
     def test_required_columns_validation(self):
         """Test that missing required columns raise KeyError."""
@@ -192,9 +192,9 @@ class TestComputeAdvanceDeclineLine:
 
         if len(result) > 0:
             computed_net = result["advances"] - result["declines"]
-            assert (result["net_advances"] == computed_net).all(), (
-                "net_advances should equal advances - declines"
-            )
+            assert (
+                result["net_advances"] == computed_net
+            ).all(), "net_advances should equal advances - declines"
 
     def test_ad_line_cumulative(self, sample_price_panel):
         """Test that A/D Line is cumulative sum of net_advances."""
@@ -202,9 +202,9 @@ class TestComputeAdvanceDeclineLine:
 
         if len(result) > 0:
             expected_cumsum = result["net_advances"].cumsum()
-            assert (result["ad_line"] == expected_cumsum).all(), (
-                "ad_line should be cumulative sum of net_advances"
-            )
+            assert (
+                result["ad_line"] == expected_cumsum
+            ).all(), "ad_line should be cumulative sum of net_advances"
 
     def test_ad_line_normalized_starts_at_zero(self, sample_price_panel):
         """Test that normalized A/D Line starts at 0."""
@@ -212,9 +212,9 @@ class TestComputeAdvanceDeclineLine:
 
         if len(result) > 0:
             first_normalized = result["ad_line_normalized"].iloc[0]
-            assert abs(first_normalized) < 1e-10, (
-                f"Normalized A/D Line should start at 0, got {first_normalized}"
-            )
+            assert (
+                abs(first_normalized) < 1e-10
+            ), f"Normalized A/D Line should start at 0, got {first_normalized}"
 
     def test_ad_line_monotonicity_property(self, trending_price_panel):
         """Test that A/D Line for uptrending market is generally increasing."""
@@ -227,17 +227,17 @@ class TestComputeAdvanceDeclineLine:
             positive_ratio = positive_days / total_days
 
             # In an uptrend, most days should have positive net advances
-            assert positive_ratio > 0.6, (
-                f"For uptrend, positive net advances ratio should be >0.6, got {positive_ratio}"
-            )
+            assert (
+                positive_ratio > 0.6
+            ), f"For uptrend, positive net advances ratio should be >0.6, got {positive_ratio}"
 
             # A/D Line should be generally increasing
             ad_line_diffs = result["ad_line"].diff().dropna()
             increasing_days = (ad_line_diffs > 0).sum()
             increasing_ratio = increasing_days / len(ad_line_diffs)
-            assert increasing_ratio > 0.5, (
-                f"For uptrend, A/D Line should be increasing more often, got {increasing_ratio}"
-            )
+            assert (
+                increasing_ratio > 0.5
+            ), f"For uptrend, A/D Line should be increasing more often, got {increasing_ratio}"
 
     def test_required_columns_validation(self):
         """Test that missing required columns raise KeyError."""
@@ -281,30 +281,30 @@ class TestComputeRiskOnOffIndicator:
         result = compute_risk_on_off_indicator(sample_price_panel)
 
         if len(result) > 0:
-            assert (result["risk_on_ratio"] >= 0.0).all(), (
-                "risk_on_ratio should be >= 0"
-            )
-            assert (result["risk_on_ratio"] <= 1.0).all(), (
-                "risk_on_ratio should be <= 1"
-            )
-            assert (result["risk_off_ratio"] >= 0.0).all(), (
-                "risk_off_ratio should be >= 0"
-            )
-            assert (result["risk_off_ratio"] <= 1.0).all(), (
-                "risk_off_ratio should be <= 1"
-            )
+            assert (
+                result["risk_on_ratio"] >= 0.0
+            ).all(), "risk_on_ratio should be >= 0"
+            assert (
+                result["risk_on_ratio"] <= 1.0
+            ).all(), "risk_on_ratio should be <= 1"
+            assert (
+                result["risk_off_ratio"] >= 0.0
+            ).all(), "risk_off_ratio should be >= 0"
+            assert (
+                result["risk_off_ratio"] <= 1.0
+            ).all(), "risk_off_ratio should be <= 1"
 
     def test_score_range(self, sample_price_panel):
         """Test that risk_on_off_score is between -1 and 1."""
         result = compute_risk_on_off_indicator(sample_price_panel)
 
         if len(result) > 0:
-            assert (result["risk_on_off_score"] >= -1.0).all(), (
-                "risk_on_off_score should be >= -1"
-            )
-            assert (result["risk_on_off_score"] <= 1.0).all(), (
-                "risk_on_off_score should be <= 1"
-            )
+            assert (
+                result["risk_on_off_score"] >= -1.0
+            ).all(), "risk_on_off_score should be >= -1"
+            assert (
+                result["risk_on_off_score"] <= 1.0
+            ).all(), "risk_on_off_score should be <= 1"
 
     def test_ratio_sum(self, sample_price_panel):
         """Test that risk_on_ratio + risk_off_ratio ≈ 1 (excluding flat days)."""
@@ -313,12 +313,12 @@ class TestComputeRiskOnOffIndicator:
         if len(result) > 0:
             ratio_sum = result["risk_on_ratio"] + result["risk_off_ratio"]
             # Should be close to 1 (within small tolerance)
-            assert (ratio_sum <= 1.01).all(), (
-                "risk_on_ratio + risk_off_ratio should be <= 1"
-            )
-            assert (ratio_sum >= 0.99).all(), (
-                "risk_on_ratio + risk_off_ratio should be >= 0.99"
-            )
+            assert (
+                ratio_sum <= 1.01
+            ).all(), "risk_on_ratio + risk_off_ratio should be <= 1"
+            assert (
+                ratio_sum >= 0.99
+            ).all(), "risk_on_ratio + risk_off_ratio should be >= 0.99"
 
     def test_required_columns_validation(self):
         """Test that missing required columns raise KeyError."""
@@ -411,9 +411,9 @@ class TestEdgeCases:
         # With single symbol, fraction should be either 0 or 1
         fractions = breadth["fraction_above_ma_20"].dropna()
         if len(fractions) > 0:
-            assert ((fractions == 0.0) | (fractions == 1.0)).all(), (
-                "With single symbol, fraction should be 0 or 1"
-            )
+            assert (
+                (fractions == 0.0) | (fractions == 1.0)
+            ).all(), "With single symbol, fraction should be 0 or 1"
 
     def test_minimal_data(self):
         """Test with minimal data (just enough for some indicators)."""

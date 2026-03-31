@@ -151,9 +151,9 @@ def test_risk_report_basic(sample_backtest_dir: Path, tmp_path: Path):
 
     # Check that exposure timeseries is created if positions available
     exposure_csv = output_dir / "exposure_timeseries.csv"
-    assert exposure_csv.exists(), (
-        "exposure_timeseries.csv should be created when positions are available"
-    )
+    assert (
+        exposure_csv.exists()
+    ), "exposure_timeseries.csv should be created when positions are available"
 
     exposure_df = pd.read_csv(exposure_csv)
     assert "gross_exposure" in exposure_df.columns
@@ -189,12 +189,12 @@ def test_risk_report_with_regime_and_factors(
 
     assert summary_csv.exists()
     assert report_md.exists()
-    assert regime_csv.exists(), (
-        "risk_by_regime.csv should be created when regime file is provided"
-    )
-    assert factor_csv.exists(), (
-        "risk_by_factor_group.csv should be created when factor panel is provided"
-    )
+    assert (
+        regime_csv.exists()
+    ), "risk_by_regime.csv should be created when regime file is provided"
+    assert (
+        factor_csv.exists()
+    ), "risk_by_factor_group.csv should be created when factor panel is provided"
 
     # Check regime CSV structure
     regime_df = pd.read_csv(regime_csv)
@@ -244,9 +244,9 @@ def test_risk_report_missing_positions(sample_backtest_dir: Path, tmp_path: Path
 
     # Exposure timeseries should not exist (no positions)
     exposure_csv = output_dir / "exposure_timeseries.csv"
-    assert not exposure_csv.exists(), (
-        "exposure_timeseries.csv should not be created without positions"
-    )
+    assert (
+        not exposure_csv.exists()
+    ), "exposure_timeseries.csv should not be created without positions"
 
 
 def test_risk_report_missing_regime_file(sample_backtest_dir: Path, tmp_path: Path):
@@ -276,9 +276,9 @@ def test_risk_report_missing_regime_file(sample_backtest_dir: Path, tmp_path: Pa
 
     # Regime CSV should not exist
     regime_csv = output_dir / "risk_by_regime.csv"
-    assert not regime_csv.exists(), (
-        "risk_by_regime.csv should not be created without valid regime file"
-    )
+    assert (
+        not regime_csv.exists()
+    ), "risk_by_regime.csv should not be created without valid regime file"
 
 
 def test_risk_report_missing_backtest_dir(tmp_path: Path):

@@ -20,6 +20,7 @@ from src.assembled_core.qa.robustness import (
 
 def test_build_heatmap_table_correct_shape():
     """Test that heatmap table has correct pivot shape."""
+
     # Create results with 2x3 grid
     def backtest_fn(config):
         return {"sharpe": float(config["x"] + config["y"])}
@@ -58,11 +59,13 @@ def test_build_heatmap_table_correct_shape():
 def test_build_heatmap_table_missing_combinations():
     """Test that missing combinations are represented as NaN deterministically."""
     # Create results with some missing combinations
-    results_df = pd.DataFrame({
-        "x": [1, 1, 2],  # Missing: x=2, y=20
-        "y": [10, 20, 10],
-        "sharpe": [1.0, 1.2, 1.1],
-    })
+    results_df = pd.DataFrame(
+        {
+            "x": [1, 1, 2],  # Missing: x=2, y=20
+            "y": [10, 20, 10],
+            "sharpe": [1.0, 1.2, 1.1],
+        }
+    )
 
     heatmap_df = build_heatmap_table(
         results_df=results_df,
@@ -85,11 +88,13 @@ def test_build_heatmap_table_missing_combinations():
 
 def test_build_heatmap_table_deterministic_ordering():
     """Test that heatmap table is sorted deterministically."""
-    results_df = pd.DataFrame({
-        "x": [3, 1, 2, 1, 2, 3],
-        "y": [30, 10, 20, 20, 10, 30],
-        "sharpe": [1.0, 1.1, 1.2, 1.3, 1.4, 1.5],
-    })
+    results_df = pd.DataFrame(
+        {
+            "x": [3, 1, 2, 1, 2, 3],
+            "y": [30, 10, 20, 20, 10, 30],
+            "sharpe": [1.0, 1.1, 1.2, 1.3, 1.4, 1.5],
+        }
+    )
 
     heatmap_df = build_heatmap_table(
         results_df=results_df,
@@ -107,11 +112,13 @@ def test_build_heatmap_table_deterministic_ordering():
 
 def test_build_heatmap_table_duplicate_combinations():
     """Test that duplicate combinations use first value (aggfunc='first')."""
-    results_df = pd.DataFrame({
-        "x": [1, 1, 1],
-        "y": [10, 10, 10],  # Duplicate combination
-        "sharpe": [1.0, 1.5, 1.2],  # First value (1.0) should be used
-    })
+    results_df = pd.DataFrame(
+        {
+            "x": [1, 1, 1],
+            "y": [10, 10, 10],  # Duplicate combination
+            "sharpe": [1.0, 1.5, 1.2],  # First value (1.0) should be used
+        }
+    )
 
     heatmap_df = build_heatmap_table(
         results_df=results_df,
@@ -127,11 +134,13 @@ def test_build_heatmap_table_duplicate_combinations():
 
 def test_build_heatmap_table_missing_metric():
     """Test that missing metric raises ValueError."""
-    results_df = pd.DataFrame({
-        "x": [1, 2],
-        "y": [10, 20],
-        "cagr": [0.10, 0.15],
-    })
+    results_df = pd.DataFrame(
+        {
+            "x": [1, 2],
+            "y": [10, 20],
+            "cagr": [0.10, 0.15],
+        }
+    )
 
     with pytest.raises(ValueError, match="metric 'sharpe' not found"):
         build_heatmap_table(
@@ -144,10 +153,12 @@ def test_build_heatmap_table_missing_metric():
 
 def test_build_heatmap_table_missing_params():
     """Test that missing parameter columns raise ValueError."""
-    results_df = pd.DataFrame({
-        "x": [1, 2],
-        "sharpe": [1.0, 1.1],
-    })
+    results_df = pd.DataFrame(
+        {
+            "x": [1, 2],
+            "sharpe": [1.0, 1.1],
+        }
+    )
 
     with pytest.raises(ValueError, match="y_param 'y' not found"):
         build_heatmap_table(
@@ -160,11 +171,13 @@ def test_build_heatmap_table_missing_params():
 
 def test_build_heatmap_table_string_params():
     """Test that string parameter values work correctly."""
-    results_df = pd.DataFrame({
-        "strategy": ["ema", "sma"],
-        "freq": ["1d", "5min"],
-        "sharpe": [1.0, 1.1],
-    })
+    results_df = pd.DataFrame(
+        {
+            "strategy": ["ema", "sma"],
+            "freq": ["1d", "5min"],
+            "sharpe": [1.0, 1.1],
+        }
+    )
 
     heatmap_df = build_heatmap_table(
         results_df=results_df,
@@ -186,12 +199,14 @@ def test_build_heatmap_table_string_params():
 def test_export_robustness_sweep_results_smoke(tmp_path: Path):
     """Test that export_robustness_sweep_results produces stable files."""
     # Create synthetic results
-    results_df = pd.DataFrame({
-        "ma_fast": [10, 10, 20, 20],
-        "ma_slow": [50, 100, 50, 100],
-        "sharpe": [1.0, 1.2, 1.1, 1.3],
-        "cagr": [0.10, 0.12, 0.11, 0.13],
-    })
+    results_df = pd.DataFrame(
+        {
+            "ma_fast": [10, 10, 20, 20],
+            "ma_slow": [50, 100, 50, 100],
+            "sharpe": [1.0, 1.2, 1.1, 1.3],
+            "cagr": [0.10, 0.12, 0.11, 0.13],
+        }
+    )
 
     # Build heatmap
     heatmap_df = build_heatmap_table(

@@ -11,7 +11,9 @@ from typing import Any, Dict
 import pandas as pd
 
 
-def _select_price_series(prices: pd.DataFrame, benchmark_symbol: str | None) -> pd.Series:
+def _select_price_series(
+    prices: pd.DataFrame, benchmark_symbol: str | None
+) -> pd.Series:
     """Return a single close series sorted by timestamp. Multi-symbol: use benchmark or first."""
     if prices.empty or "close" not in prices.columns:
         return pd.Series(dtype=float)
@@ -26,7 +28,9 @@ def _select_price_series(prices: pd.DataFrame, benchmark_symbol: str | None) -> 
     return out.set_index("timestamp")["close"]
 
 
-def compute_market_stress(prices: pd.DataFrame, policy: Dict[str, Any]) -> Dict[str, Any]:
+def compute_market_stress(
+    prices: pd.DataFrame, policy: Dict[str, Any]
+) -> Dict[str, Any]:
     """Compute market stress from price series (deterministic, no external deps).
 
     Args:
@@ -49,7 +53,12 @@ def compute_market_stress(prices: pd.DataFrame, policy: Dict[str, Any]) -> Dict[
         return {
             "stress_ok": if_data_missing,
             "stress_score": 0,
-            "details": {"vol_z": None, "stress_vol": False, "min_dd": None, "stress_dd": False},
+            "details": {
+                "vol_z": None,
+                "stress_vol": False,
+                "min_dd": None,
+                "stress_dd": False,
+            },
         }
 
     returns = close.pct_change().dropna()
@@ -57,7 +66,12 @@ def compute_market_stress(prices: pd.DataFrame, policy: Dict[str, Any]) -> Dict[
         return {
             "stress_ok": if_data_missing,
             "stress_score": 0,
-            "details": {"vol_z": None, "stress_vol": False, "min_dd": None, "stress_dd": False},
+            "details": {
+                "vol_z": None,
+                "stress_vol": False,
+                "min_dd": None,
+                "stress_dd": False,
+            },
         }
 
     metrics = cfg.get("metrics") or {}

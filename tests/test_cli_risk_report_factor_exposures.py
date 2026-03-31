@@ -100,12 +100,12 @@ def test_risk_report_with_factor_exposures_creates_files(
     detail_file = output_dir / "factor_exposures_detail.csv"
     summary_file = output_dir / "factor_exposures_summary.csv"
 
-    assert detail_file.exists(), (
-        f"factor_exposures_detail.csv should exist in {output_dir}"
-    )
-    assert summary_file.exists(), (
-        f"factor_exposures_summary.csv should exist in {output_dir}"
-    )
+    assert (
+        detail_file.exists()
+    ), f"factor_exposures_detail.csv should exist in {output_dir}"
+    assert (
+        summary_file.exists()
+    ), f"factor_exposures_summary.csv should exist in {output_dir}"
 
     # Check that files are not empty
     detail_df = pd.read_csv(detail_file, index_col=0, parse_dates=True)
@@ -169,12 +169,12 @@ def test_risk_report_with_factor_exposures_updates_markdown(
 
     report_content = report_md.read_text(encoding="utf-8")
 
-    assert "## Factor Exposures" in report_content, (
-        "Report should contain '## Factor Exposures' section"
-    )
-    assert "Factor Exposure Summary" in report_content, (
-        "Report should contain 'Factor Exposure Summary' subsection"
-    )
+    assert (
+        "## Factor Exposures" in report_content
+    ), "Report should contain '## Factor Exposures' section"
+    assert (
+        "Factor Exposure Summary" in report_content
+    ), "Report should contain 'Factor Exposure Summary' subsection"
 
 
 @pytest.mark.advanced
@@ -210,12 +210,12 @@ def test_risk_report_without_factor_exposures_no_files(
     detail_file = output_dir / "factor_exposures_detail.csv"
     summary_file = output_dir / "factor_exposures_summary.csv"
 
-    assert not detail_file.exists(), (
-        "factor_exposures_detail.csv should NOT exist without --enable-factor-exposures"
-    )
-    assert not summary_file.exists(), (
-        "factor_exposures_summary.csv should NOT exist without --enable-factor-exposures"
-    )
+    assert (
+        not detail_file.exists()
+    ), "factor_exposures_detail.csv should NOT exist without --enable-factor-exposures"
+    assert (
+        not summary_file.exists()
+    ), "factor_exposures_summary.csv should NOT exist without --enable-factor-exposures"
 
     # Check that basic report still exists
     report_md = output_dir / "risk_report.md"
@@ -223,6 +223,6 @@ def test_risk_report_without_factor_exposures_no_files(
 
     # Check that Factor Exposures section is NOT in report
     report_content = report_md.read_text(encoding="utf-8")
-    assert "## Factor Exposures" not in report_content, (
-        "Report should NOT contain Factor Exposures section without flag"
-    )
+    assert (
+        "## Factor Exposures" not in report_content
+    ), "Report should NOT contain Factor Exposures section without flag"

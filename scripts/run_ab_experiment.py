@@ -46,6 +46,7 @@ logger = logging.getLogger(__name__)
 # Summary builder
 # ---------------------------------------------------------------------------
 
+
 def build_summary_from_run(run_dir: Path) -> dict[str, Any]:
     """Build a compact summary from a paper track run directory.
 
@@ -65,7 +66,11 @@ def build_summary_from_run(run_dir: Path) -> dict[str, Any]:
         return _empty_summary(run_data)
 
     equities = [d["equity"] for d in success_days if d.get("equity") is not None]
-    returns = [d["daily_return_pct"] for d in success_days if d.get("daily_return_pct") is not None]
+    returns = [
+        d["daily_return_pct"]
+        for d in success_days
+        if d.get("daily_return_pct") is not None
+    ]
 
     start_equity = equities[0] if equities else 0.0
     end_equity = equities[-1] if equities else 0.0
@@ -75,7 +80,7 @@ def build_summary_from_run(run_dir: Path) -> dict[str, Any]:
     peak = 1.0
     max_dd = 0.0
     for r in returns:
-        cumulative *= (1.0 + r / 100.0)
+        cumulative *= 1.0 + r / 100.0
         if cumulative > peak:
             peak = cumulative
         dd = (cumulative - peak) / peak if peak > 0 else 0.0
@@ -174,9 +179,12 @@ def _empty_summary(run_data: dict[str, Any]) -> dict[str, Any]:
         "equity": {"start": 0, "end": 0, "total_return": 0, "max_drawdown": 0},
         "trading": {"total_trades": 0},
         "intel": {
-            "mode": "none", "avg_multiplier_applied": 1.0,
-            "days_active_hint": 0, "days_watch_hint": 0,
-            "active_pct": 0.0, "watch_pct": 1.0,
+            "mode": "none",
+            "avg_multiplier_applied": 1.0,
+            "days_active_hint": 0,
+            "days_watch_hint": 0,
+            "active_pct": 0.0,
+            "watch_pct": 1.0,
         },
     }
 
@@ -185,11 +193,13 @@ def _empty_summary(run_data: dict[str, Any]) -> dict[str, Any]:
 # Compare
 # ---------------------------------------------------------------------------
 
+
 def compare_summaries(
     summary_a: dict[str, Any],
     summary_b: dict[str, Any],
 ) -> dict[str, Any]:
     """Compare two run summaries and produce delta metrics."""
+
     def _g(s: dict, *keys: str, default: float = 0.0) -> float:
         v = s
         for k in keys:
@@ -236,7 +246,10 @@ def compare_summaries(
             "avg_multiplier_applied": round(b_mult - a_mult, 4),
             "active_pct": round(b_active - a_active, 4),
             "watch_pct": round(b_watch - a_watch, 4),
-            "total_trades": int(_g(summary_b, "trading", "total_trades") - _g(summary_a, "trading", "total_trades")),
+            "total_trades": int(
+                _g(summary_b, "trading", "total_trades")
+                - _g(summary_a, "trading", "total_trades")
+            ),
         },
     }
 
@@ -244,6 +257,7 @@ def compare_summaries(
 # ---------------------------------------------------------------------------
 # Run A/B experiment
 # ---------------------------------------------------------------------------
+
 
 def run_ab_experiment(
     config_file: Path,
@@ -261,7 +275,10 @@ def run_ab_experiment(
     hysteresis_hold_n: int = 7,
 ) -> int:
     """Run gate_off and gate_on arms, write summaries and compare."""
-    from scripts.run_paper_track import run_paper_track_from_cli, load_paper_track_config
+    from scripts.run_paper_track import (
+        run_paper_track_from_cli,
+        load_paper_track_config,
+    )
 
     output_root.mkdir(parents=True, exist_ok=True)
 
@@ -287,6 +304,7 @@ def run_ab_experiment(
         # Write arm-specific config overlay
         base_config = load_paper_track_config(config_file)
         from dataclasses import replace
+
         arm_config = replace(
             base_config,
             output_root=arm_dir,
@@ -336,7 +354,11 @@ def run_ab_experiment(
             },
             "strategy": {"params": arm_config.strategy_params},
             "integration": {"enable_pit_checks": arm_config.enable_pit_checks},
-            "data": {"price_file": str(arm_config.price_file) if arm_config.price_file else None},
+            "data": {
+                "price_file": (
+                    str(arm_config.price_file) if arm_config.price_file else None
+                )
+            },
         }
         if arm_config.random_seed is not None:
             arm_config_dict["random_seed"] = arm_config.random_seed
@@ -389,6 +411,7 @@ def run_ab_experiment(
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="A/B experiment runner for paper track",
@@ -403,20 +426,48 @@ def main() -> None:
     run_p.add_argument("--output-root", type=Path, required=True)
     run_p.add_argument("--rerun", action="store_true", default=False)
     run_p.add_argument("--active-multiplier", type=float, default=0.70)
-    run_p.add_argument("--rebalance-filter", action="store_true", default=False,
-                        help="Enable rebalance filter on gate_on arm")
-    run_p.add_argument("--rebalance-min-notional", type=float, default=500.0,
-                        help="Minimum order notional to keep (default: 500)")
-    run_p.add_argument("--deadzone", action="store_true", default=False,
-                        help="Enable dead-zone rebalance filter on gate_on arm")
-    run_p.add_argument("--deadzone-pct", type=float, default=0.05,
-                        help="Dead-zone threshold as fraction (default: 0.05 = 5%%)")
-    run_p.add_argument("--hysteresis", action="store_true", default=False,
-                        help="Enable ranking hysteresis on gate_on arm")
-    run_p.add_argument("--hysteresis-entry-n", type=int, default=5,
-                        help="Entry rank threshold (default: 5)")
-    run_p.add_argument("--hysteresis-hold-n", type=int, default=7,
-                        help="Hold rank threshold (default: 7)")
+    run_p.add_argument(
+        "--rebalance-filter",
+        action="store_true",
+        default=False,
+        help="Enable rebalance filter on gate_on arm",
+    )
+    run_p.add_argument(
+        "--rebalance-min-notional",
+        type=float,
+        default=500.0,
+        help="Minimum order notional to keep (default: 500)",
+    )
+    run_p.add_argument(
+        "--deadzone",
+        action="store_true",
+        default=False,
+        help="Enable dead-zone rebalance filter on gate_on arm",
+    )
+    run_p.add_argument(
+        "--deadzone-pct",
+        type=float,
+        default=0.05,
+        help="Dead-zone threshold as fraction (default: 0.05 = 5%%)",
+    )
+    run_p.add_argument(
+        "--hysteresis",
+        action="store_true",
+        default=False,
+        help="Enable ranking hysteresis on gate_on arm",
+    )
+    run_p.add_argument(
+        "--hysteresis-entry-n",
+        type=int,
+        default=5,
+        help="Entry rank threshold (default: 5)",
+    )
+    run_p.add_argument(
+        "--hysteresis-hold-n",
+        type=int,
+        default=7,
+        help="Hold rank threshold (default: 7)",
+    )
 
     # summarize
     sum_p = sub.add_parser("summarize", help="Build summary from existing run")

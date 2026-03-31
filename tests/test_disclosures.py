@@ -13,11 +13,17 @@ import pytest
 
 from src.assembled_core.events.disclosures import run_disclosures_pipeline
 from src.assembled_core.events.disclosures.fetch_edgar import fetch_edgar_form4
-from src.assembled_core.events.disclosures.fetch_house_ptr import fetch_house_ptr_filings, _compute_pdf_meta
+from src.assembled_core.events.disclosures.fetch_house_ptr import (
+    fetch_house_ptr_filings,
+    _compute_pdf_meta,
+)
 from src.assembled_core.events.disclosures.health import compute_health
 from src.assembled_core.events.disclosures.models import DisclosureEvent
 from src.assembled_core.events.disclosures.normalize import normalize_raw_item
-from src.assembled_core.events.disclosures.triggers import score_disclosure_triggers, apply_qc_caps
+from src.assembled_core.events.disclosures.triggers import (
+    score_disclosure_triggers,
+    apply_qc_caps,
+)
 
 
 pytestmark = [pytest.mark.unit, pytest.mark.phase6]
@@ -46,23 +52,40 @@ ATOM_TWO_ENTRIES = """<?xml version="1.0" encoding="UTF-8"?>
 
 def test_emit_wrappers_schema_version(tmp_path: Path) -> None:
     """Emitted JSON wrappers have correct schema_version (disclosures.v1, health.v1, triggers.v1, fetch_report.v1)."""
+
     # No net calls: mock fetch_edgar_form4 and fetch_house_ptr_filings so pipeline does not hit network
     def _mock_fetch_edgar_form4(
         source_id: str,
         cfg: Dict[str, Any],
         fetch_state: Any = None,
     ) -> tuple[List[Dict[str, Any]], Dict[str, Any] | None, Dict[str, Any]]:
-        return [], None, {"source_id": source_id, "type": "edgar_form4", "ok": True, "items": 0}
+        return (
+            [],
+            None,
+            {"source_id": source_id, "type": "edgar_form4", "ok": True, "items": 0},
+        )
 
     def _mock_fetch_house_ptr(
         source_id: str,
         cfg: Dict[str, Any],
         fetch_state: Any = None,
     ) -> tuple[List[Dict[str, Any]], Dict[str, Any] | None, Dict[str, Any]]:
-        return [], None, {"source_id": source_id, "type": "house_ptr", "ok": True, "items": 0}
+        return (
+            [],
+            None,
+            {"source_id": source_id, "type": "house_ptr", "ok": True, "items": 0},
+        )
 
-    with patch("src.assembled_core.events.disclosures.pipeline.fetch_edgar_form4", side_effect=_mock_fetch_edgar_form4), \
-         patch("src.assembled_core.events.disclosures.pipeline.fetch_house_ptr_filings", side_effect=_mock_fetch_house_ptr):
+    with (
+        patch(
+            "src.assembled_core.events.disclosures.pipeline.fetch_edgar_form4",
+            side_effect=_mock_fetch_edgar_form4,
+        ),
+        patch(
+            "src.assembled_core.events.disclosures.pipeline.fetch_house_ptr_filings",
+            side_effect=_mock_fetch_house_ptr,
+        ),
+    ):
         result = run_disclosures_pipeline(
             sources_path="configs/disclosures/sources.yaml",
             disclosures_path="configs/disclosures/disclosures.yaml",
@@ -124,7 +147,9 @@ def test_health_status_transitions() -> None:
         min_sources_ok=1,
     )
     assert h2.status == "DEGRADED"
-    assert "One or more sources failed" in h2.notes or any("failed" in n for n in h2.notes)
+    assert "One or more sources failed" in h2.notes or any(
+        "failed" in n for n in h2.notes
+    )
 
     # ERROR: no sources succeeded
     h3 = compute_health(
@@ -140,6 +165,7 @@ def test_health_status_transitions() -> None:
 
 def test_edgar_atom_parsing_extracts_entries(monkeypatch: pytest.MonkeyPatch) -> None:
     """Atom feed parsing extracts entries with link, published, title (no real net)."""
+
     class FakeResponse:
         status_code = 200
         content = ATOM_TWO_ENTRIES.encode("utf-8")
@@ -172,6 +198,7 @@ def test_edgar_atom_parsing_extracts_entries(monkeypatch: pytest.MonkeyPatch) ->
 
 def test_pipeline_writes_fetch_report_with_edgar_stats(tmp_path: Path) -> None:
     """Pipeline with edgar_form4 source writes fetch_report_latest.json with per_source stats (mocked, no net)."""
+
     def _mock_fetch_edgar_form4(
         source_id: str,
         cfg: Dict[str, Any],
@@ -188,7 +215,13 @@ def test_pipeline_writes_fetch_report_with_edgar_stats(tmp_path: Path) -> None:
         return (
             [raw],
             None,
-            {"source_id": source_id, "type": "edgar_form4", "ok": True, "items": 1, "http_status": 200},
+            {
+                "source_id": source_id,
+                "type": "edgar_form4",
+                "ok": True,
+                "items": 1,
+                "http_status": 200,
+            },
         )
 
     def _mock_fetch_house_ptr(
@@ -196,10 +229,22 @@ def test_pipeline_writes_fetch_report_with_edgar_stats(tmp_path: Path) -> None:
         cfg: Dict[str, Any],
         fetch_state: Any = None,
     ) -> tuple[List[Dict[str, Any]], Dict[str, Any] | None, Dict[str, Any]]:
-        return [], None, {"source_id": source_id, "type": "house_ptr", "ok": True, "items": 0}
+        return (
+            [],
+            None,
+            {"source_id": source_id, "type": "house_ptr", "ok": True, "items": 0},
+        )
 
-    with patch("src.assembled_core.events.disclosures.pipeline.fetch_edgar_form4", side_effect=_mock_fetch_edgar_form4), \
-         patch("src.assembled_core.events.disclosures.pipeline.fetch_house_ptr_filings", side_effect=_mock_fetch_house_ptr):
+    with (
+        patch(
+            "src.assembled_core.events.disclosures.pipeline.fetch_edgar_form4",
+            side_effect=_mock_fetch_edgar_form4,
+        ),
+        patch(
+            "src.assembled_core.events.disclosures.pipeline.fetch_house_ptr_filings",
+            side_effect=_mock_fetch_house_ptr,
+        ),
+    ):
         run_disclosures_pipeline(
             sources_path="configs/disclosures/sources.yaml",
             disclosures_path="configs/disclosures/disclosures.yaml",
@@ -212,7 +257,11 @@ def test_pipeline_writes_fetch_report_with_edgar_stats(tmp_path: Path) -> None:
     data = json.loads(fetch_report_path.read_text(encoding="utf-8"))
     assert data.get("schema_version") == "disclosures.fetch_report.v1"
     per_source = data.get("per_source") or []
-    edgar_sources = [s for s in per_source if s.get("source_id") == "edgar_form4" or s.get("type") == "edgar_form4"]
+    edgar_sources = [
+        s
+        for s in per_source
+        if s.get("source_id") == "edgar_form4" or s.get("type") == "edgar_form4"
+    ]
     assert len(edgar_sources) >= 1
     edgar_stat = edgar_sources[0]
     assert edgar_stat.get("ok") is True
@@ -247,7 +296,10 @@ def test_normalize_form4_raw_to_disclosure_event() -> None:
     assert ev.person_or_entity == "ACME Corp"
     assert ev.ticker is None
     assert ev.notional is None
-    assert ev.fingerprint == hashlib.sha256(b"edgar_form4|0001234567-22-000001").hexdigest()
+    assert (
+        ev.fingerprint
+        == hashlib.sha256(b"edgar_form4|0001234567-22-000001").hexdigest()
+    )
 
 
 # --- House PTR (DISCL-2.1) ---
@@ -271,8 +323,11 @@ HOUSE_PTR_RSS_TWO_ITEMS = """<?xml version="1.0" encoding="UTF-8"?>
 """
 
 
-def test_house_ptr_rss_parsing_extracts_entries(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_house_ptr_rss_parsing_extracts_entries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """RSS/Atom parsing extracts entries with link, published, person, doc_id (no net, download_pdfs false)."""
+
     class FakeResponse:
         status_code = 200
         content = HOUSE_PTR_RSS_TWO_ITEMS.encode("utf-8")
@@ -308,9 +363,17 @@ def test_house_ptr_rss_parsing_extracts_entries(monkeypatch: pytest.MonkeyPatch)
 def test_house_ptr_cache_hit_no_request(monkeypatch: pytest.MonkeyPatch) -> None:
     """With fresh cached_items in fetch_state, no requests.get is called."""
     from datetime import datetime, timezone
+
     now = datetime.now(timezone.utc)
     cached = [
-        {"title": "Cached PTR", "link": "https://example.com/1.pdf", "published": "2023-01-01T00:00:00Z", "person": "Cached", "doc_id": "1", "raw": {}},
+        {
+            "title": "Cached PTR",
+            "link": "https://example.com/1.pdf",
+            "published": "2023-01-01T00:00:00Z",
+            "person": "Cached",
+            "doc_id": "1",
+            "raw": {},
+        },
     ]
     fetch_state = {
         "cached_utc": now.isoformat(),
@@ -332,7 +395,9 @@ def test_house_ptr_cache_hit_no_request(monkeypatch: pytest.MonkeyPatch) -> None
     mock_requests.get = track_get
     monkeypatch.setitem(sys.modules, "requests", mock_requests)
 
-    items, failure, stats = fetch_house_ptr_filings("house_ptr", cfg, fetch_state=fetch_state)
+    items, failure, stats = fetch_house_ptr_filings(
+        "house_ptr", cfg, fetch_state=fetch_state
+    )
     assert len(get_called) == 0
     assert stats.get("cached") is True
     assert failure is None
@@ -384,7 +449,13 @@ def test_pipeline_fetch_report_includes_house_ptr_stats(tmp_path: Path) -> None:
         return (
             [raw],
             None,
-            {"source_id": source_id, "type": "house_ptr", "ok": True, "items": 1, "cached": True},
+            {
+                "source_id": source_id,
+                "type": "house_ptr",
+                "ok": True,
+                "items": 1,
+                "cached": True,
+            },
         )
 
     def _mock_fetch_edgar(
@@ -392,10 +463,22 @@ def test_pipeline_fetch_report_includes_house_ptr_stats(tmp_path: Path) -> None:
         cfg: Dict[str, Any],
         fetch_state: Any = None,
     ) -> tuple[List[Dict[str, Any]], Dict[str, Any] | None, Dict[str, Any]]:
-        return [], None, {"source_id": source_id, "type": "edgar_form4", "ok": True, "items": 0}
+        return (
+            [],
+            None,
+            {"source_id": source_id, "type": "edgar_form4", "ok": True, "items": 0},
+        )
 
-    with patch("src.assembled_core.events.disclosures.pipeline.fetch_house_ptr_filings", side_effect=_mock_fetch_house_ptr), \
-         patch("src.assembled_core.events.disclosures.pipeline.fetch_edgar_form4", side_effect=_mock_fetch_edgar):
+    with (
+        patch(
+            "src.assembled_core.events.disclosures.pipeline.fetch_house_ptr_filings",
+            side_effect=_mock_fetch_house_ptr,
+        ),
+        patch(
+            "src.assembled_core.events.disclosures.pipeline.fetch_edgar_form4",
+            side_effect=_mock_fetch_edgar,
+        ),
+    ):
         run_disclosures_pipeline(
             sources_path=str(sources_cfg),
             disclosures_path="configs/disclosures/disclosures.yaml",
@@ -408,7 +491,11 @@ def test_pipeline_fetch_report_includes_house_ptr_stats(tmp_path: Path) -> None:
     data = json.loads(fetch_report_path.read_text(encoding="utf-8"))
     assert data.get("schema_version") == "disclosures.fetch_report.v1"
     per_source = data.get("per_source") or []
-    house_ptrs = [s for s in per_source if s.get("type") == "house_ptr" or s.get("source_id") == "house_ptr"]
+    house_ptrs = [
+        s
+        for s in per_source
+        if s.get("type") == "house_ptr" or s.get("source_id") == "house_ptr"
+    ]
     assert len(house_ptrs) >= 1
     hp = house_ptrs[0]
     assert hp.get("ok") is True
@@ -456,6 +543,7 @@ def test_normalize_house_ptr_raw_to_disclosure_event() -> None:
 
 # --- House PTR PDF metadata (DISCL-2.2) ---
 
+
 def test_pdf_meta_sha256_computed_when_downloaded(tmp_path: Path) -> None:
     """Helper _compute_pdf_meta computes sha256 for a local file; result has 64-char hex and hashed=True."""
     pdf_path = tmp_path / "sample.pdf"
@@ -489,18 +577,33 @@ def test_normalize_includes_pdf_sha_in_fingerprint_key() -> None:
     raw1 = {**base, "pdf_meta": {"sha256": "a" * 64, "size_bytes": 100, "hashed": True}}
     raw2 = {**base, "pdf_meta": {"sha256": "b" * 64, "size_bytes": 200, "hashed": True}}
     ev1 = normalize_raw_item(
-        raw1, source_id="house_ptr", source_name="House PTR", source_domain="disclosures.house.gov", fetched_utc=now_utc_iso()
+        raw1,
+        source_id="house_ptr",
+        source_name="House PTR",
+        source_domain="disclosures.house.gov",
+        fetched_utc=now_utc_iso(),
     )
     ev2 = normalize_raw_item(
-        raw2, source_id="house_ptr", source_name="House PTR", source_domain="disclosures.house.gov", fetched_utc=now_utc_iso()
+        raw2,
+        source_id="house_ptr",
+        source_name="House PTR",
+        source_domain="disclosures.house.gov",
+        fetched_utc=now_utc_iso(),
     )
     assert ev1 is not None and ev2 is not None
     assert ev1.fingerprint != ev2.fingerprint
-    assert ev1.fingerprint == hashlib.sha256(("house_ptr|ptr.pdf|" + "a" * 64).encode("utf-8")).hexdigest()
-    assert ev2.fingerprint == hashlib.sha256(("house_ptr|ptr.pdf|" + "b" * 64).encode("utf-8")).hexdigest()
+    assert (
+        ev1.fingerprint
+        == hashlib.sha256(("house_ptr|ptr.pdf|" + "a" * 64).encode("utf-8")).hexdigest()
+    )
+    assert (
+        ev2.fingerprint
+        == hashlib.sha256(("house_ptr|ptr.pdf|" + "b" * 64).encode("utf-8")).hexdigest()
+    )
 
 
 # --- Trigger scoring v1 (DISCL-3.1) ---
+
 
 def _make_event(
     event_id: str = "ev1",
@@ -528,11 +631,25 @@ def _make_event(
 def test_disclosures_trigger_scoring_base_severity() -> None:
     """Base severity from config (FORM4_FILED=1, HOUSE_PTR_FILED=1); tier A => evidence_ok, confidence tierA_alone."""
     cfg = {
-        "severity": {"base_by_action": {"FORM4_FILED": 1, "HOUSE_PTR_FILED": 1}, "max": 3},
-        "confidence": {"tierA_alone": 0.85, "tierB_two_domains": 0.70, "otherwise": 0.40},
+        "severity": {
+            "base_by_action": {"FORM4_FILED": 1, "HOUSE_PTR_FILED": 1},
+            "max": 3,
+        },
+        "confidence": {
+            "tierA_alone": 0.85,
+            "tierB_two_domains": 0.70,
+            "otherwise": 0.40,
+        },
         "gating": {"require_evidence_ok": True},
-        "ttl": {"default_hours": 168, "by_action": {"FORM4_FILED": 96, "HOUSE_PTR_FILED": 168}},
-        "decay": {"half_life_hours": 72, "min_confidence_floor": 0.25, "severity_floor": 0},
+        "ttl": {
+            "default_hours": 168,
+            "by_action": {"FORM4_FILED": 96, "HOUSE_PTR_FILED": 168},
+        },
+        "decay": {
+            "half_life_hours": 72,
+            "min_confidence_floor": 0.25,
+            "severity_floor": 0,
+        },
     }
     source_meta = {"edgar_form4": {"tier": "A", "domain": "sec.gov"}}
     ev = _make_event(action_type="FORM4_FILED", source_id="edgar_form4")
@@ -552,13 +669,26 @@ def test_disclosures_trigger_gating_sets_severity0() -> None:
     """When require_evidence_ok and not evidence_ok (e.g. tier B single), severity=0, confidence=otherwise."""
     cfg = {
         "severity": {"base_by_action": {"HOUSE_PTR_FILED": 1}, "max": 3},
-        "confidence": {"tierA_alone": 0.85, "tierB_two_domains": 0.70, "otherwise": 0.40},
+        "confidence": {
+            "tierA_alone": 0.85,
+            "tierB_two_domains": 0.70,
+            "otherwise": 0.40,
+        },
         "gating": {"require_evidence_ok": True},
         "ttl": {"default_hours": 168, "by_action": {"HOUSE_PTR_FILED": 168}},
-        "decay": {"half_life_hours": 72, "min_confidence_floor": 0.25, "severity_floor": 0},
+        "decay": {
+            "half_life_hours": 72,
+            "min_confidence_floor": 0.25,
+            "severity_floor": 0,
+        },
     }
     source_meta = {"house_ptr": {"tier": "B", "domain": "disclosures.house.gov"}}
-    ev = _make_event(event_id="ev_ptr", source_id="house_ptr", action_type="HOUSE_PTR_FILED", source_domain="disclosures.house.gov")
+    ev = _make_event(
+        event_id="ev_ptr",
+        source_id="house_ptr",
+        action_type="HOUSE_PTR_FILED",
+        source_domain="disclosures.house.gov",
+    )
     now_utc = "2024-01-10T12:00:01Z"  # age ~0 so no decay
     triggers = score_disclosure_triggers([ev], source_meta, cfg, now_utc)
     assert len(triggers) == 1
@@ -572,10 +702,18 @@ def test_disclosures_trigger_ttl_expires_sets_severity0() -> None:
     """When age_hours >= ttl_hours, severity=0 and confidence decayed."""
     cfg = {
         "severity": {"base_by_action": {"FORM4_FILED": 1}, "max": 3},
-        "confidence": {"tierA_alone": 0.85, "tierB_two_domains": 0.70, "otherwise": 0.40},
+        "confidence": {
+            "tierA_alone": 0.85,
+            "tierB_two_domains": 0.70,
+            "otherwise": 0.40,
+        },
         "gating": {"require_evidence_ok": True},
         "ttl": {"default_hours": 168, "by_action": {"FORM4_FILED": 96}},
-        "decay": {"half_life_hours": 72, "min_confidence_floor": 0.25, "severity_floor": 0},
+        "decay": {
+            "half_life_hours": 72,
+            "min_confidence_floor": 0.25,
+            "severity_floor": 0,
+        },
     }
     source_meta = {"edgar_form4": {"tier": "A", "domain": "sec.gov"}}
     ev = _make_event(published_utc="2024-01-01T00:00:00Z")  # 10 days ago
@@ -606,18 +744,43 @@ def test_disclosures_qc_caps_severity_when_degraded() -> None:
 
 def test_disclosures_triggers_wrapper_written(tmp_path: Path) -> None:
     """Pipeline writes triggers_latest.json with schema disclosures.triggers.v1 and items when trigger_scoring enabled."""
-    def _mock_edgar(*args: Any, **kwargs: Any) -> tuple[List[Dict[str, Any]], Dict[str, Any] | None, Dict[str, Any]]:
-        return [], None, {"source_id": "edgar_form4", "type": "edgar_form4", "ok": True, "items": 0}
 
-    def _mock_house(*args: Any, **kwargs: Any) -> tuple[List[Dict[str, Any]], Dict[str, Any] | None, Dict[str, Any]]:
+    def _mock_edgar(
+        *args: Any, **kwargs: Any
+    ) -> tuple[List[Dict[str, Any]], Dict[str, Any] | None, Dict[str, Any]]:
+        return (
+            [],
+            None,
+            {"source_id": "edgar_form4", "type": "edgar_form4", "ok": True, "items": 0},
+        )
+
+    def _mock_house(
+        *args: Any, **kwargs: Any
+    ) -> tuple[List[Dict[str, Any]], Dict[str, Any] | None, Dict[str, Any]]:
         raw = {
-            "title": "Rep. X", "link": "https://x.com/1.pdf", "published": "2024-01-10T12:00:00Z",
-            "person": "Rep. X", "doc_id": "1", "raw": {},
+            "title": "Rep. X",
+            "link": "https://x.com/1.pdf",
+            "published": "2024-01-10T12:00:00Z",
+            "person": "Rep. X",
+            "doc_id": "1",
+            "raw": {},
         }
-        return [raw], None, {"source_id": "house_ptr", "type": "house_ptr", "ok": True, "items": 1}
+        return (
+            [raw],
+            None,
+            {"source_id": "house_ptr", "type": "house_ptr", "ok": True, "items": 1},
+        )
 
-    with patch("src.assembled_core.events.disclosures.pipeline.fetch_edgar_form4", side_effect=_mock_edgar), \
-         patch("src.assembled_core.events.disclosures.pipeline.fetch_house_ptr_filings", side_effect=_mock_house):
+    with (
+        patch(
+            "src.assembled_core.events.disclosures.pipeline.fetch_edgar_form4",
+            side_effect=_mock_edgar,
+        ),
+        patch(
+            "src.assembled_core.events.disclosures.pipeline.fetch_house_ptr_filings",
+            side_effect=_mock_house,
+        ),
+    ):
         run_disclosures_pipeline(
             sources_path="configs/disclosures/sources.yaml",
             disclosures_path="configs/disclosures/disclosures.yaml",
@@ -667,7 +830,9 @@ def test_load_disclosures_triggers_valid(tmp_path: Path) -> None:
             {"trigger_id": "dtr_def", "severity": 1, "event_id": "e2"},
         ],
     }
-    (tmp_path / "triggers_latest.json").write_text(json.dumps(payload), encoding="utf-8")
+    (tmp_path / "triggers_latest.json").write_text(
+        json.dumps(payload), encoding="utf-8"
+    )
     snap = load_disclosures_triggers(tmp_path / "triggers_latest.json")
     assert snap.generated_utc == "2024-01-15T12:00:00Z"
     assert len(snap.triggers) == 2
@@ -694,7 +859,10 @@ def test_load_disclosures_triggers_missing_invalid(tmp_path: Path) -> None:
     assert wrong.generated_utc == ""
 
     (tmp_path / "no_list.json").write_text(
-        json.dumps({"schema_version": "disclosures.triggers.v1", "items": "not a list"}), encoding="utf-8"
+        json.dumps(
+            {"schema_version": "disclosures.triggers.v1", "items": "not a list"}
+        ),
+        encoding="utf-8",
     )
     no_list = load_disclosures_triggers(tmp_path / "no_list.json")
     assert no_list.generated_utc == ""
@@ -703,7 +871,10 @@ def test_load_disclosures_triggers_missing_invalid(tmp_path: Path) -> None:
 def test_context_sets_degraded_flag(tmp_path: Path) -> None:
     """When intel.disclosures_triggers.enabled and path missing/invalid, context gets DEGRADED flag and no snapshot."""
     import pandas as pd
-    from src.assembled_core.pipeline.trading_cycle import TradingContext, run_trading_cycle
+    from src.assembled_core.pipeline.trading_cycle import (
+        TradingContext,
+        run_trading_cycle,
+    )
 
     policy_with_intel = {
         "intel": {
@@ -712,16 +883,34 @@ def test_context_sets_degraded_flag(tmp_path: Path) -> None:
                 "path": "output/intel/disclosures/triggers_latest.json",
             },
         },
-        "risk_state_machine": {"enabled": True, "state_path": str(tmp_path / "risk_state.json"), "persistence": {"mode": "live"}},
+        "risk_state_machine": {
+            "enabled": True,
+            "state_path": str(tmp_path / "risk_state.json"),
+            "persistence": {"mode": "live"},
+        },
     }
-    with patch("src.assembled_core.pipeline.trading_cycle.load_policy", return_value=policy_with_intel), \
-         patch("src.assembled_core.pipeline.trading_cycle.get_base_dir", return_value=tmp_path):
-        df = pd.DataFrame([{"timestamp": pd.Timestamp("2024-01-01"), "symbol": "X", "close": 100.0}])
+    with (
+        patch(
+            "src.assembled_core.pipeline.trading_cycle.load_policy",
+            return_value=policy_with_intel,
+        ),
+        patch(
+            "src.assembled_core.pipeline.trading_cycle.get_base_dir",
+            return_value=tmp_path,
+        ),
+    ):
+        df = pd.DataFrame(
+            [{"timestamp": pd.Timestamp("2024-01-01"), "symbol": "X", "close": 100.0}]
+        )
         ctx = TradingContext(
             prices=df,
             as_of=pd.Timestamp("2024-01-01"),
-            signal_fn=lambda _: pd.DataFrame(columns=["timestamp", "symbol", "direction", "score"]),
-            position_sizing_fn=lambda s, c: pd.DataFrame(columns=["symbol", "target_weight", "target_qty"]),
+            signal_fn=lambda _: pd.DataFrame(
+                columns=["timestamp", "symbol", "direction", "score"]
+            ),
+            position_sizing_fn=lambda s, c: pd.DataFrame(
+                columns=["symbol", "target_weight", "target_qty"]
+            ),
         )
         run_trading_cycle(ctx)
         assert ctx.disclosures_triggers is None
@@ -735,6 +924,7 @@ from src.assembled_core.risk.disclosures_confirm import apply_disclosures_confir
 
 def test_disclosures_boost_applies_when_sev_ge_1() -> None:
     """When disclosures triggers max_severity >= min_severity (1), geo_confidence is boosted and boost block set."""
+
     class Ctx:
         news_geo = {"geo_score": 1, "geo_confidence": 0.60, "state_hint": "WATCH"}
         disclosures_triggers = DisclosuresTriggerSnapshot(
@@ -747,7 +937,11 @@ def test_disclosures_boost_applies_when_sev_ge_1() -> None:
     policy = {
         "disclosures_confirm": {
             "enabled": True,
-            "boost": {"min_severity": 1, "add_confidence": 0.10, "max_confidence": 0.95},
+            "boost": {
+                "min_severity": 1,
+                "add_confidence": 0.10,
+                "max_confidence": 0.95,
+            },
         },
     }
     ctx = Ctx()
@@ -762,6 +956,7 @@ def test_disclosures_boost_applies_when_sev_ge_1() -> None:
 
 def test_disclosures_no_boost_when_degraded_or_missing() -> None:
     """When disclosures triggers missing or intel_disclosures_triggers DEGRADED, no boost applied."""
+
     class Ctx:
         news_geo = {"geo_score": 1, "geo_confidence": 0.60, "state_hint": "WATCH"}
         disclosures_triggers = None
@@ -770,7 +965,11 @@ def test_disclosures_no_boost_when_degraded_or_missing() -> None:
     policy = {
         "disclosures_confirm": {
             "enabled": True,
-            "boost": {"min_severity": 1, "add_confidence": 0.10, "max_confidence": 0.95},
+            "boost": {
+                "min_severity": 1,
+                "add_confidence": 0.10,
+                "max_confidence": 0.95,
+            },
         },
     }
     ctx = Ctx()

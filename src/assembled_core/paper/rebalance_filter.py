@@ -51,8 +51,11 @@ def filter_small_rebalances(
     if prices is not None and not prices.empty:
         price_map = dict(zip(prices["symbol"], prices["close"]))
         order_price = df.apply(
-            lambda r: r.get("price", 0.0) if r.get("price", 0.0) > 0
-            else price_map.get(r["symbol"], 0.0),
+            lambda r: (
+                r.get("price", 0.0)
+                if r.get("price", 0.0) > 0
+                else price_map.get(r["symbol"], 0.0)
+            ),
             axis=1,
         )
 

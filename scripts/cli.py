@@ -95,7 +95,9 @@ def info_subcommand(args: argparse.Namespace) -> int:
         "  run_daily          - Run daily EOD pipeline (execute, backtest, portfolio, QA)"
     )
     print("  run_backtest       - Run strategy backtest with portfolio-level engine")
-    print("  batch_backtest     - Run batch of strategy backtests from config file (recommended)")
+    print(
+        "  batch_backtest     - Run batch of strategy backtests from config file (recommended)"
+    )
     print("  batch_run          - Run batch backtests (alias, same as batch_backtest)")
     print(
         "  leaderboard        - Rank and display best runs from batch backtest results"
@@ -647,7 +649,7 @@ def leaderboard_subcommand(args: argparse.Namespace) -> int:
     if args.export_best:
         try:
             from scripts.leaderboard import export_best_run_config_yaml
-            
+
             export_best_run_config_yaml(
                 df,  # Use full df, not ranked_df, so we can filter to successful
                 sort_by=args.sort_by,
@@ -975,9 +977,9 @@ def ml_model_zoo_subcommand(args: argparse.Namespace) -> int:
             factor_panel_path=factor_panel_file,
             label_col=args.label_col,
             output_dir=output_dir,
-            experiment_cfg_kwargs=experiment_cfg_kwargs
-            if experiment_cfg_kwargs
-            else None,
+            experiment_cfg_kwargs=(
+                experiment_cfg_kwargs if experiment_cfg_kwargs else None
+            ),
         )
 
         # Write summary
@@ -1083,9 +1085,9 @@ def run_backtest_subcommand(args: argparse.Namespace) -> int:
                 "start_capital": args.start_capital,
                 "with_costs": args.with_costs,
                 "use_meta_model": args.use_meta_model,
-                "meta_model_path": str(args.meta_model_path)
-                if args.meta_model_path
-                else None,
+                "meta_model_path": (
+                    str(args.meta_model_path) if args.meta_model_path else None
+                ),
                 "meta_ensemble_mode": args.meta_ensemble_mode,
                 "meta_min_confidence": args.meta_min_confidence,
             }
@@ -1995,11 +1997,39 @@ Examples:
         help="Run A/B paper experiment with policy overrides",
         description="Runs paper range for [start,end] with merged policy overrides; writes summary to output_root/_experiments/<name>/.",
     )
-    paper_exp_parser.add_argument("--name", type=str, required=True, help="Experiment name (e.g. baseline, treatment).")
-    paper_exp_parser.add_argument("--start", type=str, required=True, metavar="YYYY-MM-DD", help="Start date (inclusive).")
-    paper_exp_parser.add_argument("--end", type=str, required=True, metavar="YYYY-MM-DD", help="End date (inclusive).")
-    paper_exp_parser.add_argument("--mode", type=str, choices=["shadow", "paper"], default="paper", help="Runner mode.")
-    paper_exp_parser.add_argument("--output-root", type=Path, default=None, help="Output root (default: output/runs).")
+    paper_exp_parser.add_argument(
+        "--name",
+        type=str,
+        required=True,
+        help="Experiment name (e.g. baseline, treatment).",
+    )
+    paper_exp_parser.add_argument(
+        "--start",
+        type=str,
+        required=True,
+        metavar="YYYY-MM-DD",
+        help="Start date (inclusive).",
+    )
+    paper_exp_parser.add_argument(
+        "--end",
+        type=str,
+        required=True,
+        metavar="YYYY-MM-DD",
+        help="End date (inclusive).",
+    )
+    paper_exp_parser.add_argument(
+        "--mode",
+        type=str,
+        choices=["shadow", "paper"],
+        default="paper",
+        help="Runner mode.",
+    )
+    paper_exp_parser.add_argument(
+        "--output-root",
+        type=Path,
+        default=None,
+        help="Output root (default: output/runs).",
+    )
     paper_exp_parser.add_argument(
         "--overrides",
         type=str,
@@ -2020,9 +2050,26 @@ Examples:
         help="Compare two paper experiment summaries (A vs B)",
         description="Compares summary.json of two experiments and writes compare_<a>_vs_<b>.json.",
     )
-    compare_exp_parser.add_argument("--a", type=str, required=True, metavar="NAME", help="First experiment name (baseline).")
-    compare_exp_parser.add_argument("--b", type=str, required=True, metavar="NAME", help="Second experiment name (treatment).")
-    compare_exp_parser.add_argument("--output-root", type=Path, default=None, help="Output root where _experiments/ lives (default: output/runs).")
+    compare_exp_parser.add_argument(
+        "--a",
+        type=str,
+        required=True,
+        metavar="NAME",
+        help="First experiment name (baseline).",
+    )
+    compare_exp_parser.add_argument(
+        "--b",
+        type=str,
+        required=True,
+        metavar="NAME",
+        help="Second experiment name (treatment).",
+    )
+    compare_exp_parser.add_argument(
+        "--output-root",
+        type=Path,
+        default=None,
+        help="Output root where _experiments/ lives (default: output/runs).",
+    )
     compare_exp_parser.set_defaults(func=compare_paper_experiments_subcommand)
 
     # summarize_intel_activity (OPS-13)
@@ -2031,8 +2078,19 @@ Examples:
         help="Build intel activity summary for an experiment",
         description="Reads run_kpis.json per day under the experiment runs/ and writes intel_activity_summary.json.",
     )
-    intel_activity_parser.add_argument("--experiment", type=str, required=True, metavar="NAME", help="Experiment name (e.g. real_gate_off).")
-    intel_activity_parser.add_argument("--output-root", type=Path, default=None, help="Output root where _experiments/ lives (default: output/runs).")
+    intel_activity_parser.add_argument(
+        "--experiment",
+        type=str,
+        required=True,
+        metavar="NAME",
+        help="Experiment name (e.g. real_gate_off).",
+    )
+    intel_activity_parser.add_argument(
+        "--output-root",
+        type=Path,
+        default=None,
+        help="Output root where _experiments/ lives (default: output/runs).",
+    )
     intel_activity_parser.set_defaults(func=summarize_intel_activity_subcommand)
 
     # inspect_eod_range (OPS-8)
@@ -2041,7 +2099,13 @@ Examples:
         help="Inspect EOD price coverage and get recommended experiment start/end",
         description="Loads EOD prices (same as paper runner), prints min/max and recommends last_30 / last_90 trading-day windows.",
     )
-    inspect_eod_parser.add_argument("--freq", type=str, default="1d", choices=["1d", "5min"], help="Price frequency (default: 1d).")
+    inspect_eod_parser.add_argument(
+        "--freq",
+        type=str,
+        default="1d",
+        choices=["1d", "5min"],
+        help="Price frequency (default: 1d).",
+    )
     inspect_eod_parser.add_argument(
         "--write-json",
         type=str,
@@ -2049,7 +2113,12 @@ Examples:
         choices=["true", "false"],
         help="If true, write output_root/_summaries/eod_coverage.json (default: false).",
     )
-    inspect_eod_parser.add_argument("--output-root", type=Path, default=None, help="Output root for --write-json (default: output/runs).")
+    inspect_eod_parser.add_argument(
+        "--output-root",
+        type=Path,
+        default=None,
+        help="Output root for --write-json (default: output/runs).",
+    )
     inspect_eod_parser.set_defaults(func=inspect_eod_range_subcommand)
 
     # run_backtest subcommand
@@ -2601,8 +2670,15 @@ Examples:
 
     # Factor set choices: avoid importing run_factor_analysis (optional deps e.g. tabulate) at parse time
     _factor_set_choices = [
-        "core", "vol_liquidity", "core+vol_liquidity", "all",
-        "alt_earnings_insider", "alt_news_macro", "core+alt", "core+alt_news", "core+alt_full",
+        "core",
+        "vol_liquidity",
+        "core+vol_liquidity",
+        "all",
+        "alt_earnings_insider",
+        "alt_news_macro",
+        "core+alt",
+        "core+alt_news",
+        "core+alt_full",
     ]
     analyze_factors_parser.add_argument(
         "--factor-set",
@@ -3000,7 +3076,14 @@ See scripts/leaderboard.py for more details.
         "--sort-by",
         type=str,
         default="sharpe",
-        choices=["sharpe", "total_return", "final_pf", "max_drawdown_pct", "cagr", "trades"],
+        choices=[
+            "sharpe",
+            "total_return",
+            "final_pf",
+            "max_drawdown_pct",
+            "cagr",
+            "trades",
+        ],
         help="Metric to sort by (default: sharpe)",
     )
     leaderboard_parser.add_argument(
@@ -3571,12 +3654,15 @@ def run_paper_daily_subcommand(args: argparse.Namespace) -> int:
     if app_cfg_path.exists():
         try:
             import yaml
+
             with open(app_cfg_path, "r", encoding="utf-8") as f:
                 app_cfg = yaml.safe_load(f) or {}
         except Exception:
             pass
     if args.include_news_pipeline:
-        logger.info("include_news_pipeline=True, but NEWS pipeline integration is not wired in v1. Skipping.")
+        logger.info(
+            "include_news_pipeline=True, but NEWS pipeline integration is not wired in v1. Skipping."
+        )
 
     try:
         prices = load_eod_prices(freq="1d")
@@ -3584,7 +3670,9 @@ def run_paper_daily_subcommand(args: argparse.Namespace) -> int:
         logger.error(f"Failed to load EOD prices: {e}")
         return 1
 
-    exit_code, _ = run_paper_daily_one(as_of_ts, output_dir, mode, app_cfg, prices, root=ROOT)
+    exit_code, _ = run_paper_daily_one(
+        as_of_ts, output_dir, mode, app_cfg, prices, root=ROOT
+    )
     logger.info(f"KPI and OPS artifacts written to {output_dir}")
     return exit_code
 
@@ -3593,7 +3681,10 @@ def run_paper_range_subcommand(args: argparse.Namespace) -> int:
     """Run paper/shadow daily for each trading day in [start, end] and write summary."""
     from src.assembled_core.data.prices_ingest import load_eod_prices
     from src.assembled_core.ops.paper_runner import run_paper_daily_one
-    from src.assembled_core.ops.paper_summary import build_paper_summary, write_paper_summary
+    from src.assembled_core.ops.paper_summary import (
+        build_paper_summary,
+        write_paper_summary,
+    )
 
     run_id = generate_run_id(prefix="paper_range")
     setup_logging(run_id=run_id, level="INFO")
@@ -3637,6 +3728,7 @@ def run_paper_range_subcommand(args: argparse.Namespace) -> int:
     if app_cfg_path.exists():
         try:
             import yaml
+
             with open(app_cfg_path, "r", encoding="utf-8") as f:
                 app_cfg = yaml.safe_load(f) or {}
         except Exception:
@@ -3646,10 +3738,16 @@ def run_paper_range_subcommand(args: argparse.Namespace) -> int:
         date_str = date_strs[i]
         day_ts = pd.Timestamp(d, tz="UTC")
         out_dir = Path(output_root) / date_str
-        logger.info("Run paper daily for %s (%d/%d)", date_str, i + 1, len(trading_dates))
-        exit_code, _ = run_paper_daily_one(day_ts, out_dir, mode, app_cfg, prices, root=ROOT)
+        logger.info(
+            "Run paper daily for %s (%d/%d)", date_str, i + 1, len(trading_dates)
+        )
+        exit_code, _ = run_paper_daily_one(
+            day_ts, out_dir, mode, app_cfg, prices, root=ROOT
+        )
         if exit_code != 0:
-            logger.warning("run_paper_daily failed for %s (exit_code=%d)", date_str, exit_code)
+            logger.warning(
+                "run_paper_daily failed for %s (exit_code=%d)", date_str, exit_code
+            )
 
     summary = build_paper_summary(output_root, date_strs)
     path = write_paper_summary(output_root, start_str, end_str, summary)
@@ -3686,6 +3784,7 @@ def run_paper_experiment_subcommand(args: argparse.Namespace) -> int:
                 text = overrides_path.read_text(encoding="utf-8")
                 if overrides_path.suffix.lower() in (".yaml", ".yml"):
                     import yaml
+
                     overrides = yaml.safe_load(text) or {}
                 else:
                     overrides = json.loads(text)
@@ -3709,6 +3808,7 @@ def run_paper_experiment_subcommand(args: argparse.Namespace) -> int:
                 text = app_path.read_text(encoding="utf-8")
                 if app_path.suffix.lower() in (".yaml", ".yml"):
                     import yaml
+
                     app_overrides = yaml.safe_load(text) or {}
                 else:
                     app_overrides = json.loads(text)
@@ -3763,7 +3863,9 @@ def compare_paper_experiments_subcommand(args: argparse.Namespace) -> int:
         return 1
     out_path = output_root / "_experiments" / f"compare_{name_a}_vs_{name_b}.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(result, indent=2, ensure_ascii=True), encoding="utf-8")
+    out_path.write_text(
+        json.dumps(result, indent=2, ensure_ascii=True), encoding="utf-8"
+    )
     logger.info("Compare report written to %s", out_path)
     return 0
 
@@ -3772,7 +3874,9 @@ def summarize_intel_activity_subcommand(args: argparse.Namespace) -> int:
     """Build intel activity summary for an experiment; write intel_activity_summary.json."""
     import json
 
-    from src.assembled_core.ops.intel_activity_summary import build_intel_activity_summary
+    from src.assembled_core.ops.intel_activity_summary import (
+        build_intel_activity_summary,
+    )
 
     name = getattr(args, "experiment", "").strip()
     output_root = getattr(args, "output_root", None) or ROOT / "output" / "runs"
@@ -3785,10 +3889,14 @@ def summarize_intel_activity_subcommand(args: argparse.Namespace) -> int:
     if not runs_root.exists():
         logger.error("Experiment runs dir not found: %s", runs_root)
         return 1
-    summary = build_intel_activity_summary(runs_root, intel_output_root=output_root.parent / "intel")
+    summary = build_intel_activity_summary(
+        runs_root, intel_output_root=output_root.parent / "intel"
+    )
     out_path = experiment_root / "intel_activity_summary.json"
     experiment_root.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(summary, indent=2, ensure_ascii=True), encoding="utf-8")
+    out_path.write_text(
+        json.dumps(summary, indent=2, ensure_ascii=True), encoding="utf-8"
+    )
     logger.info("Intel activity summary written to %s", out_path)
     return 0
 
@@ -3823,9 +3931,15 @@ def inspect_eod_range_subcommand(args: argparse.Namespace) -> int:
     print("  min_utc: %s" % (min_utc or "n/a"))
     print("  max_utc: %s" % (max_utc or "n/a"))
     if last_30:
-        print("  last_30_trading_days: start=%s end=%s" % (last_30["start"], last_30["end"]))
+        print(
+            "  last_30_trading_days: start=%s end=%s"
+            % (last_30["start"], last_30["end"])
+        )
     if last_90:
-        print("  last_90_trading_days: start=%s end=%s" % (last_90["start"], last_90["end"]))
+        print(
+            "  last_90_trading_days: start=%s end=%s"
+            % (last_90["start"], last_90["end"])
+        )
     if write_json:
         summaries_dir = output_root / "_summaries"
         summaries_dir.mkdir(parents=True, exist_ok=True)

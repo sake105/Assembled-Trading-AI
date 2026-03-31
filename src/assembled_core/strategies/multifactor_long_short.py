@@ -282,9 +282,11 @@ def generate_multifactor_long_short_signals(
 
                 breadth_df = compute_market_breadth_ma(
                     prices,
-                    ma_window=config.regime_config.breadth_ma_window
-                    if config.regime_config
-                    else 50,
+                    ma_window=(
+                        config.regime_config.breadth_ma_window
+                        if config.regime_config
+                        else 50
+                    ),
                 )
 
                 # Also try to get risk_on_off_score

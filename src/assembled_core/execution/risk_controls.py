@@ -26,7 +26,7 @@ Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
@@ -40,7 +40,9 @@ from src.assembled_core.execution.pre_trade_checks import (
     run_pre_trade_checks,
 )
 from src.assembled_core.logging_utils import setup_logging
-from src.assembled_core.qa.qa_gates import QAGatesSummary
+
+if TYPE_CHECKING:
+    from src.assembled_core.qa.qa_gates import QAGatesSummary
 
 logger = setup_logging(level="INFO")
 

@@ -28,15 +28,15 @@ from src.assembled_core.config.settings import get_settings
 
 def run_eod_small(output_dir: Path) -> int:
     """Run EOD_SMALL benchmark job.
-    
+
     Args:
         output_dir: Output directory for profiling artifacts
-        
+
     Returns:
         Exit code (0 for success, 1 for failure)
     """
     from scripts.run_daily import run_daily_eod
-    
+
     try:
         # Run with timings enabled
         run_daily_eod(
@@ -67,16 +67,16 @@ def run_eod_small(output_dir: Path) -> int:
 
 def run_backtest_medium(output_dir: Path) -> int:
     """Run BACKTEST_MEDIUM benchmark job.
-    
+
     Args:
         output_dir: Output directory for profiling artifacts
-        
+
     Returns:
         Exit code (0 for success, 1 for failure)
     """
     from scripts.run_backtest_strategy import run_backtest_from_args
     import argparse
-    
+
     # Create args namespace
     args = argparse.Namespace()
     args.freq = "1d"
@@ -111,7 +111,7 @@ def run_backtest_medium(output_dir: Path) -> int:
     args.commission_bps = None
     args.spread_w = None
     args.impact_w = None
-    
+
     try:
         return run_backtest_from_args(args)
     except SystemExit as e:
@@ -123,16 +123,16 @@ def run_backtest_medium(output_dir: Path) -> int:
 
 def run_ml_job(output_dir: Path) -> int:
     """Run ML_JOB benchmark (build_ml_dataset + train_meta_model).
-    
+
     Args:
         output_dir: Output directory for profiling artifacts
-        
+
     Returns:
         Exit code (0 for success, 1 for failure)
     """
     from scripts.cli import build_ml_dataset_subcommand, train_meta_model_subcommand
     import argparse
-    
+
     # Step 1: Build ML dataset
     args_build = argparse.Namespace()
     args_build.strategy = "trend_baseline"
@@ -147,7 +147,7 @@ def run_ml_job(output_dir: Path) -> int:
     args_build.success_threshold = 0.05
     args_build.out = None
     args_build.start_capital = 10000.0
-    
+
     try:
         exit_code_build = build_ml_dataset_subcommand(args_build)
         if exit_code_build != 0:
@@ -155,7 +155,7 @@ def run_ml_job(output_dir: Path) -> int:
     except Exception as e:
         print(f"ERROR in build_ml_dataset: {e}", file=sys.stderr)
         return 1
-    
+
     # Step 2: Train meta-model
     args_train = argparse.Namespace()
     args_train.dataset_path = None  # Will build on-the-fly
@@ -171,7 +171,7 @@ def run_ml_job(output_dir: Path) -> int:
     args_train.track_experiment = False
     args_train.experiment_name = None
     args_train.experiment_tags = None
-    
+
     try:
         exit_code_train = train_meta_model_subcommand(args_train)
         return exit_code_train
@@ -182,21 +182,21 @@ def run_ml_job(output_dir: Path) -> int:
 
 def profile_with_cprofile(job_func, output_dir: Path) -> tuple[int, Path, float]:
     """Run job with cProfile profiling.
-    
+
     Args:
         job_func: Function that runs the job (takes output_dir, returns exit code)
         output_dir: Output directory for profiling artifacts
-        
+
     Returns:
         Tuple of (exit_code, profile_file_path, total_runtime_seconds)
     """
     import time
-    
+
     profile_file = output_dir / "profile.prof"
-    
+
     # Create profiler and run job with timing
     profiler = cProfile.Profile()
-    
+
     start_time = time.time()
     try:
         profiler.enable()
@@ -205,48 +205,51 @@ def profile_with_cprofile(job_func, output_dir: Path) -> tuple[int, Path, float]
     finally:
         # Always save profile, even on error
         profiler.dump_stats(str(profile_file))
-    
+
     end_time = time.time()
     total_runtime = end_time - start_time
-    
+
     # Generate text report (top functions by cumulative time)
     stats = pstats.Stats(str(profile_file))
     stats.sort_stats("cumulative")
-    
+
     report_file = output_dir / "profile_report.txt"
     with report_file.open("w", encoding="utf-8") as f:
         stats.print_stats(50, file=f)  # Top 50 functions
-    
+
     # Generate call graph (optional, but useful)
     callgraph_file = output_dir / "profile_callgraph.txt"
     with callgraph_file.open("w", encoding="utf-8") as f:
         stats.print_callers(30, file=f)  # Top 30 callers
-    
+
     return exit_code, profile_file, total_runtime
 
 
 def profile_with_pyinstrument(job_func, output_dir: Path) -> tuple[int, Path, float]:
     """Run job with pyinstrument profiling.
-    
+
     Args:
         job_func: Function that runs the job (takes output_dir, returns exit code)
         output_dir: Output directory for profiling artifacts
-        
+
     Returns:
         Tuple of (exit_code, profile_file_path, total_runtime_seconds)
     """
     import time
-    
+
     try:
         from pyinstrument import Profiler
     except ImportError:
-        print("ERROR: pyinstrument not installed. Install with: pip install pyinstrument", file=sys.stderr)
+        print(
+            "ERROR: pyinstrument not installed. Install with: pip install pyinstrument",
+            file=sys.stderr,
+        )
         return 1, output_dir / "profile.html", 0.0
-    
+
     profile_file = output_dir / "profile.html"
-    
+
     profiler = Profiler()
-    
+
     start_time = time.time()
     try:
         profiler.start()
@@ -255,69 +258,80 @@ def profile_with_pyinstrument(job_func, output_dir: Path) -> tuple[int, Path, fl
     finally:
         # Always save profile, even on error
         profiler.save_html(str(profile_file))
-    
+
     end_time = time.time()
     total_runtime = end_time - start_time
-    
+
     # Also generate text output
     report_file = output_dir / "profile_report.txt"
     with report_file.open("w", encoding="utf-8") as f:
         f.write(profiler.output_text(unicode=True, color=False))
-    
+
     return exit_code, profile_file, total_runtime
 
 
-def extract_top_hotspots_from_cprofile(profile_file: Path, top_n: int = 3) -> list[dict[str, Any]]:
+def extract_top_hotspots_from_cprofile(
+    profile_file: Path, top_n: int = 3
+) -> list[dict[str, Any]]:
     """Extract top N hotspots from cProfile output.
-    
+
     Args:
         profile_file: Path to .prof file
         top_n: Number of hotspots to extract
-        
+
     Returns:
         List of dicts with keys: function, cumulative_time, calls, per_call_time
     """
     if not profile_file.exists():
         return []
-    
+
     stats = pstats.Stats(str(profile_file))
     stats.sort_stats("cumulative")
-    
+
     hotspots = []
     # Iterate over stats (stats.stats is a dict of (filename, lineno, funcname) -> (ncalls, tottime, cumtime, ...))
-    for (filename, lineno, funcname), (ncalls, tottime, cumtime, callers) in stats.stats.items():
+    for (filename, lineno, funcname), (
+        ncalls,
+        tottime,
+        cumtime,
+        callers,
+    ) in stats.stats.items():
         # Format function name
         func_name = f"{filename}:{lineno}({funcname})"
         cumulative_time = cumtime  # cumulative time
         calls = ncalls  # call count (can be tuple (total, primitive) if recursive)
-        
+
         # Handle tuple calls (recursive functions)
         if isinstance(calls, tuple):
             calls = calls[0]
-        
+
         # Skip entries with very low time (likely noise)
         if cumulative_time < 0.01:
             continue
-        
-        hotspots.append({
-            "function": func_name,
-            "cumulative_time": cumulative_time,
-            "calls": calls,
-            "per_call_time": cumulative_time / calls if calls > 0 else 0.0,
-        })
-    
+
+        hotspots.append(
+            {
+                "function": func_name,
+                "cumulative_time": cumulative_time,
+                "calls": calls,
+                "per_call_time": cumulative_time / calls if calls > 0 else 0.0,
+            }
+        )
+
     # Sort by cumulative time and return top N
     hotspots.sort(key=lambda x: x["cumulative_time"], reverse=True)
     return hotspots[:top_n]
 
 
-def extract_top_hotspots_from_pyinstrument(profile_file: Path, top_n: int = 3) -> list[dict[str, Any]]:
+def extract_top_hotspots_from_pyinstrument(
+    profile_file: Path, top_n: int = 3
+) -> list[dict[str, Any]]:
     """Extract top N hotspots from pyinstrument output.
-    
+
     Args:
         profile_file: Path to .html file
         top_n: Number of hotspots to extract
-        
+
     Returns:
         List of dicts with keys: function, time, percentage
     """
@@ -325,7 +339,7 @@ def extract_top_hotspots_from_pyinstrument(profile_file: Path, top_n: int = 3) -
         import pyinstrument  # noqa: F401
     except ImportError:
         return []
-    
+
     # Load profile and extract top functions
     # pyinstrument doesn't have a simple API for this, so we parse the text output
     # For now, return empty list (can be enhanced later)
@@ -340,7 +354,7 @@ def update_performance_profile_md(
     phase: str = "P3",
 ) -> None:
     """Append hotspots and runtime to docs/PERFORMANCE_PROFILE.md (optional feature).
-    
+
     Args:
         job_id: Job ID (EOD_SMALL, BACKTEST_MEDIUM, ML_JOB)
         hotspots: List of hotspot dicts
@@ -349,25 +363,25 @@ def update_performance_profile_md(
         phase: Phase identifier (e.g., "P3", "Before P3", "After P3")
     """
     profile_doc = ROOT / "docs" / "PERFORMANCE_PROFILE.md"
-    
+
     if not profile_doc.exists():
         return  # Skip if doc doesn't exist
-    
+
     timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
-    
+
     with profile_doc.open("a", encoding="utf-8") as f:
         f.write(f"\n## {job_id} - {phase} (profiled with {profiler}) - {timestamp}\n\n")
-        
+
         if total_runtime is not None:
             f.write(f"**Total Runtime:** {total_runtime:.2f}s\n\n")
-        
+
         if hotspots:
             f.write("**Top-3 Hotspots:**\n\n")
             for i, hotspot in enumerate(hotspots, 1):
                 func = hotspot.get("function", "unknown")
                 cumulative_time = hotspot.get("cumulative_time", 0.0)
                 calls = hotspot.get("calls", 0)
-                
+
                 f.write(f"{i}. **{func}**\n")
                 f.write(f"   - Cumulative time: {cumulative_time:.3f}s\n")
                 f.write(f"   - Calls: {calls}\n")
@@ -376,7 +390,7 @@ def update_performance_profile_md(
                 f.write("\n")
         else:
             f.write("**Top-3 Hotspots:** (none extracted)\n\n")
-        
+
         f.write("\n")
 
 
@@ -397,7 +411,7 @@ Examples:
   python scripts/profile_job.py --job ML_JOB --profiler cprofile --dry-run
         """,
     )
-    
+
     parser.add_argument(
         "--job",
         type=str,
@@ -405,7 +419,7 @@ Examples:
         choices=["EOD_SMALL", "BACKTEST_MEDIUM", "ML_JOB"],
         help="Job ID to profile",
     )
-    
+
     parser.add_argument(
         "--profiler",
         type=str,
@@ -413,59 +427,71 @@ Examples:
         choices=["cprofile", "pyinstrument"],
         help="Profiler to use",
     )
-    
+
     parser.add_argument(
         "--dry-run",
         action="store_true",
         default=False,
         help="Dry run: print command but don't execute",
     )
-    
+
     parser.add_argument(
         "--update-doc",
         action="store_true",
         default=False,
         help="Update docs/PERFORMANCE_PROFILE.md with top hotspots (append-only)",
     )
-    
+
     args = parser.parse_args()
-    
+
     # Determine job function
     job_funcs = {
         "EOD_SMALL": run_eod_small,
         "BACKTEST_MEDIUM": run_backtest_medium,
         "ML_JOB": run_ml_job,
     }
-    
+
     job_func = job_funcs[args.job]
-    
+
     # Create output directory
     settings = get_settings()
     profiles_root = settings.output_dir / "profiles" / args.job
     timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
     output_dir = profiles_root / timestamp
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     print(f"Profiling job: {args.job}")
     print(f"Profiler: {args.profiler}")
     print(f"Output directory: {output_dir}")
-    
+
     if args.dry_run:
         print("DRY RUN: Would execute profiling (skipped)")
         return 0
-    
+
     # Run profiling
     total_runtime = None
     if args.profiler == "cprofile":
-        exit_code, profile_file, total_runtime = profile_with_cprofile(job_func, output_dir)
-        hotspots = extract_top_hotspots_from_cprofile(profile_file, top_n=3) if profile_file.exists() else []
+        exit_code, profile_file, total_runtime = profile_with_cprofile(
+            job_func, output_dir
+        )
+        hotspots = (
+            extract_top_hotspots_from_cprofile(profile_file, top_n=3)
+            if profile_file.exists()
+            else []
+        )
     elif args.profiler == "pyinstrument":
-        exit_code, profile_file, total_runtime = profile_with_pyinstrument(job_func, output_dir)
-        hotspots = extract_top_hotspots_from_pyinstrument(profile_file, top_n=3) if profile_file.exists() else []
+        exit_code, profile_file, total_runtime = profile_with_pyinstrument(
+            job_func, output_dir
+        )
+        hotspots = (
+            extract_top_hotspots_from_pyinstrument(profile_file, top_n=3)
+            if profile_file.exists()
+            else []
+        )
     else:
         print(f"ERROR: Unknown profiler: {args.profiler}", file=sys.stderr)
         return 1
-    
+
     # Write summary
     summary_file = output_dir / "summary.txt"
     with summary_file.open("w", encoding="utf-8") as f:
@@ -479,25 +505,26 @@ Examples:
         f.write("\nTop 3 Hotspots:\n")
         for i, hotspot in enumerate(hotspots, 1):
             f.write(f"{i}. {hotspot.get('function', 'unknown')}\n")
-    
+
     print(f"Profile saved: {profile_file}")
     if total_runtime is not None:
         print(f"Total runtime: {total_runtime:.2f}s")
     print(f"Summary saved: {summary_file}")
-    
+
     if exit_code != 0:
         print(f"WARNING: Job exited with code {exit_code}", file=sys.stderr)
-    
+
     # Update performance profile doc if requested
     if args.update_doc:
         # Determine phase based on job_id and profiler (can be enhanced with CLI arg later)
         phase = "P3"  # Default phase
-        update_performance_profile_md(args.job, hotspots, args.profiler, total_runtime, phase=phase)
+        update_performance_profile_md(
+            args.job, hotspots, args.profiler, total_runtime, phase=phase
+        )
         print("Updated docs/PERFORMANCE_PROFILE.md with hotspots and runtime")
-    
+
     return exit_code
 
 
 if __name__ == "__main__":
     sys.exit(main())
-

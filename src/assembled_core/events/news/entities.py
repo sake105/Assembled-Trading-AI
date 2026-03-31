@@ -201,4 +201,3 @@ __all__ = [
     "extract_entities",
     "_canonical_country_code",
 ]
-

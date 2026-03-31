@@ -46,4 +46,3 @@ def save_fetch_state(state: Dict[str, Any], path: Path) -> None:
     state["schema_version"] = "news.fetch_state.v1"
     state["updated_utc"] = now_utc_iso()
     emit_json_artifact(state, path)
-

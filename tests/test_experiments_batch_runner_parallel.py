@@ -35,7 +35,9 @@ def test_parallel_vs_serial_same_structure(tmp_path: Path) -> None:
         for i in range(3)
     ]
 
-    def mock_backtest_fn(run_spec: RunSpec, base_args: dict, output_dir: Path) -> RunResult:
+    def mock_backtest_fn(
+        run_spec: RunSpec, base_args: dict, output_dir: Path
+    ) -> RunResult:
         """Mock backtest function that simulates work."""
         time.sleep(0.05)  # Simulate some work
         return RunResult(
@@ -76,7 +78,9 @@ def test_parallel_deterministic_ordering_structure(tmp_path: Path) -> None:
         for i in [3, 1, 4, 2, 0]  # Out of order
     ]
 
-    def mock_backtest_fn(run_spec: RunSpec, base_args: dict, output_dir: Path) -> RunResult:
+    def mock_backtest_fn(
+        run_spec: RunSpec, base_args: dict, output_dir: Path
+    ) -> RunResult:
         """Mock backtest function."""
         return RunResult(
             run_id=run_spec.id,
@@ -115,7 +119,9 @@ def test_parallel_fail_fast_structure(tmp_path: Path) -> None:
 
     call_count = 0
 
-    def mock_backtest_fn(run_spec: RunSpec, base_args: dict, output_dir: Path) -> RunResult:
+    def mock_backtest_fn(
+        run_spec: RunSpec, base_args: dict, output_dir: Path
+    ) -> RunResult:
         """Mock backtest function that fails on run2."""
         nonlocal call_count
         call_count += 1
@@ -159,7 +165,9 @@ def test_parallel_unique_output_dirs(tmp_path: Path) -> None:
 
     output_dirs = set()
 
-    def mock_backtest_fn(run_spec: RunSpec, base_args: dict, output_dir: Path) -> RunResult:
+    def mock_backtest_fn(
+        run_spec: RunSpec, base_args: dict, output_dir: Path
+    ) -> RunResult:
         """Mock backtest function that tracks output directories."""
         output_dirs.add(str(output_dir))
         return RunResult(
@@ -217,7 +225,9 @@ def test_parallel_error_handling_structure(tmp_path: Path) -> None:
         ),
     ]
 
-    def mock_backtest_fn(run_spec: RunSpec, base_args: dict, output_dir: Path) -> RunResult:
+    def mock_backtest_fn(
+        run_spec: RunSpec, base_args: dict, output_dir: Path
+    ) -> RunResult:
         """Mock backtest function that fails on run1."""
         if run_spec.id == "run1":
             return RunResult(
@@ -249,4 +259,3 @@ def test_parallel_error_handling_structure(tmp_path: Path) -> None:
     # Verify error handling
     errors = [r for r in result.run_results if r.error]
     assert len(errors) >= 1
-

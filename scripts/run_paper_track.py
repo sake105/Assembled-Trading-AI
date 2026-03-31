@@ -76,12 +76,21 @@ def validate_config_dict(config_dict: dict[str, Any], config_path: Path) -> None
     errors = []
 
     # Required fields
-    strategy_name = config_dict.get("strategy_name", "").strip() if isinstance(config_dict.get("strategy_name"), str) else ""
+    strategy_name = (
+        config_dict.get("strategy_name", "").strip()
+        if isinstance(config_dict.get("strategy_name"), str)
+        else ""
+    )
     if not strategy_name:
         errors.append("strategy_name: Required field missing or empty")
 
-    strategy_type = config_dict.get("strategy_type") or (config_dict.get("strategy", {}) or {}).get("type", "")
-    if not strategy_type or strategy_type not in ("trend_baseline", "multifactor_long_short"):
+    strategy_type = config_dict.get("strategy_type") or (
+        config_dict.get("strategy", {}) or {}
+    ).get("type", "")
+    if not strategy_type or strategy_type not in (
+        "trend_baseline",
+        "multifactor_long_short",
+    ):
         errors.append(
             f"strategy_type: Must be 'trend_baseline' or 'multifactor_long_short', got: {strategy_type}"
         )
@@ -111,9 +120,13 @@ def validate_config_dict(config_dict: dict[str, Any], config_path: Path) -> None
             try:
                 seed_capital_float = float(seed_capital)
                 if seed_capital_float <= 0:
-                    errors.append(f"portfolio.seed_capital: Must be > 0, got: {seed_capital_float}")
+                    errors.append(
+                        f"portfolio.seed_capital: Must be > 0, got: {seed_capital_float}"
+                    )
             except (ValueError, TypeError):
-                errors.append(f"portfolio.seed_capital: Must be a number, got: {seed_capital}")
+                errors.append(
+                    f"portfolio.seed_capital: Must be a number, got: {seed_capital}"
+                )
 
     # Costs validation
     costs = config_dict.get("costs", {})
@@ -123,25 +136,35 @@ def validate_config_dict(config_dict: dict[str, Any], config_path: Path) -> None
                 try:
                     cost_value = float(costs[cost_key])
                     if cost_value < 0:
-                        errors.append(f"costs.{cost_key}: Must be >= 0, got: {cost_value}")
+                        errors.append(
+                            f"costs.{cost_key}: Must be >= 0, got: {cost_value}"
+                        )
                 except (ValueError, TypeError):
-                    errors.append(f"costs.{cost_key}: Must be a number, got: {costs[cost_key]}")
+                    errors.append(
+                        f"costs.{cost_key}: Must be a number, got: {costs[cost_key]}"
+                    )
 
     # Output format validation
     output = config_dict.get("output", {})
     if isinstance(output, dict):
         output_format = output.get("format", "csv")
         if output_format not in ("csv", "parquet"):
-            errors.append(f"output.format: Must be 'csv' or 'parquet', got: {output_format}")
+            errors.append(
+                f"output.format: Must be 'csv' or 'parquet', got: {output_format}"
+            )
 
     # Output root validation (if provided, should be valid path format)
     if isinstance(output, dict) and "root" in output:
         output_root_raw = output["root"]
         if not isinstance(output_root_raw, (str, Path)):
-            errors.append(f"output.root: Must be a string or Path, got: {type(output_root_raw)}")
+            errors.append(
+                f"output.root: Must be a string or Path, got: {type(output_root_raw)}"
+            )
 
     if errors:
-        error_msg = f"Config validation failed for {config_path}:\n" + "\n".join(f"  - {e}" for e in errors)
+        error_msg = f"Config validation failed for {config_path}:\n" + "\n".join(
+            f"  - {e}" for e in errors
+        )
         raise ValueError(error_msg)
 
 
@@ -246,7 +269,9 @@ def list_paper_track_configs() -> int:
         print(f"{strategy_name:<30} {path_str:<60}")
 
     print("\nTo run a strategy:")
-    print("  python scripts/cli.py paper_track --strategy-name <name> --as-of 2025-01-15")
+    print(
+        "  python scripts/cli.py paper_track --strategy-name <name> --as-of 2025-01-15"
+    )
     print("  python scripts/cli.py paper_track --config-file <path> --as-of 2025-01-15")
     return 0
 
@@ -374,7 +399,9 @@ def load_paper_track_config(path: Path) -> PaperTrackConfig:
     # Output format (default: "csv")
     output_format_raw = output.get("format", "csv")
     if output_format_raw not in ("csv", "parquet"):
-        raise ValueError(f"output.format must be 'csv' or 'parquet', got: {output_format_raw}")
+        raise ValueError(
+            f"output.format must be 'csv' or 'parquet', got: {output_format_raw}"
+        )
     output_format = output_format_raw  # type: ignore[assignment]
 
     # Intel mode (none | real) and georisk gate
@@ -479,9 +506,7 @@ def compute_date_list(
                 "catch_up=True requires state_path to determine last_run_date"
             )
         if not strategy_name:
-            raise ValueError(
-                "catch_up=True requires strategy_name to load state"
-            )
+            raise ValueError("catch_up=True requires strategy_name to load state")
 
         # Load state to get last_run_date
         from src.assembled_core.paper.paper_track import load_paper_state
@@ -692,6 +717,7 @@ def run_paper_track_from_cli(
         # CLI override for intel_mode
         if intel_mode is not None:
             from dataclasses import replace
+
             config = replace(config, intel_mode=intel_mode)  # type: ignore[arg-type]
             logger.info(f"Intel mode overridden via CLI: {intel_mode}")
 
@@ -769,7 +795,9 @@ def run_paper_track_from_cli(
 
             # GeoRisk gate: compute multiplier and inject into config
             if config.georisk_gate_enabled:
-                from src.assembled_core.paper.georisk_gate import compute_georisk_multiplier
+                from src.assembled_core.paper.georisk_gate import (
+                    compute_georisk_multiplier,
+                )
 
                 geo_mult = compute_georisk_multiplier(
                     news_geo,
@@ -783,7 +811,9 @@ def run_paper_track_from_cli(
                     "state_hint": news_geo.get("state_hint", "WATCH"),
                 }
                 if intel_summary_data is not None:
-                    intel_summary_data["georisk_gate"] = intel_orchestration["georisk_gate"]
+                    intel_summary_data["georisk_gate"] = intel_orchestration[
+                        "georisk_gate"
+                    ]
                     with open(intel_summary_path, "w", encoding="utf-8") as f:
                         json.dump(intel_summary_data, f, indent=2, ensure_ascii=True)
                 logger.info(f"GeoRisk gate: multiplier={geo_mult:.2f}")
@@ -846,18 +876,29 @@ def run_paper_track_from_cli(
                 # Write outputs (if not dry-run and success)
                 # If rerun is enabled and run_dir exists, backup or delete it first
                 if rerun and run_dir.exists() and not dry_run:
-                    logger.warning(f"Re-running day {date.date()}, existing run directory will be overwritten")
+                    logger.warning(
+                        f"Re-running day {date.date()}, existing run directory will be overwritten"
+                    )
                     # Backup the old directory
                     import shutil
-                    backup_dir = run_dir.with_suffix(f".backup.{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}")
+
+                    backup_dir = run_dir.with_suffix(
+                        f".backup.{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}"
+                    )
                     try:
                         shutil.move(str(run_dir), str(backup_dir))
-                        logger.info(f"Backed up existing run directory to {backup_dir.name}")
+                        logger.info(
+                            f"Backed up existing run directory to {backup_dir.name}"
+                        )
                     except Exception as e:
-                        logger.warning(f"Failed to backup run directory: {e}, proceeding anyway")
+                        logger.warning(
+                            f"Failed to backup run directory: {e}, proceeding anyway"
+                        )
 
                 if not dry_run and result.status == "success":
-                    write_paper_day_outputs(result, output_root, config=config, run_id=run_id)
+                    write_paper_day_outputs(
+                        result, output_root, config=config, run_id=run_id
+                    )
                     logger.info(f"Outputs written for {date.date()}")
 
                     # Update state file
@@ -866,7 +907,7 @@ def run_paper_track_from_cli(
 
                     # Generate risk report if enabled and trigger matches
                     if generate_risk_report:
-                        is_last_day = (i == len(dates) - 1)
+                        is_last_day = i == len(dates) - 1
                         if _should_generate_risk_report(
                             date, risk_report_frequency, is_last_day
                         ):

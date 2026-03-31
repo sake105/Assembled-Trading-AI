@@ -261,29 +261,37 @@ def run_daily_eod(
 
     logger.info(f"Starting EOD-MVP for {target_date.strftime('%Y-%m-%d')}")
     logger.info(f"Output directory: {out_dir}")
-    
+
     # Broker snapshot import (if file provided) - before ledger/reconciliation step
     broker_snapshot_import_ok = None
     if broker_snapshot_file:
         try:
-            from src.assembled_core.accounting.broker_snapshot_importer import import_broker_snapshot
-            
+            from src.assembled_core.accounting.broker_snapshot_importer import (
+                import_broker_snapshot,
+            )
+
             # Determine snapshot date
             if broker_snapshot_date:
                 snapshot_date = pd.Timestamp(broker_snapshot_date, tz="UTC")
             else:
                 # Use target_date as snapshot date
-                snapshot_date = pd.Timestamp(target_date) if isinstance(target_date, datetime) else target_date
+                snapshot_date = (
+                    pd.Timestamp(target_date)
+                    if isinstance(target_date, datetime)
+                    else target_date
+                )
                 if snapshot_date.tzinfo is None:
                     snapshot_date = snapshot_date.tz_localize("UTC")
-            
+
             # Determine snapshot run_id
-            snapshot_run_id = broker_snapshot_run_id if broker_snapshot_run_id else "daily_snapshot"
-            
+            snapshot_run_id = (
+                broker_snapshot_run_id if broker_snapshot_run_id else "daily_snapshot"
+            )
+
             logger.info(f"Importing broker snapshot from: {broker_snapshot_file}")
             logger.info(f"Snapshot date: {snapshot_date.strftime('%Y-%m-%d')}")
             logger.info(f"Snapshot run_id: {snapshot_run_id}")
-            
+
             # Import snapshot
             import_result = import_broker_snapshot(
                 snapshot_path=Path(broker_snapshot_file),
@@ -293,37 +301,47 @@ def run_daily_eod(
                 qty_tol=1e-8,
                 store_parquet=True,
             )
-            
-            logger.info(f"Broker snapshot imported: {import_result['broker_snapshot_path']}")
-            
+
+            logger.info(
+                f"Broker snapshot imported: {import_result['broker_snapshot_path']}"
+            )
+
             # Update broker_snapshot_run_id to use imported snapshot namespace
             if not broker_snapshot_run_id:
                 broker_snapshot_run_id = snapshot_run_id
-            
+
             # Mark import as successful
             broker_snapshot_import_ok = True
-                
+
         except FileNotFoundError as e:
             broker_snapshot_import_ok = False
             if broker_snapshot_policy == "require":
                 logger.error(f"Broker snapshot file not found (policy=require): {e}")
                 sys.exit(1)
             else:
-                logger.warning(f"Broker snapshot file not found (policy={broker_snapshot_policy}): {e} - continuing without import")
+                logger.warning(
+                    f"Broker snapshot file not found (policy={broker_snapshot_policy}): {e} - continuing without import"
+                )
         except ValueError as e:
             broker_snapshot_import_ok = False
             if broker_snapshot_policy == "require":
                 logger.error(f"Broker snapshot import failed (policy=require): {e}")
                 sys.exit(1)
             else:
-                logger.warning(f"Broker snapshot import failed (policy={broker_snapshot_policy}): {e} - continuing without import")
+                logger.warning(
+                    f"Broker snapshot import failed (policy={broker_snapshot_policy}): {e} - continuing without import"
+                )
         except Exception as e:
             broker_snapshot_import_ok = False
             if broker_snapshot_policy == "require":
-                logger.error(f"Broker snapshot import error (policy=require): {e}", exc_info=True)
+                logger.error(
+                    f"Broker snapshot import error (policy=require): {e}", exc_info=True
+                )
                 sys.exit(1)
             else:
-                logger.warning(f"Broker snapshot import error (policy={broker_snapshot_policy}): {e} - continuing without import")
+                logger.warning(
+                    f"Broker snapshot import error (policy={broker_snapshot_policy}): {e} - continuing without import"
+                )
                 logger.debug(f"Import error details: {e}", exc_info=True)
 
     # Step 1: Load universe symbols (if universe_file provided, else use default from settings)
@@ -357,7 +375,9 @@ def run_daily_eod(
     logger.info("Step 1: Loading EOD prices...")
     try:
         step_name = "load_data"
-        step_context = timed_step(step_name, timings, logger) if enable_timings else nullcontext()
+        step_context = (
+            timed_step(step_name, timings, logger) if enable_timings else nullcontext()
+        )
         with step_context:
             if price_file:
                 price_path = Path(price_file)
@@ -424,8 +444,11 @@ def run_daily_eod(
     qa_block_trading = False
     qa_block_reason = None
     try:
-        from src.assembled_core.qa.data_qc import run_price_panel_qc, write_qc_report_json
-        
+        from src.assembled_core.qa.data_qc import (
+            run_price_panel_qc,
+            write_qc_report_json,
+        )
+
         logger.info("Step 2.5: Running data quality control (QC)...")
         # Note: target_timestamp is defined later, so we use None here
         # (QC will use prices timestamp range for missing sessions check)
@@ -435,12 +458,12 @@ def run_daily_eod(
             calendar="NYSE",
             as_of=None,  # Will be set later when target_timestamp is available
         )
-        
+
         # Write QC report to output directory
         qc_report_path = out_dir / "qc_report.json"
         write_qc_report_json(qc_report, qc_report_path)
         logger.info(f"QC report written: {qc_report_path}")
-        
+
         # Set QA Gate if QC has FAIL issues
         if not qc_report.ok:
             qa_block_trading = True
@@ -448,7 +471,9 @@ def run_daily_eod(
             logger.warning(f"QC FAILED: {qa_block_reason}")
             logger.warning("Trading will be blocked (no orders generated)")
         elif qc_report.summary.get("warn_count", 0) > 0:
-            logger.warning(f"QC WARN: {qc_report.summary.get('warn_count', 0)} WARN issues (trading will proceed)")
+            logger.warning(
+                f"QC WARN: {qc_report.summary.get('warn_count', 0)} WARN issues (trading will proceed)"
+            )
     except ImportError:
         logger.warning(
             "QC module not available - skipping QC checks. "
@@ -470,27 +495,41 @@ def run_daily_eod(
                 compute_only_last_session,
             )
             from src.assembled_core.features.ta_features import add_all_features
-            
-            logger.info("Step 2.6: Computing and storing factors (incremental update)...")
-            
+
+            logger.info(
+                "Step 2.6: Computing and storing factors (incremental update)..."
+            )
+
             # Determine target timestamp for incremental update
-            target_timestamp_for_factors = pd.Timestamp(target_date) if isinstance(target_date, datetime) else target_date
+            target_timestamp_for_factors = (
+                pd.Timestamp(target_date)
+                if isinstance(target_date, datetime)
+                else target_date
+            )
             try:
-                from src.assembled_core.data.calendar import normalize_as_of_to_session_close
-                target_timestamp_for_factors = normalize_as_of_to_session_close(target_timestamp_for_factors)
+                from src.assembled_core.data.calendar import (
+                    normalize_as_of_to_session_close,
+                )
+
+                target_timestamp_for_factors = normalize_as_of_to_session_close(
+                    target_timestamp_for_factors
+                )
             except ImportError:
                 pass  # Continue without normalization if exchange_calendars not installed
-            
+
             # Compute universe key
             universe_symbols_for_factors = sorted(prices["symbol"].unique().tolist())
             universe_key = compute_universe_key(symbols=universe_symbols_for_factors)
-            
+
             # Determine factor store root
-            factor_store_root_path = Path(factor_store_root) if factor_store_root else None
+            factor_store_root_path = (
+                Path(factor_store_root) if factor_store_root else None
+            )
             if factor_store_root_path is None:
                 from src.assembled_core.data.factor_store import get_factor_store_root
+
                 factor_store_root_path = get_factor_store_root()
-            
+
             # Compute features for last session only (incremental)
             # Note: For features requiring history (e.g., MA_200), we need enough history
             # In practice, use compute_last_N_sessions with window_days >= max(ma_windows)
@@ -509,7 +548,7 @@ def run_daily_eod(
                     builder_fn=add_all_features,
                     as_of=target_timestamp_for_factors,
                 )
-            
+
             if not factors_last_session.empty:
                 # Store factors (append mode for incremental update)
                 store_factors_parquet(
@@ -521,7 +560,11 @@ def run_daily_eod(
                     root=factor_store_root_path,
                     metadata={
                         "source": "run_daily",
-                        "target_date": target_date.strftime("%Y-%m-%d") if isinstance(target_date, datetime) else str(target_date),
+                        "target_date": (
+                            target_date.strftime("%Y-%m-%d")
+                            if isinstance(target_date, datetime)
+                            else str(target_date)
+                        ),
                     },
                 )
                 logger.info(
@@ -531,23 +574,36 @@ def run_daily_eod(
             else:
                 logger.warning("No factors computed for last session (empty result)")
         except Exception as e:
-            logger.warning(f"Failed to compute/store factors: {e} - proceeding without factor store")
+            logger.warning(
+                f"Failed to compute/store factors: {e} - proceeding without factor store"
+            )
             logger.debug(f"Factor store error details: {e}", exc_info=True)
 
     # Step 4-7: Run unified trading cycle
-    logger.info("Step 3: Running trading cycle (features/signals/positions/orders/risk)...")
+    logger.info(
+        "Step 3: Running trading cycle (features/signals/positions/orders/risk)..."
+    )
     try:
         step_name = "trading_cycle"
-        step_context = timed_step(step_name, timings, logger) if enable_timings else nullcontext()
-        
+        step_context = (
+            timed_step(step_name, timings, logger) if enable_timings else nullcontext()
+        )
+
         with step_context:
             # Build TradingContext from CLI args
             # Convert target_date (datetime) to pd.Timestamp for TradingContext
-            target_timestamp = pd.Timestamp(target_date) if isinstance(target_date, datetime) else target_date
-            
+            target_timestamp = (
+                pd.Timestamp(target_date)
+                if isinstance(target_date, datetime)
+                else target_date
+            )
+
             # Normalize as_of to session close for 1d frequency (Sprint-2 calendar hardening)
             try:
-                from src.assembled_core.data.calendar import normalize_as_of_to_session_close
+                from src.assembled_core.data.calendar import (
+                    normalize_as_of_to_session_close,
+                )
+
                 target_timestamp = normalize_as_of_to_session_close(target_timestamp)
                 logger.debug(f"Normalized as_of to session close: {target_timestamp}")
             except ImportError:
@@ -560,30 +616,38 @@ def run_daily_eod(
                 # If date is not a trading day, log error and exit
                 logger.error(f"Failed to normalize as_of to session close: {e}")
                 sys.exit(1)
-            
+
             # Define signal function
             def signal_fn(df: pd.DataFrame) -> pd.DataFrame:
-                return generate_trend_signals_from_prices(df, ma_fast=ma_fast, ma_slow=ma_slow)
-            
+                return generate_trend_signals_from_prices(
+                    df, ma_fast=ma_fast, ma_slow=ma_slow
+                )
+
             # Define position sizing function
             def sizing_fn(signals: pd.DataFrame, capital: float) -> pd.DataFrame:
                 return compute_target_positions_from_trend_signals(
                     signals, total_capital=capital, top_n=top_n, min_score=min_score
                 )
-            
+
             # Load security master (if available) for sector/region/FX limits
             security_meta_df = None
             try:
                 security_master_path = get_default_security_master_path()
                 if security_master_path.exists():
                     security_meta_df = load_security_master(security_master_path)
-                    logger.info(f"Loaded security master: {len(security_meta_df)} symbols from {security_master_path}")
+                    logger.info(
+                        f"Loaded security master: {len(security_meta_df)} symbols from {security_master_path}"
+                    )
                 else:
-                    logger.debug(f"Security master not found at {security_master_path} - group exposure limits will be skipped")
+                    logger.debug(
+                        f"Security master not found at {security_master_path} - group exposure limits will be skipped"
+                    )
             except Exception as e:
-                logger.warning(f"Failed to load security master: {e} - group exposure limits will be skipped")
+                logger.warning(
+                    f"Failed to load security master: {e} - group exposure limits will be skipped"
+                )
                 logger.debug(f"Security master error details: {e}", exc_info=True)
-            
+
             # Build TradingContext
             ctx = TradingContext(
                 prices=prices,
@@ -592,7 +656,9 @@ def run_daily_eod(
                 freq="1d",
                 universe=universe_symbols if universe_symbols else None,
                 use_factor_store=use_factor_store,
-                factor_store_root=Path(factor_store_root) if factor_store_root else None,
+                factor_store_root=(
+                    Path(factor_store_root) if factor_store_root else None
+                ),
                 factor_group=factor_group,
                 qa_block_trading=qa_block_trading,  # QA Gate (Sprint 3 / D2)
                 qa_block_reason=qa_block_reason,
@@ -608,7 +674,8 @@ def run_daily_eod(
                 capital=total_capital,
                 current_positions=None,  # No current positions in EOD flow
                 order_timestamp=target_timestamp,
-                enable_risk_controls=not disable_pre_trade_checks and not ignore_kill_switch,
+                enable_risk_controls=not disable_pre_trade_checks
+                and not ignore_kill_switch,
                 risk_config={
                     "enable_pre_trade_checks": not disable_pre_trade_checks,
                     "enable_kill_switch": not ignore_kill_switch,
@@ -621,27 +688,29 @@ def run_daily_eod(
                 logger=logger,
                 timings=timings if enable_timings else None,
             )
-            
+
             # Run trading cycle
             result = run_trading_cycle(ctx)
-            
+
             if result.status != "success":
                 logger.error(f"Trading cycle failed: {result.error_message}")
                 sys.exit(1)
-            
+
             # Extract results
             orders = result.orders_filtered  # Already filtered by risk controls
-            
+
             # Log intermediate results
             if not result.signals.empty:
                 long_signals = result.signals[result.signals["direction"] == "LONG"]
                 logger.info(
                     f"Signals generated: {len(long_signals)} LONG signals from {len(result.signals)} total"
                 )
-            
+
             if not result.target_positions.empty:
                 logger.info(f"Target positions: {len(result.target_positions)} symbols")
-                logger.info(f"Symbols: {', '.join(result.target_positions['symbol'].tolist())}")
+                logger.info(
+                    f"Symbols: {', '.join(result.target_positions['symbol'].tolist())}"
+                )
             else:
                 logger.warning(
                     "No target positions computed (no LONG signals or all filtered out)"
@@ -649,7 +718,9 @@ def run_daily_eod(
                 logger.warning("No orders will be generated.")
                 # Create empty SAFE file
                 safe_path = write_safe_orders_csv(
-                    pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"]),
+                    pd.DataFrame(
+                        columns=["timestamp", "symbol", "side", "qty", "price"]
+                    ),
                     date=target_date,
                     output_path=None,
                     price_type="MARKET",
@@ -657,9 +728,11 @@ def run_daily_eod(
                 )
                 logger.info(f"Empty SAFE orders file written: {safe_path}")
                 return safe_path
-            
+
             if orders.empty:
-                logger.warning("No orders generated (no position changes or all filtered by risk controls)")
+                logger.warning(
+                    "No orders generated (no position changes or all filtered by risk controls)"
+                )
                 # Create empty SAFE file
                 safe_path = write_safe_orders_csv(
                     orders,
@@ -670,20 +743,20 @@ def run_daily_eod(
                 )
                 logger.info(f"Empty SAFE orders file written: {safe_path}")
                 return safe_path
-            
+
             logger.info(f"Orders generated: {len(orders)} orders")
             if not orders.empty:
                 buy_count = len(orders[orders["side"] == "BUY"])
                 sell_count = len(orders[orders["side"] == "SELL"])
                 logger.info(f"Order breakdown: {buy_count} BUY, {sell_count} SELL")
-            
+
             # Store factor metadata in timings if enabled
             if enable_timings and result.meta:
                 if step_name in timings:
                     if "meta" not in timings[step_name]:
                         timings[step_name]["meta"] = {}
                     timings[step_name]["meta"].update(result.meta)
-                    
+
     except Exception as e:
         logger.error(f"Failed to run trading cycle: {e}", exc_info=True)
         sys.exit(1)
@@ -692,7 +765,9 @@ def run_daily_eod(
     logger.info("Step 4: Writing SAFE-Bridge CSV...")
     try:
         step_name = "outputs"
-        step_context = timed_step(step_name, timings, logger) if enable_timings else nullcontext()
+        step_context = (
+            timed_step(step_name, timings, logger) if enable_timings else nullcontext()
+        )
         with step_context:
             safe_path = write_safe_orders_csv(
                 orders,
@@ -734,7 +809,7 @@ def run_daily_eod(
         else:
             # Default: use run_timings.json (or timings.json for backward compatibility)
             timings_path = out_dir / "run_timings.json"
-        
+
         job_meta = {
             "date": target_date.strftime("%Y-%m-%d"),
             "universe_file": str(universe_file) if universe_file else None,
@@ -742,7 +817,9 @@ def run_daily_eod(
             "ma_fast": ma_fast,
             "ma_slow": ma_slow,
         }
-        write_timings_json(timings, timings_path, job_name="run_daily", job_meta=job_meta)
+        write_timings_json(
+            timings, timings_path, job_name="run_daily", job_meta=job_meta
+        )
 
     # Write optional daily manifest (Sprint 13)
     # Generate run_id for manifest (use date-based ID if not provided)
@@ -769,7 +846,9 @@ def run_daily_eod(
         )
     except Exception as e:
         # Manifest writing is optional - log warning but don't fail
-        logger.warning(f"Failed to write daily manifest: {e} - continuing without manifest")
+        logger.warning(
+            f"Failed to write daily manifest: {e} - continuing without manifest"
+        )
         logger.debug(f"Manifest error details: {e}", exc_info=True)
 
     return safe_path
@@ -830,24 +909,29 @@ def _write_daily_manifest(
         evidence_pack_manifest_path: Relative POSIX path to pack manifest JSON (if created)
     """
     import json
-    
+
     # Determine broker snapshot path (if snapshot was written or imported)
     broker_snapshot_path = None
     if broker_snapshot_run_id:
         try:
-            from src.assembled_core.accounting.broker_snapshot_store import broker_snapshot_base_path
-            snapshot_base = broker_snapshot_base_path(output_dir, broker_snapshot_run_id)
+            from src.assembled_core.accounting.broker_snapshot_store import (
+                broker_snapshot_base_path,
+            )
+
+            snapshot_base = broker_snapshot_base_path(
+                output_dir, broker_snapshot_run_id
+            )
             if snapshot_base.exists():
                 broker_snapshot_path = snapshot_base
         except Exception:
             pass  # Snapshot path not available
-    
+
     # Determine ledger/reconcile paths (if ledger was active)
     # Note: run_daily.py currently doesn't integrate ledger, but we prepare the structure
     ledger_pack_path = None
     reconcile_report_path = None
     reconciliation_ok = None
-    
+
     # Normalize broker_snapshot_file to relative path or basename
     broker_snapshot_file_str = None
     if broker_snapshot_file:
@@ -867,18 +951,26 @@ def _write_daily_manifest(
             except Exception:
                 # Last resort: use string representation
                 broker_snapshot_file_str = str(broker_snapshot_file)
-    
+
     # Build manifest (fields aligned with orchestrator manifest structure)
     manifest = {
         "run_id": run_id,
-        "target_date": target_date.strftime("%Y-%m-%d") if isinstance(target_date, datetime) else str(target_date),
+        "target_date": (
+            target_date.strftime("%Y-%m-%d")
+            if isinstance(target_date, datetime)
+            else str(target_date)
+        ),
         "safe_orders_path": _manifest_path_str(safe_path, base_dir=output_dir),
         # Broker snapshot fields (aligned with orchestrator)
         "broker_snapshot_policy": broker_snapshot_policy,
         "broker_snapshot_date": broker_snapshot_date,
         "broker_snapshot_file": broker_snapshot_file_str,
         "broker_snapshot_import_ok": broker_snapshot_import_ok,
-        "broker_snapshot_path": _manifest_path_str(broker_snapshot_path, base_dir=output_dir) if broker_snapshot_path else None,
+        "broker_snapshot_path": (
+            _manifest_path_str(broker_snapshot_path, base_dir=output_dir)
+            if broker_snapshot_path
+            else None
+        ),
         "broker_snapshot_run_id": broker_snapshot_run_id,
         # Ledger/Accounting fields (optional, None if not active, aligned with orchestrator)
         "ledger_pack_path": ledger_pack_path,
@@ -892,13 +984,13 @@ def _write_daily_manifest(
         # Paper snapshot write flag (aligned with orchestrator: write_paper_broker_snapshot)
         "write_paper_broker_snapshot": write_broker_snapshot,
     }
-    
+
     # Write manifest deterministically (sort_keys=True, indent=2, trailing newline)
     manifest_path = output_dir / f"manifest_daily_{run_id}.json"
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(manifest, sort_keys=True, indent=2)
     manifest_path.write_text(payload + "\n", encoding="utf-8")
-    
+
     logger = setup_logging(level="INFO")
     logger.info(f"Daily manifest written: {manifest_path}")
 
@@ -1064,12 +1156,16 @@ def main() -> None:
             enable_timings=args.enable_timings,
             timings_out=Path(args.timings_out) if args.timings_out else None,
             use_factor_store=args.use_factor_store,
-            factor_store_root=Path(args.factor_store_root) if args.factor_store_root else None,
+            factor_store_root=(
+                Path(args.factor_store_root) if args.factor_store_root else None
+            ),
             factor_group=args.factor_group,
             broker_snapshot_policy=args.broker_snapshot_policy,
             write_broker_snapshot=args.write_broker_snapshot,
             broker_snapshot_run_id=args.broker_snapshot_run_id,
-            broker_snapshot_file=Path(args.broker_snapshot_file) if args.broker_snapshot_file else None,
+            broker_snapshot_file=(
+                Path(args.broker_snapshot_file) if args.broker_snapshot_file else None
+            ),
             broker_snapshot_date=args.broker_snapshot_date,
             write_evidence_pack=args.write_evidence_pack,
         )

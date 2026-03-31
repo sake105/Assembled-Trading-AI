@@ -98,7 +98,7 @@ def extract_top_hotspots_from_pstats(
         stats_list = list(stats.stats.items())
         # Sort by cumulative time (ct, which is index 3 in the value tuple), descending
         stats_list_sorted = sorted(stats_list, key=lambda x: x[1][3], reverse=True)
-        
+
         for func_tuple, stats_data in stats_list_sorted[:top_n]:
             # func_tuple is (filename, line_number, function_name)
             file_path, line_num, func_name = func_tuple
@@ -201,7 +201,9 @@ def format_hotspots(hotspots: list[dict[str, Any]]) -> str:
         cumtime = hotspot.get("cumtime", 0.0)
         ncalls = hotspot.get("ncalls", 0)
 
-        lines.append(f"| {idx} | `{func_name}` | `{file_name}` | {line_num} | {cumtime:.4f} | {ncalls} |")
+        lines.append(
+            f"| {idx} | `{func_name}` | `{file_name}` | {line_num} | {cumtime:.4f} | {ncalls} |"
+        )
 
     return "\n".join(lines)
 
@@ -256,13 +258,15 @@ def generate_report_markdown(
             lines.append(f"**Total Runtime:** {runtime:.4f} seconds")
         else:
             lines.append("**Total Runtime:** N/A")
-        
+
         # Cache warm indicator
         cache_warm = job_info.get("cache_warm", False)
         if cache_warm:
             lines.append("")
-            lines.append("> ⚡ **Cache warm**: This run used pre-computed factors from the Factor Store (cache hit).")
-        
+            lines.append(
+                "> ⚡ **Cache warm**: This run used pre-computed factors from the Factor Store (cache hit)."
+            )
+
         lines.append("")
 
         # Step breakdown
@@ -365,8 +369,10 @@ def generate_performance_profile_report(
         if not timings_path.exists():
             timings_path = latest_run_dir.parent.parent / "timings.json"
 
-        timings_data = load_timings_json(timings_path) if timings_path.exists() else None
-        
+        timings_data = (
+            load_timings_json(timings_path) if timings_path.exists() else None
+        )
+
         # Load profile_summary.log to check for cache_warm flag
         profile_summary_path = latest_run_dir / "profile_summary.log"
         cache_warm = False
@@ -378,7 +384,9 @@ def generate_performance_profile_report(
                             cache_warm = line.strip().split("=", 1)[1].lower() == "true"
                             break
             except Exception as e:
-                logger.warning(f"Failed to read profile_summary.log from {profile_summary_path}: {e}")
+                logger.warning(
+                    f"Failed to read profile_summary.log from {profile_summary_path}: {e}"
+                )
 
         # Extract runtime
         runtime = None
@@ -454,10 +462,11 @@ def main() -> int:
         )
         return 0
     except Exception as e:
-        logger.error(f"Failed to generate performance profile report: {e}", exc_info=True)
+        logger.error(
+            f"Failed to generate performance profile report: {e}", exc_info=True
+        )
         return 1
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

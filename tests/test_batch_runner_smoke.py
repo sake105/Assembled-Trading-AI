@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_batch_runner_load_config(tmp_path: Path) -> None:
     """Test loading a valid batch config."""
     import sys
+
     sys.path.insert(0, str(ROOT))
 
     from scripts.batch_runner import load_batch_config
@@ -48,6 +49,7 @@ runs:
 def test_batch_runner_invalid_config(tmp_path: Path) -> None:
     """Test loading an invalid batch config."""
     import sys
+
     sys.path.insert(0, str(ROOT))
 
     from scripts.batch_runner import load_batch_config
@@ -77,6 +79,7 @@ output_root: "output/test"
 def test_batch_runner_write_manifest(tmp_path: Path) -> None:
     """Test writing a run manifest."""
     import sys
+
     sys.path.insert(0, str(ROOT))
 
     from datetime import datetime
@@ -123,12 +126,15 @@ def test_batch_runner_write_manifest(tmp_path: Path) -> None:
     assert manifest["params"]["strategy"] == "trend_baseline"
     assert manifest["params"]["freq"] == "1d"
     # git_commit_hash may be None or a string
-    assert manifest["git_commit_hash"] is None or isinstance(manifest["git_commit_hash"], str)
+    assert manifest["git_commit_hash"] is None or isinstance(
+        manifest["git_commit_hash"], str
+    )
 
 
 def test_batch_runner_build_args(tmp_path: Path) -> None:
     """Test building argparse.Namespace from RunConfig."""
     import sys
+
     sys.path.insert(0, str(ROOT))
 
     from scripts.batch_runner import RunConfig, build_args_from_run_config
@@ -163,6 +169,7 @@ def test_batch_runner_build_args(tmp_path: Path) -> None:
 def test_batch_runner_dry_run(tmp_path: Path) -> None:
     """Test dry-run mode (no actual execution)."""
     import sys
+
     sys.path.insert(0, str(ROOT))
 
     from scripts.batch_runner import BatchConfig, RunConfig, run_batch
@@ -195,6 +202,7 @@ def test_batch_runner_dry_run(tmp_path: Path) -> None:
 def test_batch_runner_cli_help(capsys) -> None:
     """Test CLI help output."""
     import sys
+
     sys.path.insert(0, str(ROOT))
 
     from scripts.batch_runner import parse_args
@@ -202,4 +210,3 @@ def test_batch_runner_cli_help(capsys) -> None:
     # Should not raise
     with pytest.raises(SystemExit):
         parse_args(["--help"])
-

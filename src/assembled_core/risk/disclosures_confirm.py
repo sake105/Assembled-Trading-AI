@@ -42,7 +42,9 @@ def apply_disclosures_confirm(ctx: "TradingContext", policy: Dict[str, Any]) -> 
 
     # max_discl_sev from summary or from triggers
     max_discl_sev = 0
-    if hasattr(disc_triggers, "summary") and isinstance(getattr(disc_triggers, "summary"), dict):
+    if hasattr(disc_triggers, "summary") and isinstance(
+        getattr(disc_triggers, "summary"), dict
+    ):
         max_discl_sev = int((disc_triggers.summary or {}).get("max_severity", 0))
     if max_discl_sev == 0 and hasattr(disc_triggers, "triggers"):
         triggers_list = getattr(disc_triggers, "triggers") or []
@@ -87,7 +89,11 @@ def apply_disclosures_confirm(ctx: "TradingContext", policy: Dict[str, Any]) -> 
                 setattr(
                     news_geo,
                     "boost",
-                    {"source": "disclosures", "added": add_confidence, "max_discl_sev": max_discl_sev},
+                    {
+                        "source": "disclosures",
+                        "added": add_confidence,
+                        "max_discl_sev": max_discl_sev,
+                    },
                 )
             except Exception:
                 pass

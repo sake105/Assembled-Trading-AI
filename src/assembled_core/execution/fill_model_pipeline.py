@@ -45,13 +45,13 @@ def apply_fill_model_pipeline(
     # Step 1: Apply session gate (if exchange_calendars available)
     try:
         fills = apply_session_gate(fills, freq=freq, strict=strict_session_gate)
-    except ImportError:
-        # exchange_calendars not available: skip session gate if strict=False
+    except (ImportError, RuntimeError):
+        # exchange_calendars not available or raised RuntimeError: skip session gate if strict=False
         if strict_session_gate:
             raise  # Re-raise if strict=True
         # Permissive fallback: allow all orders (keep fill schema if coming from cash gate)
         fills = ensure_fill_schema(fills, default_full_fill=True)
-    
+
     # Step 2: Apply limit order fills (if limit orders present)
     # This will check limit eligibility and apply partial fills if provided
     if "order_type" in fills.columns and (fills["order_type"] == "limit").any():

@@ -84,7 +84,7 @@ def _compute_run_id_hash(run_cfg: RunConfig, seed: int) -> str:
         # Sort params keys for deterministic hashing
         params_sorted = {k: v for k, v in sorted(run_cfg.params.items())}
         params_dict["params"] = params_sorted
-    
+
     # Sort keys for deterministic hashing
     params_json = json.dumps(params_dict, sort_keys=True, default=str)
     return hashlib.sha256(params_json.encode()).hexdigest()[:16]
@@ -113,6 +113,7 @@ def _get_git_commit_hash() -> str | None:
 
 class TradingFreq(str, Enum):
     """Supported trading frequencies."""
+
     DAILY = "1d"
     INTRADAY_5MIN = "5min"
 
@@ -120,18 +121,33 @@ class TradingFreq(str, Enum):
 class RunConfig(BaseModel):
     """Configuration for a single backtest run with validation."""
 
-    id: str = Field(..., alias="name", description="Run identifier (unique within batch, alias: 'name')")
-    strategy: str = Field(..., min_length=1, description="Strategy name (e.g., 'trend_baseline')")
+    id: str = Field(
+        ...,
+        alias="name",
+        description="Run identifier (unique within batch, alias: 'name')",
+    )
+    strategy: str = Field(
+        ..., min_length=1, description="Strategy name (e.g., 'trend_baseline')"
+    )
     freq: TradingFreq = Field(..., description="Trading frequency: '1d' or '5min'")
     start_date: str = Field(..., description="Start date in YYYY-MM-DD format")
     end_date: str = Field(..., description="End date in YYYY-MM-DD format")
     universe: str | None = Field(None, description="Path to universe file (optional)")
-    start_capital: float = Field(100000.0, gt=0, description="Starting capital (must be > 0)")
+    start_capital: float = Field(
+        100000.0, gt=0, description="Starting capital (must be > 0)"
+    )
     use_factor_store: bool = Field(False, description="Enable factor store")
-    factor_store_root: str | None = Field(None, description="Factor store root path (optional)")
+    factor_store_root: str | None = Field(
+        None, description="Factor store root path (optional)"
+    )
     factor_group: str | None = Field(None, description="Factor group name (optional)")
-    params: dict[str, Any] = Field(default_factory=dict, description="Additional parameters (mapped to CLI flags)")
-    extra_args: dict[str, Any] = Field(default_factory=dict, description="Additional arguments (legacy, use params instead)")
+    params: dict[str, Any] = Field(
+        default_factory=dict, description="Additional parameters (mapped to CLI flags)"
+    )
+    extra_args: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional arguments (legacy, use params instead)",
+    )
 
     @field_validator("start_date", "end_date")
     @classmethod
@@ -156,7 +172,9 @@ class RunConfig(BaseModel):
         start_date = datetime.strptime(self.start_date, "%Y-%m-%d")
         end_date = datetime.strptime(self.end_date, "%Y-%m-%d")
         if end_date < start_date:
-            raise ValueError(f"end_date ({self.end_date}) must be >= start_date ({self.start_date})")
+            raise ValueError(
+                f"end_date ({self.end_date}) must be >= start_date ({self.start_date})"
+            )
         return self
 
     @field_validator("universe")
@@ -166,7 +184,9 @@ class RunConfig(BaseModel):
         if v is not None:
             v = v.strip()
             if not v:
-                raise ValueError("universe cannot be empty string (use null/omit if not needed)")
+                raise ValueError(
+                    "universe cannot be empty string (use null/omit if not needed)"
+                )
         return v
 
     @field_validator("factor_store_root", "factor_group")
@@ -176,7 +196,9 @@ class RunConfig(BaseModel):
         if v is not None:
             v = v.strip()
             if not v:
-                raise ValueError("factor_store_root and factor_group cannot be empty strings (use null/omit if not needed)")
+                raise ValueError(
+                    "factor_store_root and factor_group cannot be empty strings (use null/omit if not needed)"
+                )
         return v
 
     model_config = ConfigDict(
@@ -191,8 +213,13 @@ class BatchConfig(BaseModel):
     batch_name: str = Field(..., min_length=1, description="Batch name (required)")
     output_root: Path = Field(..., description="Output root directory")
     seed: int = Field(42, ge=0, description="Random seed for reproducibility (>= 0)")
-    defaults: dict[str, Any] = Field(default_factory=dict, description="Default values for runs (freq, start_date, end_date, universe, start_capital, etc.)")
-    runs: list[RunConfig] = Field(..., min_length=1, description="List of run configurations (non-empty)")
+    defaults: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Default values for runs (freq, start_date, end_date, universe, start_capital, etc.)",
+    )
+    runs: list[RunConfig] = Field(
+        ..., min_length=1, description="List of run configurations (non-empty)"
+    )
 
     @model_validator(mode="after")
     def validate_run_ids_unique(self) -> "BatchConfig":
@@ -247,7 +274,9 @@ def load_batch_config(config_path: Path) -> BatchConfig:
             if seed < 0:
                 raise ValueError(f"seed must be >= 0, got: {seed}")
         except (ValueError, TypeError) as exc:
-            raise ValueError(f"seed must be a non-negative integer, got: {seed_raw}") from exc
+            raise ValueError(
+                f"seed must be a non-negative integer, got: {seed_raw}"
+            ) from exc
     else:
         seed = 42
 
@@ -277,7 +306,9 @@ def load_batch_config(config_path: Path) -> BatchConfig:
         if run_id:
             run_id = str(run_id).strip()
             if not run_id:
-                raise ValueError(f"runs[{idx}]: id/name cannot be empty string (use null/omit for auto-generation)")
+                raise ValueError(
+                    f"runs[{idx}]: id/name cannot be empty string (use null/omit for auto-generation)"
+                )
 
         # Merge defaults with run-specific values (run takes precedence)
         merged = dict(defaults)
@@ -302,18 +333,24 @@ def load_batch_config(config_path: Path) -> BatchConfig:
             try:
                 run_data["start_capital"] = float(merged["start_capital"])
             except (ValueError, TypeError) as exc:
-                raise ValueError(f"runs[{idx}]: start_capital must be a number, got: {merged['start_capital']}") from exc
+                raise ValueError(
+                    f"runs[{idx}]: start_capital must be a number, got: {merged['start_capital']}"
+                ) from exc
 
         if "use_factor_store" in merged:
             run_data["use_factor_store"] = bool(merged["use_factor_store"])
 
         if "factor_store_root" in merged:
             factor_store_root_val = merged["factor_store_root"]
-            run_data["factor_store_root"] = str(factor_store_root_val).strip() if factor_store_root_val else None
+            run_data["factor_store_root"] = (
+                str(factor_store_root_val).strip() if factor_store_root_val else None
+            )
 
         if "factor_group" in merged:
             factor_group_val = merged["factor_group"]
-            run_data["factor_group"] = str(factor_group_val).strip() if factor_group_val else None
+            run_data["factor_group"] = (
+                str(factor_group_val).strip() if factor_group_val else None
+            )
 
         # Extract params dict (if present)
         params = {}
@@ -322,15 +359,26 @@ def load_batch_config(config_path: Path) -> BatchConfig:
             if isinstance(params_raw, dict):
                 params = dict(params_raw)
             else:
-                raise ValueError(f"runs[{idx}]: params must be a mapping/object if provided")
+                raise ValueError(
+                    f"runs[{idx}]: params must be a mapping/object if provided"
+                )
         run_data["params"] = params
 
         # Collect extra args (legacy, for backward compatibility)
         # Exclude known fields and params
         known_fields = {
-            "id", "name", "strategy", "freq", "start_date", "end_date",
-            "universe", "start_capital", "use_factor_store",
-            "factor_store_root", "factor_group", "params"
+            "id",
+            "name",
+            "strategy",
+            "freq",
+            "start_date",
+            "end_date",
+            "universe",
+            "start_capital",
+            "use_factor_store",
+            "factor_store_root",
+            "factor_group",
+            "params",
         }
         extra_args = {k: v for k, v in run_raw.items() if k not in known_fields}
         run_data["extra_args"] = extra_args
@@ -366,19 +414,19 @@ def load_batch_config(config_path: Path) -> BatchConfig:
 
 def _map_params_to_cli_flags(params: dict[str, Any]) -> dict[str, Any]:
     """Map params dict to CLI flags/args.
-    
+
     Args:
         params: Parameters dict (e.g., {"ema_fast": 20, "ema_slow": 50, "verbose": True})
-    
+
     Returns:
         Dict with argparse.Namespace-compatible keys (keep underscore for attribute access)
     """
     args_dict: dict[str, Any] = {}
-    
+
     for key, value in params.items():
         # Keep underscore in key (argparse.Namespace supports underscore attributes)
         # When building CLI command, we'll convert to dash format
-        
+
         if isinstance(value, bool):
             # bool: True => Flag setzen, False => nicht setzen
             if value:
@@ -389,11 +437,13 @@ def _map_params_to_cli_flags(params: dict[str, Any]) -> dict[str, Any]:
         else:
             # Other types: direct value
             args_dict[key] = value
-    
+
     return args_dict
 
 
-def build_args_from_run_config(run_cfg: RunConfig, output_dir: Path) -> argparse.Namespace:
+def build_args_from_run_config(
+    run_cfg: RunConfig, output_dir: Path
+) -> argparse.Namespace:
     """Build argparse.Namespace from RunConfig for run_backtest_from_args.
 
     Args:
@@ -414,12 +464,20 @@ def build_args_from_run_config(run_cfg: RunConfig, output_dir: Path) -> argparse
     }
 
     if run_cfg.universe:
-        args_dict["universe"] = Path(run_cfg.universe) if not isinstance(run_cfg.universe, Path) else run_cfg.universe
+        args_dict["universe"] = (
+            Path(run_cfg.universe)
+            if not isinstance(run_cfg.universe, Path)
+            else run_cfg.universe
+        )
 
     if run_cfg.use_factor_store:
         args_dict["use_factor_store"] = True
         if run_cfg.factor_store_root:
-            args_dict["factor_store_root"] = Path(run_cfg.factor_store_root) if not isinstance(run_cfg.factor_store_root, Path) else run_cfg.factor_store_root
+            args_dict["factor_store_root"] = (
+                Path(run_cfg.factor_store_root)
+                if not isinstance(run_cfg.factor_store_root, Path)
+                else run_cfg.factor_store_root
+            )
         if run_cfg.factor_group:
             args_dict["factor_group"] = run_cfg.factor_group
 
@@ -482,7 +540,7 @@ def write_run_manifest(
         params["factor_store_root"] = run_cfg.factor_store_root
     if run_cfg.factor_group:
         params["factor_group"] = run_cfg.factor_group
-    
+
     # Include params dict in manifest (for reproducibility)
     if run_cfg.params:
         params["params"] = run_cfg.params
@@ -542,20 +600,20 @@ def load_existing_manifest(run_output_dir: Path) -> dict[str, Any] | None:
 
 def set_random_seeds(seed: int) -> None:
     """Set random seeds for reproducibility.
-    
+
     Sets seeds for:
     - Python random module
     - NumPy random (if available)
     - PyTorch (if available)
-    
+
     Args:
         seed: Random seed value (>= 0)
     """
     random.seed(seed)
-    
+
     if np is not None:
         np.random.seed(seed)
-    
+
     if torch is not None:
         torch.manual_seed(seed)
         # Also set CUDA seeds if available
@@ -620,7 +678,7 @@ def run_single_backtest(
 
     # Note: Seed is already set at the beginning of the function (line 508)
     # This ensures reproducibility even if resume logic returns early
-    
+
     started_at = datetime.utcnow()
 
     try:
@@ -700,7 +758,7 @@ def run_batch_serial(
     for run_cfg in batch_cfg.runs:
         # Log START
         logger.info("START  %s", run_cfg.id)
-        
+
         status, runtime_sec, exit_code, error = run_single_backtest(
             run_cfg=run_cfg,
             batch_output_root=batch_output_root,
@@ -711,7 +769,7 @@ def run_batch_serial(
         )
 
         results.append((run_cfg, status, runtime_sec, error))
-        
+
         if status != "success":
             all_success = False
 
@@ -731,14 +789,21 @@ def run_batch_serial(
     success_count = sum(1 for _, status, _, _ in results if status == "success")
     failed_count = sum(1 for _, status, _, _ in results if status == "failed")
     skipped_count = sum(1 for _, status, _, _ in results if status == "skipped")
-    
+
     logger.info("")
-    logger.info("Summary: %d success, %d failed, %d skipped", success_count, failed_count, skipped_count)
+    logger.info(
+        "Summary: %d success, %d failed, %d skipped",
+        success_count,
+        failed_count,
+        skipped_count,
+    )
 
     return 0 if all_success else 1
 
 
-def _run_single_backtest_worker(args_tuple: tuple[RunConfig, Path, int, bool, bool, bool]) -> tuple[str, str, float, int, str | None]:
+def _run_single_backtest_worker(
+    args_tuple: tuple[RunConfig, Path, int, bool, bool, bool],
+) -> tuple[str, str, float, int, str | None]:
     """Worker function for parallel execution (must be top-level for pickling).
 
     Args:
@@ -805,49 +870,71 @@ def run_batch_parallel(
             run_id = future_to_run_id[future]
             try:
                 result_run_id, status, runtime_sec, exit_code, error = future.result()
-                completed_results[result_run_id] = (status, runtime_sec, exit_code, error)
+                completed_results[result_run_id] = (
+                    status,
+                    runtime_sec,
+                    exit_code,
+                    error,
+                )
                 if status != "success":
                     all_success = False
-                
+
                 # Log END/SKIP immediately when task completes
                 if status == "skipped":
                     logger.info("SKIP   %s (%.2f sec)", result_run_id, runtime_sec)
                     if error:
                         logger.warning("         Reason: %s", error)
                 elif status == "success":
-                    logger.info("END    %s success (%.2f sec)", result_run_id, runtime_sec)
+                    logger.info(
+                        "END    %s success (%.2f sec)", result_run_id, runtime_sec
+                    )
                 else:  # failed
-                    logger.info("END    %s failed (%.2f sec)", result_run_id, runtime_sec)
+                    logger.info(
+                        "END    %s failed (%.2f sec)", result_run_id, runtime_sec
+                    )
                     if error:
                         logger.warning("         Error: %s", error)
             except Exception as exc:
-                logger.error("Run %s raised an exception: %s", run_id, exc, exc_info=True)
+                logger.error(
+                    "Run %s raised an exception: %s", run_id, exc, exc_info=True
+                )
                 completed_results[run_id] = ("failed", 0.0, 1, str(exc))
                 logger.info("END    %s failed (exception)", run_id)
                 all_success = False
 
     # Summary (all runs completed)
-    success_count = sum(1 for _, (status, _, _, _) in completed_results.items() if status == "success")
-    failed_count = sum(1 for _, (status, _, _, _) in completed_results.items() if status == "failed")
-    skipped_count = sum(1 for _, (status, _, _, _) in completed_results.items() if status == "skipped")
-    
+    success_count = sum(
+        1 for _, (status, _, _, _) in completed_results.items() if status == "success"
+    )
+    failed_count = sum(
+        1 for _, (status, _, _, _) in completed_results.items() if status == "failed"
+    )
+    skipped_count = sum(
+        1 for _, (status, _, _, _) in completed_results.items() if status == "skipped"
+    )
+
     logger.info("")
-    logger.info("Summary: %d success, %d failed, %d skipped", success_count, failed_count, skipped_count)
+    logger.info(
+        "Summary: %d success, %d failed, %d skipped",
+        success_count,
+        failed_count,
+        skipped_count,
+    )
 
     return 0 if all_success else 1
 
 
 def collect_backtest_metrics(run_output_dir: Path) -> dict[str, Any]:
     """Collect backtest metrics from run output directory.
-    
+
     This function attempts to extract metrics from:
     - metrics.json (preferred, structured format)
     - reports/metrics.json (if metrics.json not found in root)
     - performance_report_*.md (fallback, parsed with regex)
-    
+
     Args:
         run_output_dir: Run output directory
-        
+
     Returns:
         Dictionary with metrics (keys may be missing if files don't exist):
         - final_pf: Final performance factor
@@ -858,37 +945,49 @@ def collect_backtest_metrics(run_output_dir: Path) -> dict[str, Any]:
         - cagr: CAGR (if available)
     """
     metrics: dict[str, Any] = {}
-    
+
     # Try to find metrics.json (preferred format)
     metrics_json_paths = [
         run_output_dir / "metrics.json",  # Root directory
         run_output_dir / "reports" / "metrics.json",  # Reports subdirectory
     ]
-    
+
     for metrics_json_path in metrics_json_paths:
         if metrics_json_path.exists():
             try:
                 with metrics_json_path.open("r", encoding="utf-8") as f:
                     metrics_dict = json.load(f)
-                
+
                 # Extract metrics (handle both key names for compatibility)
                 metrics["final_pf"] = metrics_dict.get("final_pf")
-                metrics["sharpe"] = metrics_dict.get("sharpe") or metrics_dict.get("sharpe_ratio")
-                metrics["trades"] = metrics_dict.get("trades") or metrics_dict.get("total_trades")
+                metrics["sharpe"] = metrics_dict.get("sharpe") or metrics_dict.get(
+                    "sharpe_ratio"
+                )
+                metrics["trades"] = metrics_dict.get("trades") or metrics_dict.get(
+                    "total_trades"
+                )
                 metrics["max_drawdown_pct"] = metrics_dict.get("max_drawdown_pct")
                 metrics["total_return"] = metrics_dict.get("total_return")
                 metrics["cagr"] = metrics_dict.get("cagr")
-                
+
                 # Also include other available metrics
-                for key in ["volatility", "sortino_ratio", "calmar_ratio", "hit_rate", "profit_factor"]:
+                for key in [
+                    "volatility",
+                    "sortino_ratio",
+                    "calmar_ratio",
+                    "hit_rate",
+                    "profit_factor",
+                ]:
                     if key in metrics_dict:
                         metrics[key] = metrics_dict[key]
-                
+
                 return metrics  # Return immediately if JSON found
             except (IOError, json.JSONDecodeError, KeyError) as exc:
-                logger.debug("Failed to read metrics.json %s: %s", metrics_json_path, exc)
+                logger.debug(
+                    "Failed to read metrics.json %s: %s", metrics_json_path, exc
+                )
                 continue
-    
+
     # Fallback: Try to parse performance report Markdown (legacy support)
     report_paths_to_check = []
     # Check root directory
@@ -897,69 +996,81 @@ def collect_backtest_metrics(run_output_dir: Path) -> dict[str, Any]:
     reports_dir = run_output_dir / "reports"
     if reports_dir.exists():
         report_paths_to_check.extend(reports_dir.glob("performance_report_*.md"))
-    
+
     for report_file in report_paths_to_check:
         if not report_file.exists():
             continue
-        
+
         try:
             with report_file.open("r", encoding="utf-8") as f:
                 content = f.read()
-            
+
             # Extract metrics using regex (similar to sprint9_dashboard.ps1)
             # Pattern: "Final PF: 1.234" or "PF: 1.234"
-            pf_match = re.search(r'(?:Final\s+)?PF[:\s]+([0-9\.\-NaN]+)', content, re.IGNORECASE)
+            pf_match = re.search(
+                r"(?:Final\s+)?PF[:\s]+([0-9\.\-NaN]+)", content, re.IGNORECASE
+            )
             if pf_match:
                 try:
                     metrics["final_pf"] = float(pf_match.group(1))
                 except (ValueError, AttributeError):
                     pass
-            
+
             # Pattern: "Sharpe: 1.234" or "Sharpe Ratio: 1.234"
-            sharpe_match = re.search(r'Sharpe(?:\s+Ratio)?[:\s]+([0-9\.\-NaN]+)', content, re.IGNORECASE)
+            sharpe_match = re.search(
+                r"Sharpe(?:\s+Ratio)?[:\s]+([0-9\.\-NaN]+)", content, re.IGNORECASE
+            )
             if sharpe_match:
                 try:
                     metrics["sharpe"] = float(sharpe_match.group(1))
                 except (ValueError, AttributeError):
                     pass
-            
+
             # Pattern: "Trades: 123"
-            trades_match = re.search(r'Trades[:\s]+([0-9]+)', content, re.IGNORECASE)
+            trades_match = re.search(r"Trades[:\s]+([0-9]+)", content, re.IGNORECASE)
             if trades_match:
                 try:
                     metrics["trades"] = int(trades_match.group(1))
                 except (ValueError, AttributeError):
                     pass
-            
+
             # Pattern: "Max Drawdown: -12.34%" or "Max DD: -12.34%"
-            dd_match = re.search(r'Max(?:imum)?\s+(?:Drawdown|DD)[:\s]+([0-9\.\-]+)%?', content, re.IGNORECASE)
+            dd_match = re.search(
+                r"Max(?:imum)?\s+(?:Drawdown|DD)[:\s]+([0-9\.\-]+)%?",
+                content,
+                re.IGNORECASE,
+            )
             if dd_match:
                 try:
                     metrics["max_drawdown_pct"] = float(dd_match.group(1))
                 except (ValueError, AttributeError):
                     pass
-            
+
             # Pattern: "Total Return: 12.34%" or "Return: 12.34%"
-            return_match = re.search(r'(?:Total\s+)?Return[:\s]+([0-9\.\-]+)%?', content, re.IGNORECASE)
+            return_match = re.search(
+                r"(?:Total\s+)?Return[:\s]+([0-9\.\-]+)%?", content, re.IGNORECASE
+            )
             if return_match:
                 try:
                     metrics["total_return"] = float(return_match.group(1))
                 except (ValueError, AttributeError):
                     pass
-            
+
             # Pattern: "CAGR: 12.34%"
-            cagr_match = re.search(r'CAGR[:\s]+([0-9\.\-NaN]+)%?', content, re.IGNORECASE)
+            cagr_match = re.search(
+                r"CAGR[:\s]+([0-9\.\-NaN]+)%?", content, re.IGNORECASE
+            )
             if cagr_match:
                 try:
                     metrics["cagr"] = float(cagr_match.group(1))
                 except (ValueError, AttributeError):
                     pass
-            
+
             break  # Use first matching report file
         except (IOError, UnicodeDecodeError) as exc:
             logger.debug("Failed to read performance report %s: %s", report_file, exc)
             continue
-    
+
     return metrics
 
 
@@ -968,79 +1079,91 @@ def write_batch_summary(
     batch_output_root: Path,
 ) -> None:
     """Write batch summary CSV and JSON after all runs complete.
-    
+
     This function collects data from all run manifests and writes:
     - output/batch/<batch_name>/summary.csv (CSV format for easy analysis)
     - output/batch/<batch_name>/summary.json (JSON format for programmatic access)
-    
+
     Args:
         batch_cfg: Batch configuration
         batch_output_root: Base output directory for batch (output/batch/<batch_name>/)
     """
     summary_rows = []
-    
+
     # Collect data from all run manifests
     for run_cfg in batch_cfg.runs:
         run_output_dir = batch_output_root / run_cfg.id
         manifest = load_existing_manifest(run_output_dir)
-        
+
         if not manifest:
             # Run without manifest (e.g., skipped or failed early)
-            summary_rows.append({
-                "run_id": run_cfg.id,
-                "strategy": run_cfg.strategy,
-                "freq": run_cfg.freq,
-                "status": "unknown",
-                "runtime_sec": None,
-                "exit_code": None,
-                "manifest_path": None,
-                "timings_path": None,
-                "report_path": None,
-                "final_pf": None,
-                "sharpe": None,
-                "trades": None,
-                "max_drawdown_pct": None,
-                "total_return": None,
-                "cagr": None,
-            })
+            summary_rows.append(
+                {
+                    "run_id": run_cfg.id,
+                    "strategy": run_cfg.strategy,
+                    "freq": run_cfg.freq,
+                    "status": "unknown",
+                    "runtime_sec": None,
+                    "exit_code": None,
+                    "manifest_path": None,
+                    "timings_path": None,
+                    "report_path": None,
+                    "final_pf": None,
+                    "sharpe": None,
+                    "trades": None,
+                    "max_drawdown_pct": None,
+                    "total_return": None,
+                    "cagr": None,
+                }
+            )
             continue
-        
+
         # Extract paths (relative to batch_output_root)
         manifest_path = run_output_dir / "run_manifest.json"
-        manifest_path_rel = str(manifest_path.relative_to(batch_output_root)) if manifest_path.exists() else None
-        
+        manifest_path_rel = (
+            str(manifest_path.relative_to(batch_output_root))
+            if manifest_path.exists()
+            else None
+        )
+
         timings_path_rel = manifest.get("timings_path")
         if timings_path_rel:
             timings_path = run_output_dir / timings_path_rel
-            timings_path_rel = str(timings_path.relative_to(batch_output_root)) if timings_path.exists() else None
-        
+            timings_path_rel = (
+                str(timings_path.relative_to(batch_output_root))
+                if timings_path.exists()
+                else None
+            )
+
         # Find report path (performance_report_*.md)
         report_path = None
         for report_file in run_output_dir.glob("performance_report_*.md"):
             report_path = str(report_file.relative_to(batch_output_root))
             break
-        
+
         # Collect metrics
         metrics = collect_backtest_metrics(run_output_dir)
-        
-        summary_rows.append({
-            "run_id": run_cfg.id,
-            "strategy": run_cfg.strategy,
-            "freq": run_cfg.freq,
-            "status": manifest.get("status", "unknown"),
-            "runtime_sec": manifest.get("runtime_sec"),
-            "exit_code": manifest.get("exit_code"),
-            "manifest_path": manifest_path_rel,
-            "timings_path": timings_path_rel,
-            "report_path": report_path,
-            "final_pf": metrics.get("final_pf"),
-            "sharpe": metrics.get("sharpe"),
-            "trades": metrics.get("trades"),
-            "max_drawdown_pct": metrics.get("max_drawdown_pct"),
-            "total_return": metrics.get("total_return"),
-            "cagr": metrics.get("cagr"),
-        })
-    
+
+        summary_rows.append(
+            {
+                "run_id": run_cfg.id,
+                "strategy": run_cfg.strategy,
+                "freq": run_cfg.freq,
+                "status": manifest.get("status", "unknown"),
+                "runtime_sec": manifest.get("runtime_sec"),
+                "exit_code": manifest.get("exit_code"),
+                "manifest_path": manifest_path_rel,
+                "timings_path": timings_path_rel,
+                "report_path": report_path,
+                "final_pf": metrics.get("final_pf"),
+                "sharpe": metrics.get("sharpe"),
+                "trades": metrics.get("trades"),
+                "max_drawdown_pct": metrics.get("max_drawdown_pct"),
+                "total_return": metrics.get("total_return"),
+                "cagr": metrics.get("cagr"),
+            }
+        )
+
     # Write CSV
     df = pd.DataFrame(summary_rows)
     csv_path = batch_output_root / "summary.csv"
@@ -1051,7 +1174,7 @@ def write_batch_summary(
     except (IOError, OSError) as exc:
         logger.error("Failed to write batch summary CSV to %s: %s", csv_path, exc)
         raise RuntimeError(f"Failed to write batch summary CSV: {csv_path}") from exc
-    
+
     # Write JSON
     summary_json = {
         "batch_name": batch_cfg.batch_name,
@@ -1059,7 +1182,7 @@ def write_batch_summary(
         "total_runs": len(batch_cfg.runs),
         "runs": summary_rows,
     }
-    
+
     json_path = batch_output_root / "summary.json"
     try:
         with json_path.open("w", encoding="utf-8") as f:
@@ -1114,10 +1237,23 @@ def run_batch(
 
     exit_code = 0
     if max_workers == 1:
-        exit_code = run_batch_serial(batch_cfg, batch_output_root, dry_run=dry_run, resume=resume, rerun_failed=rerun_failed)
+        exit_code = run_batch_serial(
+            batch_cfg,
+            batch_output_root,
+            dry_run=dry_run,
+            resume=resume,
+            rerun_failed=rerun_failed,
+        )
     else:
-        exit_code = run_batch_parallel(batch_cfg, batch_output_root, max_workers, dry_run=dry_run, resume=resume, rerun_failed=rerun_failed)
-    
+        exit_code = run_batch_parallel(
+            batch_cfg,
+            batch_output_root,
+            max_workers,
+            dry_run=dry_run,
+            resume=resume,
+            rerun_failed=rerun_failed,
+        )
+
     # Write batch summary after all runs complete
     if not dry_run:
         try:
@@ -1125,7 +1261,7 @@ def run_batch(
         except Exception as exc:
             logger.error("Failed to write batch summary: %s", exc, exc_info=True)
             # Don't fail the entire batch if summary writing fails
-    
+
     return exit_code
 
 
@@ -1246,4 +1382,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

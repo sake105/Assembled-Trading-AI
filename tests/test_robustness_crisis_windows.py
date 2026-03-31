@@ -57,6 +57,7 @@ def test_get_standard_crisis_windows_contains_expected():
 
 def test_run_crisis_windows_deterministic():
     """Test that same input produces identical window order."""
+
     def backtest_fn(config):
         # Simulate different performance for different date ranges
         start = config.get("start_date", "")
@@ -103,13 +104,18 @@ def test_run_crisis_windows_deterministic():
 
 def test_run_crisis_windows_deterministic_ordering():
     """Test that windows are sorted by start date, then name."""
+
     def backtest_fn(config):
         return {"sharpe": 0.0, "max_drawdown": -0.10}
 
     base_config: dict[str, Any] = {}
     windows = [
         {"name": "B", "start": "2020-01-01", "end": "2020-12-31"},
-        {"name": "A", "start": "2020-01-01", "end": "2020-12-31"},  # Same start, different name
+        {
+            "name": "A",
+            "start": "2020-01-01",
+            "end": "2020-12-31",
+        },  # Same start, different name
         {"name": "C", "start": "2019-01-01", "end": "2019-12-31"},  # Earlier start
     ]
 
@@ -130,6 +136,7 @@ def test_run_crisis_windows_deterministic_ordering():
 
 def test_run_crisis_windows_pass_fail_flags():
     """Test that pass/fail flags are computed correctly."""
+
     def backtest_fn(config):
         # Return metrics that will test pass/fail logic
         return {
@@ -166,6 +173,7 @@ def test_run_crisis_windows_pass_fail_flags():
 
 def test_run_crisis_windows_pass_fail_both_pass():
     """Test that pass_overall is True when both conditions pass."""
+
     def backtest_fn(config):
         return {
             "sharpe": 0.5,  # Above sharpe_floor (-1.0) -> pass_sharpe = True
@@ -232,6 +240,7 @@ def test_run_crisis_windows_handles_failures():
 
 def test_run_crisis_windows_empty_windows():
     """Test that empty windows list raises ValueError."""
+
     def backtest_fn(config):
         return {"sharpe": 0.0}
 
@@ -281,16 +290,18 @@ def test_export_crisis_windows_results_smoke(tmp_path):
     from pathlib import Path
 
     # Create synthetic results
-    results_df = pd.DataFrame({
-        "window_name": ["GFC", "COVID"],
-        "window_start": ["2007-12-01", "2020-02-20"],
-        "window_end": ["2009-06-30", "2020-04-30"],
-        "sharpe": [-0.5, -1.0],
-        "max_drawdown": [-0.40, -0.35],
-        "pass_max_dd": [False, False],
-        "pass_sharpe": [True, False],
-        "pass_overall": [False, False],
-    })
+    results_df = pd.DataFrame(
+        {
+            "window_name": ["GFC", "COVID"],
+            "window_start": ["2007-12-01", "2020-02-20"],
+            "window_end": ["2009-06-30", "2020-04-30"],
+            "sharpe": [-0.5, -1.0],
+            "max_drawdown": [-0.40, -0.35],
+            "pass_max_dd": [False, False],
+            "pass_sharpe": [True, False],
+            "pass_overall": [False, False],
+        }
+    )
 
     # Export
     csv_path = export_crisis_windows_results(

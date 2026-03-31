@@ -147,7 +147,12 @@ def normalize_raw_item(
             for loc in locations:
                 if not isinstance(loc, dict):
                     continue
-                for key in ("countryCode", "country", "country_name", "adm1countryCode"):
+                for key in (
+                    "countryCode",
+                    "country",
+                    "country_name",
+                    "adm1countryCode",
+                ):
                     val = loc.get(key)
                     if isinstance(val, str):
                         code = _canonical_country_code(val)
@@ -155,7 +160,12 @@ def normalize_raw_item(
                             country_codes.add(code)
 
         # Direct source country fields
-        for key in ("sourceCountryCode", "sourcecountrycode", "sourceCountry", "sourcecountry"):
+        for key in (
+            "sourceCountryCode",
+            "sourcecountrycode",
+            "sourceCountry",
+            "sourcecountry",
+        ):
             val = raw_inner.get(key)
             if isinstance(val, str):
                 code = _canonical_country_code(val)
@@ -205,4 +215,3 @@ def normalize_raw_item(
 def now_utc_iso() -> str:
     """Helper to get current UTC timestamp in ISO8601."""
     return datetime.now(timezone.utc).isoformat()
-

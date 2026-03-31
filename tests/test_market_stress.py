@@ -37,7 +37,9 @@ def test_market_stress_no_data_returns_false() -> None:
     assert out["stress_score"] == 0
     assert "details" in out
 
-    single_row = pd.DataFrame({"timestamp": [pd.Timestamp("2025-01-01", tz="UTC")], "close": [100.0]})
+    single_row = pd.DataFrame(
+        {"timestamp": [pd.Timestamp("2025-01-01", tz="UTC")], "close": [100.0]}
+    )
     out2 = compute_market_stress(single_row, policy)
     assert out2["stress_ok"] is False
     assert out2["stress_score"] == 0
@@ -70,6 +72,7 @@ def test_market_stress_vol_z_triggers() -> None:
     dates = pd.date_range(start="2024-01-01", periods=n, freq="D", tz="UTC")
     # Flat then noisy: low vol history, then high vol in last lookback
     import numpy as np
+
     np.random.seed(42)
     base = 100.0
     close = [base] * n
@@ -93,10 +96,12 @@ def test_market_stress_disabled_returns_false() -> None:
     """When market_stress.enabled is False -> stress_ok False, no computation."""
     policy = _policy()
     policy["market_stress"]["enabled"] = False
-    df = pd.DataFrame({
-        "timestamp": pd.date_range("2025-01-01", periods=30, freq="D", tz="UTC"),
-        "close": [100.0 - i * 0.5 for i in range(30)],
-    })
+    df = pd.DataFrame(
+        {
+            "timestamp": pd.date_range("2025-01-01", periods=30, freq="D", tz="UTC"),
+            "close": [100.0 - i * 0.5 for i in range(30)],
+        }
+    )
     out = compute_market_stress(df, policy)
     assert out["stress_ok"] is False
     assert out["stress_score"] == 0
@@ -106,11 +111,13 @@ def test_market_stress_multi_symbol_uses_first() -> None:
     """Multi-symbol prices: use first symbol (or benchmark if configured)."""
     policy = _policy()
     dates = pd.date_range("2025-01-01", periods=25, freq="D", tz="UTC")
-    df = pd.DataFrame({
-        "timestamp": list(dates) * 2,
-        "symbol": ["A"] * 25 + ["B"] * 25,
-        "close": [100.0] * 25 + [200.0] * 25,
-    })
+    df = pd.DataFrame(
+        {
+            "timestamp": list(dates) * 2,
+            "symbol": ["A"] * 25 + ["B"] * 25,
+            "close": [100.0] * 25 + [200.0] * 25,
+        }
+    )
     out = compute_market_stress(df, policy)
     assert "stress_ok" in out
     assert "stress_score" in out

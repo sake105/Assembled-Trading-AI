@@ -25,7 +25,9 @@ def _build_valid_pack(tmp_path: Path) -> Path:
     as_of_date = "2025-01-15"
     date_str = "2025-01-15"
 
-    broker_snapshot_path = output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    broker_snapshot_path = (
+        output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    )
     ledger_pack_path = output_dir / "ledger_run" / "ledger_events.parquet"
     reconcile_report_path = output_dir / "reconcile_run" / f"reconcile_{date_str}.json"
 
@@ -128,7 +130,9 @@ def test_cli_verify_text_produces_ascii_lines(tmp_path: Path) -> None:
     assert result.returncode == 0
     assert result.stdout.strip().startswith("OK:")
     assert "ok=True" in result.stdout or "n_files=" in result.stdout
-    assert result.stdout.encode("ascii", errors="ignore").decode("ascii") == result.stdout
+    assert (
+        result.stdout.encode("ascii", errors="ignore").decode("ascii") == result.stdout
+    )
 
 
 def test_cli_verify_json_output_is_valid_and_deterministic(tmp_path: Path) -> None:
@@ -200,7 +204,9 @@ def test_cli_verify_json_error_code_checksum_mismatch(tmp_path: Path) -> None:
         zf.extractall(extracted_dir)
         namelist = zf.namelist()
 
-    target_name = next((n for n in namelist if not n.startswith("pack_manifest_")), None)
+    target_name = next(
+        (n for n in namelist if not n.startswith("pack_manifest_")), None
+    )
     assert target_name is not None
     (extracted_dir / target_name).parent.mkdir(parents=True, exist_ok=True)
     (extracted_dir / target_name).write_text("tampered content", encoding="utf-8")
@@ -212,7 +218,13 @@ def test_cli_verify_json_error_code_checksum_mismatch(tmp_path: Path) -> None:
                 zf.write(file_path, arcname=arcname)
 
     result = subprocess.run(
-        [sys.executable, str(ROOT / "scripts" / "verify_evidence_pack.py"), "--zip", str(zip_path), "--json"],
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "verify_evidence_pack.py"),
+            "--zip",
+            str(zip_path),
+            "--json",
+        ],
         capture_output=True,
         text=True,
         cwd=str(ROOT),
@@ -225,14 +237,23 @@ def test_cli_verify_json_error_code_checksum_mismatch(tmp_path: Path) -> None:
 
     # Human-readable output (--text) must include error_code=
     result_human = subprocess.run(
-        [sys.executable, str(ROOT / "scripts" / "verify_evidence_pack.py"), "--zip", str(zip_path), "--text"],
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "verify_evidence_pack.py"),
+            "--zip",
+            str(zip_path),
+            "--text",
+        ],
         capture_output=True,
         text=True,
         cwd=str(ROOT),
     )
     assert result_human.returncode == 1
     assert "error_code=" in result_human.stdout or "error_code=" in result_human.stderr
-    assert "CHECKSUM_MISMATCH" in result_human.stdout or "CHECKSUM_MISMATCH" in result_human.stderr
+    assert (
+        "CHECKSUM_MISMATCH" in result_human.stdout
+        or "CHECKSUM_MISMATCH" in result_human.stderr
+    )
 
     # Details should include bounded list of checksum mismatches (max 20)
     details = data.get("details") or {}
@@ -289,10 +310,14 @@ def test_cli_verify_json_relative_zip_path_resolved(tmp_path: Path) -> None:
     resolved = data["zip_path_resolved"]
     assert Path(resolved).is_absolute()
     assert Path(resolved).exists()
-    assert "\\" not in resolved, "zip_path_resolved must be ASCII/POSIX (no backslashes)"
+    assert (
+        "\\" not in resolved
+    ), "zip_path_resolved must be ASCII/POSIX (no backslashes)"
 
 
-def test_cli_verify_fail_on_warn_exit_one_when_paths_not_in_zip_entries(tmp_path: Path) -> None:
+def test_cli_verify_fail_on_warn_exit_one_when_paths_not_in_zip_entries(
+    tmp_path: Path,
+) -> None:
     """When paths_not_in_zip_entries_count > 0, --fail-on-warn causes exit 1."""
     zip_path = _build_valid_pack(tmp_path)
     extracted_dir = tmp_path / "unzipped"
@@ -305,19 +330,30 @@ def test_cli_verify_fail_on_warn_exit_one_when_paths_not_in_zip_entries(tmp_path
     assert len(zip_entries) >= 2
     manifest_data["zip_entries"] = [e for e in zip_entries if e != zip_entries[1]]
     manifest_data["zip_entries_count"] = len(manifest_data["zip_entries"])
-    manifest_path.write_text(json.dumps(manifest_data, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    manifest_path.write_text(
+        json.dumps(manifest_data, sort_keys=True, indent=2) + "\n", encoding="utf-8"
+    )
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         for f in extracted_dir.rglob("*"):
             if f.is_file():
                 zf.write(f, arcname=f.relative_to(extracted_dir).as_posix())
     script_path = ROOT / "scripts" / "verify_evidence_pack.py"
     proc = subprocess.run(
-        [sys.executable, str(script_path), "--zip", str(zip_path), "--json", "--fail-on-warn"],
+        [
+            sys.executable,
+            str(script_path),
+            "--zip",
+            str(zip_path),
+            "--json",
+            "--fail-on-warn",
+        ],
         capture_output=True,
         text=True,
         cwd=str(ROOT),
     )
-    assert proc.returncode == 1, f"--fail-on-warn with paths_not_in_zip_entries should exit 1: stdout={proc.stdout!r}"
+    assert (
+        proc.returncode == 1
+    ), f"--fail-on-warn with paths_not_in_zip_entries should exit 1: stdout={proc.stdout!r}"
 
 
 def test_cli_verify_fail_on_warn_help() -> None:

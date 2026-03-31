@@ -4,8 +4,8 @@ __pycache__/
 *.pyc
 
 # Data & Outputs
-data/
-output/
+/data/
+/output/
 logs/
 
 # Archive & Legacy (nicht versionieren)

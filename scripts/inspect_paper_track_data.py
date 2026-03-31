@@ -34,12 +34,17 @@ def inspect_data(freq: str = "1d") -> dict:
     }
 
     if not price_path.exists():
-        result.update({
-            "min_date": None, "max_date": None,
-            "n_days": 0, "n_symbols": 0, "symbols": [],
-            "recommended_ranges": {},
-            "note": f"Price file not found: {price_path}",
-        })
+        result.update(
+            {
+                "min_date": None,
+                "max_date": None,
+                "n_days": 0,
+                "n_symbols": 0,
+                "symbols": [],
+                "recommended_ranges": {},
+                "note": f"Price file not found: {price_path}",
+            }
+        )
         return result
 
     df = pd.read_parquet(price_path)
@@ -50,13 +55,15 @@ def inspect_data(freq: str = "1d") -> dict:
     min_date = dates[0].strftime("%Y-%m-%d")
     max_date = dates[-1].strftime("%Y-%m-%d")
 
-    result.update({
-        "min_date": min_date,
-        "max_date": max_date,
-        "n_days": len(dates),
-        "n_symbols": len(symbols),
-        "symbols": symbols,
-    })
+    result.update(
+        {
+            "min_date": min_date,
+            "max_date": max_date,
+            "n_days": len(dates),
+            "n_symbols": len(symbols),
+            "symbols": symbols,
+        }
+    )
 
     ranges = {}
     for window in [10, 30, 60, 90]:

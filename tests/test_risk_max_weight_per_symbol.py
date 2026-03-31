@@ -27,23 +27,29 @@ from src.assembled_core.execution.pre_trade_checks import (
 def test_buy_order_reduced_when_exceeds_limit() -> None:
     """Test that BUY order is reduced when it would exceed max_weight_per_symbol."""
     # Current: AAPL=50 shares @ 150.0 = 7500 (75% of 10000 equity)
-    current_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [50.0],
-    })
+    current_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [50.0],
+        }
+    )
 
     # Order: BUY 50 more AAPL → would be 100 shares @ 150.0 = 15000 (150% of equity)
-    orders = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "side": ["BUY"],
-        "qty": [50.0],
-        "price": [150.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "side": ["BUY"],
+            "qty": [50.0],
+            "price": [150.0],
+        }
+    )
 
-    prices_latest = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "close": [150.0],
-    })
+    prices_latest = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "close": [150.0],
+        }
+    )
 
     equity = 10000.0
     config = PreTradeConfig(max_weight_per_symbol=0.10)  # 10% limit
@@ -90,18 +96,22 @@ def test_buy_order_reduced_when_exceeds_limit() -> None:
     # Let me test with a case where current is below limit, and BUY would exceed it.
 
     # Revised test: Current: AAPL=5 shares @ 150.0 = 750 (7.5% of equity)
-    current_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [5.0],
-    })
+    current_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [5.0],
+        }
+    )
 
     # Order: BUY 10 more → would be 15 shares @ 150.0 = 2250 (22.5% of equity, exceeds 10% limit)
-    orders = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "side": ["BUY"],
-        "qty": [10.0],
-        "price": [150.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "side": ["BUY"],
+            "qty": [10.0],
+            "price": [150.0],
+        }
+    )
 
     result, filtered = run_pre_trade_checks(
         orders,
@@ -119,35 +129,44 @@ def test_buy_order_reduced_when_exceeds_limit() -> None:
     # Since we're BUYing, we reduce qty from 10 to 1.67
     assert len(filtered) == 1, "Order should not be blocked"
     assert filtered["qty"].iloc[0] < 10.0, "Order qty should be reduced"
-    assert abs(filtered["qty"].iloc[0] - 1.67) < 0.1, "Order qty should be reduced to ~1.67"
+    assert (
+        abs(filtered["qty"].iloc[0] - 1.67) < 0.1
+    ), "Order qty should be reduced to ~1.67"
 
     # Check that reduction reason is recorded
     assert len(result.reduced_orders) > 0, "Should have reduction reason"
     assert any(
-        r["reason"] == "RISK_REDUCE_MAX_WEIGHT_PER_SYMBOL" for r in result.reduced_orders
+        r["reason"] == "RISK_REDUCE_MAX_WEIGHT_PER_SYMBOL"
+        for r in result.reduced_orders
     ), "Should have RISK_REDUCE_MAX_WEIGHT_PER_SYMBOL reason"
 
 
 def test_sell_order_not_blocked_when_reduces_exposure() -> None:
     """Test that SELL order is not blocked when it reduces exposure (even if overweight)."""
     # Current: AAPL=100 shares @ 150.0 = 15000 (150% of equity, over limit)
-    current_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [100.0],
-    })
+    current_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [100.0],
+        }
+    )
 
     # Order: SELL 50 AAPL → would be 50 shares @ 150.0 = 7500 (75% of equity, still over but reduced)
-    orders = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "side": ["SELL"],
-        "qty": [50.0],
-        "price": [150.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "side": ["SELL"],
+            "qty": [50.0],
+            "price": [150.0],
+        }
+    )
 
-    prices_latest = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "close": [150.0],
-    })
+    prices_latest = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "close": [150.0],
+        }
+    )
 
     equity = 10000.0
     config = PreTradeConfig(max_weight_per_symbol=0.10)  # 10% limit
@@ -169,22 +188,28 @@ def test_sell_order_not_blocked_when_reduces_exposure() -> None:
 
 def test_deterministic_reduction() -> None:
     """Test that reduction is deterministic (same inputs → same outputs)."""
-    current_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [5.0],
-    })
+    current_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [5.0],
+        }
+    )
 
-    orders = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "side": ["BUY"],
-        "qty": [10.0],
-        "price": [150.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "side": ["BUY"],
+            "qty": [10.0],
+            "price": [150.0],
+        }
+    )
 
-    prices_latest = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "close": [150.0],
-    })
+    prices_latest = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "close": [150.0],
+        }
+    )
 
     equity = 10000.0
     config = PreTradeConfig(max_weight_per_symbol=0.10)
@@ -213,33 +238,41 @@ def test_deterministic_reduction() -> None:
         check_dtype=False,
     )
     assert (
-        filtered1.sort_values("symbol").reset_index(drop=True).equals(
-            filtered2.sort_values("symbol").reset_index(drop=True)
-        )
+        filtered1.sort_values("symbol")
+        .reset_index(drop=True)
+        .equals(filtered2.sort_values("symbol").reset_index(drop=True))
     ), "Reduction should be deterministic"
 
     # Reduction reasons should be identical
-    assert result1.reduced_orders == result2.reduced_orders, "Reduction reasons should be identical"
+    assert (
+        result1.reduced_orders == result2.reduced_orders
+    ), "Reduction reasons should be identical"
 
 
 def test_equity_zero_raises_error() -> None:
     """Test that equity <= 0 raises clear error message."""
-    current_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [5.0],
-    })
+    current_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [5.0],
+        }
+    )
 
-    orders = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "side": ["BUY"],
-        "qty": [10.0],
-        "price": [150.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "side": ["BUY"],
+            "qty": [10.0],
+            "price": [150.0],
+        }
+    )
 
-    prices_latest = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "close": [150.0],
-    })
+    prices_latest = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "close": [150.0],
+        }
+    )
 
     config = PreTradeConfig(max_weight_per_symbol=0.10)
 
@@ -255,28 +288,36 @@ def test_equity_zero_raises_error() -> None:
 
     # Should have blocked reason
     assert not result.is_ok, "Should fail with equity = 0"
-    assert any("equity" in reason.lower() for reason in result.blocked_reasons), "Should mention equity in error"
+    assert any(
+        "equity" in reason.lower() for reason in result.blocked_reasons
+    ), "Should mention equity in error"
 
 
 def test_missing_price_raises_error() -> None:
     """Test that missing price raises clear error message."""
-    current_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [5.0],
-    })
+    current_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [5.0],
+        }
+    )
 
-    orders = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "side": ["BUY"],
-        "qty": [10.0],
-        "price": [150.0],
-    })
+    orders = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "side": ["BUY"],
+            "qty": [10.0],
+            "price": [150.0],
+        }
+    )
 
     # Missing price for AAPL
-    prices_latest = pd.DataFrame({
-        "symbol": ["MSFT"],
-        "close": [200.0],
-    })
+    prices_latest = pd.DataFrame(
+        {
+            "symbol": ["MSFT"],
+            "close": [200.0],
+        }
+    )
 
     equity = 10000.0
     config = PreTradeConfig(max_weight_per_symbol=0.10)
@@ -292,4 +333,6 @@ def test_missing_price_raises_error() -> None:
 
     # Should have blocked reason
     assert not result.is_ok, "Should fail with missing price"
-    assert any("price" in reason.lower() for reason in result.blocked_reasons), "Should mention price in error"
+    assert any(
+        "price" in reason.lower() for reason in result.blocked_reasons
+    ), "Should mention price in error"

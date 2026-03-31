@@ -26,12 +26,12 @@ pytestmark = pytest.mark.advanced
 @pytest.fixture
 def synthetic_prices_5days(tmp_path: Path) -> pd.DataFrame:
     """Create synthetic price data for 5 days (3 symbols, 5 days) with deterministic variation.
-    
+
     Uses fixed seed for determinism. Prices have drift + noise for realistic variation.
     """
     # Set seed for deterministic price generation
     set_global_seed(42)
-    
+
     symbols = ["AAPL", "MSFT", "GOOGL"]
     dates = pd.date_range("2025-01-06", periods=5, freq="D", tz="UTC")
 
@@ -40,26 +40,26 @@ def synthetic_prices_5days(tmp_path: Path) -> pd.DataFrame:
     for sym_idx, sym in enumerate(symbols):
         # Different base prices per symbol
         base_price = 100.0 + (sym_idx * 50.0)  # AAPL=100, MSFT=150, GOOGL=200
-        
+
         # Symbol-specific drift (different direction per symbol)
         drift_per_day = 0.8 + (sym_idx * 0.3)  # AAPL=0.8, MSFT=1.1, GOOGL=1.4
-        
+
         for i, date in enumerate(dates):
             # Cumulative drift + noise (deterministic via seeded RNG)
             drift_component = i * drift_per_day
             noise_component = np.random.randn() * 2.0  # 2% std dev
-            
+
             price = base_price + drift_component + noise_component
             # Ensure price is positive
             price = max(price, 1.0)
-            
+
             data.append(
                 {
                     "timestamp": date,
                     "symbol": sym,
                     "open": price * 0.998,  # Open slightly below close
                     "high": price * 1.015,  # High ~1.5% above close
-                    "low": price * 0.985,   # Low ~1.5% below close
+                    "low": price * 0.985,  # Low ~1.5% below close
                     "close": price,
                     "volume": 1000000.0 + (i * 50000.0) + (sym_idx * 100000.0),
                 }
@@ -67,7 +67,7 @@ def synthetic_prices_5days(tmp_path: Path) -> pd.DataFrame:
 
     df = pd.DataFrame(data)
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
-    
+
     return df
 
 
@@ -160,21 +160,21 @@ def test_paper_track_mini_e2e_5days(
             run_dir = output_root / "runs" / run_date_str
 
             assert run_dir.exists(), f"Run directory should exist: {run_dir}"
-            assert (run_dir / "equity_snapshot.json").exists(), (
-                "equity_snapshot.json should exist"
-            )
+            assert (
+                run_dir / "equity_snapshot.json"
+            ).exists(), "equity_snapshot.json should exist"
             assert (run_dir / "positions.csv").exists(), "positions.csv should exist"
-            assert (run_dir / "daily_summary.json").exists(), (
-                "daily_summary.json should exist"
-            )
-            assert (run_dir / "daily_summary.md").exists(), (
-                "daily_summary.md should exist"
-            )
+            assert (
+                run_dir / "daily_summary.json"
+            ).exists(), "daily_summary.json should exist"
+            assert (
+                run_dir / "daily_summary.md"
+            ).exists(), "daily_summary.md should exist"
 
             # Verify state is updated
-            assert result.state_after.last_run_date == pd.Timestamp(date), (
-                "State should be updated with run date"
-            )
+            assert result.state_after.last_run_date == pd.Timestamp(
+                date
+            ), "State should be updated with run date"
             assert result.status == "success", f"Run should succeed for day {i + 1}"
 
         # Verify state file exists
@@ -188,9 +188,9 @@ def test_paper_track_mini_e2e_5days(
         equity_curve_path = aggregates_dir / "equity_curve.csv"
         assert equity_curve_path.exists(), "equity_curve.csv should exist"
         equity_curve = pd.read_csv(equity_curve_path)
-        assert len(equity_curve) == len(results), (
-            f"equity_curve should have {len(results)} rows (one per day), got {len(equity_curve)}"
-        )
+        assert len(equity_curve) == len(
+            results
+        ), f"equity_curve should have {len(results)} rows (one per day), got {len(equity_curve)}"
         assert "date" in equity_curve.columns
         assert "equity" in equity_curve.columns
         assert "cash" in equity_curve.columns
@@ -211,15 +211,17 @@ def test_paper_track_mini_e2e_5days(
         positions_history = pd.read_csv(positions_history_path)
         assert "date" in positions_history.columns
         # Should have at least one row per day (may be empty positions)
-        unique_dates = positions_history["date"].nunique() if not positions_history.empty else 0
-        assert unique_dates == len(results), (
-            f"positions_history should have {len(results)} unique dates, got {unique_dates}"
+        unique_dates = (
+            positions_history["date"].nunique() if not positions_history.empty else 0
         )
+        assert unique_dates == len(
+            results
+        ), f"positions_history should have {len(results)} unique dates, got {unique_dates}"
 
         # Verify no duplicate dates in equity_curve
-        assert equity_curve["date"].nunique() == len(equity_curve), (
-            "equity_curve should not have duplicate dates"
-        )
+        assert equity_curve["date"].nunique() == len(
+            equity_curve
+        ), "equity_curve should not have duplicate dates"
 
     finally:
         paper_module.load_eod_prices_for_universe = original_load
@@ -278,9 +280,9 @@ def test_paper_track_aggregated_artifacts_parquet(
         equity_curve_path = aggregates_dir / "equity_curve.parquet"
         assert equity_curve_path.exists(), "equity_curve.parquet should exist"
         equity_curve = pd.read_parquet(equity_curve_path)
-        assert len(equity_curve) == len(results), (
-            f"equity_curve should have {len(results)} rows (one per day), got {len(equity_curve)}"
-        )
+        assert len(equity_curve) == len(
+            results
+        ), f"equity_curve should have {len(results)} rows (one per day), got {len(equity_curve)}"
         assert "date" in equity_curve.columns
         assert "equity" in equity_curve.columns
         assert "cash" in equity_curve.columns
@@ -296,10 +298,12 @@ def test_paper_track_aggregated_artifacts_parquet(
         assert positions_history_path.exists(), "positions_history.parquet should exist"
         positions_history = pd.read_parquet(positions_history_path)
         assert "date" in positions_history.columns
-        unique_dates = positions_history["date"].nunique() if not positions_history.empty else 0
-        assert unique_dates == len(results), (
-            f"positions_history should have {len(results)} unique dates, got {unique_dates}"
+        unique_dates = (
+            positions_history["date"].nunique() if not positions_history.empty else 0
         )
+        assert unique_dates == len(
+            results
+        ), f"positions_history should have {len(results)} unique dates, got {unique_dates}"
 
     finally:
         paper_module.load_eod_prices_for_universe = original_load
@@ -373,9 +377,9 @@ def test_paper_track_determinism(
             rtol=1e-10,
             err_msg="Daily PnL should be identical",
         )
-        assert result1.trades_count == result2.trades_count, (
-            "Trades count should be identical"
-        )
+        assert (
+            result1.trades_count == result2.trades_count
+        ), "Trades count should be identical"
 
         # Compare orders (should be identical)
         pd.testing.assert_frame_equal(
@@ -406,6 +410,7 @@ def test_paper_track_outputs_format(
 
     # Ensure deterministic prices
     set_global_seed(42)
+
     def mock_load_prices(universe_file, freq):
         return synthetic_prices_5days.copy()
 

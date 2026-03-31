@@ -58,7 +58,9 @@ def test_should_enable_pit_checks_legacy_env_var_deprecation(
     monkeypatch.setenv("PAPER_TRACK_STRICT_PIT", "true")
 
     # Should still work but show deprecation warning
-    with pytest.warns(DeprecationWarning, match="Deprecated env var PAPER_TRACK_STRICT_PIT"):
+    with pytest.warns(
+        DeprecationWarning, match="Deprecated env var PAPER_TRACK_STRICT_PIT"
+    ):
         result = _should_enable_pit_checks(default_config)
         assert result is True
 
@@ -116,4 +118,3 @@ def test_should_enable_pit_checks_various_falsy_values(
         monkeypatch.setenv("PAPER_TRACK_STRICT_PIT_CHECKS", value)
         result = _should_enable_pit_checks(default_config)
         assert result is False, f"Expected {value} to disable PIT checks"
-

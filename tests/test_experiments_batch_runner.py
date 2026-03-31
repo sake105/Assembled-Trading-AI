@@ -88,7 +88,9 @@ def test_run_batch_serial_success(tmp_path: Path) -> None:
         ),
     ]
 
-    def mock_backtest_fn(run_spec: RunSpec, base_args: dict, output_dir: Path) -> RunResult:
+    def mock_backtest_fn(
+        run_spec: RunSpec, base_args: dict, output_dir: Path
+    ) -> RunResult:
         """Mock backtest function that always succeeds."""
         return RunResult(
             run_id=run_spec.id,
@@ -125,7 +127,9 @@ def test_run_batch_serial_failure(tmp_path: Path) -> None:
         ),
     ]
 
-    def mock_backtest_fn(run_spec: RunSpec, base_args: dict, output_dir: Path) -> RunResult:
+    def mock_backtest_fn(
+        run_spec: RunSpec, base_args: dict, output_dir: Path
+    ) -> RunResult:
         """Mock backtest function that always fails."""
         return RunResult(
             run_id=run_spec.id,
@@ -176,7 +180,9 @@ def test_run_batch_serial_multiple_runs(tmp_path: Path) -> None:
 
     call_count = 0
 
-    def mock_backtest_fn(run_spec: RunSpec, base_args: dict, output_dir: Path) -> RunResult:
+    def mock_backtest_fn(
+        run_spec: RunSpec, base_args: dict, output_dir: Path
+    ) -> RunResult:
         """Mock backtest function that tracks call count."""
         nonlocal call_count
         call_count += 1
@@ -226,7 +232,9 @@ def test_run_batch_serial_fail_fast(tmp_path: Path) -> None:
 
     call_count = 0
 
-    def mock_backtest_fn(run_spec: RunSpec, base_args: dict, output_dir: Path) -> RunResult:
+    def mock_backtest_fn(
+        run_spec: RunSpec, base_args: dict, output_dir: Path
+    ) -> RunResult:
         """Mock backtest function that fails on run2."""
         nonlocal call_count
         call_count += 1
@@ -259,14 +267,31 @@ def test_run_batch_serial_fail_fast(tmp_path: Path) -> None:
 def test_run_batch_serial_deterministic_ordering(tmp_path: Path) -> None:
     """Test that run_batch_serial executes runs in deterministic order."""
     run_specs = [
-        RunSpec(id="run3", bundle_path=tmp_path / "bundle.yaml", start_date="2015-01-01", end_date="2020-12-31"),
-        RunSpec(id="run1", bundle_path=tmp_path / "bundle.yaml", start_date="2015-01-01", end_date="2020-12-31"),
-        RunSpec(id="run2", bundle_path=tmp_path / "bundle.yaml", start_date="2015-01-01", end_date="2020-12-31"),
+        RunSpec(
+            id="run3",
+            bundle_path=tmp_path / "bundle.yaml",
+            start_date="2015-01-01",
+            end_date="2020-12-31",
+        ),
+        RunSpec(
+            id="run1",
+            bundle_path=tmp_path / "bundle.yaml",
+            start_date="2015-01-01",
+            end_date="2020-12-31",
+        ),
+        RunSpec(
+            id="run2",
+            bundle_path=tmp_path / "bundle.yaml",
+            start_date="2015-01-01",
+            end_date="2020-12-31",
+        ),
     ]
 
     execution_order = []
 
-    def mock_backtest_fn(run_spec: RunSpec, base_args: dict, output_dir: Path) -> RunResult:
+    def mock_backtest_fn(
+        run_spec: RunSpec, base_args: dict, output_dir: Path
+    ) -> RunResult:
         """Mock backtest function that tracks execution order."""
         execution_order.append(run_spec.id)
         return RunResult(
@@ -301,7 +326,9 @@ def test_run_batch_serial_output_files(tmp_path: Path) -> None:
         ),
     ]
 
-    def mock_backtest_fn(run_spec: RunSpec, base_args: dict, output_dir: Path) -> RunResult:
+    def mock_backtest_fn(
+        run_spec: RunSpec, base_args: dict, output_dir: Path
+    ) -> RunResult:
         """Mock backtest function."""
         return RunResult(
             run_id=run_spec.id,
@@ -375,7 +402,9 @@ def test_run_batch_serial_with_seed(tmp_path: Path) -> None:
         ),
     ]
 
-    def mock_backtest_fn(run_spec: RunSpec, base_args: dict, output_dir: Path) -> RunResult:
+    def mock_backtest_fn(
+        run_spec: RunSpec, base_args: dict, output_dir: Path
+    ) -> RunResult:
         """Mock backtest function."""
         return RunResult(
             run_id=run_spec.id,
@@ -396,4 +425,3 @@ def test_run_batch_serial_with_seed(tmp_path: Path) -> None:
 
     # Should complete successfully (seed is set, but doesn't affect mock)
     # Note: We don't check result here, just verify seed is set without error
-

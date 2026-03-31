@@ -26,7 +26,9 @@ from src.assembled_core.accounting.evidence_pack import (  # noqa: E402
 def _write_manifest(path: Path, payload: dict) -> None:
     """Write JSON manifest with deterministic formatting."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8"
+    )
 
 
 def test_collect_uses_manifest_when_evidence_index_missing(tmp_path: Path) -> None:
@@ -41,7 +43,9 @@ def test_collect_uses_manifest_when_evidence_index_missing(tmp_path: Path) -> No
     # Create dummy artifacts referenced by manifest
     ledger_pack_path = output_dir / "ledger_run" / "ledger_events.parquet"
     reconcile_report_path = output_dir / "reconcile_run" / f"reconcile_{date_str}.json"
-    accounting_report_path = output_dir / "accounting_run" / f"accounting_{date_str}.json"
+    accounting_report_path = (
+        output_dir / "accounting_run" / f"accounting_{date_str}.json"
+    )
 
     for p in [ledger_pack_path, reconcile_report_path, accounting_report_path]:
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -114,7 +118,9 @@ def test_manifest_fallback_required_missing_raises(tmp_path: Path) -> None:
             as_of_date=as_of,
             include_optional=True,
         )
-        raise AssertionError("build_evidence_pack should have raised ValueError for missing required files")
+        raise AssertionError(
+            "build_evidence_pack should have raised ValueError for missing required files"
+        )
     except ValueError as exc:
         msg = str(exc)
         assert "run_id=manifest_missing" in msg
@@ -133,12 +139,21 @@ def test_manifest_fallback_sets_source_fields(tmp_path: Path) -> None:
     date_str = "2025-01-15"
 
     # Create all required artifacts + one optional broker snapshot
-    broker_snapshot_path = output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    broker_snapshot_path = (
+        output_dir / "broker_snapshot_run" / f"snapshot_{date_str}.json"
+    )
     ledger_pack_path = output_dir / "ledger_run" / "ledger_events.parquet"
     reconcile_report_path = output_dir / "reconcile_run" / f"reconcile_{date_str}.json"
-    accounting_report_path = output_dir / "accounting_run" / f"accounting_{date_str}.json"
+    accounting_report_path = (
+        output_dir / "accounting_run" / f"accounting_{date_str}.json"
+    )
 
-    for p in [broker_snapshot_path, ledger_pack_path, reconcile_report_path, accounting_report_path]:
+    for p in [
+        broker_snapshot_path,
+        ledger_pack_path,
+        reconcile_report_path,
+        accounting_report_path,
+    ]:
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text("dummy", encoding="utf-8")
 
@@ -173,7 +188,8 @@ def test_manifest_fallback_sets_source_fields(tmp_path: Path) -> None:
 
     # source_path must match exactly one files[] entry (source artifact in pack)
     manifest_entries = [
-        entry for entry in pack_manifest["files"]
+        entry
+        for entry in pack_manifest["files"]
         if entry.get("path") == "run_manifest_1d.json"
     ]
     assert len(manifest_entries) == 1
@@ -196,4 +212,3 @@ def test_manifest_fallback_sets_source_fields(tmp_path: Path) -> None:
     assert pack_manifest.get("required_missing_count") == 0
     assert pack_manifest.get("optional_present_count") == 1
     assert pack_manifest.get("optional_missing_count") == 0
-

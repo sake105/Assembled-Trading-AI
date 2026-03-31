@@ -156,11 +156,17 @@ class ExperimentTracker:
             with run_json_path.open("w", encoding="utf-8") as f:
                 json.dump(asdict(run), f, indent=2, ensure_ascii=False)
         except (IOError, OSError) as exc:
-            logger.error("Failed to write experiment run JSON to %s: %s", run_json_path, exc)
-            raise RuntimeError(f"Failed to write experiment run JSON to {run_json_path}") from exc
+            logger.error(
+                "Failed to write experiment run JSON to %s: %s", run_json_path, exc
+            )
+            raise RuntimeError(
+                f"Failed to write experiment run JSON to {run_json_path}"
+            ) from exc
         except (TypeError, ValueError) as exc:
             logger.error("Failed to serialize experiment run to JSON: %s", exc)
-            raise ValueError(f"Failed to serialize experiment run to JSON: {run_json_path}") from exc
+            raise ValueError(
+                f"Failed to serialize experiment run to JSON: {run_json_path}"
+            ) from exc
 
         return run
 
@@ -203,13 +209,17 @@ class ExperimentTracker:
 
                 # Write header if file is new
                 if not file_exists:
-                    writer.writerow(["step", "timestamp", "metric_name", "metric_value"])
+                    writer.writerow(
+                        ["step", "timestamp", "metric_name", "metric_value"]
+                    )
 
                 # Write one row per metric
                 for metric_name, metric_value in metrics.items():
                     writer.writerow([step_str, timestamp, metric_name, metric_value])
         except (IOError, OSError, csv.Error) as exc:
-            logger.warning("Failed to append metrics CSV to %s: %s", metrics_csv_path, exc)
+            logger.warning(
+                "Failed to append metrics CSV to %s: %s", metrics_csv_path, exc
+            )
 
     def log_artifact(
         self,
@@ -278,11 +288,17 @@ class ExperimentTracker:
             with run_json_path.open("r", encoding="utf-8") as f:
                 run_data = json.load(f)
         except FileNotFoundError as exc:
-            raise FileNotFoundError(f"Experiment run JSON file not found: {run_json_path}") from exc
+            raise FileNotFoundError(
+                f"Experiment run JSON file not found: {run_json_path}"
+            ) from exc
         except (IOError, OSError) as exc:
-            raise IOError(f"Failed to read experiment run JSON from {run_json_path}") from exc
+            raise IOError(
+                f"Failed to read experiment run JSON from {run_json_path}"
+            ) from exc
         except json.JSONDecodeError as exc:
-            raise ValueError(f"Invalid JSON in experiment run file {run_json_path}") from exc
+            raise ValueError(
+                f"Invalid JSON in experiment run file {run_json_path}"
+            ) from exc
 
         # Update status
         run_data["status"] = status
@@ -293,11 +309,17 @@ class ExperimentTracker:
             with run_json_path.open("w", encoding="utf-8") as f:
                 json.dump(run_data, f, indent=2, ensure_ascii=False)
         except (IOError, OSError) as exc:
-            logger.error("Failed to update experiment run JSON at %s: %s", run_json_path, exc)
-            raise RuntimeError(f"Failed to update experiment run JSON at {run_json_path}") from exc
+            logger.error(
+                "Failed to update experiment run JSON at %s: %s", run_json_path, exc
+            )
+            raise RuntimeError(
+                f"Failed to update experiment run JSON at {run_json_path}"
+            ) from exc
         except (TypeError, ValueError) as exc:
             logger.error("Failed to serialize experiment run data to JSON: %s", exc)
-            raise ValueError(f"Failed to serialize experiment run data to JSON: {run_json_path}") from exc
+            raise ValueError(
+                f"Failed to serialize experiment run data to JSON: {run_json_path}"
+            ) from exc
 
     def list_runs(self, tags: Sequence[str] | None = None) -> list[ExperimentRun]:
         """List all experiment runs.
@@ -325,7 +347,9 @@ class ExperimentTracker:
                     with run_json_path.open("r", encoding="utf-8") as f:
                         run_data = json.load(f)
                 except (IOError, OSError, json.JSONDecodeError) as exc:
-                    logger.warning(f"Failed to load experiment run from {run_json_path}: {exc}. Skipping.")
+                    logger.warning(
+                        f"Failed to load experiment run from {run_json_path}: {exc}. Skipping."
+                    )
                     continue
 
                 run = ExperimentRun(**run_data)

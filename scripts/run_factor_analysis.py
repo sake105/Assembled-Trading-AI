@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+
 try:
     from tabulate import tabulate
 except Exception:
@@ -799,7 +800,12 @@ def run_factor_analysis_from_args(args) -> int:
             ].copy()
             display_df = display_df.round(4)
             if tabulate is not None:
-                print("\n" + tabulate(display_df, headers="keys", tablefmt="grid", showindex=False))
+                print(
+                    "\n"
+                    + tabulate(
+                        display_df, headers="keys", tablefmt="grid", showindex=False
+                    )
+                )
             else:
                 print("\n" + display_df.to_string(index=False))
         else:
@@ -825,7 +831,12 @@ def run_factor_analysis_from_args(args) -> int:
             display_df = portfolio_summary[display_cols].copy()
             display_df = display_df.round(4)
             if tabulate is not None:
-                print("\n" + tabulate(display_df, headers="keys", tablefmt="grid", showindex=False))
+                print(
+                    "\n"
+                    + tabulate(
+                        display_df, headers="keys", tablefmt="grid", showindex=False
+                    )
+                )
             else:
                 print("\n" + display_df.to_string(index=False))
         else:

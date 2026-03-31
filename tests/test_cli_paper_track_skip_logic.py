@@ -18,7 +18,9 @@ def _write_minimal_outputs(
     """Write minimal output files for testing."""
     run_dir = output_root / "runs" / as_of.strftime("%Y%m%d")
     run_dir.mkdir(parents=True, exist_ok=True)
-    (run_dir / "equity_snapshot.json").write_text('{"equity": 100000.0}', encoding="utf-8")
+    (run_dir / "equity_snapshot.json").write_text(
+        '{"equity": 100000.0}', encoding="utf-8"
+    )
 
 
 def _patch_paper_track_runtime(monkeypatch, tmp_path: Path):
@@ -49,9 +51,7 @@ def _patch_paper_track_runtime(monkeypatch, tmp_path: Path):
         )
 
     def fake_write_paper_day_outputs(result, output_dir, config=None):
-        _write_minimal_outputs(
-            output_dir, result.config.strategy_name, result.date
-        )
+        _write_minimal_outputs(output_dir, result.config.strategy_name, result.date)
 
     def fake_save_paper_state(state, state_path):
         state_path.parent.mkdir(parents=True, exist_ok=True)
@@ -166,4 +166,3 @@ portfolio:
     # Either backup was created or directory was overwritten
     backups = list(output_root.glob("runs/*.backup.*"))
     assert len(backups) > 0 or (run_dir1 / "equity_snapshot.json").exists()
-

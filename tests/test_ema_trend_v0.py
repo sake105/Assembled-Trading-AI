@@ -8,7 +8,10 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from src.assembled_core.strategies.ema_trend_v0 import compute_signals, compute_target_positions
+from src.assembled_core.strategies.ema_trend_v0 import (
+    compute_signals,
+    compute_target_positions,
+)
 
 
 pytestmark = [pytest.mark.unit, pytest.mark.phase6]
@@ -62,7 +65,9 @@ def test_strategy_produces_non_empty_targets_when_trend_up() -> None:
     prices = _make_prices_uptrend(n_days=80, symbols=["AAPL", "MSFT"])
     signals = compute_signals(prices, ema_fast=20, ema_slow=60)
     assert not signals.empty
-    prices_latest = prices.groupby("symbol", group_keys=False)["close"].last().reset_index()
+    prices_latest = (
+        prices.groupby("symbol", group_keys=False)["close"].last().reset_index()
+    )
     targets = compute_target_positions(
         signals,
         total_capital=10000.0,
@@ -81,7 +86,9 @@ def test_strategy_produces_non_empty_targets_when_trend_up() -> None:
 def test_compute_target_positions_empty_signals() -> None:
     """Empty signals -> empty targets."""
     empty_sigs = pd.DataFrame(columns=["timestamp", "symbol", "direction", "score"])
-    out = compute_target_positions(empty_sigs, 10000.0, equal_weight=True, prices_latest=None)
+    out = compute_target_positions(
+        empty_sigs, 10000.0, equal_weight=True, prices_latest=None
+    )
     assert out.empty
     assert list(out.columns) == ["symbol", "target_weight", "target_qty"]
 
@@ -90,7 +97,9 @@ def test_compute_target_positions_no_prices_latest() -> None:
     """With signals but no prices_latest, target_qty is 0."""
     prices = _make_prices_uptrend(n_days=80, symbols=["AAPL"])
     signals = compute_signals(prices, ema_fast=20, ema_slow=60)
-    targets = compute_target_positions(signals, 10000.0, equal_weight=True, prices_latest=None)
+    targets = compute_target_positions(
+        signals, 10000.0, equal_weight=True, prices_latest=None
+    )
     assert not targets.empty
     assert (targets["target_qty"] == 0.0).all()
     assert (targets["target_weight"] > 0).all()
@@ -104,11 +113,18 @@ def test_paper_run_ema_produces_trades(tmp_path: Path) -> None:
 
     # 80 days synthetic data; run 10 days starting after 60 bars so EMA60 has history
     prices = _make_prices_uptrend(n_days=80, symbols=["AAPL", "MSFT"])
-    start = date(2024, 1, 1) + timedelta(days=60)  # day 61–70 so prices <= as_of have 61–70 rows per symbol
+    start = date(2024, 1, 1) + timedelta(
+        days=60
+    )  # day 61–70 so prices <= as_of have 61–70 rows per symbol
     dates = [start + timedelta(days=i) for i in range(10)]
     app_cfg = {
         "paper_runner": {
-            "strategy": {"name": "ema_trend_v0", "ema_fast": 20, "ema_slow": 60, "equal_weight": True},
+            "strategy": {
+                "name": "ema_trend_v0",
+                "ema_fast": 20,
+                "ema_slow": 60,
+                "equal_weight": True,
+            },
             "ledger_path": str(tmp_path / "ledger_state.json"),
         },
         "alerts": {"enabled": False},
@@ -119,11 +135,15 @@ def test_paper_run_ema_produces_trades(tmp_path: Path) -> None:
         day_ts = pd.Timestamp(d).tz_localize("UTC")
         out_dir = tmp_path / d.isoformat()
         out_dir.mkdir(parents=True, exist_ok=True)
-        exit_code, _ = run_paper_daily_one(day_ts, out_dir, "paper", app_cfg, prices, root=root)
+        exit_code, _ = run_paper_daily_one(
+            day_ts, out_dir, "paper", app_cfg, prices, root=root
+        )
         assert exit_code == 0
         orders_file = out_dir / "orders_latest.json"
         if orders_file.exists():
             data = json.loads(orders_file.read_text(encoding="utf-8"))
             items = data.get("items") or []
             total_orders += len(items)
-    assert total_orders > 0, "Expected at least one order over 10 days with EMA strategy"
+    assert (
+        total_orders > 0
+    ), "Expected at least one order over 10 days with EMA strategy"

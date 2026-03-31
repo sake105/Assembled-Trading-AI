@@ -76,7 +76,9 @@ def test_apply_fills_updates_cash_and_positions() -> None:
     assert after["positions"]["B"]["avg_price"] == 50.0
 
     # Sell half of A
-    after2 = apply_fills_to_ledger(after, [{"symbol": "A", "side": "SELL", "qty": 5.0, "price": 102.0}])
+    after2 = apply_fills_to_ledger(
+        after, [{"symbol": "A", "side": "SELL", "qty": 5.0, "price": 102.0}]
+    )
     assert after2["positions"]["A"]["qty"] == 5.0
     assert after2["positions"]["A"]["avg_price"] == 100.0
     assert after2["cash"] == 8000 + 5 * 102  # 8510
@@ -86,7 +88,10 @@ def test_mark_to_market_equity() -> None:
     """mark_to_market_equity = cash + sum(qty * latest_price)."""
     state: dict[str, Any] = {
         "cash": 1000.0,
-        "positions": {"X": {"qty": 10.0, "avg_price": 20.0}, "Y": {"qty": 5.0, "avg_price": 100.0}},
+        "positions": {
+            "X": {"qty": 10.0, "avg_price": 20.0},
+            "Y": {"qty": 5.0, "avg_price": 100.0},
+        },
     }
     prices = pd.DataFrame({"symbol": ["X", "Y"], "close": [22.0, 110.0]})
     eq = mark_to_market_equity(state, prices)
@@ -95,19 +100,43 @@ def test_mark_to_market_equity() -> None:
 
 def test_simulate_fills_uses_close_price() -> None:
     """simulate_fills produces fills at close price from prices_latest."""
-    orders = pd.DataFrame([
-        {"timestamp": pd.Timestamp("2025-01-15"), "symbol": "A", "side": "BUY", "qty": 5.0, "price": 0.0},
-        {"timestamp": pd.Timestamp("2025-01-15"), "symbol": "B", "side": "SELL", "qty": 10.0, "price": 0.0},
-    ])
+    orders = pd.DataFrame(
+        [
+            {
+                "timestamp": pd.Timestamp("2025-01-15"),
+                "symbol": "A",
+                "side": "BUY",
+                "qty": 5.0,
+                "price": 0.0,
+            },
+            {
+                "timestamp": pd.Timestamp("2025-01-15"),
+                "symbol": "B",
+                "side": "SELL",
+                "qty": 10.0,
+                "price": 0.0,
+            },
+        ]
+    )
     prices = pd.DataFrame({"symbol": ["A", "B"], "close": [100.0, 50.0]})
     fills = simulate_fills(orders, prices, None)
     assert len(fills) == 2
     by_sym = {f["symbol"]: f for f in fills}
-    assert by_sym["A"]["side"] == "BUY" and by_sym["A"]["qty"] == 5.0 and by_sym["A"]["price"] == 100.0
-    assert by_sym["B"]["side"] == "SELL" and by_sym["B"]["qty"] == 10.0 and by_sym["B"]["price"] == 50.0
+    assert (
+        by_sym["A"]["side"] == "BUY"
+        and by_sym["A"]["qty"] == 5.0
+        and by_sym["A"]["price"] == 100.0
+    )
+    assert (
+        by_sym["B"]["side"] == "SELL"
+        and by_sym["B"]["qty"] == 10.0
+        and by_sym["B"]["price"] == 50.0
+    )
 
 
-def test_paper_run_updates_equity_curve_and_profit_lock_can_trigger(tmp_path: Path) -> None:
+def test_paper_run_updates_equity_curve_and_profit_lock_can_trigger(
+    tmp_path: Path,
+) -> None:
     """After applying fills and appending equity_curve, profit_lock can see curve and trigger."""
     from src.assembled_core.risk.profit_lock import compute_profit_lock_multiplier
 
@@ -137,13 +166,19 @@ def test_paper_run_updates_equity_curve_and_profit_lock_can_trigger(tmp_path: Pa
         "floor": 0.5,
         "cooldown_days": 10,
     }
-    mult, _ = compute_profit_lock_multiplier(equity_series, policy, now_idx=2, state=None)
+    mult, _ = compute_profit_lock_multiplier(
+        equity_series, policy, now_idx=2, state=None
+    )
     assert mult < 1.0
 
 
 def test_write_ledger_snapshot(tmp_path: Path) -> None:
     """write_ledger_snapshot produces ledger_snapshot.json with schema paper.ledger_snapshot.v1."""
-    state: dict[str, Any] = {"cash": 8000.0, "positions": {"A": {"qty": 10.0, "avg_price": 100.0}}, "updated_utc": "2025-01-15T12:00:00+00:00"}
+    state: dict[str, Any] = {
+        "cash": 8000.0,
+        "positions": {"A": {"qty": 10.0, "avg_price": 100.0}},
+        "updated_utc": "2025-01-15T12:00:00+00:00",
+    }
     path = write_ledger_snapshot(tmp_path, state, equity=9000.0)
     assert path.exists()
     data = json.loads(path.read_text(encoding="utf-8"))

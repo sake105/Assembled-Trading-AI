@@ -55,10 +55,21 @@ def test_store_load_same_deterministic_sort(tmp_path: Path):
     # Verify: deterministic sort (event_ts, then event_id)
     assert loaded_df["event_ts"].is_monotonic_increasing
     # Check that earlier timestamp comes first
-    assert loaded_df.iloc[0]["event_ts"] == pd.Timestamp("2024-01-14 15:00:00", tz="UTC")
+    assert loaded_df.iloc[0]["event_ts"] == pd.Timestamp(
+        "2024-01-14 15:00:00", tz="UTC"
+    )
 
     # Verify: all required columns present
-    required_cols = ["event_ts", "event_type", "symbol", "qty", "price", "cash_delta", "run_id", "event_id"]
+    required_cols = [
+        "event_ts",
+        "event_type",
+        "symbol",
+        "qty",
+        "price",
+        "cash_delta",
+        "run_id",
+        "event_id",
+    ]
     for col in required_cols:
         assert col in loaded_df.columns
 
@@ -341,12 +352,20 @@ def test_append_mode_identical_writes(tmp_path: Path):
 
     # Should be identical (same event_ids, same order)
     pd.testing.assert_frame_equal(
-        loaded1.sort_values(["event_ts", "event_id"], kind="mergesort").reset_index(drop=True),
-        loaded2.sort_values(["event_ts", "event_id"], kind="mergesort").reset_index(drop=True),
+        loaded1.sort_values(["event_ts", "event_id"], kind="mergesort").reset_index(
+            drop=True
+        ),
+        loaded2.sort_values(["event_ts", "event_id"], kind="mergesort").reset_index(
+            drop=True
+        ),
     )
     pd.testing.assert_frame_equal(
-        loaded2.sort_values(["event_ts", "event_id"], kind="mergesort").reset_index(drop=True),
-        loaded3.sort_values(["event_ts", "event_id"], kind="mergesort").reset_index(drop=True),
+        loaded2.sort_values(["event_ts", "event_id"], kind="mergesort").reset_index(
+            drop=True
+        ),
+        loaded3.sort_values(["event_ts", "event_id"], kind="mergesort").reset_index(
+            drop=True
+        ),
     )
 
     # Verify deterministic sort: event_ts, then event_id

@@ -53,8 +53,19 @@ def load_sources_registry(config_path: str | Path) -> List[DisclosureSource]:
         weight = float(entry.get("weight", 1.0))
         active = bool(entry.get("active", True))
         config = {
-            k: v for k, v in entry.items()
-            if k not in {"source_id", "name", "domain", "type", "tier", "weight", "active", "notes"}
+            k: v
+            for k, v in entry.items()
+            if k
+            not in {
+                "source_id",
+                "name",
+                "domain",
+                "type",
+                "tier",
+                "weight",
+                "active",
+                "notes",
+            }
         }
         sources.append(
             DisclosureSource(
@@ -110,8 +121,14 @@ def load_disclosures_params(config_path: str | Path) -> Dict[str, Any]:
     form4 = edgar.get("form4") or {}
     if not isinstance(form4, dict):
         form4 = {}
-    form4.setdefault("feed_url", "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=4&count=100&output=atom")
-    form4.setdefault("user_agent", str(fetch.get("user_agent", "Assembled-Trading-AI/Disclosures-v1")))
+    form4.setdefault(
+        "feed_url",
+        "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=4&count=100&output=atom",
+    )
+    form4.setdefault(
+        "user_agent",
+        str(fetch.get("user_agent", "Assembled-Trading-AI/Disclosures-v1")),
+    )
     form4.setdefault("cache_minutes", 10)
     form4.setdefault("stale_on_error_minutes", 60)
     form4.setdefault("timeout_s", float(fetch.get("timeout_s", 15.0)))
@@ -123,7 +140,10 @@ def load_disclosures_params(config_path: str | Path) -> Dict[str, Any]:
         house_ptr = {}
     house_ptr.setdefault("enabled", True)
     house_ptr.setdefault("index_url", "https://<HOUSE_PTR_RSS_OR_INDEX>")
-    house_ptr.setdefault("user_agent", str(fetch.get("user_agent", "Assembled-Trading-AI/Disclosures-v1")))
+    house_ptr.setdefault(
+        "user_agent",
+        str(fetch.get("user_agent", "Assembled-Trading-AI/Disclosures-v1")),
+    )
     house_ptr.setdefault("cache_minutes", 60)
     house_ptr.setdefault("stale_on_error_minutes", 240)
     house_ptr.setdefault("download_pdfs", False)

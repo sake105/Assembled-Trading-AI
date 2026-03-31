@@ -268,10 +268,10 @@ def make_cycle_fn(
     run_trading_cycle_fn: Callable | None = None,
 ) -> Callable[[pd.Timestamp, pd.DataFrame], "TradingCycleResult"]:
     """Create a callable that runs trading cycle for a given timestamp and positions.
-    
+
     This is an adapter function that bridges the backtest engine's per-timestamp
     loop with the unified trading cycle orchestrator.
-    
+
     Args:
         ctx_template: Template TradingContext with shared configuration
             (prices, universe, feature_config, factor_store settings, etc.)
@@ -280,11 +280,11 @@ def make_cycle_fn(
         capital: Capital for position sizing (updated per timestamp based on equity)
         run_trading_cycle_fn: Optional callable to run trading cycle (default: imports at runtime)
             If None, imports run_trading_cycle from pipeline.trading_cycle at runtime
-        
+
     Returns:
         Callable that takes (timestamp: pd.Timestamp, current_positions: pd.DataFrame)
         and returns TradingCycleResult
-        
+
     Example:
         >>> from src.assembled_core.pipeline.trading_cycle import TradingContext, run_trading_cycle
         >>> ctx_template = TradingContext(
@@ -305,8 +305,10 @@ def make_cycle_fn(
     """
     # Import at runtime to avoid circular dependency
     if run_trading_cycle_fn is None:
-        from src.assembled_core.pipeline.trading_cycle import run_trading_cycle as run_trading_cycle_fn
-    
+        from src.assembled_core.pipeline.trading_cycle import (
+            run_trading_cycle as run_trading_cycle_fn,
+        )
+
     def cycle_fn(
         timestamp: pd.Timestamp,
         current_positions: pd.DataFrame,
@@ -349,7 +351,7 @@ def make_cycle_fn(
 
         # Run trading cycle
         return run_trading_cycle_fn(ctx)
-    
+
     return cycle_fn
 
 
@@ -436,6 +438,7 @@ def _validate_order_notional_guard(
         return
     if strict is None:
         import os
+
         strict = os.environ.get("AS_CORE_STRICT_QTY") == "1"
     if strict:
         raise ValueError(
@@ -475,7 +478,9 @@ def run_portfolio_backtest(
     meta_min_confidence: float = 0.5,
     meta_ensemble_mode: str = "filter",  # "filter" or "scaling"
     # Trading cycle integration (B1)
-    cycle_fn: Callable[[pd.Timestamp, pd.DataFrame], "TradingCycleResult"] | None = None,
+    cycle_fn: (
+        Callable[[pd.Timestamp, pd.DataFrame], "TradingCycleResult"] | None
+    ) = None,
     # Performance optimization
     use_numba: bool | None = None,
     # Ledger/Reconciliation integration (Sprint 13)
@@ -579,7 +584,7 @@ def run_portfolio_backtest(
     if use_numba is None:
         settings = get_settings()
         use_numba = settings.use_numba
-    
+
     # Validate input
     if prices is None or prices.empty:
         raise ValueError("Missing required columns: prices DataFrame is None or empty")
@@ -602,19 +607,21 @@ def run_portfolio_backtest(
             config = feature_config or {}
             # Check if we have required columns for features (ATR needs high/low)
             has_ohlc = all(col in prices.columns for col in ["high", "low", "open"])
-            
+
             if use_factor_store:
                 # Use factor store (build_or_load_factors)
-                logger.info(f"Using factor store: group={factor_group}, root={factor_store_root}")
-                
+                logger.info(
+                    f"Using factor store: group={factor_group}, root={factor_store_root}"
+                )
+
                 # Compute universe key
                 universe_symbols = sorted(prices["symbol"].unique().tolist())
                 universe_key = compute_universe_key(symbols=universe_symbols)
-                
+
                 # Determine date range for PIT-safe loading
                 start_date = prices["timestamp"].min()
                 end_date = prices["timestamp"].max()
-                
+
                 # Build or load factors
                 prices_with_features = build_or_load_factors(
                     prices=prices,
@@ -626,14 +633,18 @@ def run_portfolio_backtest(
                     as_of=None,  # Backtest uses full range
                     force_rebuild=False,
                     builder_fn=add_all_features if has_ohlc else None,
-                    builder_kwargs={
-                        "ma_windows": config.get("ma_windows", (20, 50, 200)),
-                        "atr_window": config.get("atr_window", 14),
-                        "rsi_window": config.get("rsi_window", 14),
-                        "include_rsi": config.get("include_rsi", True),
-                    } if has_ohlc else {
-                        "windows": config.get("ma_windows", (20, 50, 200)),
-                    },
+                    builder_kwargs=(
+                        {
+                            "ma_windows": config.get("ma_windows", (20, 50, 200)),
+                            "atr_window": config.get("atr_window", 14),
+                            "rsi_window": config.get("rsi_window", 14),
+                            "include_rsi": config.get("include_rsi", True),
+                        }
+                        if has_ohlc
+                        else {
+                            "windows": config.get("ma_windows", (20, 50, 200)),
+                        }
+                    ),
                     factors_root=factor_store_root,
                 )
             else:
@@ -669,7 +680,9 @@ def run_portfolio_backtest(
         else:
             # Signals will be generated per timestamp via cycle_fn
             # Create empty signals DataFrame for compatibility
-            signals = pd.DataFrame(columns=["timestamp", "symbol", "direction", "score"])
+            signals = pd.DataFrame(
+                columns=["timestamp", "symbol", "direction", "score"]
+            )
 
     # Validate signals (skip validation if cycle_fn is provided)
     if cycle_fn is None:
@@ -833,7 +846,7 @@ def run_portfolio_backtest(
     # Step 3: Compute target positions (group by timestamp for rebalancing)
     # Initialize timings dictionary for step-level profiling
     timings: dict[str, Any] = {}
-    
+
     with nullcontext():
         all_targets = []
         all_orders = []
@@ -864,7 +877,9 @@ def run_portfolio_backtest(
                 normalized_rebalance.append(ts_pd)
             rebalance_timestamps_set = set(normalized_rebalance)
         elif rebalance_schedule == "weekly":
-            rebalance_timestamps_set = set(timeline[i] for i in range(0, len(timeline), 5))
+            rebalance_timestamps_set = set(
+                timeline[i] for i in range(0, len(timeline), 5)
+            )
         else:
             rebalance_timestamps_set = set(timeline)
 
@@ -893,11 +908,13 @@ def run_portfolio_backtest(
                         equity_curve_index=equity_curve_index,
                         profit_lock_state=profit_lock_state,
                     )
-                
+
                 # Track per-timestamp decision timing for aggregation
                 if f"decision_{timestamp}" in timings:
-                    decision_timings.append(timings[f"decision_{timestamp}"]["duration_ms"])
-                
+                    decision_timings.append(
+                        timings[f"decision_{timestamp}"]["duration_ms"]
+                    )
+
                 if cycle_result.status != "success":
                     logger.warning(
                         f"Trading cycle failed for timestamp {timestamp}: {cycle_result.error_message}"
@@ -929,10 +946,14 @@ def run_portfolio_backtest(
                 # Update positions using vectorized operations (Fill/Fees/Equity-Update stays in Engine)
                 if not orders.empty:
                     with timed_step(f"position_update_{timestamp}", timings, logger):
-                        current_positions = _update_positions_vectorized(orders, current_positions, use_numba=use_numba)
+                        current_positions = _update_positions_vectorized(
+                            orders, current_positions, use_numba=use_numba
+                        )
                     # Track per-timestamp position update timing
                     if f"position_update_{timestamp}" in timings:
-                        position_update_timings.append(timings[f"position_update_{timestamp}"]["duration_ms"])
+                        position_update_timings.append(
+                            timings[f"position_update_{timestamp}"]["duration_ms"]
+                        )
                     all_orders.append(orders)
 
                 # Running equity for next step (cash + MTM of current positions)
@@ -950,11 +971,11 @@ def run_portfolio_backtest(
                     targets_with_timestamp = cycle_result.target_positions.copy()
                     targets_with_timestamp["timestamp"] = timestamp
                     all_targets.append(targets_with_timestamp)
-                
+
                 # Store signals if requested
                 if include_signals and not cycle_result.signals.empty:
                     all_signals_list.append(cycle_result.signals)
-            
+
             # Aggregate per-timestamp timings into summary
             if decision_timings:
                 timings["decision"] = {
@@ -965,7 +986,8 @@ def run_portfolio_backtest(
             if position_update_timings:
                 timings["position_update"] = {
                     "total_duration_ms": sum(position_update_timings),
-                    "avg_duration_ms": sum(position_update_timings) / len(position_update_timings),
+                    "avg_duration_ms": sum(position_update_timings)
+                    / len(position_update_timings),
                     "count": len(position_update_timings),
                 }
         else:
@@ -974,12 +996,14 @@ def run_portfolio_backtest(
                 raise ValueError(
                     "signal_fn and position_sizing_fn are required when cycle_fn is not provided"
                 )
-            
+
             order_generation_timings = []
             # Rebalance only on selected bars (weekly = every 5th for 1d)
             sig_timeline = sorted(signals["timestamp"].unique())
             if rebalance_schedule == "weekly":
-                rebalance_timestamps_legacy = set(sig_timeline[i] for i in range(0, len(sig_timeline), 5))
+                rebalance_timestamps_legacy = set(
+                    sig_timeline[i] for i in range(0, len(sig_timeline), 5)
+                )
             else:
                 rebalance_timestamps_legacy = set(sig_timeline)
 
@@ -999,8 +1023,10 @@ def run_portfolio_backtest(
                     )
                 # Track per-timestamp order generation timing
                 if f"order_generation_{timestamp}" in timings:
-                    order_generation_timings.append(timings[f"order_generation_{timestamp}"]["duration_ms"])
-                
+                    order_generation_timings.append(
+                        timings[f"order_generation_{timestamp}"]["duration_ms"]
+                    )
+
                 # Position update is done inside _process_rebalancing_timestamp for legacy path
                 current_positions = updated_positions
 
@@ -1010,12 +1036,13 @@ def run_portfolio_backtest(
 
                 if not orders.empty:
                     all_orders.append(orders)
-            
+
             # Aggregate per-timestamp timings into summary
             if order_generation_timings:
                 timings["order_generation"] = {
                     "total_duration_ms": sum(order_generation_timings),
-                    "avg_duration_ms": sum(order_generation_timings) / len(order_generation_timings),
+                    "avg_duration_ms": sum(order_generation_timings)
+                    / len(order_generation_timings),
                     "count": len(order_generation_timings),
                 }
 
@@ -1080,12 +1107,12 @@ def run_portfolio_backtest(
         from src.assembled_core.execution.fill_model_pipeline import (
             apply_fill_model_pipeline,
         )
-        
+
         # Apply fill model pipeline
         # For now, use default partial fill model (can be made configurable later)
         partial_fill_model = None  # Default: full fills (no ADV cap)
         # TODO: Make partial_fill_model configurable via cost_model or separate parameter
-        
+
         orders_df = apply_fill_model_pipeline(
             orders_df,
             prices=prices,
@@ -1093,7 +1120,7 @@ def run_portfolio_backtest(
             partial_fill_model=partial_fill_model,
             strict_session_gate=strict_session_gate,
         )
-    
+
     # Step 4.6: Add cost columns to orders (if include_trades=True)
     # Costs are now computed based on fill_qty (for partial/rejected fills)
     if include_trades and not orders_df.empty:
@@ -1116,9 +1143,10 @@ def run_portfolio_backtest(
                 spread_model = SpreadModel(
                     adv_window=20,
                     buckets=None,  # No buckets: use fallback for all
-                    fallback_spread_bps=spread_w * 100.0,  # Convert spread_w (0.25 = 25 bps) to bps
+                    fallback_spread_bps=spread_w
+                    * 100.0,  # Convert spread_w (0.25 = 25 bps) to bps
                 )
-            
+
             # Create slippage model from legacy parameters (if impact_w > 0)
             slippage_model = None
             if impact_w is not None and impact_w > 0.0:
@@ -1131,7 +1159,7 @@ def run_portfolio_backtest(
                     max_bps=50.0,
                     fallback_slippage_bps=impact_w * 100.0,  # Convert to bps
                 )
-            
+
             orders_df = add_cost_columns_to_trades(
                 orders_df,
                 commission_model=commission_model,
@@ -1194,29 +1222,42 @@ def run_portfolio_backtest(
     ledger_result = None
     if include_ledger and run_id and output_dir:
         try:
-            from src.assembled_core.accounting.ledger_integration import build_ledger_from_trades
-            
+            from src.assembled_core.accounting.ledger_integration import (
+                build_ledger_from_trades,
+            )
+
             # Get trades_df (from simulate_with_costs if include_costs=True, otherwise from orders_df)
             trades_for_ledger = orders_df.copy()
             if include_costs and not trades_df.empty:
                 # Use trades_df from simulate_with_costs (has fill_qty, fill_price, status, costs)
                 trades_for_ledger = trades_df.copy()
-            
+
             # Determine snapshot run_id (for import and lookup)
-            snapshot_run_id = broker_snapshot_run_id if broker_snapshot_run_id is not None else run_id
+            snapshot_run_id = (
+                broker_snapshot_run_id if broker_snapshot_run_id is not None else run_id
+            )
 
             # Step 6.1: Import external broker snapshot if provided
             if broker_snapshot_file:
                 try:
-                    logger.info(f"Importing external broker snapshot from: {broker_snapshot_file}")
+                    logger.info(
+                        f"Importing external broker snapshot from: {broker_snapshot_file}"
+                    )
                     from pathlib import Path
-                    from src.assembled_core.accounting.broker_snapshot_importer import import_broker_snapshot
+                    from src.assembled_core.accounting.broker_snapshot_importer import (
+                        import_broker_snapshot,
+                    )
 
                     # Determine snapshot date (use provided date, or last trade date, or today)
                     snapshot_date = broker_snapshot_date
                     if snapshot_date is None:
-                        if not trades_for_ledger.empty and "timestamp" in trades_for_ledger.columns:
-                            snapshot_date = pd.to_datetime(trades_for_ledger["timestamp"].max(), utc=True)
+                        if (
+                            not trades_for_ledger.empty
+                            and "timestamp" in trades_for_ledger.columns
+                        ):
+                            snapshot_date = pd.to_datetime(
+                                trades_for_ledger["timestamp"].max(), utc=True
+                            )
                         else:
                             snapshot_date = pd.Timestamp.utcnow()
                     else:
@@ -1236,14 +1277,16 @@ def run_portfolio_backtest(
                         f"cash={import_result['cash']}"
                     )
                 except Exception as e:
-                    logger.error(f"Failed to import broker snapshot: {e}", exc_info=True)
+                    logger.error(
+                        f"Failed to import broker snapshot: {e}", exc_info=True
+                    )
                     # If policy is require, we should fail here
                     if broker_snapshot_policy == "require":
                         raise ValueError(
                             f"Broker snapshot import failed (policy=require): {e}"
                         ) from e
                     # Otherwise, log and continue (snapshot might still exist from previous import)
-            
+
             # Build ledger from trades
             ledger_result = build_ledger_from_trades(
                 orders_df=orders_df,
@@ -1258,7 +1301,9 @@ def run_portfolio_backtest(
                 broker_snapshot_run_id=snapshot_run_id,
                 write_evidence_pack=write_evidence_pack,
             )
-            logger.info(f"Ledger integration completed: ledger_pack_path={ledger_result.get('ledger_pack_path')}, reconciliation_ok={ledger_result.get('reconciliation_ok')}")
+            logger.info(
+                f"Ledger integration completed: ledger_pack_path={ledger_result.get('ledger_pack_path')}, reconciliation_ok={ledger_result.get('reconciliation_ok')}"
+            )
         except Exception as e:
             logger.warning(f"Ledger integration failed: {e}", exc_info=True)
             ledger_result = None
@@ -1269,10 +1314,12 @@ def run_portfolio_backtest(
     if include_signals:
         if cycle_fn is not None and all_signals_list:
             signals_result = pd.concat(all_signals_list, ignore_index=True)
-            signals_result = signals_result.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
+            signals_result = signals_result.sort_values(
+                ["symbol", "timestamp"]
+            ).reset_index(drop=True)
         elif cycle_fn is None:
             signals_result = signals
-    
+
     # Build meta dict with timings and ledger info
     meta_dict = {}
     if timings:
@@ -1286,8 +1333,10 @@ def run_portfolio_backtest(
         # Evidence pack fields (if written)
         meta_dict["evidence_index_path"] = ledger_result.get("evidence_index_path")
         meta_dict["evidence_pack_path"] = ledger_result.get("evidence_pack_path")
-        meta_dict["evidence_pack_manifest_path"] = ledger_result.get("evidence_pack_manifest_path")
-    
+        meta_dict["evidence_pack_manifest_path"] = ledger_result.get(
+            "evidence_pack_manifest_path"
+        )
+
     # Use trades_df (with fill_qty, status, reject_reason) when from simulate_with_costs
     trades_for_result = None
     if include_trades:
@@ -1302,9 +1351,11 @@ def run_portfolio_backtest(
         metrics=metrics,
         trades=trades_for_result,
         signals=signals_result,
-        target_positions=pd.concat(all_targets, ignore_index=True)
-        if include_targets and all_targets
-        else None,
+        target_positions=(
+            pd.concat(all_targets, ignore_index=True)
+            if include_targets and all_targets
+            else None
+        ),
         meta=meta_dict if meta_dict else None,
     )
 

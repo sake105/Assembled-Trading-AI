@@ -11,7 +11,10 @@ from src.assembled_core.events.news.fingerprint import hamming_distance, simhash
 from src.assembled_core.events.news.health import compute_health
 from src.assembled_core.events.news.models import NewsEvent
 from src.assembled_core.events.news.clustering import build_clusters
-from src.assembled_core.events.news.baseline import compute_version_hash, update_baseline
+from src.assembled_core.events.news.baseline import (
+    compute_version_hash,
+    update_baseline,
+)
 from src.assembled_core.events.news.burst import compute_bursts_for_window
 from src.assembled_core.events.news.evidence import summarize_cluster_evidence
 from src.assembled_core.events.news.entities import (
@@ -235,7 +238,9 @@ def test_health_status_transitions():
     assert h_error.status == "ERROR"
 
     # DEGRADED: some items but at least one failure
-    h_deg_2 = compute_health(["s1", "s2"], items_raw=10, items_after_dedupe=5, failures=failures)
+    h_deg_2 = compute_health(
+        ["s1", "s2"], items_raw=10, items_after_dedupe=5, failures=failures
+    )
     assert h_deg_2.status == "DEGRADED"
 
     # OK: at least one source ok, items_after_dedupe > 0, no failures
@@ -1052,7 +1057,9 @@ def test_daily_updates_baseline_and_prunes_old_days(tmp_path):
     # Oldest day (2025-01-01) should have been pruned for baseline_days=2
     assert "2025-01-01" not in days
 
-    latest = json.loads((baseline_dir / "baseline_latest.json").read_text(encoding="utf-8"))
+    latest = json.loads(
+        (baseline_dir / "baseline_latest.json").read_text(encoding="utf-8")
+    )
     assert latest["schema_version"] == "news.baseline.v1"
     assert latest["baseline_days"] == 2
     # Aggregated counts should be deterministic and limited
@@ -1096,7 +1103,9 @@ def test_baseline_top_k_deterministic(tmp_path):
 
     import json
 
-    latest = json.loads((baseline_dir / "baseline_latest.json").read_text(encoding="utf-8"))
+    latest = json.loads(
+        (baseline_dir / "baseline_latest.json").read_text(encoding="utf-8")
+    )
     ents = list(latest["entity_counts"].keys())
     # A and B have same counts -> sorted alphabetically
     assert ents == sorted(ents)
@@ -1117,11 +1126,15 @@ def test_burst_ratio_higher_when_current_spikes():
     }
     # Low current
     clusters_low = [{"top_entities": ["US"], "entities": [], "top_phrases": []}]
-    bursts_low_dict = compute_bursts_for_window(clusters_low, baseline, cfg, window_hours=1)
+    bursts_low_dict = compute_bursts_for_window(
+        clusters_low, baseline, cfg, window_hours=1
+    )
     bursts_low = bursts_low_dict["top_entities_burst"]
     # High current
     clusters_high = [{"top_entities": ["US"], "entities": [], "top_phrases": []}] * 10
-    bursts_high_dict = compute_bursts_for_window(clusters_high, baseline, cfg, window_hours=1)
+    bursts_high_dict = compute_bursts_for_window(
+        clusters_high, baseline, cfg, window_hours=1
+    )
     bursts_high = bursts_high_dict["top_entities_burst"]
     ratio_low = bursts_low[0]["ratio"]
     ratio_high = bursts_high[0]["ratio"]
@@ -1139,7 +1152,10 @@ def test_min_doc_count_filters():
     }
     clusters = [{"top_entities": ["US"], "entities": [], "top_phrases": []}]
     bursts_dict = compute_bursts_for_window(clusters, baseline, cfg, window_hours=1)
-    assert bursts_dict["top_entities_burst"] == [] and bursts_dict["top_phrases_burst"] == []
+    assert (
+        bursts_dict["top_entities_burst"] == []
+        and bursts_dict["top_phrases_burst"] == []
+    )
 
 
 def test_top_clusters_burst_present_when_cluster_has_bursty_keys():
@@ -1244,7 +1260,9 @@ def test_evidence_tierB_requires_two_domains():
         "srcB2": {"tier": "B", "domain": "domx.com"},
     }
     cluster = {"event_ids": ["b1", "b2"]}
-    ev_same = summarize_cluster_evidence(cluster, events_by_id, source_meta_same, fetched)
+    ev_same = summarize_cluster_evidence(
+        cluster, events_by_id, source_meta_same, fetched
+    )
     assert ev_same["tierB_count"] == 2
     assert ev_same["tierB_independent_count"] == 1
     assert ev_same["evidence_ok"] is False
@@ -1254,7 +1272,9 @@ def test_evidence_tierB_requires_two_domains():
         "srcB1": {"tier": "B", "domain": "dom1.com"},
         "srcB2": {"tier": "B", "domain": "dom2.com"},
     }
-    ev_diff = summarize_cluster_evidence(cluster, events_by_id, source_meta_diff, fetched)
+    ev_diff = summarize_cluster_evidence(
+        cluster, events_by_id, source_meta_diff, fetched
+    )
     assert ev_diff["tierB_independent_count"] == 2
     assert ev_diff["evidence_ok"] is True
 
@@ -1282,7 +1302,9 @@ def test_cluster_contains_evidence_block():
     events_by_id = {"c1": ev}
     source_meta = {"srcB": {"tier": "B", "domain": "domc.com"}}
     cluster = {"event_ids": ["c1"]}
-    cluster["evidence"] = summarize_cluster_evidence(cluster, events_by_id, source_meta, fetched)
+    cluster["evidence"] = summarize_cluster_evidence(
+        cluster, events_by_id, source_meta, fetched
+    )
     assert "evidence" in cluster
     assert "evidence_ok" in cluster["evidence"]
 
@@ -1778,7 +1800,11 @@ def test_rss_headers_if_modified_since_etag_applied(monkeypatch):
             }
         }
     }
-    sanitize_cfg = {"strip_html": True, "title_max_chars": 100, "summary_max_chars": 200}
+    sanitize_cfg = {
+        "strip_html": True,
+        "title_max_chars": 100,
+        "summary_max_chars": 200,
+    }
 
     items, failure, stats = fetch_rss_feed(
         "src1",
@@ -1839,7 +1865,11 @@ def test_rss_fetch_state_persists_new_source_entry(monkeypatch):
         "https://example.com/rss",
         timeout=5.0,
         user_agent="UA",
-        sanitize_cfg={"strip_html": True, "title_max_chars": 100, "summary_max_chars": 200},
+        sanitize_cfg={
+            "strip_html": True,
+            "title_max_chars": 100,
+            "summary_max_chars": 200,
+        },
         fetch_state=fetch_state,
         retries=0,
         backoff_base_s=0.1,
@@ -1875,7 +1905,9 @@ def test_gdelt_cache_hit_no_request(monkeypatch):
         "gdelt": {
             cache_key: {
                 "cached_utc": recent,
-                "items": [{"title": "t", "link": "u", "published": "p", "summary": None}],
+                "items": [
+                    {"title": "t", "link": "u", "published": "p", "summary": None}
+                ],
             }
         }
     }
@@ -1942,10 +1974,32 @@ health:
 
     # Monkeypatch fetch_rss_feed/fetch_gdelt_events to avoid net calls
 
-    def fake_fetch_rss(source_id, url, *, timeout, user_agent, sanitize_cfg, fetch_state, retries, backoff_base_s):
+    def fake_fetch_rss(
+        source_id,
+        url,
+        *,
+        timeout,
+        user_agent,
+        sanitize_cfg,
+        fetch_state,
+        retries,
+        backoff_base_s,
+    ):
         items = [
-            {"title": "A", "link": "https://example.com/a", "published": "2025-01-01T00:00:00Z", "summary": "sa", "raw": {}},
-            {"title": "B", "link": "https://example.com/b", "published": "2025-01-02T00:00:00Z", "summary": "sb", "raw": {}},
+            {
+                "title": "A",
+                "link": "https://example.com/a",
+                "published": "2025-01-01T00:00:00Z",
+                "summary": "sa",
+                "raw": {},
+            },
+            {
+                "title": "B",
+                "link": "https://example.com/b",
+                "published": "2025-01-02T00:00:00Z",
+                "summary": "sb",
+                "raw": {},
+            },
         ]
         stats = {
             "source_id": source_id,
@@ -2052,10 +2106,32 @@ health:
 
     def fake_fetch(_source_id: str, _url: str, **kwargs: Any) -> tuple:
         items = [
-            {"title": "First headline here", "link": "https://example.com/1", "published": "2025-01-08T00:00:00Z", "summary": "", "raw": {}},
-            {"title": "Second headline there", "link": "https://example.com/2", "published": "2025-01-08T01:00:00Z", "summary": "", "raw": {}},
+            {
+                "title": "First headline here",
+                "link": "https://example.com/1",
+                "published": "2025-01-08T00:00:00Z",
+                "summary": "",
+                "raw": {},
+            },
+            {
+                "title": "Second headline there",
+                "link": "https://example.com/2",
+                "published": "2025-01-08T01:00:00Z",
+                "summary": "",
+                "raw": {},
+            },
         ]
-        stats = {"source_id": "rss_example", "type": "rss", "ok": True, "http_status": 200, "duration_ms": 0, "items": 2, "not_modified": False, "cached": False, "error": None}
+        stats = {
+            "source_id": "rss_example",
+            "type": "rss",
+            "ok": True,
+            "http_status": 200,
+            "duration_ms": 0,
+            "items": 2,
+            "not_modified": False,
+            "cached": False,
+            "error": None,
+        }
         return items, None, stats
 
     monkeypatch.setattr(pipeline_module, "fetch_rss_feed", fake_fetch)
@@ -2078,14 +2154,24 @@ health:
     counts = data.get("counts")
     assert isinstance(counts, dict)
     required_keys = [
-        "raw_items_count", "normalized_events_count", "normalized_ok_count",
-        "dedupe_store_dropped_url_count", "dedupe_store_dropped_fp0_count", "post_store_kept_count",
-        "normalize_exception_count", "normalize_none_count",
+        "raw_items_count",
+        "normalized_events_count",
+        "normalized_ok_count",
+        "dedupe_store_dropped_url_count",
+        "dedupe_store_dropped_fp0_count",
+        "post_store_kept_count",
+        "normalize_exception_count",
+        "normalize_none_count",
         "dropped_short_title_count",
-        "deduped_events_count", "clusters_count", "clusters_with_topics_count",
-        "candidate_triggers_count", "triggers_count",
-        "triggers_severity_ge_1_count", "triggers_severity_ge_2_count",
-        "triggers_evidence_blocked_count", "triggers_qc_capped_count",
+        "deduped_events_count",
+        "clusters_count",
+        "clusters_with_topics_count",
+        "candidate_triggers_count",
+        "triggers_count",
+        "triggers_severity_ge_1_count",
+        "triggers_severity_ge_2_count",
+        "triggers_evidence_blocked_count",
+        "triggers_qc_capped_count",
     ]
     for k in required_keys:
         assert k in counts, f"missing count key: {k}"
@@ -2173,11 +2259,48 @@ health:
 
     def fake_fetch(_source_id: str, _url: str, **kwargs: Any) -> tuple:
         items = [
-            {"title": "First headline for dedupe test", "link": "https://example.com/1", "published": "2025-01-08T00:00:00Z", "summary": "", "raw": {}, "source_id": "rss_example", "source_name": "Example", "source_domain": "example.com"},
-            {"title": "Second different headline", "link": "https://example.com/2", "published": "2025-01-08T01:00:00Z", "summary": "", "raw": {}, "source_id": "rss_example", "source_name": "Example", "source_domain": "example.com"},
-            {"title": "Third brand new story", "link": "https://example.com/3", "published": "2025-01-08T02:00:00Z", "summary": "", "raw": {}, "source_id": "rss_example", "source_name": "Example", "source_domain": "example.com"},
+            {
+                "title": "First headline for dedupe test",
+                "link": "https://example.com/1",
+                "published": "2025-01-08T00:00:00Z",
+                "summary": "",
+                "raw": {},
+                "source_id": "rss_example",
+                "source_name": "Example",
+                "source_domain": "example.com",
+            },
+            {
+                "title": "Second different headline",
+                "link": "https://example.com/2",
+                "published": "2025-01-08T01:00:00Z",
+                "summary": "",
+                "raw": {},
+                "source_id": "rss_example",
+                "source_name": "Example",
+                "source_domain": "example.com",
+            },
+            {
+                "title": "Third brand new story",
+                "link": "https://example.com/3",
+                "published": "2025-01-08T02:00:00Z",
+                "summary": "",
+                "raw": {},
+                "source_id": "rss_example",
+                "source_name": "Example",
+                "source_domain": "example.com",
+            },
         ]
-        stats = {"source_id": "rss_example", "type": "rss", "ok": True, "http_status": 200, "duration_ms": 0, "items": 3, "not_modified": False, "cached": False, "error": None}
+        stats = {
+            "source_id": "rss_example",
+            "type": "rss",
+            "ok": True,
+            "http_status": 200,
+            "duration_ms": 0,
+            "items": 3,
+            "not_modified": False,
+            "cached": False,
+            "error": None,
+        }
         return items, None, stats
 
     def mock_dedupe_store(path):
@@ -2185,7 +2308,12 @@ health:
 
     monkeypatch.setattr(pipeline_module, "fetch_rss_feed", fake_fetch)
     monkeypatch.setattr(pipeline_module, "DedupeStoreSQLite", mock_dedupe_store)
-    run_news_pipeline(sources_path=str(sources_cfg), news_path=str(news_cfg), cadence="hourly", output_dir=out_dir)
+    run_news_pipeline(
+        sources_path=str(sources_cfg),
+        news_path=str(news_cfg),
+        cadence="hourly",
+        output_dir=out_dir,
+    )
 
     funnel_path = out_dir / "debug_funnel_latest.json"
     assert funnel_path.exists()
@@ -2204,7 +2332,9 @@ def test_news_pipeline_normalize_failure_reasons_and_samples(tmp_path, monkeypat
     import json
 
     from src.assembled_core.events.news import pipeline as pipeline_module
-    from src.assembled_core.events.news.normalize import normalize_raw_item as real_normalize
+    from src.assembled_core.events.news.normalize import (
+        normalize_raw_item as real_normalize,
+    )
 
     sources_cfg = tmp_path / "sources.yaml"
     sources_cfg.write_text(
@@ -2264,11 +2394,48 @@ health:
 
     def fake_fetch(_source_id: str, _url: str, **kwargs: Any) -> tuple:
         items = [
-            {"title": "Bad", "link": "https://example.com/1", "published": "2025-01-08T00:00:00Z", "summary": "", "raw": {}, "source_id": "rss_example", "source_name": "Example", "source_domain": "example.com"},
-            {"title": "X", "link": "https://example.com/2", "published": "2025-01-08T01:00:00Z", "summary": "", "raw": {}, "source_id": "rss_example", "source_name": "Example", "source_domain": "example.com"},
-            {"title": "Valid headline for normalization", "link": "https://example.com/3", "published": "2025-01-08T02:00:00Z", "summary": "", "raw": {}, "source_id": "rss_example", "source_name": "Example", "source_domain": "example.com"},
+            {
+                "title": "Bad",
+                "link": "https://example.com/1",
+                "published": "2025-01-08T00:00:00Z",
+                "summary": "",
+                "raw": {},
+                "source_id": "rss_example",
+                "source_name": "Example",
+                "source_domain": "example.com",
+            },
+            {
+                "title": "X",
+                "link": "https://example.com/2",
+                "published": "2025-01-08T01:00:00Z",
+                "summary": "",
+                "raw": {},
+                "source_id": "rss_example",
+                "source_name": "Example",
+                "source_domain": "example.com",
+            },
+            {
+                "title": "Valid headline for normalization",
+                "link": "https://example.com/3",
+                "published": "2025-01-08T02:00:00Z",
+                "summary": "",
+                "raw": {},
+                "source_id": "rss_example",
+                "source_name": "Example",
+                "source_domain": "example.com",
+            },
         ]
-        stats = {"source_id": "rss_example", "type": "rss", "ok": True, "http_status": 200, "duration_ms": 0, "items": 3, "not_modified": False, "cached": False, "error": None}
+        stats = {
+            "source_id": "rss_example",
+            "type": "rss",
+            "ok": True,
+            "http_status": 200,
+            "duration_ms": 0,
+            "items": 3,
+            "not_modified": False,
+            "cached": False,
+            "error": None,
+        }
         return items, None, stats
 
     monkeypatch.setattr(pipeline_module, "fetch_rss_feed", fake_fetch)
@@ -2324,7 +2491,14 @@ def test_daily_housekeeping_written_when_daily(tmp_path, monkeypatch):
                 "gdelt": {
                     "old_key": {
                         "cached_utc": old,
-                        "items": [{"title": "t", "link": "u", "published": "p", "summary": None}],
+                        "items": [
+                            {
+                                "title": "t",
+                                "link": "u",
+                                "published": "p",
+                                "summary": None,
+                            }
+                        ],
                     }
                 },
             }
@@ -2419,4 +2593,3 @@ health:
     assert data["schema_version"] == "news.housekeeping.v1"
     assert data["cadence"] == "daily"
     assert data["pruned_gdelt_cache_entries"] >= 1
-

@@ -17,7 +17,9 @@ from src.assembled_core.pipeline.orchestrator import (
 )
 
 
-def test_evidence_index_manifest_path_backfill_sets_relative_posix_path(tmp_path: Path) -> None:
+def test_evidence_index_manifest_path_backfill_sets_relative_posix_path(
+    tmp_path: Path,
+) -> None:
     """Backfill sets paths.manifest_path to a relative POSIX path and is byte-deterministic."""
     output_dir = tmp_path / "output"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -51,7 +53,9 @@ def test_evidence_index_manifest_path_backfill_sets_relative_posix_path(tmp_path
     # Write a manifest file (content irrelevant for backfill)
     manifest_path = output_dir / "run_manifest_1d.json"
     manifest_payload = {"schema_version": 1, "freq": "1d"}
-    manifest_path.write_text(json.dumps(manifest_payload, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    manifest_path.write_text(
+        json.dumps(manifest_payload, sort_keys=True, indent=2) + "\n", encoding="utf-8"
+    )
 
     # Simulate ledger_result as returned from ledger_integration (relative paths)
     ledger_result = {
@@ -83,4 +87,3 @@ def test_evidence_index_manifest_path_backfill_sets_relative_posix_path(tmp_path
     content2 = evidence_path.read_bytes()
 
     assert content1 == content2
-

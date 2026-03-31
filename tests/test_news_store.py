@@ -33,11 +33,13 @@ def test_news_partition_path() -> None:
 
 def test_store_news_parquet_replace_mode(tmp_path: Path) -> None:
     """Test storing news events in replace mode."""
-    df = pd.DataFrame({
-        "publish_ts": ["2024-01-15 10:00:00"],
-        "source": ["reuters"],
-        "headline": ["Test news"],
-    })
+    df = pd.DataFrame(
+        {
+            "publish_ts": ["2024-01-15 10:00:00"],
+            "source": ["reuters"],
+            "headline": ["Test news"],
+        }
+    )
 
     partition_path = store_news_parquet(
         df,
@@ -56,19 +58,23 @@ def test_store_news_parquet_replace_mode(tmp_path: Path) -> None:
 
 def test_store_news_parquet_append_mode(tmp_path: Path) -> None:
     """Test storing news events in append mode."""
-    df1 = pd.DataFrame({
-        "publish_ts": ["2024-01-15 10:00:00"],
-        "source": ["reuters"],
-        "headline": ["First"],
-        "provider_id": ["1"],
-    })
+    df1 = pd.DataFrame(
+        {
+            "publish_ts": ["2024-01-15 10:00:00"],
+            "source": ["reuters"],
+            "headline": ["First"],
+            "provider_id": ["1"],
+        }
+    )
 
-    df2 = pd.DataFrame({
-        "publish_ts": ["2024-01-16 10:00:00"],
-        "source": ["reuters"],
-        "headline": ["Second"],
-        "provider_id": ["2"],
-    })
+    df2 = pd.DataFrame(
+        {
+            "publish_ts": ["2024-01-16 10:00:00"],
+            "source": ["reuters"],
+            "headline": ["Second"],
+            "provider_id": ["2"],
+        }
+    )
 
     # Store first batch
     store_news_parquet(df1, tmp_path, "reuters", year=2024, month=1, mode="append")
@@ -84,19 +90,23 @@ def test_store_news_parquet_append_mode(tmp_path: Path) -> None:
 
 def test_store_news_parquet_append_deduplicates(tmp_path: Path) -> None:
     """Test that append mode deduplicates existing data."""
-    df1 = pd.DataFrame({
-        "publish_ts": ["2024-01-15 10:00:00"],
-        "source": ["reuters"],
-        "headline": ["Same"],
-        "provider_id": ["123"],
-    })
+    df1 = pd.DataFrame(
+        {
+            "publish_ts": ["2024-01-15 10:00:00"],
+            "source": ["reuters"],
+            "headline": ["Same"],
+            "provider_id": ["123"],
+        }
+    )
 
-    df2 = pd.DataFrame({
-        "publish_ts": ["2024-01-15 10:00:00"],
-        "source": ["reuters"],
-        "headline": ["Same"],
-        "provider_id": ["123"],  # Same provider_id -> duplicate
-    })
+    df2 = pd.DataFrame(
+        {
+            "publish_ts": ["2024-01-15 10:00:00"],
+            "source": ["reuters"],
+            "headline": ["Same"],
+            "provider_id": ["123"],  # Same provider_id -> duplicate
+        }
+    )
 
     # Store first batch
     store_news_parquet(df1, tmp_path, "reuters", year=2024, month=1, mode="append")
@@ -127,16 +137,20 @@ def test_load_news_parquet_nonexistent_returns_empty(tmp_path: Path) -> None:
 def test_list_news_partitions(tmp_path: Path) -> None:
     """Test listing news partitions."""
     # Store some partitions
-    df1 = pd.DataFrame({
-        "publish_ts": ["2024-01-15 10:00:00"],
-        "source": ["reuters"],
-        "headline": ["Test"],
-    })
-    df2 = pd.DataFrame({
-        "publish_ts": ["2024-02-15 10:00:00"],
-        "source": ["bloomberg"],
-        "headline": ["Test"],
-    })
+    df1 = pd.DataFrame(
+        {
+            "publish_ts": ["2024-01-15 10:00:00"],
+            "source": ["reuters"],
+            "headline": ["Test"],
+        }
+    )
+    df2 = pd.DataFrame(
+        {
+            "publish_ts": ["2024-02-15 10:00:00"],
+            "source": ["bloomberg"],
+            "headline": ["Test"],
+        }
+    )
 
     store_news_parquet(df1, tmp_path, "reuters", year=2024, month=1)
     store_news_parquet(df2, tmp_path, "bloomberg", year=2024, month=2)
@@ -153,11 +167,13 @@ def test_list_news_partitions(tmp_path: Path) -> None:
 
 def test_atomic_write_no_temp_left_behind(tmp_path: Path) -> None:
     """Test that atomic write doesn't leave temp files behind."""
-    df = pd.DataFrame({
-        "publish_ts": ["2024-01-15 10:00:00"],
-        "source": ["reuters"],
-        "headline": ["Test"],
-    })
+    df = pd.DataFrame(
+        {
+            "publish_ts": ["2024-01-15 10:00:00"],
+            "source": ["reuters"],
+            "headline": ["Test"],
+        }
+    )
 
     partition_path = store_news_parquet(df, tmp_path, "reuters", year=2024, month=1)
 
@@ -171,12 +187,14 @@ def test_atomic_write_no_temp_left_behind(tmp_path: Path) -> None:
 
 def test_store_news_parquet_deterministic(tmp_path: Path) -> None:
     """Test that storing same data multiple times produces same result."""
-    df = pd.DataFrame({
-        "publish_ts": ["2024-01-15 10:00:00"],
-        "source": ["reuters"],
-        "headline": ["Test"],
-        "provider_id": ["123"],
-    })
+    df = pd.DataFrame(
+        {
+            "publish_ts": ["2024-01-15 10:00:00"],
+            "source": ["reuters"],
+            "headline": ["Test"],
+            "provider_id": ["123"],
+        }
+    )
 
     # Store twice
     store_news_parquet(df, tmp_path, "reuters", year=2024, month=1, mode="replace")
@@ -191,22 +209,30 @@ def test_store_news_parquet_deterministic(tmp_path: Path) -> None:
 
 def test_store_news_parquet_dedupe_keep_first(tmp_path: Path) -> None:
     """Test that dedupe_keep='first' is respected during append."""
-    df1 = pd.DataFrame({
-        "publish_ts": ["2024-01-15 10:00:00"],
-        "source": ["reuters"],
-        "headline": ["First"],
-        "provider_id": ["123"],
-    })
+    df1 = pd.DataFrame(
+        {
+            "publish_ts": ["2024-01-15 10:00:00"],
+            "source": ["reuters"],
+            "headline": ["First"],
+            "provider_id": ["123"],
+        }
+    )
 
-    df2 = pd.DataFrame({
-        "publish_ts": ["2024-01-15 10:00:00"],
-        "source": ["reuters"],
-        "headline": ["Second"],
-        "provider_id": ["123"],  # Same provider_id -> duplicate
-    })
+    df2 = pd.DataFrame(
+        {
+            "publish_ts": ["2024-01-15 10:00:00"],
+            "source": ["reuters"],
+            "headline": ["Second"],
+            "provider_id": ["123"],  # Same provider_id -> duplicate
+        }
+    )
 
-    store_news_parquet(df1, tmp_path, "reuters", year=2024, month=1, mode="append", dedupe_keep="first")
-    store_news_parquet(df2, tmp_path, "reuters", year=2024, month=1, mode="append", dedupe_keep="first")
+    store_news_parquet(
+        df1, tmp_path, "reuters", year=2024, month=1, mode="append", dedupe_keep="first"
+    )
+    store_news_parquet(
+        df2, tmp_path, "reuters", year=2024, month=1, mode="append", dedupe_keep="first"
+    )
 
     loaded = load_news_parquet(tmp_path, "reuters", year=2024, month=1)
     assert len(loaded) == 1
@@ -215,22 +241,30 @@ def test_store_news_parquet_dedupe_keep_first(tmp_path: Path) -> None:
 
 def test_store_news_parquet_dedupe_keep_last(tmp_path: Path) -> None:
     """Test that dedupe_keep='last' is respected during append."""
-    df1 = pd.DataFrame({
-        "publish_ts": ["2024-01-15 10:00:00"],
-        "source": ["reuters"],
-        "headline": ["First"],
-        "provider_id": ["123"],
-    })
+    df1 = pd.DataFrame(
+        {
+            "publish_ts": ["2024-01-15 10:00:00"],
+            "source": ["reuters"],
+            "headline": ["First"],
+            "provider_id": ["123"],
+        }
+    )
 
-    df2 = pd.DataFrame({
-        "publish_ts": ["2024-01-15 10:00:00"],
-        "source": ["reuters"],
-        "headline": ["Second"],
-        "provider_id": ["123"],  # Same provider_id -> duplicate
-    })
+    df2 = pd.DataFrame(
+        {
+            "publish_ts": ["2024-01-15 10:00:00"],
+            "source": ["reuters"],
+            "headline": ["Second"],
+            "provider_id": ["123"],  # Same provider_id -> duplicate
+        }
+    )
 
-    store_news_parquet(df1, tmp_path, "reuters", year=2024, month=1, mode="append", dedupe_keep="last")
-    store_news_parquet(df2, tmp_path, "reuters", year=2024, month=1, mode="append", dedupe_keep="last")
+    store_news_parquet(
+        df1, tmp_path, "reuters", year=2024, month=1, mode="append", dedupe_keep="last"
+    )
+    store_news_parquet(
+        df2, tmp_path, "reuters", year=2024, month=1, mode="append", dedupe_keep="last"
+    )
 
     loaded = load_news_parquet(tmp_path, "reuters", year=2024, month=1)
     assert len(loaded) == 1

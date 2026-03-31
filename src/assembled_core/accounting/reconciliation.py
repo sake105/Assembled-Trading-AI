@@ -71,12 +71,20 @@ def reconcile_ledger_vs_broker(
 
     # Validate required columns
     required_cols = ["symbol", "qty"]
-    missing_ledger = [col for col in required_cols if col not in ledger_positions_df.columns]
-    missing_broker = [col for col in required_cols if col not in broker_positions_df.columns]
+    missing_ledger = [
+        col for col in required_cols if col not in ledger_positions_df.columns
+    ]
+    missing_broker = [
+        col for col in required_cols if col not in broker_positions_df.columns
+    ]
     if missing_ledger:
-        raise ValueError(f"Missing required columns in ledger_positions_df: {missing_ledger}")
+        raise ValueError(
+            f"Missing required columns in ledger_positions_df: {missing_ledger}"
+        )
     if missing_broker:
-        raise ValueError(f"Missing required columns in broker_positions_df: {missing_broker}")
+        raise ValueError(
+            f"Missing required columns in broker_positions_df: {missing_broker}"
+        )
 
     # Normalize positions: trim symbols, deterministic sort
     ledger_normalized = ledger_positions_df.copy()
@@ -91,12 +99,20 @@ def reconcile_ledger_vs_broker(
     broker_normalized["qty"] = broker_normalized["qty"].astype(float)
 
     # Remove zero positions (threshold: qty_tol) - filter both sides consistently
-    ledger_normalized = ledger_normalized[ledger_normalized["qty"].abs() > qty_tol].copy()
-    broker_normalized = broker_normalized[broker_normalized["qty"].abs() > qty_tol].copy()
+    ledger_normalized = ledger_normalized[
+        ledger_normalized["qty"].abs() > qty_tol
+    ].copy()
+    broker_normalized = broker_normalized[
+        broker_normalized["qty"].abs() > qty_tol
+    ].copy()
 
     # Deterministic sort by symbol
-    ledger_normalized = ledger_normalized.sort_values("symbol", kind="mergesort").reset_index(drop=True)
-    broker_normalized = broker_normalized.sort_values("symbol", kind="mergesort").reset_index(drop=True)
+    ledger_normalized = ledger_normalized.sort_values(
+        "symbol", kind="mergesort"
+    ).reset_index(drop=True)
+    broker_normalized = broker_normalized.sort_values(
+        "symbol", kind="mergesort"
+    ).reset_index(drop=True)
 
     # Get symbol sets
     ledger_symbols = set(ledger_normalized["symbol"].unique())
@@ -125,38 +141,56 @@ def reconcile_ledger_vs_broker(
 
         # Only include if difference exceeds tolerance
         if abs(diff_qty) > qty_tol:
-            position_diffs_list.append({
-                "symbol": symbol,
-                "ledger_qty": ledger_qty,
-                "broker_qty": broker_qty,
-                "diff_qty": diff_qty,
-            })
+            position_diffs_list.append(
+                {
+                    "symbol": symbol,
+                    "ledger_qty": ledger_qty,
+                    "broker_qty": broker_qty,
+                    "diff_qty": diff_qty,
+                }
+            )
 
     # Build position_diffs_df
     if position_diffs_list:
         position_diffs_df = pd.DataFrame(position_diffs_list)
-        position_diffs_df = position_diffs_df.sort_values("symbol", kind="mergesort").reset_index(drop=True)
+        position_diffs_df = position_diffs_df.sort_values(
+            "symbol", kind="mergesort"
+        ).reset_index(drop=True)
     else:
-        position_diffs_df = pd.DataFrame(columns=["symbol", "ledger_qty", "broker_qty", "diff_qty"])
+        position_diffs_df = pd.DataFrame(
+            columns=["symbol", "ledger_qty", "broker_qty", "diff_qty"]
+        )
 
     # Determine overall match
-    positions_match = len(position_diffs_list) == 0 and len(missing_in_ledger) == 0 and len(missing_in_broker) == 0
+    positions_match = (
+        len(position_diffs_list) == 0
+        and len(missing_in_ledger) == 0
+        and len(missing_in_broker) == 0
+    )
     ok = cash_match and positions_match
 
     # Build message (include key differences for fail_fast)
     message_parts = []
     if not cash_match:
-        message_parts.append(f"Cash mismatch: diff={cash_diff:.6f} (ledger={ledger_cash:.6f}, broker={broker_cash:.6f})")
+        message_parts.append(
+            f"Cash mismatch: diff={cash_diff:.6f} (ledger={ledger_cash:.6f}, broker={broker_cash:.6f})"
+        )
     if len(position_diffs_list) > 0:
         # Include all symbols with mismatches (not just first 5)
         mismatch_symbols = sorted([d["symbol"] for d in position_diffs_list])
-        message_parts.append(f"Position qty mismatches: {len(position_diffs_list)} symbol(s): {mismatch_symbols}")
+        message_parts.append(
+            f"Position qty mismatches: {len(position_diffs_list)} symbol(s): {mismatch_symbols}"
+        )
     if len(missing_in_ledger) > 0:
         # missing_in_ledger is already sorted
-        message_parts.append(f"Missing in ledger: {len(missing_in_ledger)} symbol(s): {missing_in_ledger}")
+        message_parts.append(
+            f"Missing in ledger: {len(missing_in_ledger)} symbol(s): {missing_in_ledger}"
+        )
     if len(missing_in_broker) > 0:
         # missing_in_broker is already sorted
-        message_parts.append(f"Missing in broker: {len(missing_in_broker)} symbol(s): {missing_in_broker}")
+        message_parts.append(
+            f"Missing in broker: {len(missing_in_broker)} symbol(s): {missing_in_broker}"
+        )
 
     if ok:
         message = "Reconciliation OK: cash and positions match"

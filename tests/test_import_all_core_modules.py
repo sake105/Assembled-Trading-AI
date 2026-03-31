@@ -75,12 +75,15 @@ def test_import_all_core_modules() -> None:
             # Clear module cache to test fresh import
             if module_name in sys.modules:
                 del sys.modules[module_name]
-            
+
             # Attempt import
             __import__(module_name)
         except ImportError as e:
             error_msg = str(e)
-            if "circular" in error_msg.lower() or "partially initialized" in error_msg.lower():
+            if (
+                "circular" in error_msg.lower()
+                or "partially initialized" in error_msg.lower()
+            ):
                 circular_imports.append((module_name, error_msg))
             else:
                 import_errors.append((module_name, error_msg))
@@ -127,7 +130,10 @@ def test_import_package_init() -> None:
             __import__(module_name)
         except ImportError as e:
             error_msg = str(e)
-            if "circular" in error_msg.lower() or "partially initialized" in error_msg.lower():
+            if (
+                "circular" in error_msg.lower()
+                or "partially initialized" in error_msg.lower()
+            ):
                 import_errors.append((module_name, error_msg))
 
     if import_errors:

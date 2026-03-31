@@ -59,9 +59,17 @@ def simulate_with_costs(
             eq = pd.DataFrame({"timestamp": tl, "equity": equity, "cash": cash})
         else:
             ts = pd.date_range(end=pd.Timestamp.utcnow(), periods=60, freq=freq)
-            eq = pd.DataFrame({"timestamp": ts, "equity": float(start_capital), "cash": float(start_capital)})
+            eq = pd.DataFrame(
+                {
+                    "timestamp": ts,
+                    "equity": float(start_capital),
+                    "cash": float(start_capital),
+                }
+            )
         rep = {"final_pf": 1.0, "sharpe": float("nan"), "trades": 0}
-        trades_df = pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
+        trades_df = pd.DataFrame(
+            columns=["timestamp", "symbol", "side", "qty", "price"]
+        )
         return eq, rep, trades_df
 
     timeline_from_prices = False
@@ -87,12 +95,12 @@ def simulate_with_costs(
         from src.assembled_core.execution.fill_model_pipeline import (
             apply_fill_model_pipeline,
         )
-        
+
         # Apply fill model pipeline
         # For now, use default partial fill model (can be made configurable later)
         partial_fill_model = None  # Default: full fills (no ADV cap)
         # TODO: Make partial_fill_model configurable via cost_model or separate parameter
-        
+
         orders = apply_fill_model_pipeline(
             orders,
             prices=prices,
@@ -101,12 +109,12 @@ def simulate_with_costs(
             strict_session_gate=strict_session_gate,
             available_cash=start_capital,
         )
-    
+
     # Add cost columns to orders (commission_cash, spread_cash, slippage_cash, total_cost_cash)
     # Costs are now computed based on fill_qty (for partial/rejected fills)
     # Create commission model from legacy parameters
     commission_model = commission_model_from_cost_params(commission_bps=commission_bps)
-    
+
     # Create slippage model from legacy parameters (if impact_w > 0)
     # For now, map impact_w to slippage model (can be refined later)
     if slippage_model is None and impact_w > 0.0:
@@ -119,7 +127,7 @@ def simulate_with_costs(
             max_bps=50.0,
             fallback_slippage_bps=impact_w * 100.0,  # Convert to bps
         )
-    
+
     orders = add_cost_columns_to_trades(
         orders,
         commission_model=commission_model,
@@ -136,9 +144,13 @@ def simulate_with_costs(
     # Notional is now computed in add_cost_columns_to_trades based on fill_qty
     # For legacy compatibility, keep notional column (but it's not used for cash_delta)
     if "fill_qty" in orders.columns and "fill_price" in orders.columns:
-        orders["notional"] = (orders["fill_qty"].abs() * orders["fill_price"].abs()).astype(np.float64)
+        orders["notional"] = (
+            orders["fill_qty"].abs() * orders["fill_price"].abs()
+        ).astype(np.float64)
     else:
-        orders["notional"] = (orders["qty"].abs() * orders["price"].abs()).astype(np.float64)
+        orders["notional"] = (orders["qty"].abs() * orders["price"].abs()).astype(
+            np.float64
+        )
 
     # Update spread_cash and slippage_cash (for legacy compatibility)
     # Spread_cash and slippage_cash are already computed in add_cost_columns_to_trades()
@@ -147,12 +159,12 @@ def simulate_with_costs(
         # Legacy: use spread_w for spread_cash
         orders["spread_cash"] = orders["notional"] * s
     # Otherwise, spread_cash is already set from add_cost_columns_to_trades()
-    
+
     if slippage_model is None:
         # Legacy: use impact_w for slippage_cash
         orders["slippage_cash"] = orders["notional"] * im
     # Otherwise, slippage_cash is already set from add_cost_columns_to_trades()
-    
+
     orders["total_cost_cash"] = (
         orders["commission_cash"] + orders["spread_cash"] + orders["slippage_cash"]
     )
@@ -175,7 +187,10 @@ def simulate_with_costs(
         # Fallback: use qty and price (for backward compatibility if fill_qty not available)
         orders["cash_delta"] = np.where(
             orders["sign"] > 0,
-            -(orders["qty"] * orders["price"] * (1.0 + s + im) + orders["total_cost_cash"]),
+            -(
+                orders["qty"] * orders["price"] * (1.0 + s + im)
+                + orders["total_cost_cash"]
+            ),
             +(
                 orders["qty"].abs() * orders["price"] * (1.0 - s - im)
                 - orders["total_cost_cash"]
@@ -206,7 +221,8 @@ def simulate_with_costs(
     work = orders.copy()
     if "fill_qty" in work.columns and "side" in work.columns:
         _sign = np.where(
-            work["side"].astype(str).str.upper().eq("BUY"), 1.0,
+            work["side"].astype(str).str.upper().eq("BUY"),
+            1.0,
             np.where(work["side"].astype(str).str.upper().eq("SELL"), -1.0, 0.0),
         )
         work["signed_qty"] = work["fill_qty"].astype(float) * _sign
@@ -214,13 +230,22 @@ def simulate_with_costs(
         work["signed_qty"] = work["qty"].astype(float) * np.where(
             work["side"].astype(str).str.upper().eq("BUY"), 1.0, -1.0
         )
-    qty_deltas = work.pivot_table(
-        index="timestamp", columns="symbol", values="signed_qty", aggfunc="sum"
-    ).reindex(tl, fill_value=0.0).fillna(0.0)
+    qty_deltas = (
+        work.pivot_table(
+            index="timestamp", columns="symbol", values="signed_qty", aggfunc="sum"
+        )
+        .reindex(tl, fill_value=0.0)
+        .fillna(0.0)
+    )
     holdings = qty_deltas.cumsum()
 
     # Position value = holdings * close per bar (MTM)
-    if prices is not None and not prices.empty and "close" in prices.columns and "symbol" in prices.columns:
+    if (
+        prices is not None
+        and not prices.empty
+        and "close" in prices.columns
+        and "symbol" in prices.columns
+    ):
         prices_ts = pd.to_datetime(prices["timestamp"], utc=True)
         px = prices.pivot_table(
             index=prices_ts, columns="symbol", values="close", aggfunc="last"
@@ -231,7 +256,9 @@ def simulate_with_costs(
         if common:
             h = holdings[common].reindex(columns=px.columns).fillna(0.0)
             p = px.reindex(columns=h.columns).ffill().fillna(0.0)
-            pos_value = (h * p).sum(axis=1).reindex(tl).fillna(0.0).to_numpy(dtype=np.float64)
+            pos_value = (
+                (h * p).sum(axis=1).reindex(tl).fillna(0.0).to_numpy(dtype=np.float64)
+            )
         else:
             pos_value = np.zeros(len(tl), dtype=np.float64)
     else:
@@ -250,11 +277,11 @@ def simulate_with_costs(
         else float("nan")
     )
     rep = {"final_pf": pf, "sharpe": sharpe, "trades": int(len(orders))}
-    
+
     # Return trades DataFrame (with fill_qty, fill_price, status, costs)
     # This is the "trades" output that will be used for ledger generation
     trades_df = orders.copy()
-    
+
     return eq, rep, trades_df
 
 
@@ -290,7 +317,9 @@ def write_portfolio_report(
         eq_path.parent.mkdir(parents=True, exist_ok=True)
         equity.to_csv(eq_path, index=False)
     except (IOError, OSError) as exc:
-        raise RuntimeError(f"Failed to write portfolio equity CSV to {eq_path}") from exc
+        raise RuntimeError(
+            f"Failed to write portfolio equity CSV to {eq_path}"
+        ) from exc
 
     try:
         rep_path.parent.mkdir(parents=True, exist_ok=True)

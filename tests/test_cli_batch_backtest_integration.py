@@ -37,7 +37,7 @@ def test_batch_backtest_subcommand_help_output(tmp_path: Path, capsys) -> None:
     captured = capsys.readouterr()
     # Help output goes to stderr in argparse
     help_text = captured.err + captured.out
-    
+
     assert "--config-file" in help_text
     assert "--serial" in help_text
     assert "--dry-run" in help_text
@@ -77,7 +77,12 @@ runs:
             RunResult(
                 run_id="run1",
                 status="success",
-                output_dir=tmp_path / "output" / "smoke_test" / "runs" / "0000_run1" / "backtest",
+                output_dir=tmp_path
+                / "output"
+                / "smoke_test"
+                / "runs"
+                / "0000_run1"
+                / "backtest",
                 runtime_sec=1.0,
             ),
         ],
@@ -87,7 +92,8 @@ runs:
 
     # Mock the runner functions
     with patch(
-        "src.assembled_core.experiments.batch_runner.run_batch_serial", return_value=mock_result
+        "src.assembled_core.experiments.batch_runner.run_batch_serial",
+        return_value=mock_result,
     ) as mock_runner:
         from pathlib import Path as P
 
@@ -132,21 +138,23 @@ runs:
 
     # Test that parser can parse the subcommand
     parser = create_parser()
-    
+
     # Parse with required args
-    args = parser.parse_args([
-        "batch_backtest",
-        "--config-file", str(config_file),
-        "--serial",
-        "--dry-run",
-    ])
-    
+    args = parser.parse_args(
+        [
+            "batch_backtest",
+            "--config-file",
+            str(config_file),
+            "--serial",
+            "--dry-run",
+        ]
+    )
+
     # Verify parsed correctly
     assert args.config_file == config_file
     assert args.serial is True
     assert args.dry_run is True
-    
+
     # Verify function is set
     assert hasattr(args, "func")
     assert args.func == batch_backtest_subcommand
-

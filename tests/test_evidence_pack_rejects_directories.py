@@ -110,4 +110,3 @@ def test_optional_directory_treated_as_missing_optional(tmp_path: Path) -> None:
     assert "broker_snapshot_run" not in file_paths
     # Still must include the required ledger file
     assert "ledger_run/ledger_events.parquet" in file_paths
-

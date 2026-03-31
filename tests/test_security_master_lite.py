@@ -32,13 +32,15 @@ from src.assembled_core.data.security_master import (
 def test_load_store_roundtrip_parquet() -> None:
     """Test load/store roundtrip with parquet format."""
     # Create sample data
-    df = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "GOOGL"],
-        "sector": ["Technology", "Technology", "Technology"],
-        "region": ["US", "US", "US"],
-        "currency": ["USD", "USD", "USD"],
-        "asset_type": ["EQUITY", "EQUITY", "EQUITY"],
-    })
+    df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "GOOGL"],
+            "sector": ["Technology", "Technology", "Technology"],
+            "region": ["US", "US", "US"],
+            "currency": ["USD", "USD", "USD"],
+            "asset_type": ["EQUITY", "EQUITY", "EQUITY"],
+        }
+    )
 
     with tempfile.TemporaryDirectory() as tmpdir:
         path = Path(tmpdir) / "test.parquet"
@@ -60,13 +62,15 @@ def test_load_store_roundtrip_parquet() -> None:
 def test_load_store_roundtrip_csv() -> None:
     """Test load/store roundtrip with csv format."""
     # Create sample data
-    df = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "GOOGL"],
-        "sector": ["Technology", "Technology", "Technology"],
-        "region": ["US", "US", "US"],
-        "currency": ["USD", "USD", "USD"],
-        "asset_type": ["EQUITY", "EQUITY", "EQUITY"],
-    })
+    df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "GOOGL"],
+            "sector": ["Technology", "Technology", "Technology"],
+            "region": ["US", "US", "US"],
+            "currency": ["USD", "USD", "USD"],
+            "asset_type": ["EQUITY", "EQUITY", "EQUITY"],
+        }
+    )
 
     with tempfile.TemporaryDirectory() as tmpdir:
         path = Path(tmpdir) / "test.csv"
@@ -88,12 +92,14 @@ def test_load_store_roundtrip_csv() -> None:
 def test_load_missing_required_columns_raises_valueerror() -> None:
     """Test that loading with missing required columns raises ValueError."""
     # Create data with missing column
-    df = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "sector": ["Technology"],
-        "region": ["US"],
-        # Missing: currency, asset_type
-    })
+    df = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "sector": ["Technology"],
+            "region": ["US"],
+            # Missing: currency, asset_type
+        }
+    )
 
     with tempfile.TemporaryDirectory() as tmpdir:
         path = Path(tmpdir) / "test.parquet"
@@ -107,12 +113,14 @@ def test_load_missing_required_columns_raises_valueerror() -> None:
 def test_store_missing_required_columns_raises_valueerror() -> None:
     """Test that storing with missing required columns raises ValueError."""
     # Create data with missing column
-    df = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "sector": ["Technology"],
-        "region": ["US"],
-        # Missing: currency, asset_type
-    })
+    df = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "sector": ["Technology"],
+            "region": ["US"],
+            # Missing: currency, asset_type
+        }
+    )
 
     with tempfile.TemporaryDirectory() as tmpdir:
         path = Path(tmpdir) / "test.parquet"
@@ -125,13 +133,15 @@ def test_store_missing_required_columns_raises_valueerror() -> None:
 def test_resolve_missing_symbols_raises_valueerror_with_list() -> None:
     """Test that resolving missing symbols raises ValueError with missing list."""
     # Create master data
-    master_df = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "sector": ["Technology", "Technology"],
-        "region": ["US", "US"],
-        "currency": ["USD", "USD"],
-        "asset_type": ["EQUITY", "EQUITY"],
-    })
+    master_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "sector": ["Technology", "Technology"],
+            "region": ["US", "US"],
+            "currency": ["USD", "USD"],
+            "asset_type": ["EQUITY", "EQUITY"],
+        }
+    )
 
     # Try to resolve with missing symbol
     with pytest.raises(ValueError) as exc_info:
@@ -146,13 +156,15 @@ def test_resolve_missing_symbols_raises_valueerror_with_list() -> None:
 def test_resolve_missing_symbols_with_default_policy() -> None:
     """Test that resolving missing symbols with default policy uses defaults."""
     # Create master data
-    master_df = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "sector": ["Technology"],
-        "region": ["US"],
-        "currency": ["USD"],
-        "asset_type": ["EQUITY"],
-    })
+    master_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "sector": ["Technology"],
+            "region": ["US"],
+            "currency": ["USD"],
+            "asset_type": ["EQUITY"],
+        }
+    )
 
     # Resolve with missing symbol (default policy)
     result_df = resolve_security_meta(
@@ -184,13 +196,15 @@ def test_resolve_missing_symbols_with_default_policy() -> None:
 def test_deterministic_ordering_symbol_asc() -> None:
     """Test that results are deterministically sorted by symbol (ascending)."""
     # Create unsorted master data
-    master_df = pd.DataFrame({
-        "symbol": ["MSFT", "AAPL", "GOOGL"],
-        "sector": ["Technology", "Technology", "Technology"],
-        "region": ["US", "US", "US"],
-        "currency": ["USD", "USD", "USD"],
-        "asset_type": ["EQUITY", "EQUITY", "EQUITY"],
-    })
+    master_df = pd.DataFrame(
+        {
+            "symbol": ["MSFT", "AAPL", "GOOGL"],
+            "sector": ["Technology", "Technology", "Technology"],
+            "region": ["US", "US", "US"],
+            "currency": ["USD", "USD", "USD"],
+            "asset_type": ["EQUITY", "EQUITY", "EQUITY"],
+        }
+    )
 
     # Load should sort by symbol
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -208,13 +222,15 @@ def test_deterministic_ordering_symbol_asc() -> None:
 
 def test_atomic_write_no_tmp_left_behind() -> None:
     """Test that atomic write doesn't leave temp files behind."""
-    df = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "sector": ["Technology"],
-        "region": ["US"],
-        "currency": ["USD"],
-        "asset_type": ["EQUITY"],
-    })
+    df = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "sector": ["Technology"],
+            "region": ["US"],
+            "currency": ["USD"],
+            "asset_type": ["EQUITY"],
+        }
+    )
 
     with tempfile.TemporaryDirectory() as tmpdir:
         path = Path(tmpdir) / "test.parquet"
@@ -235,13 +251,15 @@ def test_atomic_write_no_tmp_left_behind() -> None:
 def test_string_normalization_strip() -> None:
     """Test that strings are normalized (strip whitespace)."""
     # Create data with whitespace
-    df = pd.DataFrame({
-        "symbol": [" AAPL ", " MSFT "],
-        "sector": [" Technology ", " Technology "],
-        "region": [" US ", " US "],
-        "currency": [" USD ", " USD "],
-        "asset_type": [" EQUITY ", " EQUITY "],
-    })
+    df = pd.DataFrame(
+        {
+            "symbol": [" AAPL ", " MSFT "],
+            "sector": [" Technology ", " Technology "],
+            "region": [" US ", " US "],
+            "currency": [" USD ", " USD "],
+            "asset_type": [" EQUITY ", " EQUITY "],
+        }
+    )
 
     with tempfile.TemporaryDirectory() as tmpdir:
         path = Path(tmpdir) / "test.parquet"
@@ -259,15 +277,17 @@ def test_string_normalization_strip() -> None:
 def test_optional_columns_preserved() -> None:
     """Test that optional columns are preserved if present."""
     # Create data with optional columns
-    df = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "sector": ["Technology"],
-        "region": ["US"],
-        "currency": ["USD"],
-        "asset_type": ["EQUITY"],
-        "exchange": ["NASDAQ"],
-        "timezone": ["America/New_York"],
-    })
+    df = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "sector": ["Technology"],
+            "region": ["US"],
+            "currency": ["USD"],
+            "asset_type": ["EQUITY"],
+            "exchange": ["NASDAQ"],
+            "timezone": ["America/New_York"],
+        }
+    )
 
     with tempfile.TemporaryDirectory() as tmpdir:
         path = Path(tmpdir) / "test.parquet"
@@ -283,13 +303,15 @@ def test_optional_columns_preserved() -> None:
 
 def test_resolve_all_symbols_present() -> None:
     """Test that resolve returns all requested symbols when all are present."""
-    master_df = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "GOOGL"],
-        "sector": ["Technology", "Technology", "Technology"],
-        "region": ["US", "US", "US"],
-        "currency": ["USD", "USD", "USD"],
-        "asset_type": ["EQUITY", "EQUITY", "EQUITY"],
-    })
+    master_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "GOOGL"],
+            "sector": ["Technology", "Technology", "Technology"],
+            "region": ["US", "US", "US"],
+            "currency": ["USD", "USD", "USD"],
+            "asset_type": ["EQUITY", "EQUITY", "EQUITY"],
+        }
+    )
 
     result_df = resolve_security_meta(["AAPL", "MSFT", "GOOGL"], master_df)
 
@@ -300,13 +322,15 @@ def test_resolve_all_symbols_present() -> None:
 
 def test_resolve_subset_of_symbols() -> None:
     """Test that resolve returns only requested symbols."""
-    master_df = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "GOOGL", "TSLA"],
-        "sector": ["Technology", "Technology", "Technology", "Consumer"],
-        "region": ["US", "US", "US", "US"],
-        "currency": ["USD", "USD", "USD", "USD"],
-        "asset_type": ["EQUITY", "EQUITY", "EQUITY", "EQUITY"],
-    })
+    master_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "GOOGL", "TSLA"],
+            "sector": ["Technology", "Technology", "Technology", "Consumer"],
+            "region": ["US", "US", "US", "US"],
+            "currency": ["USD", "USD", "USD", "USD"],
+            "asset_type": ["EQUITY", "EQUITY", "EQUITY", "EQUITY"],
+        }
+    )
 
     result_df = resolve_security_meta(["AAPL", "GOOGL"], master_df)
 

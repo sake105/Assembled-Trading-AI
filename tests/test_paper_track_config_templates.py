@@ -145,4 +145,3 @@ def test_config_templates_use_relative_paths() -> None:
         assert config.universe_file is not None
         # The path should be resolvable (even if file doesn't exist, path should be valid)
         assert isinstance(config.universe_file, Path)
-

@@ -45,6 +45,7 @@ def _canonical_float_str(value: float, precision: int = 10) -> str:
     # Format with fixed precision (no scientific notation)
     return f"{quantized:.{precision}f}"
 
+
 # Required columns for ledger events
 REQUIRED_COLUMNS = [
     "event_ts",
@@ -292,10 +293,10 @@ def events_from_trades(
         # Get fill info
         fill_qty_raw = row.get("fill_qty", row["qty"])
         fill_qty = float(fill_qty_raw) if pd.notna(fill_qty_raw) else 0.0
-        
+
         fill_price_raw = row.get("fill_price", row["price"])
         fill_price = float(fill_price_raw) if pd.notna(fill_price_raw) else None
-        
+
         status_raw = row.get("status", "filled")
         status = str(status_raw).lower() if pd.notna(status_raw) else "filled"
 
@@ -325,10 +326,26 @@ def events_from_trades(
             price = fill_price
 
             # Get costs (default to 0.0 if missing)
-            commission_cash = float(row.get("commission_cash", 0.0)) if pd.notna(row.get("commission_cash")) else 0.0
-            spread_cash = float(row.get("spread_cash", 0.0)) if pd.notna(row.get("spread_cash")) else 0.0
-            slippage_cash = float(row.get("slippage_cash", 0.0)) if pd.notna(row.get("slippage_cash")) else 0.0
-            total_cost_cash = float(row.get("total_cost_cash", 0.0)) if pd.notna(row.get("total_cost_cash")) else 0.0
+            commission_cash = (
+                float(row.get("commission_cash", 0.0))
+                if pd.notna(row.get("commission_cash"))
+                else 0.0
+            )
+            spread_cash = (
+                float(row.get("spread_cash", 0.0))
+                if pd.notna(row.get("spread_cash"))
+                else 0.0
+            )
+            slippage_cash = (
+                float(row.get("slippage_cash", 0.0))
+                if pd.notna(row.get("slippage_cash"))
+                else 0.0
+            )
+            total_cost_cash = (
+                float(row.get("total_cost_cash", 0.0))
+                if pd.notna(row.get("total_cost_cash"))
+                else 0.0
+            )
 
             # Calculate cash_delta
             # BUY: -(fill_qty * fill_price + total_cost_cash)
@@ -339,7 +356,7 @@ def events_from_trades(
                     "fill_price is None for FILL event, using order price as fallback"
                 )
                 fill_price = float(row["price"]) if pd.notna(row["price"]) else 0.0
-            
+
             if row["side"] == "BUY":
                 cash_delta = -(abs(fill_qty) * fill_price + total_cost_cash)
             elif row["side"] == "SELL":

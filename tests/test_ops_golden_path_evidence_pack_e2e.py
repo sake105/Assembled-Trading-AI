@@ -64,7 +64,9 @@ def test_ops_golden_path_evidence_pack_e2e(tmp_path: Path) -> None:
         text=True,
         cwd=str(ROOT),
     )
-    assert proc.returncode == 0, f"import failed: stdout={proc.stdout} stderr={proc.stderr}"
+    assert (
+        proc.returncode == 0
+    ), f"import failed: stdout={proc.stdout} stderr={proc.stderr}"
 
     # Step 2: Minimal ledger build that requires the imported snapshot + writes evidence pack
     ts = pd.Timestamp(f"{as_of_date}T00:00:00Z")
@@ -105,7 +107,9 @@ def test_ops_golden_path_evidence_pack_e2e(tmp_path: Path) -> None:
 
     # Step 3: Assert ZIP exists + offline verify ok
     pack_rel = ledger_result.get("evidence_pack_path")
-    assert isinstance(pack_rel, str) and pack_rel, f"missing evidence_pack_path: {ledger_result}"
+    assert (
+        isinstance(pack_rel, str) and pack_rel
+    ), f"missing evidence_pack_path: {ledger_result}"
     zip_path = output_dir / pack_rel
     assert zip_path.exists(), f"expected evidence pack zip: {zip_path}"
 
@@ -117,7 +121,9 @@ def test_ops_golden_path_evidence_pack_e2e(tmp_path: Path) -> None:
         manifest_names = [
             n
             for n in zf.namelist()
-            if n.startswith("pack_manifest_") and n.endswith(".json") and "/" not in n.strip("/")
+            if n.startswith("pack_manifest_")
+            and n.endswith(".json")
+            and "/" not in n.strip("/")
         ]
         assert manifest_names, "expected pack_manifest_*.json in ZIP root"
         manifest_name = sorted(manifest_names)[0]

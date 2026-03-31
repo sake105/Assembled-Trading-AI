@@ -132,7 +132,9 @@ def test_require_with_wrong_namespace_raises(tmp_path: Path) -> None:
         assert "as_of_date=2025-01-15" in msg
         assert str(expected_base) in msg
     else:
-        raise AssertionError("Expected ValueError for missing snapshot in wrong namespace")
+        raise AssertionError(
+            "Expected ValueError for missing snapshot in wrong namespace"
+        )
 
 
 def test_prefer_with_wrong_namespace_falls_back_to_paper_view(tmp_path: Path) -> None:
@@ -203,4 +205,3 @@ def test_default_namespace_uses_ledger_run_id_when_none(tmp_path: Path) -> None:
     assert broker_meta.get("broker_view_source") == "stored_snapshot"
     # Finalized namespace should be the ledger run_id
     assert broker_meta.get("broker_snapshot_run_id") == ledger_run_id
-

@@ -16,7 +16,9 @@ def _safe_float(x: Any) -> float | None:
         return None
 
 
-def _collect_equity_curve(output_root: Path, dates: list[str]) -> list[tuple[str, float]]:
+def _collect_equity_curve(
+    output_root: Path, dates: list[str]
+) -> list[tuple[str, float]]:
     """Collect (date, equity) one point per day: last point from ledger_state or ledger_snapshot."""
     out: list[tuple[str, float]] = []
     for d in dates:
@@ -45,7 +47,9 @@ def _collect_equity_curve(output_root: Path, dates: list[str]) -> list[tuple[str
     return out
 
 
-def _total_return_and_drawdown(equity_values: list[float]) -> tuple[float | None, float | None]:
+def _total_return_and_drawdown(
+    equity_values: list[float],
+) -> tuple[float | None, float | None]:
     if not equity_values or len(equity_values) < 2:
         return None, None
     start_val = equity_values[0]
@@ -97,7 +101,12 @@ def build_paper_summary(output_root: str | Path, dates: list[str]) -> dict[str, 
     final_multipliers: list[float] = []
     turnover_scale_factors: list[float] = []
     risk_states: list[Any] = []
-    state_distribution: dict[str, int] = {"WATCH": 0, "ACTIVE": 0, "COOLDOWN": 0, "PAUSE": 0}
+    state_distribution: dict[str, int] = {
+        "WATCH": 0,
+        "ACTIVE": 0,
+        "COOLDOWN": 0,
+        "PAUSE": 0,
+    }
     reason_counts: dict[str, int] = {}
     alerts_by_level: dict[str, int] = {}
     alerts_by_kind: dict[str, int] = {}
@@ -118,9 +127,17 @@ def build_paper_summary(output_root: str | Path, dates: list[str]) -> dict[str, 
                 rs = kpis.get("risk_state")
                 if rs is not None:
                     risk_states.append(rs)
-                    state = (rs.get("state") if isinstance(rs, dict) else getattr(rs, "state", None)) or ""
+                    state = (
+                        rs.get("state")
+                        if isinstance(rs, dict)
+                        else getattr(rs, "state", None)
+                    ) or ""
                     state_distribution[state] = state_distribution.get(state, 0) + 1
-                    reason = (rs.get("reason") if isinstance(rs, dict) else getattr(rs, "reason", None)) or ""
+                    reason = (
+                        rs.get("reason")
+                        if isinstance(rs, dict)
+                        else getattr(rs, "reason", None)
+                    ) or ""
                     if reason:
                         reason_counts[reason] = reason_counts.get(reason, 0) + 1
             except Exception:
@@ -151,8 +168,14 @@ def build_paper_summary(output_root: str | Path, dates: list[str]) -> dict[str, 
         for st, count in state_distribution.items():
             risk_state_pct[st] = round(count / n_dates, 4)
 
-    avg_final_multiplier = (sum(final_multipliers) / len(final_multipliers)) if final_multipliers else None
-    avg_turnover_scale_factor = (sum(turnover_scale_factors) / len(turnover_scale_factors)) if turnover_scale_factors else None
+    avg_final_multiplier = (
+        (sum(final_multipliers) / len(final_multipliers)) if final_multipliers else None
+    )
+    avg_turnover_scale_factor = (
+        (sum(turnover_scale_factors) / len(turnover_scale_factors))
+        if turnover_scale_factors
+        else None
+    )
 
     summary: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,

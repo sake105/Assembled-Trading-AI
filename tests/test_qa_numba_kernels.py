@@ -160,8 +160,13 @@ def test_equity_mark_to_market_nan_prices() -> None:
 
 
 @pytest.mark.skipif(
-    not hasattr(__import__("src.assembled_core.qa.numba_kernels", fromlist=["NUMBA_AVAILABLE"]), "NUMBA_AVAILABLE")
-    or not __import__("src.assembled_core.qa.numba_kernels", fromlist=["NUMBA_AVAILABLE"]).NUMBA_AVAILABLE,
+    not hasattr(
+        __import__("src.assembled_core.qa.numba_kernels", fromlist=["NUMBA_AVAILABLE"]),
+        "NUMBA_AVAILABLE",
+    )
+    or not __import__(
+        "src.assembled_core.qa.numba_kernels", fromlist=["NUMBA_AVAILABLE"]
+    ).NUMBA_AVAILABLE,
     reason="Numba not available",
 )
 def test_numba_kernels_direct() -> None:
@@ -196,4 +201,3 @@ def test_numba_kernels_import_without_numba() -> None:
     # NUMBA_AVAILABLE should be False if Numba is not installed
     # (but the import should still work)
     assert isinstance(NUMBA_AVAILABLE, bool)
-

@@ -73,7 +73,9 @@ def compute_group_exposures(
 
     # Validate required columns in exposures_df
     required_exposure_cols = ["symbol", "notional", "weight"]
-    missing_cols = [col for col in required_exposure_cols if col not in exposures_df.columns]
+    missing_cols = [
+        col for col in required_exposure_cols if col not in exposures_df.columns
+    ]
     if missing_cols:
         raise ValueError(
             f"exposures_df missing required columns: {missing_cols}. "
@@ -127,24 +129,36 @@ def compute_group_exposures(
             equity = 1.0  # Default fallback to avoid division by zero
 
     # Aggregate by group
-    group_agg = merged_df.groupby(group_col, as_index=False).agg({
-        "notional": ["sum", lambda x: x.abs().sum()],  # net, gross
-        "symbol": "count",  # n_symbols
-    })
+    group_agg = merged_df.groupby(group_col, as_index=False).agg(
+        {
+            "notional": ["sum", lambda x: x.abs().sum()],  # net, gross
+            "symbol": "count",  # n_symbols
+        }
+    )
 
     # Flatten column names
     group_agg.columns = ["group_value", "net_exposure", "gross_exposure", "n_symbols"]
 
     # Compute weights
     group_agg["net_weight"] = group_agg["net_exposure"] / equity if equity > 0 else 0.0
-    group_agg["gross_weight"] = group_agg["gross_exposure"] / equity if equity > 0 else 0.0
+    group_agg["gross_weight"] = (
+        group_agg["gross_exposure"] / equity if equity > 0 else 0.0
+    )
 
     # Add group_type column
     group_agg["group_type"] = group_col
 
     # Reorder columns: group_type, group_value, then metrics
     group_exposures_df = group_agg[
-        ["group_type", "group_value", "net_exposure", "gross_exposure", "net_weight", "gross_weight", "n_symbols"]
+        [
+            "group_type",
+            "group_value",
+            "net_exposure",
+            "gross_exposure",
+            "net_weight",
+            "gross_weight",
+            "n_symbols",
+        ]
     ].copy()
 
     # Deterministic sorting: group_type, group_value (ascending)
@@ -155,8 +169,16 @@ def compute_group_exposures(
     # Compute summary
     summary = GroupExposureSummary(
         total_groups=len(group_exposures_df),
-        max_gross_weight=group_exposures_df["gross_weight"].max() if len(group_exposures_df) > 0 else 0.0,
-        max_net_weight=group_exposures_df["net_weight"].abs().max() if len(group_exposures_df) > 0 else 0.0,
+        max_gross_weight=(
+            group_exposures_df["gross_weight"].max()
+            if len(group_exposures_df) > 0
+            else 0.0
+        ),
+        max_net_weight=(
+            group_exposures_df["net_weight"].abs().max()
+            if len(group_exposures_df) > 0
+            else 0.0
+        ),
         total_gross_exposure=group_exposures_df["gross_exposure"].sum(),
         total_net_exposure=group_exposures_df["net_exposure"].sum(),
     )

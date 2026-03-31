@@ -219,12 +219,12 @@ def check_orders(freq: str, output_dir: Path | None = None) -> QaCheckResult:
                 "file": str(orders_file),
                 "rows": len(df),
                 "symbols": int(df["symbol"].nunique()) if "symbol" in df.columns else 0,
-                "first": str(df["timestamp"].min())
-                if "timestamp" in df.columns
-                else None,
-                "last": str(df["timestamp"].max())
-                if "timestamp" in df.columns
-                else None,
+                "first": (
+                    str(df["timestamp"].min()) if "timestamp" in df.columns else None
+                ),
+                "last": (
+                    str(df["timestamp"].max()) if "timestamp" in df.columns else None
+                ),
             },
         )
 
@@ -332,12 +332,12 @@ def check_portfolio(freq: str, output_dir: Path | None = None) -> QaCheckResult:
                 "rows": len(df),
                 "equity_min": float(df["equity"].min()),
                 "equity_max": float(df["equity"].max()),
-                "first": str(df["timestamp"].min())
-                if "timestamp" in df.columns
-                else None,
-                "last": str(df["timestamp"].max())
-                if "timestamp" in df.columns
-                else None,
+                "first": (
+                    str(df["timestamp"].min()) if "timestamp" in df.columns else None
+                ),
+                "last": (
+                    str(df["timestamp"].max()) if "timestamp" in df.columns else None
+                ),
             },
         )
 

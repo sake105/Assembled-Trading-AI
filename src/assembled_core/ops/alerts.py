@@ -71,24 +71,34 @@ def compute_alerts(
 
     thresholds = alerts_cfg.get("thresholds") or {}
     final_multiplier_drop = _safe_float(thresholds.get("final_multiplier_drop")) or 0.20
-    abs_delta_weight_sum_thr = _safe_float(thresholds.get("abs_delta_weight_sum")) or 0.20
-    turnover_scale_factor_below = _safe_float(thresholds.get("turnover_scale_factor_below")) or 0.70
+    abs_delta_weight_sum_thr = (
+        _safe_float(thresholds.get("abs_delta_weight_sum")) or 0.20
+    )
+    turnover_scale_factor_below = (
+        _safe_float(thresholds.get("turnover_scale_factor_below")) or 0.70
+    )
     max_severity_ge = int(thresholds.get("max_severity_ge", 2))
 
-    severity_map = alerts_cfg.get("severity_map") or {"info": 0, "warn": 1, "critical": 2}
+    severity_map = alerts_cfg.get("severity_map") or {
+        "info": 0,
+        "warn": 1,
+        "critical": 2,
+    }
     generated_utc = run_kpis.get("generated_utc") or diff.get("generated_utc") or ""
 
     # 1) NO_PREV
     notes = diff.get("notes") or []
     if "no_prev_run_found" in notes:
         msg = "No previous run found; diff baseline unavailable."
-        alerts.append({
-            "alert_id": _make_alert_id("NO_PREV", msg, generated_utc),
-            "level": "info",
-            "kind": "NO_PREV",
-            "message": msg,
-            "details": {"notes": notes},
-        })
+        alerts.append(
+            {
+                "alert_id": _make_alert_id("NO_PREV", msg, generated_utc),
+                "level": "info",
+                "kind": "NO_PREV",
+                "message": msg,
+                "details": {"notes": notes},
+            }
+        )
 
     # 2) QC_DEGRADED
     qc_flags = reasons.get("qc_flags")
@@ -97,13 +107,15 @@ def compute_alerts(
         or (isinstance(qc_flags, dict) and len(qc_flags) > 0)
     ):
         msg = "QC/intel flags present; data quality may be degraded."
-        alerts.append({
-            "alert_id": _make_alert_id("QC_DEGRADED", msg, generated_utc),
-            "level": "warn",
-            "kind": "QC_DEGRADED",
-            "message": msg,
-            "details": {"qc_flags": qc_flags},
-        })
+        alerts.append(
+            {
+                "alert_id": _make_alert_id("QC_DEGRADED", msg, generated_utc),
+                "level": "warn",
+                "kind": "QC_DEGRADED",
+                "message": msg,
+                "details": {"qc_flags": qc_flags},
+            }
+        )
 
     # 3) STATE_CHANGE
     delta_risk = diff.get("delta_risk_state")
@@ -112,16 +124,22 @@ def compute_alerts(
         curr_risk = delta_risk.get("curr")
         prev_state = _state_from_risk(prev_risk)
         curr_state = _state_from_risk(curr_risk)
-        if prev_state is not None and curr_state is not None and prev_state != curr_state:
+        if (
+            prev_state is not None
+            and curr_state is not None
+            and prev_state != curr_state
+        ):
             level = "critical" if curr_state == "PAUSE" else "warn"
             msg = f"Risk state changed from {prev_state} to {curr_state}."
-            alerts.append({
-                "alert_id": _make_alert_id("STATE_CHANGE", msg, generated_utc),
-                "level": level,
-                "kind": "STATE_CHANGE",
-                "message": msg,
-                "details": {"prev_state": prev_state, "curr_state": curr_state},
-            })
+            alerts.append(
+                {
+                    "alert_id": _make_alert_id("STATE_CHANGE", msg, generated_utc),
+                    "level": level,
+                    "kind": "STATE_CHANGE",
+                    "message": msg,
+                    "details": {"prev_state": prev_state, "curr_state": curr_state},
+                }
+            )
 
     # 4) UNDERINVESTED
     delta_mult = diff.get("delta_multipliers") or {}
@@ -130,26 +148,33 @@ def compute_alerts(
         delta = _safe_float(fem.get("delta"))
         if delta is not None and delta <= -final_multiplier_drop:
             msg = f"Final exposure multiplier dropped by {abs(delta):.2f} (threshold {final_multiplier_drop})."
-            alerts.append({
-                "alert_id": _make_alert_id("UNDERINVESTED", msg, generated_utc),
-                "level": "warn",
-                "kind": "UNDERINVESTED",
-                "message": msg,
-                "details": {"delta": delta, "threshold": final_multiplier_drop},
-            })
+            alerts.append(
+                {
+                    "alert_id": _make_alert_id("UNDERINVESTED", msg, generated_utc),
+                    "level": "warn",
+                    "kind": "UNDERINVESTED",
+                    "message": msg,
+                    "details": {"delta": delta, "threshold": final_multiplier_drop},
+                }
+            )
 
     # 5) TURNOVER_SPIKE
     summary = diff.get("summary") or {}
     abs_delta_sum = _safe_float(summary.get("abs_delta_weight_sum"))
     if abs_delta_sum is not None and abs_delta_sum >= abs_delta_weight_sum_thr:
         msg = f"Turnover proxy abs_delta_weight_sum={abs_delta_sum:.2f} >= {abs_delta_weight_sum_thr}."
-        alerts.append({
-            "alert_id": _make_alert_id("TURNOVER_SPIKE", msg, generated_utc),
-            "level": "warn",
-            "kind": "TURNOVER_SPIKE",
-            "message": msg,
-            "details": {"abs_delta_weight_sum": abs_delta_sum, "threshold": abs_delta_weight_sum_thr},
-        })
+        alerts.append(
+            {
+                "alert_id": _make_alert_id("TURNOVER_SPIKE", msg, generated_utc),
+                "level": "warn",
+                "kind": "TURNOVER_SPIKE",
+                "message": msg,
+                "details": {
+                    "abs_delta_weight_sum": abs_delta_sum,
+                    "threshold": abs_delta_weight_sum_thr,
+                },
+            }
+        )
 
     # 6) TURNOVER_GATE
     turnover_budget = run_kpis.get("turnover_budget") or {}
@@ -160,22 +185,30 @@ def compute_alerts(
         msg = f"Turnover scale factor {scale_factor:.2f} below {turnover_scale_factor_below}."
         if behavior == "block":
             msg = "Turnover gate blocking; scale factor below threshold."
-        alerts.append({
-            "alert_id": _make_alert_id("TURNOVER_GATE", msg, generated_utc),
-            "level": level,
-            "kind": "TURNOVER_GATE",
-            "message": msg,
-            "details": {"scale_factor": scale_factor, "threshold": turnover_scale_factor_below, "behavior": behavior},
-        })
+        alerts.append(
+            {
+                "alert_id": _make_alert_id("TURNOVER_GATE", msg, generated_utc),
+                "level": level,
+                "kind": "TURNOVER_GATE",
+                "message": msg,
+                "details": {
+                    "scale_factor": scale_factor,
+                    "threshold": turnover_scale_factor_below,
+                    "behavior": behavior,
+                },
+            }
+        )
     elif behavior == "block":
         msg = "Turnover gate behavior is block."
-        alerts.append({
-            "alert_id": _make_alert_id("TURNOVER_GATE", msg, generated_utc),
-            "level": "critical",
-            "kind": "TURNOVER_GATE",
-            "message": msg,
-            "details": {"behavior": behavior},
-        })
+        alerts.append(
+            {
+                "alert_id": _make_alert_id("TURNOVER_GATE", msg, generated_utc),
+                "level": "critical",
+                "kind": "TURNOVER_GATE",
+                "message": msg,
+                "details": {"behavior": behavior},
+            }
+        )
 
     # 7) HIGH_TRIGGERS
     triggers_summary = run_kpis.get("triggers_summary") or {}
@@ -188,13 +221,15 @@ def compute_alerts(
         if ms >= max_severity_ge:
             level = "warn" if ms >= 2 else "info"
             msg = f"Triggers max_severity={ms} >= {max_severity_ge}."
-            alerts.append({
-                "alert_id": _make_alert_id("HIGH_TRIGGERS", msg, generated_utc),
-                "level": level,
-                "kind": "HIGH_TRIGGERS",
-                "message": msg,
-                "details": {"max_severity": ms, "threshold": max_severity_ge},
-            })
+            alerts.append(
+                {
+                    "alert_id": _make_alert_id("HIGH_TRIGGERS", msg, generated_utc),
+                    "level": level,
+                    "kind": "HIGH_TRIGGERS",
+                    "message": msg,
+                    "details": {"max_severity": ms, "threshold": max_severity_ge},
+                }
+            )
 
     # Deterministic sort: level severity desc, kind, alert_id
     def sort_key(a: dict[str, Any]) -> tuple[int, str, str]:

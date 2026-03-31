@@ -60,25 +60,37 @@ def _parse_rss_xml(content: bytes, max_items: int) -> List[Dict[str, Any]]:
         entries = root.findall(".//{http://www.w3.org/2005/Atom}entry")
 
     for entry in entries[:max_items]:
-        title_el = entry.find("atom:title", ns) or entry.find("{http://www.w3.org/2005/Atom}title")
+        title_el = entry.find("atom:title", ns) or entry.find(
+            "{http://www.w3.org/2005/Atom}title"
+        )
         title = _get_text(title_el)
 
         link = ""
-        for link_el in entry.findall("atom:link", ns) or entry.findall("{http://www.w3.org/2005/Atom}link"):
+        for link_el in entry.findall("atom:link", ns) or entry.findall(
+            "{http://www.w3.org/2005/Atom}link"
+        ):
             href = link_el.get("href") or ""
             if href and (link_el.get("type") or "").find("pdf") >= 0:
                 link = href.strip()
                 break
         if not link:
-            link_el = entry.find("atom:link", ns) or entry.find("{http://www.w3.org/2005/Atom}link")
+            link_el = entry.find("atom:link", ns) or entry.find(
+                "{http://www.w3.org/2005/Atom}link"
+            )
             link = (link_el.get("href") or "").strip() if link_el is not None else ""
 
-        published_el = entry.find("atom:published", ns) or entry.find("atom:updated", ns)
+        published_el = entry.find("atom:published", ns) or entry.find(
+            "atom:updated", ns
+        )
         if published_el is None:
-            published_el = entry.find("{http://www.w3.org/2005/Atom}published") or entry.find("{http://www.w3.org/2005/Atom}updated")
+            published_el = entry.find(
+                "{http://www.w3.org/2005/Atom}published"
+            ) or entry.find("{http://www.w3.org/2005/Atom}updated")
         published = _get_text(published_el)
 
-        doc_id = _best_effort_doc_id(link) or _get_text(entry.find("atom:id", ns) or entry.find("{http://www.w3.org/2005/Atom}id"))
+        doc_id = _best_effort_doc_id(link) or _get_text(
+            entry.find("atom:id", ns) or entry.find("{http://www.w3.org/2005/Atom}id")
+        )
         person = _best_effort_person_from_title(title)
 
         raw_item: Dict[str, Any] = {
@@ -120,6 +132,7 @@ def _parse_rss_xml(content: bytes, max_items: int) -> List[Dict[str, Any]]:
 def _parse_json_list(content: bytes, max_items: int) -> List[Dict[str, Any]]:
     """Best-effort parse JSON list or object with items array."""
     import json
+
     items: List[Dict[str, Any]] = []
     try:
         text = content.decode("utf-8", errors="replace").strip()
@@ -130,35 +143,63 @@ def _parse_json_list(content: bytes, max_items: int) -> List[Dict[str, Any]]:
             for entry in data[:max_items]:
                 if isinstance(entry, dict):
                     title = str(entry.get("title") or entry.get("name") or "").strip()
-                    link = str(entry.get("link") or entry.get("url") or entry.get("href") or "").strip()
-                    published = str(entry.get("published") or entry.get("updated") or entry.get("date") or "").strip()
-                    doc_id = _best_effort_doc_id(link) or str(entry.get("id") or "").strip()
-                    person = _best_effort_person_from_title(title) or str(entry.get("person") or entry.get("author") or "").strip()
-                    items.append({
-                        "title": title,
-                        "link": link,
-                        "published": published,
-                        "person": person or None,
-                        "doc_id": doc_id or None,
-                        "raw": dict(entry),
-                    })
+                    link = str(
+                        entry.get("link") or entry.get("url") or entry.get("href") or ""
+                    ).strip()
+                    published = str(
+                        entry.get("published")
+                        or entry.get("updated")
+                        or entry.get("date")
+                        or ""
+                    ).strip()
+                    doc_id = (
+                        _best_effort_doc_id(link) or str(entry.get("id") or "").strip()
+                    )
+                    person = (
+                        _best_effort_person_from_title(title)
+                        or str(entry.get("person") or entry.get("author") or "").strip()
+                    )
+                    items.append(
+                        {
+                            "title": title,
+                            "link": link,
+                            "published": published,
+                            "person": person or None,
+                            "doc_id": doc_id or None,
+                            "raw": dict(entry),
+                        }
+                    )
         elif isinstance(data, dict):
             arr = data.get("items") or data.get("entries") or data.get("data") or []
             for entry in (arr if isinstance(arr, list) else [])[:max_items]:
                 if isinstance(entry, dict):
                     title = str(entry.get("title") or entry.get("name") or "").strip()
-                    link = str(entry.get("link") or entry.get("url") or entry.get("href") or "").strip()
-                    published = str(entry.get("published") or entry.get("updated") or entry.get("date") or "").strip()
-                    doc_id = _best_effort_doc_id(link) or str(entry.get("id") or "").strip()
-                    person = _best_effort_person_from_title(title) or str(entry.get("person") or entry.get("author") or "").strip()
-                    items.append({
-                        "title": title,
-                        "link": link,
-                        "published": published,
-                        "person": person or None,
-                        "doc_id": doc_id or None,
-                        "raw": dict(entry),
-                    })
+                    link = str(
+                        entry.get("link") or entry.get("url") or entry.get("href") or ""
+                    ).strip()
+                    published = str(
+                        entry.get("published")
+                        or entry.get("updated")
+                        or entry.get("date")
+                        or ""
+                    ).strip()
+                    doc_id = (
+                        _best_effort_doc_id(link) or str(entry.get("id") or "").strip()
+                    )
+                    person = (
+                        _best_effort_person_from_title(title)
+                        or str(entry.get("person") or entry.get("author") or "").strip()
+                    )
+                    items.append(
+                        {
+                            "title": title,
+                            "link": link,
+                            "published": published,
+                            "person": person or None,
+                            "doc_id": doc_id or None,
+                            "raw": dict(entry),
+                        }
+                    )
     except Exception:
         pass
     return items
@@ -211,6 +252,7 @@ def _download_pdf(url: str, dest_path: Path, user_agent: str, timeout_s: float) 
     """Download PDF to dest_path. Returns True on success."""
     try:
         import requests
+
         resp = requests.get(url, headers={"User-Agent": user_agent}, timeout=timeout_s)
         if resp.status_code == 200 and resp.content:
             dest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -230,12 +272,16 @@ def fetch_house_ptr_filings(
     import requests
 
     index_url = str(cfg.get("index_url") or "").strip()
-    user_agent = str(cfg.get("user_agent") or "Assembled-Trading-AI/Disclosures-v1").strip()
+    user_agent = str(
+        cfg.get("user_agent") or "Assembled-Trading-AI/Disclosures-v1"
+    ).strip()
     timeout_s = float(cfg.get("timeout_s", 15.0))
     cache_minutes = float(cfg.get("cache_minutes", 60))
     stale_on_error_minutes = float(cfg.get("stale_on_error_minutes", 240))
     download_pdfs = bool(cfg.get("download_pdfs", False))
-    download_dir = str(cfg.get("download_dir") or "output/intel/disclosures/raw/house_ptr").strip()
+    download_dir = str(
+        cfg.get("download_dir") or "output/intel/disclosures/raw/house_ptr"
+    ).strip()
     max_items = int(cfg.get("max_items", 50))
 
     items: List[Dict[str, Any]] = []
@@ -261,6 +307,7 @@ def fetch_house_ptr_filings(
         if cached_items is not None and cached_utc:
             try:
                 from datetime import datetime, timezone, timedelta
+
                 then = datetime.fromisoformat(cached_utc.replace("Z", "+00:00"))
                 now = datetime.now(timezone.utc)
                 if (now - then) <= timedelta(minutes=cache_minutes):
@@ -283,6 +330,7 @@ def fetch_house_ptr_filings(
             if cached_items is not None and cached_utc:
                 try:
                     from datetime import datetime, timezone, timedelta
+
                     then = datetime.fromisoformat(cached_utc.replace("Z", "+00:00"))
                     now = datetime.now(timezone.utc)
                     if (now - then) <= timedelta(minutes=stale_on_error_minutes):
@@ -307,7 +355,11 @@ def fetch_house_ptr_filings(
         stats["duration_ms"] = duration_ms
 
         if resp.status_code != 200:
-            failure = {"source": source_id, "reason": "http_error", "status": resp.status_code}
+            failure = {
+                "source": source_id,
+                "reason": "http_error",
+                "status": resp.status_code,
+            }
             stats["error"] = f"http_{resp.status_code}"
             # Stale-on-error
             if fetch_state and isinstance(fetch_state, dict):
@@ -316,6 +368,7 @@ def fetch_house_ptr_filings(
                 if cached_items is not None and cached_utc:
                     try:
                         from datetime import datetime, timezone, timedelta
+
                         then = datetime.fromisoformat(cached_utc.replace("Z", "+00:00"))
                         now = datetime.now(timezone.utc)
                         if (now - then) <= timedelta(minutes=stale_on_error_minutes):
@@ -329,8 +382,12 @@ def fetch_house_ptr_filings(
             return items, failure, stats
 
         content = resp.content
-        text_preview = (content[:100].decode("utf-8", errors="replace") if content else "").strip()
-        if text_preview.lstrip().startswith("<?xml") or text_preview.lstrip().startswith("<"):
+        text_preview = (
+            content[:100].decode("utf-8", errors="replace") if content else ""
+        ).strip()
+        if text_preview.lstrip().startswith(
+            "<?xml"
+        ) or text_preview.lstrip().startswith("<"):
             items = _parse_rss_xml(content, max_items)
         else:
             items = _parse_json_list(content, max_items)
@@ -358,6 +415,7 @@ def fetch_house_ptr_filings(
         pdf_meta_cfg = cfg.get("pdf_meta") or {}
         if isinstance(pdf_meta_cfg, dict) and pdf_meta_cfg.get("enabled", True):
             from datetime import datetime, timezone
+
             fetched_utc = datetime.now(timezone.utc).isoformat()
             for it in items:
                 lp = it.get("local_path")
@@ -380,7 +438,9 @@ def fetch_house_ptr_filings(
     except requests.RequestException as e:
         duration_ms = int((time.perf_counter() - start) * 1000)
         stats["duration_ms"] = duration_ms
-        stats["http_status"] = getattr(getattr(e, "response", None), "status_code", None)
+        stats["http_status"] = getattr(
+            getattr(e, "response", None), "status_code", None
+        )
         stats["error"] = str(e)
         failure = {"source": source_id, "reason": "request_error", "error": str(e)}
         # Stale-on-error
@@ -390,6 +450,7 @@ def fetch_house_ptr_filings(
             if cached_items is not None and cached_utc:
                 try:
                     from datetime import datetime, timezone, timedelta
+
                     then = datetime.fromisoformat(cached_utc.replace("Z", "+00:00"))
                     now = datetime.now(timezone.utc)
                     if (now - then) <= timedelta(minutes=stale_on_error_minutes):
@@ -412,6 +473,7 @@ def fetch_house_ptr_filings(
             if cached_items is not None and cached_utc:
                 try:
                     from datetime import datetime, timezone, timedelta
+
                     then = datetime.fromisoformat(cached_utc.replace("Z", "+00:00"))
                     now = datetime.now(timezone.utc)
                     if (now - then) <= timedelta(minutes=stale_on_error_minutes):

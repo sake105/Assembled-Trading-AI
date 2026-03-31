@@ -22,7 +22,9 @@ def _to_fills_list(fills: list[dict[str, Any]] | pd.DataFrame) -> list[dict[str,
     return list(fills) if fills else []
 
 
-def _to_orders_list(orders: list[dict[str, Any]] | pd.DataFrame) -> list[dict[str, Any]]:
+def _to_orders_list(
+    orders: list[dict[str, Any]] | pd.DataFrame,
+) -> list[dict[str, Any]]:
     if isinstance(orders, pd.DataFrame):
         if orders.empty:
             return []
@@ -58,9 +60,13 @@ def build_reconcile_report(
     n_before = len([p for p in pos_before.values() if float(p.get("qty", 0)) != 0])
     n_after = len([p for p in pos_after.values() if float(p.get("qty", 0)) != 0])
 
-    notional_traded = sum(float(f.get("qty", 0)) * float(f.get("price", 0)) for f in fills_list)
+    notional_traded = sum(
+        float(f.get("qty", 0)) * float(f.get("price", 0)) for f in fills_list
+    )
     commission_bps = float(cost_model_cfg.get("commission_bps", 0) or 0)
-    estimated_costs = (notional_traded * commission_bps / 10000.0) if notional_traded else 0.0
+    estimated_costs = (
+        (notional_traded * commission_bps / 10000.0) if notional_traded else 0.0
+    )
     slippage_bps = float(cost_model_cfg.get("slippage_bps", 0) or 0)
 
     order_symbols = set()
@@ -69,13 +75,21 @@ def build_reconcile_report(
         if s is not None and not (isinstance(s, float) and math.isnan(s)):
             order_symbols.add(str(s).strip())
     fill_symbols = set(f.get("symbol") for f in fills_list if f.get("symbol"))
-    fills_match_orders = len(fills_list) <= len(orders_list) and fill_symbols <= order_symbols
+    fills_match_orders = (
+        len(fills_list) <= len(orders_list) and fill_symbols <= order_symbols
+    )
 
     invariants: list[dict[str, Any]] = []
     cash_ok = cash_after >= -1e-6
     invariants.append({"name": "cash_non_negative", "ok": cash_ok, "value": cash_after})
     eq_before_ok = _isfinite(equity_before)
-    invariants.append({"name": "equity_finite", "ok": eq_before_ok and _isfinite(equity_after), "value": {"before": equity_before, "after": equity_after}})
+    invariants.append(
+        {
+            "name": "equity_finite",
+            "ok": eq_before_ok and _isfinite(equity_after),
+            "value": {"before": equity_before, "after": equity_after},
+        }
+    )
     positions_finite_ok = True
     for sym, p in list(pos_after.items()) + list(pos_before.items()):
         q = p.get("qty")
@@ -87,10 +101,24 @@ def build_reconcile_report(
         if not _isfinite(qf):
             positions_finite_ok = False
             break
-    invariants.append({"name": "positions_finite", "ok": positions_finite_ok, "value": n_after})
-    invariants.append({"name": "fills_match_orders", "ok": fills_match_orders, "value": {"n_orders": len(orders_list), "n_fills": len(fills_list)}})
+    invariants.append(
+        {"name": "positions_finite", "ok": positions_finite_ok, "value": n_after}
+    )
+    invariants.append(
+        {
+            "name": "fills_match_orders",
+            "ok": fills_match_orders,
+            "value": {"n_orders": len(orders_list), "n_fills": len(fills_list)},
+        }
+    )
 
-    any_fail = not (cash_ok and eq_before_ok and _isfinite(equity_after) and positions_finite_ok and fills_match_orders)
+    any_fail = not (
+        cash_ok
+        and eq_before_ok
+        and _isfinite(equity_after)
+        and positions_finite_ok
+        and fills_match_orders
+    )
     status = "FAIL" if any_fail else "OK"
     notes: list[str] = []
     if any_fail:
@@ -102,8 +130,16 @@ def build_reconcile_report(
         "schema_version": SCHEMA_VERSION,
         "generated_utc": as_of_utc,
         "status": status,
-        "cash": {"before": cash_before, "after": cash_after, "delta": cash_after - cash_before},
-        "equity": {"before": equity_before, "after": equity_after, "delta": equity_after - equity_before},
+        "cash": {
+            "before": cash_before,
+            "after": cash_after,
+            "delta": cash_after - cash_before,
+        },
+        "equity": {
+            "before": equity_before,
+            "after": equity_after,
+            "delta": equity_after - equity_before,
+        },
         "positions": {"n_before": n_before, "n_after": n_after},
         "trading": {
             "n_orders": len(orders_list),

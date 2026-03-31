@@ -181,9 +181,11 @@ def run_walk_forward_analysis(args: argparse.Namespace) -> int:
             impact_w=cost_model.impact_w,
             include_costs=args.with_costs,
             include_trades=False,  # Not needed for walk-forward summary
-            rebalance_freq=args.rebalance_freq
-            if args.strategy == "multifactor_long_short"
-            else args.freq,
+            rebalance_freq=(
+                args.rebalance_freq
+                if args.strategy == "multifactor_long_short"
+                else args.freq
+            ),
             compute_features=args.strategy != "multifactor_long_short",
         )
 

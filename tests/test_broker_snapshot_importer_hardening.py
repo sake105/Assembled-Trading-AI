@@ -25,7 +25,9 @@ from src.assembled_core.accounting.broker_snapshot_importer import (
     import_broker_snapshot,
     load_external_broker_snapshot,
 )
-from src.assembled_core.accounting.broker_snapshot_store import load_broker_snapshot_json
+from src.assembled_core.accounting.broker_snapshot_store import (
+    load_broker_snapshot_json,
+)
 
 
 def test_csv_qty_parsing_thousands_and_whitespace(tmp_path: Path) -> None:
@@ -86,7 +88,9 @@ def test_json_cash_string_parsing(tmp_path: Path) -> None:
     assert len(positions_df) == 1
 
 
-def test_json_positions_ignore_unknown_keys_and_normalize_whitespace(tmp_path: Path) -> None:
+def test_json_positions_ignore_unknown_keys_and_normalize_whitespace(
+    tmp_path: Path,
+) -> None:
     """JSON positions ignore unknown keys and normalize symbol whitespace."""
     json_path = tmp_path / "snapshot.json"
     data = {
@@ -128,7 +132,9 @@ def test_normalize_broker_snapshot_aggregates_duplicate_symbols(tmp_path: Path) 
     assert msft_row["qty"] == -2.0
 
 
-def test_normalize_broker_snapshot_duplicate_symbols_with_tiny_residual(tmp_path: Path) -> None:
+def test_normalize_broker_snapshot_duplicate_symbols_with_tiny_residual(
+    tmp_path: Path,
+) -> None:
     """Duplicate symbols with tiny residual should be filtered by qty_tol after aggregation."""
     positions = pd.DataFrame(
         {
@@ -183,7 +189,9 @@ def test_import_csv_with_messy_inputs_stable_bytes(tmp_path: Path) -> None:
     path2 = output_dir2 / result2["broker_snapshot_path"]
 
     with path1.open("rb") as f1, path2.open("rb") as f2:
-        assert f1.read() == f2.read(), "Stored snapshots should be byte-identical for same input"
+        assert (
+            f1.read() == f2.read()
+        ), "Stored snapshots should be byte-identical for same input"
 
 
 def test_csv_cash_column_string_parsing_first_non_null(tmp_path: Path) -> None:
@@ -264,4 +272,3 @@ def test_import_json_with_messy_whitespace_and_duplicates(tmp_path: Path) -> Non
     assert len(stored["positions"]) == 1
     assert stored["positions"][0]["symbol"] == "AAPL"
     assert stored["positions"][0]["qty"] == 1500.0
-

@@ -130,7 +130,9 @@ def read_robustness_ok_from_manifest(manifest_path: Path) -> bool | None:
             manifest = json.load(f)
         return manifest.get("robustness_ok")
     except Exception as exc:
-        logger.warning(f"Failed to read robustness_ok from manifest {manifest_path}: {exc}")
+        logger.warning(
+            f"Failed to read robustness_ok from manifest {manifest_path}: {exc}"
+        )
         return None
 
 
@@ -153,5 +155,7 @@ def read_reconciliation_ok_from_manifest(manifest_path: Path) -> bool | None:
             manifest = json.load(f)
         return manifest.get("reconciliation_ok")
     except Exception as exc:
-        logger.warning(f"Failed to read reconciliation_ok from manifest {manifest_path}: {exc}")
+        logger.warning(
+            f"Failed to read reconciliation_ok from manifest {manifest_path}: {exc}"
+        )
         return None

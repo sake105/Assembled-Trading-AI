@@ -7,7 +7,10 @@ from pathlib import Path
 
 import pytest
 
-from src.assembled_core.events.news.sources import load_sources_registry, load_news_params
+from src.assembled_core.events.news.sources import (
+    load_sources_registry,
+    load_news_params,
+)
 from src.assembled_core.events.news import run_news_pipeline
 
 pytestmark = [pytest.mark.phase6, pytest.mark.unit]
@@ -33,9 +36,9 @@ def test_production_sources_no_placeholder_active():
     sources = load_sources_registry("configs/news/sources.yaml")
     for s in sources:
         if s.active:
-            assert "example.com" not in s.domain, (
-                f"Placeholder source {s.source_id} with domain {s.domain} must not be active"
-            )
+            assert (
+                "example.com" not in s.domain
+            ), f"Placeholder source {s.source_id} with domain {s.domain} must not be active"
 
 
 def test_production_gdelt_query_is_broad():
@@ -68,7 +71,17 @@ def test_bbc_and_gdelt_types_compatible_with_pipeline():
 # ---------------------------------------------------------------------------
 
 
-def _fake_rss_fetcher(source_id, url, *, timeout, user_agent, sanitize_cfg, fetch_state, retries, backoff_base_s):
+def _fake_rss_fetcher(
+    source_id,
+    url,
+    *,
+    timeout,
+    user_agent,
+    sanitize_cfg,
+    fetch_state,
+    retries,
+    backoff_base_s,
+):
     items = [
         {
             "title": "BBC: Shipping disruptions in Red Sea escalate costs",
@@ -198,7 +211,9 @@ def test_gdelt_source_processed_in_pipeline(tmp_path, monkeypatch):
 
     events = result["events"]
     sources_seen = {e.source_id for e in events}
-    assert "gdelt_default" in sources_seen, "GDELT events must appear in pipeline output"
+    assert (
+        "gdelt_default" in sources_seen
+    ), "GDELT events must appear in pipeline output"
     assert "rss_bbc_world" in sources_seen, "BBC events must appear in pipeline output"
     assert len(events) == 3
 
@@ -220,7 +235,9 @@ def test_fetch_report_contains_gdelt_entry(tmp_path, monkeypatch):
         output_dir=out_dir,
     )
 
-    report = json.loads((out_dir / "fetch_report_latest.json").read_text(encoding="utf-8"))
+    report = json.loads(
+        (out_dir / "fetch_report_latest.json").read_text(encoding="utf-8")
+    )
     per_source = report["per_source"]
     gdelt_entries = [s for s in per_source if s.get("type") == "gdelt"]
     rss_entries = [s for s in per_source if s.get("type") == "rss"]
@@ -281,7 +298,9 @@ def test_output_dir_isolation_dedupe_store(tmp_path, monkeypatch):
     experiment_dir = tmp_path / "experiments" / "smoke_test" / "intel" / "news"
 
     # Use a sentinel directory that definitely doesn't exist yet
-    sentinel_global = tmp_path / "global_output" / "intel" / "news" / "cache" / "dedupe_store.sqlite"
+    sentinel_global = (
+        tmp_path / "global_output" / "intel" / "news" / "cache" / "dedupe_store.sqlite"
+    )
     assert not sentinel_global.exists()
 
     run_news_pipeline(
@@ -292,8 +311,12 @@ def test_output_dir_isolation_dedupe_store(tmp_path, monkeypatch):
     )
 
     expected_db = experiment_dir / "cache" / "dedupe_store.sqlite"
-    assert expected_db.exists(), "dedupe_store.sqlite must be in experiment-specific dir"
-    assert not sentinel_global.exists(), "No global db should be created for unrelated path"
+    assert (
+        expected_db.exists()
+    ), "dedupe_store.sqlite must be in experiment-specific dir"
+    assert (
+        not sentinel_global.exists()
+    ), "No global db should be created for unrelated path"
 
 
 def test_fresh_experiment_gets_fresh_output(tmp_path, monkeypatch):

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.assembled_core.intel.disclosures_triggers_loader import DisclosuresTriggerSnapshot
+from src.assembled_core.intel.disclosures_triggers_loader import (
+    DisclosuresTriggerSnapshot,
+)
 
 
 def apply_intel_sim(

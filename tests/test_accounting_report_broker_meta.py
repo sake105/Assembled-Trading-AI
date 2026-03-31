@@ -45,7 +45,9 @@ def _minimal_positions_result() -> dict:
     }
 
 
-def test_accounting_report_json_includes_broker_meta_and_reconcile_info(tmp_path: Path) -> None:
+def test_accounting_report_json_includes_broker_meta_and_reconcile_info(
+    tmp_path: Path,
+) -> None:
     """JSON report should include broker_meta, reconcile report path, and consistency flag."""
     output_dir = tmp_path / "output"
     run_id = "json_broker_meta"
@@ -188,7 +190,9 @@ def test_accounting_report_csv_fixed_schema_and_broker_columns(tmp_path: Path) -
     # We only require that schema is stable; values are allowed to be empty here
 
 
-def test_accounting_report_consistency_flag_none_when_no_reconciliation(tmp_path: Path) -> None:
+def test_accounting_report_consistency_flag_none_when_no_reconciliation(
+    tmp_path: Path,
+) -> None:
     """Consistency flag should be None/empty when no reconciliation_result is provided."""
     output_dir = tmp_path / "output"
     run_id = "no_reconcile"
@@ -212,7 +216,7 @@ def test_accounting_report_consistency_flag_none_when_no_reconciliation(tmp_path
     df = pd.read_csv(csv_path)
     summary_row = df[df["section"] == "SUMMARY"].iloc[0]
     # Without reconciliation, this column should be empty (read as NaN) or blank
-    assert pd.isna(summary_row["cash_end_matches_reconcile_cash"]) or summary_row[
-        "cash_end_matches_reconcile_cash"
-    ] == ""
-
+    assert (
+        pd.isna(summary_row["cash_end_matches_reconcile_cash"])
+        or summary_row["cash_end_matches_reconcile_cash"] == ""
+    )

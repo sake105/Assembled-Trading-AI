@@ -29,6 +29,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def check_a(slice_path: Path) -> bool:
     import pandas as pd
+
     if not slice_path.exists():
         print(f"Check A: SLICE NOT FOUND: {slice_path}")
         return False
@@ -52,12 +53,18 @@ def check_a(slice_path: Path) -> bool:
 
 def check_b(slice_path: Path, strict_min_periods: bool = False) -> bool:
     import pandas as pd
+
     if not slice_path.exists():
         print("Check B: SLICE NOT FOUND")
         return False
     df = pd.read_parquet(slice_path)
     tcol = next(
-        (c for c in df.columns if c.lower() in ("date", "datetime", "timestamp", "ts") or "date" in c.lower()),
+        (
+            c
+            for c in df.columns
+            if c.lower() in ("date", "datetime", "timestamp", "ts")
+            or "date" in c.lower()
+        ),
         None,
     )
     if not tcol:
@@ -74,7 +81,9 @@ def check_b(slice_path: Path, strict_min_periods: bool = False) -> bool:
         changes = int((m.diff() != 0).sum())
         pct = float(m.mean()) if len(m) else None
         print("Check B (strict min_periods=20/60): EMA state after warmup")
-        print(f"  symbol={sym}, n={len(s)}, n_valid={n_valid}, pct_fast_gt_slow={pct}, state_changes={changes}")
+        print(
+            f"  symbol={sym}, n={len(s)}, n_valid={n_valid}, pct_fast_gt_slow={pct}, state_changes={changes}"
+        )
     else:
         fast = s.ewm(span=20, adjust=False).mean()
         slow = s.ewm(span=60, adjust=False).mean()
@@ -85,10 +94,14 @@ def check_b(slice_path: Path, strict_min_periods: bool = False) -> bool:
         print("Check B: EMA(20)/EMA(60) state in slice")
         print(f"  symbol={sym}, pct_fast_gt_slow={pct:.4f}, state_changes={changes}")
     if changes == 0:
-        print("  => state_changes=0: no flip in slice => 0 trades (if strategy trades on crossover)")
+        print(
+            "  => state_changes=0: no flip in slice => 0 trades (if strategy trades on crossover)"
+        )
         return False
     if strict_min_periods and n_valid < 25:
-        print(f"  => n_valid={n_valid} very small: warmup may kill signals in short series")
+        print(
+            f"  => n_valid={n_valid} very small: warmup may kill signals in short series"
+        )
     print("  => OK (at least one crossover)")
     return True
 
@@ -121,10 +134,20 @@ def check_c(variants_path: Path) -> bool:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Benchmark 0-trades quick checks")
-    ap.add_argument("--slice", type=Path, default=None, help="Path to 1y price slice parquet")
-    ap.add_argument("--variants", type=Path, default=ROOT / "scripts" / "dev" / "benchmark_variants.json")
+    ap.add_argument(
+        "--slice", type=Path, default=None, help="Path to 1y price slice parquet"
+    )
+    ap.add_argument(
+        "--variants",
+        type=Path,
+        default=ROOT / "scripts" / "dev" / "benchmark_variants.json",
+    )
     ap.add_argument("--output-root", type=Path, default=ROOT / "output" / "system_run")
-    ap.add_argument("--strict", action="store_true", help="Use min_periods=20/60 in Check B (like strict backtest warmup)")
+    ap.add_argument(
+        "--strict",
+        action="store_true",
+        help="Use min_periods=20/60 in Check B (like strict backtest warmup)",
+    )
     args = ap.parse_args()
     output_root = args.output_root.resolve()
     if not output_root.is_absolute():
@@ -136,7 +159,11 @@ def main() -> int:
         slice_path = bench / "filter_sweep" / "price_slice_1y.parquet"
         if not slice_path.exists():
             slice_path = bench / "trend_baseline" / "1y" / "price_slice.parquet"
-    variants_path = args.variants.resolve() if args.variants else (ROOT / "scripts" / "dev" / "benchmark_variants.json")
+    variants_path = (
+        args.variants.resolve()
+        if args.variants
+        else (ROOT / "scripts" / "dev" / "benchmark_variants.json")
+    )
     print("Slice:", slice_path)
     print("Variants:", variants_path)
     print()

@@ -278,8 +278,12 @@ class RunResult:
             output_dir=Path(data["output_dir"]) if data.get("output_dir") else None,
             runtime_sec=data.get("runtime_sec", 0.0),
             error=data.get("error"),
-            timings_path=Path(data["timings_path"]) if data.get("timings_path") else None,
-            profile_path=Path(data["profile_path"]) if data.get("profile_path") else None,
+            timings_path=(
+                Path(data["timings_path"]) if data.get("timings_path") else None
+            ),
+            profile_path=(
+                Path(data["profile_path"]) if data.get("profile_path") else None
+            ),
             run_index=data.get("run_index"),
         )
 
@@ -406,7 +410,9 @@ def _build_backtest_command(
     return cmd
 
 
-def _ensure_unique_output_dir(base_dir: Path, run_id: str, run_index: int | None = None) -> Path:
+def _ensure_unique_output_dir(
+    base_dir: Path, run_id: str, run_index: int | None = None
+) -> Path:
     """Ensure unique output directory for a run.
 
     Creates a directory with run_id and optional index/hash to avoid collisions.
@@ -512,7 +518,9 @@ def _run_single_backtest_worker(
 
     try:
         # Build command
-        cmd = _build_backtest_command(run_spec, base_args, backtest_output_dir, repo_root_path)
+        cmd = _build_backtest_command(
+            run_spec, base_args, backtest_output_dir, repo_root_path
+        )
 
         run_logger.info(f"Command: {' '.join(str(c) for c in cmd)}")
         run_logger.info(f"Output dir: {backtest_output_dir}")
@@ -531,7 +539,9 @@ def _run_single_backtest_worker(
         runtime_sec = (end_time - start_time).total_seconds()
 
         if proc.returncode == 0:
-            run_logger.info(f"Run {run_spec.id} completed successfully in {runtime_sec:.2f}s")
+            run_logger.info(
+                f"Run {run_spec.id} completed successfully in {runtime_sec:.2f}s"
+            )
 
             # Check for timings/profile artifacts
             timings_path = backtest_output_dir / "timings.json"
@@ -671,7 +681,9 @@ def _run_single_backtest(
         runtime_sec = (end_time - start_time).total_seconds()
 
         if proc.returncode == 0:
-            run_logger.info(f"Run {run_spec.id} completed successfully in {runtime_sec:.2f}s")
+            run_logger.info(
+                f"Run {run_spec.id} completed successfully in {runtime_sec:.2f}s"
+            )
 
             # Check for timings/profile artifacts
             timings_path = backtest_output_dir / "timings.json"
@@ -826,14 +838,18 @@ def run_batch_serial(
         )
 
     logger.info("=" * 60)
-    logger.info(f"Batch completed: {batch_result.success_count} success, {batch_result.failed_count} failed")
+    logger.info(
+        f"Batch completed: {batch_result.success_count} success, {batch_result.failed_count} failed"
+    )
     logger.info(f"Total runtime: {total_runtime_sec:.2f}s")
     logger.info("=" * 60)
 
     return batch_result
 
 
-def collect_robustness_pack_metrics(run_output_dir: Path, run_id: str) -> dict[str, Any] | None:
+def collect_robustness_pack_metrics(
+    run_output_dir: Path, run_id: str
+) -> dict[str, Any] | None:
     """Collect robustness pack metrics from exported robustness pack (Sprint 12 Final).
 
     This function reads robustness pack summary that was previously exported
@@ -876,11 +892,15 @@ def collect_robustness_pack_metrics(run_output_dir: Path, run_id: str) -> dict[s
         }
 
     except Exception as exc:
-        logger.warning(f"Failed to read robustness pack metrics from {summary_json}: {exc}")
+        logger.warning(
+            f"Failed to read robustness pack metrics from {summary_json}: {exc}"
+        )
         return None
 
 
-def collect_walk_forward_metrics(run_output_dir: Path, run_id: str) -> dict[str, Any] | None:
+def collect_walk_forward_metrics(
+    run_output_dir: Path, run_id: str
+) -> dict[str, Any] | None:
     """Collect walk-forward metrics from exported WF results (RB1).
 
     This function reads walk-forward results that were previously exported
@@ -932,7 +952,9 @@ def collect_walk_forward_metrics(run_output_dir: Path, run_id: str) -> dict[str,
         }
 
     except Exception as exc:
-        logger.warning(f"Failed to read walk-forward metrics from {metrics_json}: {exc}")
+        logger.warning(
+            f"Failed to read walk-forward metrics from {metrics_json}: {exc}"
+        )
         return None
 
 
@@ -996,12 +1018,16 @@ def collect_backtest_metrics(run_output_dir: Path, freq: str = "1d") -> dict[str
     if pack_metrics:
         metrics_dict["robustness_ok"] = pack_metrics.get("robustness_ok")
         metrics_dict["plateau_score"] = (
-            pack_metrics.get("plateau_score") if pack_metrics.get("plateau_score") is not None else math.nan
+            pack_metrics.get("plateau_score")
+            if pack_metrics.get("plateau_score") is not None
+            else math.nan
         )
         crisis_summary = pack_metrics.get("crisis_summary")
         if crisis_summary:
             metrics_dict["crisis_pass_fraction"] = (
-                crisis_summary.get("pass_fraction") if crisis_summary.get("pass_fraction") is not None else math.nan
+                crisis_summary.get("pass_fraction")
+                if crisis_summary.get("pass_fraction") is not None
+                else math.nan
             )
         sensitivity_summary = pack_metrics.get("sensitivity_summary")
         if sensitivity_summary:
@@ -1073,7 +1099,9 @@ def collect_backtest_metrics(run_output_dir: Path, freq: str = "1d") -> dict[str
             logger.warning(f"Equity file {equity_file} missing required columns")
             return metrics_dict
 
-        equity_df["timestamp"] = pd.to_datetime(equity_df["timestamp"], utc=True, errors="coerce")
+        equity_df["timestamp"] = pd.to_datetime(
+            equity_df["timestamp"], utc=True, errors="coerce"
+        )
         equity_df = equity_df.sort_values("timestamp").reset_index(drop=True)
         equity_df = equity_df.dropna(subset=["timestamp", "equity"])
 
@@ -1097,7 +1125,9 @@ def collect_backtest_metrics(run_output_dir: Path, freq: str = "1d") -> dict[str
                 # Ensure required columns for trades
                 required_cols = ["timestamp", "symbol", "side", "qty"]
                 if all(col in trades_df.columns for col in required_cols):
-                    trades_df["timestamp"] = pd.to_datetime(trades_df["timestamp"], utc=True, errors="coerce")
+                    trades_df["timestamp"] = pd.to_datetime(
+                        trades_df["timestamp"], utc=True, errors="coerce"
+                    )
                     trades_df = trades_df.dropna(subset=["timestamp"])
                 else:
                     trades_df = None  # Missing required columns
@@ -1114,13 +1144,19 @@ def collect_backtest_metrics(run_output_dir: Path, freq: str = "1d") -> dict[str
                 risk_free_rate=0.0,
             )
 
-            metrics_dict["sharpe"] = metrics.sharpe_ratio if metrics.sharpe_ratio is not None else math.nan
+            metrics_dict["sharpe"] = (
+                metrics.sharpe_ratio if metrics.sharpe_ratio is not None else math.nan
+            )
             metrics_dict["max_dd"] = metrics.max_drawdown
             metrics_dict["max_dd_pct"] = metrics.max_drawdown_pct
-            metrics_dict["turnover"] = metrics.turnover if metrics.turnover is not None else math.nan
+            metrics_dict["turnover"] = (
+                metrics.turnover if metrics.turnover is not None else math.nan
+            )
 
             # Compute deflated Sharpe if we have returns
-            if metrics.sharpe_ratio is not None and not math.isnan(metrics.sharpe_ratio):
+            if metrics.sharpe_ratio is not None and not math.isnan(
+                metrics.sharpe_ratio
+            ):
                 try:
                     # Extract returns from equity
                     equity_series = equity_df["equity"].astype(float)
@@ -1241,37 +1277,77 @@ def _write_batch_summary(batch_result: BatchResult, output_dir: Path) -> None:
                     metrics.get("data_snapshot_id", "") or "",  # D4: Snapshot ID
                     metrics.get("start_date", ""),
                     metrics.get("end_date", ""),
-                    f"{metrics.get('sharpe', math.nan):.4f}" if not math.isnan(metrics.get("sharpe", math.nan)) else "",
-                    f"{metrics.get('deflated_sharpe', math.nan):.4f}"
-                    if not math.isnan(metrics.get("deflated_sharpe", math.nan))
-                    else "",
-                    f"{metrics.get('max_dd', math.nan):.2f}" if not math.isnan(metrics.get("max_dd", math.nan)) else "",
-                    f"{metrics.get('max_dd_pct', math.nan):.2f}"
-                    if not math.isnan(metrics.get("max_dd_pct", math.nan))
-                    else "",
-                    f"{metrics.get('turnover', math.nan):.2f}"
-                    if not math.isnan(metrics.get("turnover", math.nan))
-                    else "",
+                    (
+                        f"{metrics.get('sharpe', math.nan):.4f}"
+                        if not math.isnan(metrics.get("sharpe", math.nan))
+                        else ""
+                    ),
+                    (
+                        f"{metrics.get('deflated_sharpe', math.nan):.4f}"
+                        if not math.isnan(metrics.get("deflated_sharpe", math.nan))
+                        else ""
+                    ),
+                    (
+                        f"{metrics.get('max_dd', math.nan):.2f}"
+                        if not math.isnan(metrics.get("max_dd", math.nan))
+                        else ""
+                    ),
+                    (
+                        f"{metrics.get('max_dd_pct', math.nan):.2f}"
+                        if not math.isnan(metrics.get("max_dd_pct", math.nan))
+                        else ""
+                    ),
+                    (
+                        f"{metrics.get('turnover', math.nan):.2f}"
+                        if not math.isnan(metrics.get("turnover", math.nan))
+                        else ""
+                    ),
                     # RB1: Walk-forward metrics
-                    f"{metrics.get('wf_oos_sharpe', math.nan):.4f}"
-                    if not math.isnan(metrics.get("wf_oos_sharpe", math.nan))
-                    else "",
-                    f"{metrics.get('wf_oos_cagr', math.nan):.4f}"
-                    if not math.isnan(metrics.get("wf_oos_cagr", math.nan))
-                    else "",
-                    f"{metrics.get('wf_oos_dd', math.nan):.4f}"
-                    if not math.isnan(metrics.get("wf_oos_dd", math.nan))
-                    else "",
-                    "True" if metrics.get("wf_pass") is True else ("False" if metrics.get("wf_pass") is False else ""),
+                    (
+                        f"{metrics.get('wf_oos_sharpe', math.nan):.4f}"
+                        if not math.isnan(metrics.get("wf_oos_sharpe", math.nan))
+                        else ""
+                    ),
+                    (
+                        f"{metrics.get('wf_oos_cagr', math.nan):.4f}"
+                        if not math.isnan(metrics.get("wf_oos_cagr", math.nan))
+                        else ""
+                    ),
+                    (
+                        f"{metrics.get('wf_oos_dd', math.nan):.4f}"
+                        if not math.isnan(metrics.get("wf_oos_dd", math.nan))
+                        else ""
+                    ),
+                    (
+                        "True"
+                        if metrics.get("wf_pass") is True
+                        else ("False" if metrics.get("wf_pass") is False else "")
+                    ),
                     # Sprint 12: Robustness Pack metrics
-                    "True" if metrics.get("robustness_ok") is True else ("False" if metrics.get("robustness_ok") is False else ""),
-                    f"{metrics.get('plateau_score', math.nan):.4f}"
-                    if not math.isnan(metrics.get("plateau_score", math.nan))
-                    else "",
-                    f"{metrics.get('crisis_pass_fraction', math.nan):.4f}"
-                    if not math.isnan(metrics.get("crisis_pass_fraction", math.nan))
-                    else "",
-                    "True" if metrics.get("sensitivity_all_pass") is True else ("False" if metrics.get("sensitivity_all_pass") is False else ""),
+                    (
+                        "True"
+                        if metrics.get("robustness_ok") is True
+                        else ("False" if metrics.get("robustness_ok") is False else "")
+                    ),
+                    (
+                        f"{metrics.get('plateau_score', math.nan):.4f}"
+                        if not math.isnan(metrics.get("plateau_score", math.nan))
+                        else ""
+                    ),
+                    (
+                        f"{metrics.get('crisis_pass_fraction', math.nan):.4f}"
+                        if not math.isnan(metrics.get("crisis_pass_fraction", math.nan))
+                        else ""
+                    ),
+                    (
+                        "True"
+                        if metrics.get("sensitivity_all_pass") is True
+                        else (
+                            "False"
+                            if metrics.get("sensitivity_all_pass") is False
+                            else ""
+                        )
+                    ),
                     f"{r.runtime_sec:.3f}",
                     r.error or "",
                 ]
@@ -1413,7 +1489,9 @@ def run_batch_parallel(
     logger.info(f"Runs: {len(run_specs)}")
     logger.info(f"Max workers: {max_workers}")
     logger.info(f"Fail fast: {fail_fast}")
-    logger.info(f"Timeout per run: {timeout_per_run}s" if timeout_per_run else "No timeout")
+    logger.info(
+        f"Timeout per run: {timeout_per_run}s" if timeout_per_run else "No timeout"
+    )
     logger.info("")
 
     started_at = datetime.utcnow()
@@ -1493,7 +1571,10 @@ def run_batch_parallel(
                     break
 
             except Exception as exc:
-                logger.error(f"Exception while processing run at index {run_index}: {exc}", exc_info=True)
+                logger.error(
+                    f"Exception while processing run at index {run_index}: {exc}",
+                    exc_info=True,
+                )
                 # Create error result
                 run_spec = run_specs[run_index]
                 run_results[run_index] = RunResult(
@@ -1540,4 +1621,3 @@ def run_batch_parallel(
     logger.info("=" * 60)
 
     return batch_result
-

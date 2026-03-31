@@ -118,4 +118,3 @@ def _legacy_simulate_equity(
     s = s.replace([np.inf, -np.inf], np.nan).ffill().fillna(start_capital)
     eq["equity"] = s.values
     return eq
-

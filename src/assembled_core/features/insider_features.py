@@ -89,7 +89,9 @@ def add_insider_features(
     if as_of is not None:
         # Determine max as_of from prices (if as_of not provided, use max price timestamp)
         if isinstance(as_of, pd.Timestamp):
-            events = filter_events_as_of(events, as_of, disclosure_col="disclosure_date")
+            events = filter_events_as_of(
+                events, as_of, disclosure_col="disclosure_date"
+            )
         else:
             # If as_of is per-price-row, we filter per row (handled in loop below)
             pass
@@ -137,14 +139,20 @@ def add_insider_features(
                 ].copy()
 
             # Use event_date or timestamp for window calculation
-            window_time_col = "event_date" if "event_date" in row_events.columns else "timestamp"
-            
+            window_time_col = (
+                "event_date" if "event_date" in row_events.columns else "timestamp"
+            )
+
             # 20-day window (based on event_date, but only disclosed events)
             window_20d = row_events[
                 (row_events[window_time_col] <= price_time)
                 & (row_events[window_time_col] > price_time - pd.Timedelta(days=20))
             ]
-            result.loc[idx, "insider_net_buy_20d"] = window_20d["net_shares"].sum() if "net_shares" in window_20d.columns else 0.0
+            result.loc[idx, "insider_net_buy_20d"] = (
+                window_20d["net_shares"].sum()
+                if "net_shares" in window_20d.columns
+                else 0.0
+            )
             result.loc[idx, "insider_trade_count_20d"] = len(window_20d)
 
             # 60-day window
@@ -152,7 +160,11 @@ def add_insider_features(
                 (row_events[window_time_col] <= price_time)
                 & (row_events[window_time_col] > price_time - pd.Timedelta(days=60))
             ]
-            result.loc[idx, "insider_net_buy_60d"] = window_60d["net_shares"].sum() if "net_shares" in window_60d.columns else 0.0
+            result.loc[idx, "insider_net_buy_60d"] = (
+                window_60d["net_shares"].sum()
+                if "net_shares" in window_60d.columns
+                else 0.0
+            )
             result.loc[idx, "insider_trade_count_60d"] = len(window_60d)
 
     return result

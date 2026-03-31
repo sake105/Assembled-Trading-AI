@@ -68,12 +68,17 @@ def compare_summaries(path_a: str | Path, path_b: str | Path) -> Dict[str, Any]:
     delta = {
         "total_return": _delta(ka.get("total_return"), kb.get("total_return")),
         "max_drawdown": _delta(ka.get("max_drawdown"), kb.get("max_drawdown")),
-        "avg_final_multiplier": _delta(ka.get("avg_final_multiplier"), kb.get("avg_final_multiplier")),
+        "avg_final_multiplier": _delta(
+            ka.get("avg_final_multiplier"), kb.get("avg_final_multiplier")
+        ),
         "alerts_warn": (kb.get("alerts_warn") or 0) - (ka.get("alerts_warn") or 0),
-        "alerts_critical": (kb.get("alerts_critical") or 0) - (ka.get("alerts_critical") or 0),
-        "risk_state_transitions": (kb.get("risk_state_transitions") or 0) - (ka.get("risk_state_transitions") or 0),
+        "alerts_critical": (kb.get("alerts_critical") or 0)
+        - (ka.get("alerts_critical") or 0),
+        "risk_state_transitions": (kb.get("risk_state_transitions") or 0)
+        - (ka.get("risk_state_transitions") or 0),
         "active_pct": _delta(ka.get("active_pct"), kb.get("active_pct")),
-        "disclosures_confirm_blocks": (kb.get("disclosures_confirm_blocks") or 0) - (ka.get("disclosures_confirm_blocks") or 0),
+        "disclosures_confirm_blocks": (kb.get("disclosures_confirm_blocks") or 0)
+        - (ka.get("disclosures_confirm_blocks") or 0),
     }
 
     return {

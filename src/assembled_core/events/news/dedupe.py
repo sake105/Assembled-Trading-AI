@@ -37,4 +37,3 @@ def dedupe_events(events: Iterable[NewsEvent]) -> List[NewsEvent]:
         by_key[key] = better
 
     return list(by_key.values())
-

@@ -66,4 +66,3 @@ def test_reference_jobs_list_not_empty() -> None:
         assert hasattr(ref_job, "name")
         assert hasattr(ref_job, "description")
         assert ref_job.name in pj.JOB_MAP
-

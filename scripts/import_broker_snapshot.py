@@ -16,7 +16,9 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.assembled_core.accounting.broker_snapshot_importer import import_broker_snapshot
+from src.assembled_core.accounting.broker_snapshot_importer import (
+    import_broker_snapshot,
+)
 from src.assembled_core.config import OUTPUT_DIR
 from src.assembled_core.logging_utils import setup_logging
 
@@ -79,8 +81,15 @@ def main() -> int:
         try:
             # Validate format first (YYYY-MM-DD)
             parts = args.as_of_date.split("-")
-            if len(parts) != 3 or len(parts[0]) != 4 or len(parts[1]) != 2 or len(parts[2]) != 2:
-                raise ValueError(f"Invalid date format: {args.as_of_date}. Use YYYY-MM-DD")
+            if (
+                len(parts) != 3
+                or len(parts[0]) != 4
+                or len(parts[1]) != 2
+                or len(parts[2]) != 2
+            ):
+                raise ValueError(
+                    f"Invalid date format: {args.as_of_date}. Use YYYY-MM-DD"
+                )
             snapshot_date = pd.Timestamp(args.as_of_date, tz="UTC")
         except (ValueError, TypeError):
             logger.error(f"Invalid date format: {args.as_of_date}. Use YYYY-MM-DD")

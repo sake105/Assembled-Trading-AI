@@ -23,24 +23,26 @@ def test_broker_snapshot_require_fails_when_missing(tmp_path: Path):
     """Test that 'require' policy raises ValueError when snapshot is missing."""
     # Create minimal trades
     base_time = datetime(2025, 1, 15, 10, 0, 0)
-    trades = pd.DataFrame([
-        {
-            "timestamp": pd.Timestamp(base_time, tz="UTC"),
-            "symbol": "AAPL",
-            "side": "BUY",
-            "qty": 5.0,
-            "price": 150.0,
-            "fill_qty": 5.0,
-            "fill_price": 150.0,
-            "status": "filled",
-            "total_cost_cash": 0.0,
-        },
-    ])
-    
+    trades = pd.DataFrame(
+        [
+            {
+                "timestamp": pd.Timestamp(base_time, tz="UTC"),
+                "symbol": "AAPL",
+                "side": "BUY",
+                "qty": 5.0,
+                "price": 150.0,
+                "fill_qty": 5.0,
+                "fill_price": 150.0,
+                "status": "filled",
+                "total_cost_cash": 0.0,
+            },
+        ]
+    )
+
     orders = trades.copy()
     run_id = "test_require"
     as_of_date = pd.Timestamp(base_time, tz="UTC")
-    
+
     # Build ledger with policy "require" but no snapshot exists
     with pytest.raises(ValueError, match="Broker snapshot required but not found"):
         build_ledger_from_trades(
@@ -61,32 +63,36 @@ def test_broker_snapshot_require_succeeds_when_present(tmp_path: Path):
     from src.assembled_core.accounting.broker_snapshot_store import (
         store_broker_snapshot_json,
     )
-    
+
     # Create minimal trades
     base_time = datetime(2025, 1, 15, 10, 0, 0)
-    trades = pd.DataFrame([
-        {
-            "timestamp": pd.Timestamp(base_time, tz="UTC"),
-            "symbol": "AAPL",
-            "side": "BUY",
-            "qty": 5.0,
-            "price": 150.0,
-            "fill_qty": 5.0,
-            "fill_price": 150.0,
-            "status": "filled",
-            "total_cost_cash": 0.0,
-        },
-    ])
-    
+    trades = pd.DataFrame(
+        [
+            {
+                "timestamp": pd.Timestamp(base_time, tz="UTC"),
+                "symbol": "AAPL",
+                "side": "BUY",
+                "qty": 5.0,
+                "price": 150.0,
+                "fill_qty": 5.0,
+                "fill_price": 150.0,
+                "status": "filled",
+                "total_cost_cash": 0.0,
+            },
+        ]
+    )
+
     orders = trades.copy()
     run_id = "test_require_success"
     as_of_date = pd.Timestamp(base_time, tz="UTC")
-    
+
     # Store broker snapshot first
-    broker_positions = pd.DataFrame({
-        "symbol": ["AAPL"],
-        "qty": [5.0],
-    })
+    broker_positions = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "qty": [5.0],
+        }
+    )
     store_broker_snapshot_json(
         cash=10000.0,
         positions_df=broker_positions,
@@ -94,7 +100,7 @@ def test_broker_snapshot_require_succeeds_when_present(tmp_path: Path):
         run_id=run_id,
         as_of_date=as_of_date,
     )
-    
+
     # Build ledger with policy "require" - should succeed
     result = build_ledger_from_trades(
         orders_df=orders,
@@ -107,7 +113,7 @@ def test_broker_snapshot_require_succeeds_when_present(tmp_path: Path):
         broker_snapshot_policy="require",
         write_paper_broker_snapshot=False,
     )
-    
+
     # Should succeed without error
     assert result["reconciliation_result"] is not None
     assert result["broker_snapshot_path"] is not None

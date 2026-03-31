@@ -75,7 +75,15 @@ def build_positions_from_ledger(
     if events_df.empty:
         # Return empty positions
         positions_df = pd.DataFrame(
-            columns=["symbol", "qty", "avg_price", "realized_pnl", "unrealized_pnl", "notional", "last_price"]
+            columns=[
+                "symbol",
+                "qty",
+                "avg_price",
+                "realized_pnl",
+                "unrealized_pnl",
+                "notional",
+                "last_price",
+            ]
         )
         return {
             "positions_df": positions_df,
@@ -99,19 +107,27 @@ def build_positions_from_ledger(
     events_normalized = events_df.copy()
 
     # Ensure event_ts is UTC-aware
-    events_normalized["event_ts"] = pd.to_datetime(events_normalized["event_ts"], utc=True)
+    events_normalized["event_ts"] = pd.to_datetime(
+        events_normalized["event_ts"], utc=True
+    )
     if events_normalized["event_ts"].dt.tz is None:
-        events_normalized["event_ts"] = events_normalized["event_ts"].dt.tz_localize("UTC")
+        events_normalized["event_ts"] = events_normalized["event_ts"].dt.tz_localize(
+            "UTC"
+        )
 
     # Trim symbol strings
     if "symbol" in events_normalized.columns:
-        events_normalized["symbol"] = events_normalized["symbol"].astype(str).str.strip()
+        events_normalized["symbol"] = (
+            events_normalized["symbol"].astype(str).str.strip()
+        )
         # Replace empty strings with None
         events_normalized["symbol"] = events_normalized["symbol"].replace("", None)
 
     # Ensure cash_delta has no NaNs (fill with 0.0)
     if "cash_delta" in events_normalized.columns:
-        events_normalized["cash_delta"] = events_normalized["cash_delta"].fillna(0.0).astype(float)
+        events_normalized["cash_delta"] = (
+            events_normalized["cash_delta"].fillna(0.0).astype(float)
+        )
 
     # Deterministic sort: event_ts, event_type, symbol, event_id
     events_normalized = events_normalized.sort_values(
@@ -138,7 +154,9 @@ def build_positions_from_ledger(
         symbol = event["symbol"] if pd.notna(event["symbol"]) else None
         qty = float(event["qty"]) if pd.notna(event["qty"]) else 0.0
         price = float(event["price"]) if pd.notna(event["price"]) else None
-        cash_delta = float(event["cash_delta"]) if pd.notna(event["cash_delta"]) else 0.0
+        cash_delta = (
+            float(event["cash_delta"]) if pd.notna(event["cash_delta"]) else 0.0
+        )
 
         # Handle cash movements
         if event_type == EVENT_TYPE_CASH_MOVEMENT:
@@ -279,17 +297,27 @@ def build_positions_from_ledger(
             symbol_prices = prices_df[prices_df["symbol"] == symbol].copy()
             if not symbol_prices.empty:
                 # Ensure timestamp is UTC-aware
-                symbol_prices["timestamp"] = pd.to_datetime(symbol_prices["timestamp"], utc=True)
+                symbol_prices["timestamp"] = pd.to_datetime(
+                    symbol_prices["timestamp"], utc=True
+                )
                 if symbol_prices["timestamp"].dt.tz is None:
-                    symbol_prices["timestamp"] = symbol_prices["timestamp"].dt.tz_localize("UTC")
+                    symbol_prices["timestamp"] = symbol_prices[
+                        "timestamp"
+                    ].dt.tz_localize("UTC")
 
                 # Filter to prices <= mark_ts
                 symbol_prices = symbol_prices[symbol_prices["timestamp"] <= mark_ts]
 
                 if not symbol_prices.empty:
                     # Get latest price (backward merge_asof equivalent)
-                    symbol_prices = symbol_prices.sort_values("timestamp", kind="mergesort")
-                    last_price = float(symbol_prices.iloc[-1]["close"]) if pd.notna(symbol_prices.iloc[-1]["close"]) else None
+                    symbol_prices = symbol_prices.sort_values(
+                        "timestamp", kind="mergesort"
+                    )
+                    last_price = (
+                        float(symbol_prices.iloc[-1]["close"])
+                        if pd.notna(symbol_prices.iloc[-1]["close"])
+                        else None
+                    )
 
         # Calculate unrealized PnL
         if last_price is not None and qty != 0.0:
@@ -297,38 +325,60 @@ def build_positions_from_ledger(
             notional = abs(qty) * last_price
         else:
             if missing_price_policy == "raise" and qty != 0.0:
-                raise ValueError(f"Missing price for symbol {symbol} at mark_ts {mark_ts}")
+                raise ValueError(
+                    f"Missing price for symbol {symbol} at mark_ts {mark_ts}"
+                )
             unrealized_pnl = 0.0
             notional = 0.0
             if last_price is None:
                 last_price = np.nan
 
-        positions_list.append({
-            "symbol": symbol,
-            "qty": qty,
-            "avg_price": avg_price,
-            "realized_pnl": realized_pnl,
-            "unrealized_pnl": unrealized_pnl,
-            "notional": notional,
-            "last_price": last_price,
-        })
+        positions_list.append(
+            {
+                "symbol": symbol,
+                "qty": qty,
+                "avg_price": avg_price,
+                "realized_pnl": realized_pnl,
+                "unrealized_pnl": unrealized_pnl,
+                "notional": notional,
+                "last_price": last_price,
+            }
+        )
 
     # Create DataFrame with expected columns (even if empty)
     if positions_list:
         positions_df = pd.DataFrame(positions_list)
         # Remove zero positions (threshold: 1e-6)
-        positions_df = positions_df[positions_df["qty"].abs() > 1e-6].reset_index(drop=True)
+        positions_df = positions_df[positions_df["qty"].abs() > 1e-6].reset_index(
+            drop=True
+        )
     else:
         # Empty positions list: create empty DataFrame with expected columns
         positions_df = pd.DataFrame(
-            columns=["symbol", "qty", "avg_price", "realized_pnl", "unrealized_pnl", "notional", "last_price"]
+            columns=[
+                "symbol",
+                "qty",
+                "avg_price",
+                "realized_pnl",
+                "unrealized_pnl",
+                "notional",
+                "last_price",
+            ]
         )
 
     # Calculate summary
-    total_realized_pnl = float(positions_df["realized_pnl"].sum()) if not positions_df.empty else 0.0
-    total_unrealized_pnl = float(positions_df["unrealized_pnl"].sum()) if not positions_df.empty else 0.0
-    gross_exposure = float(positions_df["notional"].abs().sum()) if not positions_df.empty else 0.0
-    net_exposure = float(positions_df["notional"].sum()) if not positions_df.empty else 0.0
+    total_realized_pnl = (
+        float(positions_df["realized_pnl"].sum()) if not positions_df.empty else 0.0
+    )
+    total_unrealized_pnl = (
+        float(positions_df["unrealized_pnl"].sum()) if not positions_df.empty else 0.0
+    )
+    gross_exposure = (
+        float(positions_df["notional"].abs().sum()) if not positions_df.empty else 0.0
+    )
+    net_exposure = (
+        float(positions_df["notional"].sum()) if not positions_df.empty else 0.0
+    )
     n_positions = len(positions_df)
 
     summary = {

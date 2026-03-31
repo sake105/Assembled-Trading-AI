@@ -18,14 +18,16 @@ class TestComputeGeoRiskMultiplier:
         assert compute_georisk_multiplier({"state_hint": "WATCH"}) == 1.0
 
     def test_active_returns_configured(self):
-        assert compute_georisk_multiplier(
-            {"state_hint": "ACTIVE"}, active_multiplier=0.70
-        ) == 0.70
+        assert (
+            compute_georisk_multiplier({"state_hint": "ACTIVE"}, active_multiplier=0.70)
+            == 0.70
+        )
 
     def test_active_custom_multiplier(self):
-        assert compute_georisk_multiplier(
-            {"state_hint": "ACTIVE"}, active_multiplier=0.50
-        ) == 0.50
+        assert (
+            compute_georisk_multiplier({"state_hint": "ACTIVE"}, active_multiplier=0.50)
+            == 0.50
+        )
 
     def test_none_geo_returns_1(self):
         assert compute_georisk_multiplier(None) == 1.0
@@ -37,25 +39,29 @@ class TestComputeGeoRiskMultiplier:
         assert compute_georisk_multiplier({"geo_score": 2}) == 1.0
 
     def test_clamp_below_zero(self):
-        assert compute_georisk_multiplier(
-            {"state_hint": "ACTIVE"}, active_multiplier=-0.5
-        ) == 0.0
+        assert (
+            compute_georisk_multiplier({"state_hint": "ACTIVE"}, active_multiplier=-0.5)
+            == 0.0
+        )
 
     def test_clamp_above_one(self):
-        assert compute_georisk_multiplier(
-            {"state_hint": "ACTIVE"}, active_multiplier=1.5
-        ) == 1.0
+        assert (
+            compute_georisk_multiplier({"state_hint": "ACTIVE"}, active_multiplier=1.5)
+            == 1.0
+        )
 
 
 class TestApplyGeoRiskToOrders:
     def _make_orders(self) -> pd.DataFrame:
-        return pd.DataFrame({
-            "timestamp": ["2025-01-15", "2025-01-15"],
-            "symbol": ["AAPL", "MSFT"],
-            "side": ["BUY", "BUY"],
-            "qty": [100, 200],
-            "price": [150.0, 300.0],
-        })
+        return pd.DataFrame(
+            {
+                "timestamp": ["2025-01-15", "2025-01-15"],
+                "symbol": ["AAPL", "MSFT"],
+                "side": ["BUY", "BUY"],
+                "qty": [100, 200],
+                "price": [150.0, 300.0],
+            }
+        )
 
     def test_multiplier_1_no_change(self):
         orders = self._make_orders()
@@ -73,13 +79,15 @@ class TestApplyGeoRiskToOrders:
         assert list(result["qty"]) == [70, 140]
 
     def test_small_qty_dropped(self):
-        orders = pd.DataFrame({
-            "timestamp": ["2025-01-15"],
-            "symbol": ["XYZ"],
-            "side": ["BUY"],
-            "qty": [1],
-            "price": [10.0],
-        })
+        orders = pd.DataFrame(
+            {
+                "timestamp": ["2025-01-15"],
+                "symbol": ["XYZ"],
+                "side": ["BUY"],
+                "qty": [1],
+                "price": [10.0],
+            }
+        )
         result = apply_georisk_to_orders(orders, 0.3)
         assert len(result) == 0
 
@@ -89,13 +97,15 @@ class TestApplyGeoRiskToOrders:
         assert len(result) == 0
 
     def test_no_sign_change(self):
-        orders = pd.DataFrame({
-            "timestamp": ["2025-01-15", "2025-01-15"],
-            "symbol": ["A", "B"],
-            "side": ["BUY", "SELL"],
-            "qty": [100, 100],
-            "price": [50.0, 60.0],
-        })
+        orders = pd.DataFrame(
+            {
+                "timestamp": ["2025-01-15", "2025-01-15"],
+                "symbol": ["A", "B"],
+                "side": ["BUY", "SELL"],
+                "qty": [100, 100],
+                "price": [50.0, 60.0],
+            }
+        )
         result = apply_georisk_to_orders(orders, 0.5)
         assert all(q > 0 for q in result["qty"])
 

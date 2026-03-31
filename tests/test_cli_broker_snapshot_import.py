@@ -34,26 +34,30 @@ def test_import_broker_snapshot_before_reconciliation(tmp_path: Path):
 
     # Create minimal trades (paper view will have AAPL=5.0)
     base_time = datetime(2025, 1, 15, 10, 0, 0)
-    trades = pd.DataFrame([
-        {
-            "timestamp": pd.Timestamp(base_time, tz="UTC"),
-            "symbol": "AAPL",
-            "side": "BUY",
-            "qty": 5.0,
-            "price": 150.0,
-            "fill_qty": 5.0,
-            "fill_price": 150.0,
-            "status": "filled",
-            "total_cost_cash": 0.0,
-        },
-    ])
+    trades = pd.DataFrame(
+        [
+            {
+                "timestamp": pd.Timestamp(base_time, tz="UTC"),
+                "symbol": "AAPL",
+                "side": "BUY",
+                "qty": 5.0,
+                "price": 150.0,
+                "fill_qty": 5.0,
+                "fill_price": 150.0,
+                "status": "filled",
+                "total_cost_cash": 0.0,
+            },
+        ]
+    )
     orders = trades.copy()
     run_id = "test_import_integration"
     as_of_date = pd.Timestamp(base_time, tz="UTC")
     output_dir = tmp_path
 
     # Import snapshot manually (simulating CLI behavior)
-    from src.assembled_core.accounting.broker_snapshot_importer import import_broker_snapshot
+    from src.assembled_core.accounting.broker_snapshot_importer import (
+        import_broker_snapshot,
+    )
 
     import_result = import_broker_snapshot(
         snapshot_path=external_path,
@@ -106,26 +110,30 @@ def test_import_broker_snapshot_with_policy_require(tmp_path: Path):
 
     # Create minimal trades
     base_time = datetime(2025, 1, 15, 10, 0, 0)
-    trades = pd.DataFrame([
-        {
-            "timestamp": pd.Timestamp(base_time, tz="UTC"),
-            "symbol": "AAPL",
-            "side": "BUY",
-            "qty": 5.0,
-            "price": 150.0,
-            "fill_qty": 5.0,
-            "fill_price": 150.0,
-            "status": "filled",
-            "total_cost_cash": 0.0,
-        },
-    ])
+    trades = pd.DataFrame(
+        [
+            {
+                "timestamp": pd.Timestamp(base_time, tz="UTC"),
+                "symbol": "AAPL",
+                "side": "BUY",
+                "qty": 5.0,
+                "price": 150.0,
+                "fill_qty": 5.0,
+                "fill_price": 150.0,
+                "status": "filled",
+                "total_cost_cash": 0.0,
+            },
+        ]
+    )
     orders = trades.copy()
     run_id = "test_import_require"
     as_of_date = pd.Timestamp(base_time, tz="UTC")
     output_dir = tmp_path
 
     # Import snapshot
-    from src.assembled_core.accounting.broker_snapshot_importer import import_broker_snapshot
+    from src.assembled_core.accounting.broker_snapshot_importer import (
+        import_broker_snapshot,
+    )
 
     import_broker_snapshot(
         snapshot_path=external_path,

@@ -38,11 +38,15 @@ def test_find_batch_directories(tmp_path: Path) -> None:
     # Create batch directories
     batch1 = tmp_path / "batch1"
     batch1.mkdir()
-    (batch1 / "batch_manifest.json").write_text('{"batch_name": "batch1"}', encoding="utf-8")
+    (batch1 / "batch_manifest.json").write_text(
+        '{"batch_name": "batch1"}', encoding="utf-8"
+    )
 
     batch2 = tmp_path / "batch2"
     batch2.mkdir()
-    (batch2 / "batch_manifest.json").write_text('{"batch_name": "batch2"}', encoding="utf-8")
+    (batch2 / "batch_manifest.json").write_text(
+        '{"batch_name": "batch2"}', encoding="utf-8"
+    )
 
     # Non-batch directory
     non_batch = tmp_path / "not_a_batch"
@@ -202,8 +206,30 @@ def test_check_batch_failure_rate_warn(tmp_path: Path) -> None:
     summary_csv = batch_dir / "batch_summary.csv"
     df = pd.DataFrame(
         {
-            "run_id": ["run1", "run2", "run3", "run4", "run5", "run6", "run7", "run8", "run9", "run10"],
-            "status": ["success", "success", "success", "success", "success", "success", "failed", "failed", "failed", "failed"],
+            "run_id": [
+                "run1",
+                "run2",
+                "run3",
+                "run4",
+                "run5",
+                "run6",
+                "run7",
+                "run8",
+                "run9",
+                "run10",
+            ],
+            "status": [
+                "success",
+                "success",
+                "success",
+                "success",
+                "success",
+                "success",
+                "failed",
+                "failed",
+                "failed",
+                "failed",
+            ],
         }
     )
     df.to_csv(summary_csv, index=False)
@@ -278,6 +304,7 @@ def test_check_batch_missing_manifests_some_missing(tmp_path: Path) -> None:
 
 def test_run_batch_health_checks_with_batches(tmp_path: Path, monkeypatch) -> None:
     """Test running batch health checks with existing batches."""
+
     # Create argparse namespace
     class Args:
         batch_root = None
@@ -337,6 +364,7 @@ def test_run_batch_health_checks_with_batches(tmp_path: Path, monkeypatch) -> No
 
 def test_run_batch_health_checks_no_batches(tmp_path: Path) -> None:
     """Test running batch health checks with no batches."""
+
     class Args:
         batch_root = None
         batch_max_failure_rate = 0.2
@@ -349,5 +377,6 @@ def test_run_batch_health_checks_no_batches(tmp_path: Path) -> None:
     # Should have batch_root_exists and batch_directories_found (WARN)
     assert len(checks) >= 2
     assert any(c.name == "batch_root_exists" and c.status == "OK" for c in checks)
-    assert any(c.name == "batch_directories_found" and c.status == "WARN" for c in checks)
-
+    assert any(
+        c.name == "batch_directories_found" and c.status == "WARN" for c in checks
+    )

@@ -36,21 +36,25 @@ def test_sector_limit_enforced_end_to_end() -> None:
     # Create toy prices with enough data for MA signals (need > 50 days for ma_slow=20)
     dates = pd.date_range("2024-01-01", periods=100, freq="D", tz="UTC")
     # Create prices with upward trend to generate LONG signals
-    prices = pd.DataFrame({
-        "timestamp": dates.tolist() * 3,
-        "symbol": ["AAPL"] * 100 + ["MSFT"] * 100 + ["GOOGL"] * 100,
-        "close": [150.0 + i * 0.5 for i in range(100)] * 3,  # Upward trend
-        "volume": [1000000] * 300,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": dates.tolist() * 3,
+            "symbol": ["AAPL"] * 100 + ["MSFT"] * 100 + ["GOOGL"] * 100,
+            "close": [150.0 + i * 0.5 for i in range(100)] * 3,  # Upward trend
+            "volume": [1000000] * 300,
+        }
+    )
 
     # Create security master
-    security_meta_df = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT", "GOOGL"],
-        "sector": ["Technology", "Technology", "Technology"],
-        "region": ["US", "US", "US"],
-        "currency": ["USD", "USD", "USD"],
-        "asset_type": ["Equity", "Equity", "Equity"],
-    })
+    security_meta_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT", "GOOGL"],
+            "sector": ["Technology", "Technology", "Technology"],
+            "region": ["US", "US", "US"],
+            "currency": ["USD", "USD", "USD"],
+            "asset_type": ["Equity", "Equity", "Equity"],
+        }
+    )
 
     # Define signal function
     def signal_fn(df: pd.DataFrame) -> pd.DataFrame:
@@ -72,7 +76,9 @@ def test_sector_limit_enforced_end_to_end() -> None:
         capital=100000.0,
         current_positions=None,
         enable_risk_controls=True,
-        risk_config={"max_sector_exposure": 0.30},  # Pass as dict, will be converted to PreTradeConfig
+        risk_config={
+            "max_sector_exposure": 0.30
+        },  # Pass as dict, will be converted to PreTradeConfig
         security_meta_df=security_meta_df,
         write_outputs=False,
     )
@@ -82,25 +88,29 @@ def test_sector_limit_enforced_end_to_end() -> None:
 
     # Verify: trading cycle should succeed
     assert result.status == "success", "Trading cycle should succeed"
-    
+
     # Note: Orders may be empty if signals don't generate (e.g., MA crossover not triggered)
     # The important part is that the cycle runs without errors and risk controls are applied
     # If orders exist, they should be filtered/reduced by sector limit
     if not result.orders_filtered.empty:
         # If orders exist, verify they are filtered/reduced
-        assert len(result.orders_filtered) <= len(result.orders), "Orders should be filtered/reduced"
+        assert len(result.orders_filtered) <= len(
+            result.orders
+        ), "Orders should be filtered/reduced"
 
 
 def test_missing_security_master_rule_enabled_fail_fast() -> None:
     """Test that missing security master + rule enabled -> fail-fast."""
     # Create toy prices
     dates = pd.date_range("2024-01-01", periods=30, freq="D", tz="UTC")
-    prices = pd.DataFrame({
-        "timestamp": dates.tolist() * 2,
-        "symbol": ["AAPL"] * 30 + ["MSFT"] * 30,
-        "close": [150.0] * 30 + [200.0] * 30,
-        "volume": [1000000] * 60,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": dates.tolist() * 2,
+            "symbol": ["AAPL"] * 30 + ["MSFT"] * 30,
+            "close": [150.0] * 30 + [200.0] * 30,
+            "volume": [1000000] * 60,
+        }
+    )
 
     # Define signal function
     def signal_fn(df: pd.DataFrame) -> pd.DataFrame:
@@ -143,12 +153,14 @@ def test_rule_disabled_runs_without_security_master() -> None:
     # Create toy prices with enough data for MA signals
     dates = pd.date_range("2024-01-01", periods=100, freq="D", tz="UTC")
     # Create prices with upward trend to generate LONG signals
-    prices = pd.DataFrame({
-        "timestamp": dates.tolist() * 2,
-        "symbol": ["AAPL"] * 100 + ["MSFT"] * 100,
-        "close": [150.0 + i * 0.5 for i in range(100)] * 2,  # Upward trend
-        "volume": [1000000] * 200,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": dates.tolist() * 2,
+            "symbol": ["AAPL"] * 100 + ["MSFT"] * 100,
+            "close": [150.0 + i * 0.5 for i in range(100)] * 2,  # Upward trend
+            "volume": [1000000] * 200,
+        }
+    )
 
     # Define signal function
     def signal_fn(df: pd.DataFrame) -> pd.DataFrame:
@@ -188,21 +200,25 @@ def test_deterministic_behavior() -> None:
     # Create toy prices with enough data for MA signals
     dates = pd.date_range("2024-01-01", periods=100, freq="D", tz="UTC")
     # Create prices with upward trend to generate LONG signals
-    prices = pd.DataFrame({
-        "timestamp": dates.tolist() * 2,
-        "symbol": ["AAPL"] * 100 + ["MSFT"] * 100,
-        "close": [150.0 + i * 0.5 for i in range(100)] * 2,  # Upward trend
-        "volume": [1000000] * 200,
-    })
+    prices = pd.DataFrame(
+        {
+            "timestamp": dates.tolist() * 2,
+            "symbol": ["AAPL"] * 100 + ["MSFT"] * 100,
+            "close": [150.0 + i * 0.5 for i in range(100)] * 2,  # Upward trend
+            "volume": [1000000] * 200,
+        }
+    )
 
     # Create security master
-    security_meta_df = pd.DataFrame({
-        "symbol": ["AAPL", "MSFT"],
-        "sector": ["Technology", "Technology"],
-        "region": ["US", "US"],
-        "currency": ["USD", "USD"],
-        "asset_type": ["Equity", "Equity"],
-    })
+    security_meta_df = pd.DataFrame(
+        {
+            "symbol": ["AAPL", "MSFT"],
+            "sector": ["Technology", "Technology"],
+            "region": ["US", "US"],
+            "currency": ["USD", "USD"],
+            "asset_type": ["Equity", "Equity"],
+        }
+    )
 
     # Define signal function
     def signal_fn(df: pd.DataFrame) -> pd.DataFrame:
@@ -249,8 +265,12 @@ def test_deterministic_behavior() -> None:
     # Verify: identical results
     assert result1.status == result2.status, "Status should be identical"
     # Sort and compare orders (if any)
-    orders1 = result1.orders_filtered.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
-    orders2 = result2.orders_filtered.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
+    orders1 = result1.orders_filtered.sort_values(["symbol", "timestamp"]).reset_index(
+        drop=True
+    )
+    orders2 = result2.orders_filtered.sort_values(["symbol", "timestamp"]).reset_index(
+        drop=True
+    )
     pd.testing.assert_frame_equal(orders1, orders2, check_dtype=False)
 
 
@@ -259,13 +279,15 @@ def test_security_master_loading_integration() -> None:
     with TemporaryDirectory() as tmpdir:
         # Create security master file
         security_master_path = Path(tmpdir) / "security_master.parquet"
-        security_meta_df = pd.DataFrame({
-            "symbol": ["AAPL", "MSFT", "GOOGL"],
-            "sector": ["Technology", "Technology", "Technology"],
-            "region": ["US", "US", "US"],
-            "currency": ["USD", "USD", "USD"],
-            "asset_type": ["Equity", "Equity", "Equity"],
-        })
+        security_meta_df = pd.DataFrame(
+            {
+                "symbol": ["AAPL", "MSFT", "GOOGL"],
+                "sector": ["Technology", "Technology", "Technology"],
+                "region": ["US", "US", "US"],
+                "currency": ["USD", "USD", "USD"],
+                "asset_type": ["Equity", "Equity", "Equity"],
+            }
+        )
         store_security_master(security_meta_df, security_master_path)
 
         # Load security master
@@ -281,12 +303,14 @@ def test_security_master_loading_integration() -> None:
         # Verify: can be used in trading cycle
         dates = pd.date_range("2024-01-01", periods=100, freq="D", tz="UTC")
         # Create prices with upward trend to generate LONG signals
-        prices = pd.DataFrame({
-            "timestamp": dates.tolist() * 2,
-            "symbol": ["AAPL"] * 100 + ["MSFT"] * 100,
-            "close": [150.0 + i * 0.5 for i in range(100)] * 2,  # Upward trend
-            "volume": [1000000] * 200,
-        })
+        prices = pd.DataFrame(
+            {
+                "timestamp": dates.tolist() * 2,
+                "symbol": ["AAPL"] * 100 + ["MSFT"] * 100,
+                "close": [150.0 + i * 0.5 for i in range(100)] * 2,  # Upward trend
+                "volume": [1000000] * 200,
+            }
+        )
 
         def signal_fn(df: pd.DataFrame) -> pd.DataFrame:
             return generate_trend_signals_from_prices(df, ma_fast=10, ma_slow=20)
@@ -311,4 +335,6 @@ def test_security_master_loading_integration() -> None:
         )
 
         result = run_trading_cycle(ctx)
-        assert result.status == "success", "Trading cycle should succeed with loaded security master"
+        assert (
+            result.status == "success"
+        ), "Trading cycle should succeed with loaded security master"

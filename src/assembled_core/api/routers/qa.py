@@ -165,19 +165,27 @@ def get_qa_metrics(freq: str) -> PerformanceMetricsResponse:
             try:
                 equity_df = pd.read_csv(portfolio_equity_file)
             except (IOError, OSError) as exc:
-                logger.warning(f"Failed to read portfolio equity file {portfolio_equity_file}: {exc}")
+                logger.warning(
+                    f"Failed to read portfolio equity file {portfolio_equity_file}: {exc}"
+                )
                 equity_df = None
             else:
-                equity_df["timestamp"] = pd.to_datetime(equity_df["timestamp"], utc=True)
+                equity_df["timestamp"] = pd.to_datetime(
+                    equity_df["timestamp"], utc=True
+                )
                 logger.info(f"Using portfolio equity: {len(equity_df)} rows")
         if equity_df is None and backtest_equity_file.exists():
             try:
                 equity_df = pd.read_csv(backtest_equity_file)
             except (IOError, OSError) as exc:
-                logger.warning(f"Failed to read backtest equity file {backtest_equity_file}: {exc}")
+                logger.warning(
+                    f"Failed to read backtest equity file {backtest_equity_file}: {exc}"
+                )
                 equity_df = None
             else:
-                equity_df["timestamp"] = pd.to_datetime(equity_df["timestamp"], utc=True)
+                equity_df["timestamp"] = pd.to_datetime(
+                    equity_df["timestamp"], utc=True
+                )
                 logger.info(f"Using backtest equity: {len(equity_df)} rows")
 
         if equity_df is None or equity_df.empty:

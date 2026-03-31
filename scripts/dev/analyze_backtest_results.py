@@ -67,7 +67,9 @@ def _metrics_to_summary_row(metrics: dict, run_id: str) -> dict:
         "total_return": _normalize_float(metrics.get("total_return")),
         "cagr": _normalize_float(metrics.get("cagr")),
         "volatility": _normalize_float(metrics.get("volatility")),
-        "sharpe_ratio": _normalize_float(metrics.get("sharpe_ratio") or metrics.get("sharpe")),
+        "sharpe_ratio": _normalize_float(
+            metrics.get("sharpe_ratio") or metrics.get("sharpe")
+        ),
         "sortino_ratio": _normalize_float(metrics.get("sortino_ratio")),
         "max_drawdown_pct": _normalize_float(metrics.get("max_drawdown_pct")),
         "total_trades": metrics.get("total_trades") or metrics.get("trades"),
@@ -87,15 +89,21 @@ def _metrics_to_summary_row(metrics: dict, run_id: str) -> dict:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Analyze backtest output and write metrics summary.")
-    parser.add_argument("--out", type=Path, required=True, help="Backtest output directory")
+    parser = argparse.ArgumentParser(
+        description="Analyze backtest output and write metrics summary."
+    )
+    parser.add_argument(
+        "--out", type=Path, required=True, help="Backtest output directory"
+    )
     parser.add_argument(
         "--summary-dir",
         type=Path,
         default=None,
         help="Directory for metrics_summary.json/csv (default: same as --out)",
     )
-    parser.add_argument("--freq", type=str, default="1d", help="Frequency for equity/trades filenames")
+    parser.add_argument(
+        "--freq", type=str, default="1d", help="Frequency for equity/trades filenames"
+    )
     args = parser.parse_args()
     out_dir = args.out.resolve()
     summary_dir = (args.summary_dir or out_dir).resolve()
@@ -135,13 +143,24 @@ def main() -> int:
                 "avg_win": metrics.avg_win,
                 "avg_loss": metrics.avg_loss,
                 "turnover": metrics.turnover,
-                "start_date": metrics.start_date.isoformat() if metrics.start_date is not None else None,
-                "end_date": metrics.end_date.isoformat() if metrics.end_date is not None else None,
+                "start_date": (
+                    metrics.start_date.isoformat()
+                    if metrics.start_date is not None
+                    else None
+                ),
+                "end_date": (
+                    metrics.end_date.isoformat()
+                    if metrics.end_date is not None
+                    else None
+                ),
                 "start_capital": metrics.start_capital,
                 "end_equity": metrics.end_equity,
             }
         else:
-            print("No metrics.json or equity_curve_*.csv found under --out", file=sys.stderr)
+            print(
+                "No metrics.json or equity_curve_*.csv found under --out",
+                file=sys.stderr,
+            )
             return 1
 
     row = _metrics_to_summary_row(metrics_dict, run_id)
