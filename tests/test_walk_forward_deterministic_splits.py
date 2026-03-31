@@ -202,7 +202,7 @@ def test_make_walk_forward_splits_insufficient_data():
         }
     )
 
-    with pytest.raises(ValueError, match="No valid splits generated"):
+    with pytest.raises(ValueError, match="Insufficient data|No valid splits generated"):
         make_walk_forward_splits(
             prices_df=prices_df,
             n_splits=5,

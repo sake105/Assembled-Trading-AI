@@ -102,7 +102,9 @@ def apply_cash_gate(
             n = float(notional.loc[idx])
             cost = float(cost_series.loc[idx])
             spend = n + cost
-            if cash_left - spend < CASH_MIN_TOLERANCE:  # would go below minimum safe cash
+            if (
+                cash_left - spend < CASH_MIN_TOLERANCE
+            ):  # would go below minimum safe cash
                 fills.at[idx, "status"] = "rejected"
                 fills.at[idx, "fill_qty"] = 0.0
                 fills.at[idx, "remaining_qty"] = fills.at[idx, "qty"]
@@ -156,7 +158,9 @@ def ensure_fill_schema(
     required_cols = ["timestamp", "symbol", "side", "qty", "price"]
     missing_cols = [col for col in required_cols if col not in trades.columns]
     if missing_cols:
-        raise ValueError(f"Missing required columns in trades DataFrame: {missing_cols}")
+        raise ValueError(
+            f"Missing required columns in trades DataFrame: {missing_cols}"
+        )
 
     # Make a copy to avoid modifying original
     fills = trades.copy()
@@ -166,25 +170,25 @@ def ensure_fill_schema(
         if not default_full_fill:
             raise ValueError("fill_qty column missing and default_full_fill=False")
         fills["fill_qty"] = fills["qty"].copy()
-    
+
     if "fill_price" not in fills.columns:
         if not default_full_fill:
             raise ValueError("fill_price column missing and default_full_fill=False")
         fills["fill_price"] = fills["price"].copy()
-    
+
     if "status" not in fills.columns:
         if not default_full_fill:
             raise ValueError("status column missing and default_full_fill=False")
         # Determine status based on fill_qty vs qty
         fills["status"] = fills.apply(
             lambda row: (
-                "filled" if row["fill_qty"] == row["qty"]
-                else "partial" if row["fill_qty"] > 0
-                else "rejected"
+                "filled"
+                if row["fill_qty"] == row["qty"]
+                else "partial" if row["fill_qty"] > 0 else "rejected"
             ),
             axis=1,
         )
-    
+
     if "remaining_qty" not in fills.columns:
         if not default_full_fill:
             raise ValueError("remaining_qty column missing and default_full_fill=False")
@@ -217,38 +221,47 @@ def _validate_fill_constraints(fills: pd.DataFrame) -> None:
     Raises:
         ValueError: If constraints are violated
     """
+    if fills.empty:
+        return
     # Check fill_qty <= qty
     if not (fills["fill_qty"] <= fills["qty"]).all():
         raise ValueError("fill_qty must be <= qty for all rows")
-    
+
     # Check fill_qty >= 0
     if not (fills["fill_qty"] >= 0).all():
         raise ValueError("fill_qty must be >= 0 for all rows")
-    
+
     # Check remaining_qty = qty - fill_qty
     expected_remaining = fills["qty"] - fills["fill_qty"]
-    if not np.allclose(fills["remaining_qty"], expected_remaining, rtol=1e-9, atol=1e-9):
+    if not np.allclose(
+        fills["remaining_qty"], expected_remaining, rtol=1e-9, atol=1e-9
+    ):
         raise ValueError("remaining_qty must equal qty - fill_qty")
-    
+
     # Check status consistency
     status_filled = fills["status"] == "filled"
     status_partial = fills["status"] == "partial"
     status_rejected = fills["status"] == "rejected"
-    
+
     # filled: fill_qty == qty
-    if not (fills.loc[status_filled, "fill_qty"] == fills.loc[status_filled, "qty"]).all():
+    if not (
+        fills.loc[status_filled, "fill_qty"] == fills.loc[status_filled, "qty"]
+    ).all():
         raise ValueError("status='filled' requires fill_qty == qty")
-    
+
     # partial: 0 < fill_qty < qty
     if status_partial.any():
         partial_fills = fills.loc[status_partial]
-        if not ((partial_fills["fill_qty"] > 0) & (partial_fills["fill_qty"] < partial_fills["qty"])).all():
+        if not (
+            (partial_fills["fill_qty"] > 0)
+            & (partial_fills["fill_qty"] < partial_fills["qty"])
+        ).all():
             raise ValueError("status='partial' requires 0 < fill_qty < qty")
-    
+
     # rejected: fill_qty == 0
     if not (fills.loc[status_rejected, "fill_qty"] == 0).all():
         raise ValueError("status='rejected' requires fill_qty == 0")
-    
+
     # Check fill_price > 0 if fill_qty > 0
     if not (fills.loc[fills["fill_qty"] > 0, "fill_price"] > 0).all():
         raise ValueError("fill_price must be > 0 if fill_qty > 0")
@@ -265,7 +278,7 @@ def create_full_fill_from_order(order: dict | pd.Series) -> dict:
     """
     if isinstance(order, pd.Series):
         order = order.to_dict()
-    
+
     fill = {
         "timestamp": order["timestamp"],
         "symbol": order["symbol"],
@@ -300,14 +313,16 @@ def create_partial_fill_from_order(
     """
     if isinstance(order, pd.Series):
         order = order.to_dict()
-    
+
     qty = order["qty"]
     if fill_qty <= 0 or fill_qty >= qty:
-        raise ValueError(f"fill_qty must be 0 < fill_qty < qty (got fill_qty={fill_qty}, qty={qty})")
-    
+        raise ValueError(
+            f"fill_qty must be 0 < fill_qty < qty (got fill_qty={fill_qty}, qty={qty})"
+        )
+
     if fill_price is None:
         fill_price = order["price"]
-    
+
     fill = {
         "timestamp": order["timestamp"],
         "symbol": order["symbol"],
@@ -333,7 +348,7 @@ def create_rejected_fill_from_order(order: dict | pd.Series) -> dict:
     """
     if isinstance(order, pd.Series):
         order = order.to_dict()
-    
+
     fill = {
         "timestamp": order["timestamp"],
         "symbol": order["symbol"],
@@ -394,19 +409,19 @@ def apply_session_gate(
 
     # Ensure fill schema (add fill columns if missing, including reject_reason)
     fills = ensure_fill_schema(trades, default_full_fill=True)
-    
+
     # Make a copy to avoid modifying original
     fills = fills.copy()
     if "reject_reason" not in fills.columns:
         fills["reject_reason"] = ""
-    
+
     # Get calendar for intraday checks
     cal = get_nyse_calendar()
-    
+
     # Apply session gate per row (reject_reason: ASCII-only codes)
     for idx, row in fills.iterrows():
         timestamp = row["timestamp"]
-        
+
         # Check if trading day
         if not is_trading_day(timestamp):
             # Not a trading day (weekend/holiday): reject
@@ -414,7 +429,9 @@ def apply_session_gate(
             fills.loc[idx, "reject_reason"] = "NOT_TRADING_DAY"
             fills.loc[idx, "fill_qty"] = 0.0
             fills.loc[idx, "remaining_qty"] = row["qty"]
-            fills.loc[idx, "fill_price"] = row["price"]  # Use order price for consistency
+            fills.loc[idx, "fill_price"] = row[
+                "price"
+            ]  # Use order price for consistency
             if "commission_cash" in fills.columns:
                 fills.loc[idx, "commission_cash"] = 0.0
             if "spread_cash" in fills.columns:
@@ -424,7 +441,7 @@ def apply_session_gate(
             if "total_cost_cash" in fills.columns:
                 fills.loc[idx, "total_cost_cash"] = 0.0
             continue
-        
+
         # For freq="1d": only accept at session close (unless strict=False, e.g. EOD bars at 00:00 UTC)
         if freq == "1d" and strict:
             try:
@@ -458,7 +475,7 @@ def apply_session_gate(
                     fills.loc[idx, "slippage_cash"] = 0.0
                 if "total_cost_cash" in fills.columns:
                     fills.loc[idx, "total_cost_cash"] = 0.0
-        
+
         # For freq="5min": only accept within trading session
         elif freq == "5min":
             try:
@@ -467,9 +484,13 @@ def apply_session_gate(
                 session_open_local = cal.session_open(session_ts)
                 session_close_local = cal.session_close(session_ts)
                 if session_open_local.tz is None:
-                    session_open_local = session_open_local.tz_localize("America/New_York")
+                    session_open_local = session_open_local.tz_localize(
+                        "America/New_York"
+                    )
                 if session_close_local.tz is None:
-                    session_close_local = session_close_local.tz_localize("America/New_York")
+                    session_close_local = session_close_local.tz_localize(
+                        "America/New_York"
+                    )
                 session_open_utc = session_open_local.tz_convert("UTC")
                 session_close_utc = session_close_local.tz_convert("UTC")
                 if timestamp < session_open_utc or timestamp > session_close_utc:
@@ -487,7 +508,9 @@ def apply_session_gate(
                     if "total_cost_cash" in fills.columns:
                         fills.loc[idx, "total_cost_cash"] = 0.0
             except Exception as e:
-                logger.warning(f"Session check failed for {timestamp}: {e}, rejecting order")
+                logger.warning(
+                    f"Session check failed for {timestamp}: {e}, rejecting order"
+                )
                 fills.loc[idx, "status"] = "rejected"
                 fills.loc[idx, "reject_reason"] = "SESSION_CHECK_FAILED"
                 fills.loc[idx, "fill_qty"] = 0.0
@@ -501,11 +524,11 @@ def apply_session_gate(
                     fills.loc[idx, "slippage_cash"] = 0.0
                 if "total_cost_cash" in fills.columns:
                     fills.loc[idx, "total_cost_cash"] = 0.0
-    
+
     # Ensure deterministic sorting
     if not fills.empty:
         fills = fills.sort_values(["timestamp", "symbol"], ignore_index=True)
-    
+
     return fills
 
 
@@ -582,10 +605,10 @@ def apply_partial_fills(
 
     # Ensure fill schema (add fill columns if missing)
     fills = ensure_fill_schema(trades, default_full_fill=True)
-    
+
     # Drop rows with qty == 0 (no trade)
     fills = fills[fills["qty"] != 0.0].copy()
-    
+
     if fills.empty:
         return fills
 
@@ -642,15 +665,17 @@ def apply_partial_fills(
     # Update status
     fills_with_adv["status"] = fills_with_adv.apply(
         lambda row: (
-            "rejected" if row["fill_qty"] == 0.0
-            else "filled" if row["fill_qty"] == abs(row["qty"])
-            else "partial"
+            "rejected"
+            if row["fill_qty"] == 0.0
+            else "filled" if row["fill_qty"] == abs(row["qty"]) else "partial"
         ),
         axis=1,
     )
 
     # Update remaining_qty
-    fills_with_adv["remaining_qty"] = fills_with_adv["qty"].abs() - fills_with_adv["fill_qty"]
+    fills_with_adv["remaining_qty"] = (
+        fills_with_adv["qty"].abs() - fills_with_adv["fill_qty"]
+    )
 
     # Keep fill_price = price (no price impact here)
     fills_with_adv["fill_price"] = fills_with_adv["price"]
@@ -699,10 +724,10 @@ def apply_limit_order_fills(
     """
     # Ensure fill schema (add fill columns if missing)
     fills = ensure_fill_schema(trades, default_full_fill=True)
-    
+
     # Drop rows with qty == 0 (no trade)
     fills = fills[fills["qty"] != 0.0].copy()
-    
+
     if fills.empty:
         return fills
 
@@ -718,7 +743,14 @@ def apply_limit_order_fills(
 
     # Merge with prices to get OHLC data
     fills_with_prices = fills.merge(
-        prices[["timestamp", "symbol", "close"] + (["high", "low"] if "high" in prices.columns and "low" in prices.columns else [])],
+        prices[
+            ["timestamp", "symbol", "close"]
+            + (
+                ["high", "low"]
+                if "high" in prices.columns and "low" in prices.columns
+                else []
+            )
+        ],
         on=["timestamp", "symbol"],
         how="left",
         suffixes=("", "_price"),
@@ -732,35 +764,39 @@ def apply_limit_order_fills(
 
     # Check limit eligibility
     limit_eligible = pd.Series(True, index=fills_with_prices.index)
-    limit_price_valid = ~fills_with_prices["limit_price"].isna() & (fills_with_prices["limit_price"] > 0)
-    
+    limit_price_valid = ~fills_with_prices["limit_price"].isna() & (
+        fills_with_prices["limit_price"] > 0
+    )
+
     # For limit orders, check if limit is reachable
     limit_mask = fills_with_prices["order_type"] == "limit"
     if limit_mask.any():
         limit_mask = limit_mask & limit_price_valid
-        
+
         if limit_mask.any():
             buy_limit_mask = limit_mask & (fills_with_prices["side"] == "BUY")
             sell_limit_mask = limit_mask & (fills_with_prices["side"] == "SELL")
-            
+
             # BUY limit: fill only if bar_low <= limit_price
             if buy_limit_mask.any():
                 buy_limit_eligible = (
-                    fills_with_prices.loc[buy_limit_mask, "low"] <= 
-                    fills_with_prices.loc[buy_limit_mask, "limit_price"]
+                    fills_with_prices.loc[buy_limit_mask, "low"]
+                    <= fills_with_prices.loc[buy_limit_mask, "limit_price"]
                 )
                 limit_eligible.loc[buy_limit_mask] = buy_limit_eligible.values
-            
+
             # SELL limit: fill only if bar_high >= limit_price
             if sell_limit_mask.any():
                 sell_limit_eligible = (
-                    fills_with_prices.loc[sell_limit_mask, "high"] >= 
-                    fills_with_prices.loc[sell_limit_mask, "limit_price"]
+                    fills_with_prices.loc[sell_limit_mask, "high"]
+                    >= fills_with_prices.loc[sell_limit_mask, "limit_price"]
                 )
                 limit_eligible.loc[sell_limit_mask] = sell_limit_eligible.values
-        
+
         # Reject limit orders with missing/invalid limit_price
-        limit_invalid_mask = (fills_with_prices["order_type"] == "limit") & ~limit_price_valid
+        limit_invalid_mask = (
+            fills_with_prices["order_type"] == "limit"
+        ) & ~limit_price_valid
         if limit_invalid_mask.any():
             limit_eligible.loc[limit_invalid_mask] = False
 
@@ -769,12 +805,20 @@ def apply_limit_order_fills(
         fills_with_prices["reject_reason"] = ""
     rej_mask = ~limit_eligible
     limit_invalid = (fills_with_prices["order_type"] == "limit") & ~limit_price_valid
-    fills_with_prices.loc[rej_mask & limit_invalid, "reject_reason"] = "LIMIT_PRICE_INVALID"
-    fills_with_prices.loc[rej_mask & ~limit_invalid, "reject_reason"] = "LIMIT_NOT_REACHED"
+    fills_with_prices.loc[rej_mask & limit_invalid, "reject_reason"] = (
+        "LIMIT_PRICE_INVALID"
+    )
+    fills_with_prices.loc[rej_mask & ~limit_invalid, "reject_reason"] = (
+        "LIMIT_NOT_REACHED"
+    )
     fills_with_prices.loc[rej_mask, "fill_qty"] = 0.0
     fills_with_prices.loc[rej_mask, "status"] = "rejected"
-    fills_with_prices.loc[rej_mask, "remaining_qty"] = fills_with_prices.loc[rej_mask, "qty"]
-    fills_with_prices.loc[rej_mask, "fill_price"] = fills_with_prices.loc[rej_mask, "price"]
+    fills_with_prices.loc[rej_mask, "remaining_qty"] = fills_with_prices.loc[
+        rej_mask, "qty"
+    ]
+    fills_with_prices.loc[rej_mask, "fill_price"] = fills_with_prices.loc[
+        rej_mask, "price"
+    ]
 
     # For eligible orders, apply partial fill model if provided
     eligible_mask = limit_eligible
@@ -786,26 +830,33 @@ def apply_limit_order_fills(
             prices=prices,
             partial_fill_model=partial_fill_model,
         )
-        
+
         # Update fills_with_prices with partial fill results
-        fills_with_prices.loc[eligible_mask, "fill_qty"] = eligible_fills["fill_qty"].values
+        fills_with_prices.loc[eligible_mask, "fill_qty"] = eligible_fills[
+            "fill_qty"
+        ].values
         fills_with_prices.loc[eligible_mask, "status"] = eligible_fills["status"].values
-        fills_with_prices.loc[eligible_mask, "remaining_qty"] = eligible_fills["remaining_qty"].values
+        fills_with_prices.loc[eligible_mask, "remaining_qty"] = eligible_fills[
+            "remaining_qty"
+        ].values
     elif eligible_mask.any():
         # No partial fill model: full fills for eligible orders
-        fills_with_prices.loc[eligible_mask, "fill_qty"] = fills_with_prices.loc[eligible_mask, "qty"].abs()
+        fills_with_prices.loc[eligible_mask, "fill_qty"] = fills_with_prices.loc[
+            eligible_mask, "qty"
+        ].abs()
         fills_with_prices.loc[eligible_mask, "status"] = "filled"
         fills_with_prices.loc[eligible_mask, "remaining_qty"] = 0.0
 
     # Set fill_price for limit orders (conservative: use limit_price)
     limit_filled_mask = limit_mask & (fills_with_prices["fill_qty"] > 0)
     if limit_filled_mask.any():
-        fills_with_prices.loc[limit_filled_mask, "fill_price"] = fills_with_prices.loc[limit_filled_mask, "limit_price"]
+        fills_with_prices.loc[limit_filled_mask, "fill_price"] = fills_with_prices.loc[
+            limit_filled_mask, "limit_price"
+        ]
 
     # Drop helper columns
     result = fills_with_prices.drop(
-        columns=["high", "low", "order_type", "limit_price"],
-        errors="ignore"
+        columns=["high", "low", "order_type", "limit_price"], errors="ignore"
     )
 
     # Ensure deterministic sorting
