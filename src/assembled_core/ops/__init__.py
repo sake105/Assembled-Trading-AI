@@ -13,6 +13,12 @@ from src.assembled_core.ops.health_check import (
     health_result_to_dict,
     render_health_summary_text,
 )
+from src.assembled_core.ops.daily_scheduler import (
+    DailyScheduler,
+    WorkerResult,
+    run_daily_cycle,
+    build_cycle_summary,
+)
 
 __all__ = [
     "HealthCheck",
@@ -22,4 +28,8 @@ __all__ = [
     "health_result_from_dict",
     "health_result_to_dict",
     "render_health_summary_text",
+    "DailyScheduler",
+    "WorkerResult",
+    "run_daily_cycle",
+    "build_cycle_summary",
 ]
