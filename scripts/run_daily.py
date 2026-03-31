@@ -353,6 +353,10 @@ def run_daily_eod(
         settings = get_settings()
         universe_path = settings.watchlist_file
 
+    if universe_path and not universe_path.exists():
+        logger.error(f"Universe file not found: {universe_path}")
+        sys.exit(1)
+
     if universe_path and universe_path.exists():
         # Read symbols from universe file
         try:

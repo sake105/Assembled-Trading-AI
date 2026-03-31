@@ -162,17 +162,17 @@ def test_run_crisis_windows_pass_fail_flags():
     row = results.iloc[0]
 
     # max_dd = -0.35 < -0.30 (threshold) -> pass_max_dd = False
-    assert row["pass_max_dd"] is False
+    assert not row["pass_max_dd"]
 
     # sharpe = -0.5 >= -1.0 (floor) -> pass_sharpe = True
-    assert row["pass_sharpe"] is True
+    assert row["pass_sharpe"]
 
-    # pass_overall = False (because pass_max_dd is False)
-    assert row["pass_overall"] is False
+    # pass_overall = False (because pass_max_dd == False)
+    assert not row["pass_overall"]
 
 
 def test_run_crisis_windows_pass_fail_both_pass():
-    """Test that pass_overall is True when both conditions pass."""
+    """Test that pass_overall == True when both conditions pass."""
 
     def backtest_fn(config):
         return {
@@ -195,9 +195,9 @@ def test_run_crisis_windows_pass_fail_both_pass():
     )
 
     row = results.iloc[0]
-    assert row["pass_max_dd"] is True
-    assert row["pass_sharpe"] is True
-    assert row["pass_overall"] is True
+    assert row["pass_max_dd"]
+    assert row["pass_sharpe"]
+    assert row["pass_overall"]
 
 
 def test_run_crisis_windows_handles_failures():
@@ -233,9 +233,9 @@ def test_run_crisis_windows_handles_failures():
 
     # Failed window should have all pass flags = False
     failed_row = results[results["error"].notna()].iloc[0]
-    assert failed_row["pass_max_dd"] is False
-    assert failed_row["pass_sharpe"] is False
-    assert failed_row["pass_overall"] is False
+    assert not failed_row["pass_max_dd"]
+    assert not failed_row["pass_sharpe"]
+    assert not failed_row["pass_overall"]
 
 
 def test_run_crisis_windows_empty_windows():

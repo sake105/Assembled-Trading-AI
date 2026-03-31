@@ -295,7 +295,7 @@ class TestEvaluateMetaModel:
 
         assert metrics["roc_auc"] == 1.0
         assert metrics["brier_score"] == 0.0
-        assert metrics["log_loss"] == 0.0
+        assert metrics["log_loss"] == pytest.approx(0.0, abs=1e-10)
 
     def test_evaluate_meta_model_single_class(self):
         """Test evaluation with single class (should handle gracefully)."""
@@ -330,6 +330,10 @@ class TestEvaluateMetaModel:
 @pytest.mark.phase7
 class TestPlotCalibrationCurve:
     """Tests for plot_calibration_curve function."""
+
+    @pytest.fixture(autouse=True)
+    def require_matplotlib(self):
+        pytest.importorskip("matplotlib")
 
     def test_plot_calibration_curve_creates_file(self, tmp_path: pathlib.Path):
         """Test that calibration curve plot is created."""

@@ -4,17 +4,12 @@ from __future__ import annotations
 
 import logging
 from datetime import date
-from typing import TYPE_CHECKING
-
 import pandas as pd
 
 from src.assembled_core.data.altdata.finnhub_common import (
     FINNHUB_BASE_URL,
     get_finnhub_session,
 )
-
-if TYPE_CHECKING:
-    from src.assembled_core.config.settings import Settings
 
 logger = logging.getLogger(__name__)
 
