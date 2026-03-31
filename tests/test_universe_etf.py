@@ -1,4 +1,5 @@
 """Tests for M10: ETF Universe Upgrade."""
+
 from __future__ import annotations
 import pytest
 from pathlib import Path
@@ -11,7 +12,9 @@ from src.assembled_core.data.universe_etf import (
     build_symbol_metadata,
 )
 
-_UNIVERSE_PATH = Path(__file__).resolve().parents[1] / "configs" / "universe_etf_v1.yaml"
+_UNIVERSE_PATH = (
+    Path(__file__).resolve().parents[1] / "configs" / "universe_etf_v1.yaml"
+)
 
 
 @pytest.mark.phase12

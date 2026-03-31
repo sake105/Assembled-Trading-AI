@@ -1,4 +1,5 @@
 """Tests for M9: Policy Calibration — verifies no TBD values remain and limits are sane."""
+
 from __future__ import annotations
 import pytest
 from pathlib import Path
@@ -16,6 +17,7 @@ class TestPolicyCalibration:
 
     def test_no_tbd_values(self, policy):
         import json
+
         text = json.dumps(policy)
         assert "TBD" not in text, "policy.yaml still contains TBD values"
 
