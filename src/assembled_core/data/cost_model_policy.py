@@ -55,7 +55,7 @@ def estimate_rebalance_cost_fraction(
         Estimated total cost as a fraction of portfolio value (e.g. 0.0012 = 12 bps).
         Returns 0.0 if cost model is disabled in policy or both weight dicts are empty.
     """
-    cm = ((policy or {}).get("cost_model") or {})
+    cm = (policy or {}).get("cost_model") or {}
     if not cm.get("enabled", True):
         return 0.0
 
@@ -97,7 +97,7 @@ def compute_cost_drag_per_period(
     Returns:
         List of cost fractions matching the length of *turnover_series*.
     """
-    cm = ((policy or {}).get("cost_model") or {})
+    cm = (policy or {}).get("cost_model") or {}
     if not cm.get("enabled", True):
         return [0.0] * len(turnover_series)
 
@@ -127,7 +127,7 @@ def get_effective_cost_params(
         Dict with keys: ``commission_bps``, ``half_spread_bps``, ``slippage_bps``,
         ``one_way_cost_bps``, ``enabled``.
     """
-    cm = ((policy or {}).get("cost_model") or {})
+    cm = (policy or {}).get("cost_model") or {}
     c = float(cm.get("commission_bps", commission_bps) or commission_bps)
     s = float(cm.get("half_spread_bps", half_spread_bps) or half_spread_bps)
     sl = float(cm.get("slippage_bps", slippage_bps) or slippage_bps)

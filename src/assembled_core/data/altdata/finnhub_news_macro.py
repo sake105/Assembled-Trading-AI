@@ -44,8 +44,14 @@ def fetch_news(
     """
     session, api_key = _get_finnhub_session(settings)
 
-    from_str = start_date.strftime("%Y-%m-%d") if not isinstance(start_date, str) else start_date
-    to_str = end_date.strftime("%Y-%m-%d") if not isinstance(end_date, str) else end_date
+    from_str = (
+        start_date.strftime("%Y-%m-%d")
+        if not isinstance(start_date, str)
+        else start_date
+    )
+    to_str = (
+        end_date.strftime("%Y-%m-%d") if not isinstance(end_date, str) else end_date
+    )
 
     rows = []
 
@@ -58,7 +64,9 @@ def fetch_news(
                 response.raise_for_status()
                 items = response.json()
             except Exception as exc:
-                logger.warning("[finnhub_news_macro] fetch_news(%s) failed: %s", sym, exc)
+                logger.warning(
+                    "[finnhub_news_macro] fetch_news(%s) failed: %s", sym, exc
+                )
                 continue
             rows.extend(_parse_news_items(items, default_symbol=sym))
     else:
@@ -70,11 +78,15 @@ def fetch_news(
             items = response.json()
         except Exception as exc:
             logger.warning("[finnhub_news_macro] fetch_news(market) failed: %s", exc)
-            return pd.DataFrame(columns=["timestamp", "symbol", "headline", "news_id", "event_type"])
+            return pd.DataFrame(
+                columns=["timestamp", "symbol", "headline", "news_id", "event_type"]
+            )
         rows.extend(_parse_news_items(items, default_symbol=None))
 
     if not rows:
-        return pd.DataFrame(columns=["timestamp", "symbol", "headline", "news_id", "event_type"])
+        return pd.DataFrame(
+            columns=["timestamp", "symbol", "headline", "news_id", "event_type"]
+        )
 
     df = pd.DataFrame(rows)
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
@@ -137,11 +149,7 @@ def fetch_news_sentiment(
     news_df["_date"] = news_df["timestamp"].dt.normalize()
     group_cols = ["_date", "symbol"] if "symbol" in news_df.columns else ["_date"]
 
-    agg = (
-        news_df.groupby(group_cols)
-        .size()
-        .reset_index(name="sentiment_volume")
-    )
+    agg = news_df.groupby(group_cols).size().reset_index(name="sentiment_volume")
     agg["sentiment_score"] = 0.0
     agg = agg.rename(columns={"_date": "timestamp"})
 
@@ -168,8 +176,14 @@ def fetch_macro_series(
     """
     session, api_key = _get_finnhub_session(settings)
 
-    from_str = start_date.strftime("%Y-%m-%d") if not isinstance(start_date, str) else start_date
-    to_str = end_date.strftime("%Y-%m-%d") if not isinstance(end_date, str) else end_date
+    from_str = (
+        start_date.strftime("%Y-%m-%d")
+        if not isinstance(start_date, str)
+        else start_date
+    )
+    to_str = (
+        end_date.strftime("%Y-%m-%d") if not isinstance(end_date, str) else end_date
+    )
 
     url = f"{FINNHUB_BASE_URL}/calendar/economic"
     params = {"from": from_str, "to": to_str, "token": api_key}
@@ -216,7 +230,7 @@ def fetch_macro_series(
             )
         # Economic indicator format
         elif "date" in item:
-            for code in (codes or [""]):
+            for code in codes or [""]:
                 ts_raw = item.get("date", "")
                 ts = pd.Timestamp(ts_raw, tz="UTC") if ts_raw else pd.NaT
                 rows.append(

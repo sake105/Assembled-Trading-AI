@@ -52,7 +52,9 @@ def ensure_event_schema(
         for col in missing:
             if col == "disclosure_date" and "timestamp" in df.columns:
                 # Derive disclosure_date from timestamp (no extra latency).
-                df["disclosure_date"] = pd.to_datetime(df["timestamp"], utc=True).dt.normalize()
+                df["disclosure_date"] = pd.to_datetime(
+                    df["timestamp"], utc=True
+                ).dt.normalize()
             else:
                 df[col] = None
 
@@ -155,7 +157,11 @@ def filter_events_as_of(
     if disclosure_col is not None:
         if disclosure_col in events.columns:
             filter_col = disclosure_col
-        elif fallback_to_event_date and event_date_col is not None and event_date_col in events.columns:
+        elif (
+            fallback_to_event_date
+            and event_date_col is not None
+            and event_date_col in events.columns
+        ):
             filter_col = event_date_col
         elif not fallback_to_event_date:
             raise ValueError(

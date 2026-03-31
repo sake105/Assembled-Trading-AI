@@ -86,9 +86,8 @@ def store_price_panel_parquet(
         existing = pd.read_parquet(target)
         if "timestamp" in existing.columns:
             existing["timestamp"] = pd.to_datetime(existing["timestamp"], utc=True)
-        df = (
-            pd.concat([existing, df], ignore_index=True)
-            .drop_duplicates(subset=["timestamp", "symbol"], keep="last")
+        df = pd.concat([existing, df], ignore_index=True).drop_duplicates(
+            subset=["timestamp", "symbol"], keep="last"
         )
 
     if "timestamp" in df.columns and "symbol" in df.columns:

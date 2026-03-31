@@ -7,7 +7,12 @@ from typing import Final, List
 import pandas as pd
 
 # Public schema constants (mirrored in tests)
-REQUIRED_COLUMNS: Final[List[str]] = ["symbol", "event_date", "disclosure_date", "effective_date"]
+REQUIRED_COLUMNS: Final[List[str]] = [
+    "symbol",
+    "event_date",
+    "disclosure_date",
+    "effective_date",
+]
 OPTIONAL_COLUMNS: Final[List[str]] = ["event_type", "source", "value", "is_public"]
 
 
@@ -149,4 +154,9 @@ def filter_events_pit(
     return df[mask].copy()
 
 
-__all__ = ["REQUIRED_COLUMNS", "OPTIONAL_COLUMNS", "normalize_alt_events", "filter_events_pit"]
+__all__ = [
+    "REQUIRED_COLUMNS",
+    "OPTIONAL_COLUMNS",
+    "normalize_alt_events",
+    "filter_events_pit",
+]

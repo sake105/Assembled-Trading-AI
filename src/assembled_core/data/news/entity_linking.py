@@ -66,7 +66,12 @@ def link_news_to_symbols(
         for _, row in mapping_df.iterrows():
             entity_val = row.get("entity")
             sym_val = row.get("symbol")
-            if entity_val is not None and pd.notna(entity_val) and sym_val is not None and pd.notna(sym_val):
+            if (
+                entity_val is not None
+                and pd.notna(entity_val)
+                and sym_val is not None
+                and pd.notna(sym_val)
+            ):
                 entity_map[str(entity_val).strip()] = str(sym_val).strip()
 
     # Resolve symbols for rows that still have no symbol
@@ -99,12 +104,12 @@ def link_news_to_symbols(
 
     # Handle rows that remain unmapped when a mapping source was provided
     if has_mapping_source and has_entity_col and missing != "keep":
-        still_missing = out["symbol"].apply(lambda x: x is None or (hasattr(x, '__class__') and pd.isna(x)))
+        still_missing = out["symbol"].apply(
+            lambda x: x is None or (hasattr(x, "__class__") and pd.isna(x))
+        )
         if still_missing.any():
             if missing == "raise":
-                raise ValueError(
-                    f"Cannot map {still_missing.sum()} row(s) to a symbol"
-                )
+                raise ValueError(f"Cannot map {still_missing.sum()} row(s) to a symbol")
             elif missing == "drop":
                 out = out[~still_missing].reset_index(drop=True)
             elif missing == "keep_unknown":

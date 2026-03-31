@@ -8,8 +8,17 @@ import pandas as pd
 
 _REQUIRED_COLS = {"publish_ts", "source"}
 _IDENTIFIER_COLS = {"headline", "url", "provider_id"}
-_OPTIONAL_COLS = ["symbol", "symbols", "headline", "url", "provider_id",
-                  "ingest_ts", "revised_ts", "sentiment", "raw_url"]
+_OPTIONAL_COLS = [
+    "symbol",
+    "symbols",
+    "headline",
+    "url",
+    "provider_id",
+    "ingest_ts",
+    "revised_ts",
+    "sentiment",
+    "raw_url",
+]
 _TS_COLS = ["publish_ts", "ingest_ts", "revised_ts"]
 
 

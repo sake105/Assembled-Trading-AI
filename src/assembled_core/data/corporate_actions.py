@@ -69,11 +69,15 @@ def compute_dividend_cashflows(
     required_pos = {"symbol", "qty"}
     required_act = {"symbol", "action_type", "effective_date", "dividend_cash"}
     if required_pos - set(positions.columns):
-        raise ValueError(f"positions missing required columns: {sorted(required_pos - set(positions.columns))}")
+        raise ValueError(
+            f"positions missing required columns: {sorted(required_pos - set(positions.columns))}"
+        )
     if actions.empty:
         return pd.DataFrame(columns=["timestamp", "symbol", "cashflow_type", "amount"])
     if required_act - set(actions.columns):
-        raise ValueError(f"actions missing required columns: {sorted(required_act - set(actions.columns))}")
+        raise ValueError(
+            f"actions missing required columns: {sorted(required_act - set(actions.columns))}"
+        )
     if (actions["action_type"] != "DIVIDEND").any():
         raise ValueError("actions must contain only DIVIDEND actions")
 
@@ -81,19 +85,23 @@ def compute_dividend_cashflows(
     actions["effective_date"] = pd.to_datetime(actions["effective_date"], utc=True)
     if as_of is not None:
         a = pd.Timestamp(as_of)
-        as_of_utc = a.tz_convert("UTC") if a.tzinfo is not None else a.tz_localize("UTC")
+        as_of_utc = (
+            a.tz_convert("UTC") if a.tzinfo is not None else a.tz_localize("UTC")
+        )
         actions = actions[actions["effective_date"] <= as_of_utc]
 
     rows = []
     for _, pos in positions.iterrows():
         sym, qty = pos["symbol"], float(pos["qty"])
         for _, act in actions[actions["symbol"] == sym].iterrows():
-            rows.append({
-                "timestamp": act["effective_date"],
-                "symbol": sym,
-                "cashflow_type": "DIVIDEND",
-                "amount": qty * float(act["dividend_cash"]),
-            })
+            rows.append(
+                {
+                    "timestamp": act["effective_date"],
+                    "symbol": sym,
+                    "cashflow_type": "DIVIDEND",
+                    "amount": qty * float(act["dividend_cash"]),
+                }
+            )
     out = pd.DataFrame(rows)
     if out.empty:
         return pd.DataFrame(columns=["timestamp", "symbol", "cashflow_type", "amount"])
@@ -150,7 +158,9 @@ def adjust_prices_for_splits(
     # Determine timestamp column
     ts_col = "timestamp" if "timestamp" in result.columns else result.columns[0]
     result_ts = pd.to_datetime(result[ts_col], utc=True, errors="coerce")
-    split_actions["effective_date"] = pd.to_datetime(split_actions["effective_date"], utc=True)
+    split_actions["effective_date"] = pd.to_datetime(
+        split_actions["effective_date"], utc=True
+    )
 
     # Apply each split: for rows of the same symbol before the split date,
     # multiply close by 1/split_ratio (backward adjustment).

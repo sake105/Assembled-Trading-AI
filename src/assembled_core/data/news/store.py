@@ -19,7 +19,13 @@ def news_partition_path(
 
     Layout: <root>/<source>/<YYYY>/<MM>/news_<source>_<YYYY>_<MM>.parquet
     """
-    return root / source / f"{year}" / f"{month:02d}" / f"news_{source}_{year}_{month:02d}.parquet"
+    return (
+        root
+        / source
+        / f"{year}"
+        / f"{month:02d}"
+        / f"news_{source}_{year}_{month:02d}.parquet"
+    )
 
 
 def store_news_parquet(
@@ -60,9 +66,13 @@ def store_news_parquet(
         out = pd.concat([existing, out], ignore_index=True)
         # Dedup by provider_id if available, else by (publish_ts, source, headline)
         if "provider_id" in out.columns and not out["provider_id"].isna().all():
-            out = out.drop_duplicates(subset=["publish_ts", "source", "provider_id"], keep=dedupe_keep)
+            out = out.drop_duplicates(
+                subset=["publish_ts", "source", "provider_id"], keep=dedupe_keep
+            )
         else:
-            out = out.drop_duplicates(subset=["publish_ts", "source", "headline"], keep=dedupe_keep)
+            out = out.drop_duplicates(
+                subset=["publish_ts", "source", "headline"], keep=dedupe_keep
+            )
 
     target.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=target.parent, suffix=".tmp.parquet")

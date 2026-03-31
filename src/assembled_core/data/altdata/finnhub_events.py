@@ -19,9 +19,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_EMPTY_EVENTS = pd.DataFrame(
-    columns=["timestamp", "symbol", "event_type", "event_id"]
-)
+_EMPTY_EVENTS = pd.DataFrame(columns=["timestamp", "symbol", "event_type", "event_id"])
 
 
 def _get_finnhub_session(settings) -> tuple:
@@ -48,8 +46,14 @@ def fetch_earnings_events(
     """
     session, api_key = _get_finnhub_session(settings)
 
-    from_str = start_date.strftime("%Y-%m-%d") if not isinstance(start_date, str) else start_date
-    to_str = end_date.strftime("%Y-%m-%d") if not isinstance(end_date, str) else end_date
+    from_str = (
+        start_date.strftime("%Y-%m-%d")
+        if not isinstance(start_date, str)
+        else start_date
+    )
+    to_str = (
+        end_date.strftime("%Y-%m-%d") if not isinstance(end_date, str) else end_date
+    )
 
     url = f"{FINNHUB_BASE_URL}/calendar/earnings"
     params = {"from": from_str, "to": to_str, "token": api_key}
@@ -122,8 +126,14 @@ def fetch_insider_events(
     """
     session, api_key = _get_finnhub_session(settings)
 
-    from_str = start_date.strftime("%Y-%m-%d") if not isinstance(start_date, str) else start_date
-    to_str = end_date.strftime("%Y-%m-%d") if not isinstance(end_date, str) else end_date
+    from_str = (
+        start_date.strftime("%Y-%m-%d")
+        if not isinstance(start_date, str)
+        else start_date
+    )
+    to_str = (
+        end_date.strftime("%Y-%m-%d") if not isinstance(end_date, str) else end_date
+    )
 
     rows = []
     for sym in symbols:
@@ -150,7 +160,9 @@ def fetch_insider_events(
             elif tx_code == "S":
                 event_type = "insider_sale"
             else:
-                event_type = f"insider_{tx_code.lower()}" if tx_code else "insider_other"
+                event_type = (
+                    f"insider_{tx_code.lower()}" if tx_code else "insider_other"
+                )
 
             event_id = hashlib.md5(
                 f"insider_{sym}_{tx_date}_{item.get('name','')}_{item.get('share','')}".encode()

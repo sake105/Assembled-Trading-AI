@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 try:
     import exchange_calendars as xcals
+
     _NYSE = xcals.get_calendar("XNYS")
     _CALENDAR_MODE = "nyse"
 except Exception:
@@ -122,7 +123,10 @@ def filter_prices_to_trading_days(
     if prices is None or prices.empty:
         return prices if prices is not None else pd.DataFrame()
     if ts_col not in prices.columns:
-        logger.warning("filter_prices_to_trading_days: column '%s' not found — returning unchanged", ts_col)
+        logger.warning(
+            "filter_prices_to_trading_days: column '%s' not found — returning unchanged",
+            ts_col,
+        )
         return prices
 
     ts = pd.to_datetime(prices[ts_col], utc=True, errors="coerce")

@@ -122,7 +122,9 @@ def _load_all_partitions(panel_dir: Path) -> pd.DataFrame | None:
         try:
             dfs.append(pd.read_parquet(p))
         except Exception:
-            logger.warning("[factor_store] Failed to read partition %s", p, exc_info=True)
+            logger.warning(
+                "[factor_store] Failed to read partition %s", p, exc_info=True
+            )
     if not dfs:
         return None
     return pd.concat(dfs, ignore_index=True)
@@ -138,11 +140,16 @@ def _write_manifest(
 ) -> None:
     """Write _metadata.json manifest to the panel directory."""
     ts_col = df["timestamp"] if "timestamp" in df.columns else pd.Series(dtype="object")
-    years: list[int] = sorted(ts_col.dt.year.unique().tolist()) if len(ts_col) > 0 else []
+    years: list[int] = (
+        sorted(ts_col.dt.year.unique().tolist()) if len(ts_col) > 0 else []
+    )
     factor_cols = [c for c in df.columns if c not in ("timestamp", "symbol", "date")]
     date_range: dict[str, str] = {}
     if len(ts_col) > 0:
-        date_range = {"start": ts_col.min().isoformat(), "end": ts_col.max().isoformat()}
+        date_range = {
+            "start": ts_col.min().isoformat(),
+            "end": ts_col.max().isoformat(),
+        }
     schema = {col: str(df[col].dtype) for col in df.columns}
     config_input = f"{factor_group}:{freq}:{universe_key}:{sorted(factor_cols)}"
     config_hash = hashlib.sha256(config_input.encode()).hexdigest()[:16]
@@ -212,9 +219,8 @@ def store_factors(
         if existing is not None:
             if "timestamp" in existing.columns:
                 existing["timestamp"] = pd.to_datetime(existing["timestamp"], utc=True)
-            df = (
-                pd.concat([existing, df], ignore_index=True)
-                .drop_duplicates(subset=["timestamp", "symbol"], keep="last")
+            df = pd.concat([existing, df], ignore_index=True).drop_duplicates(
+                subset=["timestamp", "symbol"], keep="last"
             )
 
     if "timestamp" in df.columns and "symbol" in df.columns:
@@ -424,7 +430,9 @@ def list_available_panels(
             if freq is not None and freq_dir.name != freq:
                 continue
             result.extend(
-                list_factor_partitions(group=group_dir.name, freq=freq_dir.name, root=root)
+                list_factor_partitions(
+                    group=group_dir.name, freq=freq_dir.name, root=root
+                )
             )
 
     return result

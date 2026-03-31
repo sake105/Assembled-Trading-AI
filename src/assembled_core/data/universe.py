@@ -36,7 +36,9 @@ def store_universe_history(
     path = _universe_path(universe_name, base, format)
 
     if isinstance(df, list):
-        out = pd.DataFrame({"symbol": df, "start_date": [None] * len(df), "end_date": [None] * len(df)})
+        out = pd.DataFrame(
+            {"symbol": df, "start_date": [None] * len(df), "end_date": [None] * len(df)}
+        )
     else:
         out = df.copy()
 

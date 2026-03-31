@@ -51,7 +51,9 @@ def normalize_shipping_releases(
             out[col] = ts
 
     if out.empty:
-        return out[["series_id", "release_ts", "available_ts", "value"] + _OPTIONAL_COLS]
+        return out[
+            ["series_id", "release_ts", "available_ts", "value"] + _OPTIONAL_COLS
+        ]
 
     # Temporal sanity: available_ts must not precede release_ts
     if (out["available_ts"] < out["release_ts"]).any():
