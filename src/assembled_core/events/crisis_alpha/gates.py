@@ -110,11 +110,40 @@ def check_daily_loss_gate(ctx: CrisisAlphaContext) -> tuple[bool, str]:
     return True, "daily loss gate: OK"
 
 
+def check_evidence_grade_gate_from_ctx(
+    ctx: "CrisisAlphaContext",
+    require_for_active: str = "B",
+) -> tuple[bool, str]:
+    """Gate check using evidence grade stored in context.
+
+    Args:
+        ctx: CrisisAlphaContext -- reads ctx.evidence_grade if present.
+        require_for_active: Minimum grade required for ACTIVE.
+
+    Returns:
+        (ok, reason).
+    """
+    from src.assembled_core.events.evidence_engine import EvidenceGrade, check_evidence_grade_gate
+
+    grade_str = getattr(ctx, "evidence_grade", None)
+    if grade_str is None:
+        # No evidence grade set -- default to permissive (grade B = OK)
+        return True, "evidence grade gate: OK (no grade set — defaulting to pass)"
+
+    try:
+        grade = EvidenceGrade(grade_str)
+    except ValueError:
+        return True, f"evidence grade gate: OK (unknown grade {grade_str!r} — defaulting to pass)"
+
+    return check_evidence_grade_gate(grade, require_for_active=require_for_active)
+
+
 def run_all_activation_gates(
     ctx: CrisisAlphaContext,
     *,
     min_trigger_count: int = 1,
     min_sources: int = 2,
+    require_evidence_grade: str | None = None,
 ) -> tuple[bool, list[str]]:
     """Run all activation gates and return (all_ok, list_of_reasons).
 
@@ -124,6 +153,8 @@ def run_all_activation_gates(
         ctx: CrisisAlphaContext.
         min_trigger_count: Min qualifying triggers for evidence gate.
         min_sources: Min distinct sources for source gate.
+        require_evidence_grade: If set, also run evidence grade gate with this
+            minimum grade (e.g. "B").  None skips the evidence grade gate.
 
     Returns:
         (True, reasons) if all pass, (False, [first_failing_reason]) otherwise.
@@ -136,6 +167,9 @@ def run_all_activation_gates(
         check_market_stress_gate(ctx),
         check_daily_loss_gate(ctx),
     ]
+    if require_evidence_grade is not None:
+        checks.append(check_evidence_grade_gate_from_ctx(ctx, require_for_active=require_evidence_grade))
+
     reasons = []
     for ok, reason in checks:
         reasons.append(reason)

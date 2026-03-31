@@ -4,22 +4,22 @@ policy_version: "v1.0"
 scope:
   instruments: ["ETFs"]          # v1.x: hochliquide ETFs als Core
   leverage_allowed: false        # v1.x: kein Leverage / keine Hebelprodukte
-  shorts_allowed: TBD            # true/false – explizit zu entscheiden (z.B. nur Index-Short)
+  shorts_allowed: false           # v1.x: no shorts; ETF-only long portfolio
 
 # Risk limits are benchmark-style constraints, not auto-stops on returns.
 risk_limits:
-  target_vol_annual: TBD         # z.B. 0.20 (20% annualisierte Volatilität)
+  target_vol_annual: 0.20         # 20% annualized vol target; moderate for ETF portfolio
   max_drawdown:
-    soft: TBD                    # z.B. 0.15
-    hard: TBD                    # z.B. 0.25
-    kill: TBD                    # z.B. 0.35
-  max_position_weight: TBD       # z.B. 0.25 pro Instrument
+    soft: 0.12                   # 12% DD triggers de-risk scaling
+    hard: 0.20                   # 20% DD hard position reduction
+    kill: 0.30                   # 30% DD triggers kill switch
+  max_position_weight: 0.20      # max 20% in any single ETF
   turnover:
-    weekly_cap: TBD              # z.B. 0.50 (50% des Portfolios pro Woche)
-    daily_cap: TBD               # optionaler engerer Cap
+    weekly_cap: 0.50             # max 50% portfolio turnover per week
+    daily_cap: 0.20              # max 20% portfolio turnover per day
   concentration_guard:
-    max_sector_weight: TBD       # z.B. 0.40
-    max_corr_cluster_weight: TBD # z.B. 0.50 pro Korrelations-Cluster
+    max_sector_weight: 0.40      # max 40% in correlated sector ETFs
+    max_corr_cluster_weight: 0.50 # max 50% in highly correlated cluster
 
 # High-level state machine config (WATCH / ACTIVE / COOLDOWN / PAUSE).
 state_machine:
@@ -29,9 +29,9 @@ state_machine:
     requires_market_stress_confirm: true
     evidence_tiers: ["A", "B"]   # welche Evidenz-Ebenen für ACTIVE nötig sind
   deactivation:
-    geo_decay_days: TBD          # z.B. 7–30 Tage
-    vol_normalization_days: TBD  # Zeitraum, über den Volatilität sich normalisieren soll
-    cooldown_days: TBD           # Mindestdauer im COOLDOWN-State
+    geo_decay_days: 14            # geo risk decays over 14 days
+    vol_normalization_days: 20   # vol normalization window: 20 days
+    cooldown_days: 5             # minimum 5 days in COOLDOWN state
 
 # Health / QC gates for external inputs (News, Disclosures, Market Data).
 health_gates:
@@ -170,3 +170,17 @@ risk_state_machine:
   qc:
     if_intel_degraded: "WATCH"
 
+
+evidence_engine:
+  enabled: true
+  require_grade_for_active: "B"   # minimum evidence grade to allow WATCH->ACTIVE
+  misinfo_risk_threshold: 0.70    # misinfo score above this blocks grade A
+  grades:
+    A:
+      description: "Strong: >=2 Tier-A OR >=3 independent Tier-B, low misinfo risk"
+    B:
+      description: "Moderate: >=1 Tier-A OR >=2 independent Tier-B, acceptable misinfo"
+    C:
+      description: "Weak: >=1 source but below B threshold"
+    D:
+      description: "Insufficient: no qualifying evidence or misinfo too high"

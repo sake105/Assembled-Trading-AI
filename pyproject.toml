@@ -105,3 +105,11 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
 mypy_path = "src"
+
+[tool.pytest.ini_options]
+markers = [
+  "phase10: M5 Crisis Alpha tests",
+  "phase11: M6 Risk v1.1 tests",
+  "phase12: M7 Realism v2 and prior milestone tests",
+  "phase13: M8 Evidence Engine tests",
+]
