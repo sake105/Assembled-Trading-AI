@@ -32,18 +32,31 @@ def get_nyse_calendar():
     return _NYSE
 
 
+def _to_naive(dt: date | pd.Timestamp) -> pd.Timestamp:
+    """Convert to timezone-naive date-only timestamp for exchange_calendars."""
+    ts = pd.Timestamp(dt)
+    if ts.tzinfo is not None:
+        ts = ts.tz_convert("UTC").tz_localize(None)
+    return ts.normalize()
+
+
 def is_trading_day(dt: date | pd.Timestamp) -> bool:
     """Check whether *dt* is a valid NYSE trading session."""
     cal = get_nyse_calendar()
-    ts = pd.Timestamp(dt)
-    return cal.is_session(ts)
+    return cal.is_session(_to_naive(dt))
 
 
 def session_close_utc(dt: date | pd.Timestamp) -> pd.Timestamp:
-    """Return the UTC close time for the NYSE session on *dt*."""
+    """Return the UTC close time for the NYSE session on *dt*.
+
+    Raises:
+        ValueError: If *dt* is not a NYSE trading day.
+    """
     cal = get_nyse_calendar()
-    ts = pd.Timestamp(dt)
-    return cal.session_close(ts).tz_convert("UTC")
+    naive = _to_naive(dt)
+    if not cal.is_session(naive):
+        raise ValueError(f"not a NYSE trading day: {dt}")
+    return cal.session_close(naive)
 
 
 def trading_sessions(
@@ -52,14 +65,16 @@ def trading_sessions(
 ) -> pd.DatetimeIndex:
     """Return NYSE sessions between *start* and *end* (inclusive)."""
     cal = get_nyse_calendar()
-    return cal.sessions_in_range(pd.Timestamp(start), pd.Timestamp(end))
+    return cal.sessions_in_range(_to_naive(start), _to_naive(end))
 
 
 def normalize_as_of_to_session_close(as_of: pd.Timestamp) -> pd.Timestamp:
-    """Snap *as_of* to the previous session close if it falls outside hours."""
-    cal = get_nyse_calendar()
-    sess = cal.previous_close(as_of)
-    return sess.tz_convert("UTC") if sess.tzinfo is None else sess
+    """Return the session close for the trading day of *as_of*.
+
+    Raises:
+        ValueError: If the date of *as_of* is not a NYSE trading day.
+    """
+    return session_close_utc(as_of)
 
 
 # ---------------------------------------------------------------------------

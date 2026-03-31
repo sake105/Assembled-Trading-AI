@@ -402,7 +402,7 @@ def write_summary_report(
                 sharpe = perf_meta.get("sharpe_ratio")
                 min_sharpe = perf_meta.get("min_sharpe_threshold", "N/A")
                 lines.append(
-                    f"- **Sharpe Ratio:** {sharpe:.4f if sharpe is not None else 'N/A'} (threshold: {min_sharpe})"
+                    f"- **Sharpe Ratio:** {f'{sharpe:.4f}' if sharpe is not None else 'N/A'} (threshold: {min_sharpe})"
                 )
 
         if "data_quality" in validation_details:
@@ -473,13 +473,13 @@ def write_summary_report(
             current_mean = label_drift.get("current_mean")
             mean_shift = label_drift.get("mean_shift", 0.0)
             lines.append(
-                f"- **Base Mean:** {base_mean:.4f if base_mean is not None else 'N/A'}"
+                f"- **Base Mean:** {f'{base_mean:.4f}' if base_mean is not None else 'N/A'}"
             )
             lines.append(
-                f"- **Current Mean:** {current_mean:.4f if current_mean is not None else 'N/A'}"
+                f"- **Current Mean:** {f'{current_mean:.4f}' if current_mean is not None else 'N/A'}"
             )
             lines.append(
-                f"- **Mean Shift:** {mean_shift:+.4f if mean_shift is not None else 'N/A'}"
+                f"- **Mean Shift:** {f'{mean_shift:+.4f}' if mean_shift is not None else 'N/A'}"
             )
             lines.append("")
     else:

@@ -85,7 +85,7 @@ def test_session_close_utc_winter(nyse_cal):
         close.hour == 21
     ), f"Winter session close should be 21:00 UTC, got {close.hour}"
     assert close.minute == 0, f"Session close should be on the hour, got {close.minute}"
-    assert close.tz.zone == "UTC", f"Session close should be UTC, got {close.tz}"
+    assert str(close.tz) == "UTC", f"Session close should be UTC, got {close.tz}"
     assert close.date() == date(
         2024, 2, 1
     ), f"Session close date should match, got {close.date()}"
@@ -107,7 +107,7 @@ def test_session_close_utc_summer(nyse_cal):
         close.hour == 20
     ), f"Summer session close should be 20:00 UTC, got {close.hour}"
     assert close.minute == 0, f"Session close should be on the hour, got {close.minute}"
-    assert close.tz.zone == "UTC", f"Session close should be UTC, got {close.tz}"
+    assert str(close.tz) == "UTC", f"Session close should be UTC, got {close.tz}"
     assert close.date() == date(
         2024, 6, 3
     ), f"Session close date should match, got {close.date()}"
@@ -127,14 +127,14 @@ def test_normalize_as_of_to_session_close_date_string(nyse_cal):
     assert (
         as_of.hour == 21
     ), f"Winter session close should be 21:00 UTC, got {as_of.hour}"
-    assert as_of.tz.zone == "UTC", f"Should be UTC, got {as_of.tz}"
+    assert str(as_of.tz) == "UTC", f"Should be UTC, got {as_of.tz}"
 
     # Summer date
     as_of = normalize_as_of_to_session_close("2024-06-03")
     assert (
         as_of.hour == 20
     ), f"Summer session close should be 20:00 UTC, got {as_of.hour}"
-    assert as_of.tz.zone == "UTC", f"Should be UTC, got {as_of.tz}"
+    assert str(as_of.tz) == "UTC", f"Should be UTC, got {as_of.tz}"
 
 
 def test_normalize_as_of_to_session_close_timestamp(nyse_cal):
@@ -146,7 +146,7 @@ def test_normalize_as_of_to_session_close_timestamp(nyse_cal):
     # Should be normalized to session close (21:00 UTC in winter)
     assert as_of.hour == 21, f"Should normalize to 21:00 UTC, got {as_of.hour}"
     assert as_of.date() == date(2024, 2, 1), f"Date should match, got {as_of.date()}"
-    assert as_of.tz.zone == "UTC", f"Should be UTC, got {as_of.tz}"
+    assert str(as_of.tz) == "UTC", f"Should be UTC, got {as_of.tz}"
 
     # Summer: arbitrary timestamp -> normalized to session close
     input_ts = pd.Timestamp("2024-06-03 12:00:00", tz="UTC")
