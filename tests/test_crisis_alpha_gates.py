@@ -62,7 +62,10 @@ class TestSocialOnlyGuard:
 class TestEvidenceGate:
     def test_ok_with_qualifying_triggers(self):
         ctx = _ctx(
-            news_trigger_items=[{"severity": 1, "topic": "geo"}, {"severity": 2, "topic": "trade"}]
+            news_trigger_items=[
+                {"severity": 1, "topic": "geo"},
+                {"severity": 2, "topic": "trade"},
+            ]
         )
         ok, _ = check_evidence_gate(ctx, min_trigger_count=1)
         assert ok is True

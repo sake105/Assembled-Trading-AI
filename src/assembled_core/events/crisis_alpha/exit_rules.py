@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 # Policy helpers
 # ---------------------------------------------------------------------------
 
+
 def _get(d: dict, *keys, default=None):
     node = d
     for key in keys:
@@ -48,6 +49,7 @@ def _get(d: dict, *keys, default=None):
 # ---------------------------------------------------------------------------
 # Individual position exit checks
 # ---------------------------------------------------------------------------
+
 
 def check_time_stop(
     position: dict[str, Any],
@@ -76,7 +78,10 @@ def check_time_stop(
         if entry_ts.tzinfo is None:
             entry_ts = entry_ts.replace(tzinfo=timezone.utc)
     except ValueError:
-        return True, f"time_stop: could not parse entry_ts='{entry_ts_raw}' — close for safety"
+        return (
+            True,
+            f"time_stop: could not parse entry_ts='{entry_ts_raw}' — close for safety",
+        )
 
     hold_hours = (now_utc - entry_ts).total_seconds() / 3600
     if hold_hours >= max_hold_hours:
@@ -150,6 +155,7 @@ def check_no_overnight(
 # Portfolio-level deactivation check
 # ---------------------------------------------------------------------------
 
+
 def check_deactivation_triggers(
     ctx: CrisisAlphaContext,
     current_crisis_state: str,
@@ -192,6 +198,7 @@ def check_deactivation_triggers(
 # ---------------------------------------------------------------------------
 # Batch exit check: apply exit rules to all open positions
 # ---------------------------------------------------------------------------
+
 
 def get_positions_to_exit(
     open_positions: list[dict[str, Any]],
@@ -244,7 +251,9 @@ def get_positions_to_exit(
 
         # No-overnight
         if no_overnight_enabled:
-            no_ov_exit, no_ov_reason = check_no_overnight(pos, now_utc, market_close_hour)
+            no_ov_exit, no_ov_reason = check_no_overnight(
+                pos, now_utc, market_close_hour
+            )
             if no_ov_exit:
                 to_exit.append((pos, no_ov_reason))
                 logger.info("[CRISIS_EXIT] %s: %s", symbol, no_ov_reason)

@@ -34,7 +34,9 @@ from src.assembled_core.risk.attribution import (
 # ---------------------------------------------------------------------------
 
 
-def _make_price_df(symbols: list[str], n_bars: int = 70, seed: int = 42) -> pd.DataFrame:
+def _make_price_df(
+    symbols: list[str], n_bars: int = 70, seed: int = 42
+) -> pd.DataFrame:
     """Build synthetic price DataFrame for testing."""
     rng = np.random.default_rng(seed)
     rows = []
@@ -42,9 +44,13 @@ def _make_price_df(symbols: list[str], n_bars: int = 70, seed: int = 42) -> pd.D
         price = 100.0
         for i in range(n_bars):
             price *= 1.0 + rng.normal(0, 0.01)
-            rows.append({"timestamp": pd.Timestamp("2024-01-01") + pd.Timedelta(days=i),
-                         "symbol": sym,
-                         "close": price})
+            rows.append(
+                {
+                    "timestamp": pd.Timestamp("2024-01-01") + pd.Timedelta(days=i),
+                    "symbol": sym,
+                    "close": price,
+                }
+            )
     return pd.DataFrame(rows)
 
 

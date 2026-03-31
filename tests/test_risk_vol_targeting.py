@@ -59,9 +59,13 @@ class TestComputeRealizedVol:
     def test_annualization_uses_factor(self):
         # Daily std = 0.01; annualized = 0.01 * sqrt(252)
         returns = pd.Series([0.01, -0.01] * 15)  # 30 observations
-        daily_vol = compute_realized_vol(returns, lookback_days=30, annualize_factor=1.0)
-        annual_vol = compute_realized_vol(returns, lookback_days=30, annualize_factor=252.0)
-        assert annual_vol == pytest.approx(daily_vol * (252.0 ** 0.5), rel=1e-6)
+        daily_vol = compute_realized_vol(
+            returns, lookback_days=30, annualize_factor=1.0
+        )
+        annual_vol = compute_realized_vol(
+            returns, lookback_days=30, annualize_factor=252.0
+        )
+        assert annual_vol == pytest.approx(daily_vol * (252.0**0.5), rel=1e-6)
 
     def test_uses_only_lookback_tail(self):
         # First 10 elements are high vol, last 10 are low vol
@@ -197,7 +201,9 @@ class TestComputeVolTargetingResult:
         assert math.isnan(realized)
 
     def test_empty_equity_curve_returns_scale_one(self):
-        scale, _, _ = compute_vol_targeting_result(pd.Series([], dtype=float), _policy_enabled())
+        scale, _, _ = compute_vol_targeting_result(
+            pd.Series([], dtype=float), _policy_enabled()
+        )
         assert scale == pytest.approx(1.0)
 
     def test_short_equity_curve_returns_scale_one(self):
@@ -209,6 +215,7 @@ class TestComputeVolTargetingResult:
     def test_high_vol_curve_scales_down(self):
         # Build a high-vol daily equity curve: ±5% each day
         import numpy as np
+
         rng = [1.0]
         returns = [0.05, -0.05] * 30  # 60 bars, 5% vol
         for r in returns:
@@ -240,7 +247,9 @@ class TestComputeVolTargetingResult:
             rng.append(rng[-1] * (1 + 0.01 * (-1 if i % 2 else 1)))
         curve = pd.Series(rng)
         # Using all history
-        scale_all, _, _ = compute_vol_targeting_result(curve, _policy_enabled(lookback_days=20))
+        scale_all, _, _ = compute_vol_targeting_result(
+            curve, _policy_enabled(lookback_days=20)
+        )
         # Using only first 11 bars (now_idx=10) → only 10 returns, < min_observations=5
         # so it should still succeed (10 >= 5)
         scale_early, _, _ = compute_vol_targeting_result(

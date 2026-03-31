@@ -60,7 +60,9 @@ def _growth_curve(n: int, daily_return: float = 0.01) -> pd.Series:
 class TestProfitLockDisabled:
     def test_disabled_returns_one_and_empty_state(self):
         curve = _growth_curve(30, daily_return=0.05)
-        mult, state = compute_profit_lock_multiplier(curve, _policy(enabled=False), now_idx=29)
+        mult, state = compute_profit_lock_multiplier(
+            curve, _policy(enabled=False), now_idx=29
+        )
         assert mult == 1.0
         assert isinstance(state, dict)
 
@@ -85,17 +87,23 @@ class TestProfitLockInsufficientData:
         assert mult == 1.0
 
     def test_empty_curve_returns_one(self):
-        mult, _ = compute_profit_lock_multiplier(pd.Series([], dtype=float), _policy(), now_idx=0)
+        mult, _ = compute_profit_lock_multiplier(
+            pd.Series([], dtype=float), _policy(), now_idx=0
+        )
         assert mult == 1.0
 
     def test_curve_shorter_than_lookback_returns_one(self):
         curve = _growth_curve(15)  # 15 bars, lookback=20 → need now_idx >= 20
-        mult, _ = compute_profit_lock_multiplier(curve, _policy(lookback_days=20), now_idx=14)
+        mult, _ = compute_profit_lock_multiplier(
+            curve, _policy(lookback_days=20), now_idx=14
+        )
         assert mult == 1.0
 
     def test_now_idx_zero_returns_one(self):
         curve = _growth_curve(30)
-        mult, _ = compute_profit_lock_multiplier(curve, _policy(lookback_days=20), now_idx=0)
+        mult, _ = compute_profit_lock_multiplier(
+            curve, _policy(lookback_days=20), now_idx=0
+        )
         assert mult == 1.0
 
 
@@ -108,7 +116,9 @@ class TestProfitLockTrigger:
     def test_return_below_trigger_no_lock(self):
         # 20 bars, 0.3% daily → lookback return ≈ 6% < trigger 8%
         curve = _growth_curve(30, daily_return=0.003)
-        mult, state = compute_profit_lock_multiplier(curve, _policy(trigger_return=0.08), now_idx=29)
+        mult, state = compute_profit_lock_multiplier(
+            curve, _policy(trigger_return=0.08), now_idx=29
+        )
         assert mult == 1.0
         assert "trigger_idx" not in state
 
@@ -173,7 +183,9 @@ class TestProfitLockCooldown:
         state_with_old_trigger = {"trigger_idx": 5}
         mult, new_state = compute_profit_lock_multiplier(
             curve,
-            _policy(trigger_return=0.99, cooldown_days=10),  # high trigger to avoid re-trigger
+            _policy(
+                trigger_return=0.99, cooldown_days=10
+            ),  # high trigger to avoid re-trigger
             now_idx=25,
             state=state_with_old_trigger,
         )

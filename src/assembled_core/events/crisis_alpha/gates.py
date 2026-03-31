@@ -55,9 +55,7 @@ def check_evidence_gate(
         ctx: CrisisAlphaContext with news_trigger_items list.
         min_trigger_count: Minimum number of triggers with severity >= 1.
     """
-    qualifying = [
-        t for t in ctx.news_trigger_items if int(t.get("severity", 0)) >= 1
-    ]
+    qualifying = [t for t in ctx.news_trigger_items if int(t.get("severity", 0)) >= 1]
     count = len(qualifying)
     if count < min_trigger_count:
         return (

@@ -42,7 +42,7 @@ def compute_realized_vol(
         return float("nan")
 
     std = float(tail.std(ddof=1))
-    return std * (annualize_factor ** 0.5)
+    return std * (annualize_factor**0.5)
 
 
 def compute_vol_scale_factor(
@@ -129,7 +129,11 @@ def compute_vol_targeting_result(
     annualize_factor = float(vt.get("annualize_factor", 252.0) or 252.0)
     min_observations = int(vt.get("min_observations", 5) or 5)
 
-    if equity_curve is None or not isinstance(equity_curve, pd.Series) or equity_curve.empty:
+    if (
+        equity_curve is None
+        or not isinstance(equity_curve, pd.Series)
+        or equity_curve.empty
+    ):
         return 1.0, float("nan"), target_vol
 
     # Slice to now_idx (allow negative indexing like -1 for last)

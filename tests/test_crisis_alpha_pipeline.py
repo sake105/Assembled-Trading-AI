@@ -65,10 +65,13 @@ def _ctx(**kwargs) -> CrisisAlphaContext:
 # Basic state transitions via pipeline
 # ---------------------------------------------------------------------------
 
+
 class TestPipelineStateTransitions:
     def test_pipeline_starts_in_watch(self, tmp_path: Path):
         ctx = _ctx()
-        result = run_crisis_alpha_pipeline(ctx, POLICY, state_path=tmp_path / "s.json", dry_run=True)
+        result = run_crisis_alpha_pipeline(
+            ctx, POLICY, state_path=tmp_path / "s.json", dry_run=True
+        )
         assert result["state"] == "WATCH"
         assert result["previous_state"] == "WATCH"
 
@@ -86,8 +89,11 @@ class TestPipelineStateTransitions:
 
     def test_pipeline_stays_watch_when_social_only(self, tmp_path: Path):
         ctx = _ctx(
-            geo_score=2.5, geo_sources=3, social_only=True,
-            market_stress_ok=True, health_ok=True,
+            geo_score=2.5,
+            geo_sources=3,
+            social_only=True,
+            market_stress_ok=True,
+            health_ok=True,
             news_trigger_items=[{"severity": 2}],
         )
         result = run_crisis_alpha_pipeline(ctx, POLICY, state_path=tmp_path / "s.json")
@@ -176,7 +182,13 @@ class TestPipelineExitRules:
         state_path = tmp_path / "s.json"
         old_ts = (NOW - timedelta(hours=9)).isoformat()
         open_positions = [
-            {"symbol": "GLD", "side": "long", "qty": 100, "entry_price": 200.0, "entry_ts": old_ts}
+            {
+                "symbol": "GLD",
+                "side": "long",
+                "qty": 100,
+                "entry_price": 200.0,
+                "entry_ts": old_ts,
+            }
         ]
         ctx = _ctx(
             geo_score=2.5,
@@ -198,7 +210,13 @@ class TestPipelineExitRules:
         state_path = tmp_path / "s.json"
         fresh_ts = (NOW - timedelta(hours=2)).isoformat()
         open_positions = [
-            {"symbol": "GLD", "side": "long", "qty": 100, "entry_price": 200.0, "entry_ts": fresh_ts}
+            {
+                "symbol": "GLD",
+                "side": "long",
+                "qty": 100,
+                "entry_price": 200.0,
+                "entry_ts": fresh_ts,
+            }
         ]
         ctx = _ctx(
             geo_score=2.5,
@@ -211,7 +229,9 @@ class TestPipelineExitRules:
         result = run_crisis_alpha_pipeline(ctx, POLICY, state_path=state_path)
         assert result["state"] == "ACTIVE"
         # Fresh position should not be timed out (8h max)
-        time_stopped = [r for _, r in result["positions_to_exit"] if "time_stop" in r and "GLD" in r]
+        time_stopped = [
+            r for _, r in result["positions_to_exit"] if "time_stop" in r and "GLD" in r
+        ]
         assert len(time_stopped) == 0
 
 
@@ -225,7 +245,9 @@ class TestPipelineDryRun:
             health_ok=True,
             news_trigger_items=[{"severity": 2}],
         )
-        result = run_crisis_alpha_pipeline(ctx, POLICY, state_path=state_path, dry_run=True)
+        result = run_crisis_alpha_pipeline(
+            ctx, POLICY, state_path=state_path, dry_run=True
+        )
         assert result["state"] == "ACTIVE"
         # State file should NOT exist after dry_run
         assert not state_path.exists()
@@ -251,8 +273,13 @@ class TestPipelineScenarios:
         state_path = tmp_path / "s.json"
 
         # T0: geo shock, WATCH → ACTIVE
-        ctx0 = _ctx(geo_score=2.5, geo_sources=3, market_stress_ok=True, health_ok=True,
-                    news_trigger_items=[{"severity": 2}])
+        ctx0 = _ctx(
+            geo_score=2.5,
+            geo_sources=3,
+            market_stress_ok=True,
+            health_ok=True,
+            news_trigger_items=[{"severity": 2}],
+        )
         r0 = run_crisis_alpha_pipeline(ctx0, POLICY, state_path=state_path)
         assert r0["state"] == "ACTIVE"
 
@@ -264,8 +291,12 @@ class TestPipelineScenarios:
         # T2: 25 hours later, geo still low → WATCH
         later = NOW + timedelta(hours=25)
         ctx2 = CrisisAlphaContext(
-            timestamp_utc=later, geo_score=0.3, geo_sources=0,
-            social_only=False, market_stress_ok=False, health_ok=True,
+            timestamp_utc=later,
+            geo_score=0.3,
+            geo_sources=0,
+            social_only=False,
+            market_stress_ok=False,
+            health_ok=True,
         )
         r2 = run_crisis_alpha_pipeline(ctx2, POLICY, state_path=state_path)
         assert r2["state"] == "WATCH"
@@ -275,8 +306,13 @@ class TestPipelineScenarios:
         state_path = tmp_path / "s.json"
 
         # Social-only geo signal, high score but no confirmed news
-        ctx = _ctx(geo_score=3.0, geo_sources=1, social_only=True,
-                   market_stress_ok=False, health_ok=True)
+        ctx = _ctx(
+            geo_score=3.0,
+            geo_sources=1,
+            social_only=True,
+            market_stress_ok=False,
+            health_ok=True,
+        )
         result = run_crisis_alpha_pipeline(ctx, POLICY, state_path=state_path)
         # Must stay WATCH regardless of geo_score
         assert result["state"] == "WATCH"
@@ -287,13 +323,20 @@ class TestPipelineScenarios:
         state_path = tmp_path / "s.json"
 
         # First activate
-        ctx0 = _ctx(geo_score=2.5, geo_sources=3, market_stress_ok=True, health_ok=True,
-                    news_trigger_items=[{"severity": 2}])
+        ctx0 = _ctx(
+            geo_score=2.5,
+            geo_sources=3,
+            market_stress_ok=True,
+            health_ok=True,
+            news_trigger_items=[{"severity": 2}],
+        )
         r0 = run_crisis_alpha_pipeline(ctx0, POLICY, state_path=state_path)
         assert r0["state"] == "ACTIVE"
 
         # Health degrades
-        ctx1 = _ctx(geo_score=2.5, geo_sources=3, market_stress_ok=True, health_ok=False)
+        ctx1 = _ctx(
+            geo_score=2.5, geo_sources=3, market_stress_ok=True, health_ok=False
+        )
         r1 = run_crisis_alpha_pipeline(ctx1, POLICY, state_path=state_path)
         assert r1["state"] == "COOLDOWN"
         assert r1["should_flatten_all"] is True
@@ -309,5 +352,7 @@ class TestPipelineScenarios:
 
         # Manual reset
         ctx1 = _ctx(daily_pnl=0.0)
-        r1 = run_crisis_alpha_pipeline(ctx1, POLICY, state_path=state_path, reset_pause=True)
+        r1 = run_crisis_alpha_pipeline(
+            ctx1, POLICY, state_path=state_path, reset_pause=True
+        )
         assert r1["state"] == "WATCH"

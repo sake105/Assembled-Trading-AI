@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 # Policy helpers
 # ---------------------------------------------------------------------------
 
+
 def _get(d: dict, *keys, default=None):
     node = d
     for key in keys:
@@ -65,6 +66,7 @@ _BASKET_PRIORITY: dict[str, float] = {
 # ---------------------------------------------------------------------------
 # Entry signal generation
 # ---------------------------------------------------------------------------
+
 
 def generate_crisis_entry(
     ctx: CrisisAlphaContext,
@@ -106,7 +108,9 @@ def generate_crisis_entry(
         for basket in baskets:
             symbol = basket["symbol"]
             raw_weights[symbol] = weight_per_instrument
-        reasons.append(f"equal_weight: {len(baskets)} instruments, weight={weight_per_instrument:.4f}")
+        reasons.append(
+            f"equal_weight: {len(baskets)} instruments, weight={weight_per_instrument:.4f}"
+        )
 
     elif method == "geo_weighted":
         total_priority = sum(
@@ -121,7 +125,9 @@ def generate_crisis_entry(
         reasons.append(f"geo_weighted: {len(baskets)} instruments by basket priority")
 
     else:
-        reasons.append(f"unknown entry method '{method}' — falling back to equal_weight")
+        reasons.append(
+            f"unknown entry method '{method}' — falling back to equal_weight"
+        )
         weight_per_instrument = 1.0 / len(baskets) if baskets else 0.0
         for basket in baskets:
             raw_weights[basket["symbol"]] = weight_per_instrument
@@ -129,11 +135,15 @@ def generate_crisis_entry(
     # Optional: scale total exposure by geo_score
     if scale_by_geo:
         activate_threshold = float(
-            _get(policy, "crisis_alpha", "hysteresis", "activate_geo_score", default=2.0)
+            _get(
+                policy, "crisis_alpha", "hysteresis", "activate_geo_score", default=2.0
+            )
         )
         scale = min(1.0, ctx.geo_score / max(activate_threshold, 0.01))
         raw_weights = {sym: w * scale for sym, w in raw_weights.items()}
-        reasons.append(f"geo_score scale applied: {scale:.3f} (geo_score={ctx.geo_score:.2f})")
+        reasons.append(
+            f"geo_score scale applied: {scale:.3f} (geo_score={ctx.geo_score:.2f})"
+        )
 
     # Apply risk budget (caps + gross exposure scaling)
     final_weights, budget_reasons = apply_risk_budget(raw_weights, baskets, policy)

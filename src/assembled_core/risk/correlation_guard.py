@@ -115,7 +115,7 @@ def detect_correlated_clusters(
         parent[find(a)] = find(b)
 
     for i, sym_i in enumerate(symbols):
-        for sym_j in symbols[i + 1:]:
+        for sym_j in symbols[i + 1 :]:
             val = corr_matrix.loc[sym_i, sym_j]
             if pd.isna(val):
                 continue

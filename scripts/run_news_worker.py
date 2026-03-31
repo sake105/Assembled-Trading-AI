@@ -37,6 +37,7 @@ logger = logging.getLogger("news_worker")
 # Simple cross-platform file lock (exclusive-create pattern)
 # ---------------------------------------------------------------------------
 
+
 class _WorkerLock:
     """Minimal file-based lock: exclusive O_CREAT|O_EXCL on the lockfile."""
 
@@ -80,6 +81,7 @@ class _WorkerLock:
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
@@ -125,7 +127,9 @@ def main() -> int:
 
     args = _parse_args()
 
-    output_dir = Path(args.output_dir) if args.output_dir else Path("output") / "intel" / "news"
+    output_dir = (
+        Path(args.output_dir) if args.output_dir else Path("output") / "intel" / "news"
+    )
     lock_path = output_dir / "cache" / ".news_worker.lock"
 
     lock = _WorkerLock(lock_path)
@@ -141,7 +145,9 @@ def main() -> int:
     exit_code = 0
 
     try:
-        logger.info("[START] news_worker cadence=%s output_dir=%s", args.cadence, output_dir)
+        logger.info(
+            "[START] news_worker cadence=%s output_dir=%s", args.cadence, output_dir
+        )
 
         result = run_news_pipeline(
             sources_path=args.sources,
@@ -171,13 +177,19 @@ def main() -> int:
         )
 
         if health_status == "ERROR":
-            logger.warning("[WARN] Health status is ERROR — triggers may be suppressed.")
+            logger.warning(
+                "[WARN] Health status is ERROR — triggers may be suppressed."
+            )
         elif health_status == "DEGRADED":
-            logger.warning("[WARN] Health status is DEGRADED — trigger severity capped at 1.")
+            logger.warning(
+                "[WARN] Health status is DEGRADED — trigger severity capped at 1."
+            )
 
     except Exception as exc:
         elapsed = time.monotonic() - t0
-        logger.error("[ERROR] news_worker failed after %.1fs: %s", elapsed, exc, exc_info=True)
+        logger.error(
+            "[ERROR] news_worker failed after %.1fs: %s", elapsed, exc, exc_info=True
+        )
         exit_code = 1
     finally:
         if not args.no_lock:

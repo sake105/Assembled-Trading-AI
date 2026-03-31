@@ -28,6 +28,7 @@ from src.assembled_core.events.crisis_alpha.context import CrisisAlphaContext
 # Policy helpers
 # ---------------------------------------------------------------------------
 
+
 def _get(d: dict, *keys, default=None):
     node = d
     for key in keys:
@@ -43,6 +44,7 @@ def _get(d: dict, *keys, default=None):
 # Daily loss guard
 # ---------------------------------------------------------------------------
 
+
 def check_daily_loss(ctx: CrisisAlphaContext) -> tuple[bool, str]:
     """Return (ok, reason). ok=False means daily loss limit breached → must PAUSE.
 
@@ -57,12 +59,16 @@ def check_daily_loss(ctx: CrisisAlphaContext) -> tuple[bool, str]:
             False,
             f"daily loss breached: pnl={ctx.daily_pnl:.4f} limit={ctx.daily_loss_limit:.4f}",
         )
-    return True, f"daily loss OK: pnl={ctx.daily_pnl:.4f} limit={ctx.daily_loss_limit:.4f}"
+    return (
+        True,
+        f"daily loss OK: pnl={ctx.daily_pnl:.4f} limit={ctx.daily_loss_limit:.4f}",
+    )
 
 
 # ---------------------------------------------------------------------------
 # Gross exposure cap
 # ---------------------------------------------------------------------------
+
 
 def check_gross_exposure(
     target_weights: dict[str, float],
@@ -89,6 +95,7 @@ def check_gross_exposure(
 # ---------------------------------------------------------------------------
 # Apply weight caps from basket definitions
 # ---------------------------------------------------------------------------
+
 
 def apply_weight_caps(
     target_weights: dict[str, float],
@@ -118,6 +125,7 @@ def apply_weight_caps(
 # Scale to gross exposure cap
 # ---------------------------------------------------------------------------
 
+
 def scale_to_gross_cap(
     target_weights: dict[str, float],
     max_gross_exposure: float = 0.30,
@@ -141,6 +149,7 @@ def scale_to_gross_cap(
 # ---------------------------------------------------------------------------
 # Full risk budget application
 # ---------------------------------------------------------------------------
+
 
 def apply_risk_budget(
     target_weights: dict[str, float],

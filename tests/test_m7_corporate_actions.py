@@ -26,22 +26,28 @@ from src.assembled_core.data.corporate_actions import adjust_prices_for_splits
 # ---------------------------------------------------------------------------
 
 
-def _make_prices(symbol: str, closes: list[float], start: str = "2024-01-01") -> pd.DataFrame:
+def _make_prices(
+    symbol: str, closes: list[float], start: str = "2024-01-01"
+) -> pd.DataFrame:
     dates = pd.date_range(start, periods=len(closes), freq="D", tz="UTC")
-    return pd.DataFrame({
-        "timestamp": dates,
-        "symbol": [symbol] * len(closes),
-        "close": closes,
-    })
+    return pd.DataFrame(
+        {
+            "timestamp": dates,
+            "symbol": [symbol] * len(closes),
+            "close": closes,
+        }
+    )
 
 
 def _split_action(symbol: str, date: str, ratio: float) -> pd.DataFrame:
-    return pd.DataFrame({
-        "symbol": [symbol],
-        "action_type": ["SPLIT"],
-        "effective_date": [pd.Timestamp(date, tz="UTC")],
-        "split_ratio": [ratio],
-    })
+    return pd.DataFrame(
+        {
+            "symbol": [symbol],
+            "action_type": ["SPLIT"],
+            "effective_date": [pd.Timestamp(date, tz="UTC")],
+            "split_ratio": [ratio],
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -52,7 +58,9 @@ def _split_action(symbol: str, date: str, ratio: float) -> pd.DataFrame:
 class TestAdjustPricesForSplits:
     def test_empty_actions_returns_original(self):
         prices = _make_prices("AAPL", [200.0, 205.0, 100.0])
-        actions = pd.DataFrame(columns=["symbol", "action_type", "effective_date", "split_ratio"])
+        actions = pd.DataFrame(
+            columns=["symbol", "action_type", "effective_date", "split_ratio"]
+        )
         result = adjust_prices_for_splits(prices, actions)
         # Returns original reference (not a copy)
         assert result is prices
@@ -101,13 +109,17 @@ class TestAdjustPricesForSplits:
     def test_multiple_splits_applied_sequentially(self):
         # Two splits on same symbol
         prices = _make_prices("A", [400.0, 200.0, 100.0, 50.0], "2024-01-01")
-        actions = pd.DataFrame({
-            "symbol": ["A", "A"],
-            "action_type": ["SPLIT", "SPLIT"],
-            "effective_date": [pd.Timestamp("2024-01-02", tz="UTC"),
-                               pd.Timestamp("2024-01-03", tz="UTC")],
-            "split_ratio": [2.0, 2.0],
-        })
+        actions = pd.DataFrame(
+            {
+                "symbol": ["A", "A"],
+                "action_type": ["SPLIT", "SPLIT"],
+                "effective_date": [
+                    pd.Timestamp("2024-01-02", tz="UTC"),
+                    pd.Timestamp("2024-01-03", tz="UTC"),
+                ],
+                "split_ratio": [2.0, 2.0],
+            }
+        )
         result = adjust_prices_for_splits(prices, actions)
         # Day 1 (before both splits): 400 / 2 / 2 = 100
         assert result["close"].iloc[0] == pytest.approx(100.0)
@@ -119,22 +131,26 @@ class TestAdjustPricesForSplits:
     def test_missing_required_column_returns_copy_unchanged(self):
         prices = _make_prices("AAPL", [200.0, 100.0])
         # actions missing split_ratio column
-        actions = pd.DataFrame({
-            "symbol": ["AAPL"],
-            "action_type": ["SPLIT"],
-            "effective_date": [pd.Timestamp("2024-01-02", tz="UTC")],
-            # missing split_ratio
-        })
+        actions = pd.DataFrame(
+            {
+                "symbol": ["AAPL"],
+                "action_type": ["SPLIT"],
+                "effective_date": [pd.Timestamp("2024-01-02", tz="UTC")],
+                # missing split_ratio
+            }
+        )
         result = adjust_prices_for_splits(prices, actions)
         # Returns copy but unchanged
         assert result["close"].tolist() == pytest.approx([200.0, 100.0])
 
     def test_missing_close_column_returns_copy_unchanged(self):
-        prices = pd.DataFrame({
-            "timestamp": pd.date_range("2024-01-01", periods=3, freq="D", tz="UTC"),
-            "symbol": ["A"] * 3,
-            "open": [100.0, 200.0, 300.0],  # no close column
-        })
+        prices = pd.DataFrame(
+            {
+                "timestamp": pd.date_range("2024-01-01", periods=3, freq="D", tz="UTC"),
+                "symbol": ["A"] * 3,
+                "open": [100.0, 200.0, 300.0],  # no close column
+            }
+        )
         actions = _split_action("A", "2024-01-02", 2.0)
         result = adjust_prices_for_splits(prices, actions)
         assert "open" in result.columns
@@ -142,12 +158,14 @@ class TestAdjustPricesForSplits:
 
     def test_zero_ratio_skipped(self):
         prices = _make_prices("A", [200.0, 100.0])
-        actions = pd.DataFrame({
-            "symbol": ["A"],
-            "action_type": ["SPLIT"],
-            "effective_date": [pd.Timestamp("2024-01-02", tz="UTC")],
-            "split_ratio": [0.0],  # invalid
-        })
+        actions = pd.DataFrame(
+            {
+                "symbol": ["A"],
+                "action_type": ["SPLIT"],
+                "effective_date": [pd.Timestamp("2024-01-02", tz="UTC")],
+                "split_ratio": [0.0],  # invalid
+            }
+        )
         result = adjust_prices_for_splits(prices, actions)
         # Zero ratio skipped → prices unchanged
         assert result["close"].tolist() == pytest.approx([200.0, 100.0])

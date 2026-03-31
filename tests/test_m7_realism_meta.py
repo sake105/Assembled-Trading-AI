@@ -44,9 +44,14 @@ class TestBuildRealismLabel:
     def test_label_contains_all_required_keys(self):
         label = build_realism_label()
         required = {
-            "calendar_mode", "corporate_actions_mode", "cost_model_mode",
-            "universe_mode", "data_source", "notes",
-            "realism_score", "realism_level",
+            "calendar_mode",
+            "corporate_actions_mode",
+            "cost_model_mode",
+            "universe_mode",
+            "data_source",
+            "notes",
+            "realism_score",
+            "realism_level",
         }
         assert required.issubset(label.keys())
 
@@ -97,8 +102,8 @@ class TestBuildRealismLabel:
     def test_standard_level_range(self):
         # score 4–6 → standard
         label = build_realism_label(
-            calendar_mode="nyse",           # +2
-            cost_model_mode="tca",          # +2
+            calendar_mode="nyse",  # +2
+            cost_model_mode="tca",  # +2
         )
         assert label["realism_score"] == 4
         assert label["realism_level"] == "standard"

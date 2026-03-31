@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -90,8 +89,11 @@ class TestWatchToActive:
 
     def test_stays_watch_when_social_only(self):
         ctx = _ctx(
-            geo_score=2.5, geo_sources=3, social_only=True,
-            market_stress_ok=True, health_ok=True
+            geo_score=2.5,
+            geo_sources=3,
+            social_only=True,
+            market_stress_ok=True,
+            health_ok=True,
         )
         result = compute_next_crisis_state(ctx, POLICY, NOW, _prev("WATCH"))
         assert result.state == "WATCH"
@@ -199,14 +201,21 @@ class TestPauseState:
         assert result.state == "PAUSE"
 
     def test_daily_loss_triggers_pause_from_active(self):
-        ctx = _ctx(geo_score=2.5, geo_sources=3, market_stress_ok=True,
-                   daily_pnl=-0.03, daily_loss_limit=0.02)
+        ctx = _ctx(
+            geo_score=2.5,
+            geo_sources=3,
+            market_stress_ok=True,
+            daily_pnl=-0.03,
+            daily_loss_limit=0.02,
+        )
         result = compute_next_crisis_state(ctx, POLICY, NOW, _prev("ACTIVE"))
         assert result.state == "PAUSE"
 
     def test_pause_stays_pause_without_reset(self):
         ctx = _ctx(geo_score=0.0)
-        result = compute_next_crisis_state(ctx, POLICY, NOW, _prev("PAUSE"), reset=False)
+        result = compute_next_crisis_state(
+            ctx, POLICY, NOW, _prev("PAUSE"), reset=False
+        )
         assert result.state == "PAUSE"
 
     def test_pause_clears_with_manual_reset(self):

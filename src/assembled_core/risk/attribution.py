@@ -151,10 +151,9 @@ def compute_symbol_vol_contributions(
     portfolio_vol = math.sqrt(portfolio_var)
 
     # Marginal contribution = w_i * (Sigma @ w)_i / vol
-    marginal = (sigma @ w)
+    marginal = sigma @ w
     contributions = {
-        sym: float(w[i] * marginal[i] / portfolio_vol)
-        for i, sym in enumerate(symbols)
+        sym: float(w[i] * marginal[i] / portfolio_vol) for i, sym in enumerate(symbols)
     }
     return contributions
 
@@ -225,7 +224,7 @@ def compute_attribution_report(
             ``portfolio_vol``: annualized portfolio vol (nan if unavailable)
             ``status``: "ok", "no_price_data", or "insufficient_data"
     """
-    attr_cfg = ((policy or {}).get("attribution") or {})
+    attr_cfg = (policy or {}).get("attribution") or {}
     lb = int(attr_cfg.get("lookback_days", lookback_days) or lookback_days)
     af = float(attr_cfg.get("annualize_factor", annualize_factor) or annualize_factor)
 
@@ -246,7 +245,9 @@ def compute_attribution_report(
             "status": "no_price_data",
         }
 
-    cov = compute_covariance_matrix(prices, symbols, lookback_days=lb, annualize_factor=af)
+    cov = compute_covariance_matrix(
+        prices, symbols, lookback_days=lb, annualize_factor=af
+    )
 
     if cov.empty:
         return {

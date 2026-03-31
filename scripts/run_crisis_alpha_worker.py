@@ -44,6 +44,7 @@ logger = logging.getLogger("crisis_alpha_worker")
 # Arg parsing
 # ---------------------------------------------------------------------------
 
+
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description="Crisis-Alpha v1 worker — evaluate geo risk and manage crisis sub-portfolio.",
@@ -125,6 +126,7 @@ def _parse_args() -> argparse.Namespace:
 # Trigger file loader
 # ---------------------------------------------------------------------------
 
+
 def _load_triggers(triggers_path: str) -> tuple[list[dict], float, int, bool]:
     """Load triggers_latest.json and extract geo signal.
 
@@ -133,9 +135,7 @@ def _load_triggers(triggers_path: str) -> tuple[list[dict], float, int, bool]:
     """
     path = Path(triggers_path)
     if not path.exists():
-        logger.warning(
-            "[WARN] triggers file not found: %s — using geo_score=0.0", path
-        )
+        logger.warning("[WARN] triggers file not found: %s — using geo_score=0.0", path)
         return [], 0.0, 0, False
 
     try:
@@ -151,8 +151,10 @@ def _load_triggers(triggers_path: str) -> tuple[list[dict], float, int, bool]:
 
     # Geo score: max severity across geo-relevant triggers
     geo_items = [
-        t for t in items
-        if str(t.get("topic", "")).lower() in ("geopolitical", "military", "sanctions", "trade_war")
+        t
+        for t in items
+        if str(t.get("topic", "")).lower()
+        in ("geopolitical", "military", "sanctions", "trade_war")
     ]
     if not geo_items:
         return items, 0.0, 0, False
@@ -164,10 +166,11 @@ def _load_triggers(triggers_path: str) -> tuple[list[dict], float, int, bool]:
     geo_sources = len(source_set)
 
     # Social-only: True if ALL sources are tagged as social
-    social_only = all(
-        str(t.get("source_tier", "")).lower() == "social"
-        for t in geo_items
-    ) if geo_items else False
+    social_only = (
+        all(str(t.get("source_tier", "")).lower() == "social" for t in geo_items)
+        if geo_items
+        else False
+    )
 
     return items, geo_score, geo_sources, social_only
 
@@ -175,6 +178,7 @@ def _load_triggers(triggers_path: str) -> tuple[list[dict], float, int, bool]:
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def main() -> int:
     logging.basicConfig(
@@ -217,9 +221,13 @@ def main() -> int:
             geo_score = args.geo_score
             geo_sources = args.geo_sources if args.geo_sources is not None else 0
             social_only = False
-            logger.info("[INFO] CLI override: geo_score=%.2f sources=%d", geo_score, geo_sources)
+            logger.info(
+                "[INFO] CLI override: geo_score=%.2f sources=%d", geo_score, geo_sources
+            )
         else:
-            trigger_items, geo_score, geo_sources, social_only = _load_triggers(args.triggers)
+            trigger_items, geo_score, geo_sources, social_only = _load_triggers(
+                args.triggers
+            )
             logger.info(
                 "[INFO] triggers loaded: geo_score=%.2f sources=%d social_only=%s items=%d",
                 geo_score,
@@ -267,8 +275,7 @@ def main() -> int:
 
         if state == "ACTIVE" and target_weights:
             logger.info(
-                "[OK] crisis_alpha_worker done in %.2fs | %s→%s | "
-                "targets: %s",
+                "[OK] crisis_alpha_worker done in %.2fs | %s→%s | " "targets: %s",
                 elapsed,
                 prev_state,
                 state,
@@ -280,8 +287,7 @@ def main() -> int:
             )
         elif should_flatten:
             logger.warning(
-                "[WARN] crisis_alpha_worker done in %.2fs | %s→%s | "
-                "FLATTEN ALL: %s",
+                "[WARN] crisis_alpha_worker done in %.2fs | %s→%s | " "FLATTEN ALL: %s",
                 elapsed,
                 prev_state,
                 state,
@@ -290,8 +296,7 @@ def main() -> int:
         else:
             log_fn = logger.warning if state == "PAUSE" else logger.info
             log_fn(
-                "[OK] crisis_alpha_worker done in %.2fs | %s→%s | "
-                "gates_ok=%s",
+                "[OK] crisis_alpha_worker done in %.2fs | %s→%s | " "gates_ok=%s",
                 elapsed,
                 prev_state,
                 state,

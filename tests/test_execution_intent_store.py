@@ -151,7 +151,9 @@ class TestRecordIntent:
         assert store.exists()
 
     def test_returned_record_has_expected_fields(self, store: Path):
-        rec = record_intent("STOP", "key1", metadata={"reason": "test"}, store_path=store)
+        rec = record_intent(
+            "STOP", "key1", metadata={"reason": "test"}, store_path=store
+        )
         assert rec["action"] == "STOP"
         assert rec["idempotency_key"] == "key1"
         assert "timestamp_utc" in rec

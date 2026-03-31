@@ -42,6 +42,7 @@ class TestIsWeekday:
 
     def test_accepts_date_object(self):
         import datetime
+
         assert is_weekday(datetime.date(2024, 1, 8)) is True  # Monday
 
 
@@ -88,11 +89,13 @@ class TestIsTradingDaySafe:
 def _make_prices_with_weekends(n_days: int = 10) -> pd.DataFrame:
     """Build a price DataFrame spanning weekdays and weekends."""
     dates = pd.date_range("2024-01-08", periods=n_days, freq="D", tz="UTC")
-    return pd.DataFrame({
-        "timestamp": dates,
-        "symbol": ["AAPL"] * n_days,
-        "close": [100.0 + i for i in range(n_days)],
-    })
+    return pd.DataFrame(
+        {
+            "timestamp": dates,
+            "symbol": ["AAPL"] * n_days,
+            "close": [100.0 + i for i in range(n_days)],
+        }
+    )
 
 
 class TestFilterPricesToTradingDays:
@@ -129,7 +132,9 @@ class TestFilterPricesToTradingDays:
 
     def test_all_weekdays_input_unchanged_length(self):
         # Input with only weekdays → nothing filtered out
-        dates = pd.date_range("2024-01-08", periods=5, freq="B", tz="UTC")  # business days
+        dates = pd.date_range(
+            "2024-01-08", periods=5, freq="B", tz="UTC"
+        )  # business days
         df = pd.DataFrame({"timestamp": dates, "close": [100.0] * 5})
         result = filter_prices_to_trading_days(df)
         assert len(result) == 5

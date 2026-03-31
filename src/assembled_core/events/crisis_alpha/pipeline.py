@@ -101,7 +101,9 @@ def run_crisis_alpha_pipeline(
 
     # --- Step 3: Run activation gates (for audit log, not to block transitions) ---
     min_trigger_count = int(
-        (policy.get("crisis_alpha") or {}).get("hysteresis", {}).get("min_trigger_count", 1)
+        (policy.get("crisis_alpha") or {})
+        .get("hysteresis", {})
+        .get("min_trigger_count", 1)
     )
     min_sources = int(
         (policy.get("crisis_alpha") or {}).get("hysteresis", {}).get("min_sources", 2)
@@ -126,9 +128,7 @@ def run_crisis_alpha_pipeline(
     )
 
     # --- Step 6: Deactivation trigger check ---
-    should_flatten_all, flatten_reason = check_deactivation_triggers(
-        ctx, current_state
-    )
+    should_flatten_all, flatten_reason = check_deactivation_triggers(ctx, current_state)
 
     if should_flatten_all and ctx.open_positions:
         logger.warning(

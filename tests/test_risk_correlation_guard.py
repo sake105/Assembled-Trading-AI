@@ -26,7 +26,9 @@ from src.assembled_core.risk.correlation_guard import (
 # ---------------------------------------------------------------------------
 
 
-def _make_prices(data: dict[str, list[float]], start: str = "2026-01-01") -> pd.DataFrame:
+def _make_prices(
+    data: dict[str, list[float]], start: str = "2026-01-01"
+) -> pd.DataFrame:
     """Build prices DataFrame from {symbol: [close, ...]} dict."""
     n = max(len(v) for v in data.values())
     dates = pd.date_range(start, periods=n, freq="B", tz="UTC")
@@ -197,7 +199,9 @@ class TestApplyCorrelationGuard:
     def test_disabled_returns_original_unchanged(self):
         weights = {"GLD": 0.30, "TLT": 0.25}
         prices = _correlated_prices()
-        adjusted, reasons = apply_correlation_guard(weights, prices, _policy(enabled=False))
+        adjusted, reasons = apply_correlation_guard(
+            weights, prices, _policy(enabled=False)
+        )
         assert adjusted == weights
         assert reasons == []
 
@@ -223,7 +227,9 @@ class TestApplyCorrelationGuard:
         # GLD + TLT highly correlated, but combined weight 0.20 < cap 0.40
         weights = {"GLD": 0.10, "TLT": 0.10}
         prices = _correlated_prices()
-        adjusted, reasons = apply_correlation_guard(weights, prices, _policy(max_cluster_weight=0.40))
+        adjusted, reasons = apply_correlation_guard(
+            weights, prices, _policy(max_cluster_weight=0.40)
+        )
         assert adjusted["GLD"] == pytest.approx(0.10)
         assert adjusted["TLT"] == pytest.approx(0.10)
         assert reasons == []
@@ -232,7 +238,9 @@ class TestApplyCorrelationGuard:
         # GLD + TLT highly correlated, combined weight 0.60 > cap 0.40
         weights = {"GLD": 0.30, "TLT": 0.30}
         prices = _correlated_prices()
-        adjusted, reasons = apply_correlation_guard(weights, prices, _policy(max_cluster_weight=0.40))
+        adjusted, reasons = apply_correlation_guard(
+            weights, prices, _policy(max_cluster_weight=0.40)
+        )
         total = adjusted["GLD"] + adjusted["TLT"]
         assert total == pytest.approx(0.40, abs=1e-6)
         assert len(reasons) == 1
@@ -242,7 +250,9 @@ class TestApplyCorrelationGuard:
         # GLD:TLT = 2:1, both highly correlated
         weights = {"GLD": 0.40, "TLT": 0.20}
         prices = _correlated_prices()
-        adjusted, _ = apply_correlation_guard(weights, prices, _policy(max_cluster_weight=0.30))
+        adjusted, _ = apply_correlation_guard(
+            weights, prices, _policy(max_cluster_weight=0.30)
+        )
         # Combined = 0.60 → scale = 0.30/0.60 = 0.5
         assert adjusted["GLD"] == pytest.approx(0.20, abs=1e-6)
         assert adjusted["TLT"] == pytest.approx(0.10, abs=1e-6)
@@ -250,7 +260,9 @@ class TestApplyCorrelationGuard:
     def test_uncorrelated_symbols_not_clustered(self):
         weights = {"GLD": 0.30, "SHY": 0.30}
         prices = _uncorrelated_prices()
-        adjusted, reasons = apply_correlation_guard(weights, prices, _policy(max_cluster_weight=0.40))
+        adjusted, reasons = apply_correlation_guard(
+            weights, prices, _policy(max_cluster_weight=0.40)
+        )
         # No cluster → unchanged
         assert adjusted["GLD"] == pytest.approx(0.30)
         assert adjusted["SHY"] == pytest.approx(0.30)

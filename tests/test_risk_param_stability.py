@@ -51,7 +51,7 @@ def _make_unstable_equity(n: int = 200, seed: int = 42) -> pd.Series:
     """Equity curve with abrupt vol regime change (very different first/second half)."""
     rng = np.random.default_rng(seed)
     r1 = rng.normal(0.0002, 0.001, n // 2)  # very low vol
-    r2 = rng.normal(0.0002, 0.05, n // 2)   # very high vol
+    r2 = rng.normal(0.0002, 0.05, n // 2)  # very high vol
     returns = np.concatenate([r1, r2])
     prices = 100.0 * np.cumprod(1.0 + returns)
     return pd.Series(prices)
@@ -118,7 +118,9 @@ class TestVolStability:
     def test_unstable_equity_reports_unstable(self):
         ec = _make_unstable_equity(200)
         # Very tight threshold so the large CV from the vol regime change exceeds it
-        result = check_vol_stability(ec, window_sizes=[10, 20, 40, 60], stability_threshold=0.01)
+        result = check_vol_stability(
+            ec, window_sizes=[10, 20, 40, 60], stability_threshold=0.01
+        )
         # With extreme vol regime change (0.001 vs 0.05 daily vol), cv should exceed 1%
         assert result["status"] == "ok"
         assert result["cv"] > 0.01  # unstable at this tight threshold
@@ -287,7 +289,7 @@ class TestStabilityReport:
         to = pd.Series([0.10] * 50)  # perfectly constant turnover
         policy = {
             "param_stability": {
-                "vol_stability_threshold": 0.99,   # very generous
+                "vol_stability_threshold": 0.99,  # very generous
                 "turnover_stability_threshold": 0.99,
                 "drawdown_stability_threshold": 0.99,
             }

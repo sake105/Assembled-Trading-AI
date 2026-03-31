@@ -18,7 +18,10 @@ import pytest
 
 pytestmark = pytest.mark.phase12
 
-from src.assembled_core.risk.turnover_budget import apply_turnover_gate, estimate_turnover
+from src.assembled_core.risk.turnover_budget import (
+    apply_turnover_gate,
+    estimate_turnover,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -29,7 +32,11 @@ from src.assembled_core.risk.turnover_budget import apply_turnover_gate, estimat
 def _prices(data: dict[str, float]) -> pd.DataFrame:
     """Build minimal prices DataFrame: symbol -> latest close."""
     rows = [
-        {"timestamp": pd.Timestamp("2026-03-30", tz="UTC"), "symbol": sym, "close": price}
+        {
+            "timestamp": pd.Timestamp("2026-03-30", tz="UTC"),
+            "symbol": sym,
+            "close": price,
+        }
         for sym, price in data.items()
     ]
     return pd.DataFrame(rows)
@@ -117,18 +124,24 @@ class TestEstimateTurnover:
 
 class TestApplyTurnoverGate:
     def test_empty_target_returns_unchanged(self):
-        out, scale = apply_turnover_gate(pd.DataFrame(), None, cap=0.10, estimated_turnover=0.20)
+        out, scale = apply_turnover_gate(
+            pd.DataFrame(), None, cap=0.10, estimated_turnover=0.20
+        )
         assert out.empty
         assert scale == pytest.approx(1.0)
 
     def test_zero_cap_no_scaling(self):
         targets = _targets(("GLD", 0.30))
-        out, scale = apply_turnover_gate(targets, None, cap=0.0, estimated_turnover=0.50)
+        out, scale = apply_turnover_gate(
+            targets, None, cap=0.0, estimated_turnover=0.50
+        )
         assert scale == pytest.approx(1.0)
 
     def test_turnover_below_cap_returns_copy_unchanged(self):
         targets = _targets(("GLD", 0.30), ("TLT", 0.20))
-        out, scale = apply_turnover_gate(targets, None, cap=0.50, estimated_turnover=0.10)
+        out, scale = apply_turnover_gate(
+            targets, None, cap=0.50, estimated_turnover=0.10
+        )
         assert scale == pytest.approx(1.0)
         assert out["target_weight"].tolist() == pytest.approx([0.30, 0.20])
 
@@ -138,13 +151,22 @@ class TestApplyTurnoverGate:
         current = _current(("GLD", 0.0), ("TLT", 0.0))
         targets = _targets(("GLD", 0.30), ("TLT", 0.20))
         out, scale = apply_turnover_gate(
-            targets, current, cap=0.15, estimated_turnover=0.30,
-            behavior="scale", prices=prices, portfolio_value=1000.0,
+            targets,
+            current,
+            cap=0.15,
+            estimated_turnover=0.30,
+            behavior="scale",
+            prices=prices,
+            portfolio_value=1000.0,
         )
         assert scale == pytest.approx(0.15 / 0.30, rel=1e-6)
         # Scaled weights: from 0 + scale * (target - 0)
-        assert out.loc[out["symbol"] == "GLD", "target_weight"].iloc[0] == pytest.approx(0.30 * scale, rel=1e-6)
-        assert out.loc[out["symbol"] == "TLT", "target_weight"].iloc[0] == pytest.approx(0.20 * scale, rel=1e-6)
+        assert out.loc[out["symbol"] == "GLD", "target_weight"].iloc[
+            0
+        ] == pytest.approx(0.30 * scale, rel=1e-6)
+        assert out.loc[out["symbol"] == "TLT", "target_weight"].iloc[
+            0
+        ] == pytest.approx(0.20 * scale, rel=1e-6)
 
     def test_block_behavior_sets_targets_to_current(self):
         # Block: targets replaced with current weights
@@ -153,8 +175,13 @@ class TestApplyTurnoverGate:
         current = _current(("GLD", 10.0))
         targets = _targets(("GLD", 0.30))
         out, scale = apply_turnover_gate(
-            targets, current, cap=0.05, estimated_turnover=0.30,
-            behavior="block", prices=prices, portfolio_value=1000.0,
+            targets,
+            current,
+            cap=0.05,
+            estimated_turnover=0.30,
+            behavior="block",
+            prices=prices,
+            portfolio_value=1000.0,
         )
         assert scale == pytest.approx(0.0)
         # Target weight should be set to current weight (1.0)
@@ -168,8 +195,13 @@ class TestApplyTurnoverGate:
         current = _current(("GLD", 10.0))  # 10 * 100 / 10000 = 0.10 weight
         targets = _targets(("GLD", 0.30))
         out, scale = apply_turnover_gate(
-            targets, current, cap=0.05, estimated_turnover=0.10,
-            behavior="scale", prices=prices, portfolio_value=10000.0,
+            targets,
+            current,
+            cap=0.05,
+            estimated_turnover=0.10,
+            behavior="scale",
+            prices=prices,
+            portfolio_value=10000.0,
         )
         assert scale == pytest.approx(0.5, rel=1e-6)
         expected_weight = 0.10 + 0.5 * (0.30 - 0.10)

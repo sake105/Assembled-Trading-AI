@@ -34,10 +34,9 @@ class TestEstimateRebalanceCostFraction:
         # 100% turnover: sell everything, buy everything new
         old = {"A": 0.5, "B": 0.5}
         new = {"C": 0.5, "D": 0.5}
-        result = estimate_rebalance_cost_fraction(old, new,
-                                                   commission_bps=0.5,
-                                                   half_spread_bps=2.5,
-                                                   slippage_bps=3.0)
+        result = estimate_rebalance_cost_fraction(
+            old, new, commission_bps=0.5, half_spread_bps=2.5, slippage_bps=3.0
+        )
         # turnover = 2.0 (1.0 per old symbol), one_way = 6 bps
         expected = 2.0 * 6.0 / 10_000.0
         assert result == pytest.approx(expected)
@@ -45,10 +44,9 @@ class TestEstimateRebalanceCostFraction:
     def test_partial_rebalance(self):
         old = {"A": 0.5, "B": 0.5}
         new = {"A": 0.6, "B": 0.4}
-        result = estimate_rebalance_cost_fraction(old, new,
-                                                   commission_bps=0.5,
-                                                   half_spread_bps=2.5,
-                                                   slippage_bps=3.0)
+        result = estimate_rebalance_cost_fraction(
+            old, new, commission_bps=0.5, half_spread_bps=2.5, slippage_bps=3.0
+        )
         # turnover = |0.6-0.5| + |0.4-0.5| = 0.2
         expected = 0.2 * 6.0 / 10_000.0
         assert result == pytest.approx(expected)
@@ -56,7 +54,13 @@ class TestEstimateRebalanceCostFraction:
     def test_policy_overrides_defaults(self):
         old = {"A": 0.0}
         new = {"A": 1.0}
-        policy = {"cost_model": {"commission_bps": 1.0, "half_spread_bps": 1.0, "slippage_bps": 1.0}}
+        policy = {
+            "cost_model": {
+                "commission_bps": 1.0,
+                "half_spread_bps": 1.0,
+                "slippage_bps": 1.0,
+            }
+        }
         result = estimate_rebalance_cost_fraction(old, new, policy=policy)
         # turnover = 1.0, one_way = 3 bps
         assert result == pytest.approx(3.0 / 10_000.0)
@@ -98,10 +102,9 @@ class TestEstimateRebalanceCostFraction:
 class TestCostDragPerPeriod:
     def test_normal_case(self):
         turnovers = [0.1, 0.2, 0.15]
-        result = compute_cost_drag_per_period(turnovers,
-                                               commission_bps=0.5,
-                                               half_spread_bps=2.5,
-                                               slippage_bps=3.0)
+        result = compute_cost_drag_per_period(
+            turnovers, commission_bps=0.5, half_spread_bps=2.5, slippage_bps=3.0
+        )
         one_way = 6.0 / 10_000.0
         assert result[0] == pytest.approx(0.1 * one_way)
         assert result[1] == pytest.approx(0.2 * one_way)
@@ -149,6 +152,11 @@ class TestGetEffectiveCostParams:
 
     def test_returns_all_required_keys(self):
         params = get_effective_cost_params()
-        required = {"commission_bps", "half_spread_bps", "slippage_bps",
-                    "one_way_cost_bps", "enabled"}
+        required = {
+            "commission_bps",
+            "half_spread_bps",
+            "slippage_bps",
+            "one_way_cost_bps",
+            "enabled",
+        }
         assert required.issubset(params.keys())

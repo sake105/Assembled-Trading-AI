@@ -47,7 +47,11 @@ def compute_rolling_vol_estimates(
         window_size -> annualized vol dict.
         Windows with insufficient data get float('nan').
     """
-    if equity_curve is None or not isinstance(equity_curve, pd.Series) or len(equity_curve) < 2:
+    if (
+        equity_curve is None
+        or not isinstance(equity_curve, pd.Series)
+        or len(equity_curve) < 2
+    ):
         return {w: float("nan") for w in window_sizes}
 
     returns = equity_curve.pct_change().dropna()
@@ -192,7 +196,9 @@ def check_turnover_stability(
     if len(clean) < min_observations:
         return {
             "mean_turnover": float(clean.mean()),
-            "std_turnover": float(clean.std(ddof=1)) if len(clean) > 1 else float("nan"),
+            "std_turnover": (
+                float(clean.std(ddof=1)) if len(clean) > 1 else float("nan")
+            ),
             "cv": float("nan"),
             "max_turnover": float(clean.max()),
             "is_stable": False,
@@ -235,7 +241,11 @@ def compute_rolling_max_drawdown(
         Series of rolling max drawdown values (negative floats, e.g. -0.15 = 15% DD).
         Empty Series if input is insufficient.
     """
-    if equity_curve is None or not isinstance(equity_curve, pd.Series) or len(equity_curve) < window:
+    if (
+        equity_curve is None
+        or not isinstance(equity_curve, pd.Series)
+        or len(equity_curve) < window
+    ):
         return pd.Series(dtype=float)
 
     def _max_dd(sub: pd.Series) -> float:
@@ -343,7 +353,7 @@ def compute_stability_report(
             ``checks_passed``: count of stable checks
             ``checks_total``: count of checks with valid data
     """
-    ps = ((policy or {}).get("param_stability") or {})
+    ps = (policy or {}).get("param_stability") or {}
     vol_windows = ps.get("vol_window_sizes", [10, 20, 40, 60])
     vol_thresh = float(ps.get("vol_stability_threshold", 0.30) or 0.30)
     to_thresh = float(ps.get("turnover_stability_threshold", 0.50) or 0.50)

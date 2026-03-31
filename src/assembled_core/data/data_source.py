@@ -70,9 +70,7 @@ class LocalParquetPriceDataSource:
             if path.exists():
                 return path
 
-        raise FileNotFoundError(
-            f"No price data found for freq={freq} in {output_dir}"
-        )
+        raise FileNotFoundError(f"No price data found for freq={freq} in {output_dir}")
 
 
 class YahooPriceDataSource:
@@ -144,6 +142,7 @@ def get_price_data_source(
     settings,
     data_source: str | None = None,
     price_file: str | Path | None = None,
+    allow_external_fetch: bool = True,
 ):
     """Factory: return the appropriate PriceDataSource based on settings.
 
@@ -159,7 +158,11 @@ def get_price_data_source(
         ValueError: If data_source is unknown.
         ImportError: If required optional package is not installed.
     """
-    resolved = data_source if data_source is not None else getattr(settings, "data_source", "local")
+    resolved = (
+        data_source
+        if data_source is not None
+        else getattr(settings, "data_source", "local")
+    )
 
     if resolved == "local":
         return LocalParquetPriceDataSource(settings, price_file=price_file)

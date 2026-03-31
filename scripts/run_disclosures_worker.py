@@ -37,6 +37,7 @@ logger = logging.getLogger("disclosures_worker")
 # Simple cross-platform file lock (exclusive-create pattern)
 # ---------------------------------------------------------------------------
 
+
 class _WorkerLock:
     """Minimal file-based lock: exclusive O_CREAT|O_EXCL on the lockfile."""
 
@@ -80,6 +81,7 @@ class _WorkerLock:
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(

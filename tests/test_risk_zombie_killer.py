@@ -47,14 +47,18 @@ class TestCheckZombiePosition:
     def test_within_hold_limit_not_zombie(self):
         # Held 50h < 5*24=120h limit
         pos = _pos(held_hours=50.0, current_price=200.0)
-        is_zombie, reason = check_zombie_position(pos, NOW, max_hold_days=5.0, min_gain_pct=0.005)
+        is_zombie, reason = check_zombie_position(
+            pos, NOW, max_hold_days=5.0, min_gain_pct=0.005
+        )
         assert is_zombie is False
         assert reason == ""
 
     def test_past_hold_limit_no_gain_is_zombie(self):
         # Held 200h > 120h, flat price (0% gain < 0.5%)
         pos = _pos(held_hours=200.0, entry_price=100.0, current_price=100.0)
-        is_zombie, reason = check_zombie_position(pos, NOW, max_hold_days=5.0, min_gain_pct=0.005)
+        is_zombie, reason = check_zombie_position(
+            pos, NOW, max_hold_days=5.0, min_gain_pct=0.005
+        )
         assert is_zombie is True
         assert "zombie_killer" in reason
         assert "GLD" in reason
@@ -62,59 +66,92 @@ class TestCheckZombiePosition:
     def test_past_hold_limit_sufficient_gain_not_zombie(self):
         # Held 200h, but gained 2% > 0.5%
         pos = _pos(held_hours=200.0, entry_price=100.0, current_price=102.0)
-        is_zombie, reason = check_zombie_position(pos, NOW, max_hold_days=5.0, min_gain_pct=0.005)
+        is_zombie, reason = check_zombie_position(
+            pos, NOW, max_hold_days=5.0, min_gain_pct=0.005
+        )
         assert is_zombie is False
 
     def test_past_hold_limit_small_gain_is_zombie(self):
         # Held 200h, gained 0.2% < 0.5%
         pos = _pos(held_hours=200.0, entry_price=100.0, current_price=100.2)
-        is_zombie, reason = check_zombie_position(pos, NOW, max_hold_days=5.0, min_gain_pct=0.005)
+        is_zombie, reason = check_zombie_position(
+            pos, NOW, max_hold_days=5.0, min_gain_pct=0.005
+        )
         assert is_zombie is True
 
     def test_no_price_data_past_hold_limit_is_zombie(self):
         # No entry_price/current_price → conservative flag
         pos = _pos(held_hours=200.0, entry_price=None, current_price=None)
-        is_zombie, reason = check_zombie_position(pos, NOW, max_hold_days=5.0, min_gain_pct=0.005)
+        is_zombie, reason = check_zombie_position(
+            pos, NOW, max_hold_days=5.0, min_gain_pct=0.005
+        )
         assert is_zombie is True
         assert "no price data" in reason
 
     def test_no_price_data_within_hold_limit_not_zombie(self):
         pos = _pos(held_hours=50.0, entry_price=None, current_price=None)
-        is_zombie, reason = check_zombie_position(pos, NOW, max_hold_days=5.0, min_gain_pct=0.005)
+        is_zombie, reason = check_zombie_position(
+            pos, NOW, max_hold_days=5.0, min_gain_pct=0.005
+        )
         assert is_zombie is False
 
     def test_unparseable_entry_ts_safe_default_not_zombie(self):
-        pos = {"symbol": "X", "entry_ts": "not-a-date", "entry_price": 100.0, "current_price": 100.0}
-        is_zombie, reason = check_zombie_position(pos, NOW, max_hold_days=1.0, min_gain_pct=0.0)
+        pos = {
+            "symbol": "X",
+            "entry_ts": "not-a-date",
+            "entry_price": 100.0,
+            "current_price": 100.0,
+        }
+        is_zombie, reason = check_zombie_position(
+            pos, NOW, max_hold_days=1.0, min_gain_pct=0.0
+        )
         assert is_zombie is False
 
     def test_missing_entry_ts_safe_default_not_zombie(self):
         pos = {"symbol": "X"}
-        is_zombie, reason = check_zombie_position(pos, NOW, max_hold_days=1.0, min_gain_pct=0.0)
+        is_zombie, reason = check_zombie_position(
+            pos, NOW, max_hold_days=1.0, min_gain_pct=0.0
+        )
         assert is_zombie is False
 
     def test_short_position_gain_correct(self):
         # Short: entry=100, current=97 → gain = 100/97 - 1 ≈ 3.09%
-        pos = _pos(held_hours=200.0, entry_price=100.0, current_price=97.0, side="short")
-        is_zombie, _ = check_zombie_position(pos, NOW, max_hold_days=5.0, min_gain_pct=0.005)
+        pos = _pos(
+            held_hours=200.0, entry_price=100.0, current_price=97.0, side="short"
+        )
+        is_zombie, _ = check_zombie_position(
+            pos, NOW, max_hold_days=5.0, min_gain_pct=0.005
+        )
         assert is_zombie is False  # 3% gain > 0.5%
 
     def test_short_position_no_gain_is_zombie(self):
         # Short: entry=100, current=100 → 0% gain
-        pos = _pos(held_hours=200.0, entry_price=100.0, current_price=100.0, side="short")
-        is_zombie, _ = check_zombie_position(pos, NOW, max_hold_days=5.0, min_gain_pct=0.005)
+        pos = _pos(
+            held_hours=200.0, entry_price=100.0, current_price=100.0, side="short"
+        )
+        is_zombie, _ = check_zombie_position(
+            pos, NOW, max_hold_days=5.0, min_gain_pct=0.005
+        )
         assert is_zombie is True
 
     def test_custom_hold_days_and_gain(self):
         # 2 day limit, 1% min gain
-        pos = _pos(held_hours=55.0, entry_price=100.0, current_price=100.5)  # held ~2.3 days, 0.5% gain
-        is_zombie, _ = check_zombie_position(pos, NOW, max_hold_days=2.0, min_gain_pct=0.01)
+        pos = _pos(
+            held_hours=55.0, entry_price=100.0, current_price=100.5
+        )  # held ~2.3 days, 0.5% gain
+        is_zombie, _ = check_zombie_position(
+            pos, NOW, max_hold_days=2.0, min_gain_pct=0.01
+        )
         # 0.5% gain < 1% min → zombie
         assert is_zombie is True
 
     def test_reason_contains_symbol_and_hours(self):
-        pos = _pos(symbol="TLT", held_hours=200.0, entry_price=100.0, current_price=100.0)
-        _, reason = check_zombie_position(pos, NOW, max_hold_days=5.0, min_gain_pct=0.005)
+        pos = _pos(
+            symbol="TLT", held_hours=200.0, entry_price=100.0, current_price=100.0
+        )
+        _, reason = check_zombie_position(
+            pos, NOW, max_hold_days=5.0, min_gain_pct=0.005
+        )
         assert "TLT" in reason
         assert "200" in reason or "200.0" in reason
 
@@ -149,9 +186,15 @@ class TestGetZombiePositions:
 
     def test_mixed_positions_only_zombies_returned(self):
         positions = [
-            _pos(symbol="GLD", held_hours=200.0, entry_price=100.0, current_price=100.0),  # zombie
-            _pos(symbol="TLT", held_hours=50.0, entry_price=100.0, current_price=100.0),   # not zombie (recent)
-            _pos(symbol="SHY", held_hours=200.0, entry_price=100.0, current_price=102.0),  # not zombie (gain)
+            _pos(
+                symbol="GLD", held_hours=200.0, entry_price=100.0, current_price=100.0
+            ),  # zombie
+            _pos(
+                symbol="TLT", held_hours=50.0, entry_price=100.0, current_price=100.0
+            ),  # not zombie (recent)
+            _pos(
+                symbol="SHY", held_hours=200.0, entry_price=100.0, current_price=102.0
+            ),  # not zombie (gain)
         ]
         result = get_zombie_positions(positions, NOW, self._policy())
         symbols = {pos["symbol"] for pos, _ in result}

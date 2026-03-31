@@ -138,7 +138,9 @@ def load_crisis_state(state_path: Path | str | None = None) -> CrisisStateRecord
         return CrisisStateRecord.default()
 
 
-def save_crisis_state(record: CrisisStateRecord, state_path: Path | str | None = None) -> None:
+def save_crisis_state(
+    record: CrisisStateRecord, state_path: Path | str | None = None
+) -> None:
     """Atomically persist the crisis-alpha state record."""
     path = Path(state_path) if state_path else _DEFAULT_STATE_PATH
     _atomic_write_json(path, record.to_dict())
@@ -199,8 +201,12 @@ def compute_next_crisis_state(
 
     # Shorthand for policy values
     cfg = _get(policy, "crisis_alpha", default={})
-    activate_threshold: float = _get(cfg, "hysteresis", "activate_geo_score", default=2.0)
-    deactivate_threshold: float = _get(cfg, "hysteresis", "deactivate_geo_score", default=1.0)
+    activate_threshold: float = _get(
+        cfg, "hysteresis", "activate_geo_score", default=2.0
+    )
+    deactivate_threshold: float = _get(
+        cfg, "hysteresis", "deactivate_geo_score", default=1.0
+    )
     min_sources: int = _get(cfg, "hysteresis", "min_sources", default=2)
     cooldown_hours: float = _get(cfg, "hysteresis", "cooldown_hours", default=24.0)
 
@@ -268,10 +274,7 @@ def compute_next_crisis_state(
             logger.info("[CRISIS_STATE] WATCH → ACTIVE | %s", reason)
 
     elif current == "ACTIVE":
-        should_deactivate = (
-            ctx.geo_score < deactivate_threshold
-            or not ctx.health_ok
-        )
+        should_deactivate = ctx.geo_score < deactivate_threshold or not ctx.health_ok
         if should_deactivate:
             next_state = "COOLDOWN"
             reason = (
