@@ -263,7 +263,7 @@ def test_run_crisis_windows_date_range_slicing():
         {"name": "window2", "start": "2021-01-01", "end": "2021-06-30"},
     ]
 
-    results = run_crisis_windows(
+    _results = run_crisis_windows(
         backtest_fn=backtest_fn,
         base_config=base_config,
         windows=windows,

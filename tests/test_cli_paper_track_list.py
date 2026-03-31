@@ -200,7 +200,7 @@ def test_cli_list_flag(temp_configs_dir: Path, capsys: pytest.CaptureFixture[str
         factor_returns_file = None
         verbose = False
 
-    args = MockArgs()
+    _args = MockArgs()
 
     # Call main via parse_args and then handle --list
     from scripts.run_paper_track import list_paper_track_configs

@@ -84,7 +84,7 @@ def test_import_all_core_modules() -> None:
                 circular_imports.append((module_name, error_msg))
             else:
                 import_errors.append((module_name, error_msg))
-        except Exception as e:
+        except Exception:
             # Other exceptions (e.g., missing dependencies) are OK for smoke test
             # We only care about ImportError/circular imports
             pass

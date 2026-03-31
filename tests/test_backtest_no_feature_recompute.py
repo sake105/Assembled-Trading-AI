@@ -220,7 +220,7 @@ def test_backtest_features_not_recomputed_per_timestamp(monkeypatch):
     )
     
     # Optional: Check _build_features_default calls (it might be called, but should skip computation)
-    build_default_calls = feature_build_counter.get("_build_features_default", 0)
+    _build_default_calls = feature_build_counter.get("_build_features_default", 0)
     # _build_features_default should be called per timestamp, but it should skip actual computation
     # because precomputed_prices_with_features is set. So we expect some calls, but no actual feature computation.
     # The important thing is that add_all_features is not called.
@@ -305,7 +305,7 @@ def test_backtest_without_precomputed_features_still_works(monkeypatch):
     # Without precomputed features, features will be computed per timestamp
     # This is expected behavior for backward compatibility
     # We just verify the test setup works correctly
-    add_all_calls = feature_build_counter.get("add_all_features", 0)
+    _add_all_calls = feature_build_counter.get("add_all_features", 0)
     
     # Note: This test documents the current behavior (features computed per timestamp
     # if not precomputed). The main test above ensures that WITH precomputed features,

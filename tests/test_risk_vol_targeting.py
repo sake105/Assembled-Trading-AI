@@ -214,7 +214,6 @@ class TestComputeVolTargetingResult:
 
     def test_high_vol_curve_scales_down(self):
         # Build a high-vol daily equity curve: ±5% each day
-        import numpy as np
 
         rng = [1.0]
         returns = [0.05, -0.05] * 30  # 60 bars, 5% vol

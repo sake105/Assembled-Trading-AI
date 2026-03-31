@@ -60,7 +60,7 @@ except ImportError:
     pass
 
 # Import config models (strict validation)
-from src.assembled_core.config.models import (
+from src.assembled_core.config.models import (  # noqa: F401
     FeatureConfig,
     GateConfig,
     GateThresholdConfig,
@@ -72,16 +72,18 @@ from src.assembled_core.config.models import (
     ensure_signal_config,
 )
 
-__all__.extend([
-    # Config models
-    "FeatureConfig",
-    "SignalConfig",
-    "RiskConfig",
-    "GateConfig",
-    "GateThresholdConfig",
-    # Helper functions
-    "ensure_feature_config",
-    "ensure_signal_config",
-    "ensure_risk_config",
-    "ensure_gate_config",
-])
+__all__.extend(
+    [
+        # Config models
+        "FeatureConfig",
+        "SignalConfig",
+        "RiskConfig",
+        "GateConfig",
+        "GateThresholdConfig",
+        # Helper functions
+        "ensure_feature_config",
+        "ensure_signal_config",
+        "ensure_risk_config",
+        "ensure_gate_config",
+    ]
+)

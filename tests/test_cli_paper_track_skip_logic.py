@@ -92,10 +92,10 @@ portfolio:
 
     # Pre-create run directory for first day
     date1 = pd.Timestamp("2025-01-15", tz="UTC")
-    date2 = pd.Timestamp("2025-01-16", tz="UTC")
+    _date2 = pd.Timestamp("2025-01-16", tz="UTC")
     run_dir1 = output_root / "runs" / "20250115"
     _write_minimal_outputs(output_root, "test_strategy", date1)
-    original_snapshot = (run_dir1 / "equity_snapshot.json").read_text()
+    _original_snapshot = (run_dir1 / "equity_snapshot.json").read_text()
 
     # Run for date range (should skip day1, run day2)
     exit_code = rpt.run_paper_track_from_cli(
@@ -113,7 +113,7 @@ portfolio:
     assert (run_dir1 / "equity_snapshot.json").exists()
 
     # Verify day2 was run (may or may not exist depending on mock behavior)
-    run_dir2 = output_root / "runs" / "20250116"
+    _run_dir2 = output_root / "runs" / "20250116"
     # If skip works correctly, day2 should be processed; if not, we at least verified skip worked
     # The mock may not write outputs, so we just verify skip logic doesn't break
     # In a real scenario with actual execution, day2 would be written
@@ -150,7 +150,7 @@ portfolio:
     date1 = pd.Timestamp("2025-01-15", tz="UTC")
     run_dir1 = output_root / "runs" / "20250115"
     _write_minimal_outputs(output_root, "test_strategy", date1)
-    original_snapshot = (run_dir1 / "equity_snapshot.json").read_text()
+    _original_snapshot = (run_dir1 / "equity_snapshot.json").read_text()
 
     # Run with --rerun (should re-execute day1)
     exit_code = rpt.run_paper_track_from_cli(

@@ -28,7 +28,7 @@ def test_cli_batch_backtest_help() -> None:
 
     # Verify subcommand exists by checking parser structure
     # The batch_backtest subcommand should be registered
-    subcommand_names = [name for action in parser._actions if hasattr(action, "choices") and action.choices for name in action.choices.keys()]
+    _subcommand_names = [name for action in parser._actions if hasattr(action, "choices") and action.choices for name in action.choices.keys()]
     
     # Alternatively, try to parse the subcommand (will fail due to missing required args, but that's ok)
     try:

@@ -19,7 +19,6 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import os
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -58,6 +57,7 @@ def _schema_hint(path: Path) -> list[str] | str:
     """Return column list if fast to read, else 'unknown'."""
     try:
         import pandas as pd
+
         df = pd.read_parquet(path, columns=None)
         return list(df.columns)
     except Exception:
@@ -83,13 +83,15 @@ def run_dataset_discovery(output_root: Path) -> list[dict]:
         size_bytes = st.st_size if st else 0
         schema = _schema_hint(p) if size_bytes < 50_000_000 else "unknown"
         rel = p.relative_to(ROOT) if ROOT in p.parents else p
-        inventory.append({
-            "path": str(rel.as_posix()),
-            "path_absolute": str(p.resolve()),
-            "size_bytes": size_bytes,
-            "modified_time": mtime,
-            "schema_hint": schema,
-        })
+        inventory.append(
+            {
+                "path": str(rel.as_posix()),
+                "path_absolute": str(p.resolve()),
+                "size_bytes": size_bytes,
+                "modified_time": mtime,
+                "schema_hint": schema,
+            }
+        )
     out_file = output_root / "dataset_inventory.json"
     output_root.mkdir(parents=True, exist_ok=True)
     with out_file.open("w", encoding="utf-8", newline="\n") as f:
@@ -97,7 +99,9 @@ def run_dataset_discovery(output_root: Path) -> list[dict]:
     return inventory
 
 
-def _pick_dataset(inventory: list[dict], dataset_path: str | None) -> tuple[str | None, bool]:
+def _pick_dataset(
+    inventory: list[dict], dataset_path: str | None
+) -> tuple[str | None, bool]:
     """Return (absolute path or None, is_synthetic). Prefer real price panel over synthetic."""
     if dataset_path:
         p = Path(dataset_path)
@@ -106,6 +110,7 @@ def _pick_dataset(inventory: list[dict], dataset_path: str | None) -> tuple[str 
         if p.exists():
             return str(p.resolve()), False
         return None, True
+
     # Prefer paths that look like price panels (eod, panel, aggregates, smoke, sample)
     def score(item: dict) -> int:
         path = (item.get("path") or "").lower()
@@ -113,9 +118,13 @@ def _pick_dataset(inventory: list[dict], dataset_path: str | None) -> tuple[str 
         combined = path + " " + path_abs
         if "factor" in combined and "year=" in combined:
             return 0
-        if any(x in combined for x in ("eod", "aggregates", "panel", "smoke", "sample", "price")):
+        if any(
+            x in combined
+            for x in ("eod", "aggregates", "panel", "smoke", "sample", "price")
+        ):
             return 2
         return 1
+
     candidates = []
     for item in inventory:
         path_abs = item.get("path_absolute")
@@ -136,28 +145,34 @@ def _pick_dataset(inventory: list[dict], dataset_path: str | None) -> tuple[str 
 def _generate_synthetic_parquet(out_path: Path, start: str, end: str) -> None:
     """Write minimal synthetic EOD parquet (same semantics as smoke_backtest_local)."""
     import pandas as pd
+
     dates = pd.date_range(start=start, end=end, freq="B", tz="UTC")
     symbols = ["AAPL", "MSFT", "GOOGL"]
     rows = []
     for sym in symbols:
         for i, d in enumerate(dates):
             close = 100.0 + i * 0.05 + (i % 20) * 0.5
-            rows.append({
-                "timestamp": d,
-                "symbol": sym,
-                "open": close * 0.99,
-                "high": close * 1.01,
-                "low": close * 0.98,
-                "close": close,
-                "volume": 1_000_000.0,
-            })
+            rows.append(
+                {
+                    "timestamp": d,
+                    "symbol": sym,
+                    "open": close * 0.99,
+                    "high": close * 1.01,
+                    "low": close * 0.98,
+                    "close": close,
+                    "volume": 1_000_000.0,
+                }
+            )
     df = pd.DataFrame(rows)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(out_path, index=False)
 
 
-def _load_and_slice_prices(path: str, start_date: str | None, end_date: str | None) -> "pd.DataFrame":
+def _load_and_slice_prices(
+    path: str, start_date: str | None, end_date: str | None
+) -> "pd.DataFrame":  # noqa: F821
     import pandas as pd
+
     df = pd.read_parquet(path)
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
     if start_date:
@@ -176,11 +191,16 @@ def _run_backtest_subprocess(
     cmd = [
         sys.executable,
         str(ROOT / "scripts" / "run_backtest_strategy.py"),
-        "--freq", freq,
-        "--price-file", str(price_file),
-        "--strategy", "trend_baseline",
-        "--start-capital", "10000",
-        "--out", str(run_dir),
+        "--freq",
+        freq,
+        "--price-file",
+        str(price_file),
+        "--strategy",
+        "trend_baseline",
+        "--start-capital",
+        "10000",
+        "--out",
+        str(run_dir),
         "--no-ledger",
     ]
     r = subprocess.run(cmd, cwd=str(ROOT), timeout=300, capture_output=True, text=True)
@@ -193,17 +213,23 @@ def _run_analysis(run_dir: Path, summary_dir: Path, freq: str) -> int:
     cmd = [
         sys.executable,
         str(ROOT / "scripts" / "dev" / "analyze_backtest_results.py"),
-        "--out", str(run_dir),
-        "--summary-dir", str(summary_dir),
-        "--freq", freq,
+        "--out",
+        str(run_dir),
+        "--summary-dir",
+        str(summary_dir),
+        "--freq",
+        freq,
     ]
     r = subprocess.run(cmd, cwd=str(ROOT), timeout=60)
     return r.returncode
 
 
-def _compute_horizons(dataset_path: str, is_synthetic: bool) -> list[tuple[str, str, str]]:
+def _compute_horizons(
+    dataset_path: str, is_synthetic: bool
+) -> list[tuple[str, str, str]]:
     """Return list of (run_id, start_date, end_date)."""
     import pandas as pd
+
     df = pd.read_parquet(dataset_path)
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
     ts = df["timestamp"]
@@ -245,7 +271,10 @@ def run_backtests(
     runs_root.mkdir(parents=True, exist_ok=True)
     if not dataset_path or not Path(dataset_path).exists():
         if not include_synthetic:
-            print("No dataset found and --include-synthetic not set; skipping backtests.", file=sys.stderr)
+            print(
+                "No dataset found and --include-synthetic not set; skipping backtests.",
+                file=sys.stderr,
+            )
             return [], "none"
         synth_path = output_root / "synthetic" / "eod_synthetic.parquet"
         _generate_synthetic_parquet(synth_path, "2020-01-01", "2023-12-31")
@@ -266,7 +295,10 @@ def run_backtests(
         try:
             prices = _load_and_slice_prices(dataset_path, start_d, end_d)
             if prices.empty:
-                print(f"[{run_id}] No data in range {start_d} to {end_d}; skip.", file=sys.stderr)
+                print(
+                    f"[{run_id}] No data in range {start_d} to {end_d}; skip.",
+                    file=sys.stderr,
+                )
                 continue
             prices.to_parquet(slice_path, index=False)
         except Exception as e:
@@ -276,27 +308,37 @@ def run_backtests(
         code = _run_backtest_subprocess(slice_path, run_dir, freq)
         if code != 0:
             print(f"[{run_id}] Backtest exit code {code}", file=sys.stderr)
-            run_infos.append({"run_id": run_id, "start": start_d, "end": end_d, "exit_code": code})
+            run_infos.append(
+                {"run_id": run_id, "start": start_d, "end": end_d, "exit_code": code}
+            )
             continue
         code = _run_analysis(run_dir, run_dir, freq)
         if code != 0:
             print(f"[{run_id}] Analysis exit code {code}", file=sys.stderr)
         metrics_path = run_dir / "metrics_summary.json"
-        run_infos.append({
-            "run_id": run_id,
-            "start": start_d,
-            "end": end_d,
-            "exit_code": 0,
-            "metrics_path": str(metrics_path) if metrics_path.exists() else None,
-        })
+        run_infos.append(
+            {
+                "run_id": run_id,
+                "start": start_d,
+                "end": end_d,
+                "exit_code": 0,
+                "metrics_path": str(metrics_path) if metrics_path.exists() else None,
+            }
+        )
     return run_infos, dataset_label
 
 
 def _create_trend_signal_fn(ma_fast: int, ma_slow: int):
     """Build trend signal function (mirrors run_backtest_strategy.create_trend_baseline_signal_fn)."""
-    from src.assembled_core.signals.rules_trend import generate_trend_signals_from_prices
+    from src.assembled_core.signals.rules_trend import (
+        generate_trend_signals_from_prices,
+    )
+
     def signal_fn(prices_df):
-        return generate_trend_signals_from_prices(prices_df, ma_fast=ma_fast, ma_slow=ma_slow)
+        return generate_trend_signals_from_prices(
+            prices_df, ma_fast=ma_fast, ma_slow=ma_slow
+        )
+
     return signal_fn
 
 
@@ -309,14 +351,18 @@ def run_sweep(
     """EMA parameter sweep on 1y slice only. Return list of sweep rows."""
     import pandas as pd
     from src.assembled_core.qa.backtest_engine import run_portfolio_backtest
-    from src.assembled_core.portfolio.position_sizing import compute_target_positions_from_trend_signals
+    from src.assembled_core.portfolio.position_sizing import (
+        compute_target_positions_from_trend_signals,
+    )
     from src.assembled_core.qa.metrics import compute_all_metrics
 
     sweep_dir = output_root / "sweep"
     sweep_dir.mkdir(parents=True, exist_ok=True)
     price_slice = output_root / "runs" / "1y" / "price_slice.parquet"
     if not price_slice.exists():
-        print("Sweep skipped: no 1y price slice (run 1y backtest first).", file=sys.stderr)
+        print(
+            "Sweep skipped: no 1y price slice (run 1y backtest first).", file=sys.stderr
+        )
         return []
     prices = pd.read_parquet(price_slice)
     prices["timestamp"] = pd.to_datetime(prices["timestamp"], utc=True)
@@ -330,8 +376,10 @@ def run_sweep(
     for i, (ma_fast, ma_slow) in enumerate(grid):
         print(f"Sweep {i+1}/{len(grid)}: ma_fast={ma_fast} ma_slow={ma_slow}")
         signal_fn = _create_trend_signal_fn(ma_fast=ma_fast, ma_slow=ma_slow)
+
         def _sizing_fn(sig, cap):
             return compute_target_positions_from_trend_signals(sig, cap)
+
         try:
             result = run_portfolio_backtest(
                 prices=prices,
@@ -367,18 +415,31 @@ def run_sweep(
             results.append(row)
         except Exception as e:
             print(f"  Error: {e}", file=sys.stderr)
-            results.append({
-                "start": "", "end": "", "freq": freq,
-                "ma_fast": ma_fast, "ma_slow": ma_slow,
-                "total_return": None, "cagr": None, "sharpe_ratio": None,
-                "max_drawdown_pct": None, "trades_count": 0, "turnover": None,
-                "error": str(e),
-            })
+            results.append(
+                {
+                    "start": "",
+                    "end": "",
+                    "freq": freq,
+                    "ma_fast": ma_fast,
+                    "ma_slow": ma_slow,
+                    "total_return": None,
+                    "cagr": None,
+                    "sharpe_ratio": None,
+                    "max_drawdown_pct": None,
+                    "trades_count": 0,
+                    "turnover": None,
+                    "error": str(e),
+                }
+            )
 
-    with (sweep_dir / "sweep_results.json").open("w", encoding="utf-8", newline="\n") as f:
+    with (sweep_dir / "sweep_results.json").open(
+        "w", encoding="utf-8", newline="\n"
+    ) as f:
         json.dump(results, f, indent=2, sort_keys=True)
     if results:
-        with (sweep_dir / "sweep_results.csv").open("w", encoding="utf-8", newline="\n") as f:
+        with (sweep_dir / "sweep_results.csv").open(
+            "w", encoding="utf-8", newline="\n"
+        ) as f:
             w = csv.DictWriter(f, fieldnames=sorted(results[0].keys()))
             w.writeheader()
             w.writerows(results)
@@ -402,7 +463,7 @@ def write_system_run_report(
     sweep_results: list[dict],
 ) -> None:
     """Write output/system_run/SYSTEM_RUN_REPORT.md."""
-    runs_root = output_root / "runs"
+    _runs_root = output_root / "runs"
     lines = [
         "# System Run Report",
         "",
@@ -410,7 +471,9 @@ def write_system_run_report(
         "",
         "## Dataset",
         "",
-        f"- **Used:** " + ("synthetic (labeled)" if is_synthetic else "real") + f" - {dataset_label}",
+        "- **Used:** "
+        + ("synthetic (labeled)" if is_synthetic else "real")
+        + f" - {dataset_label}",
         "",
         "## Strategy summary",
         "",
@@ -447,37 +510,57 @@ def write_system_run_report(
     lines.append("## Sweep top 10 (by total_return)")
     lines.append("")
     valid = [s for s in sweep_results if s.get("total_return") is not None]
-    for row in sorted(valid, key=lambda x: (x.get("total_return") or 0), reverse=True)[:10]:
-        lines.append(f"- ma_fast={row.get('ma_fast')} ma_slow={row.get('ma_slow')}: return={row.get('total_return')} sharpe={row.get('sharpe_ratio')} max_dd={row.get('max_drawdown_pct')} trades={row.get('trades_count')}")
+    for row in sorted(valid, key=lambda x: (x.get("total_return") or 0), reverse=True)[
+        :10
+    ]:
+        lines.append(
+            f"- ma_fast={row.get('ma_fast')} ma_slow={row.get('ma_slow')}: return={row.get('total_return')} sharpe={row.get('sharpe_ratio')} max_dd={row.get('max_drawdown_pct')} trades={row.get('trades_count')}"
+        )
     lines.append("")
     lines.append("## Sweep top 10 (by sharpe_ratio)")
     lines.append("")
-    for row in sorted(valid, key=lambda x: (x.get("sharpe_ratio") or -999), reverse=True)[:10]:
-        lines.append(f"- ma_fast={row.get('ma_fast')} ma_slow={row.get('ma_slow')}: sharpe={row.get('sharpe_ratio')} return={row.get('total_return')} max_dd={row.get('max_drawdown_pct')}")
+    for row in sorted(
+        valid, key=lambda x: (x.get("sharpe_ratio") or -999), reverse=True
+    )[:10]:
+        lines.append(
+            f"- ma_fast={row.get('ma_fast')} ma_slow={row.get('ma_slow')}: sharpe={row.get('sharpe_ratio')} return={row.get('total_return')} max_dd={row.get('max_drawdown_pct')}"
+        )
     lines.append("")
     lines.append("## Drawdown-adjusted (return / |max_dd| if dd < 0)")
     lines.append("")
+
     def dd_adj(r):
         tr = r.get("total_return") or 0
         dd = r.get("max_drawdown_pct")
         if dd is not None and dd < 0 and dd != 0:
             return tr / abs(dd)
         return tr if tr else -999
+
     for row in sorted(valid, key=dd_adj, reverse=True)[:10]:
-        lines.append(f"- ma_fast={row.get('ma_fast')} ma_slow={row.get('ma_slow')}: dd_adj={dd_adj(row):.4f} return={row.get('total_return')} max_dd={row.get('max_drawdown_pct')}")
+        lines.append(
+            f"- ma_fast={row.get('ma_fast')} ma_slow={row.get('ma_slow')}: dd_adj={dd_adj(row):.4f} return={row.get('total_return')} max_dd={row.get('max_drawdown_pct')}"
+        )
     lines.append("")
     lines.append("## Recommendations (no-concept-change)")
     lines.append("")
-    lines.append("- If trades are too few: expand universe, check signal trigger (EMA windows), verify price panel quality.")
-    lines.append("- If turnover is high: adjust costs (commission_bps, spread_w), consider longer EMA slow.")
-    lines.append("- If results sensitive to params: use default 20/60 and add guardrails (max turnover, min bars).")
+    lines.append(
+        "- If trades are too few: expand universe, check signal trigger (EMA windows), verify price panel quality."
+    )
+    lines.append(
+        "- If turnover is high: adjust costs (commission_bps, spread_w), consider longer EMA slow."
+    )
+    lines.append(
+        "- If results sensitive to params: use default 20/60 and add guardrails (max turnover, min bars)."
+    )
     lines.append("")
     lines.append("## Anomalies to check")
     lines.append("")
     lines.append("- Zero trades: may indicate no crossover in range or QC blocking.")
     lines.append("- Constant equity curve: no orders executed.")
     lines.append("- Missing/NaN prices: data quality; run QC.")
-    lines.append("- Lookahead: use PIT checks (disclosure_date <= as_of) for event data.")
+    lines.append(
+        "- Lookahead: use PIT checks (disclosure_date <= as_of) for event data."
+    )
     lines.append("")
 
     report_path = output_root / "SYSTEM_RUN_REPORT.md"
@@ -487,14 +570,29 @@ def write_system_run_report(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Full system backtests and sweep.")
-    parser.add_argument("--output-root", type=Path, default=Path("output/system_run"), help="Output root")
+    parser.add_argument(
+        "--output-root",
+        type=Path,
+        default=Path("output/system_run"),
+        help="Output root",
+    )
     parser.add_argument("--freq", type=str, default="1d")
     parser.add_argument("--start-date", type=str, default=None)
     parser.add_argument("--end-date", type=str, default=None)
-    parser.add_argument("--dataset", type=str, default=None, help="Path to price parquet")
-    parser.add_argument("--include-synthetic", action="store_true", help="Use synthetic if no dataset")
-    parser.add_argument("--synthetic-only", action="store_true", help="Force synthetic data only (no discovery; for smoke tests)")
-    parser.add_argument("--skip-sweep", action="store_true", help="Skip EMA parameter sweep")
+    parser.add_argument(
+        "--dataset", type=str, default=None, help="Path to price parquet"
+    )
+    parser.add_argument(
+        "--include-synthetic", action="store_true", help="Use synthetic if no dataset"
+    )
+    parser.add_argument(
+        "--synthetic-only",
+        action="store_true",
+        help="Force synthetic data only (no discovery; for smoke tests)",
+    )
+    parser.add_argument(
+        "--skip-sweep", action="store_true", help="Skip EMA parameter sweep"
+    )
     args = parser.parse_args()
     output_root = args.output_root.resolve()
     if not output_root.is_absolute():
@@ -510,8 +608,25 @@ def main() -> int:
         dataset_path = str(synth_path.resolve())
         dataset_label = "synthetic"
         output_root.mkdir(parents=True, exist_ok=True)
-        with (output_root / "dataset_inventory.json").open("w", encoding="utf-8", newline="\n") as f:
-            json.dump([{"path": "synthetic/eod_synthetic.parquet", "path_absolute": dataset_path, "size_bytes": synth_path.stat().st_size if synth_path.exists() else 0, "modified_time": datetime.now(timezone.utc).isoformat(), "schema_hint": "synthetic"}], f, indent=2, sort_keys=True)
+        with (output_root / "dataset_inventory.json").open(
+            "w", encoding="utf-8", newline="\n"
+        ) as f:
+            json.dump(
+                [
+                    {
+                        "path": "synthetic/eod_synthetic.parquet",
+                        "path_absolute": dataset_path,
+                        "size_bytes": (
+                            synth_path.stat().st_size if synth_path.exists() else 0
+                        ),
+                        "modified_time": datetime.now(timezone.utc).isoformat(),
+                        "schema_hint": "synthetic",
+                    }
+                ],
+                f,
+                indent=2,
+                sort_keys=True,
+            )
         print("Using synthetic-only dataset.")
     else:
         print("Dataset discovery...")
@@ -537,12 +652,16 @@ def main() -> int:
         dataset_label = dataset_label_out
 
     sweep_results: list[dict] = []
-    if not args.skip_sweep and (dataset_path or args.include_synthetic or args.synthetic_only):
+    if not args.skip_sweep and (
+        dataset_path or args.include_synthetic or args.synthetic_only
+    ):
         print("Running parameter sweep...")
         sweep_results = run_sweep(output_root, dataset_path, args.freq, run_infos)
 
     print("Writing SYSTEM_RUN_REPORT.md...")
-    write_system_run_report(output_root, dataset_label, is_synthetic, run_infos, sweep_results)
+    write_system_run_report(
+        output_root, dataset_label, is_synthetic, run_infos, sweep_results
+    )
 
     print("Done.")
     return 0

@@ -30,7 +30,7 @@ def temp_factor_store(tmp_path, monkeypatch):
     
     # Monkeypatch get_factor_store_root to return temp store
     from src.assembled_core import data
-    original_get_root = data.factor_store.get_factor_store_root
+    _original_get_root = data.factor_store.get_factor_store_root
     
     def mock_get_root(settings=None):
         return temp_store
@@ -205,7 +205,7 @@ def test_store_append_mode(temp_factor_store, sample_factors_df):
     universe_key = compute_universe_key(symbols=["AAPL", "MSFT", "GOOGL"])
     
     # Store initial data
-    store_path = store_factors(
+    _store_path = store_factors(
         df=sample_factors_df,
         factor_group=factor_group,
         freq=freq,

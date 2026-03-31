@@ -854,7 +854,6 @@ def collect_robustness_pack_metrics(run_output_dir: Path, run_id: str) -> dict[s
         - multiple_testing_warning: dict | None (RB5 warnings)
         None if robustness pack not found
     """
-    import math
 
     pack_dir = run_output_dir / f"robustness_pack_{run_id}"
     summary_json = pack_dir / "robustness_summary.json"

@@ -46,7 +46,7 @@ def _build_pack(tmp_path: Path) -> tuple[Path, Path]:
         reconciliation_ok=None,
     )
 
-    result = build_evidence_pack(
+    _result = build_evidence_pack(
         output_dir=output_dir,
         run_id=run_id,
         as_of_date=as_of_date,

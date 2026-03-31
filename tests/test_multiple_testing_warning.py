@@ -8,7 +8,6 @@ These tests verify that multiple testing warnings are built correctly:
 
 from __future__ import annotations
 
-from typing import Any
 
 import pandas as pd
 import pytest

@@ -10,8 +10,8 @@ import pytest
 
 # Check if sklearn and joblib are available
 try:
-    import sklearn
-    import joblib
+    import sklearn  # noqa: F401
+    import joblib  # noqa: F401
 
     ML_DEPS_AVAILABLE = True
 except ImportError:

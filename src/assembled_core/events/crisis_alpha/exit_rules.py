@@ -22,7 +22,7 @@ All functions are pure (no I/O) for testability.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any
 
 from src.assembled_core.events.crisis_alpha.context import CrisisAlphaContext

@@ -165,8 +165,8 @@ def test_rank_runs_handles_nan_values(tmp_path: Path):
     assert len(valid_sharpe) == 3  # Only 3 runs have valid sharpe
     # All non-NaN values should be before NaN values
     if ranked["sharpe"].isna().any():
-        last_valid_idx = valid_sharpe.index[-1]
-        first_nan_idx = ranked[ranked["sharpe"].isna()].index[0]
+        _last_valid_idx = valid_sharpe.index[-1]
+        _first_nan_idx = ranked[ranked["sharpe"].isna()].index[0]
         # This is a bit tricky, but in general, valid values should come first
         # We'll just check that we have the expected number of valid values
         assert len(valid_sharpe) == 3

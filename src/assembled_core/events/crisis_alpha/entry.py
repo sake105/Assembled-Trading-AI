@@ -27,7 +27,6 @@ Policy config keys (crisis_alpha.entry.*):
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from src.assembled_core.events.crisis_alpha.baskets import get_baskets
 from src.assembled_core.events.crisis_alpha.context import CrisisAlphaContext

@@ -130,7 +130,7 @@ def test_snapshot_id_timezone_invariant() -> None:
     })
 
     id1 = compute_price_panel_snapshot_id(prices1, freq="1d")
-    id2 = compute_price_panel_snapshot_id(prices2, freq="1d")
+    _id2 = compute_price_panel_snapshot_id(prices2, freq="1d")
 
     # Note: These will be different because ET timestamps converted to UTC are different absolute times
     # For true timezone-invariance, we'd need the same absolute time points
@@ -255,7 +255,6 @@ def test_snapshot_id_source_meta_order_invariant() -> None:
 
 def test_snapshot_id_duplicate_handling() -> None:
     """Test that duplicate (symbol, timestamp) pairs are handled deterministically."""
-    import numpy as np
 
     # Panel with duplicate (symbol, timestamp) - keep="last" rule
     prices = pd.DataFrame({

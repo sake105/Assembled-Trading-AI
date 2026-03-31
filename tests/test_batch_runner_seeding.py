@@ -22,8 +22,8 @@ def test_set_random_seeds_python_random():
     """Test that set_random_seeds sets Python random seed."""
     # Generate two random numbers without seed
     random.seed(None)
-    val1 = random.random()
-    val2 = random.random()
+    _val1 = random.random()
+    _val2 = random.random()
     
     # Set seed and generate again
     set_random_seeds(42)

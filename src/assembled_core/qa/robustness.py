@@ -67,7 +67,9 @@ import pandas as pd
 try:
     import scipy.stats as _scipy_stats
 except ImportError:
-    _scipy_stats = None  # optional: tests that need scipy use pytest.importorskip("scipy")
+    _scipy_stats = (
+        None  # optional: tests that need scipy use pytest.importorskip("scipy")
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -157,7 +159,9 @@ def run_param_grid_sweep(
             logger.debug(f"Combination {combo}: sharpe={metrics.get('sharpe', 'N/A')}")
 
         except Exception as exc:
-            logger.warning(f"Backtest failed for combination {combo}: {exc}", exc_info=True)
+            logger.warning(
+                f"Backtest failed for combination {combo}: {exc}", exc_info=True
+            )
             # Add failed row with NaN metrics
             row = {}
             for key, value in zip(param_keys, combo, strict=True):
@@ -175,7 +179,9 @@ def run_param_grid_sweep(
 
     # Sort by parameter values (deterministic ordering)
     if deterministic and param_keys:
-        results_df = results_df.sort_values(param_keys, kind="mergesort").reset_index(drop=True)
+        results_df = results_df.sort_values(param_keys, kind="mergesort").reset_index(
+            drop=True
+        )
 
     logger.info(f"Parameter sweep completed: {len(results)} combinations")
 
@@ -302,7 +308,7 @@ def detect_plateau(
 
     # Find best metric value
     best_metric = float(valid_df[metric].max())
-    worst_metric = float(valid_df[metric].min())
+    _worst_metric = float(valid_df[metric].min())
 
     # Calculate plateau threshold
     if best_metric > 0:
@@ -326,7 +332,11 @@ def detect_plateau(
     plateau_fraction = plateau_size / total_size if total_size > 0 else 0.0
 
     # Get top_k combinations
-    top_k_df = valid_df.nlargest(top_k, metric) if best_metric >= 0 else valid_df.nsmallest(top_k, metric)
+    top_k_df = (
+        valid_df.nlargest(top_k, metric)
+        if best_metric >= 0
+        else valid_df.nsmallest(top_k, metric)
+    )
     top_k_combinations = top_k_df.to_dict(orient="records")
 
     # Calculate robust score (plateau size normalized by total)
@@ -374,7 +384,9 @@ def export_robustness_sweep_results(
 
     # Export results CSV (long format)
     results_csv = robustness_dir / "param_sweep_results.csv"
-    results_df_sorted = results_df.sort_values(list(results_df.columns), kind="mergesort")
+    results_df_sorted = results_df.sort_values(
+        list(results_df.columns), kind="mergesort"
+    )
     results_df_sorted.to_csv(results_csv, index=False, encoding="utf-8")
 
     # Export heatmap CSVs
@@ -387,7 +399,9 @@ def export_robustness_sweep_results(
     # Export plateau JSON
     plateau_json = robustness_dir / "plateau.json"
     with plateau_json.open("w", encoding="utf-8") as f:
-        json.dump(plateau_info, f, sort_keys=True, indent=2, default=_json_serialize_nan)
+        json.dump(
+            plateau_info, f, sort_keys=True, indent=2, default=_json_serialize_nan
+        )
 
     logger.info(f"Robustness sweep results exported to {robustness_dir}")
 
@@ -451,20 +465,22 @@ def apply_disclosure_delay(
         return events_df.copy()
 
     if disclosure_date_col not in events_df.columns:
-        raise ValueError(f"disclosure_date_col '{disclosure_date_col}' not found in events_df")
+        raise ValueError(
+            f"disclosure_date_col '{disclosure_date_col}' not found in events_df"
+        )
 
     result = events_df.copy()
 
     # Shift disclosure_date
-    result[disclosure_date_col] = pd.to_datetime(result[disclosure_date_col], utc=True) + pd.Timedelta(
-        days=delay_days
-    )
+    result[disclosure_date_col] = pd.to_datetime(
+        result[disclosure_date_col], utc=True
+    ) + pd.Timedelta(days=delay_days)
 
     # Shift effective_date if present
     if effective_date_col in result.columns:
-        result[effective_date_col] = pd.to_datetime(result[effective_date_col], utc=True) + pd.Timedelta(
-            days=delay_days
-        )
+        result[effective_date_col] = pd.to_datetime(
+            result[effective_date_col], utc=True
+        ) + pd.Timedelta(days=delay_days)
 
     return result
 
@@ -575,7 +591,9 @@ def run_sensitivity_suite(
 
             results.append(row)
 
-            logger.debug(f"Variant {variant_name}: sharpe={metrics.get('sharpe', 'N/A')}")
+            logger.debug(
+                f"Variant {variant_name}: sharpe={metrics.get('sharpe', 'N/A')}"
+            )
 
         except Exception as exc:
             logger.warning(f"Variant {variant_name} failed: {exc}", exc_info=True)
@@ -593,7 +611,9 @@ def run_sensitivity_suite(
 
     # Sort by variant_name for deterministic output
     if deterministic:
-        results_df = results_df.sort_values("variant_name", kind="mergesort").reset_index(drop=True)
+        results_df = results_df.sort_values(
+            "variant_name", kind="mergesort"
+        ).reset_index(drop=True)
 
     logger.info(f"Sensitivity suite completed: {len(results)} variants")
 
@@ -900,7 +920,9 @@ def compute_deflated_sharpe(
     import math
 
     if _scipy_stats is None:
-        raise ImportError("scipy is required for compute_deflated_sharpe; install with pip install scipy")
+        raise ImportError(
+            "scipy is required for compute_deflated_sharpe; install with pip install scipy"
+        )
 
     # Validate inputs
     if n_obs < 2:
@@ -908,11 +930,15 @@ def compute_deflated_sharpe(
         return None
 
     if n_trials < 1:
-        logger.warning(f"compute_deflated_sharpe: n_trials={n_trials} < 1, returning None")
+        logger.warning(
+            f"compute_deflated_sharpe: n_trials={n_trials} < 1, returning None"
+        )
         return None
 
     if not (0 < alpha < 1):
-        logger.warning(f"compute_deflated_sharpe: alpha={alpha} not in (0, 1), returning None")
+        logger.warning(
+            f"compute_deflated_sharpe: alpha={alpha} not in (0, 1), returning None"
+        )
         return None
 
     # If n_trials = 1, no multiple testing adjustment needed
@@ -981,7 +1007,9 @@ def build_multiple_testing_warnings(
     }
 
     if metric_col not in results_df.columns:
-        logger.warning(f"build_multiple_testing_warnings: metric_col '{metric_col}' not found")
+        logger.warning(
+            f"build_multiple_testing_warnings: metric_col '{metric_col}' not found"
+        )
         return warnings_dict
 
     # Filter out NaN values
@@ -1184,7 +1212,7 @@ def build_robustness_pack(
     else:
         logger.info("RB1 skipped: prices_df not provided")
 
-            # RB2: Parameter Sweep
+        # RB2: Parameter Sweep
     if param_grid is not None and param_grid:
         try:
             logger.info("RB2: Running parameter sweep")
@@ -1221,7 +1249,9 @@ def build_robustness_pack(
             manifest_fields["plateau_score"] = plateau_info.get("robust_score")
 
             # RB5: Build multiple testing warnings
-            warnings_dict = build_multiple_testing_warnings(results_df, metric_col="sharpe")
+            warnings_dict = build_multiple_testing_warnings(
+                results_df, metric_col="sharpe"
+            )
             manifest_fields["multiple_testing_warning"] = warnings_dict
 
             # Export sweep results (with warnings)
@@ -1278,8 +1308,13 @@ def build_robustness_pack(
 
         # Build summary
         baseline_sharpe = None
-        if "baseline" in sensitivity_results["variant_name"].values and "sharpe" in sensitivity_results.columns:
-            baseline_rows = sensitivity_results[sensitivity_results["variant_name"] == "baseline"]
+        if (
+            "baseline" in sensitivity_results["variant_name"].values
+            and "sharpe" in sensitivity_results.columns
+        ):
+            baseline_rows = sensitivity_results[
+                sensitivity_results["variant_name"] == "baseline"
+            ]
             if not baseline_rows.empty:
                 baseline_sharpe = float(baseline_rows["sharpe"].iloc[0])
 
@@ -1325,7 +1360,9 @@ def build_robustness_pack(
         crisis_summary = {
             "n_windows": len(crisis_results),
             "pass_count": int(crisis_results["pass_overall"].sum()),
-            "pass_fraction": float(crisis_results["pass_overall"].sum() / len(crisis_results)),
+            "pass_fraction": float(
+                crisis_results["pass_overall"].sum() / len(crisis_results)
+            ),
         }
         manifest_fields["crisis_summary"] = crisis_summary
 

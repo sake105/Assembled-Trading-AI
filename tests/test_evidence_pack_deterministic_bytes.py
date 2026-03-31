@@ -5,7 +5,6 @@ Tests that evidence packs are byte-deterministic when built with same inputs.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import sys
 import zipfile
@@ -192,7 +191,7 @@ def test_pack_zip_namelist_sorted(tmp_path: Path) -> None:
 
     run_id = "pack_sorted"
     as_of = pd.Timestamp("2025-01-15", tz="UTC")
-    date_str = "2025-01-15"
+    _date_str = "2025-01-15"
 
     # Create files with non-alphabetical names to test sorting
     files_to_create = [

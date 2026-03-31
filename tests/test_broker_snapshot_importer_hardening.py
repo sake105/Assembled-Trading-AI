@@ -243,7 +243,7 @@ def test_import_json_with_messy_whitespace_and_duplicates(tmp_path: Path) -> Non
     run_id = "json_hardening"
     snapshot_date = pd.Timestamp("2025-01-15", tz="UTC")
 
-    result = import_broker_snapshot(
+    _result = import_broker_snapshot(
         snapshot_path=json_path,
         run_id=run_id,
         snapshot_date=snapshot_date,

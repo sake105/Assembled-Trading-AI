@@ -11,7 +11,6 @@ import math
 from pathlib import Path
 
 import pandas as pd
-import pytest
 
 from src.assembled_core.qa.walk_forward import (
     export_walk_forward_results,

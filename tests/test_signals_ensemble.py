@@ -11,8 +11,8 @@ from src.assembled_core.signals.ensemble import apply_meta_filter, apply_meta_sc
 
 # Check if sklearn and joblib are available
 try:
-    import sklearn
-    import joblib
+    import sklearn  # noqa: F401
+    import joblib  # noqa: F401
 
     ML_DEPS_AVAILABLE = True
 except ImportError:

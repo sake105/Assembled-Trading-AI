@@ -76,7 +76,7 @@ def test_manifest_consistency_guard_duplicate_path_raises(tmp_path: Path) -> Non
     manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
 
     # Duplicate first file path in files[]
-    first_path = manifest_data["files"][0]["path"]
+    _first_path = manifest_data["files"][0]["path"]
     dup_entry = {**manifest_data["files"][0]}
     manifest_data["files"].append(dup_entry)
 

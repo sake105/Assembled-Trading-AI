@@ -6,7 +6,6 @@ Stdlib only, fast, platform-neutral. Catches dead links before release.
 from __future__ import annotations
 
 import re
-import sys
 from pathlib import Path
 
 # Repo root

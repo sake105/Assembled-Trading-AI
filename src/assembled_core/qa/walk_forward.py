@@ -987,8 +987,6 @@ def export_walk_forward_results(
         - NaN values in JSON are converted to None (for JSON compatibility)
         - CSV files are sorted by split_index
     """
-    import json
-    import math
 
     wf_output_dir = output_dir / f"walk_forward_{run_id}"
     wf_output_dir.mkdir(parents=True, exist_ok=True)
@@ -1031,7 +1029,6 @@ def _json_serialize_nan(obj: Any) -> Any:
     Returns:
         Serialized value (None for NaN/Inf, otherwise obj)
     """
-    import math
 
     if isinstance(obj, float):
         if math.isnan(obj) or math.isinf(obj):

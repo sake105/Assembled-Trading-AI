@@ -286,7 +286,7 @@ def test_risk_report_monthly_trigger_on_month_end(
 ) -> None:
     """Test that risk report is generated on month-end when frequency is monthly."""
     # Month-end: 2025-01-31
-    month_end = pd.Timestamp("2025-01-31", tz="UTC")
+    _month_end = pd.Timestamp("2025-01-31", tz="UTC")
 
     # Mock _generate_risk_report_for_paper_track to track calls
     mock_generate_risk_report_func = MagicMock()
