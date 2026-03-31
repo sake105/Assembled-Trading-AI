@@ -68,6 +68,7 @@ from src.assembled_core.risk.state_machine import (
 )
 from src.assembled_core.risk.market_stress import compute_market_stress
 from src.assembled_core.risk.profit_lock import compute_profit_lock_multiplier
+from src.assembled_core.risk.vol_targeting import compute_vol_targeting_result
 from src.assembled_core.risk.turnover_budget import apply_turnover_gate, estimate_turnover
 
 logger = logging.getLogger(__name__)
@@ -1059,8 +1060,32 @@ def run_trading_cycle(
             result.meta["profit_lock"] = {"multiplier": profit_lock_mult}
         else:
             profit_lock_mult = 1.0
-        final_multiplier = geo_multiplier * profit_lock_mult
-        if final_multiplier < 1.0 and not result.target_positions.empty:
+        # Vol targeting (M6-T03): scale exposure toward target annualized vol
+        vt_cfg = (policy.get("vol_targeting") or {})
+        if (
+            vt_cfg.get("enabled", False)
+            and getattr(ctx, "equity_curve", None) is not None
+            and getattr(ctx, "equity_curve_index", None) is not None
+        ):
+            vol_scale_factor, realized_vol, target_vol = compute_vol_targeting_result(
+                ctx.equity_curve,
+                vt_cfg,
+                now_idx=ctx.equity_curve_index,
+            )
+            result.meta["vol_targeting"] = {
+                "scale_factor": vol_scale_factor,
+                "realized_vol": realized_vol,
+                "target_vol": target_vol,
+            }
+        else:
+            vol_scale_factor = 1.0
+            result.meta["vol_targeting"] = {
+                "scale_factor": 1.0,
+                "realized_vol": float("nan"),
+                "target_vol": float("nan"),
+            }
+        final_multiplier = geo_multiplier * profit_lock_mult * vol_scale_factor
+        if abs(final_multiplier - 1.0) > 1e-9 and not result.target_positions.empty:
             result.target_positions = apply_exposure_multiplier_to_targets(
                 result.target_positions,
                 multiplier=final_multiplier,
@@ -1069,6 +1094,7 @@ def run_trading_cycle(
             log.debug(
                 "Exposure overlay applied: "
                 f"geo={geo_multiplier:.4f}, profit_lock={profit_lock_mult:.4f}, "
+                f"vol={vol_scale_factor:.4f}, "
                 f"final={final_multiplier:.4f}, symbols={len(result.target_positions)}"
             )
         else:

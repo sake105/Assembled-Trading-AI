@@ -104,7 +104,67 @@ def adjust_prices_for_splits(
     prices: pd.DataFrame,
     actions: pd.DataFrame,
 ) -> pd.DataFrame:
-    """Adjust prices for stock splits (no-op if no actions)."""
+    """Adjust the close column for stock splits (backward adjustment).
+
+    Prices recorded *before* a split date are multiplied by ``1/split_ratio``
+    so that the adjusted series is continuous across the split event.
+
+    Requires actions DataFrame with columns:
+        ``symbol``, ``action_type`` (must be "SPLIT"), ``effective_date``, ``split_ratio``
+
+    Requires prices DataFrame with columns:
+        ``symbol``, ``close``, and a timestamp column (``timestamp`` preferred,
+        otherwise the first column is used as the time axis).
+
+    Args:
+        prices: Price DataFrame. Returns a copy with ``close`` adjusted.
+        actions: Corporate actions DataFrame. Only SPLIT rows are processed.
+
+    Returns:
+        Copy of *prices* with ``close`` backward-adjusted for all splits found
+        in *actions*. Returns *prices* unchanged (not a copy) if *actions* is empty.
+        Returns a copy unchanged if required columns are missing in *actions*.
+
+    Note:
+        Only modifies the ``close`` column. Other price columns (open, high, low,
+        volume) are preserved without adjustment.
+    """
     if actions.empty:
         return prices
-    return prices.copy()
+
+    required = {"symbol", "action_type", "effective_date", "split_ratio"}
+    missing = required - set(actions.columns)
+    if missing:
+        # Cannot apply — return copy unchanged rather than raising (defensive)
+        return prices.copy()
+
+    split_actions = actions[actions["action_type"] == "SPLIT"].copy()
+    if split_actions.empty:
+        return prices.copy()
+
+    if "close" not in prices.columns:
+        return prices.copy()
+
+    result = prices.copy()
+
+    # Determine timestamp column
+    ts_col = "timestamp" if "timestamp" in result.columns else result.columns[0]
+    result_ts = pd.to_datetime(result[ts_col], utc=True, errors="coerce")
+    split_actions["effective_date"] = pd.to_datetime(split_actions["effective_date"], utc=True)
+
+    # Apply each split: for rows of the same symbol before the split date,
+    # multiply close by 1/split_ratio (backward adjustment).
+    for _, s in split_actions.iterrows():
+        sym = s["symbol"]
+        eff_date = s["effective_date"]
+        ratio = float(s["split_ratio"])
+        if ratio <= 0:
+            continue
+
+        sym_mask = result["symbol"] == sym
+        before_mask = result_ts < eff_date
+        apply_mask = sym_mask & before_mask
+
+        result.loc[apply_mask, "close"] = result.loc[apply_mask, "close"] / ratio
+
+    return result

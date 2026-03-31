@@ -1,0 +1,8 @@
+{
+  "enabledPlugins": {
+    "claude-mem@thedotmack": true
+  },
+  "permissions": {
+    "defaultMode": "bypassPermissions"
+  }
+}

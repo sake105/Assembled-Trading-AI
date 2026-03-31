@@ -1,62 +1,193 @@
 # AGENTS.md
 
-## Cursor Cloud specific instructions
+## Cursor Cloud — Arbeitskontext für automatisierte Agents
 
-### Project Overview
+Diese Datei beschreibt den aktuellen Repo-Stand für Cursor Cloud Agents.
+Sie ist **keine README** und kein Marketingtext — sie ist eine operative Kontextdatei.
 
-Assembled Trading AI is a pure Python quantitative trading backend (no Docker, no external services required). Source code lives in `src/assembled_core/`, scripts in `scripts/`, tests in `tests/`. See `docs/cursor/CONTEXT_PACK.md` for full architecture and `README.md` for CLI usage.
+**Grundregel:** Kein Agent darf einen Implementierungsstand behaupten, ohne ihn im Repo verifiziert zu haben.
+Plan, Spec, Roadmap und tatsächlich implementierter Code sind unterschiedliche Realitäten.
 
-### Environment
+---
 
-- **Python 3.12** with virtualenv at `.venv`
-- Activate: `source /workspace/.venv/bin/activate`
-- Install: `pip install -e ".[dev]" && pip install exchange-calendars`
+## Projektüberblick
 
-### Running the Pipeline (E2E)
+**Assembled Trading AI** ist ein umfangreich implementiertes modulares Python-Backend für:
 
-The full trading pipeline runs on local demo data. Seed data first, then run 3 steps:
+- Research und Backtests
+- Paper-/Simulations-Trading
+- Risk-Overlays und QA
+- News-, Intel- und Disclosure-Integration (teilweise implementiert)
+- API-Schicht (FastAPI, read-only)
 
+Das Projekt ist **kein Skeleton und kein Proof-of-Concept**.
+Es umfasst 22 Kernmodule in `src/assembled_core/`, ~50 Scripts, ~330 Testdateien und 9 CI-Workflows.
+
+**Quellen der Wahrheit:**
+- `src/assembled_core/` — Kernlogik (Single Source of Truth für Backend-Module)
+- `scripts/` — Entry Points und Runner
+- `tests/` — Testabdeckung (12 Phasen)
+- `.github/workflows/` — CI-Konfiguration (Ubuntu + Windows)
+- `docs/` — Architektur- und Betriebsdokumentation
+
+---
+
+## Umgebung
+
+**Python-Anforderung:** `>=3.10` (pyproject.toml). CI läuft auf 3.10 und 3.11.
+
+**Cursor Cloud (Linux-Container):**
 ```bash
-# 1. Create 5min aggregated data from demo 1min CSV
-python -c "
-import pandas as pd
-raw = pd.read_csv('data/raw/1min/demo_1min.csv')
-raw['timestamp'] = pd.to_datetime(raw['timestamp'], utc=True)
-agg = raw.set_index('timestamp').groupby('symbol')['close'].resample('5min').last().dropna().reset_index()
-agg = agg.sort_values(['timestamp','symbol'])[['symbol','timestamp','close']]
-agg.to_parquet('output/aggregates/5min.parquet', index=False)
-"
-
-# 2. Execute → Backtest → Portfolio
-python scripts/sprint9_execute.py --freq 5min
-python scripts/sprint9_backtest.py --freq 5min --start-capital 10000
-python scripts/sprint10_portfolio.py --freq 5min --start-capital 10000
+source /workspace/.venv/bin/activate
+pip install -e ".[dev]"
+# Optional: scipy und ML-Extras
+pip install -e ".[dev,scipy,ml]"
 ```
 
-**Important**: `load_prices()` in `pipeline/io.py` expects `output/aggregates/5min.parquet`.
+**Lokal (Windows):**
+```powershell
+.venv\Scripts\Activate.ps1
+pip install -e ".[dev]"
+```
 
-### Lint / Test / Build
+---
 
-See `README.md` and `docs/TESTING_COMMANDS.md` for full details. Quick reference:
+## Entry Points
 
-- **Lint**: `ruff check src tests scripts --exclude scripts/tools --exclude scripts/00_seed_demo_data.py` (76 pre-existing findings as of Sprint 13)
-- **Tests**: `pytest -m "not advanced" -q --maxfail=3 --tb=short` (CI-equivalent command)
-- **Key phase tests**: `pytest tests/test_cli.py tests/test_features_ta.py tests/test_qa_metrics.py tests/test_qa_gates.py tests/test_execution_kill_switch.py tests/test_qa_risk_metrics.py -v` (all pass)
+Die folgenden Scripts sind die aktuellen operativen Einstiege. Sie sind in `pyproject.toml` als installierte CLI-Befehle registriert oder direkt aufrufbar.
 
-### FastAPI Server
+### Installierte CLI-Befehle (nach `pip install -e ".[dev]"`)
+
+| Befehl | Script | Funktion |
+|--------|--------|----------|
+| `assembled-cli` | `scripts/cli.py` | Unified CLI — Dispatcher für alle Hauptoperationen |
+| `assembled-run-daily` | `scripts/run_eod_pipeline.py` | Täglicher EOD-Pipeline-Run |
+| `assembled-run-backtest` | `scripts/run_backtest_strategy.py` | Strategie-Backtest |
+
+**Beispiele:**
+```bash
+python scripts/cli.py run_daily --freq 1d
+python scripts/cli.py run_backtest --freq 1d --universe watchlist.txt
+python scripts/cli.py run_phase4_tests
+python scripts/cli.py info
+python scripts/cli.py --version
+
+python scripts/run_eod_pipeline.py --freq 1d --start-capital 10000
+python scripts/run_backtest_strategy.py --freq 1d --start-capital 10000 --generate-report
+python scripts/batch_backtest.py --config-file configs/batch_backtest_example_doc_schema.yaml
+```
+
+### Weitere direkt aufrufbare Scripts
+
+| Script | Funktion |
+|--------|----------|
+| `scripts/run_api.py` | FastAPI-Server starten (0.0.0.0:8000) |
+| `scripts/batch_backtest.py` | Batch-Backtest via YAML-Config |
+| `scripts/run_paper_track.py` | Paper-Trading-Run |
+| `scripts/run_ab_experiment.py` | A/B-Experiment |
+| `scripts/run_walk_forward_analysis.py` | Walk-Forward-Analyse |
+| `scripts/import_broker_snapshot.py` | Broker-Snapshot importieren |
+| `scripts/export_evidence_pack.py` | Evidence-Pack exportieren |
+
+### Legacy-Scripts (nicht mehr primär verwenden)
+
+Die folgenden Scripts existieren noch im Repo, sind aber in ihren Dateien explizit als `# LEGACY` markiert und **nicht** die operativen Einstiege:
+
+- `scripts/sprint9_execute.py` — deprecated, historisch
+- `scripts/sprint9_backtest.py` — deprecated, historisch
+- `scripts/sprint10_portfolio.py` — deprecated, historisch
+
+Diese Scripts werden noch von `run_all_sprint10.ps1` referenziert, aber für neue Arbeit nicht verwenden.
+
+---
+
+## Verzeichnisstruktur (Übersicht)
+
+```
+src/assembled_core/    — 22 Kernmodule (data, features, signals, execution,
+                          portfolio, pipeline, qa, api, ops, accounting,
+                          risk, reports, events, config, ml, ...)
+scripts/               — ~50 Entry-Point- und Hilfs-Scripts
+tests/                 — ~330 Testdateien, 12 Phasen (phase4–phase12)
+.github/workflows/     — 9 CI-Workflows (Ubuntu + Windows)
+configs/               — policy.yaml, Batch-Configs, News-/Disclosure-Configs
+data/                  — data/raw/, data/sample/, data/factors/ (nicht in Git)
+output/                — Pipeline-Outputs (nicht in Git)
+docs/                  — Architektur- und Betriebsdokumentation
+```
+
+---
+
+## Lint / Test / Build
+
+```bash
+# Lint (Ruff)
+ruff check src tests scripts --exclude scripts/tools --exclude scripts/00_seed_demo_data.py
+# Bekannte Baseline: 76 pre-existing findings (Stand Sprint 13), CI zeigt diese ebenfalls
+
+# Format-Check (Black)
+black --check src tests scripts --exclude "scripts/tools|scripts/00_seed_demo_data.py"
+
+# Tests (CI-äquivalent, ohne externe und advanced Tests)
+pytest -m "not advanced" -q --maxfail=3 --tb=short
+
+# Gezielt: bewährte Phase-4-Tests
+pytest tests/test_cli.py tests/test_features_ta.py tests/test_qa_metrics.py \
+       tests/test_qa_gates.py tests/test_execution_kill_switch.py \
+       tests/test_qa_risk_metrics.py -v
+```
+
+**Bekannte Testrealität:**
+- ~19 Testdateien schlagen bei der Collection fehl (unfertige Stubs in `src/assembled_core/data/`)
+- Optionale Dependencies (`scipy`, `scikit-learn`) führen zu erwarteten Skips, nicht zu Fehlern
+- Phase-4-Baseline (~117 Tests) läuft durch
+
+---
+
+## FastAPI-Server
 
 ```bash
 python scripts/run_api.py   # binds to 0.0.0.0:8000
 ```
 
-20+ REST endpoints at `/api/v1/`. Test: `curl http://localhost:8000/api/v1/orders/5min`
+20+ REST-Endpoints unter `/api/v1/` (orders, performance, risk, signals, portfolio, qa, monitoring, paper-trading, oms).
+Alle Endpoints sind read-only — der Server liest aus `output/`-Dateien.
 
-### .gitignore Caveat
+Schnelltest: `curl http://localhost:8000/api/v1/orders/5min`
 
-The `.gitignore` pattern `data/` also matches `src/assembled_core/data/`. When adding new files under `src/assembled_core/data/`, use `git add -f src/assembled_core/data/<file>`.
+---
 
-### Known Issues (pre-existing)
+## Sensible Bereiche — besonders vorsichtig behandeln
 
-- ~19 test files fail collection due to incomplete stub functions in `src/assembled_core/data/` (tests expect functions beyond minimal stubs)
-- Ruff reports 76 lint findings (unused imports, etc.) — CI also shows these
-- Some test failures in `test_qa_backtest_engine.py` and others relate to evolving data contracts
+Folgende Bereiche enthalten Kernlogik, die ohne expliziten Auftrag nicht umstrukturiert werden darf:
+
+- `src/assembled_core/execution/` — Order-Generierung, Kill-Switch, Pre-Trade-Checks
+- `src/assembled_core/pipeline/` — Trading-Cycle, Orchestrator, Backtest
+- `src/assembled_core/portfolio/` — Position-Sizing, Exposure-Steuerung
+- `src/assembled_core/accounting/` — Broker-Snapshot, Evidence-Pack, Ledger
+- `src/assembled_core/qa/` — Backtest-Engine, Metriken, QA-Gates
+- `src/assembled_core/data/` — sofern PIT-Sicherheit, Timing oder Backtest-Realismus betroffen
+- `.github/workflows/` — CI-Betriebslogik, keine Experimentierfläche
+
+Regel: In diesen Bereichen erst Scope und Invarianten klären, dann minimal und nachvollziehbar ändern.
+
+---
+
+## .gitignore-Verhalten (wichtige Ausnahme)
+
+Das `.gitignore`-Pattern `data/` matcht auch `src/assembled_core/data/`.
+Neue Dateien dort müssen explizit geforced werden:
+
+```bash
+git add -f src/assembled_core/data/<dateiname>
+```
+
+---
+
+## Bekannte Problemstellen (pre-existing)
+
+- ~19 Testdateien schlagen bei der Collection fehl (unfertige Stub-Funktionen in `src/assembled_core/data/`)
+- Ruff meldet 76 Lint-Findings (hauptsächlich unused imports) — CI zeigt diese ebenfalls, sie sind bekannt
+- `src/assembled_core/ml/__init__.py` enthält `NotImplementedError` — ML-Trainings-Pfad nicht implementiert
+- Monitoring-Endpoints unter `/api/v1/monitoring/` geben teilweise Dummy-Daten zurück
+- `pyproject.toml` (ranges) und `requirements.txt` (pins) können bei `pip install` zu Versionsunterschieden führen

@@ -22,6 +22,7 @@ from .models import NewsEvent, NewsHealth
 from .normalize import normalize_raw_item, now_utc_iso
 from .sources import NewsSource, load_news_params, load_sources_registry
 from .state import load_fetch_state, save_fetch_state
+from .trigger_scoring import score_triggers
 
 
 def _collect_raw_items(
@@ -136,6 +137,7 @@ def run_news_pipeline(
     dedupe_cfg = params.get("dedupe", {})
     clustering_cfg = params.get("clustering", {})
     burst_cfg = params.get("burst", {})
+    trigger_scoring_cfg = params.get("trigger_scoring", {})
     min_sources_ok = int(health_cfg.get("min_sources_ok", 1))
 
     # Determine base output directory
@@ -490,6 +492,24 @@ def run_news_pipeline(
         "burst_counts_by_window": burst_counts_by_window,
     }
 
+    # Trigger scoring (M1-T09): score clusters against topic rules
+    trigger_items: List[Dict[str, Any]] = []
+    if bool(trigger_scoring_cfg.get("enabled", True)):
+        _sev_cap_degraded = int(trigger_scoring_cfg.get("severity_cap_degraded", 1))
+        _sev_cap_error = int(trigger_scoring_cfg.get("severity_cap_error", 0))
+        trigger_items = score_triggers(
+            clusters=clusters,
+            events_by_id=events_by_id,
+            health_status=health.status,
+            severity_cap_degraded=_sev_cap_degraded,
+            severity_cap_error=_sev_cap_error,
+            generated_utc=fetched_utc,
+        )
+    health.metrics["triggers"] = {
+        "trigger_count": len(trigger_items),
+        "max_severity": max((t["severity"] for t in trigger_items), default=0),
+    }
+
     if dropped_short_title > 0:
         health.notes.append(f"dropped_short_title:{dropped_short_title}")
     if dropped_url > 0:
@@ -534,11 +554,10 @@ def run_news_pipeline(
         "schema_version": "news.triggers.v1",
         "generated_utc": fetched_utc,
         "cadence": cadence,
-        "count": 0,
-        "items": [],
+        "count": len(trigger_items),
+        "items": trigger_items,
     }
-    # Funnel: trigger counts (when trigger scoring is enabled, items will be non-empty)
-    trigger_items = triggers_wrapper.get("items") or []
+    # Funnel: trigger counts
     funnel_counts["triggers_count"] = len(trigger_items)
     # candidate_triggers_count already set from clusters above
     for t in trigger_items:
@@ -553,7 +572,6 @@ def run_news_pipeline(
             funnel_counts["triggers_evidence_blocked_count"] += 1
         if t.get("qc_capped"):
             funnel_counts["triggers_qc_capped_count"] += 1
-    triggers_wrapper["count"] = len(trigger_items)
 
     bursts_wrapper: Dict[str, Any] = {
         "schema_version": "news.bursts.v1",

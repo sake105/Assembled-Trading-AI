@@ -1,0 +1,77 @@
+# Crisis-Alpha v1 configuration — M5
+# See src/assembled_core/events/crisis_alpha/ for implementation.
+
+crisis_alpha:
+
+  # ---------------------------------------------------------------------------
+  # State machine hysteresis
+  # ---------------------------------------------------------------------------
+  hysteresis:
+    # Geo score threshold for WATCH → ACTIVE transition
+    activate_geo_score: 2.0        # requires geo_score >= 2.0
+
+    # Geo score threshold for ACTIVE → COOLDOWN deactivation
+    deactivate_geo_score: 1.0      # deactivate when geo_score drops below 1.0
+
+    # Minimum distinct news sources contributing to geo_score
+    # Guards against single-source spikes
+    min_sources: 2
+
+    # Minimum qualifying trigger items (severity >= 1)
+    min_trigger_count: 1
+
+    # Minimum hours in COOLDOWN before returning to WATCH
+    cooldown_hours: 24.0
+
+  # ---------------------------------------------------------------------------
+  # Entry signal
+  # ---------------------------------------------------------------------------
+  entry:
+    # Method: "equal_weight" | "geo_weighted"
+    method: "equal_weight"
+
+    # Active basket names to use (null = all baskets)
+    active_baskets: null
+
+    # If true, total exposure is scaled by geo_score / activate_geo_score
+    # (higher geo score → more aggressive sizing, capped at 1.0)
+    scale_by_geo_score: false
+
+  # ---------------------------------------------------------------------------
+  # Risk budget
+  # ---------------------------------------------------------------------------
+  risk_budget:
+    # Maximum total gross exposure of the crisis sub-portfolio (fraction)
+    # e.g. 0.30 = 30% of total portfolio equity
+    max_gross_exposure: 0.30
+
+  # ---------------------------------------------------------------------------
+  # Exit rules
+  # ---------------------------------------------------------------------------
+  exit:
+    # Maximum hold time per position before forced time stop (hours)
+    max_hold_hours: 8.0
+
+    # Fractional gain required to activate break-even stop
+    break_even_pct: 0.005          # 0.5%
+
+    # If true, positions are flagged to close before market close (no overnight)
+    no_overnight: true
+
+    # UTC hour at which "market close" is approximated for no-overnight check
+    market_close_hour_utc: 21     # ~17:00 ET
+
+  # ---------------------------------------------------------------------------
+  # Daily loss guard
+  # ---------------------------------------------------------------------------
+  daily_loss:
+    # Maximum daily loss for the crisis sub-portfolio (as fraction of equity)
+    # If abs(daily_pnl) >= limit AND pnl is negative → PAUSE state
+    limit: 0.02                    # 2% of portfolio equity
+
+  # ---------------------------------------------------------------------------
+  # Basket overrides (optional — overrides DEFAULT_BASKETS by symbol)
+  # ---------------------------------------------------------------------------
+  # basket_overrides:
+  #   - symbol: GLD
+  #     max_weight: 0.15           # reduce GLD cap from 0.20 to 0.15

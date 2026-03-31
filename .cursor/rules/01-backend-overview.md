@@ -1,83 +1,70 @@
 # Backend Overview - Assembled Trading AI
 
-## Projekt-Beschreibung
+## Projektbeschreibung
 
-**Assembled Trading AI** ist ein file-based Trading-Pipeline-System mit einem read-only FastAPI-Backend. Das System verarbeitet Marktdaten, generiert Trading-Signale, simuliert Backtests und Portfolio-Performance, und stellt die Ergebnisse über eine REST-API bereit.
+**Assembled Trading AI** ist ein modulares Python-Trading-Backend.
+Es ist kein Skeleton und keine frühe Rohfassung, sondern ein umfangreich implementiertes System.
 
 **Kernprinzipien:**
 - **Single Source of Truth:** Produktionscode liegt unter `src/assembled_core/`
-- **File-based:** Keine Datenbank, alle Daten in CSV/Parquet-Dateien
-- **SAFE-Bridge:** Keine Live-Trading-Anbindung, nur Simulation via `orders_*.csv`
-- **Offline-first:** Lokale Daten bevorzugt, Netz-Calls nur in Pull-Skripten
+- **File-based:** Keine Datenbank — alle persistenten Daten in CSV/Parquet-Dateien
+- **Offline-first:** Lokale Daten bevorzugt, Netzwerk-Calls nur in expliziten Pull-Scripts
+- **Read-only API:** FastAPI-Schicht liest aus `output/`-Dateien, schreibt nicht
 
 ---
 
-## Produktionscode: `src/assembled_core/`
+## Modulstruktur: `src/assembled_core/`
 
-**WICHTIG:** Alle produktiven Backend-Module befinden sich in `src/assembled_core/`.
+Alle produktiven Backend-Module liegen in `src/assembled_core/`. Stand: 22 Kernmodule.
 
-**Hauptmodule:**
-- `pipeline/` - Core Trading-Pipeline (I/O, Signale, Orders, Backtest, Portfolio)
-- `api/` - FastAPI Backend (App, Models, Routers)
-- `qa/` - QA/Health-Checks
-- `config.py` - Zentrale Konfiguration (OUTPUT_DIR, SUPPORTED_FREQS)
-- `costs.py` - Cost-Model-Konfiguration
-- `ema_config.py` - EMA-Parameter-Konfiguration
+### Voll implementierte Module
 
-**Zukünftige Module (Skelett vorhanden):**
-- `data/` - Data Ingestion (Multi-Source)
-- `features/` - Technical Analysis Features
-- `signals/` - Signal-Generation-Framework
-- `portfolio/` - Portfolio-Management
-- `execution/` - Order-Execution-Logik
-- `reports/` - Report-Generierung
+| Modul | Inhalt (repräsentativ) |
+|-------|------------------------|
+| `data/` | `prices_ingest.py`, `factor_store.py`, `security_master.py`, `universe.py`, `altdata/`, `news/`, `shipping/` |
+| `features/` | `ta_features.py`, `ta_factors_core.py`, `event_features.py`, `congress_features.py`, `insider_features.py`, `news_features.py`, `shipping_features.py`, `factor_store_integration.py` |
+| `signals/` | `rules_trend.py`, `meta_model.py`, `ensemble.py`, `multifactor_signal.py`, `signal_api.py`, `rules_event_insider_shipping.py` |
+| `execution/` | `order_generation.py`, `kill_switch.py`, `pre_trade_checks.py`, `transaction_costs.py`, `fill_model.py`, `paper_trading_engine.py`, `risk_controls.py` |
+| `portfolio/` | `position_sizing.py` (lean, funktional) |
+| `pipeline/` | `orchestrator.py`, `trading_cycle.py`, `backtest.py`, `backtest_legacy.py`, `orders.py`, `portfolio.py`, `io.py` |
+| `qa/` | `backtest_engine.py`, `metrics.py`, `qa_gates.py`, `risk_metrics.py`, `walk_forward.py`, `drift_detection.py`, `leakage_tests/` |
+| `accounting/` | `broker_snapshot_importer.py`, `evidence_pack.py`, `ledger.py`, `reconciliation.py`, `position_engine.py` |
+| `risk/` | `state_machine.py`, `regime_analysis.py`, `exposure_engine.py`, `profit_lock.py`, `georisk_overlay.py`, `turnover_budget.py` |
+| `ops/` | `intel_orchestrator.py`, `paper_runner.py`, `paper_ledger.py`, `health_check.py`, `reconcile.py`, `compare.py` |
+| `events/disclosures/` | `fetch_edgar.py`, `fetch_house_ptr.py`, `pipeline.py`, `normalize.py`, `models.py` |
+| `events/news/` | `fetch_rss.py`, `fetch_gdelt.py`, `pipeline.py`, `tfidf.py`, `clustering.py` |
+| `api/` | `app.py`, `models.py`, Routers: orders, performance, risk, signals, portfolio, qa, monitoring, paper_trading, oms |
+| `config/` | `settings.py`, `models.py`, `factor_bundles.py` (Pydantic-basiert) |
+| `paper/` | `paper_track.py`, `georisk_gate.py`, `strategy_adapters.py`, `ranking_hysteresis.py`, `rebalance_filter.py`, `intel_runner.py` |
+| `strategies/`, `experiments/`, `reports/`, `intel/`, `utils/` | Implementiert |
 
-**Bei Code-Änderungen:**
-- **Immer** `src/assembled_core/` als Ziel verwenden
-- Bestehende Architektur-Dokumentation respektieren
-- Keine Breaking Changes ohne explizite Anweisung
+### Teilweise implementiert / bekannte Stubs
+
+| Modul | Status |
+|-------|--------|
+| `ml/` | Vorhanden (`factor_models.py`, `explainability.py`), aber Trainings-Pfad in `__init__.py` wirft `NotImplementedError` |
+| `api/routers/monitoring.py` | Drift-Analyse-Endpoints geben teilweise Dummy-Daten zurück |
 
 ---
 
-## Architektur-Dokumentation
+## Primäre Entry Points
 
-**Diese Dokumente sind verbindlich und müssen respektiert werden:**
+**Installierte CLI-Befehle** (nach `pip install -e ".[dev]"`):
 
-1. **[ARCHITECTURE_BACKEND.md](../../docs/ARCHITECTURE_BACKEND.md)**
-   - Gesamtarchitektur und Datenfluss
-   - Module-Struktur
-   - EOD-Pipeline-Übersicht
-   - FastAPI-Backend
-   - **→ Einstiegs-Dokument für Gesamtüberblick**
+| CLI-Befehl | Script | Funktion |
+|------------|--------|----------|
+| `assembled-cli` | `scripts/cli.py` | Unified CLI — Dispatcher für alle Hauptoperationen |
+| `assembled-run-daily` | `scripts/run_eod_pipeline.py` | Täglicher EOD-Pipeline-Run |
+| `assembled-run-backtest` | `scripts/run_backtest_strategy.py` | Strategie-Backtest |
 
-2. **[BACKEND_MODULES.md](../../docs/BACKEND_MODULES.md)**
-   - Detaillierte Übersicht aller Module in `src/assembled_core/`
-   - Funktionen, Abhängigkeiten, Verwendungszwecke
-   - **→ Referenz für alle verfügbaren Module**
+**Weitere direkt aufrufbare Scripts:**
+- `scripts/run_api.py` — FastAPI-Server (0.0.0.0:8000)
+- `scripts/batch_backtest.py` — Batch-Backtest via YAML-Config
 
-3. **[BACKEND_ROADMAP.md](../../docs/BACKEND_ROADMAP.md)**
-   - Entwicklungs-Roadmap (Phasen & Sprints)
-   - Aktueller Status und geplante Erweiterungen
-   - **→ Kontext für zukünftige Entwicklungen**
-
-4. **[DATA_SOURCES_BACKEND.md](../../docs/DATA_SOURCES_BACKEND.md)**
-   - Aktuelle und geplante Datenquellen
-   - Datenformate und Konfiguration
-   - **→ Referenz für Daten-Ingestion**
-
-5. **[backend_core.md](../../docs/backend_core.md)**
-   - Konfiguration & Testing
-   - Test-Suite-Übersicht
-
-6. **[backend_api.md](../../docs/backend_api.md)**
-   - FastAPI-Endpoints-Dokumentation
-   - API-Verwendung und Beispiele
-
-7. **[eod_pipeline.md](../../docs/eod_pipeline.md)**
-   - EOD-Pipeline-Orchestrierung
-   - Run-Manifest-Schema
-
-**Regel:** Bevor Code-Änderungen vorgenommen werden, sollten die relevanten Architektur-Dokumente gelesen werden.
+**Legacy-Scripts (nicht mehr primär):**
+`scripts/sprint9_execute.py`, `scripts/sprint9_backtest.py`, `scripts/sprint10_portfolio.py`
+sind im Repo vorhanden, aber in ihren Dateien als `# LEGACY` markiert und deprecated.
+Für neue Entwicklung nicht verwenden.
 
 ---
 
@@ -85,41 +72,52 @@
 
 **Scripts (`scripts/`):**
 - CLI-Wrapper für Pipeline-Schritte
-- Data-Ingestion-Skripte (Pull-Skripte)
-- Orchestrierungs-Skripte
-- **Dürfen** `src/assembled_core/` importieren, aber enthalten keine Kernlogik
+- Data-Pull-Scripts (`download_*.py`, `fetch_*.py`)
+- Diagnose- und Report-Scripts
+- Dürfen `src/assembled_core/` importieren, enthalten aber keine Kernlogik
 
 **Core (`src/assembled_core/`):**
 - Alle produktiven Backend-Module
-- Pure Functions (möglichst ohne Seiteneffekte)
-- Testbare Module
-- **Single Source of Truth** für Backend-Logik
-
-**Regel:** Neue Funktionalität gehört in `src/assembled_core/`, nicht in `scripts/`.
+- Single Source of Truth für Backend-Logik
+- Neue Funktionalität gehört hierher, nicht in `scripts/`
 
 ---
 
-## Datenfluss
+## Datenfluss (verifizierbarer Hauptpfad)
 
 ```
-Data Ingestion (scripts/live/pull_*.py)
-  → data/raw/1min/*.parquet
+data/raw/ + data/sample/
+  → data/prices_ingest.py        (OHLCV laden, normalisieren)
+  → features/ta_features.py      (TA-Features berechnen)
+  → data/factor_store.py         (PIT-sicherer Feature-Cache)
+  → signals/rules_trend.py       (Trendsignale)
+  → execution/order_generation.py (Zielpositionen → Orders)
+  → execution/pre_trade_checks.py (Risk-Filter, Kill-Switch)
+  → pipeline/portfolio.py        (Cost-aware Simulation)
+  → qa/metrics.py + qa_gates.py  (Performance-Metriken, QA)
+  → accounting/evidence_pack.py  (Artefakte, Reports)
 
-Resampling (scripts/run_all_sprint10.ps1)
-  → output/aggregates/5min.parquet
-
-Pipeline (src/assembled_core/pipeline/)
-  → output/orders_{freq}.csv
-  → output/equity_curve_{freq}.csv
-  → output/portfolio_equity_{freq}.csv
-  → output/performance_report_{freq}.md
-  → output/portfolio_report_{freq}.md
-
-FastAPI (src/assembled_core/api/)
-  → Liest aus output/* Dateien
+output/ ← Pipeline-Outputs (Parquet, CSV, Markdown)
+api/    ← liest aus output/, schreibt nicht
 ```
 
-**Regel:** Pipeline-Module schreiben in `output/`, API liest aus `output/`.
+---
+
+## Architektur-Dokumentation
+
+Die folgenden Dokumente sind vorhanden und referenzierbar:
+
+| Dokument | Inhalt |
+|----------|--------|
+| `docs/ARCHITECTURE_BACKEND.md` | Gesamtarchitektur, Datenfluss, Modul-Struktur |
+| `docs/BACKEND_MODULES.md` | Detaillierte Übersicht aller Module |
+| `docs/BACKEND_ROADMAP.md` | Entwicklungsstand und Roadmap |
+| `docs/DATA_SOURCES_BACKEND.md` | Datenquellen, Formate, Konfiguration |
+| `docs/backend_core.md` | Konfiguration & Testing |
+| `docs/backend_api.md` | FastAPI-Endpoints |
+| `docs/eod_pipeline.md` | EOD-Pipeline-Orchestrierung |
+| `docs/CLI_REFERENCE.md` | CLI-Befehlsreferenz |
+| `docs/cursor/CONTEXT_PACK.md` | Projektüberblick & Glossar (Cursor-spezifisch) |
 
 ---
 
@@ -131,10 +129,9 @@ FastAPI (src/assembled_core/api/)
 ```
 
 **Wann verwenden:**
-- Bei Fragen zur Projekt-Struktur
-- Bei Unsicherheit, wo Code-Änderungen gemacht werden sollen
-- Bei Bedarf nach Architektur-Überblick
+- Bei Fragen zur Projektstruktur
+- Bei Unsicherheit, wo Codeänderungen hingehören
+- Als Ausgangspunkt für Architektur-Überblick
 
 **Weiterführende Regeln:**
-- `@02-backend-guidelines` - Coding-Guidelines und Best Practices
-
+- `@02-backend-guidelines` — Coding-Guidelines und Best Practices

@@ -341,7 +341,33 @@ def test_house_ptr_cache_hit_no_request(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 def test_pipeline_fetch_report_includes_house_ptr_stats(tmp_path: Path) -> None:
-    """Pipeline with house_ptr source writes fetch_report with house_ptr per_source entry and cached flag (mocked)."""
+    """Pipeline with house_ptr source writes fetch_report with house_ptr per_source entry and cached flag (mocked).
+
+    Uses a test-local sources config that activates house_ptr so the mock is actually reached.
+    The production sources.yaml disables house_ptr (placeholder index_url), but the plumbing
+    must work when the source is active — verified here in isolation.
+    """
+    # Write a test-local sources config with house_ptr active
+    sources_cfg = tmp_path / "sources_test.yaml"
+    sources_cfg.write_text(
+        "sources:\n"
+        "  - source_id: house_ptr\n"
+        "    name: House PTR\n"
+        "    domain: disclosures.house.gov\n"
+        "    type: house_ptr\n"
+        "    tier: A\n"
+        "    weight: 1.0\n"
+        "    active: true\n"
+        "  - source_id: edgar_form4\n"
+        "    name: SEC EDGAR Form 4\n"
+        "    domain: sec.gov\n"
+        "    type: edgar_form4\n"
+        "    tier: A\n"
+        "    weight: 1.0\n"
+        "    active: true\n",
+        encoding="utf-8",
+    )
+
     def _mock_fetch_house_ptr(
         source_id: str,
         cfg: Dict[str, Any],
@@ -371,7 +397,7 @@ def test_pipeline_fetch_report_includes_house_ptr_stats(tmp_path: Path) -> None:
     with patch("src.assembled_core.events.disclosures.pipeline.fetch_house_ptr_filings", side_effect=_mock_fetch_house_ptr), \
          patch("src.assembled_core.events.disclosures.pipeline.fetch_edgar_form4", side_effect=_mock_fetch_edgar):
         run_disclosures_pipeline(
-            sources_path="configs/disclosures/sources.yaml",
+            sources_path=str(sources_cfg),
             disclosures_path="configs/disclosures/disclosures.yaml",
             cadence="hourly",
             output_dir=tmp_path,
