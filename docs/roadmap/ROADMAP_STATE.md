@@ -57,42 +57,52 @@ Do **not** leave a session after meaningful work without checking whether this f
 ## 4. Current execution position
 
 ### Current milestone
-- ID: CI-Stabilization (between M7 and M8)
-- Name: CI Blocker Fixes
+- ID: M13
+- Name: Autonomous Operations
 - Overall milestone status: locally tested (2026-03-31)
 
 ### Current task
-- ID: CI-FIX COMPLETE (all 9 blockers addressed)
-- Task status: complete — 242/242 phase12, 51/52 targeted tests pass
+- All M8–M13 tasks complete.
 
 ### Current objective
-- M1–M7 locally tested (complete).
-- CI-Stabilization implemented (2026-03-31):
-  - B1: `fill_model_pipeline.py` — catch `(ImportError, RuntimeError)` in session gate
-  - B2: `execution/risk_controls.py` — `QAGatesSummary` import moved to `TYPE_CHECKING` guard (circular import fix)
-  - B3: `data/latency.py` — added `required_cols`, `strict`, `disclosure_col`, `days`/`event_date_col` params (14/14 tests)
-  - B4: `data/snapshot.py` — complete rewrite: 64-char hash, required-cols validation, order/dtype/tz invariance, dedup, freq param (15/15 tests)
-  - B5: `scripts/leaderboard.py` + `qa/factor_ranking.py` — `na_last=True` → `na_position='last'`
-  - B6: `tests/test_metrics_json_written.py` — `pd.isinf` → `math.isinf` (2 occurrences); `json.load(f)` after `f.read()` bug fixed
-  - B7: `data/macro/contract.py` — complete rewrite: required-cols validation, metric→series_id, available_ts sanity check, string trimming, standard cols, filter_macro_pit on available_ts (13/13 tests)
-  - B8: 4 test files — `import submodule` before monkeypatch calls (17/17 risk state machine tests)
-  - B10: `black==25.11.0` pinned in `pyproject.toml`; 421 files reformatted; `ruff` clean (0 errors)
-  - Dependency sync: `exchange-calendars` added to `pyproject.toml`; `feedparser` added to `requirements.txt`
-  - `scripts/00_seed_demo_data.py` — ambiguous variable `l` → `low`
-- Total phase12: 242/242 pass (2026-03-31).
-- 1 pre-existing failure: `test_order_flow_respects_pre_trade_checks` (logic assertion, unrelated to blocker fixes).
+- M1–M13 locally tested (complete).
+- M8 Evidence Engine: grades.py, grader.py, misinfo_risk.py, action_gate.py (65 tests)
+- M9 Policy Calibration: all TBD values replaced in configs/policy.yaml (9 tests)
+- M10 ETF Universe: configs/universe_etf_v1.yaml (30+ ETFs), data/universe_etf.py (22 tests)
+- M11 Post-Trade Learning Loop: post_trade_analyzer.py, learning_store.py, run_post_trade_analysis.py (29 tests)
+- M12 Broker Adapter: execution/broker_adapter.py (AlpacaAdapter, paper-only) (19 tests)
+- M13 Autonomous Operations: ops/daily_scheduler.py, scripts/run_daily_scheduler.py (10 tests)
+- Total phase12: 365/365 pass (2026-03-31).
+- 1 pre-existing failure: `test_order_flow_respects_pre_trade_checks` (logic assertion, not fixed).
 
 ### Next smallest safe step
-- Push CI fixes to remote + confirm CI run.
-- Then: M8 / Evidence Engine, or further CI stabilization if CI still fails.
+- Push all committed changes (M8–M13) to remote.
+- Confirm GitHub Actions CI run.
 - Open items: M3 numeric drawdown thresholds in policy.yaml; M5 spec doc.
 
 ### After that
-- M8 — Evidence Engine (if CI confirmed green).
+- Review CI run results.
+- Plan M14+ as needed (observability, security hardening, etc.).
 
 ---
 
 ## 5. Last completed step
+
+**Session 2026-03-31 (5) — M8–M13: Evidence Engine through Autonomous Operations — ALL COMPLETE**
+
+- M8 Evidence Engine: EvidenceGrade A/B/C/D, grader, misinfo_risk scorer, action_gate, crisis_alpha integration. 65 new tests.
+- M9 Policy Calibration: all TBD values in configs/policy.yaml replaced with concrete risk limits. 9 tests.
+- M10 ETF Universe: configs/universe_etf_v1.yaml (30+ liquid ETFs), data/universe_etf.py loader/filter module. 22 tests.
+- M11 Post-Trade Learning Loop: post_trade_analyzer.py (forward returns, signal hit rate), learning_store.py (atomic JSONL), scripts/run_post_trade_analysis.py. 29 tests.
+- M12 Broker Adapter: BrokerAdapter ABC + AlpacaAdapter (paper-only, force_paper=True), factory. 19 tests.
+- M13 Autonomous Operations: DailyScheduler, 4 workers (ingest/post_trade/reconcile/health_check), build_cycle_summary(), schedule_loop(). 10 tests.
+- CI fixes merged: release-gate-ci.yml `py -3` → `python`; allow_external_fetch guard in data_source.py.
+- Total phase12: 365/365 pass.
+- Commits: ccdeb68 (M11+M12), 59c0bfa (M13). Prior: 7a381f8 (M8+M9+M10), ea3a399 (CI fixes).
+
+Truth status: locally tested; CI push pending.
+
+---
 
 **Session 2026-03-31 (4) — M7: Realism Upgrades v2 — M7 COMPLETE**
 

@@ -543,3 +543,122 @@ or M6-T08 — implement attribution report.
 trading_cycle changes).
 
 ---
+### 2026-03-31 CI-Stabilization — CI Blocker Fixes (complete)
+
+**Status change:** M7 locally tested → CI blockers fixed, 355/355 phase12 pass
+
+**What was done:**
+
+- B1: `fill_model_pipeline.py` — session gate catches `(ImportError, RuntimeError)`
+- B2: `execution/risk_controls.py` — `QAGatesSummary` import moved to `TYPE_CHECKING` guard
+- B3: `data/latency.py` — added required_cols, strict, disclosure_col, days/event_date_col params
+- B4: `data/snapshot.py` — complete rewrite: 64-char hash, required-cols, order/dtype/tz invariance
+- B5: `scripts/leaderboard.py` + `qa/factor_ranking.py` — `na_last=True` → `na_position='last'`
+- B6: `tests/test_metrics_json_written.py` — `pd.isinf` → `math.isinf`
+- B7: `data/macro/contract.py` — complete rewrite with required-cols, filter_macro_pit
+- B8: 4 test files — import submodule before monkeypatch (17 risk state machine tests)
+- B10: black==25.11.0 pinned, 421 files reformatted, ruff 0 errors
+- release-gate-ci.yml: `py -3` → `python` (Windows Python Launcher fix)
+- data_source.py: `allow_external_fetch=False` guard + FileNotFoundError wrapper
+
+**What was verified:** 355/355 phase12 pass locally.
+
+**What remains open:** CI run not yet confirmed (push pending).
+
+**Next step:** Push + confirm CI. Then M8+.
+
+---
+
+### 2026-03-31 M8 — Evidence Engine (complete)
+
+**Status change:** specified → locally tested
+
+**What was done:**
+
+- `src/assembled_core/events/evidence_engine/grades.py` — EvidenceGrade A/B/C/D enum
+- `src/assembled_core/events/evidence_engine/grader.py` — grade_evidence() function
+- `src/assembled_core/events/evidence_engine/misinfo_risk.py` — compute_misinfo_risk()
+- `src/assembled_core/events/evidence_engine/action_gate.py` — check_evidence_grade_gate()
+- `src/assembled_core/events/crisis_alpha/gates.py` — extended with evidence gate integration
+- `tests/test_evidence_engine_grader.py` — 22 tests
+- `tests/test_evidence_engine_action_gate.py` — 12 tests
+
+**What was verified:** 65 new tests pass. 307/307 phase12 pass (at time of M8 commit).
+
+---
+
+### 2026-03-31 M9 — Policy Calibration (complete)
+
+**Status change:** specified → locally tested
+
+**What was done:**
+
+- `configs/policy.yaml` — all TBD values replaced with concrete risk limits
+  (shorts_allowed=false, target_vol=0.20, dd soft/hard/kill=0.12/0.20/0.30, etc.)
+- `tests/test_policy_calibration.py` — 9 tests
+
+**What was verified:** 9 tests pass. No regressions.
+
+---
+
+### 2026-03-31 M10 — ETF Universe Upgrade (complete)
+
+**Status change:** specified → locally tested
+
+**What was done:**
+
+- `configs/universe_etf_v1.yaml` — 30+ liquid ETFs across equity, fixed income, commodities, international, volatility/defensive, thematic
+- `src/assembled_core/data/universe_etf.py` — loader, get_all_symbols, get_symbols_by_asset_class, get_symbols_by_group, get_defensive_symbols, build_symbol_metadata
+- `tests/test_universe_etf.py` — 22 tests
+
+**What was verified:** 22 tests pass. 307/307 phase12 pass (combined M8+M9+M10 commit).
+
+---
+
+### 2026-03-31 M11 — Post-Trade Learning Loop (complete)
+
+**Status change:** specified → locally tested
+
+**What was done:**
+
+- `src/assembled_core/qa/post_trade_analyzer.py` — compute_forward_returns, compute_signal_hit_rate, build_learning_record
+- `src/assembled_core/qa/learning_store.py` — atomic JSONL append store (append_learning_record, load_learning_records, get_latest_record, summarize_learning_store)
+- `scripts/run_post_trade_analysis.py` — CLI runner
+- `tests/test_post_trade_analyzer.py` — 16 tests
+- `tests/test_learning_store.py` — 13 tests
+
+**What was verified:** 29 tests pass. 355/355 phase12 pass (combined M11+M12 commit).
+
+---
+
+### 2026-03-31 M12 — Broker Adapter (complete)
+
+**Status change:** specified → locally tested
+
+**What was done:**
+
+- `src/assembled_core/execution/broker_adapter.py` — BrokerAdapter ABC, BrokerOrder/BrokerPosition dataclasses, AlpacaAdapter (paper-only, force_paper=True), create_adapter_from_env() factory
+- `tests/test_broker_adapter.py` — 19 tests (works without alpaca installed)
+
+**What was verified:** 19 tests pass. 355/355 phase12 pass.
+
+---
+
+### 2026-03-31 M13 — Autonomous Operations (complete)
+
+**Status change:** specified → locally tested
+
+**What was done:**
+
+- `src/assembled_core/ops/daily_scheduler.py` — DailyScheduler class, WorkerResult dataclass, 4 workers (ingest/post_trade/reconcile/health_check), run_daily_cycle(), build_cycle_summary(), schedule_loop(). Stdlib-only.
+- `scripts/run_daily_scheduler.py` — CLI with --date/--output-dir/--dry-run/--once/--interval-hours
+- `tests/test_daily_scheduler.py` — 10 tests
+
+**What was verified:** 10 tests pass. 365/365 phase12 pass.
+
+**What remains open:** CI push pending.
+
+**Next step:** Push main (M8–M13), confirm GitHub Actions CI.
+
+---
+
