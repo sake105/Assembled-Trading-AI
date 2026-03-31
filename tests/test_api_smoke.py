@@ -23,6 +23,31 @@ sys.path.insert(0, str(ROOT))
 
 from src.assembled_core.api.app import create_app
 
+_ROUTER_MODULES = [
+    "src.assembled_core.api.routers.orders",
+    "src.assembled_core.api.routers.performance",
+    "src.assembled_core.api.routers.portfolio",
+    "src.assembled_core.api.routers.monitoring",
+    "src.assembled_core.api.routers.qa",
+    "src.assembled_core.api.routers.signals",
+    "src.assembled_core.api.routers.risk",
+]
+
+
+def _patch_output_dir(monkeypatch, path):
+    """Patch OUTPUT_DIR in config + all API router modules (routers import it directly)."""
+    import importlib
+    import src.assembled_core.config as cfg
+
+    monkeypatch.setattr(cfg, "OUTPUT_DIR", path)
+    for mod_name in _ROUTER_MODULES:
+        try:
+            mod = importlib.import_module(mod_name)
+            if hasattr(mod, "OUTPUT_DIR"):
+                monkeypatch.setattr(mod, "OUTPUT_DIR", path)
+        except ImportError:
+            pass
+
 
 @pytest.fixture
 def client():
@@ -57,63 +82,46 @@ def test_orders_endpoint_with_sample_file(
     client: TestClient, sample_orders_file: Path, monkeypatch
 ):
     """Test GET /api/v1/orders/{freq} with sample file."""
-    # Temporarily override OUTPUT_DIR
-    import src.assembled_core.config as config_module
+    _patch_output_dir(monkeypatch, sample_orders_file)
+    response = client.get("/api/v1/orders/1d")
 
-    original_output_dir = config_module.OUTPUT_DIR
-    monkeypatch.setattr(config_module, "OUTPUT_DIR", sample_orders_file)
+    assert response.status_code == 200
+    data = response.json()
 
-    try:
-        response = client.get("/api/v1/orders/1d")
+    assert "frequency" in data
+    assert "orders" in data
+    assert "count" in data
+    assert "total_notional" in data
 
-        assert response.status_code == 200
-        data = response.json()
+    assert data["frequency"] == "1d"
+    assert data["count"] == 2
+    assert len(data["orders"]) == 2
+    assert data["total_notional"] == 300.0  # 100 + 200
 
-        assert "frequency" in data
-        assert "orders" in data
-        assert "count" in data
-        assert "total_notional" in data
-
-        assert data["frequency"] == "1d"
-        assert data["count"] == 2
-        assert len(data["orders"]) == 2
-        assert data["total_notional"] == 300.0  # 100 + 200
-
-        # Check order structure
-        order = data["orders"][0]
-        assert "timestamp" in order
-        assert "symbol" in order
-        assert "side" in order
-        assert "qty" in order
-        assert "price" in order
-        assert "notional" in order
-
-    finally:
-        # Restore original OUTPUT_DIR
-        monkeypatch.setattr(config_module, "OUTPUT_DIR", original_output_dir)
+    # Check order structure
+    order = data["orders"][0]
+    assert "timestamp" in order
+    assert "symbol" in order
+    assert "side" in order
+    assert "qty" in order
+    assert "price" in order
+    assert "notional" in order
 
 
 def test_orders_endpoint_file_not_found(
     client: TestClient, tmp_path: Path, monkeypatch
 ):
     """Test GET /api/v1/orders/{freq} when file doesn't exist."""
-    # Temporarily override OUTPUT_DIR to empty directory
-    import src.assembled_core.config as config_module
+    _patch_output_dir(monkeypatch, tmp_path)
+    response = client.get("/api/v1/orders/1d")
 
-    original_output_dir = config_module.OUTPUT_DIR
-    monkeypatch.setattr(config_module, "OUTPUT_DIR", tmp_path)
-
-    try:
-        response = client.get("/api/v1/orders/1d")
-
-        assert response.status_code == 404
-        data = response.json()
-        assert "detail" in data
-        assert "not found" in data["detail"].lower()
-
-    finally:
-        # Restore original OUTPUT_DIR
-        monkeypatch.setattr(config_module, "OUTPUT_DIR", original_output_dir)
+    assert response.status_code == 404
+    data = response.json()
+    assert "detail" in data
+    assert (
+        "not found" in data["detail"].lower()
+        or "nicht gefunden" in data["detail"].lower()
+    )
 
 
 def test_performance_backtest_curve_endpoint_with_sample_file(
@@ -135,33 +143,23 @@ def test_performance_backtest_curve_endpoint_with_sample_file(
     df["timestamp"] = df["timestamp"].dt.strftime("%Y-%m-%d %H:%M:%S%z")
     df.to_csv(curve_file, index=False)
 
-    # Temporarily override OUTPUT_DIR
-    import src.assembled_core.config as config_module
+    _patch_output_dir(monkeypatch, tmp_path)
+    response = client.get("/api/v1/performance/1d/backtest-curve")
 
-    original_output_dir = config_module.OUTPUT_DIR
-    monkeypatch.setattr(config_module, "OUTPUT_DIR", tmp_path)
+    assert response.status_code == 200
+    data = response.json()
 
-    try:
-        response = client.get("/api/v1/performance/1d/backtest-curve")
+    assert "frequency" in data
+    assert "points" in data
+    assert "count" in data
+    assert "start_equity" in data
+    assert "end_equity" in data
 
-        assert response.status_code == 200
-        data = response.json()
-
-        assert "frequency" in data
-        assert "points" in data
-        assert "count" in data
-        assert "start_equity" in data
-        assert "end_equity" in data
-
-        assert data["frequency"] == "1d"
-        assert data["count"] == 10
-        assert len(data["points"]) == 10
-        assert data["start_equity"] == 10000.0
-        assert data["end_equity"] == 10090.0
-
-    finally:
-        # Restore original OUTPUT_DIR
-        monkeypatch.setattr(config_module, "OUTPUT_DIR", original_output_dir)
+    assert data["frequency"] == "1d"
+    assert data["count"] == 10
+    assert len(data["points"]) == 10
+    assert data["start_equity"] == 10000.0
+    assert data["end_equity"] == 10090.0
 
 
 def test_performance_metrics_endpoint_with_sample_file(
@@ -183,57 +181,35 @@ def test_performance_metrics_endpoint_with_sample_file(
     df["timestamp"] = df["timestamp"].dt.strftime("%Y-%m-%d %H:%M:%S%z")
     df.to_csv(curve_file, index=False)
 
-    # Temporarily override OUTPUT_DIR
-    import src.assembled_core.config as config_module
+    _patch_output_dir(monkeypatch, tmp_path)
+    response = client.get("/api/v1/performance/1d/metrics")
 
-    original_output_dir = config_module.OUTPUT_DIR
-    monkeypatch.setattr(config_module, "OUTPUT_DIR", tmp_path)
+    assert response.status_code == 200
+    data = response.json()
 
-    try:
-        response = client.get("/api/v1/performance/1d/metrics")
+    assert "freq" in data
+    assert "final_pf" in data
+    assert "sharpe" in data
+    assert "rows" in data
+    assert "first" in data
+    assert "last" in data
 
-        assert response.status_code == 200
-        data = response.json()
-
-        assert "freq" in data
-        assert "final_pf" in data
-        assert "sharpe" in data
-        assert "rows" in data
-        assert "first" in data
-        assert "last" in data
-
-        assert data["freq"] == "1d"
-        assert data["rows"] == 10
-        assert data["final_pf"] > 0
-
-    finally:
-        # Restore original OUTPUT_DIR
-        monkeypatch.setattr(config_module, "OUTPUT_DIR", original_output_dir)
+    assert data["freq"] == "1d"
+    assert data["rows"] == 10
+    assert data["final_pf"] > 0
 
 
 def test_get_signals_1d_empty_or_missing(
     client: TestClient, tmp_path: Path, monkeypatch
 ):
     """Test GET /api/v1/signals/1d when price file doesn't exist."""
-    # Temporarily override OUTPUT_DIR to empty directory
-    import src.assembled_core.config as config_module
+    _patch_output_dir(monkeypatch, tmp_path)
+    response = client.get("/api/v1/signals/1d")
 
-    original_output_dir = config_module.OUTPUT_DIR
-    monkeypatch.setattr(config_module, "OUTPUT_DIR", tmp_path)
-
-    try:
-        response = client.get("/api/v1/signals/1d")
-
-        assert response.status_code == 404
-        data = response.json()
-        assert "detail" in data
-        assert (
-            "not found" in data["detail"].lower() or "empty" in data["detail"].lower()
-        )
-
-    finally:
-        # Restore original OUTPUT_DIR
-        monkeypatch.setattr(config_module, "OUTPUT_DIR", original_output_dir)
+    assert response.status_code == 404
+    data = response.json()
+    assert "detail" in data
+    assert "not found" in data["detail"].lower() or "empty" in data["detail"].lower()
 
 
 def test_get_signals_1d_ok(client: TestClient, tmp_path: Path, monkeypatch):
@@ -257,62 +233,42 @@ def test_get_signals_1d_ok(client: TestClient, tmp_path: Path, monkeypatch):
     df = pd.DataFrame(data)
     df.to_parquet(price_file)
 
-    # Temporarily override OUTPUT_DIR
-    import src.assembled_core.config as config_module
+    _patch_output_dir(monkeypatch, tmp_path)
+    response = client.get("/api/v1/signals/1d")
 
-    original_output_dir = config_module.OUTPUT_DIR
-    monkeypatch.setattr(config_module, "OUTPUT_DIR", tmp_path)
+    assert response.status_code == 200
+    data = response.json()
 
-    try:
-        response = client.get("/api/v1/signals/1d")
+    assert "frequency" in data
+    assert "signals" in data
+    assert "count" in data
+    assert "first_timestamp" in data
+    assert "last_timestamp" in data
 
-        assert response.status_code == 200
-        data = response.json()
+    assert data["frequency"] == "1d"
+    assert data["count"] > 0, "Should have at least one signal"
+    assert len(data["signals"]) > 0, "Should have at least one signal in list"
 
-        assert "frequency" in data
-        assert "signals" in data
-        assert "count" in data
-        assert "first_timestamp" in data
-        assert "last_timestamp" in data
-
-        assert data["frequency"] == "1d"
-        assert data["count"] > 0, "Should have at least one signal"
-        assert len(data["signals"]) > 0, "Should have at least one signal in list"
-
-        # Check signal structure
-        signal = data["signals"][0]
-        assert "timestamp" in signal
-        assert "symbol" in signal
-        assert "signal_type" in signal
-        assert "price" in signal
-        assert signal["signal_type"] in ["BUY", "SELL", "NEUTRAL"]
-
-    finally:
-        # Restore original OUTPUT_DIR
-        monkeypatch.setattr(config_module, "OUTPUT_DIR", original_output_dir)
+    # Check signal structure
+    signal = data["signals"][0]
+    assert "timestamp" in signal
+    assert "symbol" in signal
+    assert "signal_type" in signal
+    assert "price" in signal
+    assert signal["signal_type"] in ["BUY", "SELL", "NEUTRAL"]
 
 
 def test_get_portfolio_current_missing_file(
     client: TestClient, tmp_path: Path, monkeypatch
 ):
     """Test GET /api/v1/portfolio/{freq}/current when file doesn't exist."""
-    # Temporarily override OUTPUT_DIR to empty directory
-    import src.assembled_core.config as config_module
+    _patch_output_dir(monkeypatch, tmp_path)
+    response = client.get("/api/v1/portfolio/1d/current")
 
-    original_output_dir = config_module.OUTPUT_DIR
-    monkeypatch.setattr(config_module, "OUTPUT_DIR", tmp_path)
-
-    try:
-        response = client.get("/api/v1/portfolio/1d/current")
-
-        assert response.status_code == 404
-        data = response.json()
-        assert "detail" in data
-        assert "not found" in data["detail"].lower()
-
-    finally:
-        # Restore original OUTPUT_DIR
-        monkeypatch.setattr(config_module, "OUTPUT_DIR", original_output_dir)
+    assert response.status_code == 404
+    data = response.json()
+    assert "detail" in data
+    assert "not found" in data["detail"].lower()
 
 
 def test_get_portfolio_current_ok(client: TestClient, tmp_path: Path, monkeypatch):
@@ -345,61 +301,41 @@ def test_get_portfolio_current_ok(client: TestClient, tmp_path: Path, monkeypatc
         encoding="utf-8",
     )
 
-    # Temporarily override OUTPUT_DIR
-    import src.assembled_core.config as config_module
+    _patch_output_dir(monkeypatch, tmp_path)
+    response = client.get("/api/v1/portfolio/1d/current")
 
-    original_output_dir = config_module.OUTPUT_DIR
-    monkeypatch.setattr(config_module, "OUTPUT_DIR", tmp_path)
+    assert response.status_code == 200
+    data = response.json()
 
-    try:
-        response = client.get("/api/v1/portfolio/1d/current")
+    assert "timestamp" in data
+    assert "equity" in data
+    assert "cash" in data
+    assert "positions" in data
+    assert "pf" in data or "performance_factor" in data
+    assert "sharpe" in data
+    assert "total_trades" in data
+    assert "start_capital" in data
 
-        assert response.status_code == 200
-        data = response.json()
-
-        assert "timestamp" in data
-        assert "equity" in data
-        assert "cash" in data
-        assert "positions" in data
-        assert "pf" in data or "performance_factor" in data
-        assert "sharpe" in data
-        assert "total_trades" in data
-        assert "start_capital" in data
-
-        assert data["equity"] == 10090.0  # Last equity value
-        assert data["total_trades"] == 2
-
-    finally:
-        # Restore original OUTPUT_DIR
-        monkeypatch.setattr(config_module, "OUTPUT_DIR", original_output_dir)
+    assert data["equity"] == 10090.0  # Last equity value
+    assert data["total_trades"] == 2
 
 
 def test_get_qa_status_no_files(client: TestClient, tmp_path: Path, monkeypatch):
     """Test GET /api/v1/qa/status when no files exist (should return error status)."""
-    # Temporarily override OUTPUT_DIR to empty directory
-    import src.assembled_core.config as config_module
+    _patch_output_dir(monkeypatch, tmp_path)
+    response = client.get("/api/v1/qa/status?freq=1d")
 
-    original_output_dir = config_module.OUTPUT_DIR
-    monkeypatch.setattr(config_module, "OUTPUT_DIR", tmp_path)
+    # Should return 200 even if status is error
+    assert response.status_code == 200
+    data = response.json()
 
-    try:
-        response = client.get("/api/v1/qa/status?freq=1d")
+    assert "overall_status" in data
+    assert "timestamp" in data
+    assert "checks" in data
+    assert "summary" in data
 
-        # Should return 200 even if status is error
-        assert response.status_code == 200
-        data = response.json()
-
-        assert "overall_status" in data
-        assert "timestamp" in data
-        assert "checks" in data
-        assert "summary" in data
-
-        assert data["overall_status"] == "error"
-        assert len(data["checks"]) == 3  # prices, orders, portfolio
-
-    finally:
-        # Restore original OUTPUT_DIR
-        monkeypatch.setattr(config_module, "OUTPUT_DIR", original_output_dir)
+    assert data["overall_status"] == "error"
+    assert len(data["checks"]) == 3  # prices, orders, portfolio
 
 
 def test_get_qa_status_ok(client: TestClient, tmp_path: Path, monkeypatch):
@@ -460,38 +396,28 @@ def test_get_qa_status_ok(client: TestClient, tmp_path: Path, monkeypatch):
     )
     portfolio_df.to_csv(portfolio_file, index=False)
 
-    # Temporarily override OUTPUT_DIR
-    import src.assembled_core.config as config_module
+    _patch_output_dir(monkeypatch, tmp_path)
+    response = client.get("/api/v1/qa/status?freq=1d")
 
-    original_output_dir = config_module.OUTPUT_DIR
-    monkeypatch.setattr(config_module, "OUTPUT_DIR", tmp_path)
+    # Should return 200
+    assert response.status_code == 200
+    data = response.json()
 
-    try:
-        response = client.get("/api/v1/qa/status?freq=1d")
+    assert "overall_status" in data
+    assert "timestamp" in data
+    assert "checks" in data
+    assert "summary" in data
 
-        # Should return 200
-        assert response.status_code == 200
-        data = response.json()
+    assert data["overall_status"] == "ok"
+    assert len(data["checks"]) == 3  # prices, orders, portfolio
 
-        assert "overall_status" in data
-        assert "timestamp" in data
-        assert "checks" in data
-        assert "summary" in data
+    # All checks should be ok
+    for check in data["checks"]:
+        assert (
+            check["status"] == "ok"
+        ), f"Check {check['check_name']} should be ok but got {check['status']}"
 
-        assert data["overall_status"] == "ok"
-        assert len(data["checks"]) == 3  # prices, orders, portfolio
-
-        # All checks should be ok
-        for check in data["checks"]:
-            assert check["status"] == "ok", (
-                f"Check {check['check_name']} should be ok but got {check['status']}"
-            )
-
-        # Summary should reflect ok status
-        assert data["summary"]["ok"] == 3
-        assert data["summary"]["error"] == 0
-        assert data["summary"]["warning"] == 0
-
-    finally:
-        # Restore original OUTPUT_DIR
-        monkeypatch.setattr(config_module, "OUTPUT_DIR", original_output_dir)
+    # Summary should reflect ok status
+    assert data["summary"]["ok"] == 3
+    assert data["summary"]["error"] == 0
+    assert data["summary"]["warning"] == 0

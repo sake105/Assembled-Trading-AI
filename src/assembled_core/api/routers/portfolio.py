@@ -229,7 +229,7 @@ def get_portfolio_current(freq: Frequency) -> PortfolioSnapshot:
             equity=current_equity,
             cash=cash,
             positions=positions,
-            performance_factor=metrics["final_pf"],
+            pf=metrics["final_pf"],
             sharpe=metrics["sharpe"],
             total_trades=metrics["trades"],
             start_capital=first_equity,  # Use first equity as proxy for start capital

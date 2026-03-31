@@ -215,7 +215,7 @@ class PortfolioSnapshot(BaseModel):
     """
 
     timestamp: datetime = Field(..., description="Snapshot timestamp (UTC)")
-    total_equity: float = Field(..., description="Total portfolio equity")
+    equity: float = Field(..., description="Total portfolio equity")
     cash: Optional[float] = Field(None, description="Cash balance")
     positions: dict[str, float] = Field(
         ..., description="Position sizes by symbol (quantity)"
@@ -223,15 +223,21 @@ class PortfolioSnapshot(BaseModel):
     performance_factor: float = Field(
         ..., alias="pf", description="Final PF from portfolio_report.md"
     )
+    sharpe: Optional[float] = Field(None, description="Sharpe ratio")
+    total_trades: Optional[int] = Field(None, description="Total number of trades")
+    start_capital: Optional[float] = Field(None, description="Starting capital")
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "timestamp": "2025-11-28T14:30:00Z",
-                "total_equity": 11250.50,
+                "equity": 11250.50,
                 "cash": 250.50,
                 "positions": {"AAPL": 10.0, "MSFT": 5.0},
                 "pf": 1.12505,
+                "sharpe": 0.5,
+                "total_trades": 10,
+                "start_capital": 10000.0,
             }
         }
     )
