@@ -404,12 +404,9 @@ def compute_risk_by_regime(
             continue
 
         # Basic metrics using compute_basic_risk_metrics
-        # We need to create equity series from returns for drawdown calculation
-        equity_from_returns = (1.0 + regime_returns).cumprod() * 100.0
-
+        # compute_basic_risk_metrics computes drawdown internally from returns
         metrics = compute_basic_risk_metrics(
             returns=regime_returns,
-            equity=equity_from_returns,
             freq=freq,
             risk_free_rate=risk_free_rate,
         )

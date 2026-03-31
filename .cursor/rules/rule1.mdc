@@ -52,9 +52,12 @@ Diese Regeln sind die *Quelle der Wahrheit* für unser Aktiengerüst in Cursor. 
 - **Ausschließlich UTC** in allen Dateien, Logs und Reports.
 
 ## Pipeline-Erwartungen (ohne Strukturbruch)
-- **Execute** nutzt die 5-Min-Preise und schreibt Orders (keine Schemaänderung).
-- **Backtest** liest Orders+Preise und schreibt Reports/Curves wie oben.
-- **Portfolio** rechnet Kosten mit Parametern (commission bps, spread-w, impact-w).
+Der EOD-Orchestrator (`scripts/run_eod_pipeline.py` → `pipeline/orchestrator.py`) führt intern folgende Schritte aus:
+- **Signal/Execute:** Liest 5-Min- oder EOD-Preise, generiert Orders — keine Schemaänderung an Output-Dateien.
+- **Backtest:** Liest Orders + Preise, schreibt Reports/Curves wie oben.
+- **Portfolio:** Rechnet Kosten mit Parametern (commission bps, spread-w, impact-w).
+
+Die Legacy-Scripts `sprint9_execute.py`, `sprint9_backtest.py`, `sprint10_portfolio.py` existieren noch, sind aber deprecated. Nicht als primäre Pipeline-Einstiege verwenden.
 
 ## Änderungsprinzipien
 - Minimalinvasiv: keine Umbenennungen funktionierender Pfade/Dateien.
@@ -69,7 +72,3 @@ Diese Regeln sind die *Quelle der Wahrheit* für unser Aktiengerüst in Cursor. 
 - Nach Resample: `rows`, `unique symbols`, `first/last timestamp` ausgeben.
 - Vor Backtest: Datei-Existenz + Formate prüfen; bei Verstoß abbrechen.
 
----
----
-alwaysApply: true
----

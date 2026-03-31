@@ -188,6 +188,13 @@ def load_news_params(config_path: str | Path) -> Dict[str, Any]:
         windows = [1, 6, 24]
     burst_cfg["windows_hours"] = [int(w) for w in windows]
 
+    trigger_cfg = data.get("trigger_scoring") or {}
+    if not isinstance(trigger_cfg, dict):
+        trigger_cfg = {}
+    trigger_cfg.setdefault("enabled", False)
+    trigger_cfg.setdefault("severity_cap_degraded", 1)
+    trigger_cfg.setdefault("severity_cap_error", 0)
+
     return {
         "fetch": fetch_cfg,
         "gdelt": gdelt_cfg,
@@ -196,5 +203,6 @@ def load_news_params(config_path: str | Path) -> Dict[str, Any]:
         "dedupe": dedupe_cfg,
         "clustering": clustering_cfg,
         "burst": burst_cfg,
+        "trigger_scoring": trigger_cfg,
     }
 

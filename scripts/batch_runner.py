@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 try:
     import numpy as np
@@ -179,9 +179,10 @@ class RunConfig(BaseModel):
                 raise ValueError("factor_store_root and factor_group cannot be empty strings (use null/omit if not needed)")
         return v
 
-    class Config:
-        use_enum_values = True  # Use enum values instead of enum objects
-        populate_by_name = True  # Allow both 'id' and 'name' (alias) in input
+    model_config = ConfigDict(
+        use_enum_values=True,
+        populate_by_name=True,
+    )
 
 
 class BatchConfig(BaseModel):
@@ -202,8 +203,7 @@ class BatchConfig(BaseModel):
             raise ValueError(f"Duplicate run IDs found: {set(duplicates)}")
         return self
 
-    class Config:
-        arbitrary_types_allowed = True  # Allow Path type
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 def load_batch_config(config_path: Path) -> BatchConfig:

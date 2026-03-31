@@ -377,6 +377,49 @@ def load_paper_track_config(path: Path) -> PaperTrackConfig:
         raise ValueError(f"output.format must be 'csv' or 'parquet', got: {output_format_raw}")
     output_format = output_format_raw  # type: ignore[assignment]
 
+    # Intel mode (none | real) and georisk gate
+    intel_cfg = raw.get("intel", {})
+    if not isinstance(intel_cfg, dict):
+        intel_cfg = {}
+    intel_mode_raw = str(intel_cfg.get("mode", "none")).strip().lower()
+    if intel_mode_raw not in ("none", "real"):
+        intel_mode_raw = "none"
+
+    georisk_cfg = intel_cfg.get("georisk_gate", {})
+    if not isinstance(georisk_cfg, dict):
+        georisk_cfg = {}
+    georisk_gate_enabled = bool(georisk_cfg.get("enabled", False))
+    georisk_active_multiplier = float(georisk_cfg.get("active_multiplier", 0.70))
+
+    rebalance_cfg = intel_cfg.get("rebalance_filter", {})
+    if not isinstance(rebalance_cfg, dict):
+        rebalance_cfg = {}
+    rebalance_filter_enabled = bool(rebalance_cfg.get("enabled", False))
+    rebalance_min_notional = float(rebalance_cfg.get("min_notional", 500.0))
+
+    deadzone_cfg = intel_cfg.get("deadzone", {})
+    if not isinstance(deadzone_cfg, dict):
+        deadzone_cfg = {}
+    deadzone_enabled = bool(deadzone_cfg.get("enabled", False))
+    deadzone_pct = float(deadzone_cfg.get("pct", 0.05))
+
+    hysteresis_cfg = intel_cfg.get("ranking_hysteresis", {})
+    if not isinstance(hysteresis_cfg, dict):
+        hysteresis_cfg = {}
+    ranking_hysteresis_enabled = bool(hysteresis_cfg.get("enabled", False))
+    ranking_entry_n = int(hysteresis_cfg.get("entry_n", 5))
+    ranking_hold_n = int(hysteresis_cfg.get("hold_n", 7))
+
+    # Price file override
+    data_cfg = raw.get("data", {})
+    if not isinstance(data_cfg, dict):
+        data_cfg = {}
+    price_file_raw = data_cfg.get("price_file")
+    price_file = None
+    if price_file_raw:
+        pf = Path(price_file_raw)
+        price_file = pf if pf.is_absolute() else (ROOT / pf).resolve()
+
     return PaperTrackConfig(
         strategy_name=strategy_name,
         strategy_type=strategy_type,  # type: ignore[arg-type]
@@ -391,6 +434,17 @@ def load_paper_track_config(path: Path) -> PaperTrackConfig:
         random_seed=random_seed,
         output_root=output_root,
         output_format=output_format,  # type: ignore[arg-type]
+        intel_mode=intel_mode_raw,  # type: ignore[arg-type]
+        georisk_gate_enabled=georisk_gate_enabled,
+        georisk_active_multiplier=georisk_active_multiplier,
+        rebalance_filter_enabled=rebalance_filter_enabled,
+        rebalance_min_notional=rebalance_min_notional,
+        deadzone_enabled=deadzone_enabled,
+        deadzone_pct=deadzone_pct,
+        ranking_hysteresis_enabled=ranking_hysteresis_enabled,
+        ranking_entry_n=ranking_entry_n,
+        ranking_hold_n=ranking_hold_n,
+        price_file=price_file,
     )
 
 
@@ -613,6 +667,7 @@ def run_paper_track_from_cli(
     risk_report_frequency: Literal["daily", "weekly", "monthly"] = "weekly",
     benchmark_symbol: str | None = None,
     factor_returns_file: Path | None = None,
+    intel_mode: str | None = None,
 ) -> int:
     """Run paper track from CLI arguments.
 
@@ -633,6 +688,12 @@ def run_paper_track_from_cli(
         # Load config
         logger.info(f"Loading config from {config_file}")
         config = load_paper_track_config(config_file)
+
+        # CLI override for intel_mode
+        if intel_mode is not None:
+            from dataclasses import replace
+            config = replace(config, intel_mode=intel_mode)  # type: ignore[arg-type]
+            logger.info(f"Intel mode overridden via CLI: {intel_mode}")
 
         # Set random seed if provided
         if config.random_seed is not None:
@@ -667,6 +728,71 @@ def run_paper_track_from_cli(
 
         # Track start time
         start_time = pd.Timestamp.utcnow()
+
+        # Intel orchestration (before trading loop)
+        intel_orchestration: dict[str, Any] = {"mode": config.intel_mode}
+        intel_summary_data: dict[str, Any] | None = None
+
+        if config.intel_mode == "real":
+            from src.assembled_core.paper.intel_runner import (
+                run_real_intel_once,
+                load_intel_summaries,
+                compute_news_geo,
+                build_intel_summary,
+            )
+
+            logger.info("Intel mode=real: running NEWS pipeline before trading loop")
+            intel_result = run_real_intel_once(output_dir=output_root)
+            intel_orchestration.update(intel_result)
+
+            summaries = load_intel_summaries(output_root)
+            news_geo = compute_news_geo(output_root)
+
+            intel_summary_data = build_intel_summary(
+                intel_orchestration=intel_orchestration,
+                news_triggers_summary=summaries["news_triggers_summary"],
+                disclosures_triggers_summary=summaries["disclosures_triggers_summary"],
+                news_geo=news_geo,
+            )
+
+            # Write intel_summary.json
+            intel_summary_path = output_root / "intel_summary.json"
+            intel_summary_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(intel_summary_path, "w", encoding="utf-8") as f:
+                json.dump(intel_summary_data, f, indent=2, ensure_ascii=True)
+            logger.info(f"Intel summary written: {intel_summary_path}")
+            logger.info(
+                f"NEWS geo_score={news_geo['geo_score']}, "
+                f"state_hint={news_geo['state_hint']}, "
+                f"triggers={summaries['news_triggers_summary']['count']}"
+            )
+
+            # GeoRisk gate: compute multiplier and inject into config
+            if config.georisk_gate_enabled:
+                from src.assembled_core.paper.georisk_gate import compute_georisk_multiplier
+
+                geo_mult = compute_georisk_multiplier(
+                    news_geo,
+                    active_multiplier=config.georisk_active_multiplier,
+                )
+                # Inject multiplier as private attr for run_paper_day to pick up
+                config._georisk_multiplier = geo_mult  # type: ignore[attr-defined]
+                intel_orchestration["georisk_gate"] = {
+                    "enabled": True,
+                    "multiplier_applied": geo_mult,
+                    "state_hint": news_geo.get("state_hint", "WATCH"),
+                }
+                if intel_summary_data is not None:
+                    intel_summary_data["georisk_gate"] = intel_orchestration["georisk_gate"]
+                    with open(intel_summary_path, "w", encoding="utf-8") as f:
+                        json.dump(intel_summary_data, f, indent=2, ensure_ascii=True)
+                logger.info(f"GeoRisk gate: multiplier={geo_mult:.2f}")
+            else:
+                intel_orchestration["georisk_gate"] = {
+                    "enabled": False,
+                    "multiplier_applied": 1.0,
+                    "state_hint": news_geo.get("state_hint", "WATCH"),
+                }
 
         # Results tracking
         results: list[PaperTrackDayResult] = []
@@ -879,7 +1005,10 @@ def run_paper_track_from_cli(
                     "start": dates[0].strftime("%Y-%m-%d") if dates else None,
                     "end": dates[-1].strftime("%Y-%m-%d") if dates else None,
                 },
+                "intel_orchestration": intel_orchestration,
             }
+            if intel_summary_data is not None:
+                run_summary["intel_summary"] = intel_summary_data
 
             with open(summary_path_json, "w", encoding="utf-8") as f:
                 json.dump(run_summary, f, indent=2, ensure_ascii=True)
@@ -980,6 +1109,13 @@ Examples:
     )
 
     parser.add_argument(
+        "--rerun",
+        action="store_true",
+        default=False,
+        help="Force re-run of days even if run directory already exists",
+    )
+
+    parser.add_argument(
         "--dry-run", action="store_true", help="Dry run mode: don't write any files"
     )
 
@@ -1021,6 +1157,14 @@ Examples:
         type=Path,
         default=None,
         help="Path to factor returns file for risk reports (CSV/Parquet)",
+    )
+
+    parser.add_argument(
+        "--intel-mode",
+        type=str,
+        choices=["none", "real"],
+        default=None,
+        help="Intel mode: 'none' = no intel, 'real' = run NEWS+DISCLOSURES before trading. Overrides config.",
     )
 
     parser.add_argument(
@@ -1077,6 +1221,7 @@ def main() -> None:
             risk_report_frequency=getattr(args, "risk_report_frequency", "weekly"),
             benchmark_symbol=getattr(args, "benchmark_symbol", None),
             factor_returns_file=getattr(args, "factor_returns_file", None),
+            intel_mode=getattr(args, "intel_mode", None),
         )
         sys.exit(exit_code)
     except KeyboardInterrupt:

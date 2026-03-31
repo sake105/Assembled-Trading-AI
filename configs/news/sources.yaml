@@ -1,27 +1,51 @@
 sources:
-  - source_id: "rss_example_world"
-    name: "Example World (deaktiviert – Platzhalter)"
-    domain: "example.com"
-    type: "rss"
-    tier: "B"
-    weight: 0.6
-    active: false
-    url: "https://example.com/rss"
-    country_focus: ["global"]
-    language: ["en"]
-    notes: "Placeholder; deaktiviert wegen SSL/cert failure. Ersetzen durch echte Quelle oder GDELT."
-
   - source_id: "rss_bbc_world"
     name: "BBC World"
+    domain: "bbc.co.uk"
+    type: "rss"
+    tier: "A"
+    weight: 1.0
+    active: true
+    url: "https://feeds.bbci.co.uk/news/world/rss.xml"
+    country_focus: ["global"]
+    language: ["en"]
+    notes: "BBC World News RSS – free, no API key required."
+
+  - source_id: "rss_guardian_world"
+    name: "The Guardian World"
+    domain: "theguardian.com"
+    type: "rss"
+    tier: "A"
+    weight: 1.0
+    active: true
+    url: "https://www.theguardian.com/world/rss"
+    country_focus: ["global"]
+    language: ["en"]
+    notes: "The Guardian World RSS – free, broad geopolitical coverage."
+
+  - source_id: "rss_aljazeera_world"
+    name: "Al Jazeera"
+    domain: "aljazeera.com"
+    type: "rss"
+    tier: "A"
+    weight: 1.0
+    active: true
+    url: "https://www.aljazeera.com/xml/rss/all.xml"
+    country_focus: ["global"]
+    language: ["en"]
+    notes: "Al Jazeera English RSS – free, strong Middle East / geopolitical coverage."
+
+  - source_id: "rss_bbc_business"
+    name: "BBC Business"
     domain: "bbc.co.uk"
     type: "rss"
     tier: "B"
     weight: 0.6
     active: true
-    url: "https://feeds.bbci.co.uk/news/world/rss.xml"
+    url: "https://feeds.bbci.co.uk/news/business/rss.xml"
     country_focus: ["global"]
     language: ["en"]
-    notes: "Öffentlicher RSS für News-Smoke; mindestens eine aktive Quelle."
+    notes: "BBC Business RSS – markets, energy, trade policy."
 
   - source_id: "gdelt_default"
     name: "GDELT"
@@ -29,6 +53,5 @@ sources:
     type: "gdelt"
     tier: "B"
     weight: 0.6
-    active: false          # Enable explicitly once configured
-    query: "war OR sanctions OR shipping"
-
+    active: true
+    query: "war OR sanctions OR shipping OR Red Sea OR Suez OR Taiwan OR Strait of Hormuz OR export controls"

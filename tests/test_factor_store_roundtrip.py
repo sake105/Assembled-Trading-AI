@@ -216,7 +216,7 @@ def test_store_append_mode(temp_factor_store, sample_factors_df):
     
     # Create additional data (overlapping dates should be updated, new dates added)
     additional_data = []
-    base_date = datetime(2023, 12, 1, tzinfo=pd.Timestamp.utcnow().tz)
+    base_date = datetime(2023, 1, 1, tzinfo=pd.Timestamp.utcnow().tz)
     symbols = ["AAPL", "MSFT", "GOOGL"]
     
     for symbol in symbols:

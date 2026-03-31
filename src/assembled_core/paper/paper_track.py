@@ -143,6 +143,17 @@ class PaperTrackConfig:
     random_seed: int | None = None
     output_root: Path | None = None
     output_format: Literal["csv", "parquet"] = "csv"
+    intel_mode: Literal["none", "real"] = "none"
+    georisk_gate_enabled: bool = False
+    georisk_active_multiplier: float = 0.70
+    rebalance_filter_enabled: bool = False
+    rebalance_min_notional: float = 500.0
+    deadzone_enabled: bool = False
+    deadzone_pct: float = 0.05
+    ranking_hysteresis_enabled: bool = False
+    ranking_entry_n: int = 5
+    ranking_hold_n: int = 7
+    price_file: Path | None = None
 
 
 @dataclass
@@ -1025,15 +1036,19 @@ def run_paper_day(
         logger.info(f"Loading prices for {as_of.date()}")
         prices = load_eod_prices_for_universe(
             universe_file=config.universe_file,
+            price_file=config.price_file,
             freq=config.freq,
         )
+        # Full history up to as_of (needed for feature/EMA computation)
+        prices_history = prices[prices["timestamp"] <= as_of].copy()
+        # Snapshot: one row per symbol (last available price)
         prices_filtered = _filter_prices_for_date(prices, as_of)
 
         # Step 3: Filter to tradeable universe (exclude NaNs, missing data)
         prices_tradeable, n_symbols_requested, n_tradeable, n_missing = filter_tradeable_universe(
             prices_filtered=prices_filtered,
             universe_symbols=universe_symbols,
-            min_history_days=0,  # TODO: Make configurable via config
+            min_history_days=0,
         )
 
         if prices_tradeable.empty:
@@ -1050,9 +1065,6 @@ def run_paper_day(
         # We need to wrap the strategy adapter to work with trading_cycle
         def signal_fn(df_with_features: pd.DataFrame) -> pd.DataFrame:
             """Signal function wrapper for trading_cycle."""
-            # The strategy adapter expects full context, but trading_cycle only provides
-            # prices_with_features. We'll use a simplified version that extracts signals.
-            # For now, delegate to strategy adapter with minimal context.
             signals, _ = _generate_signals_and_targets_for_day(
                 config=config,
                 state_before=state_before,
@@ -1061,6 +1073,29 @@ def run_paper_day(
                 prices_with_features=df_with_features,
                 as_of=as_of,
             )
+            if not signals.empty and "timestamp" in signals.columns:
+                signals = (
+                    signals.sort_values("timestamp")
+                    .groupby("symbol", group_keys=False)
+                    .last()
+                    .reset_index()
+                )
+            if config.ranking_hysteresis_enabled and not signals.empty:
+                from src.assembled_core.paper.ranking_hysteresis import apply_ranking_hysteresis
+                held = set(
+                    current_positions["symbol"].tolist()
+                ) if not current_positions.empty else set()
+                signals, hyst_meta = apply_ranking_hysteresis(
+                    signals, held,
+                    entry_n=config.ranking_entry_n,
+                    hold_n=config.ranking_hold_n,
+                )
+                if hyst_meta.get("kept_by_hysteresis", 0) > 0 or hyst_meta.get("blocked_entry", 0) > 0:
+                    logger.info(
+                        f"Ranking hysteresis: kept={hyst_meta['kept_by_hysteresis']}, "
+                        f"blocked={hyst_meta['blocked_entry']}, "
+                        f"entry_n={config.ranking_entry_n}, hold_n={config.ranking_hold_n}"
+                    )
             return signals
         
         def sizing_fn(signals: pd.DataFrame, capital: float) -> pd.DataFrame:
@@ -1101,8 +1136,11 @@ def run_paper_day(
         
         # Build TradingContext
         current_positions = state_before.positions.copy()
+        tradeable_symbols = set(prices_tradeable["symbol"].unique())
+        prices_for_cycle = prices_history[prices_history["symbol"].isin(tradeable_symbols)].copy()
         ctx = TradingContext(
-            prices=prices_tradeable,  # Tradeable prices (already filtered)
+            prices=prices_for_cycle,
+            mode="backtest",  # Need full history for feature/EMA computation
             as_of=as_of,
             freq=config.freq,
             universe=universe_symbols if universe_symbols else None,
@@ -1157,6 +1195,54 @@ def run_paper_day(
         
         # Extract results (cycle_result.orders already generated from targets)
         orders = cycle_result.orders
+
+        # GeoRisk gate: scale order quantities if enabled
+        georisk_multiplier_applied = 1.0
+        if config.georisk_gate_enabled:
+            from src.assembled_core.paper.georisk_gate import (
+                apply_georisk_to_orders,
+            )
+            georisk_multiplier_applied = getattr(config, "_georisk_multiplier", 1.0)
+            if georisk_multiplier_applied < 1.0 and not orders.empty:
+                pre_count = len(orders)
+                orders = apply_georisk_to_orders(orders, georisk_multiplier_applied)
+                logger.info(
+                    f"GeoRisk gate applied: multiplier={georisk_multiplier_applied:.2f}, "
+                    f"orders {pre_count} -> {len(orders)}"
+                )
+
+        # Rebalance filter: drop small orders to reduce churn
+        rebalance_filter_stats = None
+        if config.rebalance_filter_enabled and not orders.empty:
+            from src.assembled_core.paper.rebalance_filter import filter_small_rebalances
+            orders, rebalance_filter_stats = filter_small_rebalances(
+                orders,
+                min_notional=config.rebalance_min_notional,
+            )
+            if rebalance_filter_stats["orders_dropped"] > 0:
+                logger.info(
+                    f"Rebalance filter: {rebalance_filter_stats['orders_before']} -> "
+                    f"{rebalance_filter_stats['orders_after']} orders "
+                    f"(dropped {rebalance_filter_stats['orders_dropped']}, "
+                    f"min_notional={config.rebalance_min_notional})"
+                )
+
+        # Dead-zone filter: suppress micro-rebalances
+        deadzone_stats = None
+        if config.deadzone_enabled and not orders.empty:
+            from src.assembled_core.paper.deadzone_rebalance import filter_deadzone_orders
+            orders, deadzone_stats = filter_deadzone_orders(
+                orders,
+                current_positions=current_positions,
+                deadzone_pct=config.deadzone_pct,
+            )
+            if deadzone_stats["orders_dropped"] > 0:
+                logger.info(
+                    f"Dead-zone filter: {deadzone_stats['orders_before']} -> "
+                    f"{deadzone_stats['orders_after']} orders "
+                    f"(dropped {deadzone_stats['orders_dropped']}, "
+                    f"deadzone_pct={config.deadzone_pct})"
+                )
 
         # Step 8: Simulate fills
         logger.debug("Simulating order fills")

@@ -42,7 +42,7 @@ jobs:
       - name: Run evidence_pack preset checks (blocking)
         id: evidence_pack_checks
         run: |
-          $output = py -3 scripts/dev/run_checks.py --preset evidence_pack 2>&1
+          $output = python scripts/dev/run_checks.py --preset evidence_pack 2>&1
           $exitCode = $LASTEXITCODE
           if ($null -ne $output) { $output | Set-Content -Path run_checks_log.txt -Encoding utf8 } else { "No output captured" | Set-Content -Path run_checks_log.txt -Encoding utf8 }
           Write-Output $output
@@ -61,9 +61,9 @@ jobs:
       - name: Run broker_snapshot preset checks (optional)
         continue-on-error: true
         run: |
-          py -3 scripts/dev/run_checks.py --preset broker_snapshot || echo "broker_snapshot preset skipped or failed (non-blocking)"
+          python scripts/dev/run_checks.py --preset broker_snapshot || echo "broker_snapshot preset skipped or failed (non-blocking)"
 
       - name: Run accounting preset checks (optional)
         continue-on-error: true
         run: |
-          py -3 scripts/dev/run_checks.py --preset accounting || echo "accounting preset skipped or failed (non-blocking)"
+          python scripts/dev/run_checks.py --preset accounting || echo "accounting preset skipped or failed (non-blocking)"

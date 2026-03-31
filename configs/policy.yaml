@@ -117,6 +117,13 @@ profit_lock:
   floor: 0.50
   cooldown_days: 10
 
+vol_targeting:
+  enabled: false              # M6-T03: disabled by default; enable with calibrated target_vol_annual
+  lookback_days: 20
+  target_vol_annual: 0.15     # 15% annualized target; tune before enabling
+  min_scale: 0.50             # floor: never reduce below 50% exposure
+  max_scale: 1.00             # no amplification; consistent with leverage_allowed: false
+
 market_stress:
   enabled: true
   lookback_days: 20
