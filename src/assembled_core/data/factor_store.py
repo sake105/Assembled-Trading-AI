@@ -21,12 +21,18 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_FACTORS_ROOT = Path("output/factors")
+def _default_factors_root() -> Path:
+    """Return default factor store root anchored to project base dir."""
+    try:
+        from src.assembled_core.config.config import get_base_dir  # noqa: PLC0415
+        return get_base_dir() / "output" / "factors"
+    except Exception:
+        return Path("output/factors")
 
 
 def get_factor_store_root(factors_root: Path | None = None) -> Path:
     """Return the root directory for the factor store, creating it if needed."""
-    root = factors_root or _DEFAULT_FACTORS_ROOT
+    root = factors_root or _default_factors_root()
     root.mkdir(parents=True, exist_ok=True)
     return root
 
@@ -70,7 +76,7 @@ def panel_path(
         year: If given, returns path to year=YYYY.parquet; else returns the directory.
         factors_root: Optional root directory.
     """
-    root = factors_root or _DEFAULT_FACTORS_ROOT
+    root = factors_root or _default_factors_root()
     panel_dir = root / factor_group / freq / universe_key
     if year is None:
         return panel_dir
@@ -365,7 +371,7 @@ def list_factor_partitions(
     Returns:
         List of dicts with keys: factor_group, freq, universe_key, years.
     """
-    base = (root or _DEFAULT_FACTORS_ROOT) / group / freq
+    base = (root or _default_factors_root()) / group / freq
     if not base.exists():
         return []
 
@@ -414,7 +420,7 @@ def list_available_panels(
     Returns:
         List of dicts with keys: factor_group, freq, universe_key, years.
     """
-    root = factors_root or _DEFAULT_FACTORS_ROOT
+    root = factors_root or _default_factors_root()
     if not root.exists():
         return []
 

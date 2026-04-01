@@ -138,6 +138,9 @@ market_stress:
     mode: "any"
   qc:
     if_data_missing: false
+  exposure_scaling:
+    stress_score_1: 0.75          # moderate stress (1 trigger) -> 75% exposure
+    stress_score_2: 0.50          # high stress (2 triggers) -> 50% exposure
 
 risk_state_machine:
   enabled: true

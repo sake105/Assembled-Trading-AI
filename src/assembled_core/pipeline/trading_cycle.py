@@ -1239,7 +1239,24 @@ def run_trading_cycle(
                 "realized_vol": float("nan"),
                 "target_vol": float("nan"),
             }
-        final_multiplier = geo_multiplier * profit_lock_mult * vol_scale_factor
+        # Market stress multiplier (MEDIUM-5.3): reduce exposure when stress is detected
+        ms_multiplier = 1.0
+        if ctx.market_stress:
+            stress_score = int(ctx.market_stress.get("stress_score", 0))
+            _ms_scaling = (policy.get("market_stress") or {}).get("exposure_scaling") or {}
+            if stress_score >= 2:
+                ms_multiplier = float(_ms_scaling.get("stress_score_2", 0.50))
+            elif stress_score >= 1:
+                ms_multiplier = float(_ms_scaling.get("stress_score_1", 0.75))
+            if ms_multiplier < 1.0:
+                log.warning(
+                    "MARKET_STRESS: stress_score=%d → exposure multiplier=%.2f",
+                    stress_score,
+                    ms_multiplier,
+                )
+        result.meta["market_stress_multiplier"] = ms_multiplier
+
+        final_multiplier = geo_multiplier * profit_lock_mult * vol_scale_factor * ms_multiplier
         if abs(final_multiplier - 1.0) > 1e-9 and not result.target_positions.empty:
             result.target_positions = apply_exposure_multiplier_to_targets(
                 result.target_positions,
@@ -1249,7 +1266,7 @@ def run_trading_cycle(
             log.debug(
                 "Exposure overlay applied: "
                 f"geo={geo_multiplier:.4f}, profit_lock={profit_lock_mult:.4f}, "
-                f"vol={vol_scale_factor:.4f}, "
+                f"vol={vol_scale_factor:.4f}, stress={ms_multiplier:.4f}, "
                 f"final={final_multiplier:.4f}, symbols={len(result.target_positions)}"
             )
         else:
