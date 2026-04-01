@@ -645,19 +645,48 @@ def _apply_risk_controls_default(
         security_meta_df = ctx.security_meta_df
 
         # Convert risk_config dict to PreTradeConfig
+        # HIGH-2.3: fall back to policy.yaml risk_limits when ctx.risk_config is empty
         from src.assembled_core.execution.pre_trade_checks import PreTradeConfig
 
+        _policy_defaults: dict[str, Any] = {}
+        if not ctx.risk_config:
+            try:
+                _pol = load_policy()
+                _rl = _pol.get("risk_limits") or {}
+                _dd = _rl.get("max_drawdown") or {}
+                _tv = _rl.get("turnover") or {}
+                _policy_defaults = {
+                    "max_weight_per_symbol": _rl.get("max_position_weight"),
+                    "drawdown_threshold": _dd.get("kill"),
+                    "turnover_cap": _tv.get("daily_cap"),
+                }
+                logger.debug(
+                    "PRE_TRADE: using policy.yaml risk_limits as PreTradeConfig fallback: %s",
+                    _policy_defaults,
+                )
+            except Exception as e:
+                logger.warning("PRE_TRADE: could not load policy for risk defaults: %s", e)
+
         pre_trade_config = None
-        if ctx.risk_config:
+        if ctx.risk_config or _policy_defaults:
             # Extract PreTradeConfig fields from risk_config dict
             if isinstance(ctx.risk_config, dict):
                 pre_trade_config = PreTradeConfig(
                     max_notional_per_symbol=ctx.risk_config.get(
                         "max_notional_per_symbol"
                     ),
-                    max_weight_per_symbol=ctx.risk_config.get("max_weight_per_symbol"),
-                    turnover_cap=ctx.risk_config.get("turnover_cap"),
-                    drawdown_threshold=ctx.risk_config.get("drawdown_threshold"),
+                    max_weight_per_symbol=(
+                        ctx.risk_config.get("max_weight_per_symbol")
+                        or _policy_defaults.get("max_weight_per_symbol")
+                    ),
+                    turnover_cap=(
+                        ctx.risk_config.get("turnover_cap")
+                        or _policy_defaults.get("turnover_cap")
+                    ),
+                    drawdown_threshold=(
+                        ctx.risk_config.get("drawdown_threshold")
+                        or _policy_defaults.get("drawdown_threshold")
+                    ),
                     de_risk_scale=ctx.risk_config.get("de_risk_scale", 0.0),
                     max_gross_exposure=ctx.risk_config.get("max_gross_exposure"),
                     max_sector_exposure=ctx.risk_config.get("max_sector_exposure"),
@@ -1376,9 +1405,29 @@ def run_trading_cycle(
                     ctx, result.orders_filtered
                 )
             else:
-                # Default: no outputs written
-                # TODO: Implement default output writing logic in B1.2
-                result.output_paths = {}
+                # Default output writing based on output_format
+                if ctx.output_format == "safe_csv":
+                    try:
+                        from src.assembled_core.execution.safe_bridge import (
+                            write_safe_orders_csv,
+                        )
+                        ctx.output_dir.mkdir(parents=True, exist_ok=True)
+                        out_path = write_safe_orders_csv(
+                            result.orders_filtered,
+                            output_path=ctx.output_dir / "orders_latest.csv",
+                        )
+                        result.output_paths = {"safe_csv": out_path}
+                    except Exception as _oe:
+                        log.warning("Default safe_csv write failed: %s", _oe)
+                        result.output_paths = {}
+                else:
+                    # "equity_curve", "state", "none" — not yet implemented without a hook
+                    log.debug(
+                        "No default output writer for format '%s'; "
+                        "provide a write_outputs hook to enable it.",
+                        ctx.output_format,
+                    )
+                    result.output_paths = {}
 
         log.debug(f"Outputs written: {len(result.output_paths)} files")
     except Exception as e:

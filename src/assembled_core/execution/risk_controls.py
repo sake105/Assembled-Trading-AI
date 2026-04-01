@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING, Any
 import pandas as pd
 
 from src.assembled_core.execution.kill_switch import (
+    check_drawdown_kill_switch,
     guard_orders_with_kill_switch,
     is_kill_switch_engaged,
 )
@@ -162,13 +163,23 @@ def filter_orders_with_risk_controls(
     # Step 2: Kill switch
     if enable_kill_switch:
         logger.debug("Checking kill switch...")
-        kill_switch_engaged = is_kill_switch_engaged()
+
+        # 2a: Drawdown-based kill switch check (CRITICAL-2.1)
+        if current_equity is not None and peak_equity is not None and peak_equity > 0:
+            if check_drawdown_kill_switch(current_equity, peak_equity):
+                kill_switch_engaged = True
+                filtered_orders = pd.DataFrame(columns=list(filtered_orders.columns))
+
+        # 2b: Standard kill switch check (env var + sentinel file)
+        if not kill_switch_engaged:
+            kill_switch_engaged = is_kill_switch_engaged()
+            if kill_switch_engaged:
+                filtered_orders = guard_orders_with_kill_switch(filtered_orders)
 
         if kill_switch_engaged:
             logger.warning(
-                f"KILL_SWITCH engaged - blocking all {len(filtered_orders)} remaining orders"
+                "KILL_SWITCH engaged - blocking all remaining orders"
             )
-            filtered_orders = guard_orders_with_kill_switch(filtered_orders)
         else:
             logger.debug("Kill switch not engaged - orders pass through")
     else:

@@ -37,10 +37,13 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from src.assembled_core.qa.qa_gates import QAResult  # noqa: F401
@@ -273,6 +276,11 @@ def run_pre_trade_checks(
                     compute_target_positions,
                 )
             except ImportError as e:
+                logger.error(
+                    "PRE_TRADE: max_weight_per_symbol check skipped — cannot import "
+                    "exposure_engine: %s. Blocking all orders (fail-safe).",
+                    e,
+                )
                 blocked_reasons.append(
                     f"max_weight_per_symbol check failed: cannot import exposure_engine: {e}"
                 )
@@ -474,9 +482,15 @@ def run_pre_trade_checks(
             )
             from src.assembled_core.risk.group_exposures import compute_group_exposures
         except ImportError as e:
+            logger.error(
+                "PRE_TRADE: group exposure check skipped — cannot import modules: %s. "
+                "Blocking all orders (fail-safe).",
+                e,
+            )
             blocked_reasons.append(
                 f"Group exposure checks failed: cannot import modules: {e}"
             )
+            filtered_orders = pd.DataFrame(columns=orders.columns)
             summary["group_exposure_check"] = f"import_error: {e}"
         else:
             # Check if we have required inputs
