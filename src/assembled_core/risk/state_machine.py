@@ -7,12 +7,15 @@ Transitions are deterministic from ctx.news_geo + policy with hysteresis/cooldow
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Literal
+
+logger = logging.getLogger(__name__)
 
 RiskState = Literal["WATCH", "ACTIVE", "COOLDOWN", "PAUSE"]
 
@@ -95,7 +98,10 @@ def load_risk_state(path: str | Path) -> RiskStateRecord:
     try:
         with p.open("r", encoding="utf-8") as f:
             data = json.load(f)
-    except Exception:
+    except Exception as e:
+        logger.error(
+            "[RiskState] state file unreadable (%s), resetting to WATCH: %s", path, e
+        )
         return _default_record(_now_utc_str())
     if not isinstance(data, dict):
         return _default_record(_now_utc_str())
@@ -129,6 +135,15 @@ def save_risk_state(
     use_lock = lock_cfg.get("enabled", False)
     retries = int(lock_cfg.get("retries", 5) or 5)
     backoff_ms = int(lock_cfg.get("backoff_ms", 50) or 50)
+
+    # Backup last good state before overwriting
+    bak_path = p.parent / (p.name + ".bak")
+    if p.exists():
+        try:
+            import shutil as _shutil
+            _shutil.copy2(str(p), str(bak_path))
+        except Exception as bak_err:
+            logger.warning("[RiskState] could not write backup state file: %s", bak_err)
 
     if use_lock and retries > 0:
         atomic_write_json_with_retry(p, data, retries=retries, backoff_ms=backoff_ms)

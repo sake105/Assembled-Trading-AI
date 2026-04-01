@@ -164,14 +164,35 @@ class AlpacaAdapter(BrokerAdapter):
             "ALPACA_BASE_URL", self.PAPER_BASE_URL
         )
 
-        if force_paper and "paper" not in self._base_url.lower():
+        is_paper_url = "paper" in self._base_url.lower()
+
+        if force_paper and not is_paper_url:
             raise ValueError(
                 f"AlpacaAdapter: base_url does not look like a paper endpoint: {self._base_url!r}. "
                 f"Set force_paper=False to override (not recommended)."
             )
 
+        # Secondary live-trading guard: even with force_paper=False, live trading
+        # requires the explicit env var ALPACA_ALLOW_LIVE=true to prevent accidents.
+        if not force_paper and not is_paper_url:
+            allow_live = os.environ.get("ALPACA_ALLOW_LIVE", "").strip().lower()
+            if allow_live != "true":
+                raise ValueError(
+                    f"AlpacaAdapter: connecting to a live endpoint ({self._base_url!r}) requires "
+                    "ALPACA_ALLOW_LIVE=true to be set in the environment. "
+                    "This is a two-step safety gate. Set force_paper=True to use paper trading."
+                )
+            logger.warning(
+                "[AlpacaAdapter] LIVE TRADING MODE — base_url=%s (ALPACA_ALLOW_LIVE=true)",
+                self._base_url,
+            )
+
         self._api: Any = None  # lazily initialized
-        logger.info("[AlpacaAdapter] initialized (base_url=%s)", self._base_url)
+        logger.warning(
+            "[AlpacaAdapter] initialized — base_url=%s is_paper=%s",
+            self._base_url,
+            is_paper_url,
+        )
 
     @property
     def is_paper(self) -> bool:

@@ -11,12 +11,15 @@ Zukünftige Integration:
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
 
 from src.assembled_core.portfolio.position_sizing import compute_target_positions
+
+logger = logging.getLogger(__name__)
 
 
 def generate_orders_from_targets_fast(
@@ -90,6 +93,15 @@ def generate_orders_from_targets_fast(
         prices_array = np.array(
             [price_map.get(sym, 0.0) for sym in symbols], dtype=np.float64
         )
+        # Warn for symbols with missing price but non-zero target notional
+        for i, sym in enumerate(symbols):
+            if prices_array[i] == 0.0 and abs(target_notional[i]) > 1e-10:
+                logger.warning(
+                    "[WARN] order_generation: missing price for symbol %s, "
+                    "target_notional=%.2f — order skipped",
+                    sym,
+                    target_notional[i],
+                )
     else:
         prices_array = np.zeros(len(symbols), dtype=np.float64)
 
@@ -294,6 +306,16 @@ def generate_orders_from_targets(
         merged["price"] = merged["symbol"].map(latest_prices).fillna(0.0)
     else:
         merged["price"] = 0.0
+    # Warn for symbols with missing price but non-zero target notional
+    for _, row in merged[
+        (merged["price"] == 0.0) & (merged["target_qty"].abs() > 1e-10)
+    ].iterrows():
+        logger.warning(
+            "[WARN] order_generation: missing price for symbol %s, "
+            "target_notional=%.2f — order skipped",
+            row["symbol"],
+            row["target_qty"],
+        )
     price_vals = merged["price"].values.astype(np.float64)
     safe_price = np.where(price_vals > 1e-10, price_vals, np.nan)
     target_shares = np.where(

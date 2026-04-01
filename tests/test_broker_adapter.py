@@ -67,15 +67,32 @@ class TestAlpacaAdapterInit:
                 force_paper=True,
             )
 
-    def test_non_paper_url_ok_without_force_paper(self):
-        # This should not raise
-        adapter = AlpacaAdapter(
-            api_key="k",
-            api_secret="s",
-            base_url="https://api.alpaca.markets",
-            force_paper=False,
-        )
-        assert adapter.is_paper is False
+    def test_non_paper_url_blocked_without_allow_live_env(self):
+        # force_paper=False alone is no longer sufficient — ALPACA_ALLOW_LIVE=true also required
+        import os
+        os.environ.pop("ALPACA_ALLOW_LIVE", None)
+        with pytest.raises(ValueError, match="ALPACA_ALLOW_LIVE"):
+            AlpacaAdapter(
+                api_key="k",
+                api_secret="s",
+                base_url="https://api.alpaca.markets",
+                force_paper=False,
+            )
+
+    def test_non_paper_url_ok_with_allow_live_env(self):
+        # With both force_paper=False AND ALPACA_ALLOW_LIVE=true, live URL is accepted
+        import os
+        os.environ["ALPACA_ALLOW_LIVE"] = "true"
+        try:
+            adapter = AlpacaAdapter(
+                api_key="k",
+                api_secret="s",
+                base_url="https://api.alpaca.markets",
+                force_paper=False,
+            )
+            assert adapter.is_paper is False
+        finally:
+            os.environ.pop("ALPACA_ALLOW_LIVE", None)
 
     def test_health_check_fails_gracefully_no_keys(self):
         adapter = AlpacaAdapter(api_key="", api_secret="")

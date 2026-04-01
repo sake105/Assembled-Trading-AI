@@ -31,6 +31,7 @@ Usage:
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pandas as pd
 
@@ -38,33 +39,78 @@ from src.assembled_core.logging_utils import setup_logging
 
 logger = setup_logging(level="INFO")
 
+# Default sentinel file path (relative to project root)
+_DEFAULT_SENTINEL = Path("output/ops/.kill_switch_active")
+
+
+def _sentinel_path() -> Path:
+    """Return the kill switch sentinel file path."""
+    override = os.environ.get("ASSEMBLED_KILL_SWITCH_SENTINEL", "")
+    if override:
+        return Path(override)
+    return _DEFAULT_SENTINEL
+
 
 def is_kill_switch_engaged() -> bool:
-    """Check if kill switch is engaged via environment variable.
+    """Check if kill switch is engaged via environment variable OR sentinel file.
 
-    Reads environment variable ASSEMBLED_KILL_SWITCH and returns True if:
-    - Variable is set to "1", "true", "True", "TRUE", "yes", "Yes", "YES", "on", "On", "ON"
-    - Case-insensitive comparison
+    Returns True if any of the following conditions are met:
+    1. Environment variable ASSEMBLED_KILL_SWITCH is set to a truthy value
+       ("1", "true", "yes", "on" — case-insensitive)
+    2. Sentinel file ``output/ops/.kill_switch_active`` exists (written by
+       run_kill_switch_worker.py)
 
     Returns:
         True if kill switch is engaged, False otherwise
-
-    Example:
-        >>> import os
-        >>> os.environ["ASSEMBLED_KILL_SWITCH"] = "1"
-        >>> is_kill_switch_engaged()
-        True
-        >>>
-        >>> os.environ.pop("ASSEMBLED_KILL_SWITCH", None)
-        >>> is_kill_switch_engaged()
-        False
     """
+    # --- Check 1: environment variable ---
     kill_switch_env = os.environ.get("ASSEMBLED_KILL_SWITCH", "").strip().lower()
+    if kill_switch_env in {"1", "true", "yes", "on"}:
+        return True
 
-    # Accepted values for "engaged"
-    engaged_values = {"1", "true", "yes", "on"}
+    # --- Check 2: sentinel file (written by run_kill_switch_worker.py) ---
+    if _sentinel_path().exists():
+        logger.warning(
+            "KILL_SWITCH: sentinel file detected at %s", _sentinel_path()
+        )
+        return True
 
-    return kill_switch_env in engaged_values
+    return False
+
+
+def check_drawdown_kill_switch(
+    current_equity: float,
+    peak_equity: float,
+    kill_threshold: float = 0.30,
+) -> bool:
+    """Check whether current drawdown breaches the kill-switch threshold.
+
+    If the drawdown exceeds kill_threshold, logs a CRITICAL message.
+    Does NOT engage the kill switch automatically — call
+    ``guard_orders_with_kill_switch`` after this to block orders.
+
+    Args:
+        current_equity: Current portfolio equity value.
+        peak_equity: Highest equity value observed (high-water mark).
+        kill_threshold: Drawdown fraction that triggers the kill flag (default 0.30 = 30%).
+
+    Returns:
+        True if drawdown >= kill_threshold.
+    """
+    if peak_equity <= 0 or current_equity <= 0:
+        return False
+    drawdown = (peak_equity - current_equity) / peak_equity
+    if drawdown >= kill_threshold:
+        logger.critical(
+            "KILL_SWITCH: drawdown %.1f%% >= kill threshold %.1f%% "
+            "(current=%.2f, peak=%.2f) — orders should be blocked",
+            drawdown * 100,
+            kill_threshold * 100,
+            current_equity,
+            peak_equity,
+        )
+        return True
+    return False
 
 
 def guard_orders_with_kill_switch(orders: pd.DataFrame) -> pd.DataFrame:

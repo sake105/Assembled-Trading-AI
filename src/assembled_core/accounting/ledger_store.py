@@ -7,6 +7,9 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
+import logging
+
+logger = logging.getLogger(__name__)
 from typing import Literal
 
 import pandas as pd
@@ -90,8 +93,8 @@ def store_ledger_events_parquet(
         existing_df = pd.read_parquet(ledger_path)
         # Merge: concatenate
         combined = pd.concat([existing_df, events_normalized], ignore_index=True)
-        # Deduplicate by event_id (keep first occurrence)
-        combined = combined.drop_duplicates(subset=["event_id"], keep="first")
+        # Deduplicate by event_id (keep last occurrence so corrections win)
+        combined = combined.drop_duplicates(subset=["event_id"], keep="last")
         events_to_store = combined
     else:
         events_to_store = events_normalized
@@ -108,12 +111,23 @@ def store_ledger_events_parquet(
 
     try:
         events_to_store.to_parquet(tmp_path, index=False, engine="pyarrow")
-        # Atomic rename (works on Windows too)
-        shutil.move(str(tmp_path), str(ledger_path))
+        # Atomic rename: prefer pathlib.replace (os.replace internally, atomic on same volume)
+        try:
+            tmp_path.replace(ledger_path)
+        except OSError:
+            # Cross-volume fallback (different drive letters on Windows)
+            logger.warning(
+                "[LedgerStore] os.replace failed, falling back to shutil.move for %s",
+                ledger_path,
+            )
+            shutil.move(str(tmp_path), str(ledger_path))
     except Exception:
         # Clean up temp file on error
         if tmp_path.exists():
-            tmp_path.unlink()
+            try:
+                tmp_path.unlink()
+            except Exception:
+                pass
         raise
 
     return ledger_path
@@ -191,10 +205,20 @@ def store_daily_snapshot_parquet(
 
     try:
         snapshot_df.to_parquet(tmp_path, index=False, engine="pyarrow")
-        shutil.move(str(tmp_path), str(snapshot_path))
+        try:
+            tmp_path.replace(snapshot_path)
+        except OSError:
+            logger.warning(
+                "[LedgerStore] os.replace failed, falling back to shutil.move for %s",
+                snapshot_path,
+            )
+            shutil.move(str(tmp_path), str(snapshot_path))
     except Exception:
         if tmp_path.exists():
-            tmp_path.unlink()
+            try:
+                tmp_path.unlink()
+            except Exception:
+                pass
         raise
 
     return snapshot_path
