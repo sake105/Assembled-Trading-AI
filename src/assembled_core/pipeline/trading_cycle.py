@@ -819,7 +819,8 @@ def run_trading_cycle(
     # Risk state machine (INT-4): load persisted state, compute next, save (if not ephemeral), fill ctx.risk_state
     try:
         policy = load_policy()
-    except Exception:
+    except Exception as e:
+        logger.warning("load_policy failed, using empty policy: %s", e)
         policy = {}
     rsm = policy.get("risk_state_machine") or {}
     base_dir = get_base_dir()
@@ -889,7 +890,8 @@ def run_trading_cycle(
                 else:
                     ctx.disclosures_triggers = None
                     ctx.intel_health_flags["intel_disclosures_triggers"] = "DEGRADED"
-        except Exception:
+        except Exception as e:
+            logger.warning("intel disclosures_triggers load failed: %s", e)
             ctx.disclosures_triggers = None
             if "intel_disclosures_triggers" not in (ctx.intel_health_flags or {}):
                 ctx.intel_health_flags = ctx.intel_health_flags or {}
@@ -909,8 +911,8 @@ def run_trading_cycle(
             )
 
             apply_disclosures_confirm(ctx, policy)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("disclosures_confirm apply failed: %s", e)
 
     # Step 1: Load/Filter prices (hook point: load_prices)
     try:
@@ -1161,7 +1163,8 @@ def run_trading_cycle(
         # Apply GeoRisk exposure overlay (scaling only, no new signals)
         try:
             policy = load_policy()
-        except Exception:
+        except Exception as e:
+            logger.warning("load_policy failed, using empty policy: %s", e)
             policy = {}
         geo_multiplier = compute_exposure_multiplier(ctx, policy)
         # Soft Profit Lock (INT-6.2): combine multiplicatively with GeoRisk

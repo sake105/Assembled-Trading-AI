@@ -294,7 +294,6 @@ def _add_short_term_reversal(
 
     # Compute returns per symbol
     grouped_price = result.groupby(group_col, group_keys=False)[price_col]
-    grouped_price.pct_change()
 
     # Z-score window (typically 20-60 days for daily data)
     zscore_window = 60
@@ -303,28 +302,20 @@ def _add_short_term_reversal(
     horizons = [1, 2, 3]
 
     for horizon in horizons:
-        # Multi-day return (cumulative)
+        # Multi-day return (cumulative) — one groupby pass
         multi_day_return = grouped_price.pct_change(periods=horizon)
 
-        # Compute rolling mean and std per symbol
-        rolling_mean = (
-            multi_day_return.groupby(result[group_col], group_keys=False)
-            .rolling(window=zscore_window, min_periods=10)
-            .mean()
-            .reset_index(level=0, drop=True)
+        # Use transform to compute rolling stats without a second full groupby+reset_index
+        gb_ret = multi_day_return.groupby(result[group_col], group_keys=False)
+        rolling_mean = gb_ret.transform(
+            lambda x: x.rolling(window=zscore_window, min_periods=10).mean()
+        )
+        rolling_std = gb_ret.transform(
+            lambda x: x.rolling(window=zscore_window, min_periods=10).std()
         )
 
-        rolling_std = (
-            multi_day_return.groupby(result[group_col], group_keys=False)
-            .rolling(window=zscore_window, min_periods=10)
-            .std()
-            .reset_index(level=0, drop=True)
-        )
-
-        # Z-score: (return - mean) / std
+        # Z-score: (return - mean) / std, guarded against near-zero std
         zscore = (multi_day_return - rolling_mean) / rolling_std
-
-        # Handle division by zero (when std is very small)
         zscore = np.where(rolling_std > 1e-10, zscore, 0.0)
 
         result[f"reversal_{horizon}d"] = zscore.astype("float64")

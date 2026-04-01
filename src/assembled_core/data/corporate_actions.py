@@ -45,18 +45,38 @@ def apply_splits_for_research_prices(
     actions = actions.copy()
     actions["effective_date"] = pd.to_datetime(actions["effective_date"], utc=True)
 
-    def research_close(row: pd.Series) -> float:
-        sym = row["symbol"]
-        t = result_ts.loc[row.name]
-        close = row["close"]
-        sym_splits = actions[actions["symbol"] == sym].sort_values("effective_date")
-        factor = 1.0
-        for _, s in sym_splits.iterrows():
-            if s["effective_date"] > t:
-                factor *= 1.0 / float(s["split_ratio"])
-        return close * factor
+    # Vectorized split-adjustment: for each price row, multiply by the product of
+    # 1/split_ratio for all future splits of that symbol.
+    # Pre-group splits by symbol so we avoid repeated O(n_actions) scans per row.
+    splits_by_symbol: dict[str, pd.DataFrame] = {
+        sym: grp.sort_values("effective_date")
+        for sym, grp in actions.groupby("symbol")
+    }
 
-    result["close_research"] = result.apply(research_close, axis=1)
+    result = result.copy()
+    result_ts = result_ts.reset_index(drop=True)
+    result = result.reset_index(drop=True)
+
+    # Build the cumulative adjustment factor per row in one vectorized pass per symbol
+    adj_factors = pd.Series(1.0, index=result.index, dtype=float)
+
+    for sym, sym_splits in splits_by_symbol.items():
+        sym_mask = result["symbol"] == sym
+        if not sym_mask.any():
+            continue
+        sym_idx = result.index[sym_mask]
+        sym_ts = result_ts[sym_idx]
+
+        for _, split_row in sym_splits.iterrows():
+            eff_date = split_row["effective_date"]
+            ratio = float(split_row["split_ratio"])
+            if ratio <= 0:
+                continue
+            # Rows before the split effective date get divided by split_ratio
+            pre_split = sym_ts < eff_date
+            adj_factors.loc[sym_idx[pre_split]] /= ratio
+
+    result["close_research"] = result["close"] * adj_factors
     return result
 
 

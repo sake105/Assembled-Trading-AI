@@ -145,5 +145,26 @@ def filter_prices_to_trading_days(
         return prices
 
     ts = pd.to_datetime(prices[ts_col], utc=True, errors="coerce")
-    mask = ts.apply(lambda t: is_trading_day_safe(t) if not pd.isna(t) else False)
+
+    if _CALENDAR_MODE == "nyse" and _NYSE is not None:
+        # Vectorized path: build a set of valid NYSE session dates and do one
+        # membership test instead of one Python function call per row.
+        valid_ts = ts.dropna()
+        if valid_ts.empty:
+            return prices[pd.Series(False, index=prices.index)].copy()
+        min_date = _to_naive(valid_ts.min())
+        max_date = _to_naive(valid_ts.max())
+        try:
+            sessions = _NYSE.sessions_in_range(min_date, max_date)
+            valid_dates = set(sessions.normalize().tz_localize(None).date)
+            mask = ts.dt.tz_convert(None).dt.normalize().dt.date.map(
+                lambda d: d in valid_dates if d is not None else False
+            )
+        except Exception:
+            # Fall back to per-row check if range lookup fails
+            mask = ts.apply(lambda t: is_trading_day_safe(t) if not pd.isna(t) else False)
+    else:
+        # Fallback: weekday filter (Mon–Fri)
+        mask = ts.dt.dayofweek < 5
+
     return prices[mask].copy()

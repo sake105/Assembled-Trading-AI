@@ -281,18 +281,22 @@ def _check_missing_sessions(
     if expected_sessions.empty:
         return issues
 
+    expected_dates = pd.to_datetime(expected_sessions).date
+    expected_dates_set = set(expected_dates)
+
+    # Pre-group actual dates per symbol to avoid repeated per-symbol scans
+    actual_dates_by_symbol = {
+        sym: set(pd.to_datetime(grp["timestamp"]).dt.date)
+        for sym, grp in prices.groupby("symbol", sort=False)
+    }
+
     # Check each symbol
     for symbol in prices["symbol"].unique():
-        symbol_data = prices[prices["symbol"] == symbol].copy()
-        if symbol_data.empty:
+        if symbol not in actual_dates_by_symbol:
             continue
 
-        # Get actual sessions for this symbol
-        actual_dates = pd.to_datetime(symbol_data["timestamp"]).dt.date.unique()
-        expected_dates = pd.to_datetime(expected_sessions).date
-
         # Find missing dates
-        missing_dates = set(expected_dates) - set(actual_dates)
+        missing_dates = expected_dates_set - actual_dates_by_symbol[symbol]
 
         if missing_dates:
             missing_pct = (len(missing_dates) / len(expected_dates)) * 100.0
@@ -316,7 +320,7 @@ def _check_missing_sessions(
                         "missing_count": len(missing_dates),
                         "missing_pct": float(missing_pct),
                         "expected_count": len(expected_dates),
-                        "actual_count": len(actual_dates),
+                        "actual_count": len(actual_dates_by_symbol[symbol]),
                     },
                 )
             )
@@ -354,56 +358,32 @@ def _check_stale_prices(
 
         symbol_data = symbol_data.sort_values("timestamp").reset_index(drop=True)
 
-        # Find consecutive unchanged prices
+        # Vectorized run detection: assign a group-id each time price changes
         price_changes = symbol_data["close"].diff().abs()
-        unchanged_mask = price_changes < 1e-6  # Tolerance for floating point
+        changed = (price_changes >= 1e-6).astype(int)
+        # cumsum of "changed" increments the group id on every price change;
+        # rows within an unchanged run share the same group id.
+        run_id = changed.cumsum()
+        run_lengths = run_id.groupby(run_id).transform("count")
 
-        # Find runs of unchanged prices
-        run_length = 0
-        for i, unchanged in enumerate(unchanged_mask):
-            if unchanged:
-                run_length += 1
-            else:
-                if run_length >= stale_sessions:
-                    # Found stale price run
-                    start_idx = i - run_length
-                    end_idx = i - 1
-                    start_ts = symbol_data.iloc[start_idx]["timestamp"]
-                    end_ts = symbol_data.iloc[end_idx]["timestamp"]
-                    price_val = symbol_data.iloc[start_idx]["close"]
+        # A row is at the end of a qualifying stale run when:
+        # - the run is long enough
+        # - the *next* row starts a new run (or it's the last row)
+        run_end_mask = (run_lengths >= stale_sessions) & (
+            changed.shift(-1, fill_value=1).astype(bool) | (
+                pd.RangeIndex(len(symbol_data)) == len(symbol_data) - 1
+            )
+        )
 
-                    issues.append(
-                        QcIssue(
-                            check="stale_price",
-                            severity="WARN",
-                            symbol=str(symbol),
-                            timestamp=end_ts,
-                            message=f"Price unchanged for {run_length} sessions: {price_val:.2f}",
-                            details={
-                                "sessions": int(run_length),
-                                "price": float(price_val),
-                                "start_timestamp": (
-                                    start_ts.isoformat()
-                                    if isinstance(start_ts, pd.Timestamp)
-                                    else str(start_ts)
-                                ),
-                                "end_timestamp": (
-                                    end_ts.isoformat()
-                                    if isinstance(end_ts, pd.Timestamp)
-                                    else str(end_ts)
-                                ),
-                            },
-                        )
-                    )
-                run_length = 0
-
-        # Check final run
-        if run_length >= stale_sessions:
-            start_idx = len(symbol_data) - run_length
-            end_idx = len(symbol_data) - 1
-            start_ts = symbol_data.iloc[start_idx]["timestamp"]
-            end_ts = symbol_data.iloc[end_idx]["timestamp"]
-            price_val = symbol_data.iloc[start_idx]["close"]
+        for end_idx in symbol_data.index[run_end_mask]:
+            row_end = symbol_data.loc[end_idx]
+            rl = int(run_lengths.loc[end_idx])
+            start_pos = symbol_data.index.get_loc(end_idx) - rl + 1
+            start_idx = symbol_data.index[start_pos]
+            row_start = symbol_data.loc[start_idx]
+            start_ts = row_start["timestamp"]
+            end_ts = row_end["timestamp"]
+            price_val = row_start["close"]
 
             issues.append(
                 QcIssue(
@@ -411,9 +391,9 @@ def _check_stale_prices(
                     severity="WARN",
                     symbol=str(symbol),
                     timestamp=end_ts,
-                    message=f"Price unchanged for {run_length} sessions: {price_val:.2f}",
+                    message=f"Price unchanged for {rl} sessions: {price_val:.2f}",
                     details={
-                        "sessions": int(run_length),
+                        "sessions": rl,
                         "price": float(price_val),
                         "start_timestamp": (
                             start_ts.isoformat()
@@ -464,25 +444,23 @@ def _check_outlier_returns(
         # Calculate daily returns
         returns = symbol_data["close"].pct_change()
 
-        # Find outliers
-        for i, ret in enumerate(returns):
+        # Vectorized outlier detection: find all rows above threshold at once
+        abs_returns = returns.abs()
+        outlier_mask = abs_returns >= warn_threshold
+        if not outlier_mask.any():
+            continue
+
+        for idx in symbol_data.index[outlier_mask]:
+            ret = float(returns.loc[idx])
             if pd.isna(ret):
                 continue
-
-            abs_ret = abs(ret)
-
-            if abs_ret >= fail_threshold:
-                severity = "FAIL"
-                threshold_used = fail_threshold
-            elif abs_ret >= warn_threshold:
-                severity = "WARN"
-                threshold_used = warn_threshold
-            else:
-                continue
-
-            timestamp = symbol_data.iloc[i]["timestamp"]
-            price = symbol_data.iloc[i]["close"]
-            prev_price = symbol_data.iloc[i - 1]["close"] if i > 0 else None
+            abs_ret = float(abs_returns.loc[idx])
+            severity = "FAIL" if abs_ret >= fail_threshold else "WARN"
+            threshold_used = fail_threshold if abs_ret >= fail_threshold else warn_threshold
+            pos = symbol_data.index.get_loc(idx)
+            timestamp = symbol_data.iloc[pos]["timestamp"]
+            price = symbol_data.iloc[pos]["close"]
+            prev_price = symbol_data.iloc[pos - 1]["close"] if pos > 0 else None
 
             issues.append(
                 QcIssue(
@@ -492,8 +470,8 @@ def _check_outlier_returns(
                     timestamp=timestamp,
                     message=f"Outlier return: {ret:.2%} (threshold: {threshold_used:.2%})",
                     details={
-                        "return": float(ret),
-                        "abs_return": float(abs_ret),
+                        "return": ret,
+                        "abs_return": abs_ret,
                         "threshold": float(threshold_used),
                         "price": float(price),
                         "prev_price": (

@@ -34,6 +34,7 @@ Integration:
 from __future__ import annotations
 
 import logging
+import os
 
 import numpy as np
 import pandas as pd
@@ -357,8 +358,6 @@ def build_earnings_surprise_factors(
 
     # Optional PIT safety check (only in strict QA mode)
     # This can be enabled via environment variable or settings
-    import os
-
     if os.getenv("ASSEMBLED_STRICT_PIT_CHECKS", "false").lower() == "true":
         from src.assembled_core.qa.point_in_time_checks import (
             validate_feature_builder_pit_safe,
@@ -523,72 +522,6 @@ def build_insider_activity_factors(
     events_filtered = events_filtered.sort_values(
         [group_col, timestamp_col]
     ).reset_index(drop=True)
-
-    # For each price row, aggregate insider events in the lookback window
-    # We'll use a rolling window approach: for each price date, sum events in [date - lookback_days, date]
-
-    # Create a helper function to aggregate events per symbol/date
-    def aggregate_insider_events_per_date(
-        symbol: str,
-        date: pd.Timestamp,
-        events_df: pd.DataFrame,
-        lookback: int,
-    ) -> dict:
-        """Aggregate insider events for a specific symbol and date."""
-        # Filter events for this symbol
-        symbol_events = events_df[events_df[group_col] == symbol].copy()
-
-        if symbol_events.empty:
-            return {
-                "net_notional": 0.0,
-                "buy_count": 0,
-                "sell_count": 0,
-                "buy_sell_ratio": np.nan,
-            }
-
-        # Filter to events within lookback window
-        window_start = date - pd.Timedelta(days=lookback)
-        window_events = symbol_events[
-            (symbol_events[timestamp_col] >= window_start)
-            & (symbol_events[timestamp_col] <= date)
-        ]
-
-        if window_events.empty:
-            return {
-                "net_notional": 0.0,
-                "buy_count": 0,
-                "sell_count": 0,
-                "buy_sell_ratio": np.nan,
-            }
-
-        # Aggregate by direction
-        buy_events = window_events[window_events["direction"] == "buy"]
-        sell_events = window_events[window_events["direction"] == "sell"]
-
-        buy_notional = pd.to_numeric(buy_events["usd_notional"], errors="coerce").sum()
-        sell_notional = pd.to_numeric(
-            sell_events["usd_notional"], errors="coerce"
-        ).sum()
-
-        buy_count = len(buy_events)
-        sell_count = len(sell_events)
-
-        net_notional = buy_notional - sell_notional
-
-        # Buy/sell ratio (count-based)
-        if sell_count > 0:
-            buy_sell_ratio = buy_count / sell_count
-        elif buy_count > 0:
-            buy_sell_ratio = np.inf  # Only buys, no sells
-        else:
-            buy_sell_ratio = np.nan  # No events
-
-        return {
-            "net_notional": net_notional if not pd.isna(net_notional) else 0.0,
-            "buy_count": buy_count,
-            "sell_count": sell_count,
-            "buy_sell_ratio": buy_sell_ratio,
-        }
 
     # For each symbol, compute rolling aggregations over lookback window
     factors_list = []

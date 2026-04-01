@@ -478,6 +478,12 @@ def generate_trade_labels(
         if "symbol" not in benchmark_prices.columns:
             benchmark_prices["symbol"] = "BENCHMARK"
 
+    # Pre-group prices by symbol to avoid O(n_signals * n_prices) scans
+    prices_by_symbol = {
+        sym: grp.reset_index(drop=True)
+        for sym, grp in prices.groupby("symbol", sort=False)
+    }
+
     # Process each signal
     results = []
 
@@ -488,7 +494,7 @@ def generate_trade_labels(
         exit_time = entry_time + pd.Timedelta(days=horizon_days)
 
         # Get price data for this symbol
-        symbol_prices = prices[prices["symbol"] == symbol].copy()
+        symbol_prices = prices_by_symbol.get(symbol, pd.DataFrame())
         if symbol_prices.empty:
             continue
 

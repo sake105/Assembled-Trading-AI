@@ -349,31 +349,32 @@ def select_top_bottom(
 
     result_df = mf_df.copy()
 
-    # Initialize flags
-    result_df["mf_long_flag"] = 0
-    result_df["mf_short_flag"] = 0
+    # Vectorized flag computation using transform — avoids one DataFrame copy per
+    # timestamp group that groupby.apply() would create.
+    grouped_scores = result_df.groupby(timestamp_col, sort=False)[score_col]
 
-    # Group by timestamp and compute quantiles per timestamp
-    def compute_flags(group: pd.DataFrame) -> pd.DataFrame:
-        scores = group[score_col].dropna()
-        if len(scores) < 2:
-            # Not enough data for quantiles
-            return group.assign(mf_long_flag=0, mf_short_flag=0)
+    def _top_threshold(s: pd.Series) -> pd.Series:
+        valid = s.dropna()
+        if len(valid) < 2:
+            return pd.Series(float("nan"), index=s.index)
+        return pd.Series(valid.quantile(1.0 - top_quantile), index=s.index)
 
-        top_threshold = scores.quantile(1.0 - top_quantile)
-        bottom_threshold = scores.quantile(bottom_quantile)
+    def _bottom_threshold(s: pd.Series) -> pd.Series:
+        valid = s.dropna()
+        if len(valid) < 2:
+            return pd.Series(float("nan"), index=s.index)
+        return pd.Series(valid.quantile(bottom_quantile), index=s.index)
 
-        # Create flags
-        long_mask = group[score_col] >= top_threshold
-        short_mask = group[score_col] <= bottom_threshold
+    top_thresh = grouped_scores.transform(_top_threshold)
+    bottom_thresh = grouped_scores.transform(_bottom_threshold)
 
-        group = group.copy()
-        group["mf_long_flag"] = long_mask.astype(int)
-        group["mf_short_flag"] = short_mask.astype(int)
-
-        return group
-
-    result_df = result_df.groupby(timestamp_col, group_keys=False).apply(compute_flags)
+    # Where threshold is NaN (< 2 valid scores), flags stay 0
+    result_df["mf_long_flag"] = (
+        (result_df[score_col] >= top_thresh) & top_thresh.notna()
+    ).astype(int)
+    result_df["mf_short_flag"] = (
+        (result_df[score_col] <= bottom_thresh) & bottom_thresh.notna()
+    ).astype(int)
 
     logger.debug(
         f"Computed top/bottom flags: top_quantile={top_quantile}, "
