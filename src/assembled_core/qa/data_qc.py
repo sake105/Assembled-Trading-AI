@@ -176,12 +176,13 @@ def _check_invalid_prices(prices: pd.DataFrame, issues: list[QcIssue]) -> list[Q
                 )
             )
 
-    # Check for negative or zero close prices
+    # Check for negative or zero close prices (NaN already reported above — skip here)
     if "close" in prices.columns:
-        invalid_mask = (prices["close"] <= 0) | prices["close"].isna()
+        invalid_mask = (prices["close"] <= 0) & ~prices["close"].isna()
         if invalid_mask.any():
             invalid_rows = prices[invalid_mask]
-            for _, row in invalid_rows.iterrows():
+            _MAX_ISSUES = 100  # prevent unbounded growth on corrupted data
+            for _, row in invalid_rows.head(_MAX_ISSUES).iterrows():
                 issues.append(
                     QcIssue(
                         check="negative_price",
@@ -190,6 +191,15 @@ def _check_invalid_prices(prices: pd.DataFrame, issues: list[QcIssue]) -> list[Q
                         timestamp=row.get("timestamp"),
                         message=f"Invalid close price: {row.get('close', 'NaN')}",
                         details={"close": float(row.get("close", 0.0))},
+                    )
+                )
+            if len(invalid_rows) > _MAX_ISSUES:
+                issues.append(
+                    QcIssue(
+                        check="negative_price",
+                        severity="FAIL",
+                        message=f"Invalid close prices: {len(invalid_rows)} rows (first {_MAX_ISSUES} reported)",
+                        details={"total_count": len(invalid_rows)},
                     )
                 )
 
@@ -281,12 +291,14 @@ def _check_missing_sessions(
     if expected_sessions.empty:
         return issues
 
-    expected_dates = pd.to_datetime(expected_sessions).date
+    # Normalize expected sessions to UTC date to match price timestamps
+    # (exchange_calendars returns tz-naive dates; normalize to UTC wall-date)
+    expected_dates = pd.to_datetime(expected_sessions, utc=True).normalize().dt.date
     expected_dates_set = set(expected_dates)
 
-    # Pre-group actual dates per symbol to avoid repeated per-symbol scans
+    # Pre-group actual dates per symbol (normalize timestamps to UTC wall-date)
     actual_dates_by_symbol = {
-        sym: set(pd.to_datetime(grp["timestamp"]).dt.date)
+        sym: set(pd.to_datetime(grp["timestamp"], utc=True).dt.normalize().dt.date)
         for sym, grp in prices.groupby("symbol", sort=False)
     }
 

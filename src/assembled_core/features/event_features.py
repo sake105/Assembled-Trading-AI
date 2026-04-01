@@ -36,7 +36,7 @@ def build_event_feature_panel(
     as_of: pd.Timestamp | None = None,
     lookback_days: int = 30,
     feature_prefix: str = "event",
-    method: str = "legacy",
+    method: str = "vectorized",
 ) -> pd.DataFrame:
     """Build event feature panel from events DataFrame (PIT-safe, Sprint 10.B).
 
@@ -181,7 +181,7 @@ def add_disclosure_count_feature(
     window_days: int = 30,
     out_col: str = "alt_disclosure_count_30d_v1",
     as_of: pd.Timestamp | None = None,
-    method: str = "legacy",
+    method: str = "vectorized",
 ) -> pd.DataFrame:
     """Add disclosure count feature to prices DataFrame (PIT-safe, Sprint 10.B).
 

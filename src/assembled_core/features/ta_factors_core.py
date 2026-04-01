@@ -221,57 +221,33 @@ def _add_trend_strength_factors(
         )
         atr_col = atr_proxy
     else:
-        # Use proper ATR (reuse existing function)
-        # Note: add_atr expects "symbol", "high", "low", "close" as column names
-        # We need to temporarily rename columns if custom names are used
-        if group_col != "symbol" or price_col != "close":
-            temp_result = result.copy()
-            if group_col != "symbol":
-                temp_result = temp_result.rename(columns={group_col: "symbol"})
-            if price_col != "close":
-                temp_result = temp_result.rename(columns={price_col: "close"})
-            temp_df = add_atr(temp_result, window=20)
-            atr_col = temp_df["atr_20"].values  # Extract as array to avoid index issues
-        else:
-            temp_df = add_atr(result, window=20)
-            atr_col = temp_df["atr_20"]
+        # Use proper ATR (group_col and price_col are always their defaults here)
+        temp_df = add_atr(result, window=20)
+        atr_col = temp_df["atr_20"]
 
-    # Compute moving averages for all lookback windows at once (reuse existing function)
-    # Note: add_moving_averages expects "timestamp", "symbol", and price_col
-    # We need to temporarily rename columns if custom names are used
+    # Compute moving averages for all lookback windows at once.
+    # add_moving_averages expects "timestamp" and "symbol" as column names; rename
+    # temporarily when custom names are used so that internal sort logic works correctly.
     lookback_windows = [20, 50, 200]
-
-    if timestamp_col != "timestamp" or group_col != "symbol":
-        # Temporarily rename columns for add_moving_averages
-        temp_result = result.copy()
-        if timestamp_col != "timestamp":
-            temp_result = temp_result.rename(columns={timestamp_col: "timestamp"})
-        if group_col != "symbol":
-            temp_result = temp_result.rename(columns={group_col: "symbol"})
-        temp_df = add_moving_averages(
-            temp_result, windows=lookback_windows, price_col=price_col
-        )
-        # Extract MA columns
-        ma_cols = {f"ma_{lb}": temp_df[f"ma_{lb}"].values for lb in lookback_windows}
-    else:
-        temp_df = add_moving_averages(
-            result, windows=lookback_windows, price_col=price_col
-        )
-        ma_cols = {f"ma_{lb}": temp_df[f"ma_{lb}"] for lb in lookback_windows}
+    ma_input = result.copy()
+    rename_map: dict[str, str] = {}
+    if timestamp_col != "timestamp":
+        rename_map[timestamp_col] = "timestamp"
+    if group_col != "symbol":
+        rename_map[group_col] = "symbol"
+    if rename_map:
+        ma_input = ma_input.rename(columns=rename_map)
+    ma_price_col = price_col  # price_col name is unchanged
+    temp_df = add_moving_averages(ma_input, windows=lookback_windows, price_col=ma_price_col, use_namespace=False)
+    ma_cols = {f"ma_{lb}": temp_df[f"ma_{lb}"] for lb in lookback_windows}
 
     # Trend strength factors for different MA windows
     for lookback in lookback_windows:
-        ma_col_name = f"ma_{lookback}"
-        ma_values = ma_cols[ma_col_name]
+        ma_values = ma_cols[f"ma_{lookback}"]
+        atr_values = atr_col.values if hasattr(atr_col, "values") else atr_col
 
         # Trend strength: (price - MA) / ATR
-        price_ma_diff = (
-            result[price_col].values - ma_values
-            if isinstance(ma_values, np.ndarray)
-            else result[price_col] - ma_values
-        )
-        atr_values = atr_col.values if hasattr(atr_col, "values") else atr_col
-        trend_strength = price_ma_diff / atr_values
+        trend_strength = (result[price_col] - ma_values) / atr_values
 
         # Handle division by zero
         trend_strength = np.where(atr_values > 1e-10, trend_strength, 0.0)
