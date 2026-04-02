@@ -388,6 +388,7 @@ def test_run_backtest_event_insider_shipping(
 
 
 @pytest.mark.phase6
+@pytest.mark.slow
 def test_event_strategy_generates_trades_with_sample_events(
     tmp_path: Path, sample_price_file: Path, monkeypatch
 ):
