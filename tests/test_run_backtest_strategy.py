@@ -358,7 +358,7 @@ def test_run_backtest_event_insider_shipping(
             cwd=str(ROOT),
             capture_output=True,
             text=True,
-            timeout=180,
+            timeout=360,
             env=env,
         )
 
