@@ -117,4 +117,5 @@ markers = [
   "phase11: M6 Risk v1.1 tests",
   "phase12: M7 Realism v2 and prior milestone tests",
   "phase13: M8 Evidence Engine tests",
+  "slow: tests that are too slow for CI (run locally only)",
 ]

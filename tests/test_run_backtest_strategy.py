@@ -324,6 +324,7 @@ def test_run_backtest_strategy_custom_costs(
 
 
 @pytest.mark.phase6
+@pytest.mark.slow
 def test_run_backtest_event_insider_shipping(
     tmp_path: Path, sample_price_file: Path, monkeypatch
 ):

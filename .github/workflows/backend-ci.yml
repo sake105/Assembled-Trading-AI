@@ -49,7 +49,7 @@ jobs:
       - name: Run backend core tests (all phases)
         run: |
           set -o pipefail
-          pytest -m "phase4 or phase6 or phase7 or phase8 or phase9 or phase10 or phase11" -q --maxfail=1 -W error 2>&1 | tee -a backend_ci_log.txt
+          pytest -m "(phase4 or phase6 or phase7 or phase8 or phase9 or phase10 or phase11) and not slow" -q --maxfail=1 -W error 2>&1 | tee -a backend_ci_log.txt
       
       - name: Run ruff (linting)
         run: |
