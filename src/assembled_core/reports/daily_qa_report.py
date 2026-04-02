@@ -389,6 +389,70 @@ def _build_report_content(
                 lines.append(f"- **{key}:** {value}")
         lines.append("")
 
+    # Portfolio Analysis Section (portfolio_analyzer + monte_carlo)
+    if equity is not None and not equity.empty:
+        try:
+            import numpy as np
+            from src.assembled_core.qa.portfolio_analyzer import (
+                compute_performance_profile,
+                format_portfolio_report,
+            )
+
+            # Extract daily returns from equity curve
+            if "equity" in equity.columns:
+                eq_series = equity["equity"]
+            elif "close" in equity.columns:
+                eq_series = equity["close"]
+            else:
+                eq_series = equity.iloc[:, -1]  # last numeric column
+
+            daily_rets = eq_series.pct_change().dropna().values
+            if len(daily_rets) >= 5:
+                profile = compute_performance_profile(daily_rets)
+                lines.append("## Portfolio Analysis (Advanced)")
+                lines.append("")
+                lines.append(f"- **CAGR:** {profile.cagr:.2%}")
+                lines.append(f"- **Sharpe:** {profile.sharpe:.4f}")
+                lines.append(f"- **Sortino:** {profile.sortino:.4f}")
+                lines.append(f"- **Calmar:** {profile.calmar:.4f}")
+                lines.append(f"- **Max Drawdown:** {profile.max_drawdown:.2%}")
+                lines.append(f"- **Max DD Duration:** {profile.max_drawdown_duration_days} days")
+                lines.append(f"- **Profit Factor:** {profile.profit_factor:.4f}")
+                lines.append(f"- **Win Rate:** {profile.win_rate:.2%}")
+                lines.append(f"- **Expectancy:** {profile.expectancy:.6f}")
+                lines.append("")
+
+                # Monte Carlo confidence intervals
+                try:
+                    from src.assembled_core.qa.monte_carlo import (
+                        bootstrap_returns,
+                        summarize_monte_carlo,
+                    )
+
+                    if len(daily_rets) >= 30:
+                        mc_result = bootstrap_returns(
+                            np.asarray(daily_rets),
+                            n_paths=500,
+                            seed=42,
+                        )
+                        lines.append("### Monte Carlo Confidence Intervals (500 paths)")
+                        lines.append("")
+                        for name, ci in mc_result.confidence_intervals.items():
+                            lines.append(
+                                f"- **{name}:** {ci.point_estimate:.4f} "
+                                f"[95% CI: {ci.ci_lower:.4f} to {ci.ci_upper:.4f}]"
+                            )
+                        lines.append(f"- **P(Sharpe <= 0):** {mc_result.p_value_vs_zero:.4f}")
+                        lines.append("")
+                except Exception as mc_err:
+                    lines.append(f"*Monte Carlo skipped: {mc_err}*")
+                    lines.append("")
+
+                lines.append("---")
+                lines.append("")
+        except Exception:
+            pass  # Silently skip if portfolio analysis fails
+
     # Footer
     lines.append("---")
     lines.append("")

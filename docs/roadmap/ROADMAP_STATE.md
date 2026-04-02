@@ -57,33 +57,66 @@ Do **not** leave a session after meaningful work without checking whether this f
 ## 4. Current execution position
 
 ### Current milestone
-- ID: Post-M13 Audit Fixes
-- Name: Audit fixes — CRITICAL + HIGH items resolved
-- Overall milestone status: locally tested (2026-04-01)
+- ID: Post-M13 Crisis Alpha + Intel Pipeline skeleton
+- Name: Intel Pipeline (offline, rule-first) + Portfolio Analyzer — implemented
+- Overall milestone status: locally tested (2026-04-02)
 
 ### Current task
-- All M8–M13 tasks complete. Optimization Batches A/B/C applied. Security hardening applied. 4 audit items fixed (commit 66dae29).
+- Intel pipeline skeleton implemented (offline, no live feeds required).
+- Portfolio analyzer (7-layer) implemented.
+- Enhanced stress scenarios (4 crisis types) implemented.
+- Crisis alpha state machine (NORMAL→WATCH→ACTIVE→COOLDOWN) implemented as standalone offline module.
 
 ### Current objective
-- 4 audit items fixed: CRITICAL-2.1, HIGH-1.4, HIGH-2.3, HIGH-5.1 (see below).
-- 366/366 phase12 pass (locally). Ruff clean.
-- MEDIUM open: MEDIUM-3.1 (look-ahead bias in feature panel), MEDIUM-5.3 (market stress signal not wired into exposure multiplier), MEDIUM-6.2 (hardcoded paths), MEDIUM-6.3 (no policy schema validation).
-- Batch D (4 items: OPT-9/12/13/14): still deferred, requires design review.
-- 1 pre-existing failure: `test_order_flow_respects_pre_trade_checks` (not fixed, pre-existing).
-- Pending remote push: commits f51409f, e159971, 28d7def, 66dae29.
+- 3121/3121 non-pre-existing tests pass locally. Ruff clean (34cda16).
+- CI matrix (ubuntu+windows) status: unknown — fix for CI was pushed on 4c6e400, result not confirmed.
+- Crisis alpha NOT yet wired into trading_cycle.py — dependency_signal integration deferred.
+- News ingest adapters, dedupe, cluster: NOT implemented — require external API keys.
+- FastAPI intel endpoints: NOT implemented.
+- MEDIUM open (carried over): MEDIUM-3.1, MEDIUM-5.3, MEDIUM-6.2, MEDIUM-6.3.
+- Batch D (OPT-9/12/13/14): still deferred, requires design review.
 
 ### Next smallest safe step
-- Push all pending commits (f51409f, e159971, 28d7def, 66dae29) to remote.
-- Confirm GitHub Actions CI run.
-- Then address remaining MEDIUM audit items (MEDIUM-3.1, MEDIUM-5.3, MEDIUM-6.2, MEDIUM-6.3).
+1. Confirm GitHub Actions CI matrix result (ubuntu + windows) for commit 4c6e400 or newer.
+2. If CI green: address MEDIUM-5.3 (wire market_stress_signal into exposure multiplier) — smallest remaining audit item.
+3. Then decide: wire dependency_signal from intel pipeline into trading_cycle.py, or implement FastAPI intel endpoints first.
 
 ### After that
-- Review Batch D items (OPT-9, OPT-12, OPT-13, OPT-14) individually.
-- Plan M14+ (observability, further security hardening, etc.).
+- Wire health_monitor + crisis_alpha_worker into trading_cycle.py (trading_cycle integration).
+- Implement news_ingest.py stub with GDELT adapter (no key required).
+- Plan M14+ (observability, further security hardening, live feed adapters).
 
 ---
 
 ## 5. Last completed step
+
+**Session 2026-04-02 — Crisis Alpha + Intel Pipeline skeleton — IMPLEMENTED (locally tested)**
+
+- Last commit: 34cda16
+- Intel pipeline package `src/assembled_core/intel/` — 7 new modules:
+  - `models.py`: Pydantic v2 models (NewsEvent, EvidenceCluster, GeoTrigger, DependencyNode/Edge, ShockTransmission, DependencySignal, CrisisState) + enums (SourceTier T0–T3, TriggerType, CrisisMode, NodeType, EdgeType, ShockType)
+  - `source_registry.py`: static T0–T3 registry (OFAC/UN=T0, AP/Reuters=T1, GDELT/ACLED/WB/IMF=T2, NewsAPI=T3)
+  - `geo_trigger.py`: keyword rules engine → GeoTrigger score 0–3
+  - `dependency_graph.py`: YAML-based loader + BFS traversal
+  - `shock_propagation.py`: TRIGGER_TO_SHOCKS mapping, weighted BFS, beneficiaries/losers
+  - `crisis_alpha_worker.py`: state machine NORMAL→WATCH→ACTIVE→COOLDOWN, audit trail, market_confirm gate
+  - `health_monitor.py`: freshness tracking, stale-on-error policy
+  - `configs/dependency_graph.yaml`: 14 nodes (Hormuz, Suez, Oil, Gold, Defense, Energy, Cyber, Semis, US_Equities, China, Europe etc.) + 13 edges
+- `src/assembled_core/qa/portfolio_analyzer.py`: PerformanceProfile (CAGR, Sharpe, Sortino, Calmar, MaxDD+duration, Profit Factor, Win Rate, Expectancy), PortfolioStructure (Herfindahl, top-5 concentration, sector/region weights), RegimePerformance, AttributionReport, analyze_portfolio() + text formatter
+- `src/assembled_core/qa/scenario_engine.py` extended: oil_spike, gold_flight, defense_surge, geopolitical_shock; run_crisis_scenarios(); compare_crisis_scenarios()
+- Tests: `tests/test_intel_pipeline.py` (78), `tests/test_portfolio_analyzer.py` (30), `tests/test_stress_scenarios_enhanced.py` (14+)
+- Full suite: 3121 passed, 44 pre-existing failures (unchanged), 0 new failures
+- Truth status: locally tested; CI not confirmed
+- Key design decisions: rule-first, fully offline/deterministic, no external API calls in core, YAML-based dependency graph
+
+NOT implemented (deferred):
+- news_ingest.py / news_dedupe.py / news_cluster.py adapters (need external API keys)
+- EIA/OFAC/UNSC real data ingest
+- FastAPI intel endpoints (/intel/triggers, /intel/context/latest, /intel/health)
+- trading_cycle.py integration of health_monitor + dependency_signal
+- Sensitivity/parameter stability analyzer (spec Section 2.7)
+
+---
 
 **Session 2026-04-01 — Audit Fixes (CRITICAL-2.1, HIGH-1.4, HIGH-2.3, HIGH-5.1) — COMPLETE (locally)**
 

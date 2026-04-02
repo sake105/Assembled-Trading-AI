@@ -57,10 +57,12 @@ from src.assembled_core.features.factor_store_integration import build_or_load_f
 from src.assembled_core.features.ta_features import (
     add_all_features,
 )
+from src.assembled_core.risk.correlation_guard import apply_correlation_guard
 from src.assembled_core.risk.georisk_overlay import (
     apply_exposure_multiplier_to_targets,
     compute_exposure_multiplier,
 )
+from src.assembled_core.risk.zombie_killer import get_zombie_positions
 from src.assembled_core.risk.state_machine import (
     compute_next_state,
     load_risk_state,
@@ -247,6 +249,10 @@ class TradingContext:
     # Intel (read-only): disclosures triggers snapshot; QC flags for degraded/missing intel
     disclosures_triggers: Any | None = None  # DisclosuresTriggerSnapshot | None
     intel_health_flags: dict[str, str] = field(default_factory=dict)
+
+    # GeoRisk intel (read from data/intel/crisis_state.json + triggers_latest.json)
+    news_geo: dict[str, Any] | None = None  # {"geo_score": int, "geo_confidence": float, "state_hint": str, ...}
+    crisis_state_intel: dict[str, Any] | None = None  # full crisis state from intel cycle
     intel_sim_applied: bool = (
         False  # BENCH-1: when True, skip intel loading (paper_runner sets simulated intel)
     )
@@ -323,6 +329,39 @@ class TradingCycleResult:
     error_message: str | None = None
     meta: dict[str, Any] = field(default_factory=dict)
     output_paths: dict[str, Path] = field(default_factory=dict)
+
+
+def _estimate_symbol_volatilities(
+    prices: pd.DataFrame,
+    lookback: int = 60,
+) -> dict[str, float]:
+    """Estimate annualized volatility per symbol from price data.
+
+    Uses daily log returns over the lookback window.
+    Returns dict of symbol -> annualized vol. Defaults to 0.20 for missing symbols.
+    """
+    import numpy as np
+
+    if prices is None or prices.empty:
+        return {}
+    if "close" not in prices.columns or "symbol" not in prices.columns:
+        return {}
+
+    vols: dict[str, float] = {}
+    for sym, grp in prices.groupby("symbol"):
+        close = grp["close"].dropna()
+        if len(close) < 5:
+            vols[str(sym)] = 0.20
+            continue
+        close = close.iloc[-lookback:] if len(close) > lookback else close
+        log_rets = np.log(close / close.shift(1)).dropna()
+        if len(log_rets) < 3:
+            vols[str(sym)] = 0.20
+            continue
+        daily_vol = float(log_rets.std())
+        ann_vol = daily_vol * np.sqrt(252)
+        vols[str(sym)] = max(ann_vol, 0.01)  # floor at 1%
+    return vols
 
 
 def _filter_prices_for_as_of(
@@ -930,6 +969,67 @@ def run_trading_cycle(
                 ctx.intel_health_flags = ctx.intel_health_flags or {}
                 ctx.intel_health_flags["intel_disclosures_triggers"] = "DEGRADED"
 
+        # Crisis Alpha intel: load crisis_state.json + triggers_latest.json from GDELT cycle
+        try:
+            intel_cfg = policy.get("intel") or {}
+            crisis_cfg = intel_cfg.get("crisis_alpha") or {}
+            if crisis_cfg.get("enabled", False):
+                import json as _json
+
+                # Load crisis state
+                cs_path_raw = crisis_cfg.get(
+                    "crisis_state_path", "data/intel/crisis_state.json"
+                )
+                cs_path = (
+                    (base_dir / cs_path_raw)
+                    if not Path(cs_path_raw).is_absolute()
+                    else Path(cs_path_raw)
+                )
+                if cs_path.exists():
+                    cs_data = _json.loads(cs_path.read_text(encoding="utf-8"))
+                    ctx.crisis_state_intel = cs_data
+                    geo_score = int(cs_data.get("geo_score", 0))
+                    mode_str = str(cs_data.get("mode", "NORMAL"))
+                    ctx.news_geo = {
+                        "geo_score": geo_score,
+                        "geo_confidence": float(cs_data.get("confidence", 0.0)),
+                        "state_hint": mode_str,
+                        "crisis_mode": mode_str,
+                        "active_triggers": cs_data.get("active_triggers", []),
+                        "basket_overrides": cs_data.get("basket_overrides", {}),
+                    }
+                    logger.info(
+                        "CRISIS_ALPHA: mode=%s, geo_score=%d, triggers=%d",
+                        mode_str, geo_score,
+                        len(cs_data.get("active_triggers", [])),
+                    )
+                else:
+                    logger.debug("crisis_state.json not found at %s", cs_path)
+
+                # Load geo triggers (for news_triggers_loader compatibility)
+                tr_path_raw = crisis_cfg.get(
+                    "triggers_path", "data/intel/triggers_latest.json"
+                )
+                tr_path = (
+                    (base_dir / tr_path_raw)
+                    if not Path(tr_path_raw).is_absolute()
+                    else Path(tr_path_raw)
+                )
+                if tr_path.exists():
+                    from src.assembled_core.intel.news_triggers_loader import (
+                        load_news_triggers,
+                    )
+                    news_snap = load_news_triggers(tr_path)
+                    if news_snap.generated_utc:
+                        result.meta["intel_geo_triggers"] = {
+                            "max_severity": news_snap.summary.get("max_severity", 0),
+                            "watch_count": news_snap.summary.get("watch_count_sev1plus", 0),
+                            "active_count": news_snap.summary.get("active_count_sev2plus", 0),
+                        }
+        except Exception as e:
+            logger.warning("crisis_alpha intel load failed: %s", e)
+            ctx.intel_health_flags["intel_crisis_alpha"] = "DEGRADED"
+
         # Market stress (INT-5): price-based stress signal for state machine
         ms_cfg = policy.get("market_stress") or {}
         if ms_cfg.get("enabled", False):
@@ -1168,15 +1268,109 @@ def run_trading_cycle(
         result.error_message = f"Error in generate_signals hook: {e}"
         return result
 
+    # Zombie killer (M6-T05): force-exit positions held too long with no gain
+    try:
+        if (
+            ctx.current_positions is not None
+            and not ctx.current_positions.empty
+            and not result.signals.empty
+        ):
+            now_utc = pd.Timestamp.now("UTC").to_pydatetime()
+            # Convert positions to list of dicts for zombie_killer
+            pos_dicts = ctx.current_positions.to_dict("records")
+            zombies = get_zombie_positions(pos_dicts, now_utc, policy)
+            if zombies:
+                zombie_symbols = {pos["symbol"] for pos, _reason in zombies}
+                for _pos, reason in zombies:
+                    log.warning(reason)
+                # Force zombie signals to FLAT so they get exit orders
+                mask = result.signals["symbol"].isin(zombie_symbols)
+                result.signals.loc[mask, "direction"] = "FLAT"
+                # Also add FLAT signals for zombies not already in signals
+                existing_syms = set(result.signals["symbol"].values)
+                missing_zombies = zombie_symbols - existing_syms
+                if missing_zombies:
+                    zombie_rows = pd.DataFrame(
+                        {
+                            "timestamp": [ctx.as_of or pd.Timestamp.now("UTC")] * len(missing_zombies),
+                            "symbol": list(missing_zombies),
+                            "direction": ["FLAT"] * len(missing_zombies),
+                            "score": [0.0] * len(missing_zombies),
+                        }
+                    )
+                    result.signals = pd.concat(
+                        [result.signals, zombie_rows], ignore_index=True
+                    )
+                result.meta["zombie_killer"] = {
+                    "zombies_found": len(zombies),
+                    "symbols": sorted(zombie_symbols),
+                }
+                log.info("ZOMBIE_KILLER: %d positions flagged for exit: %s",
+                         len(zombies), sorted(zombie_symbols))
+    except Exception as e:
+        log.debug("zombie_killer check skipped: %s", e)
+
     # Step 4: Size positions (hook point: size_positions)
     try:
         if "size_positions" in hooks:
             result.target_positions = hooks["size_positions"](ctx, result.signals)
         else:
-            # Default: call position_sizing_fn
-            result.target_positions = ctx.position_sizing_fn(
-                result.signals, ctx.capital
-            )
+            # Policy-driven sizing method dispatch
+            sizing_cfg = policy.get("position_sizing") or {}
+            sizing_method = sizing_cfg.get("method", "default")
+            if sizing_method != "default" and ctx.position_sizing_fn is not None:
+                # Use the caller-provided function (backward compatible)
+                sizing_method = "default"
+
+            if sizing_method == "kelly":
+                from src.assembled_core.portfolio.position_sizing import (
+                    compute_kelly_weights,
+                )
+                result.target_positions = compute_kelly_weights(
+                    result.signals,
+                    fraction=float(sizing_cfg.get("kelly_fraction", 0.5)),
+                    max_weight=float(sizing_cfg.get("max_weight", 0.25)),
+                    total_capital=ctx.capital,
+                    top_n=sizing_cfg.get("top_n"),
+                )
+            elif sizing_method == "risk_parity":
+                from src.assembled_core.portfolio.position_sizing import (
+                    compute_risk_parity_weights,
+                )
+                # Compute per-symbol volatilities from price data
+                vols = _estimate_symbol_volatilities(
+                    result.prices_filtered or ctx.prices,
+                    lookback=int(sizing_cfg.get("vol_lookback_days", 60)),
+                )
+                result.target_positions = compute_risk_parity_weights(
+                    result.signals,
+                    vols,
+                    total_capital=ctx.capital,
+                    max_weight=float(sizing_cfg.get("max_weight", 0.30)),
+                    top_n=sizing_cfg.get("top_n"),
+                )
+            elif sizing_method == "vol_scaled":
+                from src.assembled_core.portfolio.position_sizing import (
+                    compute_vol_scaled_weights,
+                )
+                vols = _estimate_symbol_volatilities(
+                    result.prices_filtered or ctx.prices,
+                    lookback=int(sizing_cfg.get("vol_lookback_days", 60)),
+                )
+                result.target_positions = compute_vol_scaled_weights(
+                    result.signals,
+                    vols,
+                    target_vol=float(sizing_cfg.get("target_vol", 0.15)),
+                    total_capital=ctx.capital,
+                    max_weight=float(sizing_cfg.get("max_weight", 0.30)),
+                    top_n=sizing_cfg.get("top_n"),
+                )
+            else:
+                # Default: call position_sizing_fn (equal weight or score-based)
+                result.target_positions = ctx.position_sizing_fn(
+                    result.signals, ctx.capital
+                )
+            result.meta["sizing_method"] = sizing_method
 
         # Validate target_positions format
         required_target_cols = ["symbol", "target_weight", "target_qty"]
@@ -1332,6 +1526,46 @@ def run_trading_cycle(
         except Exception as e:
             log.debug(f"Turnover budget gate skipped: {e}")
             result.meta["turnover_budget"] = {"error": str(e), "scale_factor": 1.0}
+
+    # Correlation guard (M6-T07): scale down over-concentrated correlated clusters
+    try:
+        if not result.target_positions.empty and len(result.target_positions) >= 2:
+            # Build target_weights dict from DataFrame
+            tw_dict = dict(
+                zip(
+                    result.target_positions["symbol"],
+                    result.target_positions["target_weight"],
+                )
+            )
+            # Use prices_filtered (or prices_with_features) for correlation computation
+            corr_prices = (
+                result.prices_filtered
+                if result.prices_filtered is not None and not result.prices_filtered.empty
+                else ctx.prices
+            )
+            adjusted_weights, corr_reasons = apply_correlation_guard(
+                tw_dict, corr_prices, policy
+            )
+            if corr_reasons:
+                for reason in corr_reasons:
+                    log.warning(reason)
+                # Apply adjusted weights back to target_positions
+                result.target_positions["target_weight"] = result.target_positions[
+                    "symbol"
+                ].map(adjusted_weights)
+                if "target_qty" in result.target_positions.columns:
+                    result.target_positions["target_qty"] = (
+                        result.target_positions["target_weight"] * ctx.capital
+                    )
+                result.meta["correlation_guard"] = {
+                    "clusters_scaled": len(corr_reasons),
+                    "reasons": corr_reasons,
+                }
+                log.info(
+                    "CORRELATION_GUARD: %d clusters scaled down", len(corr_reasons)
+                )
+    except Exception as e:
+        log.debug("correlation_guard check skipped: %s", e)
 
     # Step 5: Generate orders (hook point: generate_orders)
     try:

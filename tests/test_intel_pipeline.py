@@ -46,8 +46,8 @@ def _make_event(
     geo_tags: list[str] | None = None,
     entities: list[str] | None = None,
 ) -> "NewsEvent":
-    from assembled_core.intel.models import NewsEvent, SourceTier
-    from assembled_core.intel.source_registry import get_source_tier
+    from src.assembled_core.intel.models import NewsEvent, SourceTier
+    from src.assembled_core.intel.source_registry import get_source_tier
 
     eid = event_id or hashlib.sha256(f"{title}{source_id}".encode()).hexdigest()[:16]
     now = _now()
@@ -73,7 +73,7 @@ def _make_cluster(
     cluster_id: str = "cluster_001",
     confidence: float = 0.8,
 ) -> "EvidenceCluster":
-    from assembled_core.intel.models import EvidenceCluster
+    from src.assembled_core.intel.models import EvidenceCluster
 
     now = _now()
     return EvidenceCluster(
@@ -95,7 +95,7 @@ def _make_cluster(
 
 class TestModels:
     def test_news_event_serializes(self):
-        from assembled_core.intel.models import NewsEvent, SourceTier
+        from src.assembled_core.intel.models import NewsEvent, SourceTier
 
         now = _now()
         evt = NewsEvent(
@@ -117,7 +117,7 @@ class TestModels:
         assert "IRN" in d["geo_tags"]
 
     def test_news_event_roundtrip(self):
-        from assembled_core.intel.models import NewsEvent, SourceTier
+        from src.assembled_core.intel.models import NewsEvent, SourceTier
 
         now = _now()
         evt = NewsEvent(
@@ -138,7 +138,7 @@ class TestModels:
         assert restored.source_tier == SourceTier.T1
 
     def test_geo_trigger_is_expired(self):
-        from assembled_core.intel.models import GeoTrigger, SourceTier, TriggerType
+        from src.assembled_core.intel.models import GeoTrigger, SourceTier, TriggerType
 
         now = _now()
         trigger = GeoTrigger(
@@ -156,7 +156,7 @@ class TestModels:
         assert trigger.is_expired(now) is True
 
     def test_geo_trigger_not_expired(self):
-        from assembled_core.intel.models import GeoTrigger, TriggerType
+        from src.assembled_core.intel.models import GeoTrigger, TriggerType
 
         now = _now()
         trigger = GeoTrigger(
@@ -174,7 +174,7 @@ class TestModels:
         assert trigger.is_expired(now) is False
 
     def test_crisis_state_roundtrip(self):
-        from assembled_core.intel.models import CrisisMode, CrisisState
+        from src.assembled_core.intel.models import CrisisMode, CrisisState
 
         now = _now()
         state = CrisisState(
@@ -190,7 +190,7 @@ class TestModels:
         assert restored.mode == CrisisMode.WATCH
 
     def test_dependency_signal_roundtrip(self):
-        from assembled_core.intel.models import DependencySignal
+        from src.assembled_core.intel.models import DependencySignal
 
         now = _now()
         sig = DependencySignal(
@@ -210,7 +210,7 @@ class TestModels:
         assert restored.signal_id == sig.signal_id
 
     def test_component_health_stale_when_no_update(self):
-        from assembled_core.intel.models import ComponentHealth
+        from src.assembled_core.intel.models import ComponentHealth
 
         now = _now()
         ch = ComponentHealth(
@@ -222,7 +222,7 @@ class TestModels:
         assert ch.is_stale(now) is True
 
     def test_component_health_stale_after_threshold(self):
-        from assembled_core.intel.models import ComponentHealth
+        from src.assembled_core.intel.models import ComponentHealth
 
         now = _now()
         last = now - timedelta(minutes=31)
@@ -235,7 +235,7 @@ class TestModels:
         assert ch.is_stale(now) is True
 
     def test_component_health_ok_within_threshold(self):
-        from assembled_core.intel.models import ComponentHealth
+        from src.assembled_core.intel.models import ComponentHealth
 
         now = _now()
         last = now - timedelta(minutes=10)
@@ -255,69 +255,69 @@ class TestModels:
 
 class TestSourceRegistry:
     def test_ofac_is_t0(self):
-        from assembled_core.intel.source_registry import get_source_tier
-        from assembled_core.intel.models import SourceTier
+        from src.assembled_core.intel.source_registry import get_source_tier
+        from src.assembled_core.intel.models import SourceTier
 
         assert get_source_tier("OFAC") == SourceTier.T0
 
     def test_un_sanctions_is_t0(self):
-        from assembled_core.intel.source_registry import get_source_tier
-        from assembled_core.intel.models import SourceTier
+        from src.assembled_core.intel.source_registry import get_source_tier
+        from src.assembled_core.intel.models import SourceTier
 
         assert get_source_tier("UN_SANCTIONS") == SourceTier.T0
 
     def test_reuters_is_t1(self):
-        from assembled_core.intel.source_registry import get_source_tier
-        from assembled_core.intel.models import SourceTier
+        from src.assembled_core.intel.source_registry import get_source_tier
+        from src.assembled_core.intel.models import SourceTier
 
         assert get_source_tier("REUTERS") == SourceTier.T1
 
     def test_ap_media_is_t1(self):
-        from assembled_core.intel.source_registry import get_source_tier
-        from assembled_core.intel.models import SourceTier
+        from src.assembled_core.intel.source_registry import get_source_tier
+        from src.assembled_core.intel.models import SourceTier
 
         assert get_source_tier("AP_MEDIA") == SourceTier.T1
 
     def test_gdelt_is_t2(self):
-        from assembled_core.intel.source_registry import get_source_tier
-        from assembled_core.intel.models import SourceTier
+        from src.assembled_core.intel.source_registry import get_source_tier
+        from src.assembled_core.intel.models import SourceTier
 
         assert get_source_tier("GDELT") == SourceTier.T2
 
     def test_newsapi_is_t3(self):
-        from assembled_core.intel.source_registry import get_source_tier
-        from assembled_core.intel.models import SourceTier
+        from src.assembled_core.intel.source_registry import get_source_tier
+        from src.assembled_core.intel.models import SourceTier
 
         assert get_source_tier("NEWSAPI") == SourceTier.T3
 
     def test_unknown_source_defaults_to_t3(self):
-        from assembled_core.intel.source_registry import get_source_tier
-        from assembled_core.intel.models import SourceTier
+        from src.assembled_core.intel.source_registry import get_source_tier
+        from src.assembled_core.intel.models import SourceTier
 
         assert get_source_tier("UNKNOWN_BLOG") == SourceTier.T3
 
     def test_trust_weight_t0(self):
-        from assembled_core.intel.source_registry import get_trust_weight
+        from src.assembled_core.intel.source_registry import get_trust_weight
 
         assert get_trust_weight("OFAC") == 1.0
 
     def test_trust_weight_t1(self):
-        from assembled_core.intel.source_registry import get_trust_weight
+        from src.assembled_core.intel.source_registry import get_trust_weight
 
         assert get_trust_weight("REUTERS") == 0.9
 
     def test_trust_weight_t2(self):
-        from assembled_core.intel.source_registry import get_trust_weight
+        from src.assembled_core.intel.source_registry import get_trust_weight
 
         assert get_trust_weight("GDELT") == 0.7
 
     def test_trust_weight_t3(self):
-        from assembled_core.intel.source_registry import get_trust_weight
+        from src.assembled_core.intel.source_registry import get_trust_weight
 
         assert get_trust_weight("NEWSAPI") == 0.4
 
     def test_list_sources_no_filter(self):
-        from assembled_core.intel.source_registry import list_sources
+        from src.assembled_core.intel.source_registry import list_sources
 
         sources = list_sources()
         assert "OFAC" in sources
@@ -325,8 +325,8 @@ class TestSourceRegistry:
         assert len(sources) >= 10
 
     def test_list_sources_t0_filter(self):
-        from assembled_core.intel.source_registry import list_sources
-        from assembled_core.intel.models import SourceTier
+        from src.assembled_core.intel.source_registry import list_sources
+        from src.assembled_core.intel.models import SourceTier
 
         t0_sources = list_sources(tier=SourceTier.T0)
         assert "OFAC" in t0_sources
@@ -334,8 +334,8 @@ class TestSourceRegistry:
         assert "REUTERS" not in t0_sources
 
     def test_list_sources_t1_filter(self):
-        from assembled_core.intel.source_registry import list_sources
-        from assembled_core.intel.models import SourceTier
+        from src.assembled_core.intel.source_registry import list_sources
+        from src.assembled_core.intel.models import SourceTier
 
         t1_sources = list_sources(tier=SourceTier.T1)
         assert "AP_MEDIA" in t1_sources
@@ -350,53 +350,53 @@ class TestSourceRegistry:
 
 class TestGeoTrigger:
     def test_score_event_war_keywords(self):
-        from assembled_core.intel.geo_trigger import score_event
+        from src.assembled_core.intel.geo_trigger import score_event
 
         evt = _make_event("REUTERS", "Military attack in region", keywords=["war", "attack"])
         score = score_event(evt)
         assert score > 0.0
 
     def test_score_event_no_keywords(self):
-        from assembled_core.intel.geo_trigger import score_event
+        from src.assembled_core.intel.geo_trigger import score_event
 
         evt = _make_event("REUTERS", "Baseball game results final score", keywords=[])
         score = score_event(evt)
         assert score == 0.0 or score < 0.1
 
     def test_classify_war_escalation(self):
-        from assembled_core.intel.geo_trigger import classify_trigger_type
-        from assembled_core.intel.models import TriggerType
+        from src.assembled_core.intel.geo_trigger import classify_trigger_type
+        from src.assembled_core.intel.models import TriggerType
 
         evt = _make_event("REUTERS", "Missile attack launched", keywords=["missile", "military", "attack"])
         result = classify_trigger_type(evt)
         assert result == TriggerType.WAR_ESCALATION
 
     def test_classify_chokepoint_stress(self):
-        from assembled_core.intel.geo_trigger import classify_trigger_type
-        from assembled_core.intel.models import TriggerType
+        from src.assembled_core.intel.geo_trigger import classify_trigger_type
+        from src.assembled_core.intel.models import TriggerType
 
         evt = _make_event("REUTERS", "Strait of Hormuz tanker blockade", keywords=["hormuz", "tanker", "blockade"])
         result = classify_trigger_type(evt)
         assert result == TriggerType.CHOKEPOINT_STRESS
 
     def test_classify_energy_supply(self):
-        from assembled_core.intel.geo_trigger import classify_trigger_type
-        from assembled_core.intel.models import TriggerType
+        from src.assembled_core.intel.geo_trigger import classify_trigger_type
+        from src.assembled_core.intel.models import TriggerType
 
         evt = _make_event("EIA", "Oil pipeline closure announced", keywords=["oil", "pipeline", "refinery"])
         result = classify_trigger_type(evt)
         assert result == TriggerType.ENERGY_SUPPLY_RISK
 
     def test_classify_cyber_escalation(self):
-        from assembled_core.intel.geo_trigger import classify_trigger_type
-        from assembled_core.intel.models import TriggerType
+        from src.assembled_core.intel.geo_trigger import classify_trigger_type
+        from src.assembled_core.intel.models import TriggerType
 
         evt = _make_event("REUTERS", "Major cyberattack on infrastructure", keywords=["cyberattack", "hack", "malware"])
         result = classify_trigger_type(evt)
         assert result == TriggerType.CYBER_ESCALATION
 
     def test_classify_no_match_returns_none(self):
-        from assembled_core.intel.geo_trigger import classify_trigger_type
+        from src.assembled_core.intel.geo_trigger import classify_trigger_type
 
         evt = _make_event("REUTERS", "Football world cup results", keywords=["football", "score"])
         result = classify_trigger_type(evt)
@@ -404,8 +404,8 @@ class TestGeoTrigger:
 
     def test_score_cluster_t0_source_gives_score_3(self):
         """T0 source alone should give trigger_score=3."""
-        from assembled_core.intel.geo_trigger import score_cluster
-        from assembled_core.intel.models import SourceTier, TriggerType
+        from src.assembled_core.intel.geo_trigger import score_cluster
+        from src.assembled_core.intel.models import SourceTier, TriggerType
 
         evt = _make_event("OFAC", "OFAC sanctions escalation", event_id="ofac_evt_001", keywords=["sanctions"])
         cluster = _make_cluster(
@@ -418,8 +418,8 @@ class TestGeoTrigger:
 
     def test_score_cluster_t1_source_gives_score_3(self):
         """T1 source alone should give trigger_score=3."""
-        from assembled_core.intel.geo_trigger import score_cluster
-        from assembled_core.intel.models import SourceTier, TriggerType
+        from src.assembled_core.intel.geo_trigger import score_cluster
+        from src.assembled_core.intel.models import SourceTier, TriggerType
 
         evt = _make_event("REUTERS", "War erupts in region", event_id="reuters_evt_001", keywords=["war", "military"])
         cluster = _make_cluster(
@@ -432,8 +432,8 @@ class TestGeoTrigger:
 
     def test_score_cluster_single_t3_gives_score_0(self):
         """Single T3 source should give score=0 (no independent T2+ sources)."""
-        from assembled_core.intel.geo_trigger import score_cluster
-        from assembled_core.intel.models import SourceTier, TriggerType
+        from src.assembled_core.intel.geo_trigger import score_cluster
+        from src.assembled_core.intel.models import SourceTier, TriggerType
 
         evt = _make_event("NEWSAPI", "Rumor: conflict looming", event_id="newsapi_evt_001", keywords=["conflict"])
         cluster = _make_cluster(
@@ -446,8 +446,8 @@ class TestGeoTrigger:
 
     def test_score_cluster_two_t2_sources_gives_score_2(self):
         """Two independent T2 sources should give score=2."""
-        from assembled_core.intel.geo_trigger import score_cluster
-        from assembled_core.intel.models import SourceTier, TriggerType
+        from src.assembled_core.intel.geo_trigger import score_cluster
+        from src.assembled_core.intel.models import SourceTier, TriggerType
 
         evt1 = _make_event("GDELT", "Energy crisis unfolding", event_id="gdelt_evt_001", keywords=["energy", "oil"])
         evt2 = _make_event("ACLED", "Pipeline blocked in region", event_id="acled_evt_001", keywords=["pipeline", "oil"])
@@ -461,8 +461,8 @@ class TestGeoTrigger:
 
     def test_score_cluster_single_t2_gives_score_1(self):
         """Single T2 source gives score=1."""
-        from assembled_core.intel.geo_trigger import score_cluster
-        from assembled_core.intel.models import SourceTier, TriggerType
+        from src.assembled_core.intel.geo_trigger import score_cluster
+        from src.assembled_core.intel.models import SourceTier, TriggerType
 
         evt = _make_event("GDELT", "Oil supply concerns", event_id="gdelt_evt_002", keywords=["oil", "energy"])
         cluster = _make_cluster(
@@ -474,8 +474,8 @@ class TestGeoTrigger:
         assert trigger.trigger_score == 1
 
     def test_aggregate_triggers_max_score(self):
-        from assembled_core.intel.geo_trigger import aggregate_triggers
-        from assembled_core.intel.models import GeoTrigger, TriggerType
+        from src.assembled_core.intel.geo_trigger import aggregate_triggers
+        from src.assembled_core.intel.models import GeoTrigger, TriggerType
 
         now = _now()
         t1 = GeoTrigger(
@@ -498,7 +498,7 @@ class TestGeoTrigger:
         assert "t2" in result["active_triggers"]
 
     def test_aggregate_triggers_empty(self):
-        from assembled_core.intel.geo_trigger import aggregate_triggers
+        from src.assembled_core.intel.geo_trigger import aggregate_triggers
 
         result = aggregate_triggers([])
         assert result["geo_score"] == 0
@@ -512,15 +512,15 @@ class TestGeoTrigger:
 
 class TestDependencyGraph:
     def test_load_graph_from_yaml(self):
-        from assembled_core.intel.dependency_graph import load_graph
+        from src.assembled_core.intel.dependency_graph import load_graph
 
         graph = load_graph(GRAPH_YAML)
         assert graph.get_node("HORMUZ") is not None
         assert graph.get_node("ENERGY_SECTOR") is not None
 
     def test_node_types_correct(self):
-        from assembled_core.intel.dependency_graph import load_graph
-        from assembled_core.intel.models import NodeType
+        from src.assembled_core.intel.dependency_graph import load_graph
+        from src.assembled_core.intel.models import NodeType
 
         graph = load_graph(GRAPH_YAML)
         hormuz = graph.get_node("HORMUZ")
@@ -532,13 +532,13 @@ class TestDependencyGraph:
         assert energy.node_type == NodeType.SECTOR
 
     def test_get_node_nonexistent(self):
-        from assembled_core.intel.dependency_graph import load_graph
+        from src.assembled_core.intel.dependency_graph import load_graph
 
         graph = load_graph(GRAPH_YAML)
         assert graph.get_node("NONEXISTENT_NODE") is None
 
     def test_get_neighbors_hormuz(self):
-        from assembled_core.intel.dependency_graph import load_graph
+        from src.assembled_core.intel.dependency_graph import load_graph
 
         graph = load_graph(GRAPH_YAML)
         neighbors = graph.get_neighbors("HORMUZ")
@@ -547,8 +547,8 @@ class TestDependencyGraph:
         assert "GLOBAL_OIL" in neighbor_ids or "GLOBAL_LNG" in neighbor_ids
 
     def test_get_neighbors_filter_by_edge_type(self):
-        from assembled_core.intel.dependency_graph import load_graph
-        from assembled_core.intel.models import EdgeType
+        from src.assembled_core.intel.dependency_graph import load_graph
+        from src.assembled_core.intel.models import EdgeType
 
         graph = load_graph(GRAPH_YAML)
         neighbors = graph.get_neighbors("HORMUZ", edge_types=[EdgeType.TRANSITS_THROUGH])
@@ -557,7 +557,7 @@ class TestDependencyGraph:
             assert edge.edge_type == EdgeType.TRANSITS_THROUGH
 
     def test_get_asset_nodes(self):
-        from assembled_core.intel.dependency_graph import load_graph
+        from src.assembled_core.intel.dependency_graph import load_graph
 
         graph = load_graph(GRAPH_YAML)
         asset_nodes = graph.get_asset_nodes()
@@ -566,7 +566,7 @@ class TestDependencyGraph:
         assert "ENERGY_SECTOR" in node_ids
 
     def test_find_paths_hormuz_to_energy(self):
-        from assembled_core.intel.dependency_graph import load_graph
+        from src.assembled_core.intel.dependency_graph import load_graph
 
         graph = load_graph(GRAPH_YAML)
         paths = graph.find_paths("HORMUZ", "ENERGY_SECTOR", max_depth=4)
@@ -577,7 +577,7 @@ class TestDependencyGraph:
             assert path[-1] == "ENERGY_SECTOR"
 
     def test_find_paths_no_path(self):
-        from assembled_core.intel.dependency_graph import load_graph
+        from src.assembled_core.intel.dependency_graph import load_graph
 
         graph = load_graph(GRAPH_YAML)
         # ENERGY_SECTOR → HORMUZ: no such path in this direction
@@ -586,7 +586,7 @@ class TestDependencyGraph:
         assert isinstance(paths, list)
 
     def test_node_attributes_preserved(self):
-        from assembled_core.intel.dependency_graph import load_graph
+        from src.assembled_core.intel.dependency_graph import load_graph
 
         graph = load_graph(GRAPH_YAML)
         defense = graph.get_node("DEFENSE_SECTOR")
@@ -602,8 +602,8 @@ class TestDependencyGraph:
 
 class TestShockPropagation:
     def test_map_trigger_to_shocks_chokepoint(self):
-        from assembled_core.intel.shock_propagation import map_trigger_to_shocks
-        from assembled_core.intel.models import GeoTrigger, TriggerType, ShockType
+        from src.assembled_core.intel.shock_propagation import map_trigger_to_shocks
+        from src.assembled_core.intel.models import GeoTrigger, TriggerType, ShockType
 
         now = _now()
         trigger = GeoTrigger(
@@ -623,8 +623,8 @@ class TestShockPropagation:
         assert ShockType.SHIPPING_COST_RISK in shocks
 
     def test_map_trigger_to_shocks_war(self):
-        from assembled_core.intel.shock_propagation import map_trigger_to_shocks
-        from assembled_core.intel.models import GeoTrigger, TriggerType, ShockType
+        from src.assembled_core.intel.shock_propagation import map_trigger_to_shocks
+        from src.assembled_core.intel.models import GeoTrigger, TriggerType, ShockType
 
         now = _now()
         trigger = GeoTrigger(
@@ -645,9 +645,9 @@ class TestShockPropagation:
 
     def test_propagate_chokepoint_reaches_energy(self):
         """CHOKEPOINT_STRESS shock should eventually reach ENERGY_SECTOR (beneficiary)."""
-        from assembled_core.intel.dependency_graph import load_graph
-        from assembled_core.intel.shock_propagation import propagate
-        from assembled_core.intel.models import ShockType
+        from src.assembled_core.intel.dependency_graph import load_graph
+        from src.assembled_core.intel.shock_propagation import propagate
+        from src.assembled_core.intel.models import ShockType
 
         graph = load_graph(GRAPH_YAML)
         transmissions = propagate(
@@ -668,9 +668,9 @@ class TestShockPropagation:
 
     def test_propagate_chokepoint_creates_beneficiaries_and_losers(self):
         """CHOKEPOINT_STRESS: energy sector benefits, tech loses."""
-        from assembled_core.intel.dependency_graph import load_graph
-        from assembled_core.intel.shock_propagation import propagate, to_dependency_signal
-        from assembled_core.intel.models import ShockType
+        from src.assembled_core.intel.dependency_graph import load_graph
+        from src.assembled_core.intel.shock_propagation import propagate, to_dependency_signal
+        from src.assembled_core.intel.models import ShockType
 
         graph = load_graph(GRAPH_YAML)
         shocks = [ShockType.OIL_SUPPLY_RISK, ShockType.SHIPPING_COST_RISK]
@@ -682,9 +682,9 @@ class TestShockPropagation:
 
     def test_propagate_defense_demand_surge_positive(self):
         """DEFENSE_DEMAND_SURGE should produce DEFENSE_SECTOR as a beneficiary."""
-        from assembled_core.intel.dependency_graph import load_graph
-        from assembled_core.intel.shock_propagation import propagate, to_dependency_signal
-        from assembled_core.intel.models import ShockType
+        from src.assembled_core.intel.dependency_graph import load_graph
+        from src.assembled_core.intel.shock_propagation import propagate, to_dependency_signal
+        from src.assembled_core.intel.models import ShockType
 
         graph = load_graph(GRAPH_YAML)
         transmissions = propagate(
@@ -701,9 +701,9 @@ class TestShockPropagation:
             assert "DEFENSE_SECTOR" in all_path_nodes or "WAR_ESCALATION_EVENT" in all_path_nodes
 
     def test_to_dependency_signal_fields(self):
-        from assembled_core.intel.dependency_graph import load_graph
-        from assembled_core.intel.shock_propagation import propagate, to_dependency_signal
-        from assembled_core.intel.models import ShockType
+        from src.assembled_core.intel.dependency_graph import load_graph
+        from src.assembled_core.intel.shock_propagation import propagate, to_dependency_signal
+        from src.assembled_core.intel.models import ShockType
 
         graph = load_graph(GRAPH_YAML)
         shocks = [ShockType.OIL_SUPPLY_RISK]
@@ -719,9 +719,9 @@ class TestShockPropagation:
 
     def test_no_overlap_between_beneficiaries_and_losers(self):
         """A node should not appear in both beneficiaries and losers."""
-        from assembled_core.intel.dependency_graph import load_graph
-        from assembled_core.intel.shock_propagation import propagate, to_dependency_signal
-        from assembled_core.intel.models import ShockType
+        from src.assembled_core.intel.dependency_graph import load_graph
+        from src.assembled_core.intel.shock_propagation import propagate, to_dependency_signal
+        from src.assembled_core.intel.models import ShockType
 
         graph = load_graph(GRAPH_YAML)
         shocks = [ShockType.OIL_SUPPLY_RISK, ShockType.GLOBAL_RISK_OFF]
@@ -739,7 +739,7 @@ class TestShockPropagation:
 
 class TestCrisisStateMachine:
     def _normal_state(self) -> "CrisisState":
-        from assembled_core.intel.models import CrisisMode, CrisisState
+        from src.assembled_core.intel.models import CrisisMode, CrisisState
 
         return CrisisState(
             mode=CrisisMode.NORMAL,
@@ -750,7 +750,7 @@ class TestCrisisStateMachine:
         )
 
     def _watch_state(self) -> "CrisisState":
-        from assembled_core.intel.models import CrisisMode, CrisisState
+        from src.assembled_core.intel.models import CrisisMode, CrisisState
 
         return CrisisState(
             mode=CrisisMode.WATCH,
@@ -761,7 +761,7 @@ class TestCrisisStateMachine:
         )
 
     def _active_state(self) -> "CrisisState":
-        from assembled_core.intel.models import CrisisMode, CrisisState
+        from src.assembled_core.intel.models import CrisisMode, CrisisState
 
         return CrisisState(
             mode=CrisisMode.ACTIVE,
@@ -772,7 +772,7 @@ class TestCrisisStateMachine:
         )
 
     def _make_trigger(self, score: int, expired: bool = False) -> "GeoTrigger":
-        from assembled_core.intel.models import GeoTrigger, TriggerType
+        from src.assembled_core.intel.models import GeoTrigger, TriggerType
 
         now = _now()
         if expired:
@@ -796,8 +796,8 @@ class TestCrisisStateMachine:
         )
 
     def test_normal_to_watch_on_geo_score_2(self):
-        from assembled_core.intel.crisis_alpha_worker import update_crisis_state
-        from assembled_core.intel.models import CrisisMode
+        from src.assembled_core.intel.crisis_alpha_worker import update_crisis_state
+        from src.assembled_core.intel.models import CrisisMode
 
         prev = self._normal_state()
         trigger = self._make_trigger(score=2)
@@ -812,8 +812,8 @@ class TestCrisisStateMachine:
         assert new_state.mode == CrisisMode.WATCH
 
     def test_normal_stays_normal_on_geo_score_1(self):
-        from assembled_core.intel.crisis_alpha_worker import update_crisis_state
-        from assembled_core.intel.models import CrisisMode
+        from src.assembled_core.intel.crisis_alpha_worker import update_crisis_state
+        from src.assembled_core.intel.models import CrisisMode
 
         prev = self._normal_state()
         trigger = self._make_trigger(score=1)
@@ -828,8 +828,8 @@ class TestCrisisStateMachine:
         assert new_state.mode == CrisisMode.NORMAL
 
     def test_watch_to_active_with_geo_3_and_market_confirm(self):
-        from assembled_core.intel.crisis_alpha_worker import update_crisis_state
-        from assembled_core.intel.models import CrisisMode
+        from src.assembled_core.intel.crisis_alpha_worker import update_crisis_state
+        from src.assembled_core.intel.models import CrisisMode
 
         prev = self._watch_state()
         trigger = self._make_trigger(score=3)
@@ -845,8 +845,8 @@ class TestCrisisStateMachine:
         assert new_state.mode == CrisisMode.ACTIVE
 
     def test_watch_stays_watch_without_market_confirm(self):
-        from assembled_core.intel.crisis_alpha_worker import update_crisis_state
-        from assembled_core.intel.models import CrisisMode
+        from src.assembled_core.intel.crisis_alpha_worker import update_crisis_state
+        from src.assembled_core.intel.models import CrisisMode
 
         prev = self._watch_state()
         trigger = self._make_trigger(score=3)
@@ -862,8 +862,8 @@ class TestCrisisStateMachine:
         assert new_state.mode == CrisisMode.WATCH
 
     def test_watch_to_active_with_vix_spike(self):
-        from assembled_core.intel.crisis_alpha_worker import update_crisis_state
-        from assembled_core.intel.models import CrisisMode
+        from src.assembled_core.intel.crisis_alpha_worker import update_crisis_state
+        from src.assembled_core.intel.models import CrisisMode
 
         prev = self._watch_state()
         trigger = self._make_trigger(score=3)
@@ -879,8 +879,8 @@ class TestCrisisStateMachine:
         assert new_state.mode == CrisisMode.ACTIVE
 
     def test_watch_to_active_with_gold_move(self):
-        from assembled_core.intel.crisis_alpha_worker import update_crisis_state
-        from assembled_core.intel.models import CrisisMode
+        from src.assembled_core.intel.crisis_alpha_worker import update_crisis_state
+        from src.assembled_core.intel.models import CrisisMode
 
         prev = self._watch_state()
         trigger = self._make_trigger(score=3)
@@ -896,8 +896,8 @@ class TestCrisisStateMachine:
         assert new_state.mode == CrisisMode.ACTIVE
 
     def test_active_to_cooldown_on_score_drop(self):
-        from assembled_core.intel.crisis_alpha_worker import update_crisis_state
-        from assembled_core.intel.models import CrisisMode
+        from src.assembled_core.intel.crisis_alpha_worker import update_crisis_state
+        from src.assembled_core.intel.models import CrisisMode
 
         prev = self._active_state()
         trigger = self._make_trigger(score=2)  # score dropped below 3
@@ -912,8 +912,8 @@ class TestCrisisStateMachine:
         assert new_state.mode == CrisisMode.COOLDOWN
 
     def test_active_to_cooldown_on_trigger_expiry(self):
-        from assembled_core.intel.crisis_alpha_worker import update_crisis_state
-        from assembled_core.intel.models import CrisisMode
+        from src.assembled_core.intel.crisis_alpha_worker import update_crisis_state
+        from src.assembled_core.intel.models import CrisisMode
 
         prev = self._active_state()
         trigger = self._make_trigger(score=3, expired=True)
@@ -929,8 +929,8 @@ class TestCrisisStateMachine:
         assert new_state.mode in {CrisisMode.COOLDOWN, CrisisMode.NORMAL}
 
     def test_cooldown_to_normal_after_elapsed(self):
-        from assembled_core.intel.crisis_alpha_worker import update_crisis_state, CrisisStateConfig
-        from assembled_core.intel.models import CrisisMode, CrisisState
+        from src.assembled_core.intel.crisis_alpha_worker import update_crisis_state, CrisisStateConfig
+        from src.assembled_core.intel.models import CrisisMode, CrisisState
 
         # Entered cooldown 13 hours ago, cooldown_min=720min=12h
         config = CrisisStateConfig(cooldown_min_minutes=720)
@@ -953,8 +953,8 @@ class TestCrisisStateMachine:
         assert new_state.mode == CrisisMode.NORMAL
 
     def test_cooldown_stays_cooldown_before_elapsed(self):
-        from assembled_core.intel.crisis_alpha_worker import update_crisis_state, CrisisStateConfig
-        from assembled_core.intel.models import CrisisMode, CrisisState
+        from src.assembled_core.intel.crisis_alpha_worker import update_crisis_state, CrisisStateConfig
+        from src.assembled_core.intel.models import CrisisMode, CrisisState
 
         config = CrisisStateConfig(cooldown_min_minutes=720)
         prev = CrisisState(
@@ -977,8 +977,8 @@ class TestCrisisStateMachine:
         assert new_state.mode == CrisisMode.COOLDOWN
 
     def test_active_risk_posture_is_restrictive(self):
-        from assembled_core.intel.crisis_alpha_worker import update_crisis_state
-        from assembled_core.intel.models import CrisisMode
+        from src.assembled_core.intel.crisis_alpha_worker import update_crisis_state
+        from src.assembled_core.intel.models import CrisisMode
 
         prev = self._watch_state()
         trigger = self._make_trigger(score=3)
@@ -995,8 +995,8 @@ class TestCrisisStateMachine:
         assert new_state.risk_posture["max_open_positions"] <= 3
 
     def test_audit_trail_populated(self):
-        from assembled_core.intel.crisis_alpha_worker import update_crisis_state
-        from assembled_core.intel.models import CrisisMode
+        from src.assembled_core.intel.crisis_alpha_worker import update_crisis_state
+        from src.assembled_core.intel.models import CrisisMode
 
         prev = self._normal_state()
         trigger = self._make_trigger(score=2)
@@ -1016,8 +1016,8 @@ class TestCrisisStateMachine:
         assert "ts" in entry
 
     def test_dependency_signal_id_stored(self):
-        from assembled_core.intel.crisis_alpha_worker import update_crisis_state
-        from assembled_core.intel.models import CrisisMode, DependencySignal
+        from src.assembled_core.intel.crisis_alpha_worker import update_crisis_state
+        from src.assembled_core.intel.models import CrisisMode, DependencySignal
 
         prev = self._normal_state()
         trigger = self._make_trigger(score=2)
@@ -1050,14 +1050,14 @@ class TestCrisisStateMachine:
 
 class TestHealthMonitor:
     def test_register_and_initially_stale(self):
-        from assembled_core.intel.health_monitor import HealthMonitor
+        from src.assembled_core.intel.health_monitor import HealthMonitor
 
         hm = HealthMonitor()
         hm.register("news_feed", stale_threshold_minutes=30)
         assert hm.is_stale("news_feed") is True
 
     def test_update_makes_component_fresh(self):
-        from assembled_core.intel.health_monitor import HealthMonitor
+        from src.assembled_core.intel.health_monitor import HealthMonitor
 
         hm = HealthMonitor()
         hm.register("news_feed", stale_threshold_minutes=30)
@@ -1066,7 +1066,7 @@ class TestHealthMonitor:
         assert hm.is_stale("news_feed", now=now) is False
 
     def test_component_becomes_stale_after_threshold(self):
-        from assembled_core.intel.health_monitor import HealthMonitor
+        from src.assembled_core.intel.health_monitor import HealthMonitor
 
         hm = HealthMonitor()
         hm.register("news_feed", stale_threshold_minutes=30)
@@ -1076,7 +1076,7 @@ class TestHealthMonitor:
         assert hm.is_stale("news_feed", now=now) is True
 
     def test_all_ok_when_all_fresh(self):
-        from assembled_core.intel.health_monitor import HealthMonitor
+        from src.assembled_core.intel.health_monitor import HealthMonitor
 
         hm = HealthMonitor()
         now = _now()
@@ -1086,7 +1086,7 @@ class TestHealthMonitor:
         assert hm.all_ok(now=now) is True
 
     def test_all_ok_false_if_one_stale(self):
-        from assembled_core.intel.health_monitor import HealthMonitor
+        from src.assembled_core.intel.health_monitor import HealthMonitor
 
         hm = HealthMonitor()
         now = _now()
@@ -1097,7 +1097,7 @@ class TestHealthMonitor:
         assert hm.all_ok(now=now) is False
 
     def test_all_ok_false_if_error_status(self):
-        from assembled_core.intel.health_monitor import HealthMonitor
+        from src.assembled_core.intel.health_monitor import HealthMonitor
 
         hm = HealthMonitor()
         now = _now()
@@ -1107,7 +1107,7 @@ class TestHealthMonitor:
         assert hm.all_ok(now=now) is False
 
     def test_snapshot_returns_all_components(self):
-        from assembled_core.intel.health_monitor import HealthMonitor
+        from src.assembled_core.intel.health_monitor import HealthMonitor
 
         hm = HealthMonitor()
         now = _now()
@@ -1120,19 +1120,19 @@ class TestHealthMonitor:
         assert snap["feed_a"]["status"] == "OK"
 
     def test_unknown_component_is_stale(self):
-        from assembled_core.intel.health_monitor import HealthMonitor
+        from src.assembled_core.intel.health_monitor import HealthMonitor
 
         hm = HealthMonitor()
         assert hm.is_stale("nonexistent_component") is True
 
     def test_all_ok_false_when_no_components(self):
-        from assembled_core.intel.health_monitor import HealthMonitor
+        from src.assembled_core.intel.health_monitor import HealthMonitor
 
         hm = HealthMonitor()
         assert hm.all_ok() is False
 
     def test_can_go_active_true_when_all_ok(self):
-        from assembled_core.intel.health_monitor import HealthMonitor
+        from src.assembled_core.intel.health_monitor import HealthMonitor
 
         hm = HealthMonitor()
         now = _now()
@@ -1141,7 +1141,7 @@ class TestHealthMonitor:
         assert hm.can_go_active(now=now) is True
 
     def test_can_go_active_false_when_stale(self):
-        from assembled_core.intel.health_monitor import HealthMonitor
+        from src.assembled_core.intel.health_monitor import HealthMonitor
 
         hm = HealthMonitor()
         hm.register("intel_feed", stale_threshold_minutes=30)
@@ -1149,7 +1149,7 @@ class TestHealthMonitor:
         assert hm.can_go_active() is False
 
     def test_auto_register_on_update(self):
-        from assembled_core.intel.health_monitor import HealthMonitor
+        from src.assembled_core.intel.health_monitor import HealthMonitor
 
         hm = HealthMonitor()
         now = _now()

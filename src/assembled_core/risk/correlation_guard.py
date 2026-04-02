@@ -153,7 +153,7 @@ def apply_correlation_guard(
         Returns originals unchanged if disabled, < 2 symbols, or no cluster risk.
     """
     cg = (policy or {}).get("correlation_guard") or {}
-    if not cg.get("enabled", True):
+    if not cg.get("enabled", False):
         return dict(target_weights), []
 
     if not target_weights:

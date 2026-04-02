@@ -133,7 +133,7 @@ def get_zombie_positions(
         Empty list if disabled or no zombies found.
     """
     zk = (policy or {}).get("zombie_killer") or {}
-    if not zk.get("enabled", True):
+    if not zk.get("enabled", False):
         return []
 
     max_hold_days = float(zk.get("max_hold_days", 5.0) or 5.0)
