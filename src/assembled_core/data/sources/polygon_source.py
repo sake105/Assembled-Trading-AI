@@ -52,7 +52,9 @@ def _fetch_single_symbol(
     try:
         from polygon import RESTClient  # noqa: PLC0415
     except ImportError:
-        logger.error("[ERROR] polygon-api-client not installed. Run: pip install polygon-api-client>=1.12.0")
+        logger.error(
+            "[ERROR] polygon-api-client not installed. Run: pip install polygon-api-client>=1.12.0"
+        )
         return None
 
     try:
@@ -69,7 +71,9 @@ def _fetch_single_symbol(
         )
 
         if not aggs:
-            logger.warning("[WARN] polygon: no data for %s (%s – %s)", symbol, start_date, end_date)
+            logger.warning(
+                "[WARN] polygon: no data for %s (%s – %s)", symbol, start_date, end_date
+            )
             return None
 
         rows = []
@@ -118,7 +122,9 @@ def fetch_prices_polygon(
         DataFrame with columns: timestamp (UTC date), symbol, open, high,
         low, close, volume.  Empty DataFrame if key missing or nothing fetched.
     """
-    _empty = pd.DataFrame(columns=["timestamp", "symbol", "open", "high", "low", "close", "volume"])
+    _empty = pd.DataFrame(
+        columns=["timestamp", "symbol", "open", "high", "low", "close", "volume"]
+    )
 
     if not symbols:
         return _empty
@@ -139,10 +145,17 @@ def fetch_prices_polygon(
             frames.append(df)
 
     if not frames:
-        logger.warning("[WARN] polygon: no data returned for any of %d requested symbols.", len(symbols))
+        logger.warning(
+            "[WARN] polygon: no data returned for any of %d requested symbols.",
+            len(symbols),
+        )
         return _empty
 
     result = pd.concat(frames, ignore_index=True)
     result = result.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
-    logger.info("[OK] polygon: fetched %d rows for %d symbols.", len(result), result["symbol"].nunique())
+    logger.info(
+        "[OK] polygon: fetched %d rows for %d symbols.",
+        len(result),
+        result["symbol"].nunique(),
+    )
     return result

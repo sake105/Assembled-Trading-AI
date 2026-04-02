@@ -19,12 +19,16 @@ from src.assembled_core.execution.pre_trade_checks import PreTradeConfig
 
 @pytest.fixture
 def sample_target_positions() -> pd.DataFrame:
-    """Create sample target positions."""
+    """Create sample target positions.
+
+    target_qty is NOTIONAL (weight * capital), not shares.
+    generate_orders_from_targets divides by price to get shares.
+    """
     return pd.DataFrame(
         {
             "symbol": ["AAPL", "GOOGL", "MSFT"],
             "target_weight": [0.33, 0.33, 0.34],
-            "target_qty": [100.0, 50.0, 200.0],
+            "target_qty": [15000.0, 125000.0, 60000.0],
         }
     )
 
@@ -59,9 +63,9 @@ class TestOrderFlowWithRiskControls:
         # Apply risk controls with strict limits
         config = PreTradeConfig(max_notional_per_symbol=10000.0)  # Very low limit
 
-        # AAPL: 100 * 150 = 15000 (> 10000) - blocked
-        # GOOGL: 50 * 2500 = 125000 (> 10000) - blocked
-        # MSFT: 200 * 300 = 60000 (> 10000) - blocked
+        # AAPL: 15000/150 = 100 shares * 150 = $15000 notional (> 10000) - blocked
+        # GOOGL: 125000/2500 = 50 shares * 2500 = $125000 notional (> 10000) - blocked
+        # MSFT: 60000/300 = 200 shares * 300 = $60000 notional (> 10000) - blocked
 
         filtered, result = filter_orders_with_risk_controls(
             orders,

@@ -35,7 +35,10 @@ def load_policy(
 
     if validate:
         try:
-            from src.assembled_core.config.policy_schema import validate_policy  # noqa: PLC0415
+            from src.assembled_core.config.policy_schema import (
+                validate_policy,
+            )  # noqa: PLC0415
+
             data, _ = validate_policy(data)
         except Exception as e:
             logger.debug("policy schema validation skipped: %s", e)

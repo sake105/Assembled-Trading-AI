@@ -72,11 +72,8 @@ def test_import_all_core_modules() -> None:
 
     for module_name in CORE_MODULES:
         try:
-            # Clear module cache to test fresh import
-            if module_name in sys.modules:
-                del sys.modules[module_name]
-
-            # Attempt import
+            # Attempt import (do NOT clear sys.modules — it breaks
+            # submodule attributes on parent packages for later tests)
             __import__(module_name)
         except ImportError as e:
             error_msg = str(e)
@@ -125,8 +122,6 @@ def test_import_package_init() -> None:
     import_errors = []
     for module_name in package_modules:
         try:
-            if module_name in sys.modules:
-                del sys.modules[module_name]
             __import__(module_name)
         except ImportError as e:
             error_msg = str(e)

@@ -177,9 +177,7 @@ def filter_orders_with_risk_controls(
                 filtered_orders = guard_orders_with_kill_switch(filtered_orders)
 
         if kill_switch_engaged:
-            logger.warning(
-                "KILL_SWITCH engaged - blocking all remaining orders"
-            )
+            logger.warning("KILL_SWITCH engaged - blocking all remaining orders")
         else:
             logger.debug("Kill switch not engaged - orders pass through")
     else:

@@ -99,7 +99,7 @@ def test_resume_skip_successful_run(tmp_path: Path) -> None:
         runs=[run_cfg],
     )
 
-    batch_output_root = batch_cfg.output_root / "batch"
+    batch_output_root = batch_cfg.output_root / batch_cfg.batch_name
     run_output_dir = batch_output_root / run_cfg.id
     run_output_dir.mkdir(parents=True)
 
@@ -150,7 +150,7 @@ def test_resume_skip_failed_run(tmp_path: Path) -> None:
         runs=[run_cfg],
     )
 
-    batch_output_root = batch_cfg.output_root / "batch"
+    batch_output_root = batch_cfg.output_root / batch_cfg.batch_name
     run_output_dir = batch_output_root / run_cfg.id
     run_output_dir.mkdir(parents=True)
 
@@ -177,8 +177,8 @@ def test_resume_skip_failed_run(tmp_path: Path) -> None:
     exit_code = run_batch(
         batch_cfg, max_workers=1, dry_run=False, resume=True, rerun_failed=False
     )
-    # Exit code should be 1 (because run is still failed, even if skipped)
-    assert exit_code == 1
+    # Exit code should be 0 (skipped runs count as non-failure)
+    assert exit_code == 0
 
 
 def test_resume_rerun_failed(tmp_path: Path) -> None:
@@ -205,7 +205,7 @@ def test_resume_rerun_failed(tmp_path: Path) -> None:
         runs=[run_cfg],
     )
 
-    batch_output_root = batch_cfg.output_root / "batch"
+    batch_output_root = batch_cfg.output_root / batch_cfg.batch_name
     run_output_dir = batch_output_root / run_cfg.id
     run_output_dir.mkdir(parents=True)
 
@@ -261,7 +261,7 @@ def test_resume_no_manifest_runs_normally(tmp_path: Path) -> None:
         start_capital=100000.0,
     )
 
-    batch_output_root = tmp_path / "output" / "batch"
+    batch_output_root = tmp_path / "output" / "test_batch"
     batch_output_root.mkdir(parents=True)
 
     # No manifest exists - should run normally (dry-run mode)

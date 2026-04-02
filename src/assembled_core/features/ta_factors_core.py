@@ -238,7 +238,9 @@ def _add_trend_strength_factors(
     if rename_map:
         ma_input = ma_input.rename(columns=rename_map)
     ma_price_col = price_col  # price_col name is unchanged
-    temp_df = add_moving_averages(ma_input, windows=lookback_windows, price_col=ma_price_col, use_namespace=False)
+    temp_df = add_moving_averages(
+        ma_input, windows=lookback_windows, price_col=ma_price_col, use_namespace=False
+    )
     ma_cols = {f"ma_{lb}": temp_df[f"ma_{lb}"] for lb in lookback_windows}
 
     # Trend strength factors for different MA windows

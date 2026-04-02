@@ -159,7 +159,7 @@ def test_parallel_run_batch_dry_run(tmp_path: Path) -> None:
     assert exit_code == 0
 
     # Run directories should exist
-    batch_output_root = batch_cfg.output_root / "batch"
+    batch_output_root = batch_cfg.output_root / batch_cfg.batch_name
     for run_cfg in run_cfgs:
         run_dir = batch_output_root / run_cfg.id
         assert run_dir.exists()
@@ -208,10 +208,10 @@ def test_no_folder_collisions(tmp_path: Path) -> None:
 
     from scripts.batch_runner import BatchConfig, RunConfig, run_batch
 
-    # Create multiple runs with different configs (should get different IDs)
+    # Create multiple runs with different configs
     run_cfgs = [
         RunConfig(
-            id="",  # Will be auto-generated
+            id="run_a",
             strategy="trend_baseline",
             freq="1d",
             start_date="2020-01-01",
@@ -220,7 +220,7 @@ def test_no_folder_collisions(tmp_path: Path) -> None:
             start_capital=100000.0,
         ),
         RunConfig(
-            id="",  # Will be auto-generated (different params -> different ID)
+            id="run_b",
             strategy="trend_baseline",
             freq="1d",
             start_date="2021-01-01",  # Different date
@@ -237,13 +237,6 @@ def test_no_folder_collisions(tmp_path: Path) -> None:
         runs=run_cfgs,
     )
 
-    # Generate IDs
-    from scripts.batch_runner import _compute_run_id_hash
-
-    for run_cfg in batch_cfg.runs:
-        if not run_cfg.id:
-            run_cfg.id = _compute_run_id_hash(run_cfg, batch_cfg.seed)
-
     # IDs should be different
     assert run_cfgs[0].id != run_cfgs[1].id
 
@@ -251,7 +244,7 @@ def test_no_folder_collisions(tmp_path: Path) -> None:
     exit_code = run_batch(batch_cfg, max_workers=2, dry_run=True)
     assert exit_code == 0
 
-    batch_output_root = batch_cfg.output_root / "batch"
+    batch_output_root = batch_cfg.output_root / batch_cfg.batch_name
     for run_cfg in run_cfgs:
         run_dir = batch_output_root / run_cfg.id
         assert run_dir.exists()

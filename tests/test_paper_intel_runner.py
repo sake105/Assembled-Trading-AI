@@ -6,6 +6,7 @@ import json
 
 import pytest
 
+from src.assembled_core.events import news as _news_module
 from src.assembled_core.paper.intel_runner import (
     build_intel_summary,
     compute_news_geo,
@@ -38,7 +39,8 @@ def test_run_real_intel_once_calls_news_pipeline(tmp_path, monkeypatch):
         return {"events": [], "health": health}
 
     monkeypatch.setattr(
-        "src.assembled_core.events.news.run_news_pipeline",
+        _news_module,
+        "run_news_pipeline",
         fake_run_news_pipeline,
     )
 
@@ -58,7 +60,8 @@ def test_run_real_intel_once_handles_failure(tmp_path, monkeypatch):
         raise RuntimeError("simulated failure")
 
     monkeypatch.setattr(
-        "src.assembled_core.events.news.run_news_pipeline",
+        _news_module,
+        "run_news_pipeline",
         failing_pipeline,
     )
 

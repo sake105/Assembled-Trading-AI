@@ -6,7 +6,6 @@ All tests are marked @pytest.mark.phase12.
 
 from __future__ import annotations
 
-import time
 from dataclasses import fields
 from typing import List
 
@@ -17,7 +16,6 @@ from assembled_core.ops.daily_scheduler import (
     WorkerResult,
     build_cycle_summary,
     run_daily_cycle,
-    schedule_loop,
     _health_check_worker,
 )
 
@@ -85,7 +83,9 @@ def test_build_cycle_summary_with_errors():
     """One error result is reflected in the summary."""
     results = [
         WorkerResult(worker_name="w1", status="ok", duration_s=0.01),
-        WorkerResult(worker_name="w2", status="error", duration_s=0.01, error_msg="boom"),
+        WorkerResult(
+            worker_name="w2", status="error", duration_s=0.01, error_msg="boom"
+        ),
     ]
     summary = build_cycle_summary(results)
     assert summary["error"] == 1

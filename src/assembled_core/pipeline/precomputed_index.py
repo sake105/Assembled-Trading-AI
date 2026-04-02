@@ -95,9 +95,10 @@ def build_panel_index(
         timestamps_series = symbol_rows[ts_col]
 
         # Ensure timestamps are timezone-aware UTC (convert if needed)
-        if timestamps_series.dtype.tz is None:
+        _tz = getattr(timestamps_series.dtype, "tz", None)
+        if _tz is None:
             timestamps_series = pd.to_datetime(timestamps_series, utc=True)
-        elif timestamps_series.dtype.tz != pd.Timestamp.utcnow().tz:
+        elif str(_tz) != "UTC":
             timestamps_series = timestamps_series.dt.tz_convert("UTC")
 
         # Convert to numpy datetime64 array for efficient binary search

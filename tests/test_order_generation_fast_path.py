@@ -257,27 +257,35 @@ def test_fast_path_equivalence_with_merge():
         }
     )
 
-    # Fast-path result
+    # Fast-path result — fast path treats target_qty as SHARES, so we must
+    # pre-convert notional→shares to match what generate_orders_from_targets does.
     prices_latest = (
         prices.groupby("symbol", group_keys=False)["close"].last().reset_index()
     )
+    price_map = dict(zip(prices_latest["symbol"], prices_latest["close"]))
+    target_shares = target.copy()
+    target_shares["target_qty"] = target_shares.apply(
+        lambda r: r["target_qty"] / price_map[r["symbol"]], axis=1
+    )
     orders_fast = generate_orders_from_targets_fast(
-        target_positions=target,
+        target_positions=target_shares,
         current_positions=current,
         prices_latest=prices_latest,
     )
 
-    # Merge-based result (via generate_orders_from_targets with misaligned to force merge)
-    # Actually, force merge by making symbols different order
-    target_shuffled = target.sample(frac=1).sort_values("symbol").reset_index(drop=True)
-    current_shuffled = (
-        current.sample(frac=1).sort_values("symbol").reset_index(drop=True)
+    # Merge-based result — force merge path by adding extra symbol in current
+    # so symbols don't match exactly (bypasses fast-path delegation)
+    current_extra = pd.concat(
+        [current, pd.DataFrame({"symbol": ["ZZZ"], "qty": [0.0]})],
+        ignore_index=True,
     )
     orders_merge = generate_orders_from_targets(
-        target_positions=target_shuffled,
-        current_positions=current_shuffled,
+        target_positions=target,
+        current_positions=current_extra,
         prices=prices,
     )
+    # Remove any ZZZ orders from merge result
+    orders_merge = orders_merge[orders_merge["symbol"] != "ZZZ"].reset_index(drop=True)
 
     # Results should be equivalent (same orders, just possibly different order)
     assert len(orders_fast) == len(orders_merge)

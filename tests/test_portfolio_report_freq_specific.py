@@ -33,10 +33,12 @@ def test_portfolio_report_prefers_freq_specific(
     tmp_path: Path, monkeypatch, client: TestClient
 ):
     """Test that API prefers freq-specific portfolio_report_{freq}.md over legacy portfolio_report.md."""
+    import src.assembled_core.api.routers.portfolio as portfolio_router
     import src.assembled_core.config as config_module
 
     original_output_dir = config_module.OUTPUT_DIR
     monkeypatch.setattr(config_module, "OUTPUT_DIR", tmp_path)
+    monkeypatch.setattr(portfolio_router, "OUTPUT_DIR", tmp_path)
 
     try:
         # Create both files with different values
@@ -110,10 +112,12 @@ def test_portfolio_report_fallback_to_legacy(
     tmp_path: Path, monkeypatch, client: TestClient
 ):
     """Test that API falls back to legacy portfolio_report.md if freq-specific file doesn't exist."""
+    import src.assembled_core.api.routers.portfolio as portfolio_router
     import src.assembled_core.config as config_module
 
     original_output_dir = config_module.OUTPUT_DIR
     monkeypatch.setattr(config_module, "OUTPUT_DIR", tmp_path)
+    monkeypatch.setattr(portfolio_router, "OUTPUT_DIR", tmp_path)
 
     try:
         # Create only legacy file

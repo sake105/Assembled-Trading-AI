@@ -38,9 +38,22 @@ _EMPTY = pd.DataFrame(columns=["timestamp", "series_id", "value", "period", "yea
 _BLS_URL = "https://api.bls.gov/publicAPI/v2/timeseries/data/"
 
 _MONTH_MAP = {
-    "M01": 1, "M02": 2, "M03": 3, "M04": 4, "M05": 5, "M06": 6,
-    "M07": 7, "M08": 8, "M09": 9, "M10": 10, "M11": 11, "M12": 12,
-    "Q01": 1, "Q02": 4, "Q03": 7, "Q04": 10,  # quarterly -> first month
+    "M01": 1,
+    "M02": 2,
+    "M03": 3,
+    "M04": 4,
+    "M05": 5,
+    "M06": 6,
+    "M07": 7,
+    "M08": 8,
+    "M09": 9,
+    "M10": 10,
+    "M11": 11,
+    "M12": 12,
+    "Q01": 1,
+    "Q02": 4,
+    "Q03": 7,
+    "Q04": 10,  # quarterly -> first month
     "A01": 1,  # annual -> January
 }
 
@@ -73,15 +86,17 @@ def fetch_bls_series(
         return _EMPTY.copy()
 
     # BLS v2 API allows up to 50 series per request with key, 25 without
-    chunks = [series_ids[i:i + 25] for i in range(0, len(series_ids), 25)]
+    chunks = [series_ids[i : i + 25] for i in range(0, len(series_ids), 25)]
     frames: list[pd.DataFrame] = []
 
     for chunk in chunks:
-        payload = json.dumps({
-            "seriesid": chunk,
-            "startyear": str(start_year),
-            "endyear": str(end_year),
-        })
+        payload = json.dumps(
+            {
+                "seriesid": chunk,
+                "startyear": str(start_year),
+                "endyear": str(end_year),
+            }
+        )
         try:
             resp = requests.post(
                 _BLS_URL,
@@ -96,7 +111,11 @@ def fetch_bls_series(
             continue
 
         if data.get("status") != "REQUEST_SUCCEEDED":
-            logger.warning("[WARN] bls: API returned status '%s': %s", data.get("status"), data.get("message"))
+            logger.warning(
+                "[WARN] bls: API returned status '%s': %s",
+                data.get("status"),
+                data.get("message"),
+            )
             continue
 
         for series in data.get("Results", {}).get("series", []):
@@ -109,8 +128,15 @@ def fetch_bls_series(
                     month = _MONTH_MAP.get(period, 1)
                     ts = pd.Timestamp(year=year, month=month, day=1, tz="UTC")
                     value = float(obs["value"])
-                    rows.append({"timestamp": ts, "series_id": sid, "value": value,
-                                 "period": period, "year": year})
+                    rows.append(
+                        {
+                            "timestamp": ts,
+                            "series_id": sid,
+                            "value": value,
+                            "period": period,
+                            "year": year,
+                        }
+                    )
                 except (KeyError, ValueError):
                     continue
             if rows:
@@ -118,10 +144,15 @@ def fetch_bls_series(
                 logger.debug("[OK] bls: %d observations for series %s", len(rows), sid)
 
     if not frames:
-        logger.warning("[WARN] bls: no data returned for any of %d requested series.", len(series_ids))
+        logger.warning(
+            "[WARN] bls: no data returned for any of %d requested series.",
+            len(series_ids),
+        )
         return _EMPTY.copy()
 
     result = pd.concat(frames, ignore_index=True)
     result = result.sort_values(["series_id", "timestamp"]).reset_index(drop=True)
-    logger.info("[OK] bls: %d rows for %d series.", len(result), result["series_id"].nunique())
+    logger.info(
+        "[OK] bls: %d rows for %d series.", len(result), result["series_id"].nunique()
+    )
     return result

@@ -113,7 +113,9 @@ class DailyScheduler:
     """Orchestrates a sequence of daily operational workers."""
 
     def __init__(self, workers: Optional[List[Callable]] = None) -> None:
-        self.workers: List[Callable] = workers if workers is not None else list(_DEFAULT_WORKERS)
+        self.workers: List[Callable] = (
+            workers if workers is not None else list(_DEFAULT_WORKERS)
+        )
 
     def run_daily_cycle(
         self,
@@ -129,7 +131,12 @@ class DailyScheduler:
             try:
                 result = worker_fn(date_str, output_dir, dry_run)
                 results.append(result)
-                logger.info("[%s] %s duration=%.3fs", result.status.upper(), name, result.duration_s)
+                logger.info(
+                    "[%s] %s duration=%.3fs",
+                    result.status.upper(),
+                    name,
+                    result.duration_s,
+                )
             except Exception as exc:  # noqa: BLE001
                 msg = f"{type(exc).__name__}: {exc}"
                 logger.error("[ERROR] %s caught unhandled exception: %s", name, msg)

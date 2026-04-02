@@ -49,8 +49,7 @@ def apply_splits_for_research_prices(
     # 1/split_ratio for all future splits of that symbol.
     # Pre-group splits by symbol so we avoid repeated O(n_actions) scans per row.
     splits_by_symbol: dict[str, pd.DataFrame] = {
-        sym: grp.sort_values("effective_date")
-        for sym, grp in actions.groupby("symbol")
+        sym: grp.sort_values("effective_date") for sym, grp in actions.groupby("symbol")
     }
 
     result = result.copy()

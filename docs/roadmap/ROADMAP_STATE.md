@@ -57,36 +57,86 @@ Do **not** leave a session after meaningful work without checking whether this f
 ## 4. Current execution position
 
 ### Current milestone
-- ID: M13
-- Name: Autonomous Operations
-- Overall milestone status: locally tested (2026-03-31)
+- ID: Post-M13 Audit Fixes
+- Name: Audit fixes — CRITICAL + HIGH items resolved
+- Overall milestone status: locally tested (2026-04-01)
 
 ### Current task
-- All M8–M13 tasks complete.
+- All M8–M13 tasks complete. Optimization Batches A/B/C applied. Security hardening applied. 4 audit items fixed (commit 66dae29).
 
 ### Current objective
-- M1–M13 locally tested (complete).
-- M8 Evidence Engine: grades.py, grader.py, misinfo_risk.py, action_gate.py (65 tests)
-- M9 Policy Calibration: all TBD values replaced in configs/policy.yaml (9 tests)
-- M10 ETF Universe: configs/universe_etf_v1.yaml (30+ ETFs), data/universe_etf.py (22 tests)
-- M11 Post-Trade Learning Loop: post_trade_analyzer.py, learning_store.py, run_post_trade_analysis.py (29 tests)
-- M12 Broker Adapter: execution/broker_adapter.py (AlpacaAdapter, paper-only) (19 tests)
-- M13 Autonomous Operations: ops/daily_scheduler.py, scripts/run_daily_scheduler.py (10 tests)
-- Total phase12: 365/365 pass (2026-03-31).
-- 1 pre-existing failure: `test_order_flow_respects_pre_trade_checks` (logic assertion, not fixed).
+- 4 audit items fixed: CRITICAL-2.1, HIGH-1.4, HIGH-2.3, HIGH-5.1 (see below).
+- 366/366 phase12 pass (locally). Ruff clean.
+- MEDIUM open: MEDIUM-3.1 (look-ahead bias in feature panel), MEDIUM-5.3 (market stress signal not wired into exposure multiplier), MEDIUM-6.2 (hardcoded paths), MEDIUM-6.3 (no policy schema validation).
+- Batch D (4 items: OPT-9/12/13/14): still deferred, requires design review.
+- 1 pre-existing failure: `test_order_flow_respects_pre_trade_checks` (not fixed, pre-existing).
+- Pending remote push: commits f51409f, e159971, 28d7def, 66dae29.
 
 ### Next smallest safe step
-- Push all committed changes (M8–M13) to remote.
+- Push all pending commits (f51409f, e159971, 28d7def, 66dae29) to remote.
 - Confirm GitHub Actions CI run.
-- Open items: M3 numeric drawdown thresholds in policy.yaml; M5 spec doc.
+- Then address remaining MEDIUM audit items (MEDIUM-3.1, MEDIUM-5.3, MEDIUM-6.2, MEDIUM-6.3).
 
 ### After that
-- Review CI run results.
-- Plan M14+ as needed (observability, security hardening, etc.).
+- Review Batch D items (OPT-9, OPT-12, OPT-13, OPT-14) individually.
+- Plan M14+ (observability, further security hardening, etc.).
 
 ---
 
 ## 5. Last completed step
+
+**Session 2026-04-01 — Audit Fixes (CRITICAL-2.1, HIGH-1.4, HIGH-2.3, HIGH-5.1) — COMPLETE (locally)**
+
+- Commit: 66dae29
+- CRITICAL-2.1: `check_drawdown_kill_switch()` wired into `filter_orders_with_risk_controls()` in `risk_controls.py`. Drawdown >= 30% clears `filtered_orders` directly (not via `guard_orders_with_kill_switch()` — that path re-checks env var internally, bypassing drawdown logic).
+- HIGH-1.4: `pre_trade_checks.py` — module-level logger added; both ImportError catches (exposure_engine, group_exposures) now call `logger.error()`; group exposure ImportError now also clears `filtered_orders` (was non-blocking, inconsistent with max_weight path — fixed).
+- HIGH-2.3: `trading_cycle.py._apply_risk_controls_default()` loads `policy.yaml risk_limits` as fallback when `ctx.risk_config` is empty; mapping: `max_position_weight → max_weight_per_symbol`, `max_drawdown.kill → drawdown_threshold`, `turnover.daily_cap → turnover_cap`.
+- HIGH-5.1: Default `safe_csv` output writing implemented in `trading_cycle.py` Step 7 via `write_safe_orders_csv()`; other formats log debug message; TODO removed.
+- Files changed: `src/assembled_core/execution/risk_controls.py`, `src/assembled_core/execution/pre_trade_checks.py`, `src/assembled_core/pipeline/trading_cycle.py`
+- Test results: 366/366 phase12 pass. Ruff clean.
+- Truth status: locally tested; CI push pending.
+- Still open: MEDIUM-3.1, MEDIUM-5.3, MEDIUM-6.2, MEDIUM-6.3; Batch D (4 items); 1 pre-existing test failure.
+
+---
+
+**Session 2026-04-01 — Security Hardening + API Sources Integration — COMPLETE (locally)**
+
+- Commit: 28d7def
+- Security fixes (5 files):
+  - `kill_switch.py`: dual-gate check (env var + sentinel file); new `check_drawdown_kill_switch()` (30% DD)
+  - `broker_adapter.py`: two-step live gate — `force_paper=False` AND `ALPACA_ALLOW_LIVE=true` required
+  - `order_generation.py`: WARNING log for missing price when target_notional > 0
+  - `state_machine.py`: ERROR on corrupt state file; `.bak` written before every save
+  - `ledger_store.py`: `os.replace()` for atomic Windows writes; dedup `keep="last"`
+- New package `src/assembled_core/data/sources/`: yfinance_source.py, polygon_source.py, fred_source.py
+- New deps: alpaca-py, polygon-api-client, fredapi, edgartools, yfinance
+- Test results: 366/366 phase12 pass (+1 new broker security test vs. prior 365)
+- Truth status: locally tested; CI push pending
+- Critical remaining: drawdown kill switch not yet wired into trading_cycle.py auto-stop
+
+---
+
+**Session 2026-04-01 — Systematic Optimization (Batches A, B, C) — COMPLETE**
+
+- Batch A — Zero-risk isolated fixes (5 items):
+  - `ta_factors_core.py`: removed dead `grouped_price.pct_change()` call (OPT-1)
+  - `altdata_earnings_insider_factors.py`: removed dead function `aggregate_insider_events_per_date` (OPT-10); moved 2x `import os` to module top (OPT-11)
+  - `turnover_budget.py`: replaced deprecated `from typing import Tuple` with built-in `tuple[...]` (OPT-15)
+  - `trading_cycle.py`: added `logger.warning(...)` to 4 bare `except Exception:` blocks (OPT-17)
+- Batch B — Performance vectorization (5 items):
+  - `data_qc.py`: vectorized `_check_stale_prices` (OPT-4), `_check_outlier_returns` (OPT-5), `_check_missing_sessions` pre-grouping (OPT-19)
+  - `turnover_budget.py`: replaced 4x `iterrows()` with vectorized dict-building (OPT-6)
+  - `labeling.py`: pre-grouped `prices_by_symbol` in `label_signals` (OPT-18)
+- Batch C — Feature computation pipeline (4 items):
+  - `ta_factors_core.py`: `_add_short_term_reversal` replaced double-groupby with `transform()` (OPT-2)
+  - `corporate_actions.py`: vectorized per-symbol split factor computation (OPT-7)
+  - `calendar.py`: vectorized NYSE path in `filter_prices_to_trading_days` (OPT-8)
+  - `multifactor_signal.py`: replaced `.apply()` with `transform()` (OPT-16)
+- Batch D (4 items: OPT-9, OPT-12, OPT-13, OPT-14): NOT implemented — deferred for design review.
+- Total phase12: 365/365 pass after each batch. ruff clean.
+- Truth status: locally tested; CI push pending.
+
+---
 
 **Session 2026-03-31 (5) — M8–M13: Evidence Engine through Autonomous Operations — ALL COMPLETE**
 

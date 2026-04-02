@@ -21,10 +21,12 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+
 def _default_factors_root() -> Path:
     """Return default factor store root anchored to project base dir."""
     try:
         from src.assembled_core.config.config import get_base_dir  # noqa: PLC0415
+
         return get_base_dir() / "output" / "factors"
     except Exception:
         return Path("output/factors")

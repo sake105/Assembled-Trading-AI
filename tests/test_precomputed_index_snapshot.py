@@ -342,8 +342,8 @@ def test_snapshot_timezone_aware_handling():
         {
             "symbol": ["AAPL", "AAPL"],
             "timestamp": pd.to_datetime(
-                ["2020-01-01 09:00", "2020-01-02 09:00"], tz="America/New_York"
-            ),
+                ["2020-01-01 09:00", "2020-01-02 09:00"]
+            ).tz_localize("America/New_York"),
             "close": [100.0, 101.0],
         }
     )

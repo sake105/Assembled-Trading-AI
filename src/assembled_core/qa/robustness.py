@@ -1031,7 +1031,7 @@ def build_multiple_testing_warnings(
 
     # Heuristic: warning if many trials and large spread
     # Threshold: n_trials >= 10 AND spread > 2.0 (for Sharpe ratio)
-    warning_inflated = n_trials >= 10 and metric_spread > 2.0
+    warning_inflated = n_trials >= 10 and metric_spread >= 2.0
 
     if warning_inflated:
         warnings_dict["warning_inflated"] = True

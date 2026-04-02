@@ -29,7 +29,9 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-_EMPTY = pd.DataFrame(columns=["timestamp", "symbol", "open", "high", "low", "close", "volume"])
+_EMPTY = pd.DataFrame(
+    columns=["timestamp", "symbol", "open", "high", "low", "close", "volume"]
+)
 _BASE_URL = "https://www.alphavantage.co/query"
 _RATE_LIMIT_SLEEP = 12.5  # seconds between requests (5/min free tier)
 
@@ -73,7 +75,9 @@ def fetch_prices_alphavantage(
 
     api_key = _get_api_key()
     if api_key is None:
-        logger.warning("[WARN] alphavantage: ALPHAVANTAGE_KEY not set — returning empty DataFrame.")
+        logger.warning(
+            "[WARN] alphavantage: ALPHAVANTAGE_KEY not set — returning empty DataFrame."
+        )
         return _EMPTY.copy()
 
     start_ts = pd.Timestamp(start_date)
@@ -97,10 +101,18 @@ def fetch_prices_alphavantage(
             data = resp.json()
 
             if "Note" in data:
-                logger.warning("[WARN] alphavantage: rate limit hit for %s — %s", symbol, data["Note"])
+                logger.warning(
+                    "[WARN] alphavantage: rate limit hit for %s — %s",
+                    symbol,
+                    data["Note"],
+                )
                 continue
             if "Information" in data:
-                logger.warning("[WARN] alphavantage: API message for %s — %s", symbol, data["Information"])
+                logger.warning(
+                    "[WARN] alphavantage: API message for %s — %s",
+                    symbol,
+                    data["Information"],
+                )
                 continue
 
             ts_data = data.get("Time Series (Daily)") or {}
@@ -113,30 +125,40 @@ def fetch_prices_alphavantage(
                 ts = pd.Timestamp(date_str, tz="UTC")
                 if ts < start_ts.tz_localize("UTC") or ts > end_ts.tz_localize("UTC"):
                     continue
-                rows.append({
-                    "timestamp": ts,
-                    "symbol": symbol,
-                    "open": float(ohlcv.get("1. open", 0)),
-                    "high": float(ohlcv.get("2. high", 0)),
-                    "low": float(ohlcv.get("3. low", 0)),
-                    "close": float(ohlcv.get("4. close", 0)),
-                    "volume": float(ohlcv.get("5. volume", 0)),
-                })
+                rows.append(
+                    {
+                        "timestamp": ts,
+                        "symbol": symbol,
+                        "open": float(ohlcv.get("1. open", 0)),
+                        "high": float(ohlcv.get("2. high", 0)),
+                        "low": float(ohlcv.get("3. low", 0)),
+                        "close": float(ohlcv.get("4. close", 0)),
+                        "volume": float(ohlcv.get("5. volume", 0)),
+                    }
+                )
 
             if rows:
                 frames.append(pd.DataFrame(rows))
                 logger.debug("[OK] alphavantage: %d rows for %s", len(rows), symbol)
             else:
-                logger.warning("[WARN] alphavantage: no data in date range for %s", symbol)
+                logger.warning(
+                    "[WARN] alphavantage: no data in date range for %s", symbol
+                )
 
         except Exception as exc:
             logger.error("[ERROR] alphavantage: failed to fetch %s — %s", symbol, exc)
 
     if not frames:
-        logger.warning("[WARN] alphavantage: no data returned for any of %d symbols.", len(symbols))
+        logger.warning(
+            "[WARN] alphavantage: no data returned for any of %d symbols.", len(symbols)
+        )
         return _EMPTY.copy()
 
     result = pd.concat(frames, ignore_index=True)
     result = result.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
-    logger.info("[OK] alphavantage: fetched %d rows for %d symbols.", len(result), result["symbol"].nunique())
+    logger.info(
+        "[OK] alphavantage: fetched %d rows for %d symbols.",
+        len(result),
+        result["symbol"].nunique(),
+    )
     return result

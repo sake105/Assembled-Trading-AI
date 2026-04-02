@@ -79,9 +79,10 @@ def generate_orders_from_targets_fast(
 
     # Extract numpy arrays directly (no merge, no sort)
     symbols = target_positions["symbol"].values
-    target_notional = target_positions[target_qty_col].values.astype(np.float64)
+    target_qty_raw = target_positions[target_qty_col].values.astype(np.float64)
 
-    # Get prices first (needed to convert target notional to shares)
+    # Get prices for order price field (not for qty conversion —
+    # fast-path treats target_qty as SHARES, not notional)
     if (
         prices_latest is not None
         and "close" in prices_latest.columns
@@ -93,21 +94,11 @@ def generate_orders_from_targets_fast(
         prices_array = np.array(
             [price_map.get(sym, 0.0) for sym in symbols], dtype=np.float64
         )
-        # Warn for symbols with missing price but non-zero target notional
-        for i, sym in enumerate(symbols):
-            if prices_array[i] == 0.0 and abs(target_notional[i]) > 1e-10:
-                logger.warning(
-                    "[WARN] order_generation: missing price for symbol %s, "
-                    "target_notional=%.2f — order skipped",
-                    sym,
-                    target_notional[i],
-                )
     else:
         prices_array = np.zeros(len(symbols), dtype=np.float64)
 
-    # target_qty from position_sizing is NOTIONAL; current_positions.qty is SHARES -> convert target to shares
-    safe_price = np.where(prices_array > 1e-10, prices_array, np.nan)
-    target_qty = np.where(np.isfinite(safe_price), target_notional / safe_price, 0.0)
+    # Fast-path: target_qty is already in SHARES (caller is responsible for conversion)
+    target_qty = target_qty_raw  # values are shares
 
     # Get current quantities in shares (assume aligned if current_positions provided)
     if current_positions is None or current_positions.empty:
@@ -256,8 +247,28 @@ def generate_orders_from_targets(
                         .reset_index(drop=True)
                     )
                 try:
+                    # Convert target_qty (notional) to shares before fast-path
+                    # Fast-path expects qty in shares, but compute_target_positions
+                    # outputs notional (weight * capital).
+                    fp_target = target_sorted.copy()
+                    if prices_latest is not None and not prices_latest.empty:
+                        price_map = dict(
+                            zip(
+                                prices_latest["symbol"].values,
+                                prices_latest["close"].values,
+                            )
+                        )
+                        fp_target["target_qty"] = fp_target.apply(
+                            lambda r: (
+                                r["target_qty"] / price_map[r["symbol"]]
+                                if r["symbol"] in price_map
+                                and price_map[r["symbol"]] > 1e-10
+                                else 0.0
+                            ),
+                            axis=1,
+                        )
                     return generate_orders_from_targets_fast(
-                        target_sorted,
+                        fp_target,
                         current_positions=current_sorted,
                         timestamp=timestamp,
                         prices_latest=prices_latest,

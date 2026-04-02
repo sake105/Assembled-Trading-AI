@@ -34,7 +34,9 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-_EMPTY = pd.DataFrame(columns=["year", "country_code", "country_name", "indicator", "value"])
+_EMPTY = pd.DataFrame(
+    columns=["year", "country_code", "country_name", "indicator", "value"]
+)
 _BASE_URL = "https://api.worldbank.org/v2"
 
 
@@ -80,16 +82,25 @@ def fetch_worldbank_indicator(
         resp.raise_for_status()
         data = resp.json()
     except Exception as exc:
-        logger.error("[ERROR] worldbank: request failed for indicator %s — %s", indicator, exc)
+        logger.error(
+            "[ERROR] worldbank: request failed for indicator %s — %s", indicator, exc
+        )
         return _EMPTY.copy()
 
     if not isinstance(data, list) or len(data) < 2:
-        logger.warning("[WARN] worldbank: unexpected response format for indicator %s", indicator)
+        logger.warning(
+            "[WARN] worldbank: unexpected response format for indicator %s", indicator
+        )
         return _EMPTY.copy()
 
     records = data[1]
     if not records:
-        logger.warning("[WARN] worldbank: no data for indicator %s (%d–%d)", indicator, start_year, end_year)
+        logger.warning(
+            "[WARN] worldbank: no data for indicator %s (%d–%d)",
+            indicator,
+            start_year,
+            end_year,
+        )
         return _EMPTY.copy()
 
     rows = []
@@ -101,13 +112,17 @@ def fetch_worldbank_indicator(
             year = int(rec.get("date", 0))
         except (ValueError, TypeError):
             continue
-        rows.append({
-            "year": year,
-            "country_code": (rec.get("countryiso3code") or rec.get("country", {}).get("id") or "").upper(),
-            "country_name": (rec.get("country") or {}).get("value") or "",
-            "indicator": indicator,
-            "value": float(value),
-        })
+        rows.append(
+            {
+                "year": year,
+                "country_code": (
+                    rec.get("countryiso3code") or rec.get("country", {}).get("id") or ""
+                ).upper(),
+                "country_name": (rec.get("country") or {}).get("value") or "",
+                "indicator": indicator,
+                "value": float(value),
+            }
+        )
 
     if not rows:
         return _EMPTY.copy()
@@ -116,6 +131,8 @@ def fetch_worldbank_indicator(
     result = result.sort_values(["country_code", "year"]).reset_index(drop=True)
     logger.info(
         "[OK] worldbank: %d rows for indicator %s (%d countries).",
-        len(result), indicator, result["country_code"].nunique(),
+        len(result),
+        indicator,
+        result["country_code"].nunique(),
     )
     return result

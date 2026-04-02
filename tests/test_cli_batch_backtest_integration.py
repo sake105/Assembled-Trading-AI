@@ -1,13 +1,12 @@
 """Integration tests for batch_backtest CLI subcommand.
 
 Tests verify that the subcommand is accessible from the main CLI
-and can be executed (with mocking).
+and can be executed (with dry-run).
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
 
 
 from scripts.cli import batch_backtest_subcommand, create_parser
@@ -39,100 +38,67 @@ def test_batch_backtest_subcommand_help_output(tmp_path: Path, capsys) -> None:
     help_text = captured.err + captured.out
 
     assert "--config-file" in help_text
-    assert "--serial" in help_text
     assert "--dry-run" in help_text
     assert "--max-workers" in help_text
 
 
 def test_batch_backtest_smoke_run_with_mock(tmp_path: Path) -> None:
-    """Smoke test: run batch_backtest with mocked runner (should not crash)."""
-    # Create minimal config
+    """Smoke test: run batch_backtest dry-run with valid config."""
+    # Create minimal config matching scripts/batch_runner format
     config_file = tmp_path / "test_config.yaml"
     config_file.write_text(
         """
 batch_name: smoke_test
-description: Smoke test batch
-output_root: output/test
-base_args:
+output_root: {output}
+seed: 42
+defaults:
+  strategy: trend_baseline
   freq: "1d"
+  start_capital: 100000.0
 runs:
   - id: run1
-    bundle_path: config/bundle.yaml
     start_date: "2015-01-01"
     end_date: "2020-12-31"
-""",
+""".format(
+            output=str(tmp_path / "output").replace("\\", "/")
+        ),
         encoding="utf-8",
-    )
-
-    from datetime import datetime
-
-    from src.assembled_core.experiments.batch_runner import BatchResult, RunResult
-
-    mock_result = BatchResult(
-        batch_name="smoke_test",
-        started_at=datetime.utcnow(),
-        finished_at=datetime.utcnow(),
-        total_runtime_sec=1.0,
-        run_results=[
-            RunResult(
-                run_id="run1",
-                status="success",
-                output_dir=tmp_path
-                / "output"
-                / "smoke_test"
-                / "runs"
-                / "0000_run1"
-                / "backtest",
-                runtime_sec=1.0,
-            ),
-        ],
     )
 
     import argparse
 
-    # Mock the runner functions
-    with patch(
-        "src.assembled_core.experiments.batch_runner.run_batch_serial",
-        return_value=mock_result,
-    ) as mock_runner:
-        from pathlib import Path as P
+    args = argparse.Namespace(
+        config_file=config_file,
+        output_root=None,
+        max_workers=1,
+        dry_run=True,
+        resume=False,
+        rerun_failed=False,
+        verbose=0,
+    )
 
-        with patch("scripts.cli.ROOT", P(tmp_path)):
-            args = argparse.Namespace(
-                config_file=config_file,
-                output_root=None,
-                output_dir=None,
-                max_workers=4,
-                serial=True,
-                fail_fast=False,
-                dry_run=False,
-                rerun=False,
-            )
-
-            exit_code = batch_backtest_subcommand(args)
-
-            # Should succeed
-            assert exit_code == 0
-            assert mock_runner.called
+    exit_code = batch_backtest_subcommand(args)
+    assert exit_code == 0
 
 
 def test_cli_batch_backtest_from_main_entrypoint(tmp_path: Path) -> None:
     """Test that batch_backtest can be invoked from main CLI entrypoint."""
-    # This tests the full CLI invocation path
     config_file = tmp_path / "test_config.yaml"
     config_file.write_text(
         """
 batch_name: test_batch
-description: Test
-output_root: output/test
-base_args:
+output_root: {output}
+seed: 42
+defaults:
+  strategy: trend_baseline
   freq: "1d"
 runs:
   - id: run1
-    bundle_path: config/bundle.yaml
     start_date: "2015-01-01"
     end_date: "2020-12-31"
-""",
+""".format(
+            output=str(tmp_path / "output").replace("\\", "/")
+        ),
         encoding="utf-8",
     )
 
@@ -145,14 +111,12 @@ runs:
             "batch_backtest",
             "--config-file",
             str(config_file),
-            "--serial",
             "--dry-run",
         ]
     )
 
     # Verify parsed correctly
     assert args.config_file == config_file
-    assert args.serial is True
     assert args.dry_run is True
 
     # Verify function is set

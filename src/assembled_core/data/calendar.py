@@ -157,12 +157,16 @@ def filter_prices_to_trading_days(
         try:
             sessions = _NYSE.sessions_in_range(min_date, max_date)
             valid_dates = set(sessions.normalize().tz_localize(None).date)
-            mask = ts.dt.tz_convert(None).dt.normalize().dt.date.map(
-                lambda d: d in valid_dates if d is not None else False
+            mask = (
+                ts.dt.tz_convert(None)
+                .dt.normalize()
+                .dt.date.map(lambda d: d in valid_dates if d is not None else False)
             )
         except Exception:
             # Fall back to per-row check if range lookup fails
-            mask = ts.apply(lambda t: is_trading_day_safe(t) if not pd.isna(t) else False)
+            mask = ts.apply(
+                lambda t: is_trading_day_safe(t) if not pd.isna(t) else False
+            )
     else:
         # Fallback: weekday filter (Mon–Fri)
         mask = ts.dt.dayofweek < 5

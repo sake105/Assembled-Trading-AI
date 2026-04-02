@@ -74,7 +74,9 @@ def fetch_news_headlines(
 
     api_key = _get_api_key()
     if api_key is None:
-        logger.warning("[WARN] newsapi: NEWSAPI_KEY not set — returning empty DataFrame.")
+        logger.warning(
+            "[WARN] newsapi: NEWSAPI_KEY not set — returning empty DataFrame."
+        )
         return _EMPTY.copy()
 
     frames: list[pd.DataFrame] = []
@@ -112,14 +114,16 @@ def fetch_news_headlines(
             for art in articles:
                 published = art.get("dateTime") or art.get("date") or ""
                 source = (art.get("source") or {}).get("title") or ""
-                rows.append({
-                    "timestamp": pd.to_datetime(published, utc=True),
-                    "title": art.get("title") or "",
-                    "description": art.get("body") or art.get("description") or "",
-                    "source": source,
-                    "url": art.get("url") or "",
-                    "query": query,
-                })
+                rows.append(
+                    {
+                        "timestamp": pd.to_datetime(published, utc=True),
+                        "title": art.get("title") or "",
+                        "description": art.get("body") or art.get("description") or "",
+                        "source": source,
+                        "url": art.get("url") or "",
+                        "query": query,
+                    }
+                )
             frames.append(pd.DataFrame(rows))
             logger.debug("[OK] newsapi: %d articles for query '%s'", len(rows), query)
 
@@ -127,10 +131,20 @@ def fetch_news_headlines(
             logger.error("[ERROR] newsapi: failed for query '%s' — %s", query, exc)
 
     if not frames:
-        logger.warning("[WARN] newsapi: no articles returned for any of %d queries.", len(keywords))
+        logger.warning(
+            "[WARN] newsapi: no articles returned for any of %d queries.", len(keywords)
+        )
         return _EMPTY.copy()
 
     result = pd.concat(frames, ignore_index=True)
-    result = result.drop_duplicates(subset=["url"]).sort_values("timestamp").reset_index(drop=True)
-    logger.info("[OK] newsapi: fetched %d articles across %d queries.", len(result), len(keywords))
+    result = (
+        result.drop_duplicates(subset=["url"])
+        .sort_values("timestamp")
+        .reset_index(drop=True)
+    )
+    logger.info(
+        "[OK] newsapi: fetched %d articles across %d queries.",
+        len(result),
+        len(keywords),
+    )
     return result

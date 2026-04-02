@@ -354,4 +354,4 @@ def test_write_batch_summary_paths(tmp_path: Path):
         assert not Path(
             run_data["manifest_path"]
         ).is_absolute(), "manifest_path should be relative"
-        assert run_data["manifest_path"] == "run1/run_manifest.json"
+        assert Path(run_data["manifest_path"]).as_posix() == "run1/run_manifest.json"

@@ -70,6 +70,7 @@ class TestAlpacaAdapterInit:
     def test_non_paper_url_blocked_without_allow_live_env(self):
         # force_paper=False alone is no longer sufficient — ALPACA_ALLOW_LIVE=true also required
         import os
+
         os.environ.pop("ALPACA_ALLOW_LIVE", None)
         with pytest.raises(ValueError, match="ALPACA_ALLOW_LIVE"):
             AlpacaAdapter(
@@ -82,6 +83,7 @@ class TestAlpacaAdapterInit:
     def test_non_paper_url_ok_with_allow_live_env(self):
         # With both force_paper=False AND ALPACA_ALLOW_LIVE=true, live URL is accepted
         import os
+
         os.environ["ALPACA_ALLOW_LIVE"] = "true"
         try:
             adapter = AlpacaAdapter(

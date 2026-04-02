@@ -123,7 +123,10 @@ def check_evidence_grade_gate_from_ctx(
     Returns:
         (ok, reason).
     """
-    from src.assembled_core.events.evidence_engine import EvidenceGrade, check_evidence_grade_gate
+    from src.assembled_core.events.evidence_engine import (
+        EvidenceGrade,
+        check_evidence_grade_gate,
+    )
 
     grade_str = getattr(ctx, "evidence_grade", None)
     if grade_str is None:
@@ -133,7 +136,10 @@ def check_evidence_grade_gate_from_ctx(
     try:
         grade = EvidenceGrade(grade_str)
     except ValueError:
-        return True, f"evidence grade gate: OK (unknown grade {grade_str!r} — defaulting to pass)"
+        return (
+            True,
+            f"evidence grade gate: OK (unknown grade {grade_str!r} — defaulting to pass)",
+        )
 
     return check_evidence_grade_gate(grade, require_for_active=require_for_active)
 
@@ -168,7 +174,11 @@ def run_all_activation_gates(
         check_daily_loss_gate(ctx),
     ]
     if require_evidence_grade is not None:
-        checks.append(check_evidence_grade_gate_from_ctx(ctx, require_for_active=require_evidence_grade))
+        checks.append(
+            check_evidence_grade_gate_from_ctx(
+                ctx, require_for_active=require_evidence_grade
+            )
+        )
 
     reasons = []
     for ok, reason in checks:

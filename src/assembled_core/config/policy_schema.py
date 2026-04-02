@@ -66,7 +66,9 @@ def validate_policy(policy: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
         hard = dd.get("hard")
         soft = dd.get("soft")
         if kill is None:
-            warnings.append("risk_limits.max_drawdown.kill not set — kill switch threshold unknown")
+            warnings.append(
+                "risk_limits.max_drawdown.kill not set — kill switch threshold unknown"
+            )
         elif not (0 < kill <= 1.0):
             warnings.append(f"risk_limits.max_drawdown.kill={kill} out of range (0, 1]")
         if hard and soft and kill:

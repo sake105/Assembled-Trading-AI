@@ -127,35 +127,33 @@ def test_candidate_message_includes_report_links_when_available():
     ), "Message should include reconciliation report path when reconciliation fails"
 
 
-def test_candidate_combined_gates_all_none_backward_compatible():
-    """Test that candidate is allowed when both gates are None (backward compatible)."""
+def test_candidate_combined_gates_all_none_blocks():
+    """Test that candidate is blocked when both gates are None (robustness required)."""
     candidate_allowed, message = check_candidate_allowed(
         robustness_ok=None,
         reconciliation_ok=None,
     )
 
     assert (
-        candidate_allowed is True
-    ), "Candidate should be allowed when both gates are None (backward compatible)"
+        candidate_allowed is False
+    ), "Candidate should be blocked when robustness_ok is None (robustness required)"
     assert "Robustness pack not run" in message
     assert "Reconciliation not run" in message
-    assert "backward compatible" in message
-    assert "candidate allowed" in message
+    assert "candidate NOT allowed" in message
 
 
-def test_candidate_combined_gates_robustness_none_reconciliation_true():
-    """Test that candidate is allowed when robustness is None and reconciliation is True."""
+def test_candidate_combined_gates_robustness_none_reconciliation_true_blocks():
+    """Test that candidate is blocked when robustness is None even if reconciliation is True."""
     candidate_allowed, message = check_candidate_allowed(
         robustness_ok=None,
         reconciliation_ok=True,
     )
 
     assert (
-        candidate_allowed is True
-    ), "Candidate should be allowed (robustness None is backward compatible)"
+        candidate_allowed is False
+    ), "Candidate should be blocked when robustness_ok is None (robustness required)"
     assert "Robustness pack not run" in message
-    assert "Reconciliation passed" in message
-    assert "candidate allowed" in message
+    assert "candidate NOT allowed" in message
 
 
 def test_candidate_combined_gates_robustness_true_reconciliation_none():

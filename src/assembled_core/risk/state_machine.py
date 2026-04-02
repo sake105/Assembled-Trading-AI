@@ -141,6 +141,7 @@ def save_risk_state(
     if p.exists():
         try:
             import shutil as _shutil
+
             _shutil.copy2(str(p), str(bak_path))
         except Exception as bak_err:
             logger.warning("[RiskState] could not write backup state file: %s", bak_err)

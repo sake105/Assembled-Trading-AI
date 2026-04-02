@@ -49,17 +49,29 @@ def create_sample_prices() -> pd.DataFrame:
     return df
 
 
+def _unit_prices() -> pd.DataFrame:
+    """Return prices with close=1.0 so notional equals shares."""
+    base = datetime(2025, 1, 1, 0, 0, 0)
+    rows = [
+        {"timestamp": base, "symbol": s, "close": 1.0}
+        for s in ["AAPL", "MSFT", "GOOGL", "TSLA"]
+    ]
+    df = pd.DataFrame(rows)
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+    return df
+
+
 def test_generate_orders_from_targets_no_current():
     """Test order generation from targets with no current positions."""
     targets = create_sample_target_positions()
-    orders = generate_orders_from_targets(targets)
+    orders = generate_orders_from_targets(targets, prices=_unit_prices())
 
     # Should generate BUY orders for all targets
     assert len(orders) == 3
     assert (orders["side"] == "BUY").all()
     assert set(orders["symbol"].values) == {"AAPL", "MSFT", "GOOGL"}
 
-    # Quantities should match target_qty
+    # Quantities should match target_qty (price=1.0 => notional == shares)
     for _, row in orders.iterrows():
         target_qty = targets[targets["symbol"] == row["symbol"]]["target_qty"].iloc[0]
         assert row["qty"] == pytest.approx(target_qty)
@@ -76,7 +88,9 @@ def test_generate_orders_from_targets_with_current():
         ]
     )
 
-    orders = generate_orders_from_targets(targets, current_positions=current)
+    orders = generate_orders_from_targets(
+        targets, current_positions=current, prices=_unit_prices()
+    )
 
     # Should have orders for:
     # - AAPL: BUY 0.2
@@ -235,7 +249,9 @@ def test_generate_orders_from_signals():
         ]
     )
 
-    orders = generate_orders_from_signals(signals, total_capital=1.0, top_n=2)
+    orders = generate_orders_from_signals(
+        signals, total_capital=1.0, top_n=2, prices=_unit_prices()
+    )
 
     # Should generate orders for top 2 LONG signals (AAPL, MSFT)
     assert len(orders) == 2

@@ -32,7 +32,8 @@ def check_candidate_allowed(
     The function combines both gates deterministically:
     - If any gate is False -> block candidate
     - If both gates are True -> allow candidate
-    - If one or both gates are None -> allow with warning (backward compatible)
+    - If robustness_ok is None -> block candidate (robustness required)
+    - If reconciliation_ok is None -> allow with warning (backward compatible)
 
     Args:
         robustness_ok: Robustness pack result (True/False/None)
@@ -54,7 +55,8 @@ def check_candidate_allowed(
     Note:
         - If any gate is False, candidate_allowed = False
         - If both gates are True, candidate_allowed = True
-        - If one or both gates are None, candidate_allowed = True (backward compatible) with warning
+        - If robustness_ok is None, candidate_allowed = False (robustness required)
+        - If reconciliation_ok is None, candidate_allowed = True (backward compatible) with warning
         - Report paths are included in messages when available for easy troubleshooting
     """
     robustness_status = []
@@ -64,11 +66,11 @@ def check_candidate_allowed(
     # Check robustness gate
     pack_link = f" (report: {robustness_pack_path})" if robustness_pack_path else ""
     if robustness_ok is None:
-        # Robustness pack was not run
+        # Robustness pack was not run — block candidate
         status_msg = f"Robustness pack not run{pack_link}"
         robustness_status.append(status_msg)
         logger.warning(status_msg)
-        # None is backward compatible (allow with warning)
+        candidate_allowed = False
     elif robustness_ok is False:
         # Robustness pack failed - block candidate
         status_msg = f"Robustness pack failed{pack_link}"

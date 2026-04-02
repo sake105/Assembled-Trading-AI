@@ -268,9 +268,11 @@ def test_run_trading_cycle_hook_load_prices() -> None:
     )
 
     def signal_fn(df: pd.DataFrame) -> pd.DataFrame:
+        # Use only the last timestamp to produce one signal row per symbol
+        last_ts = df["timestamp"].max()
         return pd.DataFrame(
             {
-                "timestamp": df["timestamp"].unique(),
+                "timestamp": [last_ts],
                 "symbol": ["AAPL"],
                 "direction": ["LONG"],
                 "score": [0.5],
@@ -491,7 +493,8 @@ def test_run_trading_cycle_success_skeleton() -> None:
 
     assert result.status == "success"
     assert result.run_id == "test_run_001"
-    assert len(result.prices_filtered) == 10
+    # EOD mode (default) returns last row per symbol — 1 row for single-symbol input
+    assert len(result.prices_filtered) == 1
     assert len(result.signals) == 1
     assert len(result.target_positions) == 1
     assert result.error_message is None

@@ -99,9 +99,10 @@ def rank_runs(
             f"Valid sort columns: {', '.join(available_cols)}"
         )
 
-    # Handle ascending sort (e.g., max_drawdown_pct should be sorted ascending for best = smallest)
-    if sort_by == "max_drawdown_pct":
-        ascending = True  # Best drawdown is smallest (least negative)
+    # Handle max_drawdown_pct: values are negative, so "best" (least negative)
+    # is the largest value. We need descending sort (default) to put best first.
+    # No override needed — default ascending=False already puts largest (least
+    # negative) drawdown first.
 
     # Sort by specified column (handle NaN values - put them at the end)
     df_sorted = df.sort_values(

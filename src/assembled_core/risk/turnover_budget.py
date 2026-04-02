@@ -79,9 +79,8 @@ def estimate_turnover(
     # Target weight per symbol
     target_weight = pd.Series(index=symbols, data=0.0, dtype=float)
     if "target_weight" in target_positions.columns:
-        tw = (
-            target_positions.set_index("symbol")["target_weight"]
-            .apply(lambda w: float(w or 0))
+        tw = target_positions.set_index("symbol")["target_weight"].apply(
+            lambda w: float(w or 0)
         )
         for sym in symbols:
             if sym in tw.index:
@@ -126,10 +125,18 @@ def apply_turnover_gate(
         symbols_out = out["symbol"].tolist()
         cw = {}
         cq = {}
-        if current_positions is not None and not current_positions.empty and "symbol" in current_positions.columns:
+        if (
+            current_positions is not None
+            and not current_positions.empty
+            and "symbol" in current_positions.columns
+        ):
             for sym, qty in current_positions.set_index("symbol")["qty"].items():
                 cq[sym] = float(qty or 0)
-                pr = float(price_series.get(sym, 0) or 0) if not price_series.empty else 0.0
+                pr = (
+                    float(price_series.get(sym, 0) or 0)
+                    if not price_series.empty
+                    else 0.0
+                )
                 cw[sym] = (cq[sym] * pr) / pv
         for sym in symbols_out:
             cw.setdefault(sym, 0.0)
@@ -148,7 +155,11 @@ def apply_turnover_gate(
     symbols = out["symbol"].tolist()
     current_w = {}
     current_q = {}
-    if current_positions is not None and not current_positions.empty and "symbol" in current_positions.columns:
+    if (
+        current_positions is not None
+        and not current_positions.empty
+        and "symbol" in current_positions.columns
+    ):
         for sym, qty in current_positions.set_index("symbol")["qty"].items():
             qty = float(qty or 0)
             current_q[sym] = qty

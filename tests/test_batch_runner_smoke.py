@@ -195,7 +195,7 @@ def test_batch_runner_dry_run(tmp_path: Path) -> None:
     assert exit_code == 0
 
     # Run directory should exist
-    run_dir = batch_cfg.output_root / batch_cfg.batch_name / "runs" / run_cfg.id
+    run_dir = batch_cfg.output_root / batch_cfg.batch_name / run_cfg.id
     assert run_dir.exists()
 
 

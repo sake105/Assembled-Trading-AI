@@ -18,6 +18,17 @@ from src.assembled_core.qa.backtest_engine import (
 from src.assembled_core.portfolio.position_sizing import compute_target_positions
 
 
+def _make_unit_prices(symbols: list[str]) -> pd.DataFrame:
+    """Return prices with close=1.0 so notional == shares."""
+    return pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(["2024-01-01"] * len(symbols), utc=True),
+            "symbol": symbols,
+            "close": [1.0] * len(symbols),
+        }
+    )
+
+
 def test_generate_orders_vectorized_alignment() -> None:
     """Test that order generation maintains stable symbol alignment."""
     # Create target positions (unsorted to test alignment)
@@ -41,6 +52,7 @@ def test_generate_orders_vectorized_alignment() -> None:
         target_positions=targets,
         current_positions=current,
         timestamp=pd.Timestamp("2024-01-01", tz="UTC"),
+        prices=_make_unit_prices(["AAPL", "MSFT", "GOOGL", "TSLA"]),
     )
 
     # Verify orders are sorted by symbol (stable alignment)
@@ -191,10 +203,20 @@ def test_orders_side_vectorized() -> None:
         }
     )
 
+    # Provide unit prices so notional == shares
+    unit_prices = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(["2024-01-01"] * 3, utc=True),
+            "symbol": ["AAPL", "MSFT", "GOOGL"],
+            "close": [1.0, 1.0, 1.0],
+        }
+    )
+
     orders = generate_orders_from_targets(
         target_positions=targets,
         current_positions=current,
         timestamp=pd.Timestamp("2024-01-01", tz="UTC"),
+        prices=unit_prices,
     )
 
     # Verify sides are correctly determined vectorially:

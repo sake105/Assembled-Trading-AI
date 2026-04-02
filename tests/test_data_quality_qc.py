@@ -204,8 +204,7 @@ def test_zero_volume_anomalies() -> None:
             "timestamp": pd.date_range("2024-01-01", periods=20, freq="1d", tz="UTC"),
             "symbol": ["AAPL"] * 20,
             "close": [150.0] * 20,
-            "volume": [1000.0, 0.0, 0.0, 0.0, 0.0, 1000.0, 0.0, 0.0, 0.0, 0.0, 1000.0]
-            + [1000.0] * 9,  # 10/20 = 50% zero
+            "volume": [0.0] * 10 + [1000.0] * 10,  # 10/20 = 50% zero
         }
     )
 
@@ -240,7 +239,9 @@ def test_timezone_normalization_utc() -> None:
     for issue in report_naive.issues:
         if issue.timestamp is not None:
             assert issue.timestamp.tz is not None, "Timestamp should be timezone-aware"
-            assert issue.timestamp.tz.zone == "UTC", "Timestamp should be UTC"
+            assert str(issue.timestamp.tz) == "UTC" or (
+                hasattr(issue.timestamp.tz, "zone") and issue.timestamp.tz.zone == "UTC"
+            ), "Timestamp should be UTC"
 
     # Test with timezone-aware timestamps (non-UTC)
     prices_tz = pd.DataFrame(
@@ -259,8 +260,8 @@ def test_timezone_normalization_utc() -> None:
     for issue in report_tz.issues:
         if issue.timestamp is not None:
             assert issue.timestamp.tz is not None, "Timestamp should be timezone-aware"
-            assert (
-                issue.timestamp.tz.zone == "UTC"
+            assert str(issue.timestamp.tz) == "UTC" or (
+                hasattr(issue.timestamp.tz, "zone") and issue.timestamp.tz.zone == "UTC"
             ), "Timestamp should be UTC (converted from ET)"
 
 

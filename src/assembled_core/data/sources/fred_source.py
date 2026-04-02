@@ -54,7 +54,12 @@ def _fetch_single_series(
             observation_end=end_date,
         )
         if raw is None or raw.empty:
-            logger.warning("[WARN] fred: no data for series %s (%s – %s)", series_id, start_date, end_date)
+            logger.warning(
+                "[WARN] fred: no data for series %s (%s – %s)",
+                series_id,
+                start_date,
+                end_date,
+            )
             return None
 
         df = raw.reset_index()
@@ -116,10 +121,17 @@ def fetch_fred_series(
             frames.append(df)
 
     if not frames:
-        logger.warning("[WARN] fred: no data returned for any of %d requested series.", len(series_ids))
+        logger.warning(
+            "[WARN] fred: no data returned for any of %d requested series.",
+            len(series_ids),
+        )
         return _empty
 
     result = pd.concat(frames, ignore_index=True)
     result = result.sort_values(["series_id", "timestamp"]).reset_index(drop=True)
-    logger.info("[OK] fred: fetched %d rows for %d series.", len(result), result["series_id"].nunique())
+    logger.info(
+        "[OK] fred: fetched %d rows for %d series.",
+        len(result),
+        result["series_id"].nunique(),
+    )
     return result

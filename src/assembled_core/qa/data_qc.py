@@ -293,7 +293,7 @@ def _check_missing_sessions(
 
     # Normalize expected sessions to UTC date to match price timestamps
     # (exchange_calendars returns tz-naive dates; normalize to UTC wall-date)
-    expected_dates = pd.to_datetime(expected_sessions, utc=True).normalize().dt.date
+    expected_dates = pd.to_datetime(expected_sessions, utc=True).normalize().date
     expected_dates_set = set(expected_dates)
 
     # Pre-group actual dates per symbol (normalize timestamps to UTC wall-date)
@@ -382,9 +382,8 @@ def _check_stale_prices(
         # - the run is long enough
         # - the *next* row starts a new run (or it's the last row)
         run_end_mask = (run_lengths >= stale_sessions) & (
-            changed.shift(-1, fill_value=1).astype(bool) | (
-                pd.RangeIndex(len(symbol_data)) == len(symbol_data) - 1
-            )
+            changed.shift(-1, fill_value=1).astype(bool)
+            | (pd.RangeIndex(len(symbol_data)) == len(symbol_data) - 1)
         )
 
         for end_idx in symbol_data.index[run_end_mask]:
@@ -468,7 +467,9 @@ def _check_outlier_returns(
                 continue
             abs_ret = float(abs_returns.loc[idx])
             severity = "FAIL" if abs_ret >= fail_threshold else "WARN"
-            threshold_used = fail_threshold if abs_ret >= fail_threshold else warn_threshold
+            threshold_used = (
+                fail_threshold if abs_ret >= fail_threshold else warn_threshold
+            )
             pos = symbol_data.index.get_loc(idx)
             timestamp = symbol_data.iloc[pos]["timestamp"]
             price = symbol_data.iloc[pos]["close"]

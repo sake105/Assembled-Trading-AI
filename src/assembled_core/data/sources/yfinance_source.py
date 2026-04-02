@@ -40,7 +40,9 @@ def _fetch_single_symbol(
     try:
         import yfinance as yf  # noqa: PLC0415
     except ImportError:
-        logger.error("[ERROR] yfinance not installed. Run: pip install yfinance>=0.2.40")
+        logger.error(
+            "[ERROR] yfinance not installed. Run: pip install yfinance>=0.2.40"
+        )
         return None
 
     last_exc: Exception | None = None
@@ -55,7 +57,12 @@ def _fetch_single_symbol(
                 actions=False,
             )
             if raw is None or raw.empty:
-                logger.warning("[WARN] yfinance: no data for %s (%s – %s)", symbol, start_date, end_date)
+                logger.warning(
+                    "[WARN] yfinance: no data for %s (%s – %s)",
+                    symbol,
+                    start_date,
+                    end_date,
+                )
                 return None
 
             raw = raw.reset_index()
@@ -68,20 +75,37 @@ def _fetch_single_symbol(
             cols = ["timestamp", "symbol", "Open", "High", "Low", "Close", "Volume"]
             available = [c for c in cols if c in raw.columns]
             df = raw[available].copy()
-            df = df.rename(columns={"Open": "open", "High": "high", "Low": "low", "Close": "close", "Volume": "volume"})
+            df = df.rename(
+                columns={
+                    "Open": "open",
+                    "High": "high",
+                    "Low": "low",
+                    "Close": "close",
+                    "Volume": "volume",
+                }
+            )
             return df
 
         except Exception as exc:  # noqa: BLE001
             last_exc = exc
-            wait = _RETRY_BACKOFF_BASE ** attempt
+            wait = _RETRY_BACKOFF_BASE**attempt
             logger.warning(
                 "[WARN] yfinance: attempt %d/%d failed for %s — %s. Retrying in %.1fs.",
-                attempt, _RETRY_MAX, symbol, exc, wait,
+                attempt,
+                _RETRY_MAX,
+                symbol,
+                exc,
+                wait,
             )
             if attempt < _RETRY_MAX:
                 time.sleep(wait)
 
-    logger.error("[ERROR] yfinance: all %d retries exhausted for %s — %s", _RETRY_MAX, symbol, last_exc)
+    logger.error(
+        "[ERROR] yfinance: all %d retries exhausted for %s — %s",
+        _RETRY_MAX,
+        symbol,
+        last_exc,
+    )
     return None
 
 
@@ -105,7 +129,9 @@ def fetch_prices_yfinance(
         low, close, volume.  Empty DataFrame if nothing could be fetched.
     """
     if not symbols:
-        return pd.DataFrame(columns=["timestamp", "symbol", "open", "high", "low", "close", "volume"])
+        return pd.DataFrame(
+            columns=["timestamp", "symbol", "open", "high", "low", "close", "volume"]
+        )
 
     frames: list[pd.DataFrame] = []
     for sym in symbols:
@@ -114,10 +140,19 @@ def fetch_prices_yfinance(
             frames.append(df)
 
     if not frames:
-        logger.warning("[WARN] yfinance: no data returned for any of %d requested symbols.", len(symbols))
-        return pd.DataFrame(columns=["timestamp", "symbol", "open", "high", "low", "close", "volume"])
+        logger.warning(
+            "[WARN] yfinance: no data returned for any of %d requested symbols.",
+            len(symbols),
+        )
+        return pd.DataFrame(
+            columns=["timestamp", "symbol", "open", "high", "low", "close", "volume"]
+        )
 
     result = pd.concat(frames, ignore_index=True)
     result = result.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
-    logger.info("[OK] yfinance: fetched %d rows for %d symbols.", len(result), result["symbol"].nunique())
+    logger.info(
+        "[OK] yfinance: fetched %d rows for %d symbols.",
+        len(result),
+        result["symbol"].nunique(),
+    )
     return result

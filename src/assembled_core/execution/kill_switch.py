@@ -70,9 +70,7 @@ def is_kill_switch_engaged() -> bool:
 
     # --- Check 2: sentinel file (written by run_kill_switch_worker.py) ---
     if _sentinel_path().exists():
-        logger.warning(
-            "KILL_SWITCH: sentinel file detected at %s", _sentinel_path()
-        )
+        logger.warning("KILL_SWITCH: sentinel file detected at %s", _sentinel_path())
         return True
 
     return False

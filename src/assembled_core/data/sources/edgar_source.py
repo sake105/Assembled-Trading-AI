@@ -17,8 +17,6 @@ from __future__ import annotations
 import logging
 import re
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
-
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -123,15 +121,17 @@ def fetch_insider_trades(
         if m2:
             company = m2.group(1).strip()
 
-        rows.append({
-            "filed_at": filed_at,
-            "ticker": ticker.upper(),
-            "company": company,
-            "cik": cik,
-            "insider_name": "",  # not in Atom feed; would need to fetch individual filing
-            "form_type": "4",
-            "url": filing_url,
-        })
+        rows.append(
+            {
+                "filed_at": filed_at,
+                "ticker": ticker.upper(),
+                "company": company,
+                "cik": cik,
+                "insider_name": "",  # not in Atom feed; would need to fetch individual filing
+                "form_type": "4",
+                "url": filing_url,
+            }
+        )
 
     if not rows:
         return _EMPTY.copy()

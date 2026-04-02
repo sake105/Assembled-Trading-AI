@@ -770,7 +770,7 @@ def run_batch_serial(
 
         results.append((run_cfg, status, runtime_sec, error))
 
-        if status != "success":
+        if status not in ("success", "skipped"):
             all_success = False
 
         # Log END/SKIP
@@ -876,7 +876,7 @@ def run_batch_parallel(
                     exit_code,
                     error,
                 )
-                if status != "success":
+                if status not in ("success", "skipped"):
                     all_success = False
 
                 # Log END/SKIP immediately when task completes
@@ -1265,7 +1265,7 @@ def run_batch(
     return exit_code
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
         description="Batch Runner MVP (P4) - Reproduzierbare Batch-Backtests mit Manifest",
@@ -1336,7 +1336,7 @@ Examples:
         help="Increase verbosity (can be used multiple times)",
     )
 
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def _setup_logging(verbosity: int) -> None:

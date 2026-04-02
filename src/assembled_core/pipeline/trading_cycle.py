@@ -665,7 +665,9 @@ def _apply_risk_controls_default(
                     _policy_defaults,
                 )
             except Exception as e:
-                logger.warning("PRE_TRADE: could not load policy for risk defaults: %s", e)
+                logger.warning(
+                    "PRE_TRADE: could not load policy for risk defaults: %s", e
+                )
 
         pre_trade_config = None
         if ctx.risk_config or _policy_defaults:
@@ -1243,7 +1245,9 @@ def run_trading_cycle(
         ms_multiplier = 1.0
         if ctx.market_stress:
             stress_score = int(ctx.market_stress.get("stress_score", 0))
-            _ms_scaling = (policy.get("market_stress") or {}).get("exposure_scaling") or {}
+            _ms_scaling = (policy.get("market_stress") or {}).get(
+                "exposure_scaling"
+            ) or {}
             if stress_score >= 2:
                 ms_multiplier = float(_ms_scaling.get("stress_score_2", 0.50))
             elif stress_score >= 1:
@@ -1256,7 +1260,9 @@ def run_trading_cycle(
                 )
         result.meta["market_stress_multiplier"] = ms_multiplier
 
-        final_multiplier = geo_multiplier * profit_lock_mult * vol_scale_factor * ms_multiplier
+        final_multiplier = (
+            geo_multiplier * profit_lock_mult * vol_scale_factor * ms_multiplier
+        )
         if abs(final_multiplier - 1.0) > 1e-9 and not result.target_positions.empty:
             result.target_positions = apply_exposure_multiplier_to_targets(
                 result.target_positions,
@@ -1428,6 +1434,7 @@ def run_trading_cycle(
                         from src.assembled_core.execution.safe_bridge import (
                             write_safe_orders_csv,
                         )
+
                         ctx.output_dir.mkdir(parents=True, exist_ok=True)
                         out_path = write_safe_orders_csv(
                             result.orders_filtered,
