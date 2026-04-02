@@ -60,11 +60,23 @@ def _simulate_fills_per_order(
             )
 
             if NUMBA_AVAILABLE:
-                # Extract numpy arrays from DataFrame columns
-                symbols = orders_at_timestamp["symbol"].values
-                sides = orders_at_timestamp["side"].values
-                qtys = orders_at_timestamp["qty"].values.astype(np.float64)
-                prices = orders_at_timestamp["price"].values.astype(np.float64)
+                # Extract numpy arrays (fillna + to_numpy for pyarrow compat)
+                symbols = (
+                    orders_at_timestamp["symbol"]
+                    .fillna("")
+                    .to_numpy(dtype=str, na_value="")
+                )
+                sides = (
+                    orders_at_timestamp["side"]
+                    .fillna("")
+                    .to_numpy(dtype=str, na_value="")
+                )
+                qtys = orders_at_timestamp["qty"].to_numpy(
+                    dtype=np.float64, na_value=np.nan
+                )
+                prices = orders_at_timestamp["price"].to_numpy(
+                    dtype=np.float64, na_value=np.nan
+                )
 
                 # Filter invalid orders (NaN prices, zero qty)
                 valid_mask = ~np.isnan(prices) & (qtys > 0.0) & (qtys != 0.0)
@@ -133,11 +145,11 @@ def _simulate_fills_per_order(
             pass
 
     # Pure NumPy implementation (fallback or if use_numba=False)
-    # Extract numpy arrays from DataFrame columns
-    symbols = orders_at_timestamp["symbol"].values
-    sides = orders_at_timestamp["side"].values
-    qtys = orders_at_timestamp["qty"].values.astype(np.float64)
-    prices = orders_at_timestamp["price"].values.astype(np.float64)
+    # Extract numpy arrays from DataFrame columns (fillna + to_numpy for pyarrow compat)
+    symbols = orders_at_timestamp["symbol"].fillna("").to_numpy(dtype=str, na_value="")
+    sides = orders_at_timestamp["side"].fillna("").to_numpy(dtype=str, na_value="")
+    qtys = orders_at_timestamp["qty"].to_numpy(dtype=np.float64, na_value=np.nan)
+    prices = orders_at_timestamp["price"].to_numpy(dtype=np.float64, na_value=np.nan)
 
     # Edge case: Filter out invalid orders (NaN prices, zero qty, empty symbols)
     valid_mask = (
@@ -145,7 +157,6 @@ def _simulate_fills_per_order(
         & (qtys != 0.0)
         & (qtys > 0.0)  # qty should be positive
         & (symbols != "")
-        & (symbols != None)  # noqa: E711
     )
 
     if not np.any(valid_mask):

@@ -28,7 +28,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pandas pyarrow pytest ruff pydantic
+          pip install pandas pyarrow pytest ruff pydantic pydantic-settings
 
       - name: Release gate dry-run (always)
         id: dry_run

@@ -70,14 +70,14 @@ def build_event_feature_panel_vectorized(
         events = normalize_alt_events(events_df)
     except ValueError:
         # If normalization fails, return prices with zero features
-        result[f"{feature_prefix}_count_{lookback_days}d"] = 0
+        result[f"{feature_prefix}_count_{lookback_days}d"] = 0.0
         result[f"{feature_prefix}_sum_{lookback_days}d"] = 0.0
         result[f"{feature_prefix}_mean_{lookback_days}d"] = np.nan
         return result
 
     if events.empty:
         # Return prices with zero features
-        result[f"{feature_prefix}_count_{lookback_days}d"] = 0
+        result[f"{feature_prefix}_count_{lookback_days}d"] = 0.0
         result[f"{feature_prefix}_sum_{lookback_days}d"] = 0.0
         result[f"{feature_prefix}_mean_{lookback_days}d"] = np.nan
         return result
@@ -85,8 +85,8 @@ def build_event_feature_panel_vectorized(
     # Step 2: Filter events by disclosure_date <= as_of (PIT-safe, global)
     events = filter_events_pit(events, as_of)
 
-    # Step 3: Initialize feature columns
-    result[f"{feature_prefix}_count_{lookback_days}d"] = 0
+    # Step 3: Initialize feature columns (use float to avoid LossySetitemError with NaN)
+    result[f"{feature_prefix}_count_{lookback_days}d"] = 0.0
     result[f"{feature_prefix}_sum_{lookback_days}d"] = 0.0
     result[f"{feature_prefix}_mean_{lookback_days}d"] = np.nan
 
@@ -113,16 +113,16 @@ def build_event_feature_panel_vectorized(
             value_col,
         )
 
-        # Assign features back to result
+        # Assign features back to result (convert to float to avoid LossySetitemError)
         result.loc[symbol_mask, f"{feature_prefix}_count_{lookback_days}d"] = features[
             "count"
-        ].values
+        ].values.astype(np.float64)
         result.loc[symbol_mask, f"{feature_prefix}_sum_{lookback_days}d"] = features[
             "sum"
-        ].values
-        result.loc[symbol_mask, f"{feature_prefix}_mean_{lookback_days}d"] = features[
-            "mean"
-        ].values
+        ].values.astype(np.float64)
+        result.loc[symbol_mask, f"{feature_prefix}_mean_{lookback_days}d"] = (
+            pd.to_numeric(features["mean"], errors="coerce").values
+        )
 
     # Final deterministic sort (same as legacy)
     result = result.sort_values(["symbol", "timestamp"], kind="mergesort").reset_index(

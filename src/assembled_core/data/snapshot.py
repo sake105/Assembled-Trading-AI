@@ -62,7 +62,7 @@ def compute_price_panel_snapshot_id(
     h.update(str(df["timestamp"].max()).encode())
 
     # Hash close values as sorted string — NaN/inf convert to "nan"/"inf" consistently
-    close_str = ",".join(df["close"].astype(str).tolist())
+    close_str = ",".join(str(v) for v in df["close"].values)
     h.update(close_str.encode())
 
     if source_meta:

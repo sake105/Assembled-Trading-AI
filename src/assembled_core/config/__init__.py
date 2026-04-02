@@ -15,15 +15,19 @@ from src.assembled_core.config.config import (
     get_output_path,
 )
 
-# Import new settings
-from src.assembled_core.config.settings import (
-    Environment,
-    RuntimeProfile,
-    Settings,
-    get_runtime_profile,
-    get_settings,
-    reset_settings,
-)
+# Import new settings (pydantic_settings may not be available in all environments)
+try:
+    from src.assembled_core.config.settings import (
+        Environment,
+        RuntimeProfile,
+        Settings,
+        get_runtime_profile,
+        get_settings,
+        reset_settings,
+    )
+except ImportError:
+    # pydantic_settings not installed — settings features unavailable
+    pass
 
 __all__ = [
     # Legacy exports (for backward compatibility)
