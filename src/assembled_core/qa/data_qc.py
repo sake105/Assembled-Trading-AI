@@ -98,7 +98,9 @@ class QcReport:
     ok: bool
     summary: dict[str, Any]
     issues: list[QcIssue]
-    created_at_utc: pd.Timestamp = field(default_factory=lambda: pd.Timestamp.now("UTC"))
+    created_at_utc: pd.Timestamp = field(
+        default_factory=lambda: pd.Timestamp.now("UTC")
+    )
 
     def __post_init__(self) -> None:
         """Ensure created_at_utc is UTC-aware."""

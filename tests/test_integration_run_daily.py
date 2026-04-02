@@ -242,7 +242,9 @@ def test_run_daily_creates_order_file_structure(
                     ), f"Order file should have '{col}' column"
 
                 # Verify data types
-                assert pd.api.types.is_string_dtype(order_df["Ticker"]), "Ticker should be string"
+                assert pd.api.types.is_string_dtype(
+                    order_df["Ticker"]
+                ), "Ticker should be string"
                 assert (
                     order_df["Side"].isin(["BUY", "SELL"]).all()
                 ), "Side should be BUY or SELL"

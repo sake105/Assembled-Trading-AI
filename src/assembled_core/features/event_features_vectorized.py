@@ -245,7 +245,9 @@ def _compute_features_for_symbol_vectorized(
         features["mean"] = features["sum"] / features["count"].replace(0, np.nan)
         features["mean"] = features["mean"].where(features["count"] > 0, np.nan)
         # Ensure float64 dtype for consistent NaN handling (not pd.NA)
-        features["mean"] = pd.to_numeric(features["mean"], errors="coerce").astype("float64")
+        features["mean"] = pd.to_numeric(features["mean"], errors="coerce").astype(
+            "float64"
+        )
     else:
         features["mean"] = pd.array([np.nan] * len(features), dtype="float64")
 

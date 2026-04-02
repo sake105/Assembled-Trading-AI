@@ -215,7 +215,9 @@ class TradingContext:
 
     # Order generation
     current_positions: pd.DataFrame | None = None
-    order_timestamp: pd.Timestamp = field(default_factory=lambda: pd.Timestamp.now("UTC"))
+    order_timestamp: pd.Timestamp = field(
+        default_factory=lambda: pd.Timestamp.now("UTC")
+    )
 
     # Risk controls
     enable_risk_controls: bool = True
