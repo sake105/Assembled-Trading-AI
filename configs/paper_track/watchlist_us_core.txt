@@ -1,0 +1,31 @@
+# US Core Universe for Paper Trading
+# 30 large-cap US equities with fresh yfinance data (2021-2026)
+AAPL
+MSFT
+GOOGL
+AMZN
+NVDA
+META
+TSLA
+JPM
+JNJ
+V
+UNH
+XOM
+PG
+MA
+HD
+CVX
+MRK
+ABBV
+LLY
+PEP
+KO
+COST
+AVGO
+WMT
+MCD
+CRM
+TMO
+ADBE
+NFLX

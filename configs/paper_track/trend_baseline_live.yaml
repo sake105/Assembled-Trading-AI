@@ -1,0 +1,41 @@
+# Paper Track Config - Trend Baseline LIVE
+#
+# First real paper trading run using fresh yfinance data (52 symbols, 2021-2026).
+# Strategy: EMA 20/50 crossover, long-only, top 10 positions.
+# Capital: 100,000 USD
+#
+# Usage:
+#   py -3 scripts/run_paper_track.py --config-file configs/paper_track/trend_baseline_live.yaml --as-of 2026-04-02
+
+strategy_name: "trend_baseline_live"
+strategy_type: "trend_baseline"
+
+universe:
+  file: "configs/paper_track/watchlist_us_core.txt"
+
+trading:
+  freq: "1d"
+
+strategy:
+  params:
+    ma_fast: 20
+    ma_slow: 50
+    top_n: 10
+    min_score: 0.0
+
+portfolio:
+  seed_capital: 100000.0
+
+costs:
+  commission_bps: 5.0
+  spread_w: 0.25
+  impact_w: 0.5
+
+output:
+  output_root: null
+  format: "csv"
+
+random_seed: 42
+
+integration:
+  enable_pit_checks: true

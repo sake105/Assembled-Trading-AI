@@ -1256,7 +1256,7 @@ def run_trading_cycle(
                 ms_multiplier = float(_ms_scaling.get("stress_score_1", 0.75))
             if ms_multiplier < 1.0:
                 log.warning(
-                    "MARKET_STRESS: stress_score=%d → exposure multiplier=%.2f",
+                    "MARKET_STRESS: stress_score=%d -> exposure multiplier=%.2f",
                     stress_score,
                     ms_multiplier,
                 )

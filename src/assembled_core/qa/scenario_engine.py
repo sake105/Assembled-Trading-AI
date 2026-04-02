@@ -57,7 +57,7 @@ Note:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal
 
@@ -75,19 +75,38 @@ class Scenario:
             - "equity_crash": Percentage price decline
             - "vol_spike": Volatility increase (multiplier on returns)
             - "shipping_blockade": Stronger shock for shipping-exposed symbols
+            - "oil_spike": Positive shock to energy sector, negative to broad market
+            - "gold_flight": Positive shock to gold proxies, negative to high-beta
+            - "defense_surge": Positive shock to defense symbols, neutral elsewhere
+            - "geopolitical_shock": Composite crisis scenario
         shock_magnitude: Magnitude of the shock:
             - For equity_crash: percentage change (e.g., -0.20 for -20%)
             - For vol_spike: multiplier on return volatility (e.g., 2.0 for 2x)
             - For shipping_blockade: additional shock magnitude for shipping symbols
+            - For sector-based shocks: base shock magnitude applied to broad market
         shock_start: Start datetime of the shock (None = apply to entire series)
         shock_end: End datetime of the shock (None = apply to entire series or until end)
+        affected_symbols: Specific symbols to receive the primary (boosted) shock.
+        sector_mapping: symbol -> sector tag for sector-based shock routing.
+        sector_impact_multipliers: sector -> multiplier relative to shock_magnitude.
     """
 
     name: str
-    shock_type: Literal["equity_crash", "vol_spike", "shipping_blockade"]
+    shock_type: Literal[
+        "equity_crash",
+        "vol_spike",
+        "shipping_blockade",
+        "oil_spike",
+        "gold_flight",
+        "defense_surge",
+        "geopolitical_shock",
+    ]
     shock_magnitude: float
     shock_start: datetime | None = None
     shock_end: datetime | None = None
+    affected_symbols: list[str] = field(default_factory=list)
+    sector_mapping: dict[str, str] = field(default_factory=dict)
+    sector_impact_multipliers: dict[str, float] = field(default_factory=dict)
 
 
 def apply_scenario_to_prices(prices: pd.DataFrame, scenario: Scenario) -> pd.DataFrame:
@@ -160,6 +179,22 @@ def apply_scenario_to_prices(prices: pd.DataFrame, scenario: Scenario) -> pd.Dat
         )
     elif scenario.shock_type == "shipping_blockade":
         shocked_prices = _apply_shipping_blockade(
+            shocked_prices, scenario, shock_start, shock_end
+        )
+    elif scenario.shock_type == "oil_spike":
+        shocked_prices = _apply_sector_shock(
+            shocked_prices, scenario, shock_start, shock_end
+        )
+    elif scenario.shock_type == "gold_flight":
+        shocked_prices = _apply_sector_shock(
+            shocked_prices, scenario, shock_start, shock_end
+        )
+    elif scenario.shock_type == "defense_surge":
+        shocked_prices = _apply_sector_shock(
+            shocked_prices, scenario, shock_start, shock_end
+        )
+    elif scenario.shock_type == "geopolitical_shock":
+        shocked_prices = _apply_geopolitical_shock(
             shocked_prices, scenario, shock_start, shock_end
         )
     else:
@@ -530,3 +565,379 @@ def run_scenario_on_equity(
         "shocked_metrics": shocked_metrics,
         "delta_metrics": delta_metrics,
     }
+
+
+# ---------------------------------------------------------------------------
+# New sector-based shock helpers
+# ---------------------------------------------------------------------------
+
+_OIL_DEFAULT_SYMBOLS: list[str] = ["XLE", "XOM", "CVX", "USO"]
+_GOLD_DEFAULT_SYMBOLS: list[str] = ["GLD", "IAU", "GC"]
+_DEFENSE_DEFAULT_SYMBOLS: list[str] = ["LMT", "RTX", "NOC", "ITA"]
+
+
+def _apply_sector_shock(
+    prices: pd.DataFrame,
+    scenario: Scenario,
+    shock_start: pd.Timestamp,
+    shock_end: pd.Timestamp,
+) -> pd.DataFrame:
+    """Apply a sector-differentiated shock.
+
+    For ``oil_spike``:
+      - ``affected_symbols`` (default: _OIL_DEFAULT_SYMBOLS) get a positive shock
+        scaled by ``sector_impact_multipliers.get("energy_boost", 1.5)``.
+      - All other symbols get a negative drag scaled by
+        ``sector_impact_multipliers.get("market_drag", 0.5)``.
+
+    For ``gold_flight``:
+      - ``affected_symbols`` (default: _GOLD_DEFAULT_SYMBOLS) get a positive shock
+        scaled by ``sector_impact_multipliers.get("gold_boost", 2.0)``.
+      - All other symbols get a mild negative drag (half of base magnitude).
+
+    For ``defense_surge``:
+      - ``affected_symbols`` (default: _DEFENSE_DEFAULT_SYMBOLS) get a positive shock.
+      - All other symbols are unchanged (multiplier = 0).
+    """
+    shocked_prices = prices.copy()
+    mask = (shocked_prices["timestamp"] >= shock_start) & (
+        shocked_prices["timestamp"] <= shock_end
+    )
+
+    shock_type = scenario.shock_type
+    base_mag = scenario.shock_magnitude
+
+    # Resolve primary (boosted) symbols
+    if scenario.affected_symbols:
+        primary_symbols = set(scenario.affected_symbols)
+    elif shock_type == "oil_spike":
+        primary_symbols = set(_OIL_DEFAULT_SYMBOLS)
+    elif shock_type == "gold_flight":
+        primary_symbols = set(_GOLD_DEFAULT_SYMBOLS)
+    elif shock_type == "defense_surge":
+        primary_symbols = set(_DEFENSE_DEFAULT_SYMBOLS)
+    else:
+        primary_symbols = set()
+
+    # Resolve multipliers
+    mults = scenario.sector_impact_multipliers
+    if shock_type == "oil_spike":
+        boost = mults.get("energy_boost", 1.5)
+        drag = mults.get("market_drag", 0.5)
+        primary_mag = abs(base_mag) * boost  # positive
+        other_mag = -abs(base_mag) * drag    # negative
+    elif shock_type == "gold_flight":
+        boost = mults.get("gold_boost", 2.0)
+        primary_mag = abs(base_mag) * boost  # positive
+        other_mag = -abs(base_mag) * 0.5     # mild negative
+    elif shock_type == "defense_surge":
+        boost = mults.get("defense_boost", 1.0)
+        primary_mag = abs(base_mag) * boost  # positive
+        other_mag = 0.0                      # neutral
+    else:
+        primary_mag = base_mag
+        other_mag = base_mag
+
+    all_symbols = shocked_prices["symbol"].unique()
+    for symbol in all_symbols:
+        sym_mask = shocked_prices["symbol"] == symbol
+        shock_mask = sym_mask & mask
+        if not shock_mask.any():
+            continue
+
+        mag = primary_mag if symbol in primary_symbols else other_mag
+        if mag == 0.0:
+            continue
+
+        # Use same approach as _apply_equity_crash: scale prices in window
+        symbol_data = shocked_prices[sym_mask].sort_values("timestamp")
+        baseline_row = symbol_data[symbol_data["timestamp"] < shock_start]
+        if baseline_row.empty:
+            shock_rows = symbol_data[symbol_data["timestamp"] >= shock_start]
+            baseline_price = shock_rows["close"].iloc[0] if not shock_rows.empty else 1.0
+        else:
+            baseline_price = float(baseline_row["close"].iloc[-1])
+
+        shocked_baseline = baseline_price * (1.0 + mag)
+        price_ratio = shocked_baseline / baseline_price if baseline_price != 0 else 1.0
+
+        shocked_prices.loc[shock_mask, "close"] = (
+            shocked_prices.loc[shock_mask, "close"] * price_ratio
+        )
+        for col in ["open", "high", "low"]:
+            if col in shocked_prices.columns:
+                shocked_prices.loc[shock_mask, col] = (
+                    shocked_prices.loc[shock_mask, col] * price_ratio
+                )
+
+    return shocked_prices
+
+
+def _apply_geopolitical_shock(
+    prices: pd.DataFrame,
+    scenario: Scenario,
+    shock_start: pd.Timestamp,
+    shock_end: pd.Timestamp,
+) -> pd.DataFrame:
+    """Composite geopolitical crisis: energy/gold/defense up, tech/broad market down."""
+    # sector_impact_multipliers encodes per-sector multipliers on base magnitude
+    # Default: energy +1.5×, gold +2.0×, defense +1.0×, tech -1.0×, broad -0.5×
+    sector_mults = scenario.sector_impact_multipliers or {}
+    sector_mapping = scenario.sector_mapping  # symbol -> sector tag
+
+    default_sector_mults: dict[str, float] = {
+        "energy": 1.5,
+        "gold": 2.0,
+        "defense": 1.0,
+        "tech": -1.0,
+        "broad": -0.5,
+    }
+    merged_mults = {**default_sector_mults, **sector_mults}
+
+    base_mag = scenario.shock_magnitude
+    shocked_prices = prices.copy()
+    mask = (shocked_prices["timestamp"] >= shock_start) & (
+        shocked_prices["timestamp"] <= shock_end
+    )
+
+    # Build symbol -> magnitude map
+    energy_syms = set(_OIL_DEFAULT_SYMBOLS)
+    gold_syms = set(_GOLD_DEFAULT_SYMBOLS)
+    defense_syms = set(_DEFENSE_DEFAULT_SYMBOLS)
+
+    for symbol in shocked_prices["symbol"].unique():
+        # Determine sector
+        if sector_mapping:
+            sect = sector_mapping.get(symbol, "broad")
+        elif symbol in energy_syms:
+            sect = "energy"
+        elif symbol in gold_syms:
+            sect = "gold"
+        elif symbol in defense_syms:
+            sect = "defense"
+        else:
+            sect = "broad"
+
+        mult = merged_mults.get(sect, merged_mults.get("broad", -0.5))
+        mag = base_mag * mult
+
+        sym_mask = shocked_prices["symbol"] == symbol
+        shock_mask = sym_mask & mask
+        if not shock_mask.any():
+            continue
+
+        symbol_data = shocked_prices[sym_mask].sort_values("timestamp")
+        baseline_row = symbol_data[symbol_data["timestamp"] < shock_start]
+        if baseline_row.empty:
+            shock_rows = symbol_data[symbol_data["timestamp"] >= shock_start]
+            baseline_price = shock_rows["close"].iloc[0] if not shock_rows.empty else 1.0
+        else:
+            baseline_price = float(baseline_row["close"].iloc[-1])
+
+        price_ratio = (1.0 + mag) if baseline_price != 0 else 1.0
+        shocked_prices.loc[shock_mask, "close"] = (
+            shocked_prices.loc[shock_mask, "close"] * price_ratio
+        )
+        for col in ["open", "high", "low"]:
+            if col in shocked_prices.columns:
+                shocked_prices.loc[shock_mask, col] = (
+                    shocked_prices.loc[shock_mask, col] * price_ratio
+                )
+
+    return shocked_prices
+
+
+# ---------------------------------------------------------------------------
+# run_crisis_scenarios and compare_crisis_scenarios
+# ---------------------------------------------------------------------------
+
+_CRISIS_SCENARIO_DEFINITIONS: dict[str, list[dict]] = {
+    "geopolitical_escalation": [
+        {
+            "name": "oil_spike",
+            "shock_type": "oil_spike",
+            "shock_magnitude": 0.15,
+        },
+        {
+            "name": "gold_flight",
+            "shock_type": "gold_flight",
+            "shock_magnitude": 0.10,
+        },
+        {
+            "name": "defense_surge",
+            "shock_type": "defense_surge",
+            "shock_magnitude": 0.08,
+        },
+        {
+            "name": "equity_crash_mild",
+            "shock_type": "equity_crash",
+            "shock_magnitude": -0.10,
+        },
+        {
+            "name": "vol_spike",
+            "shock_type": "vol_spike",
+            "shock_magnitude": 2.0,
+        },
+    ],
+    "energy_shock": [
+        {
+            "name": "oil_spike_severe",
+            "shock_type": "oil_spike",
+            "shock_magnitude": 0.25,
+        },
+        {
+            "name": "equity_crash_energy_drag",
+            "shock_type": "equity_crash",
+            "shock_magnitude": -0.08,
+        },
+        {
+            "name": "vol_spike_energy",
+            "shock_type": "vol_spike",
+            "shock_magnitude": 1.5,
+        },
+    ],
+    "cyber_attack": [
+        {
+            "name": "tech_crash",
+            "shock_type": "equity_crash",
+            "shock_magnitude": -0.15,
+        },
+        {
+            "name": "vol_spike_cyber",
+            "shock_type": "vol_spike",
+            "shock_magnitude": 2.5,
+        },
+        {
+            "name": "defense_surge_cyber",
+            "shock_type": "defense_surge",
+            "shock_magnitude": 0.05,
+        },
+    ],
+    "financial_stress": [
+        {
+            "name": "equity_crash_severe",
+            "shock_type": "equity_crash",
+            "shock_magnitude": -0.25,
+        },
+        {
+            "name": "vol_spike_financial",
+            "shock_type": "vol_spike",
+            "shock_magnitude": 3.0,
+        },
+        {
+            "name": "gold_flight_financial",
+            "shock_type": "gold_flight",
+            "shock_magnitude": 0.12,
+        },
+    ],
+}
+
+
+def run_crisis_scenarios(
+    prices: pd.DataFrame,
+    crisis_type: str,
+    shock_date: "datetime",
+    symbol_sectors: dict[str, str] | None = None,
+) -> dict[str, pd.DataFrame]:
+    """Run multiple related scenarios for a given crisis type.
+
+    Args:
+        prices: DataFrame with columns timestamp, symbol, close.
+        crisis_type: One of "geopolitical_escalation", "energy_shock",
+            "cyber_attack", "financial_stress".
+        shock_date: The datetime at which the shock is applied.
+        symbol_sectors: Optional symbol -> sector tag for routing.
+
+    Returns:
+        Dict of scenario_name -> shocked_prices DataFrame.
+
+    Raises:
+        ValueError: If crisis_type is unknown.
+    """
+    if crisis_type not in _CRISIS_SCENARIO_DEFINITIONS:
+        valid = list(_CRISIS_SCENARIO_DEFINITIONS.keys())
+        raise ValueError(
+            f"Unknown crisis_type '{crisis_type}'. Valid options: {valid}"
+        )
+
+    results: dict[str, pd.DataFrame] = {}
+    for spec in _CRISIS_SCENARIO_DEFINITIONS[crisis_type]:
+        scenario = Scenario(
+            name=spec["name"],
+            shock_type=spec["shock_type"],  # type: ignore[arg-type]
+            shock_magnitude=spec["shock_magnitude"],
+            shock_start=shock_date,
+            sector_mapping=symbol_sectors or {},
+        )
+        results[spec["name"]] = apply_scenario_to_prices(prices, scenario)
+
+    return results
+
+
+def compare_crisis_scenarios(
+    baseline_equity: "pd.Series",
+    shocked_scenarios: dict[str, pd.DataFrame],
+    prices: pd.DataFrame,
+) -> pd.DataFrame:
+    """Compare performance metrics across shocked scenarios.
+
+    For each scenario, computes total_return, max_drawdown and sharpe
+    from the shocked prices (close column, averaged across symbols).
+
+    Args:
+        baseline_equity: Baseline portfolio equity curve (pd.Series).
+        shocked_scenarios: Dict of scenario_name -> shocked_prices DataFrame.
+        prices: Original (baseline) prices DataFrame.
+
+    Returns:
+        DataFrame with columns: scenario_name, total_return, max_drawdown, sharpe.
+    """
+    rows: list[dict] = []
+
+    for name, shocked_prices in shocked_scenarios.items():
+        # Build a simple equally-weighted equity proxy from close prices
+        try:
+            pivot = shocked_prices.pivot_table(
+                index="timestamp", columns="symbol", values="close", aggfunc="last"
+            )
+            returns = pivot.pct_change().dropna(how="all")
+            port_returns = returns.mean(axis=1).dropna()
+
+            if len(port_returns) < 2:
+                rows.append(
+                    {
+                        "scenario_name": name,
+                        "total_return": float("nan"),
+                        "max_drawdown": float("nan"),
+                        "sharpe": float("nan"),
+                    }
+                )
+                continue
+
+            arr = port_returns.to_numpy(dtype=float)
+            total_return = float(np.prod(1.0 + arr) - 1.0)
+
+            equity_curve = np.cumprod(1.0 + arr)
+            running_max = np.maximum.accumulate(equity_curve)
+            dd = equity_curve / running_max - 1.0
+            max_drawdown = float(np.min(dd))
+
+            mean_r = float(np.mean(arr))
+            std_r = float(np.std(arr, ddof=1)) if len(arr) >= 2 else 0.0
+            sharpe = (mean_r / std_r * np.sqrt(252)) if std_r > 0 else float("nan")
+
+        except Exception:  # noqa: BLE001
+            total_return = float("nan")
+            max_drawdown = float("nan")
+            sharpe = float("nan")
+
+        rows.append(
+            {
+                "scenario_name": name,
+                "total_return": total_return,
+                "max_drawdown": max_drawdown,
+                "sharpe": sharpe,
+            }
+        )
+
+    return pd.DataFrame(rows, columns=["scenario_name", "total_return", "max_drawdown", "sharpe"])

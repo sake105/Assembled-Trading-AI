@@ -204,6 +204,15 @@ The practical milestone chain is:
 - M5 — Crisis-Alpha v1
 - M6 — Risk v1.1 Upgrades
 - M7 — Realism Upgrades v2
+- M8 — Evidence Engine
+- M9 — Policy Calibration
+- M10 — ETF Universe
+- M11 — Post-Trade Learning Loop
+- M12 — Broker Adapter
+- M13 — Autonomous Operations
+
+M0–M7 were defined in the original roadmap set. M8–M13 were added during the 2026-03 execution cycle to address evidence quality, policy operationalization, universe management, learning feedback, broker connectivity, and operational autonomy.
+
 
 This sequencing is explicitly present in the uploaded roadmap, including the sprint ordering and milestone dependencies. fileciteturn9file0turn9file1
 
@@ -901,22 +910,138 @@ Do not claim institutional-grade realism if:
 
 ---
 
-## 14. Optional next-track milestone — Evidence Engine / Fake-News Defense
+## 14. Milestone M8 — Evidence Engine
 
-### 14.1 Role
+### 14.1 Objective
 
-Once NEWS and Crisis Alpha exist, an evidence layer becomes highly valuable to reduce false activations, single-source spikes, propaganda amplification, and weak confirmation chains.
+Build an evidence quality layer that grades multi-source confirmation, detects misinfo risk, and gates crisis/trade activation on evidence strength.
 
-### 14.2 Why it is optional but strategic
+### 14.2 In scope
 
-The uploaded roadmap includes a dedicated Evidence Engine plan with evidence grades, confirmation count, misinfo risk scoring, and action gating. This is not mandatory before M1/M5 exist, but it is a strategically strong follow-on once those systems are in place. fileciteturn9file0
+- `EvidenceGrade` enum (A/B/C/D) with activation permissions,
+- evidence grading function based on source count, confirmation, and trigger quality,
+- misinfo risk scoring (single-source penalty, social-only penalty, contradiction detection),
+- action gating: prevent ACTIVE state entry on low-grade evidence,
+- integration with Crisis Alpha gates.
 
-### 14.3 Activation conditions for this milestone
+### 14.3 Deliverables
 
-Only pursue once:
-- NEWS outputs are stable,
-- Crisis Alpha gating is already wired,
-- multi-source confirmation is already available in baseline form.
+- `src/assembled_core/events/evidence_engine/grades.py`
+- `src/assembled_core/events/evidence_engine/grader.py`
+- `src/assembled_core/events/evidence_engine/misinfo_risk.py`
+- `src/assembled_core/events/evidence_engine/action_gate.py`
+
+### 14.4 Acceptance criteria
+
+- Grade-D evidence cannot activate crisis alpha,
+- single-source triggers receive misinfo penalty,
+- grades are deterministic and testable.
+
+### 14.5 Implementation status
+
+Status: **locally tested**. All deliverables exist and are integrated with Crisis Alpha. 65 targeted tests pass.
+
+---
+
+## 14b. Milestone M9 — Policy Calibration
+
+### 14b.1 Objective
+
+Replace all placeholder/TBD values in `configs/policy.yaml` with concrete, researched risk parameters. Guard with regression tests.
+
+### 14b.2 Deliverables
+
+- `configs/policy.yaml` — fully calibrated (target_vol, drawdown thresholds, position weights, turnover caps, state machine thresholds, health gates),
+- `tests/test_policy_calibration.py` — 9 tests ensuring no TBD values and sane ranges.
+
+### 14b.3 Implementation status
+
+Status: **locally tested**. Policy fully calibrated. 9 tests pass.
+
+---
+
+## 14c. Milestone M10 — ETF Universe
+
+### 14c.1 Objective
+
+Define and operationalize a curated ETF universe for crisis alpha baskets, macro overlays, and diversified paper trading.
+
+### 14c.2 Deliverables
+
+- `configs/universe_etf_v1.yaml` — 30+ liquid ETFs by asset class,
+- `src/assembled_core/data/universe_etf.py` — loader with filtering by asset class, group, defensive purpose,
+- 22 tests.
+
+### 14c.3 Implementation status
+
+Status: **locally tested**. 22 tests pass.
+
+---
+
+## 14d. Milestone M11 — Post-Trade Learning Loop
+
+### 14d.1 Objective
+
+Build a feedback loop that analyzes past trades, computes signal hit rates, and stores learning records for strategy improvement.
+
+### 14d.2 Deliverables
+
+- `src/assembled_core/qa/post_trade_analyzer.py` — forward returns, signal hit rate, learning record builder,
+- `src/assembled_core/qa/learning_store.py` — atomic JSONL append/load/summarize,
+- `scripts/run_post_trade_analysis.py`,
+- 29 tests.
+
+### 14d.3 Known gaps
+
+The `_post_trade_worker` in `daily_scheduler.py` is a stub returning `status="skip"`. Full scheduler integration deferred until operational data is available.
+
+### 14d.4 Implementation status
+
+Status: **locally tested** (core modules). Scheduler integration is a stub.
+
+---
+
+## 14e. Milestone M12 — Broker Adapter
+
+### 14e.1 Objective
+
+Build a broker connectivity layer with paper-first safety design.
+
+### 14e.2 Deliverables
+
+- `src/assembled_core/execution/broker_adapter.py` — `BrokerAdapter` ABC, `AlpacaAdapter` (paper-only default), dual-gate safety, `BrokerOrder` / `BrokerPosition` dataclasses, `create_adapter_from_env` factory,
+- 19 tests.
+
+### 14e.3 Acceptance criteria
+
+- Paper mode is the enforced default,
+- live mode requires explicit double opt-in (`force_paper=False` AND `ALPACA_ALLOW_LIVE=true`),
+- adapter factory works from environment variables.
+
+### 14e.4 Implementation status
+
+Status: **locally tested**. Paper-only by design.
+
+---
+
+## 14f. Milestone M13 — Autonomous Operations
+
+### 14f.1 Objective
+
+Build an orchestration framework for autonomous daily trading cycles.
+
+### 14f.2 Deliverables
+
+- `src/assembled_core/ops/daily_scheduler.py` — `DailyScheduler`, `WorkerResult`, 4 workers (ingest, post-trade, reconcile, health), `build_cycle_summary`, `run_daily_cycle`, `schedule_loop`,
+- 10 tests.
+
+### 14f.3 Known gaps
+
+3 of 4 workers (`_ingest_worker`, `_post_trade_worker`, `_reconcile_worker`) are stubs returning `status="skip"`. Only `_health_check_worker` performs real work. The framework is operational but substantive worker implementations await configuration.
+
+### 14f.4 Implementation status
+
+Status: **skeleton present / locally tested** (framework). Worker implementations are stubs.
 
 ---
 
@@ -927,7 +1052,10 @@ The uploaded roadmap suggests this practical sequence:
 - Sprint 2: M2 + M4, finish M3  
 - Sprint 3: M5  
 - Sprint 4: M6 core  
-- Sprint 5+: M7 and optional growth items. fileciteturn9file0
+- Sprint 5: M7 realism
+- Sprint 6: M8 (Evidence Engine) + M9 (Policy Calibration) + M10 (ETF Universe)
+- Sprint 7: M11 (Post-Trade Learning) + M12 (Broker Adapter)
+- Sprint 8: M13 (Autonomous Operations) fileciteturn9file0
 
 For execution discipline, use this ordering as a default but always obey local blockers and stop conditions.
 
@@ -1024,7 +1152,15 @@ Do **not** update this file for every tiny implementation detail. Day-to-day pos
 ## 21. Default next action
 
 If no current action is set elsewhere, the default first action is:
-- finish or validate M0 governance baseline,
-- then move to the smallest actionable M1 NEWS v1 task that has no unresolved blocker.
+- check `ROADMAP_STATE.md` for the current execution position,
+- identify the highest-priority open gap or next milestone task,
+- execute the smallest safe step and update state.
+
+As of 2026-04-02, M0–M13 are locally tested. Key remaining work:
+- wire `zombie_killer` and `correlation_guard` into `trading_cycle.py` (M6 gap),
+- complete M2 instrument mapping and 13D/13G fetch (M2 gaps),
+- replace M13 scheduler worker stubs with real implementations,
+- achieve full CI green on all 6 GitHub Actions workflows,
+- begin optimization work (TA expansion, Monte Carlo, advanced position sizing).
 
 This default is justified by the milestone dependency chain described in the roadmap set: M1 depends on M0, while M3 can start in parallel only if governance is already stable enough. fileciteturn9file0

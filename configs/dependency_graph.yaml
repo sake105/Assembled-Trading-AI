@@ -1,0 +1,224 @@
+# Dependency Graph Configuration
+# Static geopolitical/economic dependency graph for shock propagation.
+# Nodes represent entities (chokepoints, commodities, sectors, assets, regions).
+# Edges represent dependency/sensitivity relationships.
+
+nodes:
+  - node_id: HORMUZ
+    node_type: chokepoint
+    name: Strait of Hormuz
+    attributes:
+      region: Middle East
+      description: Critical oil/LNG transit chokepoint
+
+  - node_id: SUEZ
+    node_type: chokepoint
+    name: Suez Canal
+    attributes:
+      region: Middle East / Africa
+      description: Critical shipping canal connecting Mediterranean to Red Sea
+
+  - node_id: GLOBAL_OIL
+    node_type: commodity
+    name: Global Oil Supply
+    attributes:
+      unit: barrels
+      description: Global crude oil supply pool
+
+  - node_id: GLOBAL_LNG
+    node_type: commodity
+    name: Global LNG Supply
+    attributes:
+      unit: mmBtu
+      description: Global liquefied natural gas supply
+
+  - node_id: BRENT_CRUDE
+    node_type: asset
+    name: Brent Crude Oil ETF
+    attributes:
+      symbol: USO
+      asset_class: commodity_etf
+      description: Brent crude oil proxy
+
+  - node_id: GOLD
+    node_type: commodity
+    name: Gold
+    attributes:
+      asset: GLD
+      symbol: GLD
+      asset_class: safe_haven
+      description: Safe-haven gold commodity
+
+  - node_id: DEFENSE_SECTOR
+    node_type: sector
+    name: Defense & Aerospace Sector
+    attributes:
+      assets: [LMT, RTX, NOC, ITA]
+      description: Defense contractors and aerospace manufacturers
+
+  - node_id: CYBER_SECTOR
+    node_type: sector
+    name: Cybersecurity Sector
+    attributes:
+      assets: [CIBR, HACK]
+      description: Cybersecurity ETFs and companies
+
+  - node_id: ENERGY_SECTOR
+    node_type: sector
+    name: Energy Sector
+    attributes:
+      assets: [XLE, XOM, CVX]
+      description: Broad energy sector including oil majors
+
+  - node_id: US_EQUITIES
+    node_type: macro_index
+    name: US Equities Broad Market
+    attributes:
+      asset: SPY
+      symbol: SPY
+      description: S&P 500 broad market proxy
+
+  - node_id: HIGH_BETA_TECH
+    node_type: sector
+    name: High Beta Technology
+    attributes:
+      assets: [QQQ, SOXX]
+      description: Growth/tech stocks with high market beta
+
+  - node_id: CHINA_MANUFACTURING
+    node_type: country
+    name: China Manufacturing Sector
+    attributes:
+      region: Asia
+      description: China industrial and manufacturing output
+
+  - node_id: EUROPE
+    node_type: region
+    name: Europe
+    attributes:
+      description: European economic region
+
+  - node_id: SEMIS
+    node_type: sector
+    name: Semiconductors
+    attributes:
+      assets: [SOXX, NVDA]
+      description: Semiconductor manufacturers and supply chain
+
+edges:
+  - from_node: HORMUZ
+    to_node: GLOBAL_OIL
+    edge_type: TRANSITS_THROUGH
+    weight: 0.7
+    direction: "-"
+    lag_hours: 24
+    confidence: 0.9
+    source_refs: []
+
+  - from_node: HORMUZ
+    to_node: GLOBAL_LNG
+    edge_type: TRANSITS_THROUGH
+    weight: 0.5
+    direction: "-"
+    lag_hours: 24
+    confidence: 0.85
+    source_refs: []
+
+  - from_node: SUEZ
+    to_node: GLOBAL_OIL
+    edge_type: TRANSITS_THROUGH
+    weight: 0.3
+    direction: "-"
+    lag_hours: 48
+    confidence: 0.8
+    source_refs: []
+
+  - from_node: GLOBAL_OIL
+    to_node: ENERGY_SECTOR
+    edge_type: SENSITIVE_TO_PRICE
+    weight: 0.9
+    direction: "+"
+    lag_hours: 6
+    confidence: 0.95
+    source_refs: []
+
+  - from_node: GLOBAL_OIL
+    to_node: HIGH_BETA_TECH
+    edge_type: SENSITIVE_TO_PRICE
+    weight: 0.4
+    direction: "-"
+    lag_hours: 48
+    confidence: 0.7
+    source_refs: []
+
+  - from_node: GLOBAL_OIL
+    to_node: CHINA_MANUFACTURING
+    edge_type: SENSITIVE_TO_PRICE
+    weight: 0.6
+    direction: "-"
+    lag_hours: 72
+    confidence: 0.75
+    source_refs: []
+
+  - from_node: WAR_ESCALATION_EVENT
+    to_node: DEFENSE_SECTOR
+    edge_type: BENEFITS_FROM
+    weight: 0.8
+    direction: "+"
+    lag_hours: 2
+    confidence: 0.9
+    source_refs: []
+
+  - from_node: WAR_ESCALATION_EVENT
+    to_node: GOLD
+    edge_type: BENEFITS_FROM
+    weight: 0.6
+    direction: "+"
+    lag_hours: 6
+    confidence: 0.85
+    source_refs: []
+
+  - from_node: WAR_ESCALATION_EVENT
+    to_node: US_EQUITIES
+    edge_type: HURT_BY
+    weight: 0.5
+    direction: "-"
+    lag_hours: 12
+    confidence: 0.8
+    source_refs: []
+
+  - from_node: CYBER_ESCALATION
+    to_node: CYBER_SECTOR
+    edge_type: BENEFITS_FROM
+    weight: 0.7
+    direction: "+"
+    lag_hours: 24
+    confidence: 0.8
+    source_refs: []
+
+  - from_node: GOLD
+    to_node: US_EQUITIES
+    edge_type: SAFE_HAVEN_FOR
+    weight: 0.7
+    direction: "+"
+    lag_hours: 6
+    confidence: 0.85
+    source_refs: []
+
+  - from_node: SANCTIONS
+    to_node: CHINA_MANUFACTURING
+    edge_type: SANCTIONS_EXPOSED
+    weight: 0.6
+    direction: "-"
+    lag_hours: 48
+    confidence: 0.75
+    source_refs: []
+
+  - from_node: SEMIS
+    to_node: ENERGY_SECTOR
+    edge_type: DEPENDS_ON_ENERGY
+    weight: 0.3
+    direction: "-"
+    lag_hours: 72
+    confidence: 0.6
+    source_refs: []

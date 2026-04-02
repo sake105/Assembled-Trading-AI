@@ -3,13 +3,17 @@
 This module provides position sizing strategies for EOD trading.
 It determines target positions based on signals and available capital.
 
-Zukünftige Integration:
-- Nutzt pipeline.portfolio.simulate_with_costs für Backtesting
-- Erweitert um weitere Sizing-Strategien (Kelly Criterion, Risk Parity, etc.)
+Strategies:
+- Equal weight: 1/N for each position
+- Score-based: Weight proportional to signal score
+- Kelly Criterion: Optimal sizing based on win rate and payoff ratio
+- Risk Parity: Inverse-volatility weighting for equal risk contribution
+- Volatility-scaled: ATR or realized-vol-based position scaling
 """
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 
@@ -133,3 +137,229 @@ def compute_target_positions_from_trend_signals(
     return compute_target_positions(
         filtered, total_capital=total_capital, top_n=top_n, equal_weight=False
     )
+
+
+def compute_kelly_weights(
+    signals: pd.DataFrame,
+    win_rates: pd.Series | dict[str, float] | None = None,
+    payoff_ratios: pd.Series | dict[str, float] | None = None,
+    fraction: float = 0.5,
+    max_weight: float = 0.25,
+    total_capital: float = 1.0,
+    top_n: int | None = None,
+) -> pd.DataFrame:
+    """Compute position weights using Kelly Criterion.
+
+    Kelly formula: f* = (p * b - q) / b
+    where p = win probability, b = payoff ratio (avg win / avg loss), q = 1 - p
+
+    Uses fractional Kelly (default 0.5) for more conservative sizing.
+
+    Args:
+        signals: DataFrame with columns: symbol, direction (and optionally score)
+        win_rates: Per-symbol win rates (0-1). Dict or Series keyed by symbol.
+            If None, uses signal score as proxy (default: 0.55)
+        payoff_ratios: Per-symbol payoff ratios (avg_win / avg_loss).
+            If None, uses 1.5 as default
+        fraction: Kelly fraction (0.5 = half-Kelly, default: 0.5)
+        max_weight: Maximum weight per position (default: 0.25)
+        total_capital: Total capital (default: 1.0)
+        top_n: Maximum number of positions
+
+    Returns:
+        DataFrame with columns: symbol, target_weight, target_qty, kelly_raw
+    """
+    if signals.empty:
+        return pd.DataFrame(
+            columns=["symbol", "target_weight", "target_qty", "kelly_raw"]
+        )
+
+    long_signals = signals[signals["direction"] == "LONG"].copy()
+    if long_signals.empty:
+        return pd.DataFrame(
+            columns=["symbol", "target_weight", "target_qty", "kelly_raw"]
+        )
+
+    # Select top N
+    if top_n is not None and "score" in long_signals.columns:
+        long_signals = long_signals.nlargest(top_n, "score")
+
+    # Get win rates per symbol
+    if isinstance(win_rates, dict):
+        win_rates = pd.Series(win_rates)
+
+    kelly_weights = []
+    for _, row in long_signals.iterrows():
+        sym = row["symbol"]
+        if win_rates is not None and sym in win_rates.index:
+            p = float(win_rates[sym])
+        elif "score" in row.index and pd.notna(row.get("score")):
+            p = 0.5 + float(row["score"]) * 0.1  # Map score to slight edge
+        else:
+            p = 0.55
+
+        if isinstance(payoff_ratios, pd.Series) and sym in payoff_ratios.index:
+            b = float(payoff_ratios[sym])
+        elif isinstance(payoff_ratios, dict) and sym in payoff_ratios:
+            b = float(payoff_ratios[sym])
+        else:
+            b = 1.5
+
+        q = 1.0 - p
+        kelly_raw = (p * b - q) / b if b > 0 else 0.0
+        kelly_frac = max(0.0, kelly_raw * fraction)
+        kelly_capped = min(kelly_frac, max_weight)
+
+        kelly_weights.append(
+            {"symbol": sym, "kelly_raw": kelly_raw, "kelly_frac": kelly_capped}
+        )
+
+    result = pd.DataFrame(kelly_weights)
+
+    # Normalize weights to sum to <=1
+    total_w = result["kelly_frac"].sum()
+    if total_w > 1.0:
+        result["target_weight"] = result["kelly_frac"] / total_w
+    else:
+        result["target_weight"] = result["kelly_frac"]
+
+    result["target_qty"] = result["target_weight"] * total_capital
+    result = result[["symbol", "target_weight", "target_qty", "kelly_raw"]]
+    return result.sort_values("symbol").reset_index(drop=True)
+
+
+def compute_risk_parity_weights(
+    signals: pd.DataFrame,
+    volatilities: pd.Series | dict[str, float],
+    total_capital: float = 1.0,
+    top_n: int | None = None,
+    max_weight: float = 0.30,
+) -> pd.DataFrame:
+    """Compute position weights using Risk Parity (inverse-volatility weighting).
+
+    Each position gets weight proportional to 1/volatility, so that each
+    position contributes approximately equal risk to the portfolio.
+
+    Args:
+        signals: DataFrame with columns: symbol, direction
+        volatilities: Per-symbol annualized volatilities. Dict or Series keyed by symbol.
+        total_capital: Total capital (default: 1.0)
+        top_n: Maximum number of positions
+        max_weight: Maximum weight per position (default: 0.30)
+
+    Returns:
+        DataFrame with columns: symbol, target_weight, target_qty, volatility
+    """
+    if signals.empty:
+        return pd.DataFrame(
+            columns=["symbol", "target_weight", "target_qty", "volatility"]
+        )
+
+    long_signals = signals[signals["direction"] == "LONG"].copy()
+    if long_signals.empty:
+        return pd.DataFrame(
+            columns=["symbol", "target_weight", "target_qty", "volatility"]
+        )
+
+    if top_n is not None and "score" in long_signals.columns:
+        long_signals = long_signals.nlargest(top_n, "score")
+
+    if isinstance(volatilities, dict):
+        volatilities = pd.Series(volatilities)
+
+    rows = []
+    for _, row in long_signals.iterrows():
+        sym = row["symbol"]
+        vol = float(volatilities.get(sym, 0.20)) if hasattr(volatilities, "get") else 0.20
+        if vol < 1e-8:
+            vol = 0.20  # Default if zero/missing
+        rows.append({"symbol": sym, "inv_vol": 1.0 / vol, "volatility": vol})
+
+    result = pd.DataFrame(rows)
+    total_inv_vol = result["inv_vol"].sum()
+
+    if total_inv_vol > 0:
+        result["target_weight"] = (result["inv_vol"] / total_inv_vol).clip(
+            upper=max_weight
+        )
+        # Renormalize after clipping
+        total_w = result["target_weight"].sum()
+        if total_w > 1.0:
+            result["target_weight"] = result["target_weight"] / total_w
+    else:
+        n = len(result)
+        result["target_weight"] = 1.0 / n if n > 0 else 0.0
+
+    result["target_qty"] = result["target_weight"] * total_capital
+    result = result[["symbol", "target_weight", "target_qty", "volatility"]]
+    return result.sort_values("symbol").reset_index(drop=True)
+
+
+def compute_vol_scaled_weights(
+    signals: pd.DataFrame,
+    volatilities: pd.Series | dict[str, float],
+    target_vol: float = 0.15,
+    total_capital: float = 1.0,
+    top_n: int | None = None,
+    max_weight: float = 0.30,
+) -> pd.DataFrame:
+    """Compute position weights scaled by target volatility.
+
+    Each position is sized so that its contribution to portfolio volatility
+    matches a target level, assuming positions are independent.
+
+    Weight_i = target_vol / (sqrt(N) * vol_i)
+
+    Args:
+        signals: DataFrame with columns: symbol, direction
+        volatilities: Per-symbol annualized volatilities
+        target_vol: Target portfolio volatility (default: 0.15 = 15%)
+        total_capital: Total capital (default: 1.0)
+        top_n: Maximum number of positions
+        max_weight: Maximum weight per position (default: 0.30)
+
+    Returns:
+        DataFrame with columns: symbol, target_weight, target_qty, volatility
+    """
+    if signals.empty:
+        return pd.DataFrame(
+            columns=["symbol", "target_weight", "target_qty", "volatility"]
+        )
+
+    long_signals = signals[signals["direction"] == "LONG"].copy()
+    if long_signals.empty:
+        return pd.DataFrame(
+            columns=["symbol", "target_weight", "target_qty", "volatility"]
+        )
+
+    if top_n is not None and "score" in long_signals.columns:
+        long_signals = long_signals.nlargest(top_n, "score")
+
+    if isinstance(volatilities, dict):
+        volatilities = pd.Series(volatilities)
+
+    n_positions = len(long_signals)
+    sqrt_n = np.sqrt(n_positions) if n_positions > 0 else 1.0
+
+    rows = []
+    for _, row in long_signals.iterrows():
+        sym = row["symbol"]
+        vol = float(volatilities.get(sym, 0.20)) if hasattr(volatilities, "get") else 0.20
+        if vol < 1e-8:
+            vol = 0.20
+
+        weight = target_vol / (sqrt_n * vol)
+        weight = min(weight, max_weight)
+
+        rows.append({"symbol": sym, "target_weight": weight, "volatility": vol})
+
+    result = pd.DataFrame(rows)
+
+    # Normalize if total exceeds 1.0
+    total_w = result["target_weight"].sum()
+    if total_w > 1.0:
+        result["target_weight"] = result["target_weight"] / total_w
+
+    result["target_qty"] = result["target_weight"] * total_capital
+    result = result[["symbol", "target_weight", "target_qty", "volatility"]]
+    return result.sort_values("symbol").reset_index(drop=True)
