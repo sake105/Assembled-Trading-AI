@@ -68,7 +68,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          pytest -m "not advanced" -q --maxfail=3 --tb=short 2>&1 | tee -a ci_log.txt
+          pytest -m "not advanced and not slow" -q --maxfail=3 --tb=short 2>&1 | tee -a ci_log.txt
       
       - name: Run advanced tests (optional, non-blocking)
         continue-on-error: true

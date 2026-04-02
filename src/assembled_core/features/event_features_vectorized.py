@@ -72,14 +72,14 @@ def build_event_feature_panel_vectorized(
         # If normalization fails, return prices with zero features
         result[f"{feature_prefix}_count_{lookback_days}d"] = 0.0
         result[f"{feature_prefix}_sum_{lookback_days}d"] = 0.0
-        result[f"{feature_prefix}_mean_{lookback_days}d"] = np.nan
+        result[f"{feature_prefix}_mean_{lookback_days}d"] = np.full(len(result), np.nan)
         return result
 
     if events.empty:
         # Return prices with zero features
         result[f"{feature_prefix}_count_{lookback_days}d"] = 0.0
         result[f"{feature_prefix}_sum_{lookback_days}d"] = 0.0
-        result[f"{feature_prefix}_mean_{lookback_days}d"] = np.nan
+        result[f"{feature_prefix}_mean_{lookback_days}d"] = np.full(len(result), np.nan)
         return result
 
     # Step 2: Filter events by disclosure_date <= as_of (PIT-safe, global)
@@ -88,9 +88,7 @@ def build_event_feature_panel_vectorized(
     # Step 3: Initialize feature columns (use float to avoid LossySetitemError with NaN)
     result[f"{feature_prefix}_count_{lookback_days}d"] = 0.0
     result[f"{feature_prefix}_sum_{lookback_days}d"] = 0.0
-    result[f"{feature_prefix}_mean_{lookback_days}d"] = pd.array(
-        [np.nan] * len(result), dtype="float64"
-    )
+    result[f"{feature_prefix}_mean_{lookback_days}d"] = np.full(len(result), np.nan)
 
     # Determine value column for aggregation
     value_col = "value" if "value" in events.columns else None
