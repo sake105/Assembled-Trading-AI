@@ -271,7 +271,12 @@ def test_deterministic_behavior() -> None:
     orders2 = result2.orders_filtered.sort_values(["symbol", "timestamp"]).reset_index(
         drop=True
     )
-    pd.testing.assert_frame_equal(orders1, orders2, check_dtype=False)
+    # Exclude auto-generated timestamps from comparison (microsecond race between runs)
+    compare_cols = [c for c in orders1.columns if c != "timestamp"]
+    if compare_cols:
+        pd.testing.assert_frame_equal(
+            orders1[compare_cols], orders2[compare_cols], check_dtype=False
+        )
 
 
 def test_security_master_loading_integration() -> None:

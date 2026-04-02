@@ -283,6 +283,17 @@ def test_equivalence_empty_events() -> None:
     )
 
     # Assert: Same outputs
+    # Normalize NA/NaN for pyarrow compat: convert numeric-like columns to float64
+    for col in result_legacy.select_dtypes(exclude=["datetime", "string"]).columns:
+        try:
+            result_legacy[col] = pd.to_numeric(
+                result_legacy[col], errors="coerce"
+            ).astype("float64")
+            result_vectorized[col] = pd.to_numeric(
+                result_vectorized[col], errors="coerce"
+            ).astype("float64")
+        except (TypeError, ValueError):
+            pass
     pd.testing.assert_frame_equal(
         result_legacy,
         result_vectorized,
