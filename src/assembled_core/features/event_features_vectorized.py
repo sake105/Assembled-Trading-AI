@@ -88,7 +88,9 @@ def build_event_feature_panel_vectorized(
     # Step 3: Initialize feature columns (use float to avoid LossySetitemError with NaN)
     result[f"{feature_prefix}_count_{lookback_days}d"] = 0.0
     result[f"{feature_prefix}_sum_{lookback_days}d"] = 0.0
-    result[f"{feature_prefix}_mean_{lookback_days}d"] = np.nan
+    result[f"{feature_prefix}_mean_{lookback_days}d"] = pd.array(
+        [np.nan] * len(result), dtype="float64"
+    )
 
     # Determine value column for aggregation
     value_col = "value" if "value" in events.columns else None
@@ -242,11 +244,10 @@ def _compute_features_for_symbol_vectorized(
         # Use np.nan instead of pd.NA to match legacy dtype (object with NaN)
         features["mean"] = features["sum"] / features["count"].replace(0, np.nan)
         features["mean"] = features["mean"].where(features["count"] > 0, np.nan)
-        # Convert to object dtype to match legacy (legacy uses object dtype with NaN)
-        features["mean"] = features["mean"].astype("object")
+        # Ensure float64 dtype for consistent NaN handling (not pd.NA)
+        features["mean"] = pd.to_numeric(features["mean"], errors="coerce").astype("float64")
     else:
-        features["mean"] = np.nan
-        features["mean"] = features["mean"].astype("object")
+        features["mean"] = pd.array([np.nan] * len(features), dtype="float64")
 
     # Ensure count >= 0 (should be, but safety check)
     features["count"] = features["count"].clip(lower=0)

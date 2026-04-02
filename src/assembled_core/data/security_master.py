@@ -20,7 +20,7 @@ def get_default_security_master_path() -> Path:
 def _strip_strings(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
     for col in _STR_COLS:
-        if col in out.columns and out[col].dtype == object:
+        if col in out.columns and hasattr(out[col], "str"):
             out[col] = out[col].str.strip()
     return out
 

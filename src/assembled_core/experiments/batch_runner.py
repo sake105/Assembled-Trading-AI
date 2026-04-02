@@ -25,7 +25,7 @@ import subprocess
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -151,7 +151,7 @@ def _write_run_manifest(
         "base_args": base_args,
         "artifacts": artifacts,
         "error": result.error,
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(tz=timezone.utc).isoformat(),
     }
 
     # Write manifest
@@ -514,7 +514,7 @@ def _run_single_backtest_worker(
     run_logger = _setup_run_logging(run_output_dir, run_spec.id)
     run_logger.info(f"Starting backtest run: {run_spec.id}")
 
-    start_time = datetime.utcnow()
+    start_time = datetime.now(tz=timezone.utc)
 
     try:
         # Build command
@@ -535,7 +535,7 @@ def _run_single_backtest_worker(
             timeout=timeout_sec,
         )
 
-        end_time = datetime.utcnow()
+        end_time = datetime.now(tz=timezone.utc)
         runtime_sec = (end_time - start_time).total_seconds()
 
         if proc.returncode == 0:
@@ -572,7 +572,7 @@ def _run_single_backtest_worker(
             )
 
     except subprocess.TimeoutExpired:
-        end_time = datetime.utcnow()
+        end_time = datetime.now(tz=timezone.utc)
         runtime_sec = (end_time - start_time).total_seconds()
         error_msg = f"Backtest timed out after {timeout_sec}s"
         run_logger.error(error_msg)
@@ -587,7 +587,7 @@ def _run_single_backtest_worker(
         )
 
     except Exception as exc:
-        end_time = datetime.utcnow()
+        end_time = datetime.now(tz=timezone.utc)
         runtime_sec = (end_time - start_time).total_seconds()
         error_msg = f"Exception during backtest: {exc}"
         run_logger.error(f"Run {run_spec.id} raised exception: {exc}", exc_info=True)
@@ -640,13 +640,13 @@ def _run_single_backtest(
     run_logger = _setup_run_logging(run_output_dir, run_spec.id)
     run_logger.info(f"Starting backtest run: {run_spec.id}")
 
-    start_time = datetime.utcnow()
+    start_time = datetime.now(tz=timezone.utc)
 
     # Use custom backtest function if provided (for testing)
     if backtest_fn is not None:
         result = backtest_fn(run_spec, base_args, backtest_output_dir)
         result.run_index = run_index
-        end_time = datetime.utcnow()
+        end_time = datetime.now(tz=timezone.utc)
         # Clean up logger handlers
         for handler in run_logger.handlers[:]:
             handler.close()
@@ -677,7 +677,7 @@ def _run_single_backtest(
             text=True,
         )
 
-        end_time = datetime.utcnow()
+        end_time = datetime.now(tz=timezone.utc)
         runtime_sec = (end_time - start_time).total_seconds()
 
         if proc.returncode == 0:
@@ -714,7 +714,7 @@ def _run_single_backtest(
             )
 
     except Exception as exc:
-        end_time = datetime.utcnow()
+        end_time = datetime.now(tz=timezone.utc)
         runtime_sec = (end_time - start_time).total_seconds()
         error_msg = f"Exception during backtest: {exc}"
         run_logger.error(f"Run {run_spec.id} raised exception: {exc}", exc_info=True)
@@ -792,7 +792,7 @@ def run_batch_serial(
     logger.info(f"Fail fast: {fail_fast}")
     logger.info("")
 
-    started_at = datetime.utcnow()
+    started_at = datetime.now(tz=timezone.utc)
     run_results: list[RunResult] = []
 
     for idx, run_spec in enumerate(run_specs, 1):
@@ -814,7 +814,7 @@ def run_batch_serial(
             logger.warning(f"Fail-fast enabled: aborting batch after run {run_spec.id}")
             break
 
-    finished_at = datetime.utcnow()
+    finished_at = datetime.now(tz=timezone.utc)
     total_runtime_sec = (finished_at - started_at).total_seconds()
 
     batch_result = BatchResult(
@@ -1418,7 +1418,7 @@ def _write_batch_manifest(
         "versions": {
             "python": sys.version.split()[0],
         },
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(tz=timezone.utc).isoformat(),
     }
 
     # Write manifest
@@ -1494,7 +1494,7 @@ def run_batch_parallel(
     )
     logger.info("")
 
-    started_at = datetime.utcnow()
+    started_at = datetime.now(tz=timezone.utc)
 
     # Prepare run specs as dictionaries (for pickling)
     run_spec_dicts = [
@@ -1589,7 +1589,7 @@ def run_batch_parallel(
     # Filter out None results (if any were cancelled)
     run_results_filtered = [r for r in run_results if r is not None]
 
-    finished_at = datetime.utcnow()
+    finished_at = datetime.now(tz=timezone.utc)
     total_runtime_sec = (finished_at - started_at).total_seconds()
 
     batch_result = BatchResult(

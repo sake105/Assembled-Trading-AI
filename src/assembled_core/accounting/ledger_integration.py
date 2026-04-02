@@ -86,7 +86,7 @@ def build_ledger_from_trades(
         if not trades_df.empty and "timestamp" in trades_df.columns:
             as_of_date = pd.to_datetime(trades_df["timestamp"].max(), utc=True)
         else:
-            as_of_date = pd.Timestamp.utcnow()
+            as_of_date = pd.Timestamp.now("UTC")
     if isinstance(as_of_date, str):
         as_of_date = pd.to_datetime(as_of_date, utc=True)
     if as_of_date.tz is None:

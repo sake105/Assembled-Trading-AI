@@ -187,8 +187,8 @@ class PaperTrackState:
     cash: float = 0.0
     equity: float = 0.0
     seed_capital: float = 100000.0
-    created_at: pd.Timestamp = field(default_factory=lambda: pd.Timestamp.utcnow())
-    updated_at: pd.Timestamp = field(default_factory=lambda: pd.Timestamp.utcnow())
+    created_at: pd.Timestamp = field(default_factory=lambda: pd.Timestamp.now("UTC"))
+    updated_at: pd.Timestamp = field(default_factory=lambda: pd.Timestamp.now("UTC"))
     total_trades: int = 0
     total_pnl: float = 0.0
     last_equity: float | None = None  # Previous day's equity (v2.0+)
@@ -993,7 +993,7 @@ def run_paper_day(
         raise ValueError(f"impact_w must be >= 0 and finite, got {config.impact_w}")
 
     # Validate as_of
-    now = pd.Timestamp.utcnow()
+    now = pd.Timestamp.now("UTC")
     if as_of > now:
         raise ValueError(
             f"as_of ({as_of.date()}) cannot be in the future (current: {now.date()})"
@@ -1027,7 +1027,7 @@ def run_paper_day(
 
     if state_before is None:
         # Initialize new state
-        now = pd.Timestamp.utcnow()
+        now = pd.Timestamp.now("UTC")
         state_before = PaperTrackState(
             strategy_name=config.strategy_name,
             last_run_date=None,
@@ -1315,7 +1315,7 @@ def run_paper_day(
         new_equity = new_cash + position_value
 
         # Step 9: Create updated state
-        now = pd.Timestamp.utcnow()
+        now = pd.Timestamp.now("UTC")
         # Store previous day's values for tracking (v2.0+)
         last_equity = state_before.equity
         last_positions_value = state_before.equity - state_before.cash
@@ -1720,7 +1720,7 @@ def _write_run_manifest(
             "sell_count": result.sell_count,
         },
         "artifacts": artifacts,
-        "created_at": pd.Timestamp.utcnow().isoformat(),
+        "created_at": pd.Timestamp.now("UTC").isoformat(),
     }
 
     # Add error message if present

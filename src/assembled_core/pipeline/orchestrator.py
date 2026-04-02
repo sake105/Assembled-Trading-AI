@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import json
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -512,7 +512,7 @@ def run_eod_pipeline(
         raise ValueError(f"Unsupported frequency: {freq}. Supported: {SUPPORTED_FREQS}")
 
     base = output_dir if output_dir else OUTPUT_DIR
-    started_at = datetime.utcnow()
+    started_at = datetime.now(tz=timezone.utc)
 
     completed_steps = []
     failure_flag = False
@@ -689,7 +689,7 @@ def run_eod_pipeline(
                                 portfolio_trades_df["timestamp"].max(), utc=True
                             )
                         else:
-                            snapshot_date = pd.Timestamp.utcnow()
+                            snapshot_date = pd.Timestamp.now("UTC")
                     else:
                         snapshot_date = pd.to_datetime(snapshot_date, utc=True)
 
@@ -924,7 +924,7 @@ def run_eod_pipeline(
     else:
         logger.info("Step 5: QA (SKIPPED)")
 
-    finished_at = datetime.utcnow()
+    finished_at = datetime.now(tz=timezone.utc)
 
     # Compute data snapshot ID (D4)
     # Berechne genau einmal nachdem Preise geladen wurden (nicht pro Timestamp)

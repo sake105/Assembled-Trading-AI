@@ -8,7 +8,7 @@ are aggregated in memory.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal
 
 from src.assembled_core.logging_utils import setup_logging
@@ -45,7 +45,7 @@ class PaperOrder:
     client_order_id: str | None = None
     route: str | None = "PAPER"
     source: str | None = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(tz=timezone.utc))
     filled_at: datetime | None = None
 
 
@@ -116,7 +116,7 @@ class PaperTradingEngine:
 
             # Fill order immediately
             order.status = "FILLED"
-            order.filled_at = datetime.utcnow()
+            order.filled_at = datetime.now(tz=timezone.utc)
             order.symbol = symbol  # Store normalized symbol
 
             # Update position

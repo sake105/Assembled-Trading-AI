@@ -64,9 +64,9 @@ def normalize_macro_releases(
                 "available_ts < release_ts for some rows — data integrity violation"
             )
 
-    # Trim string columns
+    # Trim string columns (check for object or string dtype for pyarrow compat)
     for col in _STR_COLS:
-        if col in df.columns and df[col].dtype == object:
+        if col in df.columns and hasattr(df[col], "str"):
             df[col] = df[col].str.strip()
 
     # Add missing standard columns as None

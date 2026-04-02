@@ -66,7 +66,7 @@ class QcIssue:
         if self.timestamp is not None:
             if self.timestamp.tz is None:
                 self.timestamp = pd.to_datetime(self.timestamp, utc=True)
-            elif self.timestamp.tz != pd.Timestamp.utcnow().tz:
+            elif self.timestamp.tz != pd.Timestamp.now("UTC").tz:
                 self.timestamp = self.timestamp.tz_convert("UTC")
 
     def to_dict(self) -> dict[str, Any]:
@@ -98,13 +98,13 @@ class QcReport:
     ok: bool
     summary: dict[str, Any]
     issues: list[QcIssue]
-    created_at_utc: pd.Timestamp = field(default_factory=lambda: pd.Timestamp.utcnow())
+    created_at_utc: pd.Timestamp = field(default_factory=lambda: pd.Timestamp.now("UTC"))
 
     def __post_init__(self) -> None:
         """Ensure created_at_utc is UTC-aware."""
         if self.created_at_utc.tz is None:
             self.created_at_utc = pd.to_datetime(self.created_at_utc, utc=True)
-        elif self.created_at_utc.tz != pd.Timestamp.utcnow().tz:
+        elif self.created_at_utc.tz != pd.Timestamp.now("UTC").tz:
             self.created_at_utc = self.created_at_utc.tz_convert("UTC")
 
     def to_dict(self) -> dict[str, Any]:
@@ -606,7 +606,7 @@ def run_price_panel_qc(
         if prices["timestamp"].dt.tz is None:
             prices = prices.copy()
             prices["timestamp"] = pd.to_datetime(prices["timestamp"], utc=True)
-        elif prices["timestamp"].dt.tz != pd.Timestamp.utcnow().tz:
+        elif prices["timestamp"].dt.tz != pd.Timestamp.now("UTC").tz:
             prices = prices.copy()
             prices["timestamp"] = prices["timestamp"].dt.tz_convert("UTC")
 

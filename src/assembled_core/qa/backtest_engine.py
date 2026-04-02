@@ -1259,7 +1259,7 @@ def run_portfolio_backtest(
                                 trades_for_ledger["timestamp"].max(), utc=True
                             )
                         else:
-                            snapshot_date = pd.Timestamp.utcnow()
+                            snapshot_date = pd.Timestamp.now("UTC")
                     else:
                         snapshot_date = pd.to_datetime(snapshot_date, utc=True)
 

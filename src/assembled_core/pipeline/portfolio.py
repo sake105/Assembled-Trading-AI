@@ -58,7 +58,7 @@ def simulate_with_costs(
             cash = np.full(len(tl), start_capital, dtype=np.float64)
             eq = pd.DataFrame({"timestamp": tl, "equity": equity, "cash": cash})
         else:
-            ts = pd.date_range(end=pd.Timestamp.utcnow(), periods=60, freq=freq)
+            ts = pd.date_range(end=pd.Timestamp.now("UTC"), periods=60, freq=freq)
             eq = pd.DataFrame(
                 {
                     "timestamp": ts,

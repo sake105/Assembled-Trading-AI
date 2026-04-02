@@ -289,7 +289,7 @@ def run_paper_daily_one(
         fills = simulate_fills(orders_for_fills, prices_for_fills, cost_cfg)
         state_after = apply_fills_to_ledger(ledger_state, fills)
         equity_after = mark_to_market_equity(state_after, prices_for_fills)
-        now_iso = pd.Timestamp.utcnow().isoformat()
+        now_iso = pd.Timestamp.now("UTC").isoformat()
         state_after["equity_curve"] = list(state_after.get("equity_curve") or []) + [
             {"utc": now_iso, "equity": equity_after}
         ]

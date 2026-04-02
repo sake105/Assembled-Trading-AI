@@ -215,7 +215,7 @@ class TradingContext:
 
     # Order generation
     current_positions: pd.DataFrame | None = None
-    order_timestamp: pd.Timestamp = field(default_factory=lambda: pd.Timestamp.utcnow())
+    order_timestamp: pd.Timestamp = field(default_factory=lambda: pd.Timestamp.now("UTC"))
 
     # Risk controls
     enable_risk_controls: bool = True
@@ -316,7 +316,7 @@ class TradingCycleResult:
 
     # Metadata
     run_id: str | None = None
-    timestamp: pd.Timestamp = field(default_factory=lambda: pd.Timestamp.utcnow())
+    timestamp: pd.Timestamp = field(default_factory=lambda: pd.Timestamp.now("UTC"))
     status: Literal["success", "error"] = "success"
     error_message: str | None = None
     meta: dict[str, Any] = field(default_factory=dict)
@@ -815,7 +815,7 @@ def run_trading_cycle(
     # Initialize result
     result = TradingCycleResult(
         run_id=ctx.run_id,
-        timestamp=pd.Timestamp.utcnow(),
+        timestamp=pd.Timestamp.now("UTC"),
         status="success",
     )
 
@@ -864,7 +864,7 @@ def run_trading_cycle(
         as_of_utc = pd.to_datetime(ctx.as_of, utc=True)
         now_utc = as_of_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
     else:
-        now_utc = pd.Timestamp.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        now_utc = pd.Timestamp.now("UTC").strftime("%Y-%m-%dT%H:%M:%SZ")
     if mode == "ephemeral":
         import tempfile
 
@@ -1000,7 +1000,7 @@ def run_trading_cycle(
                 precomputed["timestamp"] = pd.to_datetime(
                     precomputed["timestamp"], utc=True
                 )
-            elif precomputed["timestamp"].dtype.tz != pd.Timestamp.utcnow().tz:
+            elif precomputed["timestamp"].dtype.tz != pd.Timestamp.now("UTC").tz:
                 # Ensure UTC timezone
                 precomputed["timestamp"] = precomputed["timestamp"].dt.tz_convert("UTC")
 

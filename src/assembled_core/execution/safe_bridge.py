@@ -12,7 +12,7 @@ Zukünftige Integration:
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -183,7 +183,7 @@ def write_safe_orders_csv(
             if not orders.empty and "timestamp" in orders.columns:
                 date = pd.to_datetime(orders["timestamp"]).max().to_pydatetime()
             else:
-                date = datetime.utcnow()
+                date = datetime.now(tz=timezone.utc)
 
         date_str = date.strftime("%Y%m%d")
         output_dir = Path(OUTPUT_DIR)

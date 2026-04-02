@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, List, Optional
 
@@ -169,7 +169,7 @@ def build_cycle_summary(results: List[WorkerResult]) -> dict:
     skip = sum(1 for r in results if r.status == "skip")
     error = sum(1 for r in results if r.status == "error")
     return {
-        "date": datetime.utcnow().strftime("%Y-%m-%d"),
+        "date": datetime.now(tz=timezone.utc).strftime("%Y-%m-%d"),
         "total": len(results),
         "ok": ok,
         "skip": skip,
@@ -204,7 +204,7 @@ def schedule_loop(
     scheduler = DailyScheduler()
     iteration = 0
     while max_iterations is None or iteration < max_iterations:
-        date_str = datetime.utcnow().strftime("%Y-%m-%d")
+        date_str = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d")
         results = scheduler.run_daily_cycle(date_str, output_dir, dry_run)
         summary = build_cycle_summary(results)
         logger.info(

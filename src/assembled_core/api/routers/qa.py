@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
@@ -78,7 +78,7 @@ def get_qa_status(
 
         return QaStatus(
             overall_status=overall_status,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(tz=timezone.utc),
             checks=checks,
             summary=summary,
         )

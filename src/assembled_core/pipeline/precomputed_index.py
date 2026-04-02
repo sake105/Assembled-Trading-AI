@@ -168,7 +168,7 @@ def snapshot_as_of(
     # Ensure as_of is timezone-aware UTC
     if as_of.tz is None:
         as_of = pd.to_datetime(as_of, utc=True)
-    elif as_of.tz != pd.Timestamp.utcnow().tz:
+    elif as_of.tz != pd.Timestamp.now("UTC").tz:
         as_of = as_of.tz_convert("UTC")
 
     # Convert as_of to numpy-compatible timestamp for comparison

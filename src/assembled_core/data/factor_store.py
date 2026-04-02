@@ -13,7 +13,7 @@ import json
 import logging
 import os
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -166,7 +166,7 @@ def _write_manifest(
         "factor_group": factor_group,
         "freq": freq,
         "universe_key": universe_key,
-        "computed_at": datetime.utcnow().isoformat(),
+        "computed_at": datetime.now(tz=timezone.utc).isoformat(),
         "years": years,
         "date_range": date_range,
         "factor_columns": factor_cols,

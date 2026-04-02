@@ -75,7 +75,7 @@ def generate_orders_from_targets_fast(
 
     # Use current timestamp if not provided
     if timestamp is None:
-        timestamp = pd.Timestamp.utcnow()
+        timestamp = pd.Timestamp.now("UTC")
 
     # Extract numpy arrays directly (no merge, no sort)
     symbols = target_positions["symbol"].values
@@ -196,7 +196,7 @@ def generate_orders_from_targets(
 
     # Use current timestamp if not provided
     if timestamp is None:
-        timestamp = pd.Timestamp.utcnow()
+        timestamp = pd.Timestamp.now("UTC")
 
     # Get current positions (default to zero if not provided)
     if current_positions is None:
