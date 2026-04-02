@@ -30,8 +30,9 @@ _TRUST_WEIGHTS: dict[SourceTier, float] = {
 
 
 def get_source_tier(source_id: str) -> SourceTier:
-    """Return the tier for a known source. Defaults to T3 for unknown sources."""
-    return _REGISTRY.get(source_id, SourceTier.T3)
+    """Return the tier for a known source. Defaults to T3 for unknown sources.
+    Lookup is case-insensitive."""
+    return _REGISTRY.get(source_id, _REGISTRY.get(source_id.upper(), SourceTier.T3))
 
 
 def get_trust_weight(source_id: str) -> float:
