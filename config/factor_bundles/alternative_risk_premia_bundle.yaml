@@ -1,0 +1,39 @@
+universe: "universe_etf"
+factor_set: "arp_core"
+horizon_days: 20
+
+# Alternative Risk Premia (ARP) bundle — systematic, well-documented risk premia
+# that are distinct from market beta. Each factor captures a different dimension
+# of compensated risk.
+
+factors:
+  # Value: cheap vs expensive (Book-to-Market via SEC Edgar)
+  - name: "book_to_market"
+    weight: 0.20
+    direction: "positive"
+
+  # Quality: profitable vs unprofitable (Gross Profitability / ROE via SEC Edgar)
+  - name: "gross_profitability"
+    weight: 0.20
+    direction: "positive"
+
+  # Momentum: winners vs losers (12-month return excluding last month)
+  - name: "momentum_12m_excl_1m"
+    weight: 0.20
+    direction: "positive"
+
+  # Low Volatility: stable vs volatile (20-day realized vol — inverted)
+  - name: "rv_20"
+    weight: 0.20
+    direction: "negative"
+
+  # Carry: high vs low dividend yield (via yfinance info)
+  - name: "dividend_yield"
+    weight: 0.20
+    direction: "positive"
+
+options:
+  winsorize: true
+  winsorize_limits: [0.01, 0.99]
+  zscore: true
+  neutralize_by: "sector"

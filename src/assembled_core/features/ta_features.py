@@ -11,8 +11,12 @@ Zukünftige Integration:
 
 from __future__ import annotations
 
+import logging
+
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 def add_log_returns(
@@ -572,6 +576,190 @@ def add_obv(
     obv = signed_volume.groupby(result["symbol"]).cumsum()
 
     result["ta_obv_v1"] = obv.astype("float64")
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# VWAP and Volume Profile
+# ---------------------------------------------------------------------------
+
+
+def add_vwap(
+    df: pd.DataFrame,
+    close_col: str = "close",
+    high_col: str = "high",
+    low_col: str = "low",
+    volume_col: str = "volume",
+    symbol_col: str = "symbol",
+    timestamp_col: str = "timestamp",
+) -> pd.DataFrame:
+    """Add daily cumulative VWAP and VWAP deviation.
+
+    VWAP is computed as a cumulative value within each calendar day per symbol.
+    For daily bars (one row per day), VWAP equals the typical price.
+    Also adds ta_vwap_deviation_v1 = (close - VWAP) / VWAP.
+
+    Args:
+        df: DataFrame with OHLCV columns.
+        close_col: Close price column.
+        high_col: High price column.
+        low_col: Low price column.
+        volume_col: Volume column.
+        symbol_col: Symbol column.
+        timestamp_col: Timestamp column.
+
+    Returns:
+        DataFrame with added columns: ta_vwap_v1, ta_vwap_deviation_v1.
+    """
+    result = df.copy()
+    result[timestamp_col] = pd.to_datetime(result[timestamp_col])
+
+    required = [high_col, low_col, close_col, volume_col, symbol_col]
+    missing = [c for c in required if c not in result.columns]
+    if missing:
+        logger.warning("[VWAP] Missing columns: %s — skipping", missing)
+        return result
+
+    result = result.sort_values([symbol_col, timestamp_col])
+    typical_price = (result[high_col] + result[low_col] + result[close_col]) / 3.0
+    pv = typical_price * result[volume_col]
+
+    # Cumulative within each symbol × date group
+    result["_date"] = result[timestamp_col].dt.date
+    cum_pv = result.groupby([symbol_col, "_date"])["_pv"].transform("cumsum") if "_pv" in result.columns else None
+
+    result["_pv"] = pv.values
+    cum_pv = result.groupby([symbol_col, "_date"])["_pv"].cumsum()
+    cum_vol = result.groupby([symbol_col, "_date"])[volume_col].cumsum()
+
+    vwap = cum_pv / cum_vol.replace(0, float("nan"))
+    result["ta_vwap_v1"] = vwap.values
+    result["ta_vwap_deviation_v1"] = (result[close_col] - vwap) / vwap.replace(0, float("nan"))
+
+    result = result.drop(columns=["_date", "_pv"], errors="ignore")
+    return result
+
+
+def add_vwap_bands(
+    df: pd.DataFrame,
+    std_multipliers: list[float] | None = None,
+    close_col: str = "close",
+    high_col: str = "high",
+    low_col: str = "low",
+    volume_col: str = "volume",
+    symbol_col: str = "symbol",
+    timestamp_col: str = "timestamp",
+    window: int = 20,
+) -> pd.DataFrame:
+    """Add rolling VWAP bands (VWAP ± n * std).
+
+    Uses a rolling window to compute VWAP and standard deviation of price
+    deviations, then creates upper/lower bands at specified multipliers.
+    These are mean-reversion reference levels.
+
+    Args:
+        df: DataFrame with OHLCV columns.
+        std_multipliers: List of std multipliers for bands (default: [1.0, 2.0]).
+        close_col: Close price column.
+        high_col: High price column.
+        low_col: Low price column.
+        volume_col: Volume column.
+        symbol_col: Symbol column.
+        timestamp_col: Timestamp column.
+        window: Rolling window for VWAP/std calculation (default: 20).
+
+    Returns:
+        DataFrame with ta_vwap_upper_{n}std_v1 and ta_vwap_lower_{n}std_v1 columns.
+    """
+    if std_multipliers is None:
+        std_multipliers = [1.0, 2.0]
+
+    result = df.copy()
+    result[timestamp_col] = pd.to_datetime(result[timestamp_col])
+
+    required = [high_col, low_col, close_col, volume_col, symbol_col]
+    missing = [c for c in required if c not in result.columns]
+    if missing:
+        logger.warning("[VWAP Bands] Missing columns: %s — skipping", missing)
+        return result
+
+    result = result.sort_values([symbol_col, timestamp_col])
+
+    def _vwap_bands_for_group(grp: pd.DataFrame) -> pd.DataFrame:
+        grp = grp.copy()
+        tp = (grp[high_col] + grp[low_col] + grp[close_col]) / 3.0
+        pv_g = tp * grp[volume_col]
+
+        cum_pv = pv_g.rolling(window, min_periods=1).sum()
+        cum_vol = grp[volume_col].rolling(window, min_periods=1).sum()
+        rolling_vwap = cum_pv / cum_vol.replace(0, float("nan"))
+
+        # Rolling std of (typical_price - rolling_vwap)
+        dev = tp - rolling_vwap
+        rolling_std = dev.rolling(window, min_periods=max(2, window // 4)).std()
+
+        for mult in std_multipliers:
+            label = str(int(mult)) if mult == int(mult) else str(mult).replace(".", "_")
+            grp[f"ta_vwap_upper_{label}std_v1"] = rolling_vwap + mult * rolling_std
+            grp[f"ta_vwap_lower_{label}std_v1"] = rolling_vwap - mult * rolling_std
+        grp["ta_vwap_rolling_v1"] = rolling_vwap
+        return grp
+
+    pieces = [_vwap_bands_for_group(g) for _, g in result.groupby(symbol_col, group_keys=False)]
+    if not pieces:
+        return result
+    return pd.concat(pieces, ignore_index=True).sort_values([symbol_col, timestamp_col]).reset_index(drop=True)
+
+
+def add_volume_weighted_momentum(
+    df: pd.DataFrame,
+    windows: list[int] | None = None,
+    close_col: str = "close",
+    volume_col: str = "volume",
+    symbol_col: str = "symbol",
+    timestamp_col: str = "timestamp",
+) -> pd.DataFrame:
+    """Add volume-weighted return momentum.
+
+    Volume-weighted momentum = sum(return_i * volume_i) / sum(volume_i) over window.
+    Higher volume during positive days → stronger signal than equal-weighted return.
+
+    Args:
+        df: DataFrame with close and volume columns.
+        windows: List of look-back windows (default: [5, 20]).
+        close_col: Close price column.
+        volume_col: Volume column.
+        symbol_col: Symbol column.
+        timestamp_col: Timestamp column.
+
+    Returns:
+        DataFrame with ta_vol_weighted_mom_{w}d_v1 columns.
+    """
+    if windows is None:
+        windows = [5, 20]
+
+    result = df.copy()
+    result = result.sort_values([symbol_col, timestamp_col])
+
+    required = [close_col, volume_col, symbol_col]
+    missing = [c for c in required if c not in result.columns]
+    if missing:
+        logger.warning("[VWM] Missing columns: %s — skipping", missing)
+        return result
+
+    ret = result.groupby(symbol_col)[close_col].pct_change()
+    vol = result[volume_col].astype(float)
+
+    for w in windows:
+        ret_x_vol = ret * vol
+        cum_rv = ret_x_vol.groupby(result[symbol_col]).transform(
+            lambda s: s.rolling(w, min_periods=max(1, w // 4)).sum()
+        )
+        cum_v = vol.groupby(result[symbol_col]).transform(
+            lambda s: s.rolling(w, min_periods=max(1, w // 4)).sum()
+        )
+        result[f"ta_vol_weighted_mom_{w}d_v1"] = cum_rv / cum_v.replace(0, float("nan"))
 
     return result
 

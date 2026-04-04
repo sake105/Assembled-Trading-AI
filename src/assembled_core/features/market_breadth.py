@@ -417,3 +417,249 @@ def compute_risk_on_off_indicator(
     logger.info(f"Computed Risk-On/Risk-Off indicator for {len(risk_df)} timestamps")
 
     return risk_df
+
+
+# ---------------------------------------------------------------------------
+# Advanced Breadth Indicators
+# ---------------------------------------------------------------------------
+
+
+def compute_mcclellan_oscillator(
+    advance_decline_df: pd.DataFrame,
+    timestamp_col: str = "timestamp",
+    net_advances_col: str = "net_advances",
+    fast_period: int = 19,
+    slow_period: int = 39,
+) -> pd.DataFrame:
+    """Compute the McClellan Oscillator from a net-advances series.
+
+    The McClellan Oscillator = 19-period EMA(net_advances) - 39-period EMA(net_advances).
+    Positive values indicate more advancing than declining issues on a smoothed basis.
+
+    Args:
+        advance_decline_df: Output of compute_advance_decline_line() or any
+            DataFrame with timestamp + net_advances columns.
+        timestamp_col: Timestamp column name.
+        net_advances_col: Net advances column (advances - declines).
+        fast_period: Fast EMA period (default: 19).
+        slow_period: Slow EMA period (default: 39).
+
+    Returns:
+        DataFrame with columns: timestamp, mcclellan_oscillator, ema_fast, ema_slow.
+    """
+    df = advance_decline_df.copy()
+    df = df.sort_values(timestamp_col).reset_index(drop=True)
+
+    if net_advances_col not in df.columns:
+        logger.warning("[Breadth] %s column not found in input", net_advances_col)
+        return pd.DataFrame(columns=[timestamp_col, "mcclellan_oscillator"])
+
+    na = df[net_advances_col].astype(float)
+    ema_fast = na.ewm(span=fast_period, adjust=False).mean()
+    ema_slow = na.ewm(span=slow_period, adjust=False).mean()
+    oscillator = ema_fast - ema_slow
+
+    result = pd.DataFrame({
+        timestamp_col: df[timestamp_col],
+        "mcclellan_oscillator": oscillator.values,
+        "ema_fast": ema_fast.values,
+        "ema_slow": ema_slow.values,
+    })
+    logger.info("[Breadth] McClellan Oscillator computed for %d rows", len(result))
+    return result
+
+
+def compute_mcclellan_summation_index(
+    mcclellan_df: pd.DataFrame,
+    timestamp_col: str = "timestamp",
+    oscillator_col: str = "mcclellan_oscillator",
+) -> pd.DataFrame:
+    """Compute the McClellan Summation Index (cumulative sum of oscillator).
+
+    The Summation Index is a longer-term market cycle indicator — positive
+    and rising = broad bull market, negative and falling = broad bear market.
+
+    Args:
+        mcclellan_df: Output of compute_mcclellan_oscillator().
+        timestamp_col: Timestamp column name.
+        oscillator_col: Oscillator column name.
+
+    Returns:
+        DataFrame with columns: timestamp, mcclellan_summation_index.
+    """
+    df = mcclellan_df.copy().sort_values(timestamp_col).reset_index(drop=True)
+    if oscillator_col not in df.columns:
+        return pd.DataFrame(columns=[timestamp_col, "mcclellan_summation_index"])
+
+    summation = df[oscillator_col].cumsum()
+    result = pd.DataFrame({
+        timestamp_col: df[timestamp_col],
+        "mcclellan_summation_index": summation.values,
+    })
+    logger.info("[Breadth] McClellan Summation Index computed for %d rows", len(result))
+    return result
+
+
+def compute_zweig_breadth_thrust(
+    advance_decline_df: pd.DataFrame,
+    timestamp_col: str = "timestamp",
+    advances_col: str = "advances",
+    declines_col: str = "declines",
+    window: int = 10,
+) -> pd.DataFrame:
+    """Compute the Zweig Breadth Thrust indicator.
+
+    Zweig Breadth Thrust = 10-day EMA of (Advances / (Advances + Declines)).
+    A "thrust" event occurs when the ratio moves from below 0.40 to above 0.615
+    within 10 trading days — historically one of the strongest bull market signals.
+
+    Args:
+        advance_decline_df: DataFrame with advances and declines columns.
+        timestamp_col: Timestamp column name.
+        advances_col: Advancing issues column name.
+        declines_col: Declining issues column name.
+        window: EMA smoothing window (default: 10).
+
+    Returns:
+        DataFrame with columns: timestamp, zweig_bt_ratio, zweig_bt_ema, zweig_thrust_signal.
+    """
+    df = advance_decline_df.copy().sort_values(timestamp_col).reset_index(drop=True)
+    required = [advances_col, declines_col]
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        logger.warning("[Breadth] Zweig thrust: missing columns %s", missing)
+        return pd.DataFrame(columns=[timestamp_col, "zweig_bt_ema"])
+
+    adv = df[advances_col].astype(float)
+    dec = df[declines_col].astype(float)
+    total = adv + dec
+    ratio = adv / total.replace(0, float("nan"))
+    ema = ratio.ewm(span=window, adjust=False).mean()
+
+    # Thrust signal: ema crosses from < 0.40 to > 0.615 within window days
+    below_threshold = (ema < 0.40).astype(int)
+    above_threshold = (ema > 0.615).astype(int)
+    had_low_recently = below_threshold.rolling(window, min_periods=1).max()
+    thrust_signal = (above_threshold & had_low_recently).astype(float)
+
+    result = pd.DataFrame({
+        timestamp_col: df[timestamp_col],
+        "zweig_bt_ratio": ratio.values,
+        "zweig_bt_ema": ema.values,
+        "zweig_thrust_signal": thrust_signal.values,
+    })
+    logger.info("[Breadth] Zweig Breadth Thrust computed for %d rows", len(result))
+    return result
+
+
+def compute_new_highs_minus_new_lows(
+    prices: pd.DataFrame,
+    lookback: int = 252,
+    timestamp_col: str = "timestamp",
+    symbol_col: str = "symbol",
+    close_col: str = "close",
+) -> pd.DataFrame:
+    """Compute New Highs minus New Lows breadth indicator.
+
+    For each date, counts symbols at a 52-week (252-day) high vs. low.
+    Net reading = (new highs - new lows) / total symbols.
+
+    Args:
+        prices: Daily OHLCV panel.
+        lookback: Rolling window to define highs/lows (default: 252 days = 52 weeks).
+        timestamp_col: Timestamp column name.
+        symbol_col: Symbol column name.
+        close_col: Close price column name.
+
+    Returns:
+        DataFrame with columns: timestamp, new_highs, new_lows, nh_nl_net, nh_nl_ratio.
+    """
+    df = prices.copy()
+    df[timestamp_col] = pd.to_datetime(df[timestamp_col])
+    df = df.sort_values([symbol_col, timestamp_col])
+
+    def _at_high_low(grp: pd.DataFrame) -> pd.DataFrame:
+        closes = grp.set_index(timestamp_col)[close_col].sort_index()
+        roll_max = closes.rolling(lookback, min_periods=lookback // 4).max()
+        roll_min = closes.rolling(lookback, min_periods=lookback // 4).min()
+        at_high = (closes >= roll_max).astype(int)
+        at_low = (closes <= roll_min).astype(int)
+        return pd.DataFrame({
+            timestamp_col: closes.index,
+            symbol_col: grp[symbol_col].iloc[0],
+            "at_52w_high": at_high.values,
+            "at_52w_low": at_low.values,
+        })
+
+    pieces = [_at_high_low(g) for _, g in df.groupby(symbol_col)]
+    if not pieces:
+        return pd.DataFrame(columns=[timestamp_col, "new_highs", "new_lows"])
+
+    combined = pd.concat(pieces, ignore_index=True)
+    daily = (
+        combined.groupby(timestamp_col)
+        .agg(new_highs=("at_52w_high", "sum"), new_lows=("at_52w_low", "sum"), total=("at_52w_high", "count"))
+        .reset_index()
+    )
+    daily["nh_nl_net"] = daily["new_highs"] - daily["new_lows"]
+    daily["nh_nl_ratio"] = daily["nh_nl_net"] / daily["total"].replace(0, float("nan"))
+    logger.info("[Breadth] New Highs/Lows computed for %d dates", len(daily))
+    return daily.sort_values(timestamp_col).reset_index(drop=True)
+
+
+def compute_arms_index(
+    advance_decline_df: pd.DataFrame,
+    timestamp_col: str = "timestamp",
+    advances_col: str = "advances",
+    declines_col: str = "declines",
+    adv_volume_col: str = "advancing_volume",
+    dec_volume_col: str = "declining_volume",
+) -> pd.DataFrame:
+    """Compute the Arms Index (TRIN — TRading INdex).
+
+    TRIN = (Advances/Declines) / (Advancing_Volume/Declining_Volume).
+    TRIN < 1.0 = bullish (more volume in advancing stocks), > 1.0 = bearish.
+    Extreme readings (< 0.5 or > 2.0) signal potential reversal.
+
+    Args:
+        advance_decline_df: DataFrame with advances, declines, and volume breakdowns.
+        timestamp_col: Timestamp column name.
+        advances_col: Advancing issues column.
+        declines_col: Declining issues column.
+        adv_volume_col: Advancing volume column.
+        dec_volume_col: Declining volume column.
+
+    Returns:
+        DataFrame with columns: timestamp, arms_index, arms_index_ma_10d.
+        If volume columns are missing, returns approximate breadth-only proxy.
+    """
+    df = advance_decline_df.copy().sort_values(timestamp_col).reset_index(drop=True)
+
+    adv = df[advances_col].astype(float) if advances_col in df.columns else None
+    dec = df[declines_col].astype(float) if declines_col in df.columns else None
+
+    if adv is None or dec is None:
+        logger.warning("[Breadth] Arms Index: advances/declines columns missing")
+        return pd.DataFrame(columns=[timestamp_col, "arms_index"])
+
+    ad_ratio = adv / dec.replace(0, float("nan"))
+
+    if adv_volume_col in df.columns and dec_volume_col in df.columns:
+        adv_vol = df[adv_volume_col].astype(float)
+        dec_vol = df[dec_volume_col].astype(float)
+        vol_ratio = adv_vol / dec_vol.replace(0, float("nan"))
+        arms = ad_ratio / vol_ratio.replace(0, float("nan"))
+    else:
+        # Approximate: use simple breadth ratio when volume breakdown unavailable
+        logger.warning("[Breadth] Arms Index: volume columns missing — using breadth-only proxy")
+        arms = ad_ratio
+
+    arms_ma = arms.rolling(10, min_periods=5).mean()
+
+    result = pd.DataFrame({
+        timestamp_col: df[timestamp_col],
+        "arms_index": arms.values,
+        "arms_index_ma_10d": arms_ma.values,
+    })
+    logger.info("[Breadth] Arms Index (TRIN) computed for %d rows", len(result))
+    return result

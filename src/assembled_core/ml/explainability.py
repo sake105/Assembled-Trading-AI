@@ -75,6 +75,15 @@ except ImportError:
     SKLEARN_INSPECTION_AVAILABLE = False
     permutation_importance = None  # type: ignore
 
+# Optional SHAP import
+try:
+    import shap  # type: ignore
+
+    SHAP_AVAILABLE = True
+except ImportError:
+    SHAP_AVAILABLE = False
+    shap = None  # type: ignore
+
 
 def compute_model_feature_importance(
     model: Any,
@@ -384,6 +393,138 @@ def summarize_feature_importance_global(
     ).reset_index(drop=True)
 
     return aggregation
+
+
+# ---------------------------------------------------------------------------
+# SHAP Integration (E2.3)
+# ---------------------------------------------------------------------------
+
+
+def compute_shap_values(
+    model: Any,
+    X: pd.DataFrame,
+    model_type: str = "auto",
+    max_samples: int = 500,
+) -> pd.DataFrame:
+    """Compute SHAP feature attributions for a trained model.
+
+    Args:
+        model: Trained model (sklearn, xgboost, lightgbm, catboost compatible)
+        X: Feature DataFrame (columns = feature names)
+        model_type: "tree", "linear", or "auto" (auto-detects from model class name)
+        max_samples: Cap samples for background dataset to limit compute (default: 500)
+
+    Returns:
+        DataFrame with columns: feature, mean_abs_shap, shap_std
+        Sorted by mean_abs_shap descending.
+
+    Raises:
+        ImportError: If shap is not installed.
+    """
+    if not SHAP_AVAILABLE:
+        raise ImportError(
+            "shap is not installed. Run: pip install 'shap>=0.44.0'"
+        )
+
+    if X.empty:
+        return pd.DataFrame(columns=["feature", "mean_abs_shap", "shap_std"])
+
+    X_bg = X.iloc[:max_samples] if len(X) > max_samples else X
+
+    # Auto-detect explainer type
+    if model_type == "auto":
+        cls_name = type(model).__name__.lower()
+        if any(k in cls_name for k in ("forest", "xgb", "lgbm", "catboost", "tree", "gradient")):
+            model_type = "tree"
+        elif any(k in cls_name for k in ("ridge", "lasso", "linear", "logistic")):
+            model_type = "linear"
+        else:
+            model_type = "kernel"
+
+    try:
+        if model_type == "tree":
+            explainer = shap.TreeExplainer(model)
+            shap_values = explainer.shap_values(X_bg)
+        elif model_type == "linear":
+            explainer = shap.LinearExplainer(model, X_bg)
+            shap_values = explainer.shap_values(X_bg)
+        else:
+            # Fallback: model-agnostic kernel explainer (slow)
+            bg = shap.sample(X_bg, min(100, len(X_bg)))
+            explainer = shap.KernelExplainer(model.predict, bg)
+            shap_values = explainer.shap_values(X_bg, nsamples=100)
+    except Exception as e:
+        logger.warning("SHAP computation failed: %s", e)
+        return pd.DataFrame(columns=["feature", "mean_abs_shap", "shap_std"])
+
+    shap_arr = np.abs(shap_values)
+    mean_abs = shap_arr.mean(axis=0)
+    std_abs = shap_arr.std(axis=0)
+
+    result = pd.DataFrame(
+        {
+            "feature": list(X.columns),
+            "mean_abs_shap": mean_abs,
+            "shap_std": std_abs,
+        }
+    ).sort_values("mean_abs_shap", ascending=False).reset_index(drop=True)
+    return result
+
+
+def compute_shap_temporal_drift(
+    model: Any,
+    panel_df: pd.DataFrame,
+    feature_cols: list[str],
+    timestamp_col: str = "timestamp",
+    model_type: str = "auto",
+    freq: str = "ME",
+) -> pd.DataFrame:
+    """Compute SHAP importance per time period to detect feature drift.
+
+    Computes mean absolute SHAP per calendar month (or other freq) and
+    returns a long-form DataFrame showing how feature importance changes
+    over time.
+
+    Args:
+        model: Trained model
+        panel_df: Factor panel with timestamp column
+        feature_cols: Feature columns to use
+        timestamp_col: Name of timestamp column (default: "timestamp")
+        model_type: Passed to compute_shap_values (default: "auto")
+        freq: Pandas resample frequency (default: "ME" = month-end)
+
+    Returns:
+        DataFrame with columns: period, feature, mean_abs_shap
+    """
+    if not SHAP_AVAILABLE:
+        raise ImportError("shap is not installed. Run: pip install 'shap>=0.44.0'")
+
+    if timestamp_col not in panel_df.columns:
+        raise ValueError(f"Column '{timestamp_col}' not found in panel_df")
+
+    df = panel_df[[timestamp_col] + feature_cols].dropna()
+    df = df.copy()
+    df[timestamp_col] = pd.to_datetime(df[timestamp_col])
+    df = df.set_index(timestamp_col)
+
+    records = []
+    for period, group in df.resample(freq):
+        if len(group) < 10:
+            continue
+        X_period = group[feature_cols]
+        shap_df = compute_shap_values(model, X_period, model_type=model_type)
+        for _, row in shap_df.iterrows():
+            records.append(
+                {
+                    "period": period,
+                    "feature": row["feature"],
+                    "mean_abs_shap": row["mean_abs_shap"],
+                }
+            )
+
+    if not records:
+        return pd.DataFrame(columns=["period", "feature", "mean_abs_shap"])
+    return pd.DataFrame(records)
 
 
 # Implementation Roadmap:

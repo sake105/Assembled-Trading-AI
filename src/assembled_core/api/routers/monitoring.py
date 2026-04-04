@@ -8,6 +8,7 @@ information for dashboards and operational monitoring.
 from __future__ import annotations
 
 import json
+import time
 from datetime import datetime
 
 import pandas as pd
@@ -372,3 +373,237 @@ def get_drift_status_summary(
         raise HTTPException(
             status_code=500, detail=f"Error computing drift status: {e}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Live Trading / Portfolio Dashboard Endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.get("/monitoring/portfolio")
+def get_portfolio_status(
+    db_path: str = Query(default="data/paper_ledger.db", description="Path to SQLite ledger"),
+) -> dict:
+    """Return current portfolio state: positions, P&L, cash, equity.
+
+    Reads from the SQLite paper ledger (LedgerStore). Falls back to empty
+    state if no ledger file found.
+    """
+    try:
+        from pathlib import Path as _Path
+        from src.assembled_core.data.ledger_store import LedgerStore  # type: ignore
+
+        if not _Path(db_path).exists():
+            return {
+                "status": "no_ledger",
+                "cash": 0.0,
+                "positions": [],
+                "equity": 0.0,
+                "n_positions": 0,
+            }
+
+        ledger = LedgerStore(db_path=db_path)
+        positions = ledger.get_positions()
+        cash = ledger.get_cash()
+        equity_curve = ledger.load_equity_curve()
+        last_equity = float(equity_curve["equity"].iloc[-1]) if not equity_curve.empty else cash
+
+        return {
+            "status": "ok",
+            "cash": round(cash, 2),
+            "equity": round(last_equity, 2),
+            "n_positions": len(positions),
+            "positions": positions.to_dict(orient="records") if not positions.empty else [],
+            "last_updated": equity_curve["as_of"].iloc[-1].isoformat() if not equity_curve.empty else None,
+        }
+    except Exception as exc:
+        logger.error("Error fetching portfolio status: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/monitoring/regime")
+def get_regime_status(
+    output_dir: str = Query(default="src/output", description="Output directory for regime state"),
+) -> dict:
+    """Return current market regime state.
+
+    Reads the most recent regime state from the risk module. Falls back to
+    a default 'unknown' state if no regime data is available.
+    """
+    try:
+        from pathlib import Path as _Path
+        import json as _json
+
+        # Look for most recent regime state file
+        out_path = _Path(output_dir)
+        regime_files = sorted(out_path.glob("regime_state_*.json"), reverse=True)
+        if regime_files:
+            data = _json.loads(regime_files[0].read_text())
+            return {
+                "status": "ok",
+                "regime": data.get("regime", "unknown"),
+                "regime_score": data.get("regime_score", 0.0),
+                "source_file": regime_files[0].name,
+            }
+
+        # Try to load from risk module directly
+        try:
+            return {"status": "unavailable", "regime": "unknown", "message": "no regime data on disk"}
+        except ImportError:
+            pass
+
+        return {"status": "unavailable", "regime": "unknown"}
+    except Exception as exc:
+        logger.error("Error fetching regime status: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/monitoring/alerts")
+def get_active_alerts(
+    db_path: str = Query(default="data/paper_ledger.db", description="Path to SQLite ledger"),
+    output_dir: str = Query(default="src/output", description="Output directory"),
+) -> dict:
+    """Return active system alerts: zombies, correlation guard, kill-switch status.
+
+    Aggregates alerts from multiple risk subsystems.
+    """
+    alerts = []
+
+    # Zombie positions
+    try:
+        from pathlib import Path as _Path
+        import json as _json
+        out_path = _Path(output_dir)
+        zombie_files = sorted(out_path.glob("zombie_report_*.json"), reverse=True)
+        if zombie_files:
+            zombie_data = _json.loads(zombie_files[0].read_text())
+            zombie_syms = zombie_data.get("zombie_symbols", [])
+            if zombie_syms:
+                alerts.append({
+                    "type": "zombie_positions",
+                    "severity": "HIGH",
+                    "message": f"{len(zombie_syms)} zombie position(s) detected: {zombie_syms}",
+                    "source": zombie_files[0].name,
+                })
+    except Exception:
+        pass
+
+    # Kill-switch state
+    try:
+        from src.assembled_core.risk.kill_switch import KillSwitch  # type: ignore
+        ks = KillSwitch()
+        if ks.is_triggered():
+            alerts.append({
+                "type": "kill_switch",
+                "severity": "CRITICAL",
+                "message": "Kill switch is ACTIVE — trading halted",
+            })
+    except Exception:
+        pass
+
+    # Correlation guard
+    try:
+        from pathlib import Path as _Path
+        import json as _json
+        out_path = _Path(output_dir)
+        corr_files = sorted(out_path.glob("correlation_guard_*.json"), reverse=True)
+        if corr_files:
+            corr_data = _json.loads(corr_files[0].read_text())
+            if corr_data.get("guard_triggered"):
+                alerts.append({
+                    "type": "correlation_guard",
+                    "severity": "MEDIUM",
+                    "message": "Correlation guard active — position weights scaled down",
+                    "source": corr_files[0].name,
+                })
+    except Exception:
+        pass
+
+    return {
+        "status": "ok",
+        "n_alerts": len(alerts),
+        "alerts": alerts,
+    }
+
+
+@router.get("/monitoring/signals")
+def get_signal_scores(
+    output_dir: str = Query(default="src/output", description="Output directory for signal scores"),
+    top_n: int = Query(default=20, description="Number of top/bottom symbols to return"),
+) -> dict:
+    """Return most recent composite signal scores per symbol.
+
+    Reads from the most recent signal scores file in output_dir.
+    """
+    try:
+        from pathlib import Path as _Path
+        import json as _json
+
+        out_path = _Path(output_dir)
+        score_files = sorted(out_path.glob("signal_scores_*.json"), reverse=True)
+        if not score_files:
+            # Try parquet
+            score_files_pq = sorted(out_path.glob("signal_scores_*.parquet"), reverse=True)
+            if score_files_pq:
+                df = pd.read_parquet(str(score_files_pq[0]))
+                scores = df.set_index("symbol")["score"].to_dict() if "score" in df.columns else {}
+                return {
+                    "status": "ok",
+                    "source": score_files_pq[0].name,
+                    "top_long": sorted(scores.items(), key=lambda x: -x[1])[:top_n],
+                    "top_short": sorted(scores.items(), key=lambda x: x[1])[:top_n],
+                    "n_symbols": len(scores),
+                }
+            return {"status": "unavailable", "message": "No signal score files found"}
+
+        data = _json.loads(score_files[0].read_text())
+        scores = data.get("scores", {})
+        return {
+            "status": "ok",
+            "source": score_files[0].name,
+            "top_long": sorted(scores.items(), key=lambda x: -x[1])[:top_n],
+            "top_short": sorted(scores.items(), key=lambda x: x[1])[:top_n],
+            "n_symbols": len(scores),
+        }
+    except Exception as exc:
+        logger.error("Error fetching signal scores: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/monitoring/data-quality")
+def get_data_quality(
+    output_dir: str = Query(default="src/output", description="Output directory"),
+) -> dict:
+    """Return data freshness and quality status per symbol.
+
+    Reads from the most recent price data file and reports staleness.
+    """
+    try:
+        from pathlib import Path as _Path
+        import os as _os
+        from datetime import datetime as _dt
+
+        out_path = _Path(output_dir)
+        price_files = sorted(out_path.glob("prices_*.parquet"), reverse=True)
+        if not price_files:
+            return {"status": "unavailable", "message": "No price files found"}
+
+        latest = price_files[0]
+        mtime = _os.path.getmtime(str(latest))
+        age_hours = (time.time() - mtime) / 3600
+        freshness = "fresh" if age_hours < 26 else "stale"
+
+        df = pd.read_parquet(str(latest))
+        n_symbols = len(df.columns) if hasattr(df, "columns") else 0
+
+        return {
+            "status": "ok",
+            "latest_file": latest.name,
+            "age_hours": round(age_hours, 1),
+            "freshness": freshness,
+            "n_symbols": n_symbols,
+            "last_modified": _dt.fromtimestamp(mtime).isoformat(),
+        }
+    except Exception as exc:
+        logger.error("Error fetching data quality: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))

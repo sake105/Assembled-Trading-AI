@@ -312,6 +312,182 @@ def add_turnover_and_liquidity_proxies(
     return result
 
 
+# ---------------------------------------------------------------------------
+# Market Microstructure Indicators (Phase 3.3)
+# ---------------------------------------------------------------------------
+
+
+def add_amihud_illiquidity(
+    prices: pd.DataFrame,
+    windows: list | None = None,
+    close_col: str = "close",
+    volume_col: str = "volume",
+    group_col: str = "symbol",
+) -> pd.DataFrame:
+    """Amihud (2002) illiquidity ratio: rolling mean of |return| / dollar_volume.
+
+    Higher values indicate less liquid stocks.
+    Output columns: amihud_illiq_{w}d for each window.
+    """
+    if windows is None:
+        windows = [20, 60]
+    result = prices.copy()
+    if close_col not in result.columns or volume_col not in result.columns:
+        logger.warning("[Amihud] Required columns missing — skipping")
+        return result
+
+    abs_ret = result.groupby(group_col)[close_col].transform(
+        lambda x: x.pct_change().abs()
+    )
+    dollar_vol = (result[close_col] * result[volume_col]).replace(0, np.nan)
+    result["_amihud_daily"] = (abs_ret / dollar_vol).astype("float64")
+
+    for w in windows:
+        col = f"amihud_illiq_{w}d"
+        result[col] = result.groupby(group_col)["_amihud_daily"].transform(
+            lambda x: x.rolling(w, min_periods=max(1, w // 4)).mean()
+        ).astype("float64")
+
+    result.drop(columns=["_amihud_daily"], inplace=True)
+    return result
+
+
+def add_roll_spread_estimate(
+    prices: pd.DataFrame,
+    windows: list | None = None,
+    close_col: str = "close",
+    group_col: str = "symbol",
+) -> pd.DataFrame:
+    """Roll (1984) implicit bid-ask spread: 2 * sqrt(max(-Cov(r_t, r_{t-1}), 0)).
+
+    Output columns: roll_spread_{w}d for each window.
+    """
+    if windows is None:
+        windows = [20]
+    result = prices.copy()
+    if close_col not in result.columns:
+        return result
+
+    ret = result.groupby(group_col)[close_col].transform(
+        lambda x: x.pct_change().fillna(0.0)
+    )
+    result["_ret"] = ret
+
+    for w in windows:
+        col = f"roll_spread_{w}d"
+
+        def _spread(series: pd.Series) -> pd.Series:
+            ret_lag = series.shift(1)
+            cov = series.rolling(w).cov(ret_lag)
+            return (2 * ((-cov).clip(lower=0) ** 0.5)).astype("float64")
+
+        result[col] = result.groupby(group_col)["_ret"].transform(_spread)
+
+    result.drop(columns=["_ret"], inplace=True)
+    return result
+
+
+def add_kyle_lambda_proxy(
+    prices: pd.DataFrame,
+    windows: list | None = None,
+    close_col: str = "close",
+    volume_col: str = "volume",
+    group_col: str = "symbol",
+) -> pd.DataFrame:
+    """Kyle lambda proxy: rolling mean of |return| / sqrt(dollar_volume).
+
+    Higher = less liquid. Output columns: kyle_lambda_{w}d.
+    """
+    if windows is None:
+        windows = [20]
+    result = prices.copy()
+    if close_col not in result.columns or volume_col not in result.columns:
+        return result
+
+    abs_ret = result.groupby(group_col)[close_col].transform(
+        lambda x: x.pct_change().abs()
+    )
+    dollar_vol_sqrt = (result[close_col] * result[volume_col]).clip(lower=1e-9) ** 0.5
+    result["_lambda_daily"] = (abs_ret / dollar_vol_sqrt).astype("float64")
+
+    for w in windows:
+        col = f"kyle_lambda_{w}d"
+        result[col] = result.groupby(group_col)["_lambda_daily"].transform(
+            lambda x: x.rolling(w, min_periods=max(1, w // 4)).mean()
+        ).astype("float64")
+
+    result.drop(columns=["_lambda_daily"], inplace=True)
+    return result
+
+
+def add_tick_rule_imbalance(
+    prices: pd.DataFrame,
+    windows: list | None = None,
+    open_col: str = "open",
+    close_col: str = "close",
+    volume_col: str = "volume",
+    group_col: str = "symbol",
+) -> pd.DataFrame:
+    """Tick-rule order flow imbalance: buy_vol / (buy_vol + sell_vol).
+
+    close > open → buy volume; close < open → sell volume.
+    Values > 0.5 = net buying pressure. Output columns: tick_imbalance_{w}d.
+    """
+    if windows is None:
+        windows = [5, 20]
+    result = prices.copy()
+    if open_col not in result.columns or volume_col not in result.columns:
+        return result
+
+    direction = (result[close_col] - result[open_col]).clip(-1, 1)
+    result["_buy_vol"] = result[volume_col] * (direction > 0).astype(float)
+    result["_sell_vol"] = result[volume_col] * (direction < 0).astype(float)
+
+    for w in windows:
+        col = f"tick_imbalance_{w}d"
+
+        def _imb(grp: pd.DataFrame) -> pd.Series:
+            bv = grp["_buy_vol"].rolling(w, min_periods=1).sum()
+            sv = grp["_sell_vol"].rolling(w, min_periods=1).sum()
+            total = (bv + sv).replace(0, np.nan)
+            return (bv / total).astype("float64")
+
+        result[col] = (
+            result.groupby(group_col, group_keys=False)
+            .apply(_imb)
+            .reset_index(level=0, drop=True)
+        )
+
+    result.drop(columns=["_buy_vol", "_sell_vol"], inplace=True)
+    return result
+
+
+def add_abnormal_volume(
+    prices: pd.DataFrame,
+    windows: list | None = None,
+    volume_col: str = "volume",
+    group_col: str = "symbol",
+) -> pd.DataFrame:
+    """Abnormal volume ratio: current volume / rolling mean volume.
+
+    Values > 2 indicate unusual activity. Output columns: abnormal_vol_{w}d.
+    """
+    if windows is None:
+        windows = [20]
+    result = prices.copy()
+    if volume_col not in result.columns:
+        return result
+
+    for w in windows:
+        col = f"abnormal_vol_{w}d"
+        mean_vol = result.groupby(group_col)[volume_col].transform(
+            lambda x: x.rolling(w, min_periods=max(1, w // 4)).mean()
+        )
+        result[col] = (result[volume_col] / mean_vol.replace(0, np.nan)).astype("float64")
+
+    return result
+
+
 # TODO: Implement add_intraday_noise_proxy() if intraday data aggregation is available
 # This would require access to intraday price data (e.g., 1-minute bars) that has been
 # aggregated to daily statistics. The function would compute proxies for intraday volatility

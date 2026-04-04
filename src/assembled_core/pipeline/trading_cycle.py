@@ -1456,8 +1456,37 @@ def run_trading_cycle(
                 )
         result.meta["market_stress_multiplier"] = ms_multiplier
 
+        # Crisis Alpha exposure reduction (Phase 1.2)
+        crisis_alpha_multiplier = 1.0
+        if getattr(ctx, "crisis_state_intel", None):
+            crisis_mode = str(ctx.crisis_state_intel.get("mode", "NORMAL")).upper()
+            ca_cfg = (
+                policy.get("crisis_alpha")
+                or policy.get("intel", {}).get("crisis_alpha")
+                or {}
+            )
+            if crisis_mode == "CRISIS":
+                crisis_alpha_multiplier = min(float(
+                    ca_cfg.get("crisis_multiplier", 0.25)
+                ), 1.0)
+            elif crisis_mode == "ELEVATED":
+                crisis_alpha_multiplier = min(float(
+                    ca_cfg.get("elevated_multiplier", 0.60)
+                ), 1.0)
+            if crisis_alpha_multiplier < 1.0:
+                log.warning(
+                    "CRISIS_ALPHA: mode=%s -> exposure multiplier=%.2f",
+                    crisis_mode,
+                    crisis_alpha_multiplier,
+                )
+        result.meta["crisis_alpha_multiplier"] = crisis_alpha_multiplier
+
         final_multiplier = (
-            geo_multiplier * profit_lock_mult * vol_scale_factor * ms_multiplier
+            geo_multiplier
+            * profit_lock_mult
+            * vol_scale_factor
+            * ms_multiplier
+            * crisis_alpha_multiplier
         )
         if abs(final_multiplier - 1.0) > 1e-9 and not result.target_positions.empty:
             result.target_positions = apply_exposure_multiplier_to_targets(
@@ -1469,6 +1498,7 @@ def run_trading_cycle(
                 "Exposure overlay applied: "
                 f"geo={geo_multiplier:.4f}, profit_lock={profit_lock_mult:.4f}, "
                 f"vol={vol_scale_factor:.4f}, stress={ms_multiplier:.4f}, "
+                f"crisis_alpha={crisis_alpha_multiplier:.4f}, "
                 f"final={final_multiplier:.4f}, symbols={len(result.target_positions)}"
             )
         else:

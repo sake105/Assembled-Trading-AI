@@ -1009,3 +1009,98 @@ def run_pre_trade_checks(
     )
 
     return result, filtered_orders
+
+
+# ---------------------------------------------------------------------------
+# ADV Cap Utility (market microstructure — standalone, does not modify above)
+# ---------------------------------------------------------------------------
+
+
+def apply_adv_cap(
+    orders: pd.DataFrame,
+    prices: pd.DataFrame,
+    adv_fraction: float = 0.10,
+    adv_window: int = 20,
+    amihud_threshold: float | None = None,
+    symbol_col: str = "symbol",
+    qty_col: str = "quantity",
+    side_col: str = "side",
+    timestamp_col: str = "timestamp",
+    volume_col: str = "volume",
+) -> pd.DataFrame:
+    """Cap order quantities to a fraction of Average Daily Volume (ADV).
+
+    Optionally applies the cap only to symbols above an Amihud illiquidity
+    threshold (when ``amihud_threshold`` is set and prices contains
+    ``amihud_illiq_{adv_window}d`` from ``add_amihud_illiquidity``).
+
+    Args:
+        orders: Orders DataFrame with at least symbol, quantity, side columns.
+        prices: Daily OHLCV panel used to compute ADV (rolling mean of volume).
+        adv_fraction: Maximum order size as fraction of ADV (default: 0.10 = 10%).
+        adv_window: Look-back window in days for ADV calculation (default: 20).
+        amihud_threshold: If set, cap is only applied to symbols where the most
+            recent Amihud illiquidity exceeds this value (default: None = cap all).
+        symbol_col: Symbol column name in orders and prices (default: "symbol").
+        qty_col: Quantity column name in orders (default: "quantity").
+        side_col: Side column name (default: "side"). BUY/SELL both capped.
+        timestamp_col: Timestamp column name in prices (default: "timestamp").
+        volume_col: Volume column name in prices (default: "volume").
+
+    Returns:
+        Orders DataFrame with quantities capped. A new column ``adv_cap_applied``
+        (bool) is added to indicate which orders were actually reduced.
+    """
+    if orders.empty or prices.empty:
+        if not orders.empty:
+            orders = orders.copy()
+            orders["adv_cap_applied"] = False
+        return orders
+
+    orders = orders.copy()
+    orders["adv_cap_applied"] = False
+
+    prices_ts = prices.copy()
+    prices_ts[timestamp_col] = pd.to_datetime(prices_ts[timestamp_col])
+
+    # Compute ADV per symbol: rolling mean of volume over adv_window days
+    adv_map: dict = {}
+    amihud_map: dict = {}
+    amihud_col = f"amihud_illiq_{adv_window}d"
+
+    for sym, grp in prices_ts.groupby(symbol_col):
+        grp = grp.sort_values(timestamp_col)
+        if volume_col in grp.columns and len(grp) >= 1:
+            adv_val = grp[volume_col].tail(adv_window).mean()
+            adv_map[sym] = float(adv_val) if pd.notna(adv_val) else None
+        if amihud_threshold is not None and amihud_col in grp.columns:
+            last_val = grp[amihud_col].dropna()
+            amihud_map[sym] = float(last_val.iloc[-1]) if len(last_val) > 0 else None
+
+    for idx, row in orders.iterrows():
+        sym = row.get(symbol_col)
+        adv = adv_map.get(sym)
+        if adv is None or adv <= 0:
+            continue
+
+        # Skip if amihud_threshold set and symbol is liquid enough
+        if amihud_threshold is not None:
+            illiq = amihud_map.get(sym)
+            if illiq is not None and illiq < amihud_threshold:
+                continue
+
+        max_qty = adv * adv_fraction
+        current_qty = abs(float(row[qty_col]))
+        if current_qty > max_qty:
+            sign = 1 if float(row[qty_col]) >= 0 else -1
+            orders.at[idx, qty_col] = sign * max_qty
+            orders.at[idx, "adv_cap_applied"] = True
+
+    logger.debug(
+        "[ADV Cap] adv_fraction=%.2f window=%dd — %d/%d orders capped",
+        adv_fraction,
+        adv_window,
+        int(orders["adv_cap_applied"].sum()),
+        len(orders),
+    )
+    return orders

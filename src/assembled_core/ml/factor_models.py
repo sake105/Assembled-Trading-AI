@@ -31,6 +31,34 @@ except ImportError:
     RandomForestRegressor = None  # type: ignore
     StandardScaler = None  # type: ignore
 
+# Optional gradient boosting imports
+try:
+    from xgboost import XGBRegressor  # type: ignore
+
+    XGBOOST_AVAILABLE = True
+except ImportError:
+    XGBOOST_AVAILABLE = False
+    XGBRegressor = None  # type: ignore
+
+try:
+    from lightgbm import LGBMRegressor  # type: ignore
+
+    LIGHTGBM_AVAILABLE = True
+except ImportError:
+    LIGHTGBM_AVAILABLE = False
+    LGBMRegressor = None  # type: ignore
+
+try:
+    from catboost import CatBoostRegressor  # type: ignore
+
+    CATBOOST_AVAILABLE = True
+except ImportError:
+    CATBOOST_AVAILABLE = False
+    CatBoostRegressor = None  # type: ignore
+
+_TREE_MODEL_TYPES = {"random_forest", "xgboost", "lightgbm", "catboost"}
+_ALL_MODEL_TYPES = {"linear", "ridge", "lasso", "random_forest", "xgboost", "lightgbm", "catboost"}
+
 
 @dataclass
 class MLModelConfig:
@@ -43,18 +71,19 @@ class MLModelConfig:
     """
 
     name: str
-    model_type: Literal["linear", "ridge", "lasso", "random_forest"]
+    model_type: Literal["linear", "ridge", "lasso", "random_forest", "xgboost", "lightgbm", "catboost"]
     params: dict | None = None
+    early_stopping_rounds: int | None = None
 
     def __post_init__(self) -> None:
         """Validate model type and ensure params is a dict."""
         if self.params is None:
             self.params = {}
 
-        if self.model_type not in ["linear", "ridge", "lasso", "random_forest"]:
+        if self.model_type not in _ALL_MODEL_TYPES:
             raise ValueError(
                 f"Unsupported model_type: {self.model_type}. "
-                f"Must be one of: 'linear', 'ridge', 'lasso', 'random_forest'"
+                f"Must be one of: {sorted(_ALL_MODEL_TYPES)}"
             )
 
 
@@ -300,6 +329,24 @@ def _create_model(model_cfg: MLModelConfig):
         return Lasso(**params)
     elif model_type == "random_forest":
         return RandomForestRegressor(**params)
+    elif model_type == "xgboost":
+        if not XGBOOST_AVAILABLE:
+            raise ImportError("xgboost is not installed. Run: pip install xgboost")
+        xgb_params = {"tree_method": "hist", "n_jobs": -1, "random_state": 42}
+        xgb_params.update(params)
+        return XGBRegressor(**xgb_params)
+    elif model_type == "lightgbm":
+        if not LIGHTGBM_AVAILABLE:
+            raise ImportError("lightgbm is not installed. Run: pip install lightgbm")
+        lgbm_params = {"n_estimators": 500, "learning_rate": 0.05, "random_state": 42, "n_jobs": -1, "verbose": -1}
+        lgbm_params.update(params)
+        return LGBMRegressor(**lgbm_params)
+    elif model_type == "catboost":
+        if not CATBOOST_AVAILABLE:
+            raise ImportError("catboost is not installed. Run: pip install catboost")
+        cb_params = {"silent": True, "random_state": 42}
+        cb_params.update(params)
+        return CatBoostRegressor(**cb_params)
     else:
         raise ValueError(f"Unsupported model_type: {model_type}")
 
@@ -467,8 +514,9 @@ def run_time_series_cv(
             continue
 
         # Standardize features (only for linear models, not for tree-based)
+        is_tree_model = model_cfg.model_type in _TREE_MODEL_TYPES
         scaler = None
-        if experiment.standardize and model_cfg.model_type != "random_forest":
+        if experiment.standardize and not is_tree_model:
             scaler = StandardScaler()
             X_train_scaled = scaler.fit_transform(X_train)
             X_test_scaled = scaler.transform(X_test)
@@ -478,7 +526,7 @@ def run_time_series_cv(
 
         # Handle remaining NaN (fill with 0 for linear models, median for tree models)
         if np.isnan(X_train_scaled).any() or np.isnan(X_test_scaled).any():
-            if model_cfg.model_type == "random_forest":
+            if is_tree_model:
                 # Fill with median for tree models
                 median_train = np.nanmedian(X_train_scaled, axis=0)
                 X_train_scaled = np.nan_to_num(X_train_scaled, nan=median_train)

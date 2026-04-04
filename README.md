@@ -30,14 +30,15 @@ source .venv/bin/activate
 ### 3. Dependencies installieren
 
 ```bash
-pip install -e .[dev]
+pip install -e ".[dev,ml,ml-boost,ml-tune,ml-explain,ml-nlp,ml-hmm,scipy,intermarket,all]"
 ```
 
 Dies installiert:
 - Core-Dependencies (pandas, numpy, fastapi, etc.)
 - Dev-Dependencies (pytest, ruff, black, mypy)
+- Alle optionalen Extras (ML, NLP, Intermarket, etc.)
 
-**Optionale Test-Abhängigkeiten:** Die Standard-Suite (`pytest -q`) läuft ohne optionale Pakete; fehlende Abhängigkeit führt zu SKIP, nicht ERROR. In `pyproject.toml` existieren die Extras `dev`, `scipy`, `ml`. Vollständig: `pip install -e ".[dev,scipy,ml]"` (scipy, scikit-learn/joblib). FastAPI ist Core-Dependency. Marker: `requires_scipy`, `requires_fastapi`, `requires_sklearn` in `pytest.ini`.
+**Minimale Installation (nur Dev):** `pip install -e ".[dev]"` — die Standard-Suite (`pytest -q`) läuft ohne optionale Pakete; fehlende Abhängigkeit führt zu SKIP, nicht ERROR. FastAPI ist Core-Dependency. Marker: `requires_scipy`, `requires_fastapi`, `requires_sklearn` in `pytest.ini`.
 
 ### 4. Phase-4-Tests ausführen
 

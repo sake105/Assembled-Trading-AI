@@ -65,8 +65,44 @@ ml = [
   "scikit-learn>=1.3.0",
   "joblib>=1.3.0",
 ]
+ml-boost = [
+  "xgboost>=1.7.0",
+  "lightgbm>=4.0.0",
+  "catboost>=1.2.0",
+]
+ml-tune = [
+  "optuna>=3.0.0",
+  "scikit-learn>=1.3.0",
+]
+ml-explain = [
+  "shap>=0.44.0",
+  "scikit-learn>=1.3.0",
+]
+ml-nlp = [
+  "transformers>=4.35.0",
+  "torch>=2.0.0",
+]
+ml-hmm = [
+  "hmmlearn>=0.3.0",
+]
 scipy = [
   "scipy>=1.10.0",
+]
+intermarket = [
+  "yfinance>=0.2.0",
+  "pandas-datareader>=0.10.0",
+]
+all = [
+  "scikit-learn>=1.3.0",
+  "joblib>=1.3.0",
+  "xgboost>=1.7.0",
+  "lightgbm>=4.0.0",
+  "optuna>=3.0.0",
+  "shap>=0.44.0",
+  "hmmlearn>=0.3.0",
+  "scipy>=1.10.0",
+  "yfinance>=0.2.0",
+  "pandas-datareader>=0.10.0",
 ]
 
 [project.scripts]

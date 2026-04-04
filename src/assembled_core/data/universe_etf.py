@@ -115,6 +115,56 @@ def get_defensive_symbols(universe: dict[str, Any]) -> list[str]:
     return sorted(set(defensive))
 
 
+# ---------------------------------------------------------------------------
+# Inverse ETF Map — long-only proxies for short exposure
+# ---------------------------------------------------------------------------
+
+#: Maps a long ETF symbol to its inverse/short ETF counterpart.
+#: Used for market-neutral construction without short-selling directly.
+INVERSE_ETF_MAP: dict[str, str] = {
+    # Broad equity
+    "SPY": "SH",    # ProShares Short S&P500
+    "QQQ": "PSQ",   # ProShares Short QQQ
+    "IWM": "RWM",   # ProShares Short Russell 2000
+    "DIA": "DOG",   # ProShares Short Dow30
+    # Sector ETFs
+    "XLK": "REW",   # ProShares UltraShort Technology (2×, use carefully)
+    "XLF": "SKF",   # ProShares UltraShort Financials (2×, use carefully)
+    "XLE": "DDG",   # ProShares Short Oil & Gas
+    "XLV": "RXD",   # ProShares UltraShort Health Care (2×)
+    "XLI": "SIJ",   # ProShares UltraShort Industrials (2×)
+    "XLY": "SCC",   # ProShares UltraShort Consumer Disc. (2×)
+    "XLP": "SZK",   # ProShares UltraShort Consumer Staples (2×)
+    "XLU": "SDP",   # ProShares UltraShort Utilities (2×)
+    "XLB": "SMN",   # ProShares UltraShort Basic Materials (2×)
+    "XLRE": "REK",  # ProShares Short Real Estate
+    # Fixed income
+    "TLT": "TBF",   # ProShares Short 20+ Year Treasury
+    "IEF": "TBX",   # ProShares Short 7-10 Year Treasury
+    "HYG": "SJB",   # ProShares Short High Yield
+    # International
+    "EFA": "EFZ",   # ProShares Short MSCI EAFE
+    "EEM": "EEV",   # ProShares UltraShort MSCI Emerging Mkts (2×)
+}
+
+
+def get_inverse_etf(symbol: str) -> str | None:
+    """Return the inverse ETF symbol for a given long ETF symbol.
+
+    Args:
+        symbol: Long ETF symbol (e.g. "SPY").
+
+    Returns:
+        Inverse ETF symbol (e.g. "SH") or None if not mapped.
+    """
+    return INVERSE_ETF_MAP.get(symbol.upper())
+
+
+def get_inverse_etf_map() -> dict[str, str]:
+    """Return the full inverse ETF mapping dict."""
+    return dict(INVERSE_ETF_MAP)
+
+
 def build_symbol_metadata(universe: dict[str, Any]) -> dict[str, dict[str, str]]:
     """Build a symbol -> metadata dict for all ETFs.
 

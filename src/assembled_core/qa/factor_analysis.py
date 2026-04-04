@@ -2092,3 +2092,188 @@ def compute_deflated_sharpe_ratio(
         dsr = np.nan
 
     return float(dsr)
+
+
+# ---------------------------------------------------------------------------
+# IC Decay Tracking (Phase 2.4)
+# ---------------------------------------------------------------------------
+
+
+def compute_ic_decay_curve(
+    panel_df: pd.DataFrame,
+    factor_col: str,
+    price_col: str = "close",
+    symbol_col: str = "symbol",
+    timestamp_col: str = "timestamp",
+    max_horizon_days: int = 60,
+    horizons: list[int] | None = None,
+    method: str = "pearson",
+) -> pd.DataFrame:
+    """Compute how a factor's IC degrades as the prediction horizon increases.
+
+    At each horizon h, forward return is computed as price(t+h)/price(t) - 1 and
+    cross-sectional IC (Pearson or Spearman) is measured at each timestamp, then
+    averaged over the full sample.
+
+    Args:
+        panel_df: Panel DataFrame with symbol, timestamp, price, and factor columns
+        factor_col: Name of the factor column to analyse
+        price_col: Name of the close price column (default: "close")
+        symbol_col: Symbol column name (default: "symbol")
+        timestamp_col: Timestamp column name (default: "timestamp")
+        max_horizon_days: Maximum horizon to evaluate (default: 60)
+        horizons: Explicit list of horizon days (default: [1,5,10,21,42,60])
+        method: "pearson" or "spearman" (default: "pearson")
+
+    Returns:
+        DataFrame with columns: horizon_days, ic_mean, ic_std, ic_ir, n_timestamps
+    """
+    if horizons is None:
+        horizons = [h for h in [1, 5, 10, 21, 42, 60] if h <= max_horizon_days]
+
+    required = [symbol_col, timestamp_col, price_col, factor_col]
+    missing = [c for c in required if c not in panel_df.columns]
+    if missing:
+        raise ValueError(f"Missing columns: {missing}")
+
+    df = panel_df[[symbol_col, timestamp_col, price_col, factor_col]].copy()
+    df[timestamp_col] = pd.to_datetime(df[timestamp_col])
+    df = df.sort_values([symbol_col, timestamp_col])
+
+    records = []
+    for h in horizons:
+        fwd_col = f"_fwd_{h}d"
+        df[fwd_col] = (
+            df.groupby(symbol_col)[price_col]
+            .transform(lambda x: x.shift(-h) / x - 1)
+        )
+        sub = df[[timestamp_col, factor_col, fwd_col]].dropna()
+        if sub.empty:
+            continue
+
+        ic_series = (
+            sub.groupby(timestamp_col)
+            .apply(
+                lambda g: g[factor_col].corr(g[fwd_col], method=method)
+                if len(g) >= 5
+                else np.nan,
+                include_groups=False,
+            )
+            .dropna()
+        )
+        if len(ic_series) == 0:
+            continue
+        ic_ir = float(ic_series.mean() / ic_series.std()) if ic_series.std() > 0 else np.nan
+        records.append(
+            {
+                "horizon_days": h,
+                "ic_mean": float(ic_series.mean()),
+                "ic_std": float(ic_series.std()),
+                "ic_ir": ic_ir,
+                "n_timestamps": len(ic_series),
+            }
+        )
+        df.drop(columns=[fwd_col], inplace=True)
+
+    if not records:
+        return pd.DataFrame(columns=["horizon_days", "ic_mean", "ic_std", "ic_ir", "n_timestamps"])
+    return pd.DataFrame(records)
+
+
+def compute_factor_half_life(ic_decay_df: pd.DataFrame) -> float:
+    """Estimate the half-life of a factor's IC decay by fitting an exponential model.
+
+    Fits ``IC(h) = IC_0 * exp(-lambda * h)`` and returns ``ln(2) / lambda``.
+
+    Args:
+        ic_decay_df: Output of compute_ic_decay_curve (requires horizon_days, ic_mean)
+
+    Returns:
+        Half-life in days (float). Returns inf if decay is not detected.
+    """
+    if ic_decay_df.empty or "ic_mean" not in ic_decay_df.columns:
+        return float("inf")
+
+    from scipy.optimize import curve_fit  # type: ignore
+
+    x = ic_decay_df["horizon_days"].values.astype(float)
+    y = ic_decay_df["ic_mean"].values.astype(float)
+    valid = np.isfinite(y) & np.isfinite(x) & (y != 0)
+    if valid.sum() < 3:
+        return float("inf")
+
+    x, y = x[valid], y[valid]
+    ic0_guess = float(y[0]) if len(y) > 0 else 0.01
+
+    def exp_decay(h: np.ndarray, ic0: float, lam: float) -> np.ndarray:
+        return ic0 * np.exp(-lam * h)
+
+    try:
+        popt, _ = curve_fit(exp_decay, x, y, p0=[ic0_guess, 0.02], maxfev=2000)
+        lam = abs(popt[1])
+        if lam < 1e-10:
+            return float("inf")
+        return float(np.log(2) / lam)
+    except Exception:
+        return float("inf")
+
+
+def flag_decayed_factors(
+    ic_history_df: pd.DataFrame,
+    factor_col: str = "factor",
+    ic_col: str = "ic_mean",
+    timestamp_col: str = "period",
+    rolling_window: int = 60,
+    z_threshold: float = -2.0,
+) -> pd.DataFrame:
+    """Flag factors whose recent IC has decayed significantly below their historical mean.
+
+    For each factor, computes the rolling mean IC over `rolling_window` periods and
+    compares it to the historical distribution. Flags factors where
+    ``(rolling_ic - hist_mean) / hist_std < z_threshold``.
+
+    Args:
+        ic_history_df: Long-form DataFrame with columns: period, factor, ic_mean
+        factor_col: Name of factor column (default: "factor")
+        ic_col: Name of IC value column (default: "ic_mean")
+        timestamp_col: Name of time column (default: "period")
+        rolling_window: Number of periods for rolling average (default: 60)
+        z_threshold: Z-score below which a factor is considered decayed (default: -2.0)
+
+    Returns:
+        DataFrame with columns: factor, current_ic_rolling, hist_mean, hist_std, z_score, flagged
+    """
+    required = [factor_col, ic_col, timestamp_col]
+    missing = [c for c in required if c not in ic_history_df.columns]
+    if missing:
+        raise ValueError(f"Missing columns: {missing}")
+
+    records = []
+    for factor, grp in ic_history_df.groupby(factor_col):
+        grp = grp.sort_values(timestamp_col)
+        ic_values = grp[ic_col].values.astype(float)
+        if len(ic_values) < rolling_window + 5:
+            continue
+        rolling_ic = pd.Series(ic_values).rolling(rolling_window).mean().iloc[-1]
+        hist_mean = float(np.nanmean(ic_values))
+        hist_std = float(np.nanstd(ic_values))
+        if hist_std < 1e-10:
+            continue
+        z = (rolling_ic - hist_mean) / hist_std
+        records.append(
+            {
+                "factor": factor,
+                "current_ic_rolling": float(rolling_ic),
+                "hist_mean": hist_mean,
+                "hist_std": hist_std,
+                "z_score": float(z),
+                "flagged": bool(z < z_threshold),
+            }
+        )
+
+    if not records:
+        return pd.DataFrame(
+            columns=["factor", "current_ic_rolling", "hist_mean", "hist_std", "z_score", "flagged"]
+        )
+    result = pd.DataFrame(records).sort_values("z_score")
+    return result

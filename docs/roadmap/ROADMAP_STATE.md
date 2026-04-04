@@ -57,38 +57,88 @@ Do **not** leave a session after meaningful work without checking whether this f
 ## 4. Current execution position
 
 ### Current milestone
-- ID: Post-M13 Crisis Alpha + Intel Pipeline skeleton
-- Name: Intel Pipeline (offline, rule-first) + Portfolio Analyzer — implemented
-- Overall milestone status: locally tested (2026-04-02)
+- ID: M14 — Institutional Upgrade (ML + TA + Portfolio + Execution)
+- Name: Von M13 zum institutionellen / Wall-Street-Niveau
+- Overall milestone status: implemented, locally tested (2026-04-04)
 
 ### Current task
-- Intel pipeline skeleton implemented (offline, no live feeds required).
-- Portfolio analyzer (7-layer) implemented.
-- Enhanced stress scenarios (4 crisis types) implemented.
-- Crisis alpha state machine (NORMAL→WATCH→ACTIVE→COOLDOWN) implemented as standalone offline module.
+- Plan "Von M13 zum institutionellen Niveau" (5 Phasen) — implementiert und getestet.
+- Phase 1: Zombie Killer + Correlation Guard verdrahtet (committed e31b50d), Crisis Alpha Multiplier verdrahtet, Secret Management teilweise (.gitignore + pre-commit-config).
+- Phase 2: ML-Ausbau komplett (XGBoost/LightGBM/CatBoost, Optuna, SHAP, IC-Decay, FinBERT, HMM, Stacking).
+- Phase 3: TA-Vertiefung komplett (Candlestick, Multi-Timeframe, Mikrostruktur, Options, Intermarket, Breadth, VWAP).
+- Phase 4: Institutional komplett (Black-Litterman, Barra-Risikomodell, TWAP/VWAP, Inverse ETFs, Daily Scheduler, SQLite Ledger, Monitoring).
+- Phase 5: Earnings Calendar + Sector Rotation + ARP Bundle implementiert. Factor Curation Worker implementiert.
 
 ### Current objective
-- 3121/3121 non-pre-existing tests pass locally. Ruff clean (34cda16).
-- CI matrix (ubuntu+windows) status: unknown — fix for CI was pushed on 4c6e400, result not confirmed.
-- Crisis alpha NOT yet wired into trading_cycle.py — dependency_signal integration deferred.
-- News ingest adapters, dedupe, cluster: NOT implemented — require external API keys.
-- FastAPI intel endpoints: NOT implemented.
-- MEDIUM open (carried over): MEDIUM-3.1, MEDIUM-5.3, MEDIUM-6.2, MEDIUM-6.3.
-- Batch D (OPT-9/12/13/14): still deferred, requires design review.
+- 366/366 phase12 tests pass locally. Ruff clean on all changed files.
+- 30 Dateien geändert/neu (15 modifiziert, 15 neue Module + 2 Config-Dateien).
+- Alle Importe sauber, Smoke-Tests bestanden.
+- Bugrun (breite Suite) läuft.
+- CI matrix (ubuntu+windows) status: nicht bestätigt — Commit noch ausstehend.
 
 ### Next smallest safe step
-1. Confirm GitHub Actions CI matrix result (ubuntu + windows) for commit 4c6e400 or newer.
-2. If CI green: address MEDIUM-5.3 (wire market_stress_signal into exposure multiplier) — smallest remaining audit item.
-3. Then decide: wire dependency_signal from intel pipeline into trading_cycle.py, or implement FastAPI intel endpoints first.
+1. Bugrun-Ergebnis bestätigen.
+2. Commit + Push.
+3. CI-Bestätigung (Ubuntu + Windows Matrix).
+4. Secret Key Rotation beim Provider (manuell).
 
 ### After that
-- Wire health_monitor + crisis_alpha_worker into trading_cycle.py (trading_cycle integration).
-- Implement news_ingest.py stub with GDELT adapter (no key required).
-- Plan M14+ (observability, further security hardening, live feed adapters).
+- Phase 5.5: Congress Trading in Bundles verdrahten.
+- Batch D (OPT-9/12/13/14): Design Review.
+- Unit-Tests für neue Module (Crisis Alpha Multiplier, MultiTimeframe, Factor Curation).
+- Walk-Forward-Validation und Backtest-Vergleich mit neuem Feature-Set.
+- CI-Härtung und Windows/Ubuntu Matrix-Bestätigung.
 
 ---
 
 ## 5. Last completed step
+
+**Session 2026-04-04 — M14 Institutional Upgrade (5 Phasen) — IMPLEMENTED (locally tested)**
+
+- Plan: "Von M13 zum institutionellen / Wall-Street-Niveau" — 5 Phasen, ~30 Dateien
+- Phase 1 (Sofortmaßnahmen):
+  - Crisis Alpha Multiplier in trading_cycle.py verdrahtet: CRISIS=0.25, ELEVATED=0.60
+  - Safety: `.upper()` case normalization + `min(1.0)` clamp gegen Fehlkonfiguration
+  - `.pre-commit-config.yaml` erstellt: detect-secrets, ruff, black
+- Phase 2 (ML-Ausbau): 7 Items implementiert
+  - `ml/factor_models.py`: XGBoost/LightGBM/CatBoost mit Lazy-Import-Guards
+  - `ml/hyperopt.py`: Optuna-basierte Hyperparameter-Optimierung
+  - `ml/explainability.py`: SHAP-Werte (TreeExplainer + LinearExplainer)
+  - `qa/factor_analysis.py`: IC-Decay-Tracking + Factor Half-Life
+  - `ml/nlp_sentiment.py`: FinBERT-Sentiment (ProsusAI/finbert)
+  - `ml/regime_hmm.py`: Hidden Markov Model (3-State Regime)
+  - `ml/stacking.py`: Stacked Ensemble (OOF + Meta-Learner)
+- Phase 3 (TA-Vertiefung): 7 Items implementiert
+  - `features/ta_candlestick.py`: 8+ Candlestick-Pattern (pure pandas/numpy)
+  - `data/resample.py`: PIT-sichere Weekly/Monthly Resampling
+  - `signals/rules_trend.py`: MultiTimeframeSignal + SectorRotationSignal
+  - `features/ta_liquidity_vol_factors.py`: Amihud, Roll Spread, Kyle Lambda
+  - `execution/pre_trade_checks.py`: ADV-Cap Enforcement
+  - `features/options_derived_signals.py` + `data/sources/cboe_source.py`
+  - `features/intermarket_factors.py`: Cross-Asset-Faktoren (TLT, GLD, UUP, HYG)
+  - `features/market_breadth.py`: McClellan, Zweig, TRIN, New Highs/Lows
+  - `features/ta_features.py`: VWAP, VWAP-Bands, Volume-Weighted Momentum
+- Phase 4 (Institutional): 7 Items implementiert
+  - `portfolio/black_litterman.py` + `portfolio/covariance.py`
+  - `risk/factor_risk_model.py`: Barra-Style 6-Faktor-Modell
+  - `execution/algo_execution.py`: TWAP/VWAP Scheduler + Implementation Shortfall
+  - `data/universe_etf.py`: Inverse ETF Map (SPY→SH, QQQ→PSQ etc.)
+  - `risk/group_exposures.py`: Net Market Exposure Tracking
+  - `ops/daily_scheduler.py`: Alle 4 Worker funktional + Factor Curation Worker (quartalsweise DSR-Gating)
+  - `data/ledger_store.py`: SQLite-basiertes Paper-Ledger
+  - `api/routers/monitoring.py`: 5 echte Routes (Portfolio, Regime, Alerts, Signals, Data-Quality)
+- Phase 5 (Alpha): 4 von 5 Items
+  - `data/sources/earnings_calendar_source.py`: Earnings-Kalender
+  - `signals/rules_trend.py`: Sector Rotation Signal
+  - `config/factor_bundles/alternative_risk_premia_bundle.yaml`: ARP Bundle
+  - `ops/daily_scheduler.py`: Factor Curation Worker
+  - OFFEN: Congress Trading Bundle-Integration
+- Lint: 8 Findings behoben (unused imports/vars in 5 Dateien)
+- Dependencies: pyproject.toml + requirements.txt aktualisiert (ml-boost, ml-tune, ml-explain, ml-nlp, ml-hmm, scipy, intermarket Extras)
+- Test: 366/366 phase12 pass, 0 neue Fehler, alle Importe sauber
+- Truth status: implemented, locally tested; CI nicht bestätigt; Commit ausstehend
+
+---
 
 **Session 2026-04-02 — Crisis Alpha + Intel Pipeline skeleton — IMPLEMENTED (locally tested)**
 

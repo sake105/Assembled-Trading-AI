@@ -230,3 +230,67 @@ def compute_all_group_exposures(
         result[group_type] = (group_df, summary)
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Net Market Exposure Tracker (inverse ETF aware)
+# ---------------------------------------------------------------------------
+
+
+def compute_net_market_exposure(
+    weights: dict[str, float],
+    inverse_etf_map: dict[str, str] | None = None,
+) -> dict:
+    """Compute net and gross market exposure, accounting for inverse ETF positions.
+
+    Inverse ETFs held LONG effectively create short exposure to the underlying.
+    This function adjusts gross/net calculations accordingly.
+
+    Args:
+        weights: Dict mapping symbol → portfolio weight (positive = long).
+        inverse_etf_map: Optional dict mapping long ETF → inverse ETF symbol.
+            When an inverse ETF appears in weights, its contribution to net
+            market exposure is negated (e.g., long SH = short SPY exposure).
+            Default: uses INVERSE_ETF_MAP from universe_etf.
+
+    Returns:
+        Dict with keys:
+            gross_long: Sum of positive weights.
+            gross_short: Sum of abs(negative weights).
+            net_exposure: gross_long - gross_short - inverse_etf_exposure.
+            inverse_etf_exposure: Total weight in inverse ETFs (as short proxy).
+            leverage: gross_long + gross_short.
+    """
+    if inverse_etf_map is None:
+        try:
+            from src.assembled_core.data.universe_etf import INVERSE_ETF_MAP
+            inverse_etf_map = INVERSE_ETF_MAP
+        except ImportError:
+            inverse_etf_map = {}
+
+    # Build set of inverse ETF symbols
+    inverse_symbols = set(inverse_etf_map.values())
+
+    gross_long = 0.0
+    gross_short = 0.0
+    inverse_etf_exposure = 0.0
+
+    for sym, w in weights.items():
+        if sym in inverse_symbols:
+            # Holding an inverse ETF creates synthetic short exposure
+            inverse_etf_exposure += abs(w)
+        elif w > 0:
+            gross_long += w
+        else:
+            gross_short += abs(w)
+
+    net_exposure = gross_long - gross_short - inverse_etf_exposure
+    leverage = gross_long + gross_short + inverse_etf_exposure
+
+    return {
+        "gross_long": round(gross_long, 6),
+        "gross_short": round(gross_short, 6),
+        "inverse_etf_exposure": round(inverse_etf_exposure, 6),
+        "net_exposure": round(net_exposure, 6),
+        "leverage": round(leverage, 6),
+    }
