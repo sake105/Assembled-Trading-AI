@@ -544,6 +544,69 @@ def _build_features_default(
                 windows=config.get("ma_windows", (20, 50, 200)),
             )
 
+    # ---------------------------------------------------------------
+    # D5: Intermarket factors (optional)
+    # ---------------------------------------------------------------
+    feature_cfg_obj = ensure_feature_config(ctx.feature_config)
+    if feature_cfg_obj is not None and getattr(feature_cfg_obj, "include_intermarket", False):
+        try:
+            from src.assembled_core.features.intermarket_factors import (
+                align_intermarket_factors_to_panel,
+                build_intermarket_factors,
+            )
+            ts_min = prices_with_features["timestamp"].min()
+            ts_max = prices_with_features["timestamp"].max()
+            start_str = pd.Timestamp(ts_min).strftime("%Y-%m-%d")
+            end_str = pd.Timestamp(ts_max).strftime("%Y-%m-%d")
+            im_factors = build_intermarket_factors(start_date=start_str, end_date=end_str)
+            if not im_factors.empty:
+                prices_with_features = align_intermarket_factors_to_panel(
+                    prices_with_features, im_factors
+                )
+                logger.debug("[Features] Intermarket factors merged: %d cols", len(im_factors.columns) - 1)
+        except Exception as e:
+            logger.debug("[Features] Intermarket factors skipped: %s", e)
+
+    # ---------------------------------------------------------------
+    # D6: Candlestick pattern features (optional, requires OHLC)
+    # ---------------------------------------------------------------
+    if feature_cfg_obj is not None and getattr(feature_cfg_obj, "include_candlestick", False):
+        try:
+            has_ohlc_for_candles = all(
+                c in prices_with_features.columns for c in ["open", "high", "low", "close"]
+            )
+            if has_ohlc_for_candles:
+                from src.assembled_core.features.ta_candlestick import build_candlestick_features
+                prices_with_features = build_candlestick_features(prices_with_features)
+                logger.debug("[Features] Candlestick patterns merged")
+        except Exception as e:
+            logger.debug("[Features] Candlestick features skipped: %s", e)
+
+    # ---------------------------------------------------------------
+    # D9: Earnings calendar timing factors (optional)
+    # ---------------------------------------------------------------
+    if feature_cfg_obj is not None and getattr(feature_cfg_obj, "include_earnings", False):
+        try:
+            from src.assembled_core.data.sources.earnings_calendar_source import (
+                EarningsCalendarSource,
+            )
+            symbols = prices_with_features["symbol"].unique().tolist()
+            ts_min = prices_with_features["timestamp"].min()
+            ts_max = prices_with_features["timestamp"].max()
+            cal_src = EarningsCalendarSource()
+            cal_df = cal_src.fetch_calendar(
+                symbols=symbols,
+                start_date=pd.Timestamp(ts_min).strftime("%Y-%m-%d"),
+                end_date=pd.Timestamp(ts_max).strftime("%Y-%m-%d"),
+            )
+            prices_with_features = cal_src.build_earnings_factors(
+                calendar_df=cal_df,
+                prices_df=prices_with_features,
+            )
+            logger.debug("[Features] Earnings calendar factors merged")
+        except Exception as e:
+            logger.debug("[Features] Earnings calendar features skipped: %s", e)
+
     return prices_with_features
 
 
@@ -1222,6 +1285,29 @@ def run_trading_cycle(
         result.error_message = f"Error in build_features: {e}"
         return result
 
+    # Step 2.5: D3 — Optional HMM regime detection (replaces/supplements ctx.regime_state)
+    try:
+        regime_detection_cfg = policy.get("regime_detection", {})
+        if regime_detection_cfg.get("method") == "hmm" and ctx.regime_state is None:
+            from src.assembled_core.risk.regime_models import build_regime_state_hmm
+            prices_for_hmm = result.prices_filtered if result.prices_filtered is not None else ctx.prices
+            if prices_for_hmm is not None and not prices_for_hmm.empty:
+                hmm_df = build_regime_state_hmm(
+                    prices=prices_for_hmm,
+                    n_regimes=int(regime_detection_cfg.get("n_regimes", 3)),
+                    benchmark_symbol=regime_detection_cfg.get("benchmark_symbol"),
+                )
+                if not hmm_df.empty:
+                    latest = hmm_df.iloc[-1]
+                    ctx.regime_state = latest.get("regime_label", "sideways")
+                    result.meta["regime_hmm"] = {
+                        "label": ctx.regime_state,
+                        "confidence": round(float(latest.get("regime_confidence", 0)), 3),
+                    }
+                    log.info("REGIME_HMM: detected regime='%s'", ctx.regime_state)
+    except Exception as e:
+        log.debug("HMM regime detection skipped: %s", e)
+
     # Step 3: Generate signals (hook point: generate_signals)
     try:
         if "generate_signals" in hooks:
@@ -1310,6 +1396,91 @@ def run_trading_cycle(
     except Exception as e:
         log.debug("zombie_killer check skipped: %s", e)
 
+    # Step 3.5: Crash prediction + short signal generation
+    try:
+        shorts_policy = policy.get("shorts", {})
+        if shorts_policy.get("enabled", False):
+            from src.assembled_core.signals.crash_prediction import CrashPredictionEngine
+            from src.assembled_core.signals.short_signals import ShortSignalGenerator
+            from src.assembled_core.risk.short_risk import ShortRiskManager
+
+            regime_state = getattr(ctx, "regime_state", None)
+            intel_state = getattr(ctx, "crisis_state_intel", None)
+
+            # Extract macro data from features/context if available
+            macro_data: dict = {}
+            if ctx.prices is not None and not ctx.prices.empty:
+                # Use VIX if available in prices
+                if "VIX" in ctx.prices.columns:
+                    macro_data["vix"] = float(ctx.prices["VIX"].iloc[-1])
+
+            crash_engine = CrashPredictionEngine()
+            crash_signal = crash_engine.predict(
+                market_data=ctx.prices,
+                regime=regime_state,
+                intel_state=intel_state,
+                macro_data=macro_data if macro_data else None,
+            )
+
+            min_crash_prob = shorts_policy.get("min_crash_probability", 0.60)
+            if crash_signal.crash_probability >= min_crash_prob:
+                short_gen = ShortSignalGenerator(policy=shorts_policy)
+                short_df = short_gen.generate_short_targets(
+                    crash_signal=crash_signal,
+                    universe=ctx.universe if hasattr(ctx, "universe") and ctx.universe is not None else pd.DataFrame(),
+                    prices=ctx.prices,
+                    regime=regime_state,
+                )
+
+                # Validate short targets via risk manager
+                risk_mgr = ShortRiskManager(policy=policy)
+                risk_check = risk_mgr.validate_short_targets(short_df, regime=regime_state)
+
+                if risk_check.passed and not short_df.empty:
+                    # Merge short signals with long signals
+                    # Short signals have negative target_weight; convert to signals format
+                    short_signals_rows = []
+                    for _, row in short_df.iterrows():
+                        short_signals_rows.append({
+                            "timestamp": ctx.as_of or pd.Timestamp.now("UTC"),
+                            "symbol": row["symbol"],
+                            "direction": row.get("direction", "SHORT"),
+                            "score": -abs(row["confidence"]),  # Negative score = short signal
+                        })
+
+                    if short_signals_rows:
+                        short_signal_df = pd.DataFrame(short_signals_rows)
+                        # Only add symbols not already in signals
+                        existing_syms = set(result.signals["symbol"].values) if not result.signals.empty else set()
+                        new_shorts = short_signal_df[~short_signal_df["symbol"].isin(existing_syms)]
+                        if not new_shorts.empty:
+                            result.signals = pd.concat(
+                                [result.signals, new_shorts], ignore_index=True
+                            )
+
+                    log.info(
+                        "CRASH_PREDICTION: prob=%.3f severity=%.3f → %d short signals added",
+                        crash_signal.crash_probability,
+                        crash_signal.expected_severity,
+                        len(short_signals_rows),
+                    )
+                elif not risk_check.passed:
+                    log.warning(
+                        "CRASH_PREDICTION: short signals blocked by risk check: %s",
+                        risk_check.violations,
+                    )
+
+            result.meta["crash_prediction"] = {
+                "crash_probability": crash_signal.crash_probability,
+                "severity": crash_signal.expected_severity,
+                "horizon_days": crash_signal.time_horizon_days,
+                "active": crash_signal.active,
+                "contributing_signals": crash_signal.contributing_signals,
+                "recommended_instruments": crash_signal.recommended_instruments,
+            }
+    except Exception as e:
+        log.debug("crash_prediction step skipped: %s", e)
+
     # Step 4: Size positions (hook point: size_positions)
     try:
         if "size_positions" in hooks:
@@ -1365,12 +1536,95 @@ def run_trading_cycle(
                     max_weight=float(sizing_cfg.get("max_weight", 0.30)),
                     top_n=sizing_cfg.get("top_n"),
                 )
+            elif sizing_method == "black_litterman":
+                # D1: Black-Litterman optimizer
+                try:
+                    from src.assembled_core.portfolio.black_litterman import (
+                        BlackLittermanOptimizer,
+                    )
+                    prices_for_bl = result.prices_filtered if result.prices_filtered is not None else ctx.prices
+                    bl = BlackLittermanOptimizer(
+                        risk_aversion=float(sizing_cfg.get("risk_aversion", 2.5)),
+                        tau=float(sizing_cfg.get("tau", 0.05)),
+                        max_position=float(sizing_cfg.get("max_weight", 0.15)),
+                        min_position=float(sizing_cfg.get("min_position", 0.0)),
+                    )
+                    # Build views from signal scores
+                    views = {}
+                    view_confidence = {}
+                    if not result.signals.empty and "symbol" in result.signals.columns:
+                        for _, row in result.signals.iterrows():
+                            sym = row["symbol"]
+                            score = float(row.get("score", 0.0))
+                            conf = float(row.get("confidence", 0.5))
+                            if abs(score) > 0.01:
+                                views[sym] = score * 0.10  # Map score to expected return
+                                view_confidence[sym] = conf
+                    if views and prices_for_bl is not None and not prices_for_bl.empty:
+                        bl_weights = bl.optimize_from_scores(
+                            prices=prices_for_bl,
+                            signal_scores=views,
+                            confidence=view_confidence,
+                        )
+                        # Convert to target_positions format
+                        rows = []
+                        for sym, w in bl_weights.items():
+                            rows.append({
+                                "symbol": sym,
+                                "target_weight": round(w, 4),
+                                "target_qty": round(w * ctx.capital, 2),
+                            })
+                        result.target_positions = pd.DataFrame(rows)
+                    else:
+                        # Fallback to default sizing if no views
+                        result.target_positions = ctx.position_sizing_fn(result.signals, ctx.capital)
+                    result.meta["sizing_method"] = "black_litterman"
+                except Exception as e:
+                    log.warning("Black-Litterman sizing failed, using default: %s", e)
+                    result.target_positions = ctx.position_sizing_fn(result.signals, ctx.capital)
             else:
                 # Default: call position_sizing_fn (equal weight or score-based)
                 result.target_positions = ctx.position_sizing_fn(
                     result.signals, ctx.capital
                 )
             result.meta["sizing_method"] = sizing_method
+
+        # D2: Barra factor risk model — post-sizing vol check
+        try:
+            factor_risk_cfg = policy.get("factor_risk", {})
+            if factor_risk_cfg.get("enabled", False):
+                from src.assembled_core.risk.factor_risk_model import FactorRiskModel
+                prices_for_risk = result.prices_filtered if result.prices_filtered is not None else ctx.prices
+                if prices_for_risk is not None and not prices_for_risk.empty:
+                    frm = FactorRiskModel()
+                    frm.fit(prices_for_risk)
+                    # Get target weights as dict
+                    if "target_weight" in result.target_positions.columns:
+                        tw_dict = dict(zip(
+                            result.target_positions["symbol"],
+                            result.target_positions["target_weight"].fillna(0),
+                        ))
+                        portfolio_vol = frm.predict_portfolio_vol(tw_dict)
+                        vol_limit = float(factor_risk_cfg.get("max_portfolio_vol", 0.25))
+                        if portfolio_vol > vol_limit and portfolio_vol > 0:
+                            scale = vol_limit / portfolio_vol
+                            result.target_positions["target_weight"] = (
+                                result.target_positions["target_weight"] * scale
+                            )
+                            log.info(
+                                "FACTOR_RISK: portfolio_vol=%.3f > limit=%.3f → scaled by %.3f",
+                                portfolio_vol, vol_limit, scale,
+                            )
+                        factor_contribs = frm.predict_factor_contributions(tw_dict)
+                        result.meta["factor_risk"] = {
+                            "portfolio_vol": round(portfolio_vol, 4),
+                            "vol_limit": vol_limit,
+                            "top_factor_contributors": dict(
+                                sorted(factor_contribs.items(), key=lambda x: abs(x[1]), reverse=True)[:5]
+                            ),
+                        }
+        except Exception as e:
+            log.debug("factor_risk_model skipped: %s", e)
 
         # Validate target_positions format
         required_target_cols = ["symbol", "target_weight", "target_qty"]
@@ -1685,6 +1939,30 @@ def run_trading_cycle(
         result.status = "error"
         result.error_message = f"Error in risk_controls: {e}"
         return result
+
+    # Step 6.5: D12 — Scenario engine stress tests (post-orders, optional)
+    try:
+        scenario_cfg = policy.get("scenario_engine", {})
+        if scenario_cfg.get("enabled", False) and not result.target_positions.empty:
+            from src.assembled_core.qa.scenario_engine import run_crisis_scenarios
+            import datetime as _dt
+            prices_for_scenario = result.prices_filtered if result.prices_filtered is not None else ctx.prices
+            if prices_for_scenario is not None and not prices_for_scenario.empty:
+                crisis_type = scenario_cfg.get("crisis_type", "geopolitical_escalation")
+                shock_date = ctx.as_of.replace(tzinfo=None) if ctx.as_of else _dt.datetime.utcnow()
+                scenarios = run_crisis_scenarios(
+                    prices=prices_for_scenario,
+                    crisis_type=crisis_type,
+                    shock_date=shock_date,
+                )
+                result.meta["scenario_engine"] = {
+                    "crisis_type": crisis_type,
+                    "scenarios_run": list(scenarios.keys()),
+                    "n_scenarios": len(scenarios),
+                }
+                log.info("SCENARIO_ENGINE: %d scenarios for crisis_type=%s", len(scenarios), crisis_type)
+    except Exception as e:
+        log.debug("scenario_engine skipped: %s", e)
 
     # Step 7: Write outputs (hook point: write_outputs)
     try:

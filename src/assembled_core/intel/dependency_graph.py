@@ -122,6 +122,151 @@ class DependencyGraph:
                 edges.append(edge)
         return edges
 
+    # ------------------------------------------------------------------
+    # M15 extended query API
+    # ------------------------------------------------------------------
+
+    def get_nodes_by_type(self, node_type: NodeType) -> list[DependencyNode]:
+        """Return all nodes of a given type."""
+        return [n for n in self._nodes.values() if n.node_type == node_type]
+
+    def get_reverse_neighbors(
+        self,
+        node_id: str,
+        edge_types: list[EdgeType] | None = None,
+    ) -> list[tuple[DependencyEdge, DependencyNode]]:
+        """Return incoming neighbors (who points to this node)."""
+        neighbors = self._adj_in.get(node_id, [])
+        if edge_types is None:
+            return list(neighbors)
+        return [(e, n) for e, n in neighbors if e.edge_type in edge_types]
+
+    def subgraph(self, node_ids: set[str]) -> "DependencyGraph":
+        """Extract a subgraph containing only the specified node IDs."""
+        sub = DependencyGraph()
+        for nid in node_ids:
+            node = self._nodes.get(nid)
+            if node is not None:
+                sub.add_node(node)
+        for nid in node_ids:
+            for edge, neighbor in self._adj_out.get(nid, []):
+                if neighbor.node_id in node_ids:
+                    sub.add_edge(edge)
+        return sub
+
+    def compute_betweenness_centrality(self) -> dict[str, float]:
+        """Approximate betweenness centrality for all nodes.
+
+        Uses BFS from every node to estimate how often each node lies on
+        shortest paths. Identifies critical bottleneck nodes in the network.
+        """
+        node_ids = list(self._nodes.keys())
+        centrality: dict[str, float] = {nid: 0.0 for nid in node_ids}
+        n = len(node_ids)
+        if n < 3:
+            return centrality
+
+        for source in node_ids:
+            # BFS shortest-path tree
+            dist: dict[str, int] = {source: 0}
+            paths: dict[str, int] = {source: 1}
+            pred: dict[str, list[str]] = {nid: [] for nid in node_ids}
+            queue = [source]
+            order: list[str] = []
+
+            while queue:
+                current = queue.pop(0)
+                order.append(current)
+                for _, neighbor in self._adj_out.get(current, []):
+                    nid = neighbor.node_id
+                    if nid not in dist:
+                        dist[nid] = dist[current] + 1
+                        paths[nid] = 0
+                        queue.append(nid)
+                    if dist.get(nid, -1) == dist[current] + 1:
+                        paths[nid] = paths.get(nid, 0) + paths[current]
+                        pred[nid].append(current)
+
+            # Accumulate dependencies (Brandes algorithm)
+            delta: dict[str, float] = {nid: 0.0 for nid in node_ids}
+            for w in reversed(order):
+                for v in pred[w]:
+                    if paths.get(w, 0) > 0:
+                        delta[v] += (paths.get(v, 0) / paths[w]) * (1.0 + delta[w])
+                if w != source:
+                    centrality[w] += delta[w]
+
+        # Normalize
+        norm = max(1, (n - 1) * (n - 2))
+        return {nid: v / norm for nid, v in centrality.items()}
+
+    def compute_vulnerability_index(self, node_id: str) -> float:
+        """Compute how vulnerable a node is based on in-degree concentration.
+
+        A node that depends on few critical suppliers has high vulnerability.
+        Returns 0.0 (resilient) to 1.0 (extremely vulnerable).
+        """
+        in_edges = self._adj_in.get(node_id, [])
+        if not in_edges:
+            return 0.0
+        weights = [e.weight for e, _ in in_edges]
+        if not weights:
+            return 0.0
+        max_w = max(weights)
+        avg_w = sum(weights) / len(weights)
+        concentration = max_w / max(sum(weights), 1e-9)
+        return min(1.0, concentration * avg_w * len(weights) / max(len(weights), 1))
+
+    def detect_single_points_of_failure(self) -> list[str]:
+        """Identify nodes whose removal would disconnect significant subgraphs.
+
+        Returns node IDs sorted by criticality (highest first).
+        """
+        centrality = self.compute_betweenness_centrality()
+        threshold = 0.05  # top 5% centrality
+        if not centrality:
+            return []
+        max_c = max(centrality.values()) if centrality else 0
+        if max_c == 0:
+            return []
+        return sorted(
+            [nid for nid, c in centrality.items() if c >= threshold * max_c],
+            key=lambda nid: centrality[nid],
+            reverse=True,
+        )
+
+    def get_cascade_impact(
+        self,
+        node_id: str,
+        max_hops: int = 5,
+    ) -> dict[str, float]:
+        """Estimate downstream cascade impact from a node disruption.
+
+        Returns {node_id: impact_score} for all reachable nodes,
+        with impact decaying per hop (0.85 dampening).
+        """
+        dampening = 0.85
+        impacts: dict[str, float] = {}
+        queue: list[tuple[str, float, int]] = [(node_id, 1.0, 0)]
+        visited: set[str] = {node_id}
+
+        while queue:
+            current, impact, hops = queue.pop(0)
+            if hops > max_hops:
+                continue
+            for edge, neighbor in self._adj_out.get(current, []):
+                nid = neighbor.node_id
+                propagated = impact * edge.weight * edge.confidence * dampening
+                if propagated < 0.01:
+                    continue
+                if nid not in visited or propagated > impacts.get(nid, 0):
+                    impacts[nid] = max(impacts.get(nid, 0), propagated)
+                    if nid not in visited:
+                        visited.add(nid)
+                        queue.append((nid, propagated, hops + 1))
+
+        return dict(sorted(impacts.items(), key=lambda x: x[1], reverse=True))
+
 
 # ---------------------------------------------------------------------------
 # YAML loader

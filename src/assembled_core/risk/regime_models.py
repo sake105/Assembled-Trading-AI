@@ -326,6 +326,84 @@ def build_regime_state(
     return regime_df
 
 
+def build_regime_state_hmm(
+    prices: pd.DataFrame,
+    n_regimes: int = 3,
+    symbol_col: str = "symbol",
+    timestamp_col: str = "timestamp",
+    close_col: str = "close",
+    benchmark_symbol: str | None = None,
+) -> pd.DataFrame:
+    """Build regime state using a Hidden Markov Model on return data.
+
+    D3: HMM-based regime detection as an alternative to rule-based approach.
+    Falls back to an empty DataFrame if hmmlearn is not installed.
+
+    Args:
+        prices: Panel DataFrame with symbol, timestamp, close columns.
+        n_regimes: Number of HMM states (default: 3 = bull/bear/sideways).
+        symbol_col: Column name for symbol identifier.
+        timestamp_col: Column name for timestamps.
+        close_col: Column name for closing price.
+        benchmark_symbol: If provided, use only this symbol's returns for HMM.
+                          Otherwise uses cross-sectional median returns.
+
+    Returns:
+        DataFrame with columns compatible with build_regime_state() output:
+            timestamp, regime_label, regime_confidence, hmm_bull_prob,
+            hmm_bear_prob, hmm_sideways_prob
+    """
+    from src.assembled_core.ml.regime_hmm import RegimeHMM, HMMLEARN_AVAILABLE
+    import logging
+    _log = logging.getLogger(__name__)
+
+    if not HMMLEARN_AVAILABLE:
+        _log.warning("[RegimeHMM] hmmlearn not installed — returning empty regime DataFrame")
+        return pd.DataFrame(columns=[timestamp_col, "regime_label", "regime_confidence"])
+
+    if prices.empty or close_col not in prices.columns:
+        return pd.DataFrame(columns=[timestamp_col, "regime_label", "regime_confidence"])
+
+    # Build return series (benchmark or cross-sectional median)
+    if benchmark_symbol and benchmark_symbol in prices[symbol_col].values:
+        bench = prices[prices[symbol_col] == benchmark_symbol].copy()
+        bench = bench.sort_values(timestamp_col)
+        returns = bench.set_index(timestamp_col)[close_col].pct_change().dropna()
+    else:
+        pivot = prices.pivot_table(index=timestamp_col, columns=symbol_col, values=close_col)
+        returns = pivot.pct_change().median(axis=1).dropna()
+
+    if len(returns) < 60:
+        _log.warning("[RegimeHMM] Insufficient data (%d rows) for HMM", len(returns))
+        return pd.DataFrame(columns=[timestamp_col, "regime_label", "regime_confidence"])
+
+    try:
+        hmm = RegimeHMM(n_regimes=n_regimes)
+        hmm.fit(returns)
+        regime_labels = hmm.predict_regime(returns)
+        regime_proba = hmm.predict_regime_proba(returns)
+
+        result = pd.DataFrame({timestamp_col: returns.index})
+        result["regime_label"] = regime_labels.values
+        # Add probability columns
+        for col in regime_proba.columns:
+            result[f"hmm_{col}_prob"] = regime_proba[col].values
+        # Confidence = max probability for the predicted state
+        result["regime_confidence"] = regime_proba.max(axis=1).values
+
+        _log.info(
+            "[RegimeHMM] Fitted %d-state HMM on %d observations — "
+            "regime distribution: %s",
+            n_regimes, len(returns),
+            regime_labels.value_counts().to_dict(),
+        )
+        return result.reset_index(drop=True)
+
+    except Exception as e:
+        _log.warning("[RegimeHMM] HMM fitting failed: %s", e)
+        return pd.DataFrame(columns=[timestamp_col, "regime_label", "regime_confidence"])
+
+
 def compute_regime_transition_stats(
     regime_state_df: pd.DataFrame,
     timestamp_col: str = "timestamp",

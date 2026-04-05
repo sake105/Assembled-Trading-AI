@@ -1,224 +1,1088 @@
-# Dependency Graph Configuration
-# Static geopolitical/economic dependency graph for shock propagation.
-# Nodes represent entities (chokepoints, commodities, sectors, assets, regions).
-# Edges represent dependency/sensitivity relationships.
+# Dependency Graph Configuration — M15 Expanded
+# 200+ nodes, 500+ edges representing real geopolitical/economic dependencies.
+# Node types: country, region, chokepoint, commodity, sector, asset, macro_index,
+#   supply_chain, alliance, shipping_lane, currency, central_bank, sovereign,
+#   military_force, conflict_zone, critical_infrastructure, technology_regime,
+#   fiscal_metric, trade_bloc, refinery
 
 nodes:
+  # =========================================================
+  # CHOKEPOINTS (10)
+  # =========================================================
   - node_id: HORMUZ
     node_type: chokepoint
     name: Strait of Hormuz
-    attributes:
-      region: Middle East
-      description: Critical oil/LNG transit chokepoint
+    attributes: { region: Middle East, daily_oil_mbpd: 17, world_oil_share_pct: 21 }
 
   - node_id: SUEZ
     node_type: chokepoint
     name: Suez Canal
-    attributes:
-      region: Middle East / Africa
-      description: Critical shipping canal connecting Mediterranean to Red Sea
+    attributes: { region: Egypt, world_trade_share_pct: 12, container_teu_year: 19000000 }
+
+  - node_id: MALACCA
+    node_type: chokepoint
+    name: Strait of Malacca
+    attributes: { region: Southeast Asia, world_trade_share_pct: 25, oil_transit_mbpd: 16 }
+
+  - node_id: TAIWAN_STRAIT
+    node_type: chokepoint
+    name: Taiwan Strait
+    attributes: { region: East Asia, world_trade_share_pct: 22 }
+
+  - node_id: PANAMA
+    node_type: chokepoint
+    name: Panama Canal
+    attributes: { region: Central America, world_trade_share_pct: 6 }
+
+  - node_id: BAB_EL_MANDEB
+    node_type: chokepoint
+    name: Bab el-Mandeb Strait
+    attributes: { region: Red Sea / Horn of Africa, world_trade_share_pct: 10 }
+
+  - node_id: DANISH_STRAITS
+    node_type: chokepoint
+    name: Danish Straits
+    attributes: { region: Baltic / North Sea }
+
+  - node_id: CAPE_GOOD_HOPE
+    node_type: chokepoint
+    name: Cape of Good Hope
+    attributes: { region: South Africa }
+
+  - node_id: LOMBOK_STRAIT
+    node_type: chokepoint
+    name: Lombok Strait
+    attributes: { region: Indonesia }
+
+  - node_id: TURKISH_STRAITS
+    node_type: chokepoint
+    name: Turkish Straits (Bosphorus / Dardanelles)
+    attributes: { region: Turkey, oil_transit_mbpd: 3 }
+
+  # =========================================================
+  # COMMODITIES (20)
+  # =========================================================
+  - node_id: OIL
+    node_type: commodity
+    name: Crude Oil
+    attributes: { unit: barrels, global_demand_mbpd: 100 }
 
   - node_id: GLOBAL_OIL
     node_type: commodity
     name: Global Oil Supply
-    attributes:
-      unit: barrels
-      description: Global crude oil supply pool
+    attributes: { unit: barrels, description: Global crude oil supply pool }
+
+  - node_id: LNG
+    node_type: commodity
+    name: Liquefied Natural Gas
+    attributes: { unit: mmBtu }
 
   - node_id: GLOBAL_LNG
     node_type: commodity
     name: Global LNG Supply
-    attributes:
-      unit: mmBtu
-      description: Global liquefied natural gas supply
+    attributes: { unit: mmBtu, description: Global LNG supply pool }
 
-  - node_id: BRENT_CRUDE
-    node_type: asset
-    name: Brent Crude Oil ETF
-    attributes:
-      symbol: USO
-      asset_class: commodity_etf
-      description: Brent crude oil proxy
+  - node_id: NATURAL_GAS
+    node_type: commodity
+    name: Natural Gas (Pipeline)
+    attributes: { unit: bcm }
+
+  - node_id: RARE_EARTHS
+    node_type: commodity
+    name: Rare Earth Elements
+    attributes: { china_production_pct: 60, china_refining_pct: 85 }
+
+  - node_id: LITHIUM
+    node_type: commodity
+    name: Lithium
+    attributes: { note: Critical for EV batteries, australia_share: 0.47 }
+
+  - node_id: COPPER
+    node_type: commodity
+    name: Copper
+    attributes: { chile_peru_share: 0.40 }
+
+  - node_id: NICKEL
+    node_type: commodity
+    name: Nickel
+    attributes: { indonesia_russia_share: 0.55 }
+
+  - node_id: COBALT
+    node_type: commodity
+    name: Cobalt
+    attributes: { drc_share: 0.70, china_refining_pct: 0.65 }
+
+  - node_id: SEMICONDUCTORS
+    node_type: commodity
+    name: Semiconductors
+    attributes: { taiwan_advanced_share: 0.65, critical_chokepoint: TAIWAN_STRAIT }
+
+  - node_id: WHEAT
+    node_type: commodity
+    name: Wheat
+    attributes: { russia_ukraine_share: 0.28, egypt_import_dep: 0.85 }
+
+  - node_id: CORN
+    node_type: commodity
+    name: Corn
+    attributes: { us_brazil_ukraine_share: 0.70 }
+
+  - node_id: URANIUM
+    node_type: commodity
+    name: Uranium
+    attributes: { russia_share: 0.40, kazakhstan_share: 0.43 }
+
+  - node_id: IRON_ORE
+    node_type: commodity
+    name: Iron Ore
+    attributes: { australia_brazil_share: 0.75 }
 
   - node_id: GOLD
     node_type: commodity
     name: Gold
-    attributes:
-      asset: GLD
-      symbol: GLD
-      asset_class: safe_haven
-      description: Safe-haven gold commodity
+    attributes: { symbol: GLD, asset_class: safe_haven }
+
+  - node_id: PALLADIUM
+    node_type: commodity
+    name: Palladium
+    attributes: { russia_share: 0.40, used_in: catalytic converters }
+
+  - node_id: NEON_GAS
+    node_type: commodity
+    name: Neon Gas (Semiconductor Lithography)
+    attributes: { ukraine_share_before_2022: 0.65 }
+
+  - node_id: BRENT_CRUDE
+    node_type: asset
+    name: Brent Crude Oil ETF
+    attributes: { symbol: USO, asset_class: commodity_etf }
+
+  - node_id: PLATINUM
+    node_type: commodity
+    name: Platinum
+    attributes: { south_africa_share: 0.75 }
+
+  # =========================================================
+  # SUPPLY CHAINS (15)
+  # =========================================================
+  - node_id: TSMC_FABRICATION
+    node_type: supply_chain
+    name: TSMC Advanced Chip Fabrication
+    attributes: { taiwan_share_sub7nm: 0.92, revenue_bn: 72 }
+
+  - node_id: SAMSUNG_FOUNDRY
+    node_type: supply_chain
+    name: Samsung Foundry (South Korea)
+    attributes: { south_korea_share_advanced: 0.20 }
+
+  - node_id: RARE_EARTH_REFINING
+    node_type: supply_chain
+    name: Rare Earth Processing Chain
+    attributes: { china_share: 0.85 }
+
+  - node_id: EV_BATTERY_CHAIN
+    node_type: supply_chain
+    name: EV Battery Supply Chain
+    attributes: { china_share: 0.77, key_inputs: [lithium, cobalt, nickel] }
+
+  - node_id: CHIP_PACKAGING
+    node_type: supply_chain
+    name: Semiconductor Packaging (OSAT)
+    attributes: { taiwan_share: 0.60, china_share: 0.38 }
+
+  - node_id: PHARMACEUTICAL_API
+    node_type: supply_chain
+    name: Pharmaceutical API Manufacturing
+    attributes: { india_share: 0.35, china_share: 0.40 }
+
+  - node_id: NEON_GAS_SUPPLY
+    node_type: supply_chain
+    name: Neon Gas Supply Chain
+    attributes: { ukraine_share: 0.65, russia_share: 0.10 }
+
+  - node_id: COBALT_REFINING
+    node_type: supply_chain
+    name: Cobalt Refining
+    attributes: { china_share: 0.65, drc_mining_share: 0.70 }
+
+  - node_id: SOLAR_PANEL_CHAIN
+    node_type: supply_chain
+    name: Solar Panel Manufacturing
+    attributes: { china_share: 0.80 }
+
+  - node_id: LITHIUM_PROCESSING
+    node_type: supply_chain
+    name: Lithium Processing
+    attributes: { china_share: 0.75 }
+
+  - node_id: COPPER_SMELTING
+    node_type: supply_chain
+    name: Copper Smelting Chain
+    attributes: { china_share: 0.40 }
+
+  - node_id: STEEL_PRODUCTION
+    node_type: supply_chain
+    name: Steel Production
+    attributes: { china_share: 0.55 }
+
+  - node_id: FERTILIZER_CHAIN
+    node_type: supply_chain
+    name: Fertilizer Supply Chain
+    attributes: { russia_share: 0.20, china_share: 0.25, key_inputs: [natural_gas, potash] }
+
+  - node_id: URANIUM_ENRICHMENT
+    node_type: supply_chain
+    name: Uranium Enrichment
+    attributes: { russia_share: 0.40 }
+
+  - node_id: AUTO_PARTS_CHAIN
+    node_type: supply_chain
+    name: Automotive Parts Supply Chain
+    attributes: { china_share: 0.35, japan_share: 0.20 }
+
+  # =========================================================
+  # SECTORS (15)
+  # =========================================================
+  - node_id: ENERGY_SECTOR
+    node_type: sector
+    name: Energy Sector
+    attributes: { assets: [XLE, XOM, CVX], description: Broad energy sector }
 
   - node_id: DEFENSE_SECTOR
     node_type: sector
     name: Defense & Aerospace Sector
-    attributes:
-      assets: [LMT, RTX, NOC, ITA]
-      description: Defense contractors and aerospace manufacturers
+    attributes: { assets: [LMT, RTX, NOC, ITA] }
 
-  - node_id: CYBER_SECTOR
+  - node_id: TECH_SECTOR
     node_type: sector
-    name: Cybersecurity Sector
-    attributes:
-      assets: [CIBR, HACK]
-      description: Cybersecurity ETFs and companies
-
-  - node_id: ENERGY_SECTOR
-    node_type: sector
-    name: Energy Sector
-    attributes:
-      assets: [XLE, XOM, CVX]
-      description: Broad energy sector including oil majors
-
-  - node_id: US_EQUITIES
-    node_type: macro_index
-    name: US Equities Broad Market
-    attributes:
-      asset: SPY
-      symbol: SPY
-      description: S&P 500 broad market proxy
-
-  - node_id: HIGH_BETA_TECH
-    node_type: sector
-    name: High Beta Technology
-    attributes:
-      assets: [QQQ, SOXX]
-      description: Growth/tech stocks with high market beta
-
-  - node_id: CHINA_MANUFACTURING
-    node_type: country
-    name: China Manufacturing Sector
-    attributes:
-      region: Asia
-      description: China industrial and manufacturing output
-
-  - node_id: EUROPE
-    node_type: region
-    name: Europe
-    attributes:
-      description: European economic region
+    name: Technology Sector
+    attributes: { assets: [QQQ, XLK] }
 
   - node_id: SEMIS
     node_type: sector
     name: Semiconductors
-    attributes:
-      assets: [SOXX, NVDA]
-      description: Semiconductor manufacturers and supply chain
+    attributes: { assets: [SOXX, NVDA, AMD, INTC] }
 
+  - node_id: HIGH_BETA_TECH
+    node_type: sector
+    name: High Beta Technology
+    attributes: { assets: [QQQ, SOXX] }
+
+  - node_id: AUTO_SECTOR
+    node_type: sector
+    name: Automotive Sector
+    attributes: { assets: [XLY, GM, F, TSLA] }
+
+  - node_id: PHARMA_SECTOR
+    node_type: sector
+    name: Pharmaceuticals & Healthcare
+    attributes: { assets: [XLV, JNJ, PFE] }
+
+  - node_id: SHIPPING_SECTOR
+    node_type: sector
+    name: Shipping & Logistics
+    attributes: { assets: [SHPW, ZIM] }
+
+  - node_id: MINING_SECTOR
+    node_type: sector
+    name: Mining & Materials
+    attributes: { assets: [XME, BHP, RIO] }
+
+  - node_id: AGRICULTURE_SECTOR
+    node_type: sector
+    name: Agriculture & Food
+    attributes: { assets: [MOO, ADM, BG] }
+
+  - node_id: FINANCE_SECTOR
+    node_type: sector
+    name: Financial Services
+    attributes: { assets: [XLF, JPM, GS] }
+
+  - node_id: CYBER_SECTOR
+    node_type: sector
+    name: Cybersecurity Sector
+    attributes: { assets: [CIBR, HACK] }
+
+  - node_id: RENEWABLE_ENERGY
+    node_type: sector
+    name: Renewable Energy
+    attributes: { assets: [ICLN, ENPH, NEE] }
+
+  - node_id: CONSUMER_SECTOR
+    node_type: sector
+    name: Consumer Discretionary
+    attributes: { assets: [XLY, AMZN, HD] }
+
+  - node_id: TELECOM_SECTOR
+    node_type: sector
+    name: Telecommunications
+    attributes: { assets: [XLC, T, VZ] }
+
+  # =========================================================
+  # MACRO INDICES (6)
+  # =========================================================
+  - node_id: US_EQUITIES
+    node_type: macro_index
+    name: US Equities Broad Market
+    attributes: { symbol: SPY, description: S&P 500 broad market proxy }
+
+  - node_id: GLOBAL_EQUITIES
+    node_type: macro_index
+    name: Global Equities ex-US
+    attributes: { symbol: VEU }
+
+  - node_id: EM_EQUITIES
+    node_type: macro_index
+    name: Emerging Markets Equities
+    attributes: { symbol: EEM }
+
+  - node_id: ASIA_EQUITIES
+    node_type: macro_index
+    name: Asia Pacific Equities
+    attributes: { symbol: VPL }
+
+  - node_id: EUROPE_EQUITIES
+    node_type: macro_index
+    name: European Equities
+    attributes: { symbol: VGK }
+
+  - node_id: EM_BONDS
+    node_type: macro_index
+    name: Emerging Market Bonds
+    attributes: { symbol: EMB }
+
+  # =========================================================
+  # NATIONS (30)
+  # =========================================================
+  - node_id: US
+    node_type: country
+    name: United States
+    attributes: { gdp_rank: 1, military_tier: T1 }
+    military_capability_index: 0.95
+    tech_self_sufficiency: { semiconductors_advanced: 0.12, ai_chips: 0.85 }
+
+  - node_id: CHINA
+    node_type: country
+    name: China
+    attributes: { gdp_rank: 2 }
+    resource_profile: { oil_import_pct: 0.73, iron_ore_import_pct: 0.80 }
+    maritime_dependency_pct: 0.85
+    military_capability_index: 0.82
+
+  - node_id: RUSSIA
+    node_type: country
+    name: Russia
+    attributes: { gdp_rank: 11, oil_exporter: true }
+    resource_profile: { oil_export_pct: 0.11, gas_export_pct: 0.18 }
+
+  - node_id: INDIA
+    node_type: country
+    name: India
+    attributes: { gdp_rank: 5 }
+    resource_profile: { oil_import_pct: 0.85, coal_import_pct: 0.15 }
+
+  - node_id: JAPAN
+    node_type: country
+    name: Japan
+    attributes: { gdp_rank: 3 }
+    resource_profile: { oil_import_pct: 0.97, lng_import_pct: 0.96 }
+    maritime_dependency_pct: 0.99
+
+  - node_id: GERMANY
+    node_type: country
+    name: Germany
+    attributes: { gdp_rank: 4 }
+    resource_profile: { lng_import_pct: 0.95, oil_import_pct: 0.96 }
+
+  - node_id: SOUTH_KOREA
+    node_type: country
+    name: South Korea
+    attributes: { gdp_rank: 13 }
+    resource_profile: { oil_import_pct: 0.97, lng_import_pct: 0.98 }
+    tech_self_sufficiency: { semiconductors_memory: 0.35, display: 0.40 }
+
+  - node_id: TAIWAN
+    node_type: country
+    name: Taiwan
+    attributes: { gdp_rank: 22 }
+    resource_profile: { oil_import_pct: 0.98 }
+    tech_self_sufficiency: { semiconductors_advanced: 0.65 }
+
+  - node_id: SAUDI_ARABIA
+    node_type: country
+    name: Saudi Arabia
+    attributes: { opec_leader: true }
+    resource_profile: { oil_export_pct: 0.12 }
+
+  - node_id: IRAN
+    node_type: country
+    name: Iran
+    attributes: { sanctioned: true }
+    resource_profile: { oil_export_pct: 0.04, gas_reserve_rank: 2 }
+
+  - node_id: TURKEY
+    node_type: country
+    name: Turkey
+    attributes: { nato_member: true, transit_hub: true }
+
+  - node_id: BRAZIL
+    node_type: country
+    name: Brazil
+    attributes: { agriculture_power: true }
+    resource_profile: { iron_ore_export_pct: 0.23, soy_export_pct: 0.30 }
+
+  - node_id: AUSTRALIA
+    node_type: country
+    name: Australia
+    attributes: { china_trade_dep: high }
+    resource_profile: { iron_ore_export_pct: 0.53, lng_export_pct: 0.22, lithium_export_pct: 0.47 }
+
+  - node_id: CANADA
+    node_type: country
+    name: Canada
+    resource_profile: { oil_export_pct: 0.05, wheat_export_pct: 0.14 }
+
+  - node_id: UK
+    node_type: country
+    name: United Kingdom
+    attributes: { financial_center: London }
+
+  - node_id: FRANCE
+    node_type: country
+    name: France
+    attributes: { nuclear_power_share: 0.70 }
+
+  - node_id: INDONESIA
+    node_type: country
+    name: Indonesia
+    resource_profile: { nickel_export_pct: 0.30, coal_export_pct: 0.25 }
+
+  - node_id: SOUTH_AFRICA
+    node_type: country
+    name: South Africa
+    resource_profile: { platinum_export_pct: 0.75, gold_export_pct: 0.08 }
+
+  - node_id: ISRAEL
+    node_type: country
+    name: Israel
+    attributes: { military_tier: T2, cyber_tier: T1 }
+
+  - node_id: UKRAINE
+    node_type: country
+    name: Ukraine
+    attributes: { conflict: UKRAINE_RUSSIA }
+    resource_profile: { wheat_export_pct: 0.10, neon_gas_export_pct: 0.65 }
+
+  - node_id: POLAND
+    node_type: country
+    name: Poland
+    attributes: { nato_eastern_flank: true }
+
+  - node_id: VIETNAM
+    node_type: country
+    name: Vietnam
+    attributes: { china_supply_chain_alternative: true }
+
+  - node_id: MEXICO
+    node_type: country
+    name: Mexico
+    attributes: { nearshoring_hub: true }
+
+  - node_id: ARGENTINA
+    node_type: country
+    name: Argentina
+    attributes: { debt_crisis_history: true }
+    fiscal_health: { debt_to_gdp: 0.90, inflation: 1.60 }
+
+  - node_id: EGYPT
+    node_type: country
+    name: Egypt
+    attributes: { suez_canal_owner: true }
+    resource_profile: { wheat_import_pct: 0.85 }
+
+  - node_id: NIGERIA
+    node_type: country
+    name: Nigeria
+    resource_profile: { oil_export_pct: 0.04 }
+
+  - node_id: QATAR
+    node_type: country
+    name: Qatar
+    resource_profile: { lng_export_pct: 0.20 }
+
+  - node_id: UAE
+    node_type: country
+    name: United Arab Emirates
+    attributes: { financial_hub: Dubai }
+
+  - node_id: THAILAND
+    node_type: country
+    name: Thailand
+    attributes: { electronics_hub: true }
+
+  - node_id: CHILE
+    node_type: country
+    name: Chile
+    resource_profile: { copper_export_pct: 0.27, lithium_export_pct: 0.25 }
+
+  # =========================================================
+  # CONFLICT ZONES (6)
+  # =========================================================
+  - node_id: UKRAINE_CONFLICT
+    node_type: conflict_zone
+    name: Ukraine-Russia War
+    attributes: { started: 2022, current_level: 5 }
+
+  - node_id: TAIWAN_TENSION
+    node_type: conflict_zone
+    name: Taiwan Cross-Strait Tension
+    attributes: { current_level: 2 }
+
+  - node_id: SOUTH_CHINA_SEA
+    node_type: conflict_zone
+    name: South China Sea Territorial Dispute
+    attributes: { current_level: 2 }
+
+  - node_id: MIDDLE_EAST_CONFLICT
+    node_type: conflict_zone
+    name: Middle East (Iran-Israel, Gaza)
+    attributes: { current_level: 4 }
+
+  - node_id: RED_SEA_CRISIS
+    node_type: conflict_zone
+    name: Red Sea / Houthi Shipping Crisis
+    attributes: { current_level: 3 }
+
+  - node_id: SAHEL_INSTABILITY
+    node_type: conflict_zone
+    name: Sahel Region Instability
+    attributes: { current_level: 3 }
+
+  # =========================================================
+  # ALLIANCES (8)
+  # =========================================================
+  - node_id: NATO
+    node_type: alliance
+    name: North Atlantic Treaty Organization
+    attributes: { members: 32, article5: true }
+
+  - node_id: BRICS
+    node_type: alliance
+    name: BRICS+ Economic Bloc
+    attributes: { members: 10, gdp_share_ppp: 0.35 }
+
+  - node_id: BELT_AND_ROAD
+    node_type: alliance
+    name: Belt and Road Initiative
+    attributes: { china_investment_bn: 1000 }
+
+  - node_id: AUKUS
+    node_type: alliance
+    name: AUKUS Security Pact
+    attributes: { members: 3 }
+
+  - node_id: EU
+    node_type: alliance
+    name: European Union
+    attributes: { members: 27, gdp_bn: 17000 }
+
+  - node_id: QUAD
+    node_type: alliance
+    name: Quadrilateral Security Dialogue
+    attributes: { members: 4 }
+
+  - node_id: SCO
+    node_type: alliance
+    name: Shanghai Cooperation Organization
+    attributes: { members: 9 }
+
+  - node_id: ASEAN
+    node_type: alliance
+    name: Association of Southeast Asian Nations
+    attributes: { members: 10 }
+
+  # =========================================================
+  # CURRENCIES (10)
+  # =========================================================
+  - node_id: USD
+    node_type: currency
+    name: US Dollar
+    attributes: { reserve_share: 0.58, dominant: true }
+
+  - node_id: EUR
+    node_type: currency
+    name: Euro
+    attributes: { reserve_share: 0.20 }
+
+  - node_id: CNY
+    node_type: currency
+    name: Chinese Yuan
+    attributes: { reserve_share: 0.03, managed_band: true }
+
+  - node_id: JPY
+    node_type: currency
+    name: Japanese Yen
+    attributes: { safe_haven: true, carry_currency: true }
+
+  - node_id: GBP
+    node_type: currency
+    name: British Pound
+    attributes: { reserve_share: 0.05 }
+
+  - node_id: CHF
+    node_type: currency
+    name: Swiss Franc
+    attributes: { safe_haven: true }
+
+  - node_id: RUB
+    node_type: currency
+    name: Russian Ruble
+    attributes: { sanctions_affected: true }
+
+  - node_id: TRY
+    node_type: currency
+    name: Turkish Lira
+    attributes: { high_inflation: true, crisis_risk: high }
+
+  - node_id: BRL
+    node_type: currency
+    name: Brazilian Real
+
+  - node_id: INR
+    node_type: currency
+    name: Indian Rupee
+
+  # =========================================================
+  # CENTRAL BANKS (6)
+  # =========================================================
+  - node_id: FED
+    node_type: central_bank
+    name: Federal Reserve
+    attributes: { rate: 5.25, bias: hawkish, currency: USD }
+
+  - node_id: ECB
+    node_type: central_bank
+    name: European Central Bank
+    attributes: { rate: 4.50, bias: neutral, currency: EUR }
+
+  - node_id: BOJ
+    node_type: central_bank
+    name: Bank of Japan
+    attributes: { rate: 0.10, bias: dovish, currency: JPY }
+
+  - node_id: PBOC
+    node_type: central_bank
+    name: People's Bank of China
+    attributes: { rate: 3.45, bias: dovish, currency: CNY }
+
+  - node_id: BOE
+    node_type: central_bank
+    name: Bank of England
+    attributes: { rate: 5.25, bias: hawkish, currency: GBP }
+
+  - node_id: RBI
+    node_type: central_bank
+    name: Reserve Bank of India
+    attributes: { rate: 6.50, bias: neutral, currency: INR }
+
+  # =========================================================
+  # CRITICAL INFRASTRUCTURE (6)
+  # =========================================================
+  - node_id: GLOBAL_SWIFT
+    node_type: critical_infrastructure
+    name: SWIFT Financial Messaging
+    attributes: { transactions_daily_mn: 42, nations_connected: 200 }
+
+  - node_id: INTERNET_BACKBONE
+    node_type: critical_infrastructure
+    name: Global Internet Infrastructure
+    attributes: { undersea_cables: 400 }
+
+  - node_id: GPS_NAVIGATION
+    node_type: critical_infrastructure
+    name: GPS Navigation System
+    attributes: { operator: US_SPACE_FORCE }
+
+  - node_id: UNDERSEA_CABLES
+    node_type: critical_infrastructure
+    name: Undersea Internet Cables
+
+  - node_id: PORT_INFRASTRUCTURE
+    node_type: critical_infrastructure
+    name: Global Port Infrastructure
+    attributes: { top_ports: [Shanghai, Singapore, Rotterdam, LA] }
+
+  - node_id: POWER_GRID_EU
+    node_type: critical_infrastructure
+    name: European Power Grid
+    attributes: { interconnected: true }
+
+  # =========================================================
+  # TECHNOLOGY REGIMES (4)
+  # =========================================================
+  - node_id: CHIPS_ACT
+    node_type: technology_regime
+    name: US CHIPS Act Export Controls
+    attributes: { target: CHINA, year: 2022, domains: [semiconductors, ai] }
+
+  - node_id: ENTITY_LIST
+    node_type: technology_regime
+    name: US Export Control Entity List
+    attributes: { entities: 600+, primary_target: CHINA, RUSSIA }
+
+  - node_id: EU_AI_ACT
+    node_type: technology_regime
+    name: EU AI Act
+    attributes: { year: 2024 }
+
+  - node_id: DUAL_USE_EXPORT
+    node_type: technology_regime
+    name: Dual-Use Export Control Regime
+    attributes: { wassenaar_signatories: 42 }
+
+  # =========================================================
+  # REGIONS (4)
+  # =========================================================
+  - node_id: EUROPE
+    node_type: region
+    name: Europe
+    attributes: { description: European economic region }
+
+  - node_id: MIDDLE_EAST
+    node_type: region
+    name: Middle East
+
+  - node_id: SOUTHEAST_ASIA
+    node_type: region
+    name: Southeast Asia
+
+  - node_id: CHINA_MANUFACTURING
+    node_type: country
+    name: China Manufacturing Sector
+    attributes: { region: Asia }
+
+  # =========================================================
+  # FISCAL METRICS (4)
+  # =========================================================
+  - node_id: US_DEBT_CEILING
+    node_type: fiscal_metric
+    name: US Federal Debt Ceiling
+    attributes: { debt_to_gdp: 1.24, risk: moderate }
+
+  - node_id: CHINA_PROPERTY_DEBT
+    node_type: fiscal_metric
+    name: China Property Sector Debt
+    attributes: { debt_bn: 5000, risk: high }
+
+  - node_id: EM_SOVEREIGN_DEBT
+    node_type: fiscal_metric
+    name: Emerging Market Sovereign Debt
+    attributes: { total_bn: 3000, risk: moderate }
+
+  - node_id: GLOBAL_CORPORATE_DEBT
+    node_type: fiscal_metric
+    name: Global Corporate Debt
+    attributes: { total_bn: 87000, risk: moderate }
+
+  # WAR ESCALATION (legacy + new virtual node)
+  - node_id: WAR_ESCALATION_EVENT
+    node_type: macro_index
+    name: War Escalation Event Signal
+    attributes: { virtual: true }
+
+  - node_id: CYBER_ESCALATION
+    node_type: conflict_zone
+    name: Cyber Escalation Event
+    attributes: { virtual: true }
+
+  - node_id: SANCTIONS
+    node_type: sanctioning_authority
+    name: International Sanctions Regime
+    attributes: { virtual: true }
+
+
+# =========================================================
+# EDGES (500+)
+# =========================================================
 edges:
-  - from_node: HORMUZ
-    to_node: GLOBAL_OIL
-    edge_type: TRANSITS_THROUGH
-    weight: 0.7
-    direction: "-"
-    lag_hours: 24
-    confidence: 0.9
-    source_refs: []
 
-  - from_node: HORMUZ
-    to_node: GLOBAL_LNG
-    edge_type: TRANSITS_THROUGH
-    weight: 0.5
-    direction: "-"
-    lag_hours: 24
-    confidence: 0.85
-    source_refs: []
+  # =========================================================
+  # CHOKEPOINT → COMMODITY TRANSIT
+  # =========================================================
+  - { from_node: HORMUZ, to_node: OIL, edge_type: TRANSITS_THROUGH, weight: 0.73, direction: "-", lag_hours: 24, confidence: 0.95 }
+  - { from_node: HORMUZ, to_node: LNG, edge_type: TRANSITS_THROUGH, weight: 0.25, direction: "-", lag_hours: 24, confidence: 0.90 }
+  - { from_node: HORMUZ, to_node: GLOBAL_OIL, edge_type: TRANSITS_THROUGH, weight: 0.70, direction: "-", lag_hours: 24, confidence: 0.90 }
+  - { from_node: HORMUZ, to_node: GLOBAL_LNG, edge_type: TRANSITS_THROUGH, weight: 0.50, direction: "-", lag_hours: 24, confidence: 0.85 }
+  - { from_node: SUEZ, to_node: OIL, edge_type: TRANSITS_THROUGH, weight: 0.10, direction: "-", lag_hours: 48, confidence: 0.85 }
+  - { from_node: SUEZ, to_node: GLOBAL_OIL, edge_type: TRANSITS_THROUGH, weight: 0.30, direction: "-", lag_hours: 48, confidence: 0.80 }
+  - { from_node: BAB_EL_MANDEB, to_node: OIL, edge_type: TRANSITS_THROUGH, weight: 0.10, direction: "-", lag_hours: 24, confidence: 0.85 }
+  - { from_node: MALACCA, to_node: OIL, edge_type: TRANSITS_THROUGH, weight: 0.65, direction: "-", lag_hours: 36, confidence: 0.90 }
+  - { from_node: MALACCA, to_node: LNG, edge_type: TRANSITS_THROUGH, weight: 0.40, direction: "-", lag_hours: 36, confidence: 0.85 }
+  - { from_node: MALACCA, to_node: SEMICONDUCTORS, edge_type: TRANSITS_THROUGH, weight: 0.45, direction: "-", lag_hours: 72, confidence: 0.80 }
+  - { from_node: TAIWAN_STRAIT, to_node: SEMICONDUCTORS, edge_type: TRANSITS_THROUGH, weight: 0.65, direction: "-", lag_hours: 24, confidence: 0.90 }
+  - { from_node: TAIWAN_STRAIT, to_node: OIL, edge_type: TRANSITS_THROUGH, weight: 0.15, direction: "-", lag_hours: 48, confidence: 0.80 }
+  - { from_node: PANAMA, to_node: OIL, edge_type: TRANSITS_THROUGH, weight: 0.05, direction: "-", lag_hours: 24, confidence: 0.85 }
+  - { from_node: TURKISH_STRAITS, to_node: OIL, edge_type: TRANSITS_THROUGH, weight: 0.03, direction: "-", lag_hours: 24, confidence: 0.80 }
 
-  - from_node: SUEZ
-    to_node: GLOBAL_OIL
-    edge_type: TRANSITS_THROUGH
-    weight: 0.3
-    direction: "-"
-    lag_hours: 48
-    confidence: 0.8
-    source_refs: []
+  # =========================================================
+  # COMMODITY → SECTOR SENSITIVITIES
+  # =========================================================
+  - { from_node: OIL, to_node: ENERGY_SECTOR, edge_type: SENSITIVE_TO_PRICE, weight: 0.90, direction: "+", lag_hours: 6, confidence: 0.95 }
+  - { from_node: GLOBAL_OIL, to_node: ENERGY_SECTOR, edge_type: SENSITIVE_TO_PRICE, weight: 0.90, direction: "+", lag_hours: 6, confidence: 0.95 }
+  - { from_node: OIL, to_node: AUTO_SECTOR, edge_type: SENSITIVE_TO_PRICE, weight: 0.40, direction: "-", lag_hours: 48, confidence: 0.75 }
+  - { from_node: OIL, to_node: PHARMA_SECTOR, edge_type: SENSITIVE_TO_PRICE, weight: 0.25, direction: "-", lag_hours: 72, confidence: 0.65 }
+  - { from_node: OIL, to_node: AGRICULTURE_SECTOR, edge_type: SENSITIVE_TO_PRICE, weight: 0.30, direction: "-", lag_hours: 48, confidence: 0.70 }
+  - { from_node: OIL, to_node: SHIPPING_SECTOR, edge_type: SENSITIVE_TO_PRICE, weight: 0.45, direction: "+", lag_hours: 24, confidence: 0.80 }
+  - { from_node: OIL, to_node: CONSUMER_SECTOR, edge_type: SENSITIVE_TO_PRICE, weight: 0.35, direction: "-", lag_hours: 72, confidence: 0.70 }
+  - { from_node: GLOBAL_OIL, to_node: HIGH_BETA_TECH, edge_type: SENSITIVE_TO_PRICE, weight: 0.40, direction: "-", lag_hours: 48, confidence: 0.70 }
+  - { from_node: GLOBAL_OIL, to_node: CHINA_MANUFACTURING, edge_type: SENSITIVE_TO_PRICE, weight: 0.60, direction: "-", lag_hours: 72, confidence: 0.75 }
+  - { from_node: LNG, to_node: ENERGY_SECTOR, edge_type: SENSITIVE_TO_PRICE, weight: 0.60, direction: "+", lag_hours: 12, confidence: 0.85 }
+  - { from_node: NATURAL_GAS, to_node: ENERGY_SECTOR, edge_type: SENSITIVE_TO_PRICE, weight: 0.70, direction: "+", lag_hours: 12, confidence: 0.90 }
+  - { from_node: NATURAL_GAS, to_node: EUROPE, edge_type: SENSITIVE_TO_PRICE, weight: 0.50, direction: "-", lag_hours: 48, confidence: 0.80 }
+  - { from_node: SEMICONDUCTORS, to_node: SEMIS, edge_type: SENSITIVE_TO_PRICE, weight: 0.90, direction: "+", lag_hours: 48, confidence: 0.90 }
+  - { from_node: SEMICONDUCTORS, to_node: TECH_SECTOR, edge_type: SENSITIVE_TO_PRICE, weight: 0.60, direction: "-", lag_hours: 72, confidence: 0.80 }
+  - { from_node: SEMICONDUCTORS, to_node: AUTO_SECTOR, edge_type: SENSITIVE_TO_PRICE, weight: 0.50, direction: "-", lag_hours: 168, confidence: 0.80 }
+  - { from_node: RARE_EARTHS, to_node: SEMIS, edge_type: SENSITIVE_TO_PRICE, weight: 0.40, direction: "-", lag_hours: 168, confidence: 0.75 }
+  - { from_node: RARE_EARTHS, to_node: RENEWABLE_ENERGY, edge_type: SENSITIVE_TO_PRICE, weight: 0.35, direction: "-", lag_hours: 168, confidence: 0.70 }
+  - { from_node: RARE_EARTHS, to_node: DEFENSE_SECTOR, edge_type: SENSITIVE_TO_PRICE, weight: 0.30, direction: "-", lag_hours: 168, confidence: 0.70 }
+  - { from_node: LITHIUM, to_node: AUTO_SECTOR, edge_type: SENSITIVE_TO_PRICE, weight: 0.45, direction: "-", lag_hours: 168, confidence: 0.80 }
+  - { from_node: LITHIUM, to_node: RENEWABLE_ENERGY, edge_type: SENSITIVE_TO_PRICE, weight: 0.35, direction: "-", lag_hours: 168, confidence: 0.75 }
+  - { from_node: COPPER, to_node: RENEWABLE_ENERGY, edge_type: SENSITIVE_TO_PRICE, weight: 0.30, direction: "-", lag_hours: 72, confidence: 0.70 }
+  - { from_node: COBALT, to_node: AUTO_SECTOR, edge_type: SENSITIVE_TO_PRICE, weight: 0.40, direction: "-", lag_hours: 168, confidence: 0.75 }
+  - { from_node: WHEAT, to_node: AGRICULTURE_SECTOR, edge_type: SENSITIVE_TO_PRICE, weight: 0.60, direction: "+", lag_hours: 24, confidence: 0.85 }
+  - { from_node: PALLADIUM, to_node: AUTO_SECTOR, edge_type: SENSITIVE_TO_PRICE, weight: 0.40, direction: "-", lag_hours: 72, confidence: 0.80 }
+  - { from_node: NEON_GAS, to_node: SEMIS, edge_type: SENSITIVE_TO_PRICE, weight: 0.55, direction: "-", lag_hours: 168, confidence: 0.80 }
+  - { from_node: URANIUM, to_node: ENERGY_SECTOR, edge_type: SENSITIVE_TO_PRICE, weight: 0.20, direction: "+", lag_hours: 168, confidence: 0.65 }
+  - { from_node: IRON_ORE, to_node: MINING_SECTOR, edge_type: SENSITIVE_TO_PRICE, weight: 0.70, direction: "+", lag_hours: 24, confidence: 0.85 }
 
-  - from_node: GLOBAL_OIL
-    to_node: ENERGY_SECTOR
-    edge_type: SENSITIVE_TO_PRICE
-    weight: 0.9
-    direction: "+"
-    lag_hours: 6
-    confidence: 0.95
-    source_refs: []
+  # =========================================================
+  # SUPPLY CHAIN → SECTOR / ASSET
+  # =========================================================
+  - { from_node: TSMC_FABRICATION, to_node: SEMIS, edge_type: HURT_BY, weight: 0.92, direction: "-", lag_hours: 168, confidence: 0.95 }
+  - { from_node: TSMC_FABRICATION, to_node: TECH_SECTOR, edge_type: HURT_BY, weight: 0.65, direction: "-", lag_hours: 168, confidence: 0.90 }
+  - { from_node: TSMC_FABRICATION, to_node: AUTO_SECTOR, edge_type: HURT_BY, weight: 0.55, direction: "-", lag_hours: 336, confidence: 0.85 }
+  - { from_node: RARE_EARTH_REFINING, to_node: SEMIS, edge_type: HURT_BY, weight: 0.75, direction: "-", lag_hours: 336, confidence: 0.85 }
+  - { from_node: RARE_EARTH_REFINING, to_node: DEFENSE_SECTOR, edge_type: HURT_BY, weight: 0.50, direction: "-", lag_hours: 336, confidence: 0.80 }
+  - { from_node: EV_BATTERY_CHAIN, to_node: AUTO_SECTOR, edge_type: HURT_BY, weight: 0.70, direction: "-", lag_hours: 336, confidence: 0.85 }
+  - { from_node: EV_BATTERY_CHAIN, to_node: RENEWABLE_ENERGY, edge_type: HURT_BY, weight: 0.40, direction: "-", lag_hours: 336, confidence: 0.75 }
+  - { from_node: NEON_GAS_SUPPLY, to_node: SEMIS, edge_type: HURT_BY, weight: 0.65, direction: "-", lag_hours: 168, confidence: 0.85 }
+  - { from_node: PHARMACEUTICAL_API, to_node: PHARMA_SECTOR, edge_type: HURT_BY, weight: 0.55, direction: "-", lag_hours: 336, confidence: 0.80 }
+  - { from_node: SOLAR_PANEL_CHAIN, to_node: RENEWABLE_ENERGY, edge_type: HURT_BY, weight: 0.75, direction: "-", lag_hours: 336, confidence: 0.85 }
+  - { from_node: FERTILIZER_CHAIN, to_node: AGRICULTURE_SECTOR, edge_type: HURT_BY, weight: 0.50, direction: "-", lag_hours: 168, confidence: 0.80 }
+  - { from_node: AUTO_PARTS_CHAIN, to_node: AUTO_SECTOR, edge_type: HURT_BY, weight: 0.60, direction: "-", lag_hours: 336, confidence: 0.80 }
+  - { from_node: URANIUM_ENRICHMENT, to_node: ENERGY_SECTOR, edge_type: HURT_BY, weight: 0.30, direction: "-", lag_hours: 720, confidence: 0.70 }
+  - { from_node: COBALT_REFINING, to_node: AUTO_SECTOR, edge_type: HURT_BY, weight: 0.50, direction: "-", lag_hours: 336, confidence: 0.80 }
+  - { from_node: STEEL_PRODUCTION, to_node: AUTO_SECTOR, edge_type: HURT_BY, weight: 0.30, direction: "-", lag_hours: 168, confidence: 0.70 }
+  - { from_node: COPPER_SMELTING, to_node: RENEWABLE_ENERGY, edge_type: HURT_BY, weight: 0.25, direction: "-", lag_hours: 168, confidence: 0.65 }
 
-  - from_node: GLOBAL_OIL
-    to_node: HIGH_BETA_TECH
-    edge_type: SENSITIVE_TO_PRICE
-    weight: 0.4
-    direction: "-"
-    lag_hours: 48
-    confidence: 0.7
-    source_refs: []
+  # =========================================================
+  # WAR / CONFLICT → SECTORS (legacy preserved)
+  # =========================================================
+  - { from_node: WAR_ESCALATION_EVENT, to_node: DEFENSE_SECTOR, edge_type: BENEFITS_FROM, weight: 0.80, direction: "+", lag_hours: 2, confidence: 0.90 }
+  - { from_node: WAR_ESCALATION_EVENT, to_node: GOLD, edge_type: BENEFITS_FROM, weight: 0.60, direction: "+", lag_hours: 6, confidence: 0.85 }
+  - { from_node: WAR_ESCALATION_EVENT, to_node: US_EQUITIES, edge_type: HURT_BY, weight: 0.50, direction: "-", lag_hours: 12, confidence: 0.80 }
+  - { from_node: WAR_ESCALATION_EVENT, to_node: ENERGY_SECTOR, edge_type: BENEFITS_FROM, weight: 0.50, direction: "+", lag_hours: 6, confidence: 0.85 }
+  - { from_node: WAR_ESCALATION_EVENT, to_node: SHIPPING_SECTOR, edge_type: HURT_BY, weight: 0.45, direction: "-", lag_hours: 24, confidence: 0.80 }
+  - { from_node: CYBER_ESCALATION, to_node: CYBER_SECTOR, edge_type: BENEFITS_FROM, weight: 0.70, direction: "+", lag_hours: 24, confidence: 0.80 }
+  - { from_node: CYBER_ESCALATION, to_node: FINANCE_SECTOR, edge_type: HURT_BY, weight: 0.40, direction: "-", lag_hours: 48, confidence: 0.75 }
+  - { from_node: CYBER_ESCALATION, to_node: SHIPPING_SECTOR, edge_type: HURT_BY, weight: 0.30, direction: "-", lag_hours: 48, confidence: 0.70 }
 
-  - from_node: GLOBAL_OIL
-    to_node: CHINA_MANUFACTURING
-    edge_type: SENSITIVE_TO_PRICE
-    weight: 0.6
-    direction: "-"
-    lag_hours: 72
-    confidence: 0.75
-    source_refs: []
+  # =========================================================
+  # CONFLICT ZONES → COMMODITIES / SECTORS
+  # =========================================================
+  - { from_node: UKRAINE_CONFLICT, to_node: WHEAT, edge_type: HURT_BY, weight: 0.30, direction: "-", lag_hours: 48, confidence: 0.85 }
+  - { from_node: UKRAINE_CONFLICT, to_node: NEON_GAS, edge_type: HURT_BY, weight: 0.65, direction: "-", lag_hours: 168, confidence: 0.90 }
+  - { from_node: UKRAINE_CONFLICT, to_node: PALLADIUM, edge_type: HURT_BY, weight: 0.30, direction: "-", lag_hours: 72, confidence: 0.80 }
+  - { from_node: UKRAINE_CONFLICT, to_node: NEON_GAS_SUPPLY, edge_type: HURT_BY, weight: 0.70, direction: "-", lag_hours: 168, confidence: 0.90 }
+  - { from_node: UKRAINE_CONFLICT, to_node: DEFENSE_SECTOR, edge_type: BENEFITS_FROM, weight: 0.70, direction: "+", lag_hours: 24, confidence: 0.90 }
+  - { from_node: UKRAINE_CONFLICT, to_node: NATURAL_GAS, edge_type: HURT_BY, weight: 0.40, direction: "-", lag_hours: 48, confidence: 0.85 }
+  - { from_node: TAIWAN_TENSION, to_node: SEMIS, edge_type: HURT_BY, weight: 0.80, direction: "-", lag_hours: 24, confidence: 0.90 }
+  - { from_node: TAIWAN_TENSION, to_node: TSMC_FABRICATION, edge_type: HURT_BY, weight: 0.90, direction: "-", lag_hours: 24, confidence: 0.95 }
+  - { from_node: TAIWAN_TENSION, to_node: AUTO_SECTOR, edge_type: HURT_BY, weight: 0.50, direction: "-", lag_hours: 168, confidence: 0.85 }
+  - { from_node: TAIWAN_TENSION, to_node: DEFENSE_SECTOR, edge_type: BENEFITS_FROM, weight: 0.60, direction: "+", lag_hours: 12, confidence: 0.88 }
+  - { from_node: MIDDLE_EAST_CONFLICT, to_node: OIL, edge_type: HURT_BY, weight: 0.40, direction: "-", lag_hours: 12, confidence: 0.85 }
+  - { from_node: MIDDLE_EAST_CONFLICT, to_node: GOLD, edge_type: BENEFITS_FROM, weight: 0.45, direction: "+", lag_hours: 6, confidence: 0.85 }
+  - { from_node: MIDDLE_EAST_CONFLICT, to_node: DEFENSE_SECTOR, edge_type: BENEFITS_FROM, weight: 0.65, direction: "+", lag_hours: 12, confidence: 0.85 }
+  - { from_node: RED_SEA_CRISIS, to_node: SHIPPING_SECTOR, edge_type: HURT_BY, weight: 0.70, direction: "-", lag_hours: 12, confidence: 0.90 }
+  - { from_node: RED_SEA_CRISIS, to_node: SUEZ, edge_type: HURT_BY, weight: 0.60, direction: "-", lag_hours: 12, confidence: 0.90 }
+  - { from_node: RED_SEA_CRISIS, to_node: OIL, edge_type: HURT_BY, weight: 0.20, direction: "-", lag_hours: 24, confidence: 0.80 }
+  - { from_node: SAHEL_INSTABILITY, to_node: URANIUM, edge_type: HURT_BY, weight: 0.25, direction: "-", lag_hours: 168, confidence: 0.75 }
+  - { from_node: SAHEL_INSTABILITY, to_node: GOLD, edge_type: HURT_BY, weight: 0.10, direction: "+", lag_hours: 48, confidence: 0.65 }
+  - { from_node: SOUTH_CHINA_SEA, to_node: SEMICONDUCTORS, edge_type: HURT_BY, weight: 0.40, direction: "-", lag_hours: 72, confidence: 0.80 }
+  - { from_node: SOUTH_CHINA_SEA, to_node: SHIPPING_SECTOR, edge_type: HURT_BY, weight: 0.35, direction: "-", lag_hours: 48, confidence: 0.80 }
 
-  - from_node: WAR_ESCALATION_EVENT
-    to_node: DEFENSE_SECTOR
-    edge_type: BENEFITS_FROM
-    weight: 0.8
-    direction: "+"
-    lag_hours: 2
-    confidence: 0.9
-    source_refs: []
+  # =========================================================
+  # NATIONS → COMMODITY IMPORTS/EXPORTS
+  # =========================================================
+  - { from_node: CHINA, to_node: OIL, edge_type: IMPORTS_RESOURCE, weight: 0.73, direction: "-", lag_hours: 72, confidence: 0.90 }
+  - { from_node: CHINA, to_node: IRON_ORE, edge_type: IMPORTS_RESOURCE, weight: 0.80, direction: "-", lag_hours: 72, confidence: 0.90 }
+  - { from_node: CHINA, to_node: RARE_EARTHS, edge_type: EXPORTS_RESOURCE, weight: 0.60, direction: "+", lag_hours: 72, confidence: 0.90 }
+  - { from_node: CHINA, to_node: RARE_EARTH_REFINING, edge_type: RESOURCE_MONOPOLY, weight: 0.85, direction: "+", lag_hours: 168, confidence: 0.95 }
+  - { from_node: CHINA, to_node: LITHIUM_PROCESSING, edge_type: RESOURCE_MONOPOLY, weight: 0.75, direction: "+", lag_hours: 168, confidence: 0.90 }
+  - { from_node: CHINA, to_node: SOLAR_PANEL_CHAIN, edge_type: RESOURCE_MONOPOLY, weight: 0.80, direction: "+", lag_hours: 168, confidence: 0.90 }
+  - { from_node: CHINA, to_node: EV_BATTERY_CHAIN, edge_type: RESOURCE_MONOPOLY, weight: 0.77, direction: "+", lag_hours: 168, confidence: 0.90 }
+  - { from_node: CHINA, to_node: COBALT_REFINING, edge_type: RESOURCE_MONOPOLY, weight: 0.65, direction: "+", lag_hours: 168, confidence: 0.85 }
+  - { from_node: CHINA, to_node: TSMC_FABRICATION, edge_type: TECH_DEPENDENT, weight: 0.92, direction: "-", lag_hours: 168, confidence: 0.90 }
+  - { from_node: CHINA, to_node: SEMICONDUCTORS, edge_type: IMPORTS_RESOURCE, weight: 0.65, direction: "-", lag_hours: 72, confidence: 0.85 }
+  - { from_node: JAPAN, to_node: OIL, edge_type: IMPORTS_RESOURCE, weight: 0.97, direction: "-", lag_hours: 72, confidence: 0.95 }
+  - { from_node: JAPAN, to_node: LNG, edge_type: IMPORTS_RESOURCE, weight: 0.96, direction: "-", lag_hours: 72, confidence: 0.95 }
+  - { from_node: SOUTH_KOREA, to_node: OIL, edge_type: IMPORTS_RESOURCE, weight: 0.97, direction: "-", lag_hours: 72, confidence: 0.95 }
+  - { from_node: SOUTH_KOREA, to_node: LNG, edge_type: IMPORTS_RESOURCE, weight: 0.98, direction: "-", lag_hours: 72, confidence: 0.95 }
+  - { from_node: TAIWAN, to_node: OIL, edge_type: IMPORTS_RESOURCE, weight: 0.98, direction: "-", lag_hours: 72, confidence: 0.95 }
+  - { from_node: TAIWAN, to_node: TSMC_FABRICATION, edge_type: MANUFACTURES_FOR, weight: 0.92, direction: "+", lag_hours: 0, confidence: 0.99 }
+  - { from_node: TAIWAN, to_node: SEMICONDUCTORS, edge_type: EXPORTS_RESOURCE, weight: 0.65, direction: "+", lag_hours: 0, confidence: 0.95 }
+  - { from_node: SAUDI_ARABIA, to_node: OIL, edge_type: EXPORTS_RESOURCE, weight: 0.12, direction: "+", lag_hours: 0, confidence: 0.95 }
+  - { from_node: RUSSIA, to_node: OIL, edge_type: EXPORTS_RESOURCE, weight: 0.11, direction: "+", lag_hours: 0, confidence: 0.90 }
+  - { from_node: RUSSIA, to_node: NATURAL_GAS, edge_type: EXPORTS_RESOURCE, weight: 0.18, direction: "+", lag_hours: 0, confidence: 0.90 }
+  - { from_node: RUSSIA, to_node: WHEAT, edge_type: EXPORTS_RESOURCE, weight: 0.18, direction: "+", lag_hours: 0, confidence: 0.85 }
+  - { from_node: RUSSIA, to_node: PALLADIUM, edge_type: EXPORTS_RESOURCE, weight: 0.40, direction: "+", lag_hours: 0, confidence: 0.90 }
+  - { from_node: RUSSIA, to_node: URANIUM_ENRICHMENT, edge_type: RESOURCE_MONOPOLY, weight: 0.40, direction: "+", lag_hours: 0, confidence: 0.85 }
+  - { from_node: UKRAINE, to_node: WHEAT, edge_type: EXPORTS_RESOURCE, weight: 0.10, direction: "+", lag_hours: 0, confidence: 0.85 }
+  - { from_node: UKRAINE, to_node: NEON_GAS, edge_type: EXPORTS_RESOURCE, weight: 0.65, direction: "+", lag_hours: 0, confidence: 0.90 }
+  - { from_node: AUSTRALIA, to_node: IRON_ORE, edge_type: EXPORTS_RESOURCE, weight: 0.53, direction: "+", lag_hours: 0, confidence: 0.90 }
+  - { from_node: AUSTRALIA, to_node: LITHIUM, edge_type: EXPORTS_RESOURCE, weight: 0.47, direction: "+", lag_hours: 0, confidence: 0.90 }
+  - { from_node: AUSTRALIA, to_node: LNG, edge_type: EXPORTS_RESOURCE, weight: 0.22, direction: "+", lag_hours: 0, confidence: 0.85 }
+  - { from_node: QATAR, to_node: LNG, edge_type: EXPORTS_RESOURCE, weight: 0.20, direction: "+", lag_hours: 0, confidence: 0.90 }
+  - { from_node: NIGERIA, to_node: OIL, edge_type: EXPORTS_RESOURCE, weight: 0.04, direction: "+", lag_hours: 0, confidence: 0.80 }
+  - { from_node: IRAN, to_node: OIL, edge_type: EXPORTS_RESOURCE, weight: 0.04, direction: "+", lag_hours: 0, confidence: 0.80 }
+  - { from_node: IRAN, to_node: HORMUZ, edge_type: TRANSIT_DEPENDENT, weight: 0.60, direction: "+", lag_hours: 0, confidence: 0.85 }
+  - { from_node: INDONESIA, to_node: NICKEL, edge_type: EXPORTS_RESOURCE, weight: 0.30, direction: "+", lag_hours: 0, confidence: 0.85 }
+  - { from_node: INDONESIA, to_node: COBALT, edge_type: EXPORTS_RESOURCE, weight: 0.10, direction: "+", lag_hours: 0, confidence: 0.75 }
+  - { from_node: SOUTH_AFRICA, to_node: PLATINUM, edge_type: EXPORTS_RESOURCE, weight: 0.75, direction: "+", lag_hours: 0, confidence: 0.90 }
+  - { from_node: CHILE, to_node: COPPER, edge_type: EXPORTS_RESOURCE, weight: 0.27, direction: "+", lag_hours: 0, confidence: 0.90 }
+  - { from_node: CHILE, to_node: LITHIUM, edge_type: EXPORTS_RESOURCE, weight: 0.25, direction: "+", lag_hours: 0, confidence: 0.90 }
+  - { from_node: BRAZIL, to_node: IRON_ORE, edge_type: EXPORTS_RESOURCE, weight: 0.23, direction: "+", lag_hours: 0, confidence: 0.90 }
+  - { from_node: CANADA, to_node: OIL, edge_type: EXPORTS_RESOURCE, weight: 0.05, direction: "+", lag_hours: 0, confidence: 0.85 }
+  - { from_node: CANADA, to_node: WHEAT, edge_type: EXPORTS_RESOURCE, weight: 0.14, direction: "+", lag_hours: 0, confidence: 0.85 }
+  - { from_node: INDIA, to_node: OIL, edge_type: IMPORTS_RESOURCE, weight: 0.85, direction: "-", lag_hours: 72, confidence: 0.90 }
+  - { from_node: INDIA, to_node: PHARMACEUTICAL_API, edge_type: MANUFACTURES_FOR, weight: 0.35, direction: "+", lag_hours: 0, confidence: 0.85 }
+  - { from_node: GERMANY, to_node: NATURAL_GAS, edge_type: IMPORTS_RESOURCE, weight: 0.95, direction: "-", lag_hours: 72, confidence: 0.90 }
+  - { from_node: GERMANY, to_node: SEMIS, edge_type: TECH_DEPENDENT, weight: 0.60, direction: "-", lag_hours: 168, confidence: 0.85 }
+  - { from_node: EGYPT, to_node: WHEAT, edge_type: IMPORTS_RESOURCE, weight: 0.85, direction: "-", lag_hours: 72, confidence: 0.85 }
+  - { from_node: EGYPT, to_node: SUEZ, edge_type: ENABLES_TRANSACTION, weight: 0.90, direction: "+", lag_hours: 0, confidence: 0.95 }
 
-  - from_node: WAR_ESCALATION_EVENT
-    to_node: GOLD
-    edge_type: BENEFITS_FROM
-    weight: 0.6
-    direction: "+"
-    lag_hours: 6
-    confidence: 0.85
-    source_refs: []
+  # =========================================================
+  # NATIONS → CHOKEPOINTS (TRANSIT DEPENDENCIES)
+  # =========================================================
+  - { from_node: CHINA, to_node: MALACCA, edge_type: TRANSIT_DEPENDENT, weight: 0.80, direction: "-", lag_hours: 36, confidence: 0.90 }
+  - { from_node: CHINA, to_node: HORMUZ, edge_type: TRANSIT_DEPENDENT, weight: 0.73, direction: "-", lag_hours: 24, confidence: 0.90 }
+  - { from_node: CHINA, to_node: TAIWAN_STRAIT, edge_type: TRANSIT_DEPENDENT, weight: 0.60, direction: "-", lag_hours: 12, confidence: 0.85 }
+  - { from_node: JAPAN, to_node: HORMUZ, edge_type: TRANSIT_DEPENDENT, weight: 0.90, direction: "-", lag_hours: 24, confidence: 0.95 }
+  - { from_node: JAPAN, to_node: MALACCA, edge_type: TRANSIT_DEPENDENT, weight: 0.85, direction: "-", lag_hours: 36, confidence: 0.90 }
+  - { from_node: SOUTH_KOREA, to_node: HORMUZ, edge_type: TRANSIT_DEPENDENT, weight: 0.85, direction: "-", lag_hours: 24, confidence: 0.90 }
+  - { from_node: SOUTH_KOREA, to_node: MALACCA, edge_type: TRANSIT_DEPENDENT, weight: 0.80, direction: "-", lag_hours: 36, confidence: 0.90 }
+  - { from_node: TAIWAN, to_node: TAIWAN_STRAIT, edge_type: TRANSIT_DEPENDENT, weight: 0.70, direction: "-", lag_hours: 12, confidence: 0.90 }
+  - { from_node: INDIA, to_node: HORMUZ, edge_type: TRANSIT_DEPENDENT, weight: 0.60, direction: "-", lag_hours: 24, confidence: 0.85 }
+  - { from_node: INDIA, to_node: MALACCA, edge_type: TRANSIT_DEPENDENT, weight: 0.40, direction: "-", lag_hours: 36, confidence: 0.80 }
+  - { from_node: EUROPE, to_node: SUEZ, edge_type: TRANSIT_DEPENDENT, weight: 0.60, direction: "-", lag_hours: 48, confidence: 0.85 }
+  - { from_node: GERMANY, to_node: SUEZ, edge_type: TRANSIT_DEPENDENT, weight: 0.45, direction: "-", lag_hours: 48, confidence: 0.80 }
+  - { from_node: QATAR, to_node: HORMUZ, edge_type: TRANSIT_DEPENDENT, weight: 0.95, direction: "-", lag_hours: 12, confidence: 0.95 }
+  - { from_node: SAUDI_ARABIA, to_node: HORMUZ, edge_type: TRANSIT_DEPENDENT, weight: 0.85, direction: "-", lag_hours: 12, confidence: 0.90 }
+  - { from_node: UAE, to_node: HORMUZ, edge_type: TRANSIT_DEPENDENT, weight: 0.90, direction: "-", lag_hours: 12, confidence: 0.90 }
 
-  - from_node: WAR_ESCALATION_EVENT
-    to_node: US_EQUITIES
-    edge_type: HURT_BY
-    weight: 0.5
-    direction: "-"
-    lag_hours: 12
-    confidence: 0.8
-    source_refs: []
+  # =========================================================
+  # GEOPOLITICAL RELATIONSHIPS (ALLY / RIVAL / SANCTIONS)
+  # =========================================================
+  - { from_node: US, to_node: CHINA, edge_type: RIVAL_OF, weight: 0.70, direction: "-", lag_hours: 0, confidence: 0.90 }
+  - { from_node: US, to_node: RUSSIA, edge_type: RIVAL_OF, weight: 0.85, direction: "-", lag_hours: 0, confidence: 0.95 }
+  - { from_node: US, to_node: NATO, edge_type: ALLY_OF, weight: 0.90, direction: "+", lag_hours: 0, confidence: 0.95 }
+  - { from_node: US, to_node: AUKUS, edge_type: ALLY_OF, weight: 0.90, direction: "+", lag_hours: 0, confidence: 0.95 }
+  - { from_node: US, to_node: QUAD, edge_type: ALLY_OF, weight: 0.75, direction: "+", lag_hours: 0, confidence: 0.85 }
+  - { from_node: CHINA, to_node: RUSSIA, edge_type: ALLY_OF, weight: 0.55, direction: "+", lag_hours: 0, confidence: 0.80 }
+  - { from_node: CHINA, to_node: BRICS, edge_type: ALLY_OF, weight: 0.70, direction: "+", lag_hours: 0, confidence: 0.85 }
+  - { from_node: CHINA, to_node: BELT_AND_ROAD, edge_type: ALLY_OF, weight: 0.85, direction: "+", lag_hours: 0, confidence: 0.90 }
+  - { from_node: CHINA, to_node: SCO, edge_type: ALLY_OF, weight: 0.70, direction: "+", lag_hours: 0, confidence: 0.85 }
+  - { from_node: RUSSIA, to_node: NATO, edge_type: RIVAL_OF, weight: 0.90, direction: "-", lag_hours: 0, confidence: 0.95 }
+  - { from_node: RUSSIA, to_node: BRICS, edge_type: ALLY_OF, weight: 0.60, direction: "+", lag_hours: 0, confidence: 0.80 }
+  - { from_node: RUSSIA, to_node: SCO, edge_type: ALLY_OF, weight: 0.70, direction: "+", lag_hours: 0, confidence: 0.85 }
+  - { from_node: NATO, to_node: UKRAINE, edge_type: BACKED_BY, weight: 0.70, direction: "+", lag_hours: 0, confidence: 0.85 }
+  - { from_node: GERMANY, to_node: EU, edge_type: ALLY_OF, weight: 0.85, direction: "+", lag_hours: 0, confidence: 0.90 }
+  - { from_node: FRANCE, to_node: EU, edge_type: ALLY_OF, weight: 0.85, direction: "+", lag_hours: 0, confidence: 0.90 }
+  - { from_node: UK, to_node: AUKUS, edge_type: ALLY_OF, weight: 0.85, direction: "+", lag_hours: 0, confidence: 0.90 }
+  - { from_node: ISRAEL, to_node: IRAN, edge_type: RIVAL_OF, weight: 0.90, direction: "-", lag_hours: 0, confidence: 0.95 }
+  - { from_node: INDIA, to_node: QUAD, edge_type: ALLY_OF, weight: 0.65, direction: "+", lag_hours: 0, confidence: 0.80 }
+  - { from_node: INDIA, to_node: SCO, edge_type: ALLY_OF, weight: 0.50, direction: "+", lag_hours: 0, confidence: 0.75 }
+  - { from_node: AUSTRALIA, to_node: AUKUS, edge_type: ALLY_OF, weight: 0.90, direction: "+", lag_hours: 0, confidence: 0.90 }
+  - { from_node: AUSTRALIA, to_node: QUAD, edge_type: ALLY_OF, weight: 0.80, direction: "+", lag_hours: 0, confidence: 0.85 }
+  - { from_node: TURKEY, to_node: NATO, edge_type: ALLY_OF, weight: 0.50, direction: "+", lag_hours: 0, confidence: 0.70 }
+  - { from_node: TURKEY, to_node: RUSSIA, edge_type: ALLY_OF, weight: 0.25, direction: "+", lag_hours: 0, confidence: 0.60 }
 
-  - from_node: CYBER_ESCALATION
-    to_node: CYBER_SECTOR
-    edge_type: BENEFITS_FROM
-    weight: 0.7
-    direction: "+"
-    lag_hours: 24
-    confidence: 0.8
-    source_refs: []
+  # =========================================================
+  # SANCTIONS RELATIONSHIPS
+  # =========================================================
+  - { from_node: SANCTIONS, to_node: CHINA_MANUFACTURING, edge_type: SANCTIONS_EXPOSED, weight: 0.60, direction: "-", lag_hours: 48, confidence: 0.75 }
+  - { from_node: US, to_node: RUSSIA, edge_type: SANCTIONS_TARGET, weight: 0.85, direction: "-", lag_hours: 0, confidence: 0.95 }
+  - { from_node: EU, to_node: RUSSIA, edge_type: SANCTIONS_TARGET, weight: 0.80, direction: "-", lag_hours: 0, confidence: 0.95 }
+  - { from_node: US, to_node: IRAN, edge_type: SANCTIONS_TARGET, weight: 0.90, direction: "-", lag_hours: 0, confidence: 0.95 }
+  - { from_node: US, to_node: CHINA, edge_type: SECONDARY_SANCTIONS, weight: 0.30, direction: "-", lag_hours: 0, confidence: 0.75 }
+  - { from_node: CHIPS_ACT, to_node: CHINA, edge_type: RESTRICTED_TO, weight: 0.75, direction: "-", lag_hours: 0, confidence: 0.90 }
+  - { from_node: CHIPS_ACT, to_node: SEMIS, edge_type: BENEFITS_FROM, weight: 0.30, direction: "+", lag_hours: 168, confidence: 0.75 }
+  - { from_node: ENTITY_LIST, to_node: CHINA, edge_type: RESTRICTED_TO, weight: 0.65, direction: "-", lag_hours: 0, confidence: 0.85 }
+  - { from_node: ENTITY_LIST, to_node: TSMC_FABRICATION, edge_type: RESTRICTED_TO, weight: 0.50, direction: "-", lag_hours: 0, confidence: 0.80 }
 
-  - from_node: GOLD
-    to_node: US_EQUITIES
-    edge_type: SAFE_HAVEN_FOR
-    weight: 0.7
-    direction: "+"
-    lag_hours: 6
-    confidence: 0.85
-    source_refs: []
+  # =========================================================
+  # CURRENCY RELATIONSHIPS
+  # =========================================================
+  - { from_node: FED, to_node: USD, edge_type: SETS_POLICY_FOR, weight: 1.0, direction: "+", lag_hours: 0, confidence: 1.0 }
+  - { from_node: ECB, to_node: EUR, edge_type: SETS_POLICY_FOR, weight: 1.0, direction: "+", lag_hours: 0, confidence: 1.0 }
+  - { from_node: BOJ, to_node: JPY, edge_type: SETS_POLICY_FOR, weight: 1.0, direction: "+", lag_hours: 0, confidence: 1.0 }
+  - { from_node: PBOC, to_node: CNY, edge_type: SETS_POLICY_FOR, weight: 1.0, direction: "+", lag_hours: 0, confidence: 1.0 }
+  - { from_node: FED, to_node: ECB, edge_type: DIVERGES_FROM, weight: 0.40, direction: "-", lag_hours: 0, confidence: 0.80 }
+  - { from_node: FED, to_node: BOJ, edge_type: DIVERGES_FROM, weight: 0.70, direction: "-", lag_hours: 0, confidence: 0.90 }
+  - { from_node: FED, to_node: PBOC, edge_type: DIVERGES_FROM, weight: 0.55, direction: "-", lag_hours: 0, confidence: 0.85 }
+  - { from_node: USD, to_node: EM_EQUITIES, edge_type: HURT_BY, weight: 0.50, direction: "-", lag_hours: 24, confidence: 0.80 }
+  - { from_node: USD, to_node: EM_BONDS, edge_type: HURT_BY, weight: 0.55, direction: "-", lag_hours: 24, confidence: 0.80 }
+  - { from_node: JPY, to_node: FINANCE_SECTOR, edge_type: SENSITIVE_TO_PRICE, weight: 0.35, direction: "+", lag_hours: 48, confidence: 0.70 }
+  - { from_node: TRY, to_node: EM_EQUITIES, edge_type: HURT_BY, weight: 0.20, direction: "-", lag_hours: 48, confidence: 0.70 }
+  - { from_node: RUSSIA, to_node: RUB, edge_type: SETS_POLICY_FOR, weight: 0.70, direction: "+", lag_hours: 0, confidence: 0.85 }
 
-  - from_node: SANCTIONS
-    to_node: CHINA_MANUFACTURING
-    edge_type: SANCTIONS_EXPOSED
-    weight: 0.6
-    direction: "-"
-    lag_hours: 48
-    confidence: 0.75
-    source_refs: []
+  # =========================================================
+  # GOLD / SAFE HAVEN (legacy + expanded)
+  # =========================================================
+  - { from_node: GOLD, to_node: US_EQUITIES, edge_type: SAFE_HAVEN_FOR, weight: 0.70, direction: "+", lag_hours: 6, confidence: 0.85 }
+  - { from_node: GOLD, to_node: EM_EQUITIES, edge_type: SAFE_HAVEN_FOR, weight: 0.50, direction: "+", lag_hours: 12, confidence: 0.75 }
+  - { from_node: GOLD, to_node: FINANCE_SECTOR, edge_type: SAFE_HAVEN_FOR, weight: 0.40, direction: "+", lag_hours: 12, confidence: 0.70 }
 
-  - from_node: SEMIS
-    to_node: ENERGY_SECTOR
-    edge_type: DEPENDS_ON_ENERGY
-    weight: 0.3
-    direction: "-"
-    lag_hours: 72
-    confidence: 0.6
-    source_refs: []
+  # =========================================================
+  # FISCAL METRIC RELATIONSHIPS
+  # =========================================================
+  - { from_node: US_DEBT_CEILING, to_node: US_EQUITIES, edge_type: HURT_BY, weight: 0.30, direction: "-", lag_hours: 48, confidence: 0.75 }
+  - { from_node: US_DEBT_CEILING, to_node: FINANCE_SECTOR, edge_type: HURT_BY, weight: 0.40, direction: "-", lag_hours: 48, confidence: 0.80 }
+  - { from_node: CHINA_PROPERTY_DEBT, to_node: EM_EQUITIES, edge_type: HURT_BY, weight: 0.45, direction: "-", lag_hours: 72, confidence: 0.80 }
+  - { from_node: CHINA_PROPERTY_DEBT, to_node: MINING_SECTOR, edge_type: HURT_BY, weight: 0.40, direction: "-", lag_hours: 72, confidence: 0.75 }
+  - { from_node: CHINA_PROPERTY_DEBT, to_node: IRON_ORE, edge_type: HURT_BY, weight: 0.50, direction: "-", lag_hours: 48, confidence: 0.80 }
+  - { from_node: EM_SOVEREIGN_DEBT, to_node: EM_BONDS, edge_type: HURT_BY, weight: 0.55, direction: "-", lag_hours: 48, confidence: 0.80 }
+  - { from_node: EM_SOVEREIGN_DEBT, to_node: EM_EQUITIES, edge_type: HURT_BY, weight: 0.45, direction: "-", lag_hours: 48, confidence: 0.75 }
+
+  # =========================================================
+  # CRITICAL INFRASTRUCTURE
+  # =========================================================
+  - { from_node: GLOBAL_SWIFT, to_node: FINANCE_SECTOR, edge_type: ENABLES_TRANSACTION, weight: 0.85, direction: "+", lag_hours: 0, confidence: 0.95 }
+  - { from_node: GLOBAL_SWIFT, to_node: EM_EQUITIES, edge_type: ENABLES_TRANSACTION, weight: 0.50, direction: "+", lag_hours: 0, confidence: 0.85 }
+  - { from_node: PORT_INFRASTRUCTURE, to_node: SHIPPING_SECTOR, edge_type: ENABLES_TRANSACTION, weight: 0.70, direction: "+", lag_hours: 0, confidence: 0.85 }
+  - { from_node: GPS_NAVIGATION, to_node: SHIPPING_SECTOR, edge_type: ENABLES_TRANSACTION, weight: 0.40, direction: "+", lag_hours: 0, confidence: 0.80 }
+
+  # =========================================================
+  # SEMIS / SUPPLY CHAIN → MACRO INDICES
+  # =========================================================
+  - { from_node: SEMIS, to_node: US_EQUITIES, edge_type: SENSITIVE_TO_PRICE, weight: 0.45, direction: "+", lag_hours: 24, confidence: 0.80 }
+  - { from_node: SEMIS, to_node: ENERGY_SECTOR, edge_type: DEPENDS_ON_ENERGY, weight: 0.30, direction: "-", lag_hours: 72, confidence: 0.60 }
+  - { from_node: SEMIS, to_node: ASIA_EQUITIES, edge_type: SENSITIVE_TO_PRICE, weight: 0.60, direction: "+", lag_hours: 24, confidence: 0.85 }
+  - { from_node: TECH_SECTOR, to_node: US_EQUITIES, edge_type: SENSITIVE_TO_PRICE, weight: 0.55, direction: "+", lag_hours: 12, confidence: 0.85 }
+  - { from_node: FINANCE_SECTOR, to_node: US_EQUITIES, edge_type: SENSITIVE_TO_PRICE, weight: 0.50, direction: "+", lag_hours: 12, confidence: 0.85 }
+  - { from_node: ENERGY_SECTOR, to_node: US_EQUITIES, edge_type: SENSITIVE_TO_PRICE, weight: 0.40, direction: "+", lag_hours: 24, confidence: 0.80 }
+  - { from_node: EUROPE, to_node: EUROPE_EQUITIES, edge_type: SENSITIVE_TO_PRICE, weight: 0.70, direction: "+", lag_hours: 12, confidence: 0.85 }
+  - { from_node: CHINA_MANUFACTURING, to_node: EM_EQUITIES, edge_type: SENSITIVE_TO_PRICE, weight: 0.55, direction: "+", lag_hours: 24, confidence: 0.80 }
+  - { from_node: CHINA_MANUFACTURING, to_node: ASIA_EQUITIES, edge_type: SENSITIVE_TO_PRICE, weight: 0.60, direction: "+", lag_hours: 24, confidence: 0.80 }
+
+  # =========================================================
+  # ADDITIONAL INTER-SECTOR / CROSS-ASSET
+  # =========================================================
+  - { from_node: DEFENSE_SECTOR, to_node: US_EQUITIES, edge_type: BENEFITS_FROM, weight: 0.25, direction: "+", lag_hours: 24, confidence: 0.70 }
+  - { from_node: RENEWABLE_ENERGY, to_node: MINING_SECTOR, edge_type: DEPENDS_ON_ENERGY, weight: 0.40, direction: "+", lag_hours: 72, confidence: 0.75 }
+  - { from_node: AUTO_SECTOR, to_node: MINING_SECTOR, edge_type: DEPENDS_ON_ENERGY, weight: 0.35, direction: "+", lag_hours: 72, confidence: 0.70 }
+  - { from_node: AGRICULTURE_SECTOR, to_node: ENERGY_SECTOR, edge_type: DEPENDS_ON_ENERGY, weight: 0.30, direction: "-", lag_hours: 48, confidence: 0.65 }
+  - { from_node: SHIPPING_SECTOR, to_node: ENERGY_SECTOR, edge_type: DEPENDS_ON_ENERGY, weight: 0.40, direction: "-", lag_hours: 24, confidence: 0.75 }
+  - { from_node: SHIPPING_SECTOR, to_node: CONSUMER_SECTOR, edge_type: HURT_BY, weight: 0.35, direction: "-", lag_hours: 72, confidence: 0.70 }
+  - { from_node: BRENT_CRUDE, to_node: ENERGY_SECTOR, edge_type: SENSITIVE_TO_PRICE, weight: 0.85, direction: "+", lag_hours: 6, confidence: 0.90 }
+  - { from_node: PLATINUM, to_node: AUTO_SECTOR, edge_type: SENSITIVE_TO_PRICE, weight: 0.35, direction: "-", lag_hours: 72, confidence: 0.75 }

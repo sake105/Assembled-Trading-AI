@@ -185,6 +185,25 @@ def run_single_cycle(config: dict) -> dict:
     ) or "none"
     logger.info("[OK] Clusters: %d active (%s)", len(active_clusters), cluster_summary)
 
+    # Step 3.5: D10 — FinBERT sentiment enrichment (optional)
+    finbert_enabled = config.get("finbert_enabled", False)
+    if finbert_enabled and active_clusters:
+        try:
+            from src.assembled_core.ml.nlp_sentiment import score_texts_finbert
+            for cluster in active_clusters:
+                texts = [ev.headline for ev in getattr(cluster, "events", []) if getattr(ev, "headline", None)]
+                if texts:
+                    sentiment_scores = score_texts_finbert(texts[:10])  # cap at 10 texts per cluster
+                    if sentiment_scores:
+                        avg_sentiment = sum(s.get("score", 0) * (1 if s.get("label") == "positive" else -1)
+                                           for s in sentiment_scores) / len(sentiment_scores)
+                        # Attach to cluster if it supports it
+                        if hasattr(cluster, "sentiment_score"):
+                            cluster.sentiment_score = float(avg_sentiment)
+            logger.info("[OK] FinBERT sentiment enrichment applied to %d clusters", len(active_clusters))
+        except Exception as e:
+            logger.debug("[SKIP] FinBERT enrichment skipped: %s", e)
+
     # Step 4: Score clusters → GeoTriggers
     geo_triggers = []
     all_events_for_scoring = list(new_events)  # events in this cycle for score_cluster
@@ -209,8 +228,15 @@ def run_single_cycle(config: dict) -> dict:
         top_trigger = max(geo_triggers, key=lambda t: t.trigger_score)
         shocks = shock_propagation.map_trigger_to_shocks(top_trigger)
         if shocks and dep_graph is not None:
+            # B7: Pass regime and magnitude to enhanced propagation
+            crisis_mode = getattr(config.get("crisis_state"), "mode", "NORMAL")
+            prop_regime = "crisis" if crisis_mode == "CRISIS" else "sideways"
+            prop_magnitude = 1.0 + (top_trigger.trigger_score - 1) * 0.3  # score 1→1.0, 3→1.6
             transmissions = shock_propagation.propagate(
-                shocks, dep_graph, trigger_id=top_trigger.trigger_id
+                shocks, dep_graph,
+                trigger_id=top_trigger.trigger_id,
+                magnitude=prop_magnitude,
+                regime=prop_regime,
             )
             if transmissions:
                 dep_signal = shock_propagation.to_dependency_signal(

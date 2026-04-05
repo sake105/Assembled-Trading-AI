@@ -828,3 +828,152 @@ def evaluate_ml_predictions(
         metrics["ls_sharpe"] = None
 
     return metrics
+
+
+# ---------------------------------------------------------------------------
+# D4: Stacking ensemble entry point
+# ---------------------------------------------------------------------------
+
+def train_stacked_ensemble(
+    panel_df: pd.DataFrame,
+    experiment: "MLExperimentConfig",
+    base_model_types: list[str] | None = None,
+    meta_model_type: str = "ridge",
+) -> dict:
+    """Train a stacked ensemble (D4): multiple base learners + meta-learner.
+
+    Trains several base models via time-series CV, then trains a Ridge
+    meta-learner on their out-of-fold predictions.
+
+    Args:
+        panel_df: Factor panel DataFrame (timestamp, symbol, features, label).
+        experiment: MLExperimentConfig controlling CV and label settings.
+        base_model_types: List of base model types to use
+                          (default: ["xgboost", "random_forest", "ridge"]).
+        meta_model_type: Meta-learner model type (default: "ridge").
+
+    Returns:
+        Dict with keys:
+            - "base_results": {model_type: run_time_series_cv result}
+            - "stacked_predictions": DataFrame with ensemble predictions
+            - "meta_model": Trained meta-learner model object
+            - "global_metrics": Ensemble metrics (IC, R², Sharpe)
+    """
+    if not SKLEARN_AVAILABLE:
+        raise ImportError("scikit-learn is required for stacking ensemble")
+
+    if base_model_types is None:
+        base_model_types = ["xgboost", "random_forest", "ridge"]
+
+    base_results = {}
+    oof_predictions: list[pd.DataFrame] = []
+
+    for mtype in base_model_types:
+        cfg = MLModelConfig(name=f"base_{mtype}", model_type=mtype)
+        try:
+            res = run_time_series_cv(panel_df, experiment, cfg)
+            base_results[mtype] = res
+            preds = res.get("predictions_df")
+            if preds is not None and not preds.empty:
+                preds = preds[["timestamp", "symbol", "y_true", "y_pred"]].copy()
+                preds = preds.rename(columns={"y_pred": f"pred_{mtype}"})
+                oof_predictions.append(preds)
+            logger.info("[StackingEnsemble] Base model %s IC=%.4f", mtype,
+                        res.get("global_metrics", {}).get("ic_mean", float("nan")))
+        except Exception as e:
+            logger.warning("[StackingEnsemble] Base model %s failed: %s", mtype, e)
+
+    if not oof_predictions:
+        logger.warning("[StackingEnsemble] No base models produced predictions")
+        return {"base_results": base_results, "stacked_predictions": pd.DataFrame()}
+
+    # Merge OOF predictions on (timestamp, symbol, y_true)
+    merged = oof_predictions[0]
+    for df in oof_predictions[1:]:
+        drop_cols = ["y_true"] if "y_true" in df.columns else []
+        merged = merged.merge(
+            df.drop(columns=drop_cols),
+            on=["timestamp", "symbol"],
+            how="inner",
+        )
+
+    # Train meta-learner on OOF predictions
+    pred_cols = [c for c in merged.columns if c.startswith("pred_")]
+    if not pred_cols or "y_true" not in merged.columns:
+        return {"base_results": base_results, "stacked_predictions": merged}
+
+    X_meta = merged[pred_cols].fillna(0.0).values
+    y_meta = merged["y_true"].fillna(0.0).values
+
+    if meta_model_type == "ridge":
+        from sklearn.linear_model import Ridge as _Ridge
+        meta = _Ridge(alpha=1.0)
+    else:
+        from sklearn.linear_model import LinearRegression as _LR
+        meta = _LR()
+
+    meta.fit(X_meta, y_meta)
+    merged["y_pred_ensemble"] = meta.predict(X_meta)
+
+    # Compute ensemble IC
+    try:
+        from scipy.stats import spearmanr  # type: ignore
+        ic, _ = spearmanr(merged["y_true"], merged["y_pred_ensemble"])
+    except Exception:
+        ic = float("nan")
+
+    logger.info("[StackingEnsemble] Ensemble trained: IC=%.4f using %d base models", ic, len(pred_cols))
+
+    return {
+        "base_results": base_results,
+        "stacked_predictions": merged,
+        "meta_model": meta,
+        "global_metrics": {"ic_mean": ic, "n_base_models": len(pred_cols)},
+    }
+
+
+# ---------------------------------------------------------------------------
+# D11: Optuna hyperopt entry point (proxy / convenience wrapper)
+# ---------------------------------------------------------------------------
+
+def train_with_hyperopt(
+    panel_df: pd.DataFrame,
+    experiment: "MLExperimentConfig",
+    model_type: str = "xgboost",
+    n_trials: int = 50,
+    metric: str = "ic",
+    timeout_seconds: int = 3600,
+) -> dict:
+    """D11: Train a model using Optuna hyperparameter optimisation.
+
+    Thin wrapper around hyperopt.tune_model_optuna that returns a dict
+    with the best model config and CV results.
+
+    Args:
+        panel_df: Factor panel DataFrame.
+        experiment: MLExperimentConfig.
+        model_type: Model type to tune (default: "xgboost").
+        n_trials: Number of Optuna trials (default: 50).
+        metric: Metric to optimise — "ic", "r2", "sharpe" (default: "ic").
+        timeout_seconds: Max time per study (default: 3600).
+
+    Returns:
+        Dict with "best_config" (MLModelConfig) and "cv_results".
+    """
+    from src.assembled_core.ml.hyperopt import tune_model_optuna
+
+    best_cfg = tune_model_optuna(
+        panel_df=panel_df,
+        experiment=experiment,
+        model_type=model_type,
+        n_trials=n_trials,
+        timeout_seconds=timeout_seconds,
+        metric=metric,
+    )
+    # Run final CV with best config
+    cv_results = run_time_series_cv(panel_df, experiment, best_cfg)
+    logger.info(
+        "[Hyperopt] Best %s config IC=%.4f",
+        model_type, cv_results.get("global_metrics", {}).get("ic_mean", float("nan")),
+    )
+    return {"best_config": best_cfg, "cv_results": cv_results}

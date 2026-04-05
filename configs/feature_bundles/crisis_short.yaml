@@ -1,0 +1,47 @@
+# Crisis/Short bundle — optimised for crash prediction and short-selling
+# Active when regime is bear/crisis and shorts_allowed: true
+# Emphasises geopolitical intel, cross-asset signals, and crash indicators
+
+name: crisis_short
+description: Crisis-mode feature bundle optimised for short-selling scenarios
+
+feature_config:
+  ma_windows: [20, 50, 200]
+  atr_window: 14
+  rsi_window: 14
+  include_rsi: true
+  include_intermarket: true       # Critical: bond/equity, dollar, credit spreads
+  include_candlestick: true       # Reversal patterns: shooting star, evening star
+  include_earnings: false         # Not relevant in crisis mode
+  include_options_signals: false  # Future: put/call skew for crash signals
+
+regime_detection:
+  method: hmm
+  n_regimes: 3
+  benchmark_symbol: SPY
+
+position_sizing:
+  method: risk_parity             # Risk parity for crisis mode (more conservative)
+  vol_lookback_days: 20           # Use short vol window in crisis
+  max_weight: 0.12               # Tighter per-position limit
+
+factor_risk:
+  enabled: true
+  max_portfolio_vol: 0.20         # Tighter vol limit in crisis mode
+
+shorts:
+  enabled: true
+  min_crash_probability: 0.55     # Lower threshold in crisis mode (more sensitive)
+  regime_scaling:
+    bear: 0.25
+    crisis: 0.30
+    sideways: 0.05
+    bull: 0.0
+    reflation: 0.0
+
+scenario_engine:
+  enabled: true
+  crisis_type: geopolitical_escalation
+
+intel:
+  finbert_enabled: true           # Sentiment enrichment in crisis mode

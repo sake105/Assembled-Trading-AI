@@ -2,9 +2,34 @@ policy_version: "v1.0"
 
 # High-level scope for this policy version.
 scope:
-  instruments: ["ETFs"]          # v1.x: hochliquide ETFs als Core
-  leverage_allowed: false        # v1.x: kein Leverage / keine Hebelprodukte
-  shorts_allowed: false           # v1.x: no shorts; ETF-only long portfolio
+  instruments: ["ETFs", "equities"]  # ETFs + direct equities for short candidates
+  leverage_allowed: false            # no leverage / no leveraged products
+  shorts_allowed: true               # v2.0: enabled — inverse ETFs + direct shorts
+
+# Short-selling configuration (active when shorts_allowed: true)
+shorts:
+  enabled: true
+  max_short_weight_per_position: 0.10   # max 10% per short position
+  max_total_short_exposure: 0.30        # max 30% total short exposure
+  max_gross_exposure: 1.50              # long + |short| <= 150%
+  max_net_short: 0.20                   # max 20% net short
+  allowed_instruments:
+    direct_short: true                  # direct equity shorts
+    inverse_etf_1x: true               # 1x inverse ETFs (SH, PSQ, RWM, etc.)
+    inverse_etf_2x: false              # 2x inverse ETFs disabled (volatility decay)
+    inverse_etf_3x: false              # 3x inverse ETFs never
+  regime_scaling:
+    bull: 0.0                           # no shorts in bull market
+    sideways: 0.10                      # max 10% short
+    bear: 0.25                          # max 25% short
+    crisis: 0.30                        # max 30% short — fully active
+    reflation: 0.05                     # minimal
+  borrow_cost_assumption_bps: 50        # 50bps p.a. borrow cost assumption
+  squeeze_risk_check: true              # enable short-squeeze detection
+  min_short_signal_confidence: 0.70     # higher confidence threshold for shorts
+  min_crash_probability: 0.60          # min crash probability to activate shorts
+  require_stop_loss: true               # every short MUST have a stop-loss
+  max_stop_loss_pct: 0.15              # max 15% loss before stop-out
 
 # Risk limits are benchmark-style constraints, not auto-stops on returns.
 risk_limits:

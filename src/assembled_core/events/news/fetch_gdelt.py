@@ -6,6 +6,52 @@ from hashlib import sha256
 
 from .normalize import now_utc_iso
 
+# ---------------------------------------------------------------------------
+# E2: Specialised multi-domain GDELT query bank
+# ---------------------------------------------------------------------------
+
+GDELT_QUERIES: Dict[str, str] = {
+    "geopolitical": (
+        "war OR military OR invasion OR missile OR troops OR conflict OR airstrike"
+    ),
+    "sanctions": (
+        "sanctions OR embargo OR export control OR OFAC OR blacklist OR entity list "
+        "OR secondary sanctions OR SWIFT exclusion"
+    ),
+    "energy": (
+        "oil OR gas OR OPEC OR pipeline OR refinery OR LNG OR energy crisis OR "
+        "natural gas OR crude oil OR oil price"
+    ),
+    "shipping": (
+        "shipping OR port OR freight OR blockade OR strait OR maritime OR "
+        "chokepoint OR Hormuz OR Suez OR Malacca OR Red Sea OR Houthi"
+    ),
+    "tech_war": (
+        "chip ban OR semiconductor OR TSMC OR rare earth OR tech war OR decoupling "
+        "OR export controls OR CHIPS Act OR entity list"
+    ),
+    "currency": (
+        "currency crisis OR devaluation OR central bank OR rate hike OR inflation OR "
+        "IMF bailout OR reserve depletion OR capital flight"
+    ),
+    "cyber": (
+        "cyberattack OR ransomware OR hack OR data breach OR infrastructure attack "
+        "OR zero-day OR state-sponsored hack"
+    ),
+    "climate": (
+        "drought OR flood OR hurricane OR crop failure OR supply chain disruption OR "
+        "heatwave OR wildfire OR food crisis"
+    ),
+    "military": (
+        "nuclear OR escalation OR mobilization OR NATO OR defense spending OR "
+        "military buildup OR troops deployment OR nuclear threat"
+    ),
+    "finance": (
+        "bank crisis OR credit crunch OR sovereign default OR debt ceiling OR "
+        "banking crisis OR yield curve OR recession OR financial crisis"
+    ),
+}
+
 
 def fetch_gdelt_events(
     source_id: str,
@@ -147,3 +193,58 @@ def fetch_gdelt_events(
     stats["items"] = len(items)
     stats["duration_ms"] = int((time.time() - start) * 1000)
     return items, None, stats
+
+
+def fetch_gdelt_multi_domain(
+    *,
+    gdelt_cfg: Dict[str, Any],
+    cadence: str,
+    fetch_state: Dict[str, Any],
+    domains: List[str] | None = None,
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """E2: Fetch GDELT events across multiple domain-specialised queries.
+
+    Runs one GDELT query per domain (e.g. geopolitical, sanctions, energy, etc.)
+    and merges the results, deduplicating by article URL.
+
+    Args:
+        gdelt_cfg: GDELT configuration dict (from sources config).
+        cadence: Scheduling cadence ("hourly", "15min", etc.).
+        fetch_state: Mutable state dict for caching between calls.
+        domains: List of domain keys to query (default: all GDELT_QUERIES).
+
+    Returns:
+        (all_items, failures, all_stats) tuple with merged results.
+    """
+    active_domains = domains or list(GDELT_QUERIES.keys())
+    all_items: List[Dict[str, Any]] = []
+    failures: List[Dict[str, Any]] = []
+    all_stats: List[Dict[str, Any]] = []
+    seen_urls: set = set()
+
+    for domain in active_domains:
+        query = GDELT_QUERIES.get(domain)
+        if not query:
+            continue
+        source_id = f"gdelt_{domain}"
+        items, failure, stats = fetch_gdelt_events(
+            source_id=source_id,
+            query=query,
+            gdelt_cfg=gdelt_cfg,
+            cadence=cadence,
+            fetch_state=fetch_state,
+        )
+        # Deduplicate by URL
+        for item in items:
+            url = item.get("link", "")
+            if url and url in seen_urls:
+                continue
+            seen_urls.add(url)
+            item["domain"] = domain  # Tag with domain for downstream routing
+            all_items.append(item)
+
+        if failure:
+            failures.append(failure)
+        all_stats.append(stats)
+
+    return all_items, failures, all_stats

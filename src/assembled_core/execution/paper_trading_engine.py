@@ -172,6 +172,70 @@ class PaperTradingEngine:
         positions.sort(key=lambda p: p.symbol)
         return positions
 
+    def submit_algo_order(
+        self,
+        symbol: str,
+        side: str,
+        total_quantity: float,
+        price: float | None,
+        algo: str = "TWAP",
+        n_slices: int = 10,
+        participation_rate: float = 0.10,
+    ) -> list[PaperOrder]:
+        """Submit an algorithmic order using TWAP or VWAP slicing.
+
+        D8: Algorithmic execution support for paper trading.
+        In paper mode, all slices are filled immediately at the given price.
+        The slicing schedule is computed via algo_execution module to maintain
+        realistic order decomposition for cost estimation.
+
+        Args:
+            symbol: Ticker symbol.
+            side: "BUY" or "SELL".
+            total_quantity: Total shares to execute.
+            price: Reference price (None = market).
+            algo: "TWAP" or "VWAP" (default: "TWAP").
+            n_slices: Number of execution slices.
+            participation_rate: Target participation rate for VWAP (default: 10%).
+
+        Returns:
+            List of filled PaperOrder objects (one per slice).
+        """
+        from src.assembled_core.execution.algo_execution import TWAPScheduler, VWAPScheduler
+
+        if algo.upper() == "VWAP":
+            scheduler = VWAPScheduler(n_slices=n_slices, participation_rate=participation_rate)
+        else:
+            scheduler = TWAPScheduler(n_slices=n_slices)
+
+        slices = scheduler.schedule(total_quantity=total_quantity, reference_price=price or 0.0)
+        slice_orders: list[PaperOrder] = []
+
+        for i, sl in enumerate(slices):
+            import uuid
+            qty = sl.quantity if hasattr(sl, "quantity") else (total_quantity / n_slices)
+            slice_price = sl.price if hasattr(sl, "price") else price
+
+            order = PaperOrder(
+                order_id=str(uuid.uuid4()),
+                symbol=symbol,
+                side=side.upper(),  # type: ignore[arg-type]
+                quantity=abs(qty),
+                price=slice_price,
+                status="NEW",
+                client_order_id=f"{algo.lower()}_slice_{i+1}_of_{n_slices}",
+                route="PAPER",
+                source="ALGO",
+            )
+            slice_orders.append(order)
+
+        filled = self.submit_orders(slice_orders)
+        logger.info(
+            "ALGO_ORDER: %s %s %s qty=%.0f via %s (%d slices filled)",
+            side, symbol, algo, total_quantity, algo, len(filled),
+        )
+        return filled
+
     def reset(self) -> None:
         """Reset engine state (clear all orders and positions).
 

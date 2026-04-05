@@ -1,0 +1,41 @@
+# Full-stack feature bundle — all available features enabled
+# Use for comprehensive signal generation when data coverage is high.
+# Requires: OHLCV data, internet access (intermarket), earnings API key (optional)
+
+name: full_stack
+description: All feature layers enabled — maximum signal coverage
+
+feature_config:
+  ma_windows: [20, 50, 200]
+  atr_window: 14
+  rsi_window: 14
+  include_rsi: true
+  include_intermarket: true       # Cross-asset bond/equity ratio, dollar trend, etc.
+  include_candlestick: true       # Doji, hammer, engulfing, morning/evening star
+  include_earnings: true          # Days-to-earnings, pre/post drift flags
+  include_options_signals: false  # Requires options data feed (future)
+
+regime_detection:
+  method: hmm                     # Use HMM regime detection
+  n_regimes: 3                    # bull / bear / sideways
+  benchmark_symbol: SPY           # Use SPY returns for HMM fitting
+
+position_sizing:
+  method: black_litterman
+  risk_aversion: 2.5
+  tau: 0.05
+  max_weight: 0.15
+
+factor_risk:
+  enabled: true
+  max_portfolio_vol: 0.25         # Scale down if portfolio vol exceeds 25%
+
+scenario_engine:
+  enabled: true
+  crisis_type: geopolitical_escalation
+
+ml:
+  hyperopt:
+    enabled: false                # Enable during model training runs only
+    n_trials: 50
+    metric: ic

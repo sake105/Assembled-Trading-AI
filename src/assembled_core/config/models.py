@@ -28,6 +28,10 @@ class FeatureConfig(BaseModel):
         atr_window: ATR (Average True Range) window size (default: 14)
         rsi_window: RSI (Relative Strength Index) window size (default: 14)
         include_rsi: Whether to include RSI computation (default: True)
+        include_intermarket: Include cross-asset intermarket factors (default: False)
+        include_candlestick: Include candlestick pattern signals (default: False)
+        include_earnings: Include earnings calendar timing factors (default: False)
+        include_options_signals: Include options-derived signals (default: False)
     """
 
     ma_windows: tuple[int, ...] = Field(
@@ -37,6 +41,22 @@ class FeatureConfig(BaseModel):
     atr_window: int = Field(default=14, ge=1, description="ATR window size")
     rsi_window: int = Field(default=14, ge=1, description="RSI window size")
     include_rsi: bool = Field(default=True, description="Include RSI computation")
+    include_intermarket: bool = Field(
+        default=False,
+        description="Include cross-asset intermarket factors (bond/equity ratio, dollar trend, etc.)",
+    )
+    include_candlestick: bool = Field(
+        default=False,
+        description="Include candlestick pattern signals (doji, hammer, engulfing, etc.)",
+    )
+    include_earnings: bool = Field(
+        default=False,
+        description="Include earnings calendar timing factors (days_to_earnings, pre/post drift)",
+    )
+    include_options_signals: bool = Field(
+        default=False,
+        description="Include options-derived signals (put/call skew, IV percentile, etc.)",
+    )
 
     @field_validator("ma_windows")
     @classmethod

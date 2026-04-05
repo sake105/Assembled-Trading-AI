@@ -1,0 +1,1429 @@
+# Nation resource/vulnerability profiles for geopolitical risk modeling.
+# Approximate figures based on publicly available trade, fiscal,
+# military and technology data (2023-2025 estimates).
+# All percentages expressed as decimals (0.35 = 35%).
+
+US:
+  name: "United States"
+  imports:
+    oil_pct: 0.35
+    rare_earths_pct: 0.80
+    semiconductors_pct: 0.45
+    food_pct: 0.05
+    lng_pct: 0.00
+    lithium_pct: 0.50
+    uranium_pct: 0.90
+    copper_pct: 0.35
+    iron_ore_pct: 0.15
+  exports:
+    lng_pct: 0.25
+    food_pct: 0.15
+    tech_pct: 0.35
+    defense_pct: 0.40
+    oil_products_pct: 0.12
+    services_pct: 0.30
+  transit_dependencies:
+    panama_pct: 0.20
+    malacca_pct: 0.05
+    hormuz_pct: 0.08
+    suez_pct: 0.05
+  fiscal:
+    debt_to_gdp: 1.24
+    deficit_pct: -0.06
+    forex_reserves_bn: 245
+    reserve_months_import: 1.5
+  military:
+    capability_index: 0.95
+    nuclear: true
+    blue_water_navy: true
+    cyber_tier: "T1"
+  tech_sovereignty:
+    semiconductors_advanced: 0.12
+    ai_chips: 0.85
+    quantum: 0.70
+    space: 0.90
+  vulnerabilities:
+    rare_earth_disruption: 0.80
+    china_decoupling_impact: 0.45
+    energy_import_shock: 0.25
+    food_security_risk: 0.05
+    sanctions_resilience: 0.95
+    malacca_blockade_impact: 0.08
+    hormuz_blockade_impact: 0.10
+    suez_disruption_impact: 0.05
+
+CHINA:
+  name: "China"
+  imports:
+    oil_pct: 0.73
+    rare_earths_pct: 0.00
+    semiconductors_pct: 0.35
+    food_pct: 0.20
+    lng_pct: 0.45
+    lithium_pct: 0.65
+    uranium_pct: 0.70
+    copper_pct: 0.75
+    iron_ore_pct: 0.80
+  exports:
+    rare_earths_pct: 0.60
+    tech_pct: 0.30
+    manufacturing_pct: 0.50
+    steel_pct: 0.55
+    solar_panels_pct: 0.80
+    batteries_pct: 0.65
+  transit_dependencies:
+    malacca_pct: 0.80
+    hormuz_pct: 0.25
+    suez_pct: 0.10
+    panama_pct: 0.05
+  fiscal:
+    debt_to_gdp: 0.83
+    deficit_pct: -0.07
+    forex_reserves_bn: 3250
+    reserve_months_import: 14.5
+  military:
+    capability_index: 0.82
+    nuclear: true
+    blue_water_navy: true
+    cyber_tier: "T1"
+  tech_sovereignty:
+    semiconductors_advanced: 0.15
+    ai_chips: 0.25
+    quantum: 0.55
+    space: 0.75
+  vulnerabilities:
+    rare_earth_disruption: 0.05
+    us_decoupling_impact: 0.50
+    energy_import_shock: 0.70
+    food_security_risk: 0.30
+    sanctions_resilience: 0.65
+    malacca_blockade_impact: 0.80
+    hormuz_blockade_impact: 0.25
+    suez_disruption_impact: 0.10
+    dollarization_pct: 0.40
+
+RUSSIA:
+  name: "Russia"
+  imports:
+    oil_pct: 0.00
+    rare_earths_pct: 0.10
+    semiconductors_pct: 0.85
+    food_pct: 0.10
+    lng_pct: 0.00
+    lithium_pct: 0.80
+    uranium_pct: 0.00
+    copper_pct: 0.05
+    iron_ore_pct: 0.00
+  exports:
+    oil_pct: 0.30
+    gas_pct: 0.40
+    wheat_pct: 0.20
+    uranium_pct: 0.15
+    defense_pct: 0.15
+    palladium_pct: 0.40
+  transit_dependencies:
+    bosphorus_pct: 0.25
+    suez_pct: 0.05
+    malacca_pct: 0.02
+    hormuz_pct: 0.02
+  fiscal:
+    debt_to_gdp: 0.20
+    deficit_pct: -0.02
+    forex_reserves_bn: 580
+    reserve_months_import: 24.0
+  military:
+    capability_index: 0.78
+    nuclear: true
+    blue_water_navy: false
+    cyber_tier: "T1"
+  tech_sovereignty:
+    semiconductors_advanced: 0.02
+    ai_chips: 0.05
+    quantum: 0.25
+    space: 0.65
+  vulnerabilities:
+    rare_earth_disruption: 0.10
+    china_decoupling_impact: 0.20
+    energy_import_shock: 0.02
+    food_security_risk: 0.08
+    sanctions_resilience: 0.55
+    us_decoupling_impact: 0.35
+    reserve_drain_risk: 0.30
+
+INDIA:
+  name: "India"
+  imports:
+    oil_pct: 0.85
+    rare_earths_pct: 0.15
+    semiconductors_pct: 0.90
+    food_pct: 0.08
+    lng_pct: 0.50
+    lithium_pct: 0.95
+    uranium_pct: 0.40
+    copper_pct: 0.50
+    iron_ore_pct: 0.10
+  exports:
+    tech_services_pct: 0.25
+    pharma_pct: 0.20
+    food_pct: 0.10
+    textiles_pct: 0.12
+    refined_oil_pct: 0.15
+  transit_dependencies:
+    hormuz_pct: 0.60
+    malacca_pct: 0.35
+    suez_pct: 0.15
+    bab_el_mandeb_pct: 0.20
+  fiscal:
+    debt_to_gdp: 0.82
+    deficit_pct: -0.06
+    forex_reserves_bn: 620
+    reserve_months_import: 9.5
+  military:
+    capability_index: 0.68
+    nuclear: true
+    blue_water_navy: false
+    cyber_tier: "T2"
+  tech_sovereignty:
+    semiconductors_advanced: 0.02
+    ai_chips: 0.08
+    quantum: 0.20
+    space: 0.60
+  vulnerabilities:
+    rare_earth_disruption: 0.15
+    china_decoupling_impact: 0.30
+    energy_import_shock: 0.80
+    food_security_risk: 0.15
+    sanctions_resilience: 0.60
+    hormuz_blockade_impact: 0.60
+    malacca_blockade_impact: 0.35
+
+JAPAN:
+  name: "Japan"
+  imports:
+    oil_pct: 0.95
+    rare_earths_pct: 0.60
+    semiconductors_pct: 0.35
+    food_pct: 0.60
+    lng_pct: 0.95
+    lithium_pct: 0.85
+    uranium_pct: 0.95
+    copper_pct: 0.70
+    iron_ore_pct: 0.99
+  exports:
+    tech_pct: 0.30
+    auto_pct: 0.25
+    machinery_pct: 0.20
+    semiconductor_equipment_pct: 0.30
+    chemicals_pct: 0.10
+  transit_dependencies:
+    malacca_pct: 0.80
+    hormuz_pct: 0.70
+    panama_pct: 0.08
+    suez_pct: 0.10
+  fiscal:
+    debt_to_gdp: 2.55
+    deficit_pct: -0.06
+    forex_reserves_bn: 1250
+    reserve_months_import: 18.0
+  military:
+    capability_index: 0.55
+    nuclear: false
+    blue_water_navy: true
+    cyber_tier: "T1"
+  tech_sovereignty:
+    semiconductors_advanced: 0.25
+    ai_chips: 0.20
+    quantum: 0.35
+    space: 0.50
+  vulnerabilities:
+    rare_earth_disruption: 0.60
+    china_decoupling_impact: 0.55
+    energy_import_shock: 0.90
+    food_security_risk: 0.55
+    sanctions_resilience: 0.85
+    malacca_blockade_impact: 0.80
+    hormuz_blockade_impact: 0.70
+    suez_disruption_impact: 0.10
+
+GERMANY:
+  name: "Germany"
+  imports:
+    oil_pct: 0.95
+    rare_earths_pct: 0.70
+    semiconductors_pct: 0.55
+    food_pct: 0.20
+    lng_pct: 0.65
+    lithium_pct: 0.90
+    uranium_pct: 0.00
+    copper_pct: 0.60
+    iron_ore_pct: 0.85
+  exports:
+    auto_pct: 0.20
+    machinery_pct: 0.25
+    chemicals_pct: 0.15
+    pharma_pct: 0.08
+    tech_pct: 0.10
+  transit_dependencies:
+    suez_pct: 0.15
+    malacca_pct: 0.12
+    hormuz_pct: 0.15
+    bosphorus_pct: 0.05
+  fiscal:
+    debt_to_gdp: 0.66
+    deficit_pct: -0.02
+    forex_reserves_bn: 270
+    reserve_months_import: 2.0
+  military:
+    capability_index: 0.40
+    nuclear: false
+    blue_water_navy: false
+    cyber_tier: "T2"
+  tech_sovereignty:
+    semiconductors_advanced: 0.05
+    ai_chips: 0.05
+    quantum: 0.25
+    space: 0.35
+  vulnerabilities:
+    rare_earth_disruption: 0.70
+    china_decoupling_impact: 0.50
+    energy_import_shock: 0.75
+    food_security_risk: 0.15
+    sanctions_resilience: 0.80
+    malacca_blockade_impact: 0.12
+    hormuz_blockade_impact: 0.15
+    suez_disruption_impact: 0.15
+    russia_gas_dependence: 0.30
+
+SOUTH_KOREA:
+  name: "South Korea"
+  imports:
+    oil_pct: 0.97
+    rare_earths_pct: 0.65
+    semiconductors_pct: 0.15
+    food_pct: 0.55
+    lng_pct: 0.95
+    lithium_pct: 0.90
+    uranium_pct: 0.95
+    copper_pct: 0.65
+    iron_ore_pct: 0.99
+  exports:
+    semiconductors_pct: 0.20
+    auto_pct: 0.12
+    shipbuilding_pct: 0.40
+    steel_pct: 0.08
+    batteries_pct: 0.20
+    displays_pct: 0.35
+  transit_dependencies:
+    malacca_pct: 0.75
+    hormuz_pct: 0.65
+    suez_pct: 0.10
+    panama_pct: 0.05
+  fiscal:
+    debt_to_gdp: 0.54
+    deficit_pct: -0.03
+    forex_reserves_bn: 420
+    reserve_months_import: 7.5
+  military:
+    capability_index: 0.50
+    nuclear: false
+    blue_water_navy: false
+    cyber_tier: "T1"
+  tech_sovereignty:
+    semiconductors_advanced: 0.45
+    ai_chips: 0.15
+    quantum: 0.20
+    space: 0.30
+  vulnerabilities:
+    rare_earth_disruption: 0.65
+    china_decoupling_impact: 0.55
+    energy_import_shock: 0.92
+    food_security_risk: 0.50
+    sanctions_resilience: 0.80
+    malacca_blockade_impact: 0.75
+    hormuz_blockade_impact: 0.65
+    north_korea_risk: 0.40
+
+TAIWAN:
+  name: "Taiwan"
+  imports:
+    oil_pct: 0.98
+    rare_earths_pct: 0.60
+    semiconductors_pct: 0.05
+    food_pct: 0.65
+    lng_pct: 0.98
+    lithium_pct: 0.85
+    uranium_pct: 0.95
+    copper_pct: 0.70
+    iron_ore_pct: 0.99
+  exports:
+    semiconductors_pct: 0.65
+    semiconductor_equipment_pct: 0.10
+    electronics_pct: 0.20
+    machinery_pct: 0.10
+    chemicals_pct: 0.05
+  transit_dependencies:
+    malacca_pct: 0.50
+    hormuz_pct: 0.50
+    taiwan_strait_pct: 0.95
+    suez_pct: 0.05
+  fiscal:
+    debt_to_gdp: 0.28
+    deficit_pct: -0.01
+    forex_reserves_bn: 570
+    reserve_months_import: 16.5
+  military:
+    capability_index: 0.35
+    nuclear: false
+    blue_water_navy: false
+    cyber_tier: "T2"
+  tech_sovereignty:
+    semiconductors_advanced: 0.65
+    ai_chips: 0.60
+    quantum: 0.15
+    space: 0.10
+  vulnerabilities:
+    rare_earth_disruption: 0.55
+    china_decoupling_impact: 0.70
+    energy_import_shock: 0.95
+    food_security_risk: 0.60
+    sanctions_resilience: 0.70
+    malacca_blockade_impact: 0.50
+    hormuz_blockade_impact: 0.50
+    china_invasion_risk: 0.85
+
+SAUDI_ARABIA:
+  name: "Saudi Arabia"
+  imports:
+    oil_pct: 0.00
+    rare_earths_pct: 0.90
+    semiconductors_pct: 0.95
+    food_pct: 0.80
+    lng_pct: 0.00
+    lithium_pct: 0.95
+    uranium_pct: 0.95
+    copper_pct: 0.80
+    iron_ore_pct: 0.70
+  exports:
+    oil_pct: 0.15
+    petrochemicals_pct: 0.10
+    lng_pct: 0.02
+    aluminum_pct: 0.03
+  transit_dependencies:
+    hormuz_pct: 0.50
+    suez_pct: 0.15
+    bab_el_mandeb_pct: 0.35
+  fiscal:
+    debt_to_gdp: 0.26
+    deficit_pct: -0.02
+    forex_reserves_bn: 440
+    reserve_months_import: 28.0
+  military:
+    capability_index: 0.42
+    nuclear: false
+    blue_water_navy: false
+    cyber_tier: "T3"
+  tech_sovereignty:
+    semiconductors_advanced: 0.00
+    ai_chips: 0.02
+    quantum: 0.02
+    space: 0.10
+  vulnerabilities:
+    rare_earth_disruption: 0.30
+    china_decoupling_impact: 0.15
+    energy_import_shock: 0.02
+    food_security_risk: 0.80
+    sanctions_resilience: 0.70
+    hormuz_blockade_impact: 0.50
+    bab_el_mandeb_impact: 0.35
+    water_scarcity_risk: 0.75
+
+IRAN:
+  name: "Iran"
+  imports:
+    oil_pct: 0.00
+    rare_earths_pct: 0.70
+    semiconductors_pct: 0.95
+    food_pct: 0.25
+    lng_pct: 0.00
+    lithium_pct: 0.90
+    uranium_pct: 0.00
+    copper_pct: 0.10
+    iron_ore_pct: 0.05
+  exports:
+    oil_pct: 0.08
+    gas_pct: 0.05
+    petrochemicals_pct: 0.05
+    metals_pct: 0.03
+  transit_dependencies:
+    hormuz_pct: 0.90
+    suez_pct: 0.05
+    bab_el_mandeb_pct: 0.05
+  fiscal:
+    debt_to_gdp: 0.40
+    deficit_pct: -0.04
+    forex_reserves_bn: 20
+    reserve_months_import: 2.5
+  military:
+    capability_index: 0.45
+    nuclear: false
+    blue_water_navy: false
+    cyber_tier: "T2"
+  tech_sovereignty:
+    semiconductors_advanced: 0.00
+    ai_chips: 0.01
+    quantum: 0.05
+    space: 0.20
+  vulnerabilities:
+    rare_earth_disruption: 0.30
+    china_decoupling_impact: 0.10
+    energy_import_shock: 0.02
+    food_security_risk: 0.25
+    sanctions_resilience: 0.30
+    hormuz_blockade_impact: 0.90
+    dollarization_pct: 0.15
+    reserve_drain_risk: 0.70
+
+TURKEY:
+  name: "Turkey"
+  imports:
+    oil_pct: 0.90
+    rare_earths_pct: 0.70
+    semiconductors_pct: 0.90
+    food_pct: 0.15
+    lng_pct: 0.70
+    lithium_pct: 0.05
+    uranium_pct: 0.95
+    copper_pct: 0.50
+    iron_ore_pct: 0.55
+  exports:
+    auto_pct: 0.08
+    textiles_pct: 0.12
+    food_pct: 0.10
+    steel_pct: 0.06
+    defense_pct: 0.04
+  transit_dependencies:
+    bosphorus_pct: 0.30
+    suez_pct: 0.10
+    hormuz_pct: 0.15
+    malacca_pct: 0.05
+  fiscal:
+    debt_to_gdp: 0.35
+    deficit_pct: -0.05
+    forex_reserves_bn: 130
+    reserve_months_import: 4.5
+  military:
+    capability_index: 0.55
+    nuclear: false
+    blue_water_navy: false
+    cyber_tier: "T2"
+  tech_sovereignty:
+    semiconductors_advanced: 0.01
+    ai_chips: 0.02
+    quantum: 0.05
+    space: 0.15
+  vulnerabilities:
+    rare_earth_disruption: 0.40
+    china_decoupling_impact: 0.15
+    energy_import_shock: 0.85
+    food_security_risk: 0.15
+    sanctions_resilience: 0.50
+    dollarization_pct: 0.45
+    reserve_drain_risk: 0.55
+    russia_gas_dependence: 0.25
+
+BRAZIL:
+  name: "Brazil"
+  imports:
+    oil_pct: 0.05
+    rare_earths_pct: 0.60
+    semiconductors_pct: 0.90
+    food_pct: 0.05
+    lng_pct: 0.15
+    lithium_pct: 0.40
+    uranium_pct: 0.10
+    copper_pct: 0.25
+    iron_ore_pct: 0.00
+  exports:
+    iron_ore_pct: 0.18
+    soybeans_pct: 0.15
+    oil_pct: 0.08
+    food_pct: 0.20
+    sugar_pct: 0.10
+    coffee_pct: 0.08
+  transit_dependencies:
+    panama_pct: 0.15
+    suez_pct: 0.05
+    malacca_pct: 0.10
+    hormuz_pct: 0.03
+  fiscal:
+    debt_to_gdp: 0.74
+    deficit_pct: -0.08
+    forex_reserves_bn: 350
+    reserve_months_import: 16.5
+  military:
+    capability_index: 0.35
+    nuclear: false
+    blue_water_navy: false
+    cyber_tier: "T3"
+  tech_sovereignty:
+    semiconductors_advanced: 0.00
+    ai_chips: 0.02
+    quantum: 0.05
+    space: 0.25
+  vulnerabilities:
+    rare_earth_disruption: 0.25
+    china_decoupling_impact: 0.30
+    energy_import_shock: 0.08
+    food_security_risk: 0.05
+    sanctions_resilience: 0.65
+    dollarization_pct: 0.30
+
+AUSTRALIA:
+  name: "Australia"
+  imports:
+    oil_pct: 0.85
+    rare_earths_pct: 0.10
+    semiconductors_pct: 0.90
+    food_pct: 0.10
+    lng_pct: 0.00
+    lithium_pct: 0.00
+    uranium_pct: 0.00
+    copper_pct: 0.05
+    iron_ore_pct: 0.00
+  exports:
+    iron_ore_pct: 0.35
+    lng_pct: 0.20
+    coal_pct: 0.15
+    lithium_pct: 0.50
+    food_pct: 0.10
+    uranium_pct: 0.10
+    rare_earths_pct: 0.05
+  transit_dependencies:
+    malacca_pct: 0.30
+    suez_pct: 0.08
+    hormuz_pct: 0.05
+    panama_pct: 0.03
+  fiscal:
+    debt_to_gdp: 0.50
+    deficit_pct: -0.02
+    forex_reserves_bn: 62
+    reserve_months_import: 2.5
+  military:
+    capability_index: 0.38
+    nuclear: false
+    blue_water_navy: false
+    cyber_tier: "T2"
+  tech_sovereignty:
+    semiconductors_advanced: 0.00
+    ai_chips: 0.03
+    quantum: 0.25
+    space: 0.20
+  vulnerabilities:
+    rare_earth_disruption: 0.10
+    china_decoupling_impact: 0.55
+    energy_import_shock: 0.50
+    food_security_risk: 0.05
+    sanctions_resilience: 0.85
+    malacca_blockade_impact: 0.30
+
+CANADA:
+  name: "Canada"
+  imports:
+    oil_pct: 0.15
+    rare_earths_pct: 0.70
+    semiconductors_pct: 0.80
+    food_pct: 0.10
+    lng_pct: 0.00
+    lithium_pct: 0.40
+    uranium_pct: 0.00
+    copper_pct: 0.15
+    iron_ore_pct: 0.05
+  exports:
+    oil_pct: 0.18
+    gas_pct: 0.08
+    food_pct: 0.10
+    lumber_pct: 0.10
+    potash_pct: 0.30
+    uranium_pct: 0.15
+    auto_pct: 0.08
+  transit_dependencies:
+    panama_pct: 0.08
+    malacca_pct: 0.05
+    hormuz_pct: 0.03
+    suez_pct: 0.03
+  fiscal:
+    debt_to_gdp: 1.07
+    deficit_pct: -0.01
+    forex_reserves_bn: 106
+    reserve_months_import: 2.5
+  military:
+    capability_index: 0.35
+    nuclear: false
+    blue_water_navy: false
+    cyber_tier: "T2"
+  tech_sovereignty:
+    semiconductors_advanced: 0.02
+    ai_chips: 0.10
+    quantum: 0.30
+    space: 0.25
+  vulnerabilities:
+    rare_earth_disruption: 0.40
+    china_decoupling_impact: 0.15
+    energy_import_shock: 0.10
+    food_security_risk: 0.05
+    sanctions_resilience: 0.90
+    us_decoupling_impact: 0.60
+
+UK:
+  name: "United Kingdom"
+  imports:
+    oil_pct: 0.45
+    rare_earths_pct: 0.75
+    semiconductors_pct: 0.80
+    food_pct: 0.40
+    lng_pct: 0.50
+    lithium_pct: 0.90
+    uranium_pct: 0.80
+    copper_pct: 0.60
+    iron_ore_pct: 0.80
+  exports:
+    services_pct: 0.45
+    pharma_pct: 0.10
+    defense_pct: 0.12
+    tech_pct: 0.08
+    oil_pct: 0.05
+  transit_dependencies:
+    suez_pct: 0.15
+    malacca_pct: 0.10
+    hormuz_pct: 0.12
+    panama_pct: 0.05
+  fiscal:
+    debt_to_gdp: 1.01
+    deficit_pct: -0.05
+    forex_reserves_bn: 185
+    reserve_months_import: 2.5
+  military:
+    capability_index: 0.58
+    nuclear: true
+    blue_water_navy: true
+    cyber_tier: "T1"
+  tech_sovereignty:
+    semiconductors_advanced: 0.08
+    ai_chips: 0.15
+    quantum: 0.30
+    space: 0.30
+  vulnerabilities:
+    rare_earth_disruption: 0.70
+    china_decoupling_impact: 0.25
+    energy_import_shock: 0.55
+    food_security_risk: 0.35
+    sanctions_resilience: 0.90
+    malacca_blockade_impact: 0.10
+    hormuz_blockade_impact: 0.12
+    suez_disruption_impact: 0.15
+
+FRANCE:
+  name: "France"
+  imports:
+    oil_pct: 0.98
+    rare_earths_pct: 0.70
+    semiconductors_pct: 0.65
+    food_pct: 0.15
+    lng_pct: 0.40
+    lithium_pct: 0.85
+    uranium_pct: 0.45
+    copper_pct: 0.60
+    iron_ore_pct: 0.90
+  exports:
+    defense_pct: 0.10
+    food_pct: 0.12
+    luxury_pct: 0.15
+    pharma_pct: 0.08
+    aerospace_pct: 0.12
+    nuclear_tech_pct: 0.08
+  transit_dependencies:
+    suez_pct: 0.15
+    malacca_pct: 0.08
+    hormuz_pct: 0.12
+    gibraltar_pct: 0.10
+  fiscal:
+    debt_to_gdp: 1.11
+    deficit_pct: -0.05
+    forex_reserves_bn: 240
+    reserve_months_import: 3.5
+  military:
+    capability_index: 0.62
+    nuclear: true
+    blue_water_navy: true
+    cyber_tier: "T1"
+  tech_sovereignty:
+    semiconductors_advanced: 0.03
+    ai_chips: 0.05
+    quantum: 0.25
+    space: 0.55
+  vulnerabilities:
+    rare_earth_disruption: 0.65
+    china_decoupling_impact: 0.20
+    energy_import_shock: 0.45
+    food_security_risk: 0.10
+    sanctions_resilience: 0.85
+    hormuz_blockade_impact: 0.12
+    suez_disruption_impact: 0.15
+
+INDONESIA:
+  name: "Indonesia"
+  imports:
+    oil_pct: 0.40
+    rare_earths_pct: 0.80
+    semiconductors_pct: 0.95
+    food_pct: 0.15
+    lng_pct: 0.00
+    lithium_pct: 0.85
+    uranium_pct: 0.95
+    copper_pct: 0.10
+    iron_ore_pct: 0.30
+  exports:
+    palm_oil_pct: 0.55
+    nickel_pct: 0.50
+    coal_pct: 0.15
+    lng_pct: 0.08
+    tin_pct: 0.25
+    rubber_pct: 0.10
+  transit_dependencies:
+    malacca_pct: 0.70
+    sunda_pct: 0.30
+    lombok_pct: 0.20
+    hormuz_pct: 0.10
+  fiscal:
+    debt_to_gdp: 0.39
+    deficit_pct: -0.02
+    forex_reserves_bn: 140
+    reserve_months_import: 7.5
+  military:
+    capability_index: 0.28
+    nuclear: false
+    blue_water_navy: false
+    cyber_tier: "T3"
+  tech_sovereignty:
+    semiconductors_advanced: 0.00
+    ai_chips: 0.01
+    quantum: 0.02
+    space: 0.05
+  vulnerabilities:
+    rare_earth_disruption: 0.35
+    china_decoupling_impact: 0.30
+    energy_import_shock: 0.35
+    food_security_risk: 0.20
+    sanctions_resilience: 0.55
+    malacca_blockade_impact: 0.70
+
+SOUTH_AFRICA:
+  name: "South Africa"
+  imports:
+    oil_pct: 0.95
+    rare_earths_pct: 0.40
+    semiconductors_pct: 0.95
+    food_pct: 0.15
+    lng_pct: 0.50
+    lithium_pct: 0.80
+    uranium_pct: 0.20
+    copper_pct: 0.15
+    iron_ore_pct: 0.00
+  exports:
+    platinum_pct: 0.70
+    gold_pct: 0.10
+    coal_pct: 0.08
+    iron_ore_pct: 0.05
+    manganese_pct: 0.30
+    chromium_pct: 0.40
+  transit_dependencies:
+    cape_of_good_hope_pct: 0.30
+    suez_pct: 0.10
+    hormuz_pct: 0.05
+    malacca_pct: 0.08
+  fiscal:
+    debt_to_gdp: 0.72
+    deficit_pct: -0.05
+    forex_reserves_bn: 60
+    reserve_months_import: 5.5
+  military:
+    capability_index: 0.20
+    nuclear: false
+    blue_water_navy: false
+    cyber_tier: "T3"
+  tech_sovereignty:
+    semiconductors_advanced: 0.00
+    ai_chips: 0.01
+    quantum: 0.03
+    space: 0.05
+  vulnerabilities:
+    rare_earth_disruption: 0.20
+    china_decoupling_impact: 0.25
+    energy_import_shock: 0.65
+    food_security_risk: 0.20
+    sanctions_resilience: 0.50
+    dollarization_pct: 0.25
+
+ISRAEL:
+  name: "Israel"
+  imports:
+    oil_pct: 0.95
+    rare_earths_pct: 0.80
+    semiconductors_pct: 0.40
+    food_pct: 0.45
+    lng_pct: 0.00
+    lithium_pct: 0.90
+    uranium_pct: 0.95
+    copper_pct: 0.70
+    iron_ore_pct: 0.85
+  exports:
+    tech_pct: 0.25
+    defense_pct: 0.12
+    pharma_pct: 0.08
+    diamonds_pct: 0.10
+    gas_pct: 0.05
+  transit_dependencies:
+    suez_pct: 0.25
+    hormuz_pct: 0.15
+    bab_el_mandeb_pct: 0.30
+    malacca_pct: 0.05
+  fiscal:
+    debt_to_gdp: 0.62
+    deficit_pct: -0.04
+    forex_reserves_bn: 210
+    reserve_months_import: 10.5
+  military:
+    capability_index: 0.65
+    nuclear: true
+    blue_water_navy: false
+    cyber_tier: "T1"
+  tech_sovereignty:
+    semiconductors_advanced: 0.20
+    ai_chips: 0.30
+    quantum: 0.25
+    space: 0.40
+  vulnerabilities:
+    rare_earth_disruption: 0.50
+    china_decoupling_impact: 0.15
+    energy_import_shock: 0.55
+    food_security_risk: 0.40
+    sanctions_resilience: 0.80
+    hormuz_blockade_impact: 0.15
+    bab_el_mandeb_impact: 0.30
+    suez_disruption_impact: 0.25
+
+UKRAINE:
+  name: "Ukraine"
+  imports:
+    oil_pct: 0.75
+    rare_earths_pct: 0.90
+    semiconductors_pct: 0.98
+    food_pct: 0.10
+    lng_pct: 0.60
+    lithium_pct: 0.05
+    uranium_pct: 0.50
+    copper_pct: 0.70
+    iron_ore_pct: 0.00
+  exports:
+    wheat_pct: 0.10
+    corn_pct: 0.08
+    sunflower_oil_pct: 0.50
+    iron_ore_pct: 0.05
+    steel_pct: 0.03
+    neon_gas_pct: 0.40
+  transit_dependencies:
+    bosphorus_pct: 0.40
+    suez_pct: 0.05
+    hormuz_pct: 0.05
+  fiscal:
+    debt_to_gdp: 0.85
+    deficit_pct: -0.15
+    forex_reserves_bn: 40
+    reserve_months_import: 4.5
+  military:
+    capability_index: 0.45
+    nuclear: false
+    blue_water_navy: false
+    cyber_tier: "T2"
+  tech_sovereignty:
+    semiconductors_advanced: 0.00
+    ai_chips: 0.01
+    quantum: 0.03
+    space: 0.15
+  vulnerabilities:
+    rare_earth_disruption: 0.40
+    china_decoupling_impact: 0.10
+    energy_import_shock: 0.80
+    food_security_risk: 0.10
+    sanctions_resilience: 0.30
+    dollarization_pct: 0.35
+    reserve_drain_risk: 0.65
+    russia_gas_dependence: 0.30
+
+POLAND:
+  name: "Poland"
+  imports:
+    oil_pct: 0.95
+    rare_earths_pct: 0.80
+    semiconductors_pct: 0.90
+    food_pct: 0.10
+    lng_pct: 0.55
+    lithium_pct: 0.90
+    uranium_pct: 0.95
+    copper_pct: 0.00
+    iron_ore_pct: 0.60
+  exports:
+    auto_parts_pct: 0.10
+    food_pct: 0.12
+    copper_pct: 0.08
+    furniture_pct: 0.06
+    machinery_pct: 0.08
+  transit_dependencies:
+    suez_pct: 0.08
+    hormuz_pct: 0.10
+    malacca_pct: 0.05
+    bosphorus_pct: 0.05
+  fiscal:
+    debt_to_gdp: 0.50
+    deficit_pct: -0.05
+    forex_reserves_bn: 170
+    reserve_months_import: 5.5
+  military:
+    capability_index: 0.35
+    nuclear: false
+    blue_water_navy: false
+    cyber_tier: "T2"
+  tech_sovereignty:
+    semiconductors_advanced: 0.01
+    ai_chips: 0.02
+    quantum: 0.05
+    space: 0.08
+  vulnerabilities:
+    rare_earth_disruption: 0.50
+    china_decoupling_impact: 0.15
+    energy_import_shock: 0.70
+    food_security_risk: 0.08
+    sanctions_resilience: 0.75
+    russia_gas_dependence: 0.20
+
+VIETNAM:
+  name: "Vietnam"
+  imports:
+    oil_pct: 0.35
+    rare_earths_pct: 0.10
+    semiconductors_pct: 0.80
+    food_pct: 0.05
+    lng_pct: 0.40
+    lithium_pct: 0.90
+    uranium_pct: 0.95
+    copper_pct: 0.60
+    iron_ore_pct: 0.50
+  exports:
+    electronics_pct: 0.35
+    textiles_pct: 0.15
+    footwear_pct: 0.10
+    seafood_pct: 0.08
+    coffee_pct: 0.06
+    rare_earths_pct: 0.05
+  transit_dependencies:
+    malacca_pct: 0.45
+    south_china_sea_pct: 0.80
+    hormuz_pct: 0.08
+    suez_pct: 0.05
+  fiscal:
+    debt_to_gdp: 0.37
+    deficit_pct: -0.04
+    forex_reserves_bn: 95
+    reserve_months_import: 3.0
+  military:
+    capability_index: 0.22
+    nuclear: false
+    blue_water_navy: false
+    cyber_tier: "T3"
+  tech_sovereignty:
+    semiconductors_advanced: 0.00
+    ai_chips: 0.01
+    quantum: 0.02
+    space: 0.03
+  vulnerabilities:
+    rare_earth_disruption: 0.10
+    china_decoupling_impact: 0.55
+    energy_import_shock: 0.35
+    food_security_risk: 0.08
+    sanctions_resilience: 0.50
+    malacca_blockade_impact: 0.45
+    south_china_sea_risk: 0.80
+
+MEXICO:
+  name: "Mexico"
+  imports:
+    oil_pct: 0.30
+    rare_earths_pct: 0.80
+    semiconductors_pct: 0.85
+    food_pct: 0.15
+    lng_pct: 0.70
+    lithium_pct: 0.05
+    uranium_pct: 0.90
+    copper_pct: 0.30
+    iron_ore_pct: 0.40
+  exports:
+    auto_pct: 0.15
+    oil_pct: 0.08
+    electronics_pct: 0.12
+    food_pct: 0.10
+    beer_pct: 0.05
+    silver_pct: 0.20
+  transit_dependencies:
+    panama_pct: 0.15
+    malacca_pct: 0.05
+    hormuz_pct: 0.05
+    suez_pct: 0.03
+  fiscal:
+    debt_to_gdp: 0.54
+    deficit_pct: -0.04
+    forex_reserves_bn: 200
+    reserve_months_import: 4.0
+  military:
+    capability_index: 0.18
+    nuclear: false
+    blue_water_navy: false
+    cyber_tier: "T3"
+  tech_sovereignty:
+    semiconductors_advanced: 0.00
+    ai_chips: 0.01
+    quantum: 0.02
+    space: 0.05
+  vulnerabilities:
+    rare_earth_disruption: 0.35
+    china_decoupling_impact: 0.20
+    energy_import_shock: 0.35
+    food_security_risk: 0.15
+    sanctions_resilience: 0.60
+    us_decoupling_impact: 0.75
+    dollarization_pct: 0.30
+
+ARGENTINA:
+  name: "Argentina"
+  imports:
+    oil_pct: 0.10
+    rare_earths_pct: 0.85
+    semiconductors_pct: 0.95
+    food_pct: 0.03
+    lng_pct: 0.15
+    lithium_pct: 0.00
+    uranium_pct: 0.20
+    copper_pct: 0.40
+    iron_ore_pct: 0.30
+  exports:
+    soybeans_pct: 0.12
+    food_pct: 0.20
+    lithium_pct: 0.08
+    oil_pct: 0.04
+    wine_pct: 0.03
+  transit_dependencies:
+    panama_pct: 0.10
+    malacca_pct: 0.05
+    hormuz_pct: 0.03
+    suez_pct: 0.03
+  fiscal:
+    debt_to_gdp: 0.90
+    deficit_pct: -0.04
+    forex_reserves_bn: 28
+    reserve_months_import: 3.5
+  military:
+    capability_index: 0.15
+    nuclear: false
+    blue_water_navy: false
+    cyber_tier: "T3"
+  tech_sovereignty:
+    semiconductors_advanced: 0.00
+    ai_chips: 0.01
+    quantum: 0.03
+    space: 0.10
+  vulnerabilities:
+    rare_earth_disruption: 0.30
+    china_decoupling_impact: 0.20
+    energy_import_shock: 0.12
+    food_security_risk: 0.03
+    sanctions_resilience: 0.40
+    dollarization_pct: 0.60
+    reserve_drain_risk: 0.75
+
+EGYPT:
+  name: "Egypt"
+  imports:
+    oil_pct: 0.35
+    rare_earths_pct: 0.85
+    semiconductors_pct: 0.98
+    food_pct: 0.50
+    lng_pct: 0.10
+    lithium_pct: 0.95
+    uranium_pct: 0.95
+    copper_pct: 0.70
+    iron_ore_pct: 0.60
+  exports:
+    gas_pct: 0.08
+    suez_tolls_pct: 0.10
+    food_pct: 0.05
+    textiles_pct: 0.04
+    tourism_pct: 0.08
+  transit_dependencies:
+    suez_pct: 0.85
+    hormuz_pct: 0.10
+    bab_el_mandeb_pct: 0.30
+    malacca_pct: 0.03
+  fiscal:
+    debt_to_gdp: 0.92
+    deficit_pct: -0.06
+    forex_reserves_bn: 35
+    reserve_months_import: 4.0
+  military:
+    capability_index: 0.32
+    nuclear: false
+    blue_water_navy: false
+    cyber_tier: "T3"
+  tech_sovereignty:
+    semiconductors_advanced: 0.00
+    ai_chips: 0.01
+    quantum: 0.01
+    space: 0.05
+  vulnerabilities:
+    rare_earth_disruption: 0.35
+    china_decoupling_impact: 0.10
+    energy_import_shock: 0.35
+    food_security_risk: 0.65
+    sanctions_resilience: 0.40
+    dollarization_pct: 0.40
+    reserve_drain_risk: 0.60
+    suez_disruption_impact: 0.85
+    water_scarcity_risk: 0.70
+
+NIGERIA:
+  name: "Nigeria"
+  imports:
+    oil_pct: 0.00
+    rare_earths_pct: 0.90
+    semiconductors_pct: 0.98
+    food_pct: 0.25
+    lng_pct: 0.00
+    lithium_pct: 0.95
+    uranium_pct: 0.95
+    copper_pct: 0.80
+    iron_ore_pct: 0.70
+  exports:
+    oil_pct: 0.12
+    lng_pct: 0.05
+    cocoa_pct: 0.03
+  transit_dependencies:
+    suez_pct: 0.05
+    hormuz_pct: 0.03
+    malacca_pct: 0.03
+    gulf_of_guinea_pct: 0.40
+  fiscal:
+    debt_to_gdp: 0.38
+    deficit_pct: -0.06
+    forex_reserves_bn: 35
+    reserve_months_import: 5.0
+  military:
+    capability_index: 0.18
+    nuclear: false
+    blue_water_navy: false
+    cyber_tier: "T3"
+  tech_sovereignty:
+    semiconductors_advanced: 0.00
+    ai_chips: 0.00
+    quantum: 0.01
+    space: 0.02
+  vulnerabilities:
+    rare_earth_disruption: 0.30
+    china_decoupling_impact: 0.15
+    energy_import_shock: 0.05
+    food_security_risk: 0.40
+    sanctions_resilience: 0.35
+    dollarization_pct: 0.45
+    reserve_drain_risk: 0.50
+
+QATAR:
+  name: "Qatar"
+  imports:
+    oil_pct: 0.00
+    rare_earths_pct: 0.90
+    semiconductors_pct: 0.98
+    food_pct: 0.90
+    lng_pct: 0.00
+    lithium_pct: 0.95
+    uranium_pct: 0.95
+    copper_pct: 0.90
+    iron_ore_pct: 0.90
+  exports:
+    lng_pct: 0.30
+    oil_pct: 0.05
+    petrochemicals_pct: 0.05
+  transit_dependencies:
+    hormuz_pct: 0.95
+    suez_pct: 0.10
+    bab_el_mandeb_pct: 0.15
+  fiscal:
+    debt_to_gdp: 0.42
+    deficit_pct: 0.05
+    forex_reserves_bn: 45
+    reserve_months_import: 12.0
+  military:
+    capability_index: 0.15
+    nuclear: false
+    blue_water_navy: false
+    cyber_tier: "T3"
+  tech_sovereignty:
+    semiconductors_advanced: 0.00
+    ai_chips: 0.01
+    quantum: 0.01
+    space: 0.05
+  vulnerabilities:
+    rare_earth_disruption: 0.25
+    china_decoupling_impact: 0.10
+    energy_import_shock: 0.02
+    food_security_risk: 0.90
+    sanctions_resilience: 0.60
+    hormuz_blockade_impact: 0.95
+    water_scarcity_risk: 0.85
+
+UAE:
+  name: "United Arab Emirates"
+  imports:
+    oil_pct: 0.00
+    rare_earths_pct: 0.90
+    semiconductors_pct: 0.95
+    food_pct: 0.85
+    lng_pct: 0.00
+    lithium_pct: 0.95
+    uranium_pct: 0.50
+    copper_pct: 0.85
+    iron_ore_pct: 0.85
+  exports:
+    oil_pct: 0.10
+    aluminum_pct: 0.05
+    re_exports_pct: 0.25
+    petrochemicals_pct: 0.05
+    gold_trade_pct: 0.10
+  transit_dependencies:
+    hormuz_pct: 0.85
+    suez_pct: 0.12
+    bab_el_mandeb_pct: 0.15
+    malacca_pct: 0.10
+  fiscal:
+    debt_to_gdp: 0.30
+    deficit_pct: 0.03
+    forex_reserves_bn: 190
+    reserve_months_import: 6.5
+  military:
+    capability_index: 0.28
+    nuclear: false
+    blue_water_navy: false
+    cyber_tier: "T2"
+  tech_sovereignty:
+    semiconductors_advanced: 0.01
+    ai_chips: 0.05
+    quantum: 0.05
+    space: 0.20
+  vulnerabilities:
+    rare_earth_disruption: 0.25
+    china_decoupling_impact: 0.10
+    energy_import_shock: 0.02
+    food_security_risk: 0.85
+    sanctions_resilience: 0.70
+    hormuz_blockade_impact: 0.85
+    water_scarcity_risk: 0.80
+
+THAILAND:
+  name: "Thailand"
+  imports:
+    oil_pct: 0.75
+    rare_earths_pct: 0.75
+    semiconductors_pct: 0.60
+    food_pct: 0.05
+    lng_pct: 0.50
+    lithium_pct: 0.90
+    uranium_pct: 0.95
+    copper_pct: 0.55
+    iron_ore_pct: 0.65
+  exports:
+    electronics_pct: 0.18
+    auto_pct: 0.12
+    food_pct: 0.12
+    rubber_pct: 0.15
+    rice_pct: 0.08
+    jewelry_pct: 0.05
+  transit_dependencies:
+    malacca_pct: 0.85
+    south_china_sea_pct: 0.30
+    hormuz_pct: 0.12
+    suez_pct: 0.05
+  fiscal:
+    debt_to_gdp: 0.61
+    deficit_pct: -0.03
+    forex_reserves_bn: 225
+    reserve_months_import: 9.5
+  military:
+    capability_index: 0.22
+    nuclear: false
+    blue_water_navy: false
+    cyber_tier: "T3"
+  tech_sovereignty:
+    semiconductors_advanced: 0.01
+    ai_chips: 0.02
+    quantum: 0.03
+    space: 0.05
+  vulnerabilities:
+    rare_earth_disruption: 0.40
+    china_decoupling_impact: 0.35
+    energy_import_shock: 0.70
+    food_security_risk: 0.05
+    sanctions_resilience: 0.55
+    malacca_blockade_impact: 0.85
+
+CHILE:
+  name: "Chile"
+  imports:
+    oil_pct: 0.90
+    rare_earths_pct: 0.80
+    semiconductors_pct: 0.95
+    food_pct: 0.12
+    lng_pct: 0.50
+    lithium_pct: 0.00
+    uranium_pct: 0.95
+    copper_pct: 0.00
+    iron_ore_pct: 0.10
+  exports:
+    copper_pct: 0.50
+    lithium_pct: 0.25
+    food_pct: 0.10
+    wine_pct: 0.03
+    wood_pct: 0.05
+    salmon_pct: 0.06
+  transit_dependencies:
+    panama_pct: 0.20
+    malacca_pct: 0.15
+    hormuz_pct: 0.05
+    suez_pct: 0.05
+  fiscal:
+    debt_to_gdp: 0.38
+    deficit_pct: -0.02
+    forex_reserves_bn: 45
+    reserve_months_import: 5.0
+  military:
+    capability_index: 0.15
+    nuclear: false
+    blue_water_navy: false
+    cyber_tier: "T3"
+  tech_sovereignty:
+    semiconductors_advanced: 0.00
+    ai_chips: 0.01
+    quantum: 0.02
+    space: 0.05
+  vulnerabilities:
+    rare_earth_disruption: 0.25
+    china_decoupling_impact: 0.40
+    energy_import_shock: 0.65
+    food_security_risk: 0.10
+    sanctions_resilience: 0.65
+    dollarization_pct: 0.20

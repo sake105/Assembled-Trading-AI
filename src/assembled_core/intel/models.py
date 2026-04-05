@@ -23,6 +23,7 @@ class SourceTier(str, Enum):
 
 
 class TriggerType(str, Enum):
+    # --- Original 8 ---
     CHOKEPOINT_STRESS = "CHOKEPOINT_STRESS"
     WAR_ESCALATION = "WAR_ESCALATION"
     SANCTIONS_ESCALATION = "SANCTIONS_ESCALATION"
@@ -31,6 +32,39 @@ class TriggerType(str, Enum):
     CYBER_ESCALATION = "CYBER_ESCALATION"
     COUP_RISK = "COUP_RISK"
     POLICY_SHIFT = "POLICY_SHIFT"
+    # --- Geopolitik ---
+    TRADE_WAR_ESCALATION = "TRADE_WAR_ESCALATION"
+    ALLIANCE_SHIFT = "ALLIANCE_SHIFT"
+    RESOURCE_NATIONALIZATION = "RESOURCE_NATIONALIZATION"
+    STRAIT_BLOCKADE = "STRAIT_BLOCKADE"
+    HEGEMONIC_CHALLENGE = "HEGEMONIC_CHALLENGE"
+    DIPLOMATIC_CRISIS = "DIPLOMATIC_CRISIS"
+    PROXY_WAR_EXPANSION = "PROXY_WAR_EXPANSION"
+    # --- Finanzen ---
+    PEG_STRESS = "PEG_STRESS"
+    RESERVE_DRAIN = "RESERVE_DRAIN"
+    RATE_SURPRISE = "RATE_SURPRISE"
+    FISCAL_CLIFF = "FISCAL_CLIFF"
+    CREDIT_DOWNGRADE = "CREDIT_DOWNGRADE"
+    BANKING_CRISIS = "BANKING_CRISIS"
+    # --- Militaer ---
+    MILITARY_BUILDUP = "MILITARY_BUILDUP"
+    CAPABILITY_SHIFT = "CAPABILITY_SHIFT"
+    CASUALTY_SPIKE = "CASUALTY_SPIKE"
+    TERRITORIAL_ESCALATION = "TERRITORIAL_ESCALATION"
+    NUCLEAR_THREAT = "NUCLEAR_THREAT"
+    # --- Technologie ---
+    NEW_EXPORT_CONTROL = "NEW_EXPORT_CONTROL"
+    ENTITY_LISTING = "ENTITY_LISTING"
+    TECHNOLOGY_GAP_WIDENING = "TECHNOLOGY_GAP_WIDENING"
+    # --- Cyber ---
+    ZERO_DAY_DISCLOSURE = "ZERO_DAY_DISCLOSURE"
+    MAJOR_BREACH_DETECTED = "MAJOR_BREACH_DETECTED"
+    STATE_ACTOR_ACTIVITY = "STATE_ACTOR_ACTIVITY"
+    # --- Klima ---
+    SEVERE_WEATHER_ALERT = "SEVERE_WEATHER_ALERT"
+    SUPPLY_CHAIN_BREAK = "SUPPLY_CHAIN_BREAK"
+    LOGISTICS_DISRUPTION = "LOGISTICS_DISRUPTION"
 
 
 class CrisisMode(str, Enum):
@@ -41,6 +75,7 @@ class CrisisMode(str, Enum):
 
 
 class NodeType(str, Enum):
+    # --- Original 8 ---
     COUNTRY = "country"
     REGION = "region"
     CHOKEPOINT = "chokepoint"
@@ -49,9 +84,28 @@ class NodeType(str, Enum):
     COMPANY = "company"
     ASSET = "asset"
     MACRO_INDEX = "macro_index"
+    # --- M15 Erweiterung ---
+    SUPPLY_CHAIN = "supply_chain"
+    ALLIANCE = "alliance"
+    SHIPPING_LANE = "shipping_lane"
+    CURRENCY = "currency"
+    CENTRAL_BANK = "central_bank"
+    SOVEREIGN = "sovereign"
+    MILITARY_FORCE = "military_force"
+    CONFLICT_ZONE = "conflict_zone"
+    CRITICAL_INFRASTRUCTURE = "critical_infrastructure"
+    SANCTIONING_AUTHORITY = "sanctioning_authority"
+    ENTITY = "entity"
+    TECHNOLOGY_REGIME = "technology_regime"
+    WEATHER_ZONE = "weather_zone"
+    NATURAL_HAZARD = "natural_hazard"
+    FISCAL_METRIC = "fiscal_metric"
+    TRADE_BLOC = "trade_bloc"
+    REFINERY = "refinery"
 
 
 class EdgeType(str, Enum):
+    # --- Original 10 ---
     IMPORTS_FROM = "IMPORTS_FROM"
     EXPORTS_TO = "EXPORTS_TO"
     TRANSITS_THROUGH = "TRANSITS_THROUGH"
@@ -62,9 +116,44 @@ class EdgeType(str, Enum):
     SAFE_HAVEN_FOR = "SAFE_HAVEN_FOR"
     BENEFITS_FROM = "BENEFITS_FROM"
     HURT_BY = "HURT_BY"
+    # --- Geopolitik & Allianzen ---
+    ALLY_OF = "ALLY_OF"
+    RIVAL_OF = "RIVAL_OF"
+    SANCTIONS_TARGET = "SANCTIONS_TARGET"
+    SECONDARY_SANCTIONS = "SECONDARY_SANCTIONS"
+    SANCTIONED_BY = "SANCTIONED_BY"
+    # --- Ressourcen & Lieferketten ---
+    TRANSIT_DEPENDENT = "TRANSIT_DEPENDENT"
+    TECH_DEPENDENT = "TECH_DEPENDENT"
+    RESOURCE_MONOPOLY = "RESOURCE_MONOPOLY"
+    REFINES_FOR = "REFINES_FOR"
+    MANUFACTURES_FOR = "MANUFACTURES_FOR"
+    IMPORTS_RESOURCE = "IMPORTS_RESOURCE"
+    EXPORTS_RESOURCE = "EXPORTS_RESOURCE"
+    SUPPLIES_DUAL_USE = "SUPPLIES_DUAL_USE"
+    SUBSTITUTABLE_BY = "SUBSTITUTABLE_BY"
+    RESTRICTED_TO = "RESTRICTED_TO"
+    # --- Waehrung & Finanzen ---
+    CURRENCY_PEGGED = "CURRENCY_PEGGED"
+    RESERVES_IN = "RESERVES_IN"
+    CAPITAL_FLOW_TO = "CAPITAL_FLOW_TO"
+    TRADE_IMBALANCE = "TRADE_IMBALANCE"
+    INVESTS_IN = "INVESTS_IN"
+    SETS_POLICY_FOR = "SETS_POLICY_FOR"
+    DIVERGES_FROM = "DIVERGES_FROM"
+    # --- Militaer & Konflikt ---
+    SUPPLIES_MILITARY = "SUPPLIES_MILITARY"
+    BACKED_BY = "BACKED_BY"
+    ATTACKED_BY = "ATTACKED_BY"
+    OCCUPIES = "OCCUPIES"
+    # --- Klima & Infrastruktur ---
+    VULNERABLE_TO_WEATHER = "VULNERABLE_TO_WEATHER"
+    DEPENDENT_ON_LOGISTICS = "DEPENDENT_ON_LOGISTICS"
+    ENABLES_TRANSACTION = "ENABLES_TRANSACTION"
 
 
 class ShockType(str, Enum):
+    # --- Original 8 ---
     OIL_SUPPLY_RISK = "oil_supply_risk"
     SHIPPING_COST_RISK = "shipping_cost_risk"
     INSURANCE_COST_RISK = "insurance_cost_risk"
@@ -73,6 +162,50 @@ class ShockType(str, Enum):
     DEFENSE_DEMAND_SURGE = "defense_demand_surge"
     SANCTIONS_EXPOSURE = "sanctions_exposure"
     CYBER_RISK = "cyber_risk"
+    # --- Ressourcen ---
+    RARE_EARTH_SUPPLY_RISK = "rare_earth_supply_risk"
+    SEMICONDUCTOR_SUPPLY_RISK = "semiconductor_supply_risk"
+    FOOD_SUPPLY_RISK = "food_supply_risk"
+    LITHIUM_SUPPLY_RISK = "lithium_supply_risk"
+    URANIUM_SUPPLY_RISK = "uranium_supply_risk"
+    LNG_SUPPLY_RISK = "lng_supply_risk"
+    COPPER_SUPPLY_RISK = "copper_supply_risk"
+    NEON_GAS_RISK = "neon_gas_risk"
+    # --- Waehrung & Fiskal ---
+    CURRENCY_CRISIS = "currency_crisis"
+    RESERVE_DEPLETION = "reserve_depletion"
+    CAPITAL_FLIGHT = "capital_flight"
+    FISCAL_SHOCK = "fiscal_shock"
+    INFLATION_SPIKE = "inflation_spike"
+    RATE_SHOCK = "rate_shock"
+    POLICY_DIVERGENCE = "policy_divergence"
+    TAPER_SHOCK = "taper_shock"
+    SOVEREIGN_DEFAULT = "sovereign_default"
+    # --- Geopolitik ---
+    ALLIANCE_SHIFT = "alliance_shift"
+    HEGEMONIC_DECOUPLING = "hegemonic_decoupling"
+    SHIPPING_LANE_DISRUPTION = "shipping_lane_disruption"
+    SECONDARY_SANCTIONS_RISK = "secondary_sanctions_risk"
+    DELISTING_RISK = "delisting_risk"
+    BANKING_ISOLATION = "banking_isolation"
+    # --- Militaer ---
+    MILITARY_LOSS_SURGE = "military_loss_surge"
+    SUPPLY_LINE_THREAT = "supply_line_threat"
+    WEAPONS_TECH_ADVANTAGE = "weapons_tech_advantage"
+    NUCLEAR_ESCALATION_RISK = "nuclear_escalation_risk"
+    # --- Cyber ---
+    DATA_BREACH_SYSTEMIC = "data_breach_systemic"
+    LOGISTICS_VISIBILITY_LOSS = "logistics_visibility_loss"
+    FINANCIAL_SYSTEM_STRESS = "financial_system_stress"
+    # --- Klima ---
+    CLIMATE_DISRUPTION = "climate_disruption"
+    PORT_CLOSURE = "port_closure"
+    CROP_FAILURE = "crop_failure"
+    SUPPLY_CHAIN_BREAK = "supply_chain_break"
+    # --- Technologie ---
+    TECH_RESTRICTION_SHOCK = "tech_restriction_shock"
+    CHIP_SHORTAGE = "chip_shortage"
+    INNOVATION_GAP = "innovation_gap"
 
 
 # ---------------------------------------------------------------------------
@@ -105,6 +238,9 @@ class EvidenceCluster(BaseModel):
     max_tier: SourceTier
     created_at: datetime
     expires_at: datetime
+    # M15 extended fields
+    sentiment_score: float = 0.0  # FinBERT integration (-1 to +1)
+    escalation_level: int = 0  # 0-10 escalation ladder
 
     model_config = {"frozen": False}
 
@@ -132,6 +268,14 @@ class DependencyNode(BaseModel):
     node_type: NodeType
     name: str
     attributes: dict[str, Any] = Field(default_factory=dict)
+    # M15 extended fields
+    resource_profile: dict[str, float] = Field(default_factory=dict)
+    maritime_dependency_pct: float = 0.0
+    fiscal_health: dict[str, float] = Field(default_factory=dict)
+    military_capability_index: float = 0.0
+    cyber_resilience_score: float = 0.5
+    sanctions_exposure_score: float = 0.0
+    tech_self_sufficiency: dict[str, float] = Field(default_factory=dict)
 
     model_config = {"frozen": False}
 
@@ -166,6 +310,9 @@ class ShockTransmission(BaseModel):
     expected_impact_direction: str
     expected_horizon: str  # "intraday", "short" (1-3d), "medium" (1-4w)
     path_confidence: float
+    # M15 continuous magnitude
+    magnitude: float = 1.0  # initial shock strength
+    dampened_magnitude: float = 1.0  # after per-hop dampening
 
     model_config = {"frozen": False}
 
@@ -214,3 +361,96 @@ class ComponentHealth:
             return True
         elapsed = (now - self.last_updated).total_seconds() / 60
         return elapsed > self.stale_threshold_minutes or self.status != "OK"
+
+
+# ---------------------------------------------------------------------------
+# M15 extended dataclasses
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class EscalationLevel:
+    """Single rung on a military/geopolitical escalation ladder (0-10)."""
+
+    level: int
+    name: str
+    description: str
+    market_impact_multiplier: float = 1.0
+    expected_duration_days: int = 30
+
+
+@dataclass
+class ConflictState:
+    """Tracks an active geopolitical conflict."""
+
+    conflict_id: str
+    parties: list[str] = field(default_factory=list)
+    current_level: int = 0  # 0-10 on the escalation ladder
+    escalation_probability: dict[int, float] = field(default_factory=dict)
+    affected_commodities: list[str] = field(default_factory=list)
+    affected_sectors: list[str] = field(default_factory=list)
+
+
+@dataclass
+class SanctionPackage:
+    """Models a sanctions package issued against a target."""
+
+    package_id: str
+    issuer: str  # OFAC, EU, UN, UK
+    target_nation: str
+    target_entities: list[str] = field(default_factory=list)
+    domains: list[str] = field(default_factory=list)  # finance, energy, tech, military
+    severity: int = 1  # 1-5
+    secondary_sanctions: bool = False
+    swift_exclusion: bool = False
+    affected_sectors: list[str] = field(default_factory=list)
+    estimated_gdp_impact_pct: float = 0.0
+    evasion_difficulty: float = 0.5  # 0=easy to evade, 1=impossible
+
+
+@dataclass
+class CurrencyProfile:
+    """Currency crisis indicator for a sovereign currency."""
+
+    currency: str
+    nation: str
+    reserve_months_import: float = 6.0
+    real_interest_rate: float = 0.0
+    inflation_rate: float = 2.0
+    current_account_gdp_pct: float = 0.0
+    peg_type: str = "free_float"  # free_float, managed_float, managed_band, hard_peg
+    dollarization_pct: float = 0.0
+    crisis_probability_12m: float = 0.05
+
+
+@dataclass
+class ShippingLane:
+    """A major maritime shipping lane with chokepoint dependencies."""
+
+    lane_id: str
+    name: str
+    chokepoints: list[str] = field(default_factory=list)
+    daily_traffic_value_bn: float = 0.0
+    oil_transit_mbpd: float = 0.0
+    lng_transit_bcm_year: float = 0.0
+    container_teu_year: float = 0.0
+    alternative_route: str | None = None
+    reroute_cost_multiplier: float = 1.0
+    reroute_time_days: float = 0.0
+    insurance_surge_pct: float = 0.0
+    nations_dependent: list[str] = field(default_factory=list)
+
+
+@dataclass
+class NationProfile:
+    """Comprehensive resource/vulnerability profile for a nation."""
+
+    nation_id: str
+    name: str
+    imports: dict[str, float] = field(default_factory=dict)
+    exports: dict[str, float] = field(default_factory=dict)
+    transit_dependencies: dict[str, float] = field(default_factory=dict)
+    fiscal: dict[str, float] = field(default_factory=dict)
+    military: dict[str, Any] = field(default_factory=dict)
+    tech_sovereignty: dict[str, float] = field(default_factory=dict)
+    vulnerabilities: dict[str, float] = field(default_factory=dict)
