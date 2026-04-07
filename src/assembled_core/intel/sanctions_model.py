@@ -33,7 +33,7 @@ HISTORICAL_SANCTIONS: dict[str, SanctionPackage] = {
         swift_exclusion=True,
         affected_sectors=["ENERGY", "FINANCE", "TECH", "DEFENSE", "MINING",
                            "AGRICULTURE", "AVIATION", "SHIPPING"],
-        estimated_gdp_impact_pct=0.15,
+        estimated_gdp_impact_pct=0.04,  # IMF: ~2.1% GDP drop 2022, ~4% long-run drag with adaptation
         evasion_difficulty=0.40,  # Russia has workarounds via China/India/Turkey
     ),
     "IRAN_2018_MAX_PRESSURE": SanctionPackage(

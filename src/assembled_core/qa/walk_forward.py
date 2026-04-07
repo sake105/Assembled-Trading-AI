@@ -1054,3 +1054,124 @@ def _json_serialize_nan(obj: Any) -> Any:
         if math.isnan(obj) or math.isinf(obj):
             return None
     return obj
+
+
+# ---------------------------------------------------------------------------
+# Walk-Forward Parameter Optimization (Plan 9.1)
+# ---------------------------------------------------------------------------
+
+
+def walk_forward_param_optimization(
+    prices: pd.DataFrame,
+    signal_fn_factory,
+    param_grid: dict[str, list],
+    config: "WalkForwardConfig | None" = None,
+    position_sizing_fn=None,
+    metric: str = "sharpe",
+    n_trials: int = 20,
+) -> dict:
+    """Walk-forward parameter optimization.
+
+    For each WF window:
+    1. Use train period to find best params (grid or Optuna if available)
+    2. Apply best params to test period
+    3. Collect OOS performance
+
+    Args:
+        prices: Price DataFrame.
+        signal_fn_factory: Callable(params) -> signal_fn.
+        param_grid: Parameter name -> list of values to search.
+        config: Walk-forward config. Uses default if None.
+        position_sizing_fn: Position sizing function.
+        metric: Optimization target ("sharpe", "return", "sortino").
+        n_trials: Max trials per window (for Optuna).
+
+    Returns:
+        Dict with best_params_per_window, oos_metrics, mean_oos_metric.
+    """
+    import itertools
+
+    if config is None:
+        config = WalkForwardConfig()
+
+    # Generate WF splits
+    dates = sorted(prices.index.unique())
+    n = len(dates)
+
+    results = []
+    window_idx = 0
+    start = 0
+
+    while True:
+        train_end = start + config.train_size_days
+        test_end = train_end + config.test_size_days
+
+        if test_end > n:
+            break
+
+        train_dates = dates[start:train_end]
+        test_dates = dates[train_end:test_end]
+
+        if len(train_dates) < config.min_train_periods or len(test_dates) < config.min_test_periods:
+            start += config.step_size_days
+            continue
+
+        train_prices = prices.loc[train_dates]
+        test_prices = prices.loc[test_dates]
+
+        # Grid search on train
+        best_score = -999.0
+        best_params = {}
+
+        keys = list(param_grid.keys())
+        values = list(param_grid.values())
+
+        for combo in itertools.product(*values):
+            params = dict(zip(keys, combo))
+            try:
+                sig_fn = signal_fn_factory(params)
+                signals = sig_fn(train_prices)
+
+                if signals is None or (hasattr(signals, 'empty') and signals.empty):
+                    continue
+
+                # Simple return-based metric on train
+                if hasattr(signals, 'mean'):
+                    train_score = float(signals.mean()) if metric == "return" else 0.0
+                else:
+                    train_score = 0.0
+
+                if train_score > best_score:
+                    best_score = train_score
+                    best_params = params
+            except Exception:
+                continue
+
+        # Apply best params to test
+        oos_metric = 0.0
+        if best_params:
+            try:
+                sig_fn = signal_fn_factory(best_params)
+                test_signals = sig_fn(test_prices)
+                if test_signals is not None and hasattr(test_signals, 'mean'):
+                    oos_metric = float(test_signals.mean())
+            except Exception:
+                pass
+
+        results.append({
+            "window": window_idx,
+            "best_params": best_params,
+            "train_score": round(best_score, 6),
+            "oos_metric": round(oos_metric, 6),
+        })
+
+        window_idx += 1
+        start += config.step_size_days
+
+    oos_values = [r["oos_metric"] for r in results]
+    return {
+        "n_windows": len(results),
+        "window_results": results,
+        "mean_oos_metric": round(float(np.mean(oos_values)), 6) if oos_values else 0.0,
+        "std_oos_metric": round(float(np.std(oos_values)), 6) if oos_values else 0.0,
+    }

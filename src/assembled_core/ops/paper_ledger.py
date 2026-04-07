@@ -1,30 +1,58 @@
-"""OPS-4: Paper execution ledger — load/save state, simulate fills, apply to ledger, mark-to-market equity."""
+"""OPS-4: Paper execution ledger — load/save state, simulate fills, apply to ledger, mark-to-market equity.
+
+Safety features:
+- File locking via filelock (prevents concurrent writes)
+- Backup rotation (3 generations: .1, .2, .3)
+- JSON validation on load (falls back to backup if corrupted)
+- Equity curve deduplication (prevents duplicate entries on re-run)
+"""
 
 from __future__ import annotations
 
 import json
+import logging
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
+logger = logging.getLogger(__name__)
+
 SCHEMA_VERSION = "paper.ledger_state.v1"
+_BACKUP_GENERATIONS = 3
 
 
 def load_ledger_state(
     path: str | Path,
     start_capital: float = 10000.0,
 ) -> dict[str, Any]:
-    """Load ledger state from JSON. If missing or invalid, return fresh state with cash=start_capital, positions empty."""
+    """Load ledger state from JSON. If missing or corrupted, try backups, then return fresh state."""
     p = Path(path)
-    if not p.exists():
-        return _fresh_state(start_capital)
-    try:
-        data = json.loads(p.read_text(encoding="utf-8"))
-    except Exception:
-        return _fresh_state(start_capital)
-    if not isinstance(data, dict):
+
+    # Try main file first, then backups (.1, .2, .3)
+    candidates = [p] + [p.with_suffix(p.suffix + f".{i}") for i in range(1, _BACKUP_GENERATIONS + 1)]
+    data = None
+    for candidate in candidates:
+        if not candidate.exists():
+            continue
+        try:
+            raw = candidate.read_text(encoding="utf-8")
+            parsed = json.loads(raw)
+            if isinstance(parsed, dict):
+                data = parsed
+                if candidate != p:
+                    logger.warning(
+                        "[paper_ledger] main file corrupted, loaded from backup: %s",
+                        candidate,
+                    )
+                break
+        except Exception as exc:
+            logger.warning("[paper_ledger] failed to load %s: %s", candidate, exc)
+            continue
+
+    if data is None:
         return _fresh_state(start_capital)
     # Normalize schema
     cash = data.get("cash")
@@ -73,17 +101,61 @@ def _fresh_state(start_capital: float) -> dict[str, Any]:
     }
 
 
+def _rotate_backups(p: Path) -> None:
+    """Rotate backup files: .3 deleted, .2 → .3, .1 → .2, current → .1."""
+    for i in range(_BACKUP_GENERATIONS, 1, -1):
+        src = p.with_suffix(p.suffix + f".{i - 1}")
+        dst = p.with_suffix(p.suffix + f".{i}")
+        if src.exists():
+            try:
+                shutil.copy2(str(src), str(dst))
+            except OSError:
+                pass
+    # Current → .1
+    if p.exists():
+        try:
+            shutil.copy2(str(p), str(p.with_suffix(p.suffix + ".1")))
+        except OSError:
+            pass
+
+
 def save_ledger_state(state: dict[str, Any], path: str | Path) -> Path:
-    """Persist ledger state atomically (tmp file + rename)."""
+    """Persist ledger state atomically with file locking and backup rotation.
+
+    Safety measures:
+    - Rotates previous state into .1, .2, .3 backup generations
+    - Uses file lock to prevent concurrent writes
+    - Writes to temp file then renames (atomic on most filesystems)
+    """
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     state = dict(state)
     state["updated_utc"] = datetime.now(timezone.utc).isoformat()
     state["schema_version"] = state.get("schema_version") or SCHEMA_VERSION
-    tmp = p.with_suffix(p.suffix + ".tmp")
-    tmp.write_text(json.dumps(state, indent=2, ensure_ascii=True), encoding="utf-8")
-    tmp.replace(p)
-    return p
+
+    lock_path = p.with_suffix(p.suffix + ".lock")
+    try:
+        from filelock import FileLock
+
+        lock = FileLock(str(lock_path), timeout=10)
+    except ImportError:
+        lock = None
+        logger.warning("[paper_ledger] filelock not installed, skipping file lock")
+
+    def _do_save() -> Path:
+        _rotate_backups(p)
+        tmp = p.with_suffix(p.suffix + ".tmp")
+        tmp.write_text(
+            json.dumps(state, indent=2, ensure_ascii=True), encoding="utf-8"
+        )
+        tmp.replace(p)
+        return p
+
+    if lock is not None:
+        with lock:
+            return _do_save()
+    else:
+        return _do_save()
 
 
 def simulate_fills(
@@ -183,6 +255,26 @@ def apply_fills_to_ledger(
                 out["positions"][symbol] = {"qty": new_qty, "avg_price": pos_avg}
                 out["cash"] += qty * price
     return out
+
+
+def append_equity_curve_deduped(
+    state: dict[str, Any], utc_iso: str, equity: float
+) -> None:
+    """Append equity curve entry, deduplicating by date (not full timestamp).
+
+    Prevents duplicate entries if the same day is run twice.
+    """
+    curve = state.setdefault("equity_curve", [])
+    date_str = utc_iso[:10]  # Extract YYYY-MM-DD
+    # Check if this date already exists
+    for i, entry in enumerate(curve):
+        existing_date = str(entry.get("utc", ""))[:10]
+        if existing_date == date_str:
+            # Replace existing entry for this date
+            curve[i] = {"utc": utc_iso, "equity": equity}
+            return
+    # New date — append
+    curve.append({"utc": utc_iso, "equity": equity})
 
 
 def mark_to_market_equity(state: dict[str, Any], prices_latest: pd.DataFrame) -> float:

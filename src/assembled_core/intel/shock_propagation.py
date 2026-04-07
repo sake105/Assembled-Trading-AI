@@ -236,11 +236,12 @@ SHOCK_TO_ORIGIN_NODES: dict[ShockType, list[str]] = {
     ShockType.DELISTING_RISK: ["CHINA"],
 }
 
-# Shocks that increase asset value (positive — beneficiaries rise)
+# Shocks that increase asset value for their origin sector (beneficiaries rise).
+# NOTE: ENERGY_PRICE_SPIKE is negative for consumers/industry but positive for
+# energy producers — handled via per-sector impact direction in the graph edges,
+# not here. CYBER_RISK is universally negative.
 POSITIVE_SHOCKS: set[ShockType] = {
     ShockType.DEFENSE_DEMAND_SURGE,
-    ShockType.ENERGY_PRICE_SPIKE,
-    ShockType.CYBER_RISK,
 }
 
 # Confidence threshold: paths below this are excluded (default; overridden by regime)
@@ -384,6 +385,7 @@ def propagate(
             path_confidence=best_conf,
             magnitude=effective_magnitude,
             dampened_magnitude=best_mag,
+            time_to_impact_days=best_lag / 24.0,
         )
         transmissions.append(transmission)
 

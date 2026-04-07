@@ -155,3 +155,51 @@ def add_congress_features(
             )
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Congress Trading Alpha Extensions (Plan 3.7)
+# ---------------------------------------------------------------------------
+
+
+def compute_congress_net_buy_score(
+    trades_df: "pd.DataFrame",
+    window_days: int = 30,
+    committee_weight: float = 2.0,
+    committee_members: set | None = None,
+) -> dict[str, float]:
+    """Compute net-buy score from Congress trading data.
+
+    Uses disclosure_date (not trade_date) for PIT safety.
+
+    Args:
+        trades_df: DataFrame with columns: symbol, amount, type (buy/sell),
+            disclosure_date, member_id.
+        window_days: Rolling window.
+        committee_weight: Weight multiplier for committee members.
+        committee_members: Set of member IDs on relevant committees.
+
+    Returns:
+        Symbol -> net buy score.
+    """
+    import pandas as pd
+
+    if trades_df is None or trades_df.empty:
+        return {}
+
+    scores: dict[str, float] = {}
+    for sym, group in trades_df.groupby("symbol"):
+        net = 0.0
+        for _, row in group.iterrows():
+            amount = float(row.get("amount", 0))
+            is_buy = str(row.get("type", "")).lower() in ("buy", "purchase")
+            weight = 1.0
+            if committee_members and row.get("member_id") in committee_members:
+                weight = committee_weight
+            if is_buy:
+                net += amount * weight
+            else:
+                net -= amount * weight
+        scores[str(sym)] = round(net, 2)
+
+    return scores

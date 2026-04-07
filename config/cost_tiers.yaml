@@ -1,0 +1,47 @@
+# Per-symbol cost tiers based on Average Daily Volume (ADV)
+# Each tier maps to commission, half-spread, and slippage in basis points.
+# Symbols are classified into tiers by their 20-day ADV in USD.
+#
+# Reference: Empirical estimates from institutional equity trading desks.
+
+tiers:
+  mega_cap:
+    description: "ADV > $100M — very liquid blue-chips"
+    adv_min_usd: 100_000_000
+    commission_bps: 0.2
+    half_spread_bps: 1.0
+    slippage_bps: 1.5
+
+  large_cap:
+    description: "ADV $20M–$100M — liquid large-caps"
+    adv_min_usd: 20_000_000
+    commission_bps: 0.5
+    half_spread_bps: 2.0
+    slippage_bps: 2.5
+
+  mid_cap:
+    description: "ADV $5M–$20M — moderately liquid"
+    adv_min_usd: 5_000_000
+    commission_bps: 0.8
+    half_spread_bps: 3.5
+    slippage_bps: 5.0
+
+  small_cap:
+    description: "ADV $1M–$5M — illiquid small-caps"
+    adv_min_usd: 1_000_000
+    commission_bps: 1.0
+    half_spread_bps: 5.0
+    slippage_bps: 8.0
+
+  micro_cap:
+    description: "ADV < $1M — very illiquid"
+    adv_min_usd: 0
+    commission_bps: 1.5
+    half_spread_bps: 8.0
+    slippage_bps: 12.0
+
+# Default tier for symbols with unknown ADV
+default_tier: mid_cap
+
+# ADV computation settings
+adv_window: 20  # Rolling window in trading days for ADV calculation

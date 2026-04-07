@@ -39,6 +39,7 @@ from src.assembled_core.intel import (  # noqa: E402
 )
 from src.assembled_core.intel.dependency_graph import load_graph  # noqa: E402
 from src.assembled_core.intel.health_monitor import HealthMonitor  # noqa: E402
+from src.assembled_core.intel.market_confirmation import compute_market_confirmation  # noqa: E402
 from src.assembled_core.intel.models import CrisisMode, CrisisState  # noqa: E402
 from src.assembled_core.intel.news_cluster import ClusterManager  # noqa: E402
 from src.assembled_core.intel.news_dedupe import NewsDedupeIndex  # noqa: E402
@@ -246,8 +247,8 @@ def run_single_cycle(config: dict) -> dict:
                     now=now,
                 )
 
-    # Step 7: Update crisis state
-    market_confirm = {"oil_move": 0.0, "gold_move": 0.0, "vix_spike": False}
+    # Step 7: Update crisis state — compute real market confirmation
+    market_confirm = compute_market_confirmation(lookback_days=5, cache=config.get("_mc_cache"))
     new_state = crisis_alpha_worker.update_crisis_state(
         prev_state=prev_state,
         geo_score=geo_score,

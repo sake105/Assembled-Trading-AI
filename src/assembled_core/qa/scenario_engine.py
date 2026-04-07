@@ -941,3 +941,71 @@ def compare_crisis_scenarios(
         )
 
     return pd.DataFrame(rows, columns=["scenario_name", "total_return", "max_drawdown", "sharpe"])
+
+
+# ---------------------------------------------------------------------------
+# 9.8  Multi-Asset Correlated Stress Tests
+# ---------------------------------------------------------------------------
+
+def run_correlated_stress_test(
+    weights: dict[str, float],
+    returns: pd.DataFrame,
+    shock_correlation: float = 0.9,
+    return_shock: float = -0.05,
+    vol_multiplier: float = 2.0,
+    n_sims: int = 1000,
+    seed: int = 42,
+) -> dict:
+    """Simulate a correlated shock across all assets.
+
+    Args:
+        weights: Symbol → weight.
+        returns: Historical returns DataFrame.
+        shock_correlation: Force all pairwise correlations to this.
+        return_shock: Mean return shock per asset.
+        vol_multiplier: Multiply historical vol by this.
+        n_sims: Number of simulations.
+        seed: Random seed.
+
+    Returns:
+        Dict with mean_loss, var_95, cvar_95, worst_case.
+    """
+    np.random.seed(seed)
+    assets = [s for s in weights if s in returns.columns]
+    if not assets:
+        return {"mean_loss": 0.0, "var_95": 0.0, "cvar_95": 0.0, "worst_case": 0.0}
+
+    n = len(assets)
+    w = np.array([weights[s] for s in assets])
+
+    # Historical vols
+    vols = returns[assets].std().values * vol_multiplier
+
+    # Build stressed correlation matrix
+    corr = np.full((n, n), shock_correlation)
+    np.fill_diagonal(corr, 1.0)
+
+    # Covariance from stressed corr + amplified vols
+    cov = np.outer(vols, vols) * corr
+
+    # Cholesky
+    try:
+        L = np.linalg.cholesky(cov + np.eye(n) * 1e-8)
+    except np.linalg.LinAlgError:
+        L = np.eye(n) * vols.mean()
+
+    # Simulate
+    z = np.random.standard_normal((n_sims, n))
+    sim_returns = return_shock + z @ L.T
+    port_returns = sim_returns @ w
+
+    var_95 = float(np.percentile(port_returns, 5))
+    tail = port_returns[port_returns <= var_95]
+    cvar_95 = float(tail.mean()) if len(tail) > 0 else var_95
+
+    return {
+        "mean_loss": round(float(port_returns.mean()), 6),
+        "var_95": round(var_95, 6),
+        "cvar_95": round(cvar_95, 6),
+        "worst_case": round(float(port_returns.min()), 6),
+    }

@@ -81,13 +81,13 @@ CURRENCY_PROFILES: dict[str, CurrencyProfile] = {
     # --- Vulnerable / high-risk currencies ---
     "TRY": CurrencyProfile(
         currency="TRY", nation="TURKEY",
-        reserve_months_import=3.5,
-        real_interest_rate=-10.0,     # Nominal 40%+ but high inflation
-        inflation_rate=65.0,
-        current_account_gdp_pct=-5.5,
+        reserve_months_import=4.0,
+        real_interest_rate=5.0,       # Nominal ~50%, inflation ~45% (2025 est.)
+        inflation_rate=45.0,
+        current_account_gdp_pct=-4.0,
         peg_type="managed_float",
-        dollarization_pct=0.55,       # 55% of deposits in FX
-        crisis_probability_12m=0.35,
+        dollarization_pct=0.50,       # ~50% of deposits in FX, declining post rate hikes
+        crisis_probability_12m=0.20,  # Lower after orthodox policy shift
     ),
     "BRL": CurrencyProfile(
         currency="BRL", nation="BRAZIL",

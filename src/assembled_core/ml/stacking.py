@@ -57,7 +57,9 @@ class StackedEnsemble:
 
     base_configs: list[MLModelConfig] = field(default_factory=list)
     meta_alpha: float = 1.0
+    meta_model_type: str = "ridge"  # V11: "ridge", "elasticnet", "gbm"
     diversity_warn_threshold: float = 0.95
+    auto_diversity: bool = True  # V11: auto-drop correlated base models
 
     # Internal state (set during fit)
     _base_models: list[Any] = field(default_factory=list, init=False, repr=False)
@@ -125,13 +127,18 @@ class StackedEnsemble:
                     continue
 
                 # Standardise if needed
-                if experiment.standardize and cfg.model_type not in {"random_forest", "xgboost", "lightgbm", "catboost"}:
+                tree_models = {"random_forest", "xgboost", "lightgbm", "catboost"}
+                if experiment.standardize and cfg.model_type not in tree_models:
                     scaler = StandardScaler()
                     X_tr = scaler.fit_transform(X_tr)
                     X_te = scaler.transform(X_te)
 
-                X_tr = np.nan_to_num(X_tr, nan=0.0)
-                X_te = np.nan_to_num(X_te, nan=0.0)
+                # Tree models (XGB, LGB) handle NaN natively and learn optimal
+                # split direction — imputing removes useful missingness signal.
+                # Linear models: after StandardScaler, 0.0 = mean imputation.
+                if cfg.model_type not in tree_models:
+                    X_tr = np.nan_to_num(X_tr, nan=0.0)
+                    X_te = np.nan_to_num(X_te, nan=0.0)
 
                 model = _create_model(cfg)
                 model.fit(X_tr, y_tr)
@@ -145,10 +152,12 @@ class StackedEnsemble:
         if len(oof_valid) < 20:
             raise ValueError("Too few valid OOF samples for meta-learner training")
 
-        self._check_diversity(oof_valid)
+        oof_valid, active_mask = self._enforce_diversity(oof_valid, y_valid)
 
-        self._meta_model = Ridge(alpha=self.meta_alpha)
+        # V11: Configurable meta-learner
+        self._meta_model = self._create_meta_learner()
         self._meta_model.fit(oof_valid, y_valid)
+        self._oof_residuals = y_valid - self._meta_model.predict(oof_valid)  # V11: for confidence
         logger.info(
             "[Stack] Meta-learner trained on %d samples (meta R2 estimate on OOF: %.4f)",
             len(y_valid),
@@ -158,15 +167,19 @@ class StackedEnsemble:
         # Step 3: Retrain base models on full data for inference
         self._base_models = []
         self._base_scalers = []
-        X_full = np.nan_to_num(X.values, nan=0.0)
+        X_full_raw = X.values.copy()
         y_full = y.values
+        tree_models_set = {"random_forest", "xgboost", "lightgbm", "catboost"}
 
         for cfg in self.base_configs:
             scaler = None
-            X_tr_full = X_full.copy()
-            if experiment.standardize and cfg.model_type not in {"random_forest", "xgboost", "lightgbm", "catboost"}:
+            X_tr_full = X_full_raw.copy()
+            if experiment.standardize and cfg.model_type not in tree_models_set:
                 scaler = StandardScaler()
                 X_tr_full = scaler.fit_transform(X_tr_full)
+            # Only impute NaN for non-tree models (tree models handle NaN natively)
+            if cfg.model_type not in tree_models_set:
+                X_tr_full = np.nan_to_num(X_tr_full, nan=0.0)
             model = _create_model(cfg)
             model.fit(X_tr_full, y_full)
             self._base_models.append(model)
@@ -191,37 +204,128 @@ class StackedEnsemble:
         self._check_fitted()
         if isinstance(X, pd.DataFrame):
             X = X[self._feature_cols].values
-        X = np.nan_to_num(X.astype(float), nan=0.0)
+        X = X.astype(float)
 
+        active_mask = getattr(self, "_active_base_mask", np.ones(len(self._base_models), dtype=bool))
+        active_indices = np.where(active_mask)[0]
         base_preds = np.column_stack([
-            self._apply_base_model(i, X) for i in range(len(self._base_models))
+            self._apply_base_model(i, X) for i in active_indices
         ])
         return self._meta_model.predict(base_preds)
 
     def _apply_base_model(self, idx: int, X: np.ndarray) -> np.ndarray:
         model = self._base_models[idx]
         scaler = self._base_scalers[idx]
-        X_scaled = scaler.transform(X) if scaler is not None else X
+        tree_types = {"random_forest", "xgboost", "lightgbm", "catboost"}
+        cfg_type = self.base_configs[idx].model_type if idx < len(self.base_configs) else ""
+        if scaler is not None:
+            X_scaled = scaler.transform(X)
+        else:
+            X_scaled = X
+        # Only impute NaN for non-tree models
+        if cfg_type not in tree_types:
+            X_scaled = np.nan_to_num(X_scaled, nan=0.0)
         return model.predict(X_scaled)
 
     # ------------------------------------------------------------------
     # Diagnostics
     # ------------------------------------------------------------------
 
-    def _check_diversity(self, oof_preds: np.ndarray) -> None:
-        """Warn if base model OOF predictions are highly correlated."""
+    def _create_meta_learner(self) -> Any:
+        """Create meta-learner based on configured type (V11)."""
+        if self.meta_model_type == "elasticnet":
+            from sklearn.linear_model import ElasticNet
+            return ElasticNet(alpha=self.meta_alpha, l1_ratio=0.5, max_iter=2000)
+        elif self.meta_model_type == "gbm":
+            try:
+                from sklearn.ensemble import GradientBoostingRegressor
+                return GradientBoostingRegressor(
+                    n_estimators=50, max_depth=3, learning_rate=0.1,
+                    subsample=0.8, random_state=42,
+                )
+            except ImportError:
+                logger.warning("[Stack] GBM meta-learner unavailable, falling back to Ridge")
+                return Ridge(alpha=self.meta_alpha)
+        else:  # default: ridge
+            return Ridge(alpha=self.meta_alpha)
+
+    def _enforce_diversity(
+        self, oof_preds: np.ndarray, y_valid: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Check diversity and optionally drop redundant base models (V11).
+
+        Returns:
+            Tuple of (possibly column-pruned oof_preds, active_mask boolean array).
+        """
         n_models = oof_preds.shape[1]
+        active = np.ones(n_models, dtype=bool)
+
         for i in range(n_models):
+            if not active[i]:
+                continue
             for j in range(i + 1, n_models):
+                if not active[j]:
+                    continue
                 corr = float(np.corrcoef(oof_preds[:, i], oof_preds[:, j])[0, 1])
                 if abs(corr) > self.diversity_warn_threshold:
-                    logger.warning(
-                        "[Stack] Base models %d (%s) and %d (%s) have OOF correlation %.3f "
-                        "— ensemble may provide limited benefit",
-                        i, self.base_configs[i].name,
-                        j, self.base_configs[j].name,
-                        corr,
-                    )
+                    if self.auto_diversity:
+                        # Drop the model with lower OOF R² vs target
+                        r2_i = 1 - np.mean((y_valid - oof_preds[:, i]) ** 2) / max(np.var(y_valid), 1e-12)
+                        r2_j = 1 - np.mean((y_valid - oof_preds[:, j]) ** 2) / max(np.var(y_valid), 1e-12)
+                        victim = j if r2_i >= r2_j else i
+                        active[victim] = False
+                        logger.info(
+                            "[Stack] Auto-diversity: dropping model %d (%s, R²=%.4f) "
+                            "— corr %.3f with model %d (%s, R²=%.4f)",
+                            victim, self.base_configs[victim].name,
+                            r2_j if victim == j else r2_i, corr,
+                            i if victim == j else j,
+                            self.base_configs[i if victim == j else j].name,
+                            r2_i if victim == j else r2_j,
+                        )
+                    else:
+                        logger.warning(
+                            "[Stack] Base models %d (%s) and %d (%s) have OOF correlation %.3f",
+                            i, self.base_configs[i].name,
+                            j, self.base_configs[j].name, corr,
+                        )
+
+        self._active_base_mask = active
+        if not active.all():
+            logger.info(
+                "[Stack] %d/%d base models active after diversity enforcement",
+                active.sum(), n_models,
+            )
+            oof_preds = oof_preds[:, active]
+
+        return oof_preds, active
+
+    def predict_with_confidence(
+        self, X: pd.DataFrame | np.ndarray, confidence_level: float = 0.9
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Predict with confidence intervals from OOF residual distribution (V11).
+
+        Args:
+            X: Feature matrix.
+            confidence_level: Confidence level for intervals (e.g. 0.9 = 90%).
+
+        Returns:
+            Tuple of (predictions, lower_bound, upper_bound).
+        """
+        preds = self.predict(X)
+
+        if not hasattr(self, "_oof_residuals") or self._oof_residuals is None:
+            return preds, preds, preds
+
+        alpha = (1 - confidence_level) / 2
+        q_lo = float(np.quantile(self._oof_residuals, alpha))
+        q_hi = float(np.quantile(self._oof_residuals, 1 - alpha))
+
+        return preds, preds + q_lo, preds + q_hi
+
+    def _check_diversity(self, oof_preds: np.ndarray) -> None:
+        """Warn if base model OOF predictions are highly correlated (legacy)."""
+        self._enforce_diversity(oof_preds, np.zeros(len(oof_preds)))
 
     def diversity_report(self, X: pd.DataFrame) -> pd.DataFrame:
         """Compute pairwise correlation of base model predictions on X."""
@@ -279,9 +383,51 @@ def build_default_stack(
                 MLModelConfig(
                     name="lightgbm",
                     model_type="lightgbm",
-                    params={"n_estimators": 300, "learning_rate": 0.05, "num_leaves": 63,
-                            "subsample": 0.8, "colsample_bytree": 0.8},
+                    params={"n_estimators": 300, "learning_rate": 0.05, "num_leaves": 31,
+                            "min_child_samples": 50, "reg_alpha": 0.1, "reg_lambda": 1.0,
+                            "subsample": 0.8, "colsample_bytree": 0.7},
                 )
             )
 
     return StackedEnsemble(base_configs=base_configs, meta_alpha=meta_alpha)
+
+
+def enforce_ensemble_diversity(
+    oof_preds: np.ndarray,
+    max_correlation: float = 0.80,
+    feature_subsample_frac: float = 0.50,
+) -> dict:
+    """Measure and report ensemble diversity.
+
+    Args:
+        oof_preds: OOF predictions matrix (n_samples × n_models).
+        max_correlation: Threshold above which models are too similar.
+        feature_subsample_frac: Recommended feature subsample fraction if too correlated.
+
+    Returns:
+        Dict with avg_correlation, max_pair_correlation, diverse flag, recommendations.
+    """
+    n_models = oof_preds.shape[1]
+    if n_models < 2:
+        return {"avg_correlation": 0.0, "max_pair_correlation": 0.0, "diverse": True, "recommendations": []}
+
+    corr_matrix = np.corrcoef(oof_preds.T)
+    # Extract upper triangle (exclude diagonal)
+    mask = np.triu(np.ones_like(corr_matrix, dtype=bool), k=1)
+    corrs = corr_matrix[mask]
+
+    avg_corr = float(np.mean(np.abs(corrs)))
+    max_corr = float(np.max(np.abs(corrs)))
+
+    recommendations = []
+    if avg_corr > max_correlation:
+        recommendations.append(f"Feature subsampling at {feature_subsample_frac:.0%} per base learner")
+        recommendations.append("Use different lookback windows per base learner (90d, 180d, 360d)")
+        recommendations.append("Use different label horizons (5d, 10d, 20d)")
+
+    return {
+        "avg_correlation": round(avg_corr, 4),
+        "max_pair_correlation": round(max_corr, 4),
+        "diverse": avg_corr <= max_correlation,
+        "recommendations": recommendations,
+    }

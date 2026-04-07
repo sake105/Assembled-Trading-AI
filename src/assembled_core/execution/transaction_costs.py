@@ -749,3 +749,111 @@ def compute_spread_cash(
     spread_cash = np.maximum(spread_cash, 0.0)
 
     return spread_cash
+
+
+# ---------------------------------------------------------------------------
+# Borrow Cost Model (Plan 6.2)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class BorrowCostModel:
+    """Stock-borrow cost model for short selling.
+
+    Three categories:
+    - GC (General Collateral): 0.25% p.a. — easily borrowable, large-cap
+    - Special: 1-5% p.a. — moderate demand
+    - HTB (Hard-to-Borrow): >5% p.a. — high short interest, small-cap
+
+    Borrow fee accrues daily on the notional value of the short position.
+    """
+
+    gc_rate_annual: float = 0.0025       # 0.25% p.a.
+    special_rate_annual: float = 0.03    # 3% p.a. (midpoint)
+    htb_rate_annual: float = 0.08        # 8% p.a. (moderate HTB)
+    htb_symbols: set[str] | None = None
+    special_symbols: set[str] | None = None
+
+    def get_annual_rate(self, symbol: str) -> float:
+        """Get annualised borrow rate for a symbol."""
+        if self.htb_symbols and symbol in self.htb_symbols:
+            return self.htb_rate_annual
+        if self.special_symbols and symbol in self.special_symbols:
+            return self.special_rate_annual
+        return self.gc_rate_annual
+
+    def daily_borrow_cost(
+        self,
+        symbol: str,
+        notional_value: float,
+        trading_days: int = 252,
+    ) -> float:
+        """Compute daily borrow fee for a short position.
+
+        Args:
+            symbol: Ticker symbol.
+            notional_value: Absolute notional of the short position.
+            trading_days: Trading days per year.
+
+        Returns:
+            Daily borrow cost in dollars (always positive).
+        """
+        annual_rate = self.get_annual_rate(symbol)
+        return abs(notional_value) * annual_rate / trading_days
+
+    def compute_portfolio_borrow_costs(
+        self,
+        short_positions: dict[str, float],
+        trading_days: int = 252,
+    ) -> dict[str, float]:
+        """Compute daily borrow costs for all short positions.
+
+        Args:
+            short_positions: Symbol → notional value (negative = short).
+
+        Returns:
+            Symbol → daily borrow cost.
+        """
+        costs: dict[str, float] = {}
+        for sym, notional in short_positions.items():
+            if notional < 0:  # short positions have negative notional
+                costs[sym] = self.daily_borrow_cost(sym, notional, trading_days)
+        return costs
+
+
+# ---------------------------------------------------------------------------
+# 6.8  TCA Feedback Loop
+# ---------------------------------------------------------------------------
+
+def compute_tca_feedback(
+    realized_slippage: pd.DataFrame,
+    model_slippage_bps: float = 5.0,
+    window: int = 30,
+    multiplier_threshold: float = 2.0,
+) -> dict[str, dict]:
+    """Compute TCA feedback: flag symbols with excessive realized slippage.
+
+    Args:
+        realized_slippage: DataFrame with columns [symbol, slippage_bps, date].
+        model_slippage_bps: Expected model slippage for comparison.
+        window: Rolling window in days.
+        multiplier_threshold: Flag if realized > threshold × model.
+
+    Returns:
+        Dict of symbol → {avg_slippage, ratio, high_slippage_flag}.
+    """
+    if realized_slippage.empty:
+        return {}
+
+    result: dict[str, dict] = {}
+    for sym, group in realized_slippage.groupby("symbol"):
+        recent = group.tail(window)
+        avg_slip = float(recent["slippage_bps"].mean())
+        ratio = avg_slip / max(model_slippage_bps, 0.01)
+        result[str(sym)] = {
+            "avg_slippage_bps": round(avg_slip, 2),
+            "ratio_to_model": round(ratio, 2),
+            "high_slippage_flag": ratio > multiplier_threshold,
+        }
+
+    return result

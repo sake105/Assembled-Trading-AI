@@ -149,6 +149,9 @@ class AlpacaAdapter(BrokerAdapter):
         base_url: str | None = None,
         *,
         force_paper: bool = True,
+        enforce_market_hours: bool = True,
+        max_orders_per_cycle: int = 50,
+        max_notional_per_cycle: float = 100_000.0,
     ) -> None:
         """Initialize Alpaca adapter.
 
@@ -157,6 +160,9 @@ class AlpacaAdapter(BrokerAdapter):
             api_secret: Alpaca API secret (or set ALPACA_API_SECRET env var).
             base_url: API base URL. Defaults to paper trading URL.
             force_paper: If True (default), raises if base_url looks like live endpoint.
+            enforce_market_hours: If True, reject orders outside NYSE regular hours.
+            max_orders_per_cycle: Maximum orders per cycle (safety limit).
+            max_notional_per_cycle: Maximum total notional value per cycle.
         """
         self._api_key = api_key or os.environ.get("ALPACA_API_KEY", "")
         self._api_secret = api_secret or os.environ.get("ALPACA_API_SECRET", "")
@@ -188,6 +194,11 @@ class AlpacaAdapter(BrokerAdapter):
             )
 
         self._api: Any = None  # lazily initialized
+        self._enforce_market_hours = enforce_market_hours
+        self._max_orders_per_cycle = max_orders_per_cycle
+        self._max_notional_per_cycle = max_notional_per_cycle
+        self._cycle_order_count = 0
+        self._cycle_notional_total = 0.0
         logger.warning(
             "[AlpacaAdapter] initialized — base_url=%s is_paper=%s",
             self._base_url,
@@ -287,6 +298,113 @@ class AlpacaAdapter(BrokerAdapter):
 
         return [self._normalize_order(o) for o in orders]
 
+    def reset_cycle_counters(self) -> None:
+        """Reset per-cycle order and notional counters. Call at start of each trading cycle."""
+        self._cycle_order_count = 0
+        self._cycle_notional_total = 0.0
+        logger.info("[AlpacaAdapter] cycle counters reset")
+
+    def _validate_market_hours(self) -> None:
+        """Check if NYSE is currently in regular trading hours.
+
+        Uses zoneinfo for correct US/Eastern timezone handling (EST/EDT).
+        Raises MarketClosedError if market is closed and enforce_market_hours is True.
+        """
+        if not self._enforce_market_hours:
+            return
+        from src.assembled_core.execution.api_resilience import MarketClosedError
+
+        try:
+            from src.assembled_core.data.calendar import is_trading_day_safe
+            import datetime
+
+            # Use proper US/Eastern timezone (handles EST/EDT automatically)
+            try:
+                from zoneinfo import ZoneInfo
+                et_tz = ZoneInfo("America/New_York")
+            except ImportError:
+                # Python < 3.9 fallback or missing tzdata
+                et_tz = datetime.timezone(datetime.timedelta(hours=-5))
+                logger.debug(
+                    "[AlpacaAdapter] zoneinfo unavailable, using UTC-5 fallback"
+                )
+
+            now_et = datetime.datetime.now(et_tz)
+            if not is_trading_day_safe(now_et):
+                raise MarketClosedError(
+                    f"Market is closed today ({now_et.strftime('%Y-%m-%d %A')}). "
+                    "Set enforce_market_hours=False to override."
+                )
+            hour, minute = now_et.hour, now_et.minute
+            market_open = (hour > 9) or (hour == 9 and minute >= 30)
+            market_close = hour < 16
+            if not (market_open and market_close):
+                raise MarketClosedError(
+                    f"Outside regular market hours ({now_et.strftime('%H:%M')} ET). "
+                    "NYSE regular session: 09:30–16:00 ET. "
+                    "Set enforce_market_hours=False to override."
+                )
+        except ImportError:
+            logger.warning(
+                "[AlpacaAdapter] calendar module not available, skipping market hours check"
+            )
+
+    def _check_cycle_limits(self, qty: float, estimated_price: float = 0.0) -> None:
+        """Check per-cycle order count and notional limits.
+
+        Raises ValueError if limits would be exceeded.
+        """
+        if self._cycle_order_count >= self._max_orders_per_cycle:
+            raise ValueError(
+                f"[AlpacaAdapter] per-cycle order limit reached "
+                f"({self._cycle_order_count}/{self._max_orders_per_cycle}). "
+                "Call reset_cycle_counters() at cycle start."
+            )
+        if estimated_price > 0:
+            notional = qty * estimated_price
+            if self._cycle_notional_total + notional > self._max_notional_per_cycle:
+                raise ValueError(
+                    f"[AlpacaAdapter] per-cycle notional limit would be exceeded: "
+                    f"${self._cycle_notional_total + notional:,.0f} > "
+                    f"${self._max_notional_per_cycle:,.0f}"
+                )
+
+    def _estimate_price(self, symbol: str) -> float:
+        """Best-effort price estimate for notional limit checks.
+
+        Tries to get the last trade price from the broker. Returns 0.0
+        if unavailable (notional check will be skipped for this order).
+        """
+        try:
+            api = self._get_api()
+            # Try alpaca-py style
+            try:
+                from alpaca.data.requests import StockLatestTradeRequest  # type: ignore[import]
+                from alpaca.data import StockHistoricalDataClient  # type: ignore[import]
+
+                data_client = StockHistoricalDataClient(
+                    api_key=api._api_key if hasattr(api, "_api_key") else None,
+                    secret_key=api._secret_key if hasattr(api, "_secret_key") else None,
+                )
+                trade = data_client.get_stock_latest_trade(
+                    StockLatestTradeRequest(symbol_or_symbols=symbol)
+                )
+                if hasattr(trade, symbol):
+                    return float(getattr(trade, symbol).price)
+                return float(trade[symbol].price)
+            except (ImportError, Exception):
+                pass
+
+            # Fallback: try legacy alpaca_trade_api
+            try:
+                trade = api.get_latest_trade(symbol)
+                return float(trade.price)
+            except Exception:
+                pass
+        except Exception:
+            pass
+        return 0.0
+
     def submit_market_order(
         self,
         symbol: str,
@@ -302,6 +420,11 @@ class AlpacaAdapter(BrokerAdapter):
         side_lower = side.lower()
         if side_lower not in ("buy", "sell"):
             raise ValueError(f"side must be 'buy' or 'sell', got {side!r}")
+
+        # Safety gates
+        self._validate_market_hours()
+        estimated_price = self._estimate_price(symbol)
+        self._check_cycle_limits(qty, estimated_price)
 
         api = self._get_api()
         try:
@@ -328,12 +451,20 @@ class AlpacaAdapter(BrokerAdapter):
             )
 
         normalized = self._normalize_order(order)
+        self._cycle_order_count += 1
+        if estimated_price > 0:
+            self._cycle_notional_total += qty * estimated_price
         logger.info(
-            "[AlpacaAdapter] submitted %s %s qty=%.2f order_id=%s",
+            "[AlpacaAdapter] submitted %s %s qty=%.2f order_id=%s "
+            "(cycle %d/%d, notional $%.0f/$%.0f)",
             side_lower.upper(),
             symbol,
             qty,
             normalized.order_id,
+            self._cycle_order_count,
+            self._max_orders_per_cycle,
+            self._cycle_notional_total,
+            self._max_notional_per_cycle,
         )
         return normalized
 

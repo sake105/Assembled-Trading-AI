@@ -179,7 +179,7 @@ def fetch_gdelt_events(
             "title": a.get("title") or "",
             "link": a.get("url") or "",
             "published": a.get("seendate") or a.get("date"),
-            "summary": a.get("lang", None),
+            "summary": a.get("title", ""),  # GDELT has no summary field; reuse title
             "raw": a,
         }
         items.append(item)

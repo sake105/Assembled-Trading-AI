@@ -35,7 +35,9 @@ from typing import Any, Literal
 logger = logging.getLogger(__name__)
 
 # Allowed intent actions
-IntentAction = Literal["STOP", "KILL", "FLATTEN", "RECONCILE"]
+IntentAction = Literal[
+    "STOP", "KILL", "FLATTEN", "RECONCILE", "ORDER_SUBMIT", "ORDER_COMPLETE"
+]
 
 # Default store location (relative to project root; workers may override)
 _DEFAULT_STORE_PATH = Path("output") / "ops" / "intent_store.jsonl"
@@ -191,3 +193,130 @@ def filter_intents_by_action(
         Filtered list of intent record dicts.
     """
     return [r for r in load_intents(store_path) if r.get("action") == action]
+
+
+# ---------------------------------------------------------------------------
+# Broker order intent helpers (for crash recovery)
+# ---------------------------------------------------------------------------
+
+
+def make_order_key(
+    symbol: str,
+    side: str,
+    qty: float,
+    nonce: str | None = None,
+) -> str:
+    """Create a unique key for a broker order intent.
+
+    Each call generates a unique key by default (using UTC timestamp with
+    microsecond precision as nonce). This prevents key collision when the
+    same symbol+side+qty is submitted multiple times in one day.
+
+    Args:
+        symbol: Ticker symbol.
+        side: "buy" or "sell".
+        qty: Order quantity.
+        nonce: Explicit nonce (default: current UTC timestamp ISO format).
+
+    Returns:
+        16-char hex idempotency key.
+    """
+    if nonce is None:
+        nonce = datetime.now(timezone.utc).isoformat()
+    return _sha256_prefix(f"ORDER::{symbol}::{side}::{qty}::{nonce}")
+
+
+def record_order_submit(
+    symbol: str,
+    side: str,
+    qty: float,
+    broker_order_id: str = "",
+    *,
+    nonce: str | None = None,
+    store_path: Path | str | None = None,
+) -> dict[str, Any]:
+    """Record an order submission intent (before or after API call).
+
+    Used for crash recovery: on restart, find ORDER_SUBMIT without
+    matching ORDER_COMPLETE and reconcile against broker.
+
+    The nonce ensures each submit gets a unique key even if the same
+    symbol+side+qty is submitted multiple times in one day.
+    The returned dict contains 'idempotency_key' which MUST be passed
+    to record_order_complete for correct pairing.
+    """
+    key = make_order_key(symbol, side, qty, nonce=nonce)
+    return record_intent(
+        "ORDER_SUBMIT",
+        key,
+        metadata={
+            "symbol": symbol,
+            "side": side,
+            "qty": qty,
+            "broker_order_id": broker_order_id,
+        },
+        store_path=store_path,
+    )
+
+
+def record_order_complete(
+    symbol: str,
+    side: str,
+    qty: float,
+    filled_qty: float = 0.0,
+    filled_price: float | None = None,
+    status: str = "filled",
+    *,
+    intent_key: str | None = None,
+    store_path: Path | str | None = None,
+) -> dict[str, Any]:
+    """Record an order completion (fill, cancel, reject).
+
+    Args:
+        intent_key: The idempotency_key from the matching ORDER_SUBMIT record.
+            If provided, ensures correct pairing with the submit record.
+            If None, generates a new key (legacy behavior, not recommended).
+    """
+    if intent_key is not None:
+        key = intent_key
+    else:
+        key = make_order_key(symbol, side, qty)
+    return record_intent(
+        "ORDER_COMPLETE",
+        key,
+        metadata={
+            "symbol": symbol,
+            "side": side,
+            "qty": qty,
+            "filled_qty": filled_qty,
+            "filled_price": filled_price,
+            "status": status,
+        },
+        store_path=store_path,
+    )
+
+
+def find_pending_order_intents(
+    store_path: Path | str | None = None,
+) -> list[dict[str, Any]]:
+    """Find ORDER_SUBMIT intents without matching ORDER_COMPLETE.
+
+    These represent orders that may have been sent to the broker but
+    whose fills were never recorded — typically due to a crash.
+
+    Returns:
+        List of ORDER_SUBMIT records without matching completions.
+    """
+    intents = load_intents(store_path)
+    submitted_keys: dict[str, dict[str, Any]] = {}
+    completed_keys: set[str] = set()
+
+    for r in intents:
+        key = r.get("idempotency_key", "")
+        action = r.get("action", "")
+        if action == "ORDER_SUBMIT":
+            submitted_keys[key] = r
+        elif action == "ORDER_COMPLETE":
+            completed_keys.add(key)
+
+    return [r for k, r in submitted_keys.items() if k not in completed_keys]

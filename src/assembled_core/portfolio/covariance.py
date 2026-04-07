@@ -22,7 +22,7 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-CovMethod = Literal["sample", "ledoit_wolf", "ewm"]
+CovMethod = Literal["sample", "ledoit_wolf", "ewm", "dcc_garch"]
 
 try:
     from sklearn.covariance import LedoitWolf  # type: ignore
@@ -70,6 +70,8 @@ def estimate_covariance(
         lw = LedoitWolf()
         lw.fit(filled.values)
         cov_array = lw.covariance_
+    elif method == "dcc_garch":
+        cov_array = _dcc_garch_covariance(clean, min_periods=min_periods)
     elif method == "ewm":
         cov_array = _ewm_covariance(clean, halflife=ewm_halflife, min_periods=min_periods)
     else:
@@ -120,6 +122,75 @@ def _ewm_covariance(
             cov_array[j, i] = cov_val
 
     return cov_array
+
+
+def _dcc_garch_covariance(
+    returns: pd.DataFrame,
+    min_periods: int = 60,
+    garch_omega: float = 0.00001,
+    garch_alpha: float = 0.06,
+    garch_beta: float = 0.93,
+    dcc_a: float = 0.02,
+    dcc_b: float = 0.95,
+) -> np.ndarray:
+    """DCC-GARCH dynamic covariance estimation (Engle 2002).
+
+    Phase 1: Univariate GARCH(1,1) per asset → conditional variances h_i(t).
+    Phase 2: Standardized residuals z_i(t) = epsilon_i(t) / sqrt(h_i(t)).
+    Phase 3: DCC correlation dynamics:
+        Q_t = (1-a-b)*Q_bar + a*z_{t-1}*z_{t-1}' + b*Q_{t-1}
+        R_t = diag(Q_t)^{-1/2} * Q_t * diag(Q_t)^{-1/2}
+    Result: H_t = D_t * R_t * D_t  where D_t = diag(sqrt(h_i(t))).
+
+    Returns the FINAL-period covariance matrix (most recent estimate).
+    """
+    clean = returns.dropna()
+    n_obs, n_assets = clean.shape
+
+    if n_obs < min_periods:
+        logger.warning("[DCC-GARCH] Insufficient data (%d < %d) — falling back to sample", n_obs, min_periods)
+        return clean.cov(min_periods=20).values
+
+    data = clean.values  # (T, N)
+
+    # Phase 1: Univariate GARCH(1,1) for each asset
+    h = np.zeros((n_obs, n_assets))  # conditional variances
+    z = np.zeros((n_obs, n_assets))  # standardized residuals
+
+    for j in range(n_assets):
+        r = data[:, j]
+        var_init = float(np.var(r[:min(60, n_obs)]))
+        if var_init < 1e-12:
+            var_init = 1e-6
+        h[0, j] = var_init
+        z[0, j] = r[0] / np.sqrt(h[0, j])
+        for t in range(1, n_obs):
+            h[t, j] = garch_omega + garch_alpha * r[t - 1] ** 2 + garch_beta * h[t - 1, j]
+            h[t, j] = max(h[t, j], 1e-12)
+            z[t, j] = r[t] / np.sqrt(h[t, j])
+
+    # Phase 2: Unconditional correlation of standardized residuals
+    Q_bar = np.corrcoef(z.T)
+    if np.any(np.isnan(Q_bar)):
+        Q_bar = np.eye(n_assets)
+
+    # Phase 3: DCC dynamics
+    Q_t = Q_bar.copy()
+    R_t = Q_bar.copy()
+
+    for t in range(1, n_obs):
+        z_t = z[t - 1].reshape(-1, 1)
+        Q_t = (1 - dcc_a - dcc_b) * Q_bar + dcc_a * (z_t @ z_t.T) + dcc_b * Q_t
+        # Normalize Q_t to correlation matrix R_t
+        diag_inv = np.diag(1.0 / np.sqrt(np.maximum(np.diag(Q_t), 1e-12)))
+        R_t = diag_inv @ Q_t @ diag_inv
+
+    # Build final covariance: H_T = D_T * R_T * D_T
+    D_T = np.diag(np.sqrt(h[-1, :]))
+    cov_final = D_T @ R_t @ D_T
+
+    logger.debug("[DCC-GARCH] Estimated %dx%d covariance from %d observations", n_assets, n_assets, n_obs)
+    return cov_final
 
 
 def _ensure_psd(cov: pd.DataFrame, epsilon: float = 1e-8) -> pd.DataFrame:

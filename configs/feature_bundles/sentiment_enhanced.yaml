@@ -1,0 +1,48 @@
+# Sentiment-enhanced feature bundle (V13)
+# Adds NLP sentiment features on top of the full_stack bundle.
+# Requires: news data feed, torch + transformers for FinBERT (graceful fallback if missing)
+
+name: sentiment_enhanced
+description: Full stack + NLP sentiment features for short-horizon alpha
+
+feature_config:
+  ma_windows: [20, 50, 200]
+  atr_window: 14
+  rsi_window: 14
+  include_rsi: true
+  include_intermarket: true
+  include_candlestick: true
+  include_earnings: true
+  include_options_signals: false
+
+  # V13: NLP Sentiment layer
+  include_nlp_sentiment: true
+  nlp_sentiment_windows: [5, 20]
+  nlp_model: "ProsusAI/finbert"
+  nlp_batch_size: 32
+  nlp_weight_in_signal: 0.10      # 10% signal weight allocation
+
+regime_detection:
+  method: hmm
+  n_regimes: 3
+  benchmark_symbol: SPY
+
+position_sizing:
+  method: black_litterman
+  risk_aversion: 2.5
+  tau: 0.05
+  max_weight: 0.15
+
+factor_risk:
+  enabled: true
+  max_portfolio_vol: 0.25
+
+scenario_engine:
+  enabled: true
+  crisis_type: geopolitical_escalation
+
+ml:
+  hyperopt:
+    enabled: false
+    n_trials: 50
+    metric: ic

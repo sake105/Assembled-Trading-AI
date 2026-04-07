@@ -20,6 +20,7 @@ from .source_registry import get_source_tier, get_trust_weight
 # ---------------------------------------------------------------------------
 
 KEYWORD_RULES: dict[TriggerType, list[str]] = {
+    # ── Original 8 ──
     TriggerType.CHOKEPOINT_STRESS: [
         "hormuz", "suez", "strait", "chokepoint", "shipping", "blockade", "tanker"
     ],
@@ -43,6 +44,119 @@ KEYWORD_RULES: dict[TriggerType, list[str]] = {
     ],
     TriggerType.POLICY_SHIFT: [
         "tariff", "trade war", "decoupling", "sanctions policy", "doctrine"
+    ],
+    # ── Batch 1: Financial (Plan 4.3) ──
+    TriggerType.BANKING_CRISIS: [
+        "bank run", "bail-in", "bailout", "deposit freeze", "bank failure",
+        "bank collapse", "systemic risk", "liquidity crisis", "svb",
+        "contagion", "bank insolvency", "credit crunch", "bank panic",
+        "fdic", "deposit flight", "interbank freeze",
+    ],
+    TriggerType.CREDIT_DOWNGRADE: [
+        "downgrade", "junk status", "rating cut", "credit watch negative",
+        "outlook negative", "moody's downgrade", "fitch downgrade",
+        "s&p downgrade", "fallen angel", "investment grade",
+        "creditworthiness", "debt rating", "credit deterioration",
+    ],
+    TriggerType.RATE_SURPRISE: [
+        "hawkish surprise", "dovish pivot", "emergency rate cut",
+        "rate hike surprise", "fed pivot", "rate shock",
+        "unexpected tightening", "surprise easing", "yield spike",
+        "central bank shock", "policy rate", "overnight rate",
+        "fomc surprise", "ecb surprise", "boj surprise",
+    ],
+    TriggerType.PEG_STRESS: [
+        "peg break", "currency floor", "currency intervention",
+        "forex reserve depletion", "devaluation", "capital controls",
+        "currency crisis", "peg defense", "speculative attack",
+        "currency board", "dollarization", "managed float",
+    ],
+    TriggerType.FISCAL_CLIFF: [
+        "debt ceiling", "government shutdown", "sequester",
+        "fiscal cliff", "budget crisis", "spending bill",
+        "continuing resolution", "default risk", "treasury",
+        "appropriations", "fiscal impasse", "debt limit",
+    ],
+    # ── Batch 2: Military/Nuclear ──
+    TriggerType.MILITARY_BUILDUP: [
+        "troop deployment", "naval buildup", "mobilization",
+        "military exercise", "force posture", "carrier group",
+        "brigade deployment", "military staging", "armor movement",
+        "airbase activation", "fleet movement", "rapid deployment",
+        "military escalation", "force projection", "readiness level",
+    ],
+    TriggerType.NUCLEAR_THREAT: [
+        "nuclear posture", "defcon", "warhead", "nuclear test",
+        "nuclear alert", "nuclear rhetoric", "strategic deterrent",
+        "nuclear doctrine", "icbm", "nuclear escalation",
+        "nuclear submarine", "nuclear capable", "atomic",
+        "nuclear arsenal", "first strike", "mutual assured",
+    ],
+    TriggerType.CAPABILITY_SHIFT: [
+        "hypersonic", "missile test", "defense budget",
+        "arms race", "weapons program", "military spending",
+        "defense procurement", "next-gen weapon", "stealth",
+        "ballistic missile", "cruise missile", "anti-satellite",
+    ],
+    # ── Batch 3: Tech/Cyber ──
+    TriggerType.NEW_EXPORT_CONTROL: [
+        "entity list", "chip ban", "technology denial",
+        "export restriction", "semiconductor ban", "huawei",
+        "technology embargo", "dual-use", "end-user restriction",
+        "commerce department", "bis", "deemed export",
+        "foreign direct product rule", "chip restriction",
+    ],
+    TriggerType.ENTITY_LISTING: [
+        "sdn list", "ofac designation", "sanctions list",
+        "entity list addition", "blocked person", "specially designated",
+        "sanctioned entity", "restricted party", "denied person",
+        "proliferation concern", "money laundering",
+    ],
+    TriggerType.ZERO_DAY_DISCLOSURE: [
+        "zero-day", "critical vulnerability", "cve", "ransomware attack",
+        "exploit", "buffer overflow", "remote code execution",
+        "supply chain attack", "backdoor", "patch tuesday",
+        "critical patch", "security advisory", "apt group",
+    ],
+    # ── Batch 4: Economic ──
+    TriggerType.TRADE_WAR_ESCALATION: [
+        "trade war", "retaliatory tariff", "import duty",
+        "trade retaliation", "counter-tariff", "trade dispute",
+        "wto complaint", "dumping", "anti-dumping", "trade barrier",
+        "protectionism", "near-shoring", "friend-shoring",
+    ],
+    TriggerType.RESOURCE_NATIONALIZATION: [
+        "nationalization", "expropriation", "resource sovereignty",
+        "mining nationalization", "state takeover", "confiscation",
+        "sovereign wealth", "resource tax", "windfall tax",
+        "strategic resource", "critical mineral",
+    ],
+    TriggerType.SUPPLY_CHAIN_BREAK: [
+        "supply chain disruption", "semiconductor shortage",
+        "chip shortage", "supply crunch", "component shortage",
+        "production halt", "factory shutdown", "supply bottleneck",
+        "logistics breakdown", "inventory crisis",
+    ],
+    # ── Batch 5: Geopolitical ──
+    TriggerType.DIPLOMATIC_CRISIS: [
+        "embassy closure", "ambassador recall", "diplomatic expulsion",
+        "diplomatic incident", "severed relations", "persona non grata",
+        "diplomatic freeze", "consulate closure",
+    ],
+    TriggerType.ALLIANCE_SHIFT: [
+        "nato expansion", "alliance realignment", "security pact",
+        "defense agreement", "mutual defense", "aukus", "quad",
+        "brics expansion", "sco", "alliance withdrawal",
+    ],
+    TriggerType.TERRITORIAL_ESCALATION: [
+        "annexation", "territorial claim", "border clash",
+        "sovereignty dispute", "territorial waters", "airspace violation",
+        "occupation", "buffer zone", "demilitarized zone",
+    ],
+    TriggerType.STRAIT_BLOCKADE: [
+        "strait blockade", "naval blockade", "maritime blockade",
+        "freedom of navigation", "sea lane", "exclusion zone",
+        "mine laying", "naval mine", "anti-ship missile",
     ],
 }
 

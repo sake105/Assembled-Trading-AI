@@ -472,3 +472,59 @@ def run_full_model_validation(
         warnings=all_warnings,
         metadata=metadata,
     )
+
+
+# ---------------------------------------------------------------------------
+# 9.7  Backtest Realism Score (0-100)
+# ---------------------------------------------------------------------------
+
+def compute_backtest_realism_score(
+    has_transaction_costs: bool = False,
+    has_slippage: bool = False,
+    has_pit_features: bool = False,
+    has_corporate_actions: bool = False,
+    has_walk_forward: bool = False,
+    has_dsr: bool = False,
+    has_calendar_validation: bool = False,
+    has_universe_reconstitution: bool = False,
+    has_borrow_costs: bool = False,
+    has_circuit_breakers: bool = False,
+) -> dict:
+    """Compute a realism score for a backtest setup.
+
+    Each check adds points. Perfect score = 100.
+
+    Returns:
+        Dict with score (0-100), checks, missing items.
+    """
+    checks = {
+        "transaction_costs": (has_transaction_costs, 15),
+        "slippage_model": (has_slippage, 15),
+        "pit_features": (has_pit_features, 15),
+        "corporate_actions": (has_corporate_actions, 10),
+        "walk_forward_cv": (has_walk_forward, 10),
+        "deflated_sharpe": (has_dsr, 10),
+        "calendar_validation": (has_calendar_validation, 5),
+        "universe_reconstitution": (has_universe_reconstitution, 10),
+        "borrow_costs": (has_borrow_costs, 5),
+        "circuit_breakers": (has_circuit_breakers, 5),
+    }
+
+    score = 0
+    passed = []
+    missing = []
+
+    for name, (active, points) in checks.items():
+        if active:
+            score += points
+            passed.append(name)
+        else:
+            missing.append(name)
+
+    return {
+        "score": score,
+        "max_score": 100,
+        "grade": "A" if score >= 80 else "B" if score >= 60 else "C" if score >= 40 else "D",
+        "passed": passed,
+        "missing": missing,
+    }

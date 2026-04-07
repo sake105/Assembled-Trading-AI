@@ -694,3 +694,280 @@ def compute_risk_by_factor_group(
     )
 
     return result_df
+
+
+# ── Monte Carlo VaR with Cholesky decomposition (Plan 7.1) ───────────
+
+
+def compute_monte_carlo_var(
+    returns: pd.DataFrame | np.ndarray,
+    weights: np.ndarray | None = None,
+    *,
+    n_simulations: int = 10_000,
+    horizon_days: int = 1,
+    confidence_levels: tuple[float, ...] = (0.95, 0.99, 0.999),
+    seed: int | None = 42,
+) -> dict[str, float]:
+    """Compute portfolio VaR and CVaR via Monte Carlo simulation.
+
+    Uses Cholesky decomposition to generate correlated return paths
+    that respect the empirical covariance structure.
+
+    Algorithm:
+        1. Estimate mean (mu) and covariance (Sigma) from historical returns.
+        2. Cholesky decomposition: L such that L @ L.T = Sigma.
+        3. Generate z ~ N(0, I) random vectors.
+        4. Simulated returns = mu + L @ z (preserves correlation structure).
+        5. Portfolio return = w.T @ simulated_returns.
+        6. VaR = quantile of portfolio return distribution.
+
+    Args:
+        returns: Wide-format returns (dates × symbols) or 2D array.
+        weights: Portfolio weights (1D array, sums to 1).
+            If None, equal weights are used.
+        n_simulations: Number of Monte Carlo paths.
+        horizon_days: Forecast horizon (multi-day uses sqrt-of-time scaling).
+        confidence_levels: VaR confidence levels (e.g., 0.99 = 99%).
+        seed: Random seed for reproducibility.
+
+    Returns:
+        Dict with ``mc_var_{pct}``, ``mc_cvar_{pct}`` for each
+        confidence level, plus ``mc_expected_return``,
+        ``mc_expected_vol``, ``mc_worst_case``.
+    """
+    if isinstance(returns, pd.DataFrame):
+        ret_arr = returns.dropna().values
+        n_assets = ret_arr.shape[1]
+    else:
+        ret_arr = returns[~np.any(np.isnan(returns), axis=1)]
+        n_assets = ret_arr.shape[1]
+
+    if len(ret_arr) < 30 or n_assets < 1:
+        return {f"mc_var_{int(cl*100)}": 0.0 for cl in confidence_levels}
+
+    if weights is None:
+        weights = np.ones(n_assets) / n_assets
+
+    # Mean and covariance
+    mu = np.mean(ret_arr, axis=0)
+    cov = np.cov(ret_arr, rowvar=False)
+
+    # Handle single-asset case (cov returns scalar)
+    if cov.ndim == 0:
+        cov = np.array([[float(cov)]])
+    if mu.ndim == 0:
+        mu = np.array([float(mu)])
+
+    # Ensure positive semi-definite (eigenvalue fix)
+    eigvals, eigvecs = np.linalg.eigh(cov)
+    eigvals = np.maximum(eigvals, 1e-10)
+    cov = eigvecs @ np.diag(eigvals) @ eigvecs.T
+
+    # Cholesky decomposition
+    try:
+        L = np.linalg.cholesky(cov)
+    except np.linalg.LinAlgError:
+        logger.warning("[MC-VaR] Cholesky failed — falling back to diagonal")
+        L = np.diag(np.sqrt(np.diag(cov)))
+
+    # Generate simulations
+    rng = np.random.default_rng(seed)
+    z = rng.standard_normal((n_simulations, n_assets))
+    simulated = mu + z @ L.T  # shape: (n_sim, n_assets)
+
+    # Multi-day horizon scaling
+    if horizon_days > 1:
+        simulated = simulated * np.sqrt(horizon_days)
+
+    # Portfolio returns
+    port_returns = simulated @ weights  # shape: (n_sim,)
+
+    results: dict[str, float] = {
+        "mc_expected_return": round(float(np.mean(port_returns)) * 252, 6),
+        "mc_expected_vol": round(float(np.std(port_returns)) * np.sqrt(252), 6),
+        "mc_worst_case": round(float(np.min(port_returns)), 6),
+    }
+
+    for cl in confidence_levels:
+        pct = int(cl * 100)
+        var = float(np.quantile(port_returns, 1 - cl))
+        # VaR as positive loss number
+        results[f"mc_var_{pct}"] = round(abs(min(0, var)), 6)
+        # CVaR: expected loss given loss exceeds VaR
+        tail = port_returns[port_returns <= var]
+        cvar = abs(float(np.mean(tail))) if len(tail) > 0 else abs(min(0, var))
+        results[f"mc_cvar_{pct}"] = round(cvar, 6)
+
+    return results
+
+
+# ── Brinson-Fachler P&L Attribution (Plan 7.5) ───────────────────────
+
+
+def compute_brinson_fachler_attribution(
+    portfolio_weights: dict[str, float],
+    benchmark_weights: dict[str, float],
+    portfolio_returns: dict[str, float],
+    benchmark_returns: dict[str, float],
+    sector_map: dict[str, str],
+) -> pd.DataFrame:
+    """Brinson-Fachler performance attribution by sector.
+
+    Decomposes active return (portfolio − benchmark) into:
+    - **Allocation Effect**: Over/underweight in sectors that outperformed
+    - **Selection Effect**: Picking better stocks within each sector
+    - **Interaction Effect**: Combined allocation × selection
+
+    Total Active Return = sum(Allocation + Selection + Interaction)
+
+    Args:
+        portfolio_weights: Symbol → portfolio weight.
+        benchmark_weights: Symbol → benchmark weight.
+        portfolio_returns: Symbol → period return.
+        benchmark_returns: Symbol → period return (benchmark constituents).
+        sector_map: Symbol → sector name.
+
+    Returns:
+        DataFrame with columns: ``sector``, ``allocation_effect``,
+        ``selection_effect``, ``interaction_effect``, ``total_effect``,
+        ``portfolio_weight``, ``benchmark_weight``,
+        ``portfolio_return``, ``benchmark_return``.
+    """
+    # Collect all sectors
+    all_symbols = set(portfolio_weights) | set(benchmark_weights)
+    sectors: dict[str, list[str]] = {}
+    for sym in all_symbols:
+        sec = sector_map.get(sym, "Other")
+        sectors.setdefault(sec, []).append(sym)
+
+    # Benchmark total return
+    bm_total_return = sum(
+        benchmark_weights.get(s, 0) * benchmark_returns.get(s, 0)
+        for s in benchmark_weights
+    )
+
+    rows = []
+    for sector, symbols in sorted(sectors.items()):
+        # Sector-level weights and returns
+        w_p = sum(portfolio_weights.get(s, 0) for s in symbols)
+        w_b = sum(benchmark_weights.get(s, 0) for s in symbols)
+
+        # Weighted-average returns within sector
+        if w_p > 0:
+            r_p = sum(
+                portfolio_weights.get(s, 0) * portfolio_returns.get(s, 0)
+                for s in symbols
+            ) / w_p
+        else:
+            r_p = 0.0
+
+        if w_b > 0:
+            r_b = sum(
+                benchmark_weights.get(s, 0) * benchmark_returns.get(s, 0)
+                for s in symbols
+            ) / w_b
+        else:
+            r_b = 0.0
+
+        # Brinson-Fachler decomposition
+        allocation = (w_p - w_b) * (r_b - bm_total_return)
+        selection = w_b * (r_p - r_b)
+        interaction = (w_p - w_b) * (r_p - r_b)
+
+        rows.append({
+            "sector": sector,
+            "allocation_effect": round(allocation, 6),
+            "selection_effect": round(selection, 6),
+            "interaction_effect": round(interaction, 6),
+            "total_effect": round(allocation + selection + interaction, 6),
+            "portfolio_weight": round(w_p, 6),
+            "benchmark_weight": round(w_b, 6),
+            "portfolio_return": round(r_p, 6),
+            "benchmark_return": round(r_b, 6),
+        })
+
+    result = pd.DataFrame(rows)
+
+    # Add total row
+    if not result.empty:
+        total_row = {
+            "sector": "TOTAL",
+            "allocation_effect": result["allocation_effect"].sum(),
+            "selection_effect": result["selection_effect"].sum(),
+            "interaction_effect": result["interaction_effect"].sum(),
+            "total_effect": result["total_effect"].sum(),
+            "portfolio_weight": result["portfolio_weight"].sum(),
+            "benchmark_weight": result["benchmark_weight"].sum(),
+            "portfolio_return": np.nan,
+            "benchmark_return": np.nan,
+        }
+        result = pd.concat([result, pd.DataFrame([total_row])], ignore_index=True)
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Drawdown Duration Analysis (Plan 7.7)
+# ---------------------------------------------------------------------------
+
+
+def compute_drawdown_duration(equity_curve: pd.Series) -> dict:
+    """Analyze drawdown duration statistics.
+
+    Args:
+        equity_curve: Equity/NAV series.
+
+    Returns:
+        Dict with max_dd_duration_days, avg_dd_duration_days, current_dd_days.
+    """
+    peak = equity_curve.cummax()
+    in_dd = equity_curve < peak
+
+    durations = []
+    current_duration = 0
+    for val in in_dd:
+        if val:
+            current_duration += 1
+        else:
+            if current_duration > 0:
+                durations.append(current_duration)
+            current_duration = 0
+
+    return {
+        "max_dd_duration_days": max(durations) if durations else 0,
+        "avg_dd_duration_days": round(np.mean(durations), 1) if durations else 0.0,
+        "current_dd_days": current_duration,
+        "n_drawdown_periods": len(durations),
+    }
+
+
+# ---------------------------------------------------------------------------
+# CDaR - Conditional Drawdown at Risk (Plan 7.8)
+# ---------------------------------------------------------------------------
+
+
+def compute_cdar(
+    returns: pd.Series,
+    alpha: float = 0.05,
+) -> float:
+    """Compute Conditional Drawdown at Risk.
+
+    Expected drawdown in the worst alpha-% of drawdown periods.
+
+    Args:
+        returns: Daily returns.
+        alpha: Tail probability (default 5%).
+
+    Returns:
+        CDaR value (negative number).
+    """
+    cum_returns = (1 + returns).cumprod()
+    peak = cum_returns.cummax()
+    drawdowns = (cum_returns - peak) / peak
+
+    threshold_idx = int(len(drawdowns) * alpha)
+    if threshold_idx < 1:
+        return float(drawdowns.min())
+
+    worst = drawdowns.nsmallest(threshold_idx)
+    return round(float(worst.mean()), 6)

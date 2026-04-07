@@ -109,3 +109,85 @@ def validate_policy(policy: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
         logger.debug("POLICY_VALIDATION: all checks passed")
 
     return policy, warnings
+
+
+# ---------------------------------------------------------------------------
+# Cross-Field Policy Consistency Checks (Plan 11.1)
+# ---------------------------------------------------------------------------
+
+
+def validate_policy_consistency(policy: dict[str, Any]) -> list[str]:
+    """Run cross-field consistency checks on policy.
+
+    Checks:
+    - max_short <= max_gross
+    - max_weight <= max_gross
+    - target_vol < max_vol (if both set)
+    - kill > hard > soft drawdown thresholds
+    - max_positions > 0 if enabled
+
+    Args:
+        policy: Raw policy dict.
+
+    Returns:
+        List of consistency violation strings (empty = all consistent).
+    """
+    violations: list[str] = []
+
+    rl = policy.get("risk_limits") or {}
+    scope = policy.get("scope") or {}
+
+    # Exposure consistency
+    max_gross = rl.get("max_gross_exposure")
+    max_short = rl.get("max_short_gross")
+    max_weight = rl.get("max_position_weight")
+
+    if max_short is not None and max_gross is not None:
+        if max_short > max_gross:
+            violations.append(
+                f"max_short_gross ({max_short}) > max_gross_exposure ({max_gross})"
+            )
+
+    if max_weight is not None and max_gross is not None:
+        if max_weight > max_gross:
+            violations.append(
+                f"max_position_weight ({max_weight}) > max_gross_exposure ({max_gross})"
+            )
+
+    # Volatility consistency
+    target_vol = rl.get("target_volatility")
+    max_vol = rl.get("max_volatility")
+    if target_vol is not None and max_vol is not None:
+        if target_vol >= max_vol:
+            violations.append(
+                f"target_volatility ({target_vol}) >= max_volatility ({max_vol})"
+            )
+
+    # Drawdown ordering
+    dd = rl.get("max_drawdown") or {}
+    kill = dd.get("kill")
+    hard = dd.get("hard")
+    soft = dd.get("soft")
+    if kill is not None and hard is not None and soft is not None:
+        if not (soft < hard < kill):
+            violations.append(
+                f"Drawdown thresholds out of order: soft={soft}, hard={hard}, kill={kill}"
+            )
+
+    # Leverage check
+    if not scope.get("leverage_allowed", False):
+        if max_gross is not None and max_gross > 1.0:
+            violations.append(
+                f"max_gross_exposure ({max_gross}) > 1.0 but leverage_allowed=false"
+            )
+
+    # Max positions
+    max_pos = rl.get("max_positions")
+    if max_pos is not None and max_pos <= 0:
+        violations.append(f"max_positions ({max_pos}) must be > 0")
+
+    if violations:
+        for v in violations:
+            logger.warning("POLICY_CONSISTENCY: %s", v)
+
+    return violations

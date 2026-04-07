@@ -303,6 +303,75 @@ def compute_turnover(
     return float(annualized_turnover) if not np.isnan(annualized_turnover) else None
 
 
+def _compute_round_trip_pnls(trades: pd.DataFrame) -> list[float]:
+    """Compute per-round-trip P&L from a trades DataFrame using average-cost.
+
+    Tracks positions per symbol.  Every time a position goes through zero
+    (or changes sign) a round-trip is closed and its realised P&L is
+    recorded.  Partial closes generate proportional P&L.
+
+    Args:
+        trades: DataFrame with columns side, symbol, qty, price.
+                Optional: fill_qty, fill_price (preferred if present).
+
+    Returns:
+        List of round-trip P&L values (one per closed trip).
+    """
+    if trades.empty:
+        return []
+
+    qty_col = "fill_qty" if "fill_qty" in trades.columns else "qty"
+    px_col = "fill_price" if "fill_price" in trades.columns else "price"
+
+    # Sort deterministically
+    sort_cols = [c for c in ("timestamp", "symbol") if c in trades.columns]
+    df = trades.sort_values(sort_cols) if sort_cols else trades
+
+    positions: dict[str, tuple[float, float]] = {}  # symbol -> (qty, avg_price)
+    pnls: list[float] = []
+
+    for _, row in df.iterrows():
+        sym = row.get("symbol", "")
+        side = row.get("side", "BUY")
+        raw_qty = float(row[qty_col]) if pd.notna(row[qty_col]) else 0.0
+        price = float(row[px_col]) if pd.notna(row[px_col]) else 0.0
+
+        if raw_qty <= 0 or price <= 0:
+            continue
+
+        signed_qty = raw_qty if side == "BUY" else -raw_qty
+        cur_qty, cur_avg = positions.get(sym, (0.0, 0.0))
+
+        # Determine if this trade reduces or closes the position
+        if cur_qty != 0.0 and np.sign(signed_qty) != np.sign(cur_qty):
+            # Closing (fully or partially)
+            close_qty = min(abs(signed_qty), abs(cur_qty))
+            pnl = close_qty * (price - cur_avg) * np.sign(cur_qty)
+            pnls.append(pnl)
+
+            remainder = abs(cur_qty) - close_qty
+            if remainder < 1e-10:
+                # Fully closed — check if there's leftover on the other side
+                leftover = abs(signed_qty) - close_qty
+                if leftover > 1e-10:
+                    positions[sym] = (np.sign(signed_qty) * leftover, price)
+                else:
+                    positions.pop(sym, None)
+            else:
+                positions[sym] = (np.sign(cur_qty) * remainder, cur_avg)
+        else:
+            # Adding to / opening a position — update average cost
+            new_qty = cur_qty + signed_qty
+            if abs(new_qty) > 1e-10:
+                total_cost = cur_qty * cur_avg + signed_qty * price
+                new_avg = total_cost / new_qty
+                positions[sym] = (new_qty, new_avg)
+            else:
+                positions.pop(sym, None)
+
+    return pnls
+
+
 def compute_trade_metrics(
     trades: pd.DataFrame, equity: pd.DataFrame, start_capital: float, freq: str = "1d"
 ) -> dict[str, float | int | None]:
@@ -343,27 +412,32 @@ def compute_trade_metrics(
     trades = trades.copy()
     trades["notional"] = trades["qty"].abs() * trades["price"].abs()
 
-    # For hit rate and profit factor, we need to track actual P&L
-    # Since we don't have position tracking here, we'll use a simplified approach:
-    # - Assume each symbol's trades are independent
-    # - Compute approximate P&L based on price changes
-
-    # For now, we'll compute basic metrics that don't require position tracking
     total_trades = len(trades)
 
     # Turnover
     turnover = compute_turnover(trades, equity, start_capital, freq)
 
-    # For hit_rate, profit_factor, avg_win, avg_loss, we'd need position tracking
-    # This would require a more complex implementation that tracks positions over time
-    # For MVP, we'll return None for these metrics
-    # TODO: Implement position tracking for accurate trade-level metrics
+    # Compute round-trip P&L per symbol using average-cost accounting
+    round_trip_pnls = _compute_round_trip_pnls(trades)
+
+    if len(round_trip_pnls) > 0:
+        rt_series = pd.Series(round_trip_pnls, dtype=float)
+        hpf = compute_hit_rate_and_profit_factor(rt_series)
+        hit_rate = hpf["hit_rate"]
+        profit_factor = hpf["profit_factor"]
+        avg_win = hpf["avg_win"]
+        avg_loss = hpf["avg_loss"]
+    else:
+        hit_rate = None
+        profit_factor = None
+        avg_win = None
+        avg_loss = None
 
     return {
-        "hit_rate": None,  # TODO: Implement with position tracking
-        "profit_factor": None,  # TODO: Implement with position tracking
-        "avg_win": None,  # TODO: Implement with position tracking
-        "avg_loss": None,  # TODO: Implement with position tracking
+        "hit_rate": hit_rate,
+        "profit_factor": profit_factor,
+        "avg_win": avg_win,
+        "avg_loss": avg_loss,
         "turnover": turnover,
         "total_trades": total_trades,
     }
@@ -738,3 +812,337 @@ def deflated_sharpe_ratio_from_returns(
         skew=skew,
         kurtosis=kurtosis,
     )
+
+
+# ── Benchmark-relative metrics (Plan 9.2) ────────────────────────────
+
+
+def compute_benchmark_relative_metrics(
+    portfolio_returns: pd.Series,
+    benchmark_returns: pd.Series,
+    periods_per_year: int = PERIODS_PER_YEAR_1D,
+) -> dict[str, float | None]:
+    """Compute benchmark-relative performance metrics.
+
+    Args:
+        portfolio_returns: Daily portfolio returns.
+        benchmark_returns: Daily benchmark returns (e.g., SPY).
+        periods_per_year: Annualization factor.
+
+    Returns:
+        Dict with: ``information_ratio``, ``active_return``,
+        ``tracking_error``, ``up_capture``, ``down_capture``,
+        ``active_sharpe``, ``beta``, ``alpha``.
+    """
+    # Align
+    combined = pd.DataFrame({
+        "port": portfolio_returns,
+        "bench": benchmark_returns,
+    }).dropna()
+
+    if len(combined) < 30:
+        return {
+            "information_ratio": None, "active_return": None,
+            "tracking_error": None, "up_capture": None,
+            "down_capture": None, "active_sharpe": None,
+            "beta": None, "alpha": None,
+        }
+
+    port = combined["port"]
+    bench = combined["bench"]
+    active = port - bench
+
+    # Active return (annualized)
+    active_return = float(active.mean()) * periods_per_year
+
+    # Tracking error (annualized)
+    tracking_error = float(active.std()) * np.sqrt(periods_per_year)
+
+    # Information ratio
+    ir = active_return / tracking_error if tracking_error > 1e-10 else None
+
+    # Up/Down capture ratio
+    up_days = bench > 0
+    down_days = bench < 0
+
+    up_capture = None
+    if up_days.sum() >= 10:
+        port_up = float(port[up_days].mean())
+        bench_up = float(bench[up_days].mean())
+        if bench_up > 1e-10:
+            up_capture = round(port_up / bench_up, 4)
+
+    down_capture = None
+    if down_days.sum() >= 10:
+        port_down = float(port[down_days].mean())
+        bench_down = float(bench[down_days].mean())
+        if abs(bench_down) > 1e-10:
+            down_capture = round(port_down / bench_down, 4)
+
+    # Beta and alpha (CAPM regression)
+    bench_var = float(bench.var())
+    if bench_var > 1e-15:
+        beta = float(port.cov(bench)) / bench_var
+        alpha = float(port.mean() - beta * bench.mean()) * periods_per_year
+    else:
+        beta = None
+        alpha = None
+
+    return {
+        "information_ratio": round(ir, 4) if ir is not None else None,
+        "active_return": round(active_return, 6),
+        "tracking_error": round(tracking_error, 6),
+        "up_capture": up_capture,
+        "down_capture": down_capture,
+        "active_sharpe": round(active_return / tracking_error, 4) if tracking_error > 1e-10 else None,
+        "beta": round(beta, 4) if beta is not None else None,
+        "alpha": round(alpha, 6) if alpha is not None else None,
+    }
+
+
+# ── Permutation test for strategy significance (Plan 9.4) ────────────
+
+
+def permutation_test_sharpe(
+    returns: pd.Series,
+    *,
+    n_permutations: int = 1000,
+    seed: int = 42,
+    periods_per_year: int = PERIODS_PER_YEAR_1D,
+) -> dict[str, float]:
+    """Test whether observed Sharpe ratio is statistically significant.
+
+    Randomly permutes the return series ``n_permutations`` times and
+    computes the Sharpe ratio of each permuted series.  The p-value is
+    the fraction of permuted Sharpes >= observed Sharpe.
+
+    A high p-value (>0.05) suggests the strategy's performance could be
+    due to random chance — the return ordering doesn't matter.
+
+    Args:
+        returns: Daily strategy returns.
+        n_permutations: Number of permutations (default 1000).
+        seed: Random seed for reproducibility.
+        periods_per_year: Annualization factor.
+
+    Returns:
+        Dict with ``observed_sharpe``, ``p_value``,
+        ``mean_permuted_sharpe``, ``sharpe_percentile``.
+    """
+    clean = returns.dropna()
+    if len(clean) < 30:
+        return {
+            "observed_sharpe": 0.0, "p_value": 1.0,
+            "mean_permuted_sharpe": 0.0, "sharpe_percentile": 0.0,
+        }
+
+    ret_arr = clean.values
+
+    def _sharpe(r: np.ndarray) -> float:
+        m = r.mean()
+        s = r.std()
+        if s < 1e-15:
+            return 0.0
+        return float(m / s * np.sqrt(periods_per_year))
+
+    observed = _sharpe(ret_arr)
+
+    rng = np.random.default_rng(seed)
+    permuted_sharpes = np.empty(n_permutations)
+    for i in range(n_permutations):
+        perm = rng.permutation(ret_arr)
+        permuted_sharpes[i] = _sharpe(perm)
+
+    p_value = float(np.mean(permuted_sharpes >= observed))
+    pct = float(np.mean(permuted_sharpes <= observed) * 100)
+
+    return {
+        "observed_sharpe": round(observed, 4),
+        "p_value": round(p_value, 4),
+        "mean_permuted_sharpe": round(float(np.mean(permuted_sharpes)), 4),
+        "sharpe_percentile": round(pct, 1),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Regime-Segmented Performance (Plan 9.3)
+# ---------------------------------------------------------------------------
+
+
+def compute_regime_segmented_performance(
+    returns: pd.Series,
+    regimes: pd.Series,
+    trading_days: int = 252,
+) -> dict[str, dict[str, float]]:
+    """Compute performance metrics segmented by market regime.
+
+    Args:
+        returns: Daily returns with DatetimeIndex.
+        regimes: Regime labels ("bull", "bear", "crisis", "sideways", "recovery")
+            aligned with returns index.
+        trading_days: Trading days per year.
+
+    Returns:
+        Dict mapping regime -> {sharpe, max_dd, win_rate, avg_return, n_days}.
+    """
+    aligned = pd.DataFrame({"returns": returns, "regime": regimes}).dropna()
+
+    results: dict[str, dict[str, float]] = {}
+
+    for regime in aligned["regime"].unique():
+        mask = aligned["regime"] == regime
+        r = aligned.loc[mask, "returns"]
+
+        if len(r) < 5:
+            results[str(regime)] = {
+                "sharpe": 0.0, "max_dd": 0.0, "win_rate": 0.0,
+                "avg_return": 0.0, "n_days": len(r),
+            }
+            continue
+
+        mean_r = float(r.mean())
+        std_r = float(r.std())
+        sharpe = mean_r / std_r * np.sqrt(trading_days) if std_r > 1e-10 else 0.0
+
+        # Max drawdown
+        cum = (1 + r).cumprod()
+        peak = cum.cummax()
+        dd = (cum - peak) / peak
+        max_dd = float(dd.min())
+
+        win_rate = float((r > 0).mean())
+
+        results[str(regime)] = {
+            "sharpe": round(sharpe, 4),
+            "max_dd": round(max_dd, 4),
+            "win_rate": round(win_rate, 4),
+            "avg_return": round(mean_r * trading_days, 4),  # annualized
+            "n_days": int(len(r)),
+        }
+
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Hit Rate and Profit Factor (Plan 9.5)
+# ---------------------------------------------------------------------------
+
+
+def compute_hit_rate_and_profit_factor(
+    returns: pd.Series,
+) -> dict[str, float]:
+    """Compute hit rate and profit factor from returns.
+
+    Args:
+        returns: Daily returns series.
+
+    Returns:
+        Dict with hit_rate, profit_factor, avg_win, avg_loss.
+    """
+    wins = returns[returns > 0]
+    losses = returns[returns <= 0]
+
+    hit_rate = len(wins) / len(returns) if len(returns) > 0 else 0.0
+    avg_win = float(wins.mean()) if len(wins) > 0 else 0.0
+    avg_loss = float(losses.mean()) if len(losses) > 0 else 0.0
+    profit_factor = float(wins.sum() / abs(losses.sum())) if losses.sum() != 0 else float("inf")
+
+    return {
+        "hit_rate": round(hit_rate, 4),
+        "profit_factor": round(profit_factor, 4),
+        "avg_win": round(avg_win, 6),
+        "avg_loss": round(avg_loss, 6),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Strategy Correlation Matrix (Plan 9.6)
+# ---------------------------------------------------------------------------
+
+
+def compute_strategy_correlations(
+    strategy_returns: pd.DataFrame,
+    alert_threshold: float = 0.6,
+) -> dict:
+    """Compute pairwise correlation of strategy returns.
+
+    Args:
+        strategy_returns: DataFrame with strategy returns as columns.
+        alert_threshold: Correlation above this = not diversified.
+
+    Returns:
+        Dict with correlation_matrix, max_correlation, alerts.
+    """
+    if strategy_returns.shape[1] < 2:
+        return {"correlation_matrix": {}, "max_correlation": 0.0, "alerts": []}
+
+    corr = strategy_returns.corr()
+    alerts = []
+
+    max_corr = 0.0
+    for i, c1 in enumerate(corr.columns):
+        for j, c2 in enumerate(corr.columns):
+            if i >= j:
+                continue
+            val = abs(corr.iloc[i, j])
+            if val > max_corr:
+                max_corr = val
+            if val > alert_threshold:
+                alerts.append(f"{c1}-{c2}: {val:.3f}")
+
+    return {
+        "correlation_matrix": corr.round(4).to_dict(),
+        "max_correlation": round(max_corr, 4),
+        "alerts": alerts,
+        "is_diversified": max_corr <= alert_threshold,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Bayesian Sharpe Inference (Plan 9.10)
+# ---------------------------------------------------------------------------
+
+
+def bayesian_sharpe_credible_interval(
+    returns: pd.Series,
+    prior_sharpe: float = 0.0,
+    prior_std: float = 1.0,
+    credible_level: float = 0.95,
+) -> dict[str, float]:
+    """Bayesian credible interval for true Sharpe ratio.
+
+    Uses conjugate Normal posterior with known variance assumption.
+
+    Args:
+        returns: Daily returns.
+        prior_sharpe: Prior mean Sharpe.
+        prior_std: Prior std of Sharpe.
+        credible_level: Credible interval level.
+
+    Returns:
+        Dict with posterior_mean, ci_lower, ci_upper.
+    """
+    n = len(returns)
+    if n < 30:
+        return {"posterior_mean": 0.0, "ci_lower": -1.0, "ci_upper": 1.0}
+
+    trading_days = 252
+    sample_sharpe = float(returns.mean() / returns.std() * np.sqrt(trading_days)) if returns.std() > 1e-10 else 0.0
+    se = 1.0 / np.sqrt(n / trading_days)  # SE of Sharpe estimate
+
+    # Bayesian posterior (Normal-Normal conjugate)
+    prior_prec = 1.0 / prior_std ** 2
+    data_prec = 1.0 / se ** 2
+    post_prec = prior_prec + data_prec
+    post_mean = (prior_prec * prior_sharpe + data_prec * sample_sharpe) / post_prec
+    post_std = 1.0 / np.sqrt(post_prec)
+
+    from scipy.stats import norm
+    z = norm.ppf((1 + credible_level) / 2)
+
+    return {
+        "posterior_mean": round(post_mean, 4),
+        "ci_lower": round(post_mean - z * post_std, 4),
+        "ci_upper": round(post_mean + z * post_std, 4),
+        "posterior_std": round(post_std, 4),
+    }

@@ -261,3 +261,115 @@ def validate_price_data(df: pd.DataFrame) -> dict[str, bool | int | str]:
         "date_range": date_range,
         "issues": issues,
     }
+
+
+# ---------------------------------------------------------------------------
+# Multi-Source Price Validation (Plan 10.2)
+# ---------------------------------------------------------------------------
+
+
+def validate_prices_cross_source(
+    primary: pd.DataFrame,
+    secondary: pd.DataFrame,
+    symbol_col: str = "symbol",
+    close_col: str = "close",
+    timestamp_col: str = "timestamp",
+    max_diff_pct: float = 1.0,
+) -> dict:
+    """Cross-validate prices between primary and secondary sources.
+
+    Flags symbols where close prices differ by > max_diff_pct.
+
+    Args:
+        primary: Primary price source DataFrame.
+        secondary: Secondary price source DataFrame.
+        symbol_col: Symbol column name.
+        close_col: Close price column name.
+        timestamp_col: Timestamp column name.
+        max_diff_pct: Maximum acceptable difference in percent.
+
+    Returns:
+        Dict with validated (bool), n_checked, n_flagged, flagged_symbols,
+        and details list.
+    """
+    import logging
+    _log = logging.getLogger(__name__)
+
+    merged = primary.merge(
+        secondary,
+        on=[timestamp_col, symbol_col],
+        suffixes=("_primary", "_secondary"),
+        how="inner",
+    )
+
+    p_col = f"{close_col}_primary"
+    s_col = f"{close_col}_secondary"
+
+    if merged.empty or p_col not in merged.columns or s_col not in merged.columns:
+        return {"validated": False, "n_checked": 0, "n_flagged": 0, "flagged_symbols": [], "details": []}
+
+    merged["diff_pct"] = (
+        (merged[p_col] - merged[s_col]).abs() / merged[p_col].clip(lower=0.01) * 100
+    )
+
+    flagged = merged[merged["diff_pct"] > max_diff_pct]
+    flagged_symbols = sorted(flagged[symbol_col].unique().tolist()) if not flagged.empty else []
+
+    if flagged_symbols:
+        _log.warning("[PriceValidation] %d symbols with >%.1f%% diff: %s",
+                     len(flagged_symbols), max_diff_pct, flagged_symbols[:10])
+
+    return {
+        "validated": len(flagged_symbols) == 0,
+        "n_checked": len(merged[symbol_col].unique()),
+        "n_flagged": len(flagged_symbols),
+        "flagged_symbols": flagged_symbols,
+        "max_diff_pct_observed": round(float(merged["diff_pct"].max()), 2) if not merged.empty else 0.0,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 10.4  Incremental Data Updates
+# ---------------------------------------------------------------------------
+
+def incremental_update(
+    existing_path: str | Path,
+    new_data: pd.DataFrame,
+    timestamp_col: str = "timestamp",
+    symbol_col: str = "symbol",
+) -> pd.DataFrame:
+    """Append new data to existing dataset, avoiding duplicates.
+
+    Args:
+        existing_path: Path to existing parquet/csv.
+        new_data: New rows to append.
+        timestamp_col: Timestamp column.
+        symbol_col: Symbol column.
+
+    Returns:
+        Combined DataFrame (deduped).
+    """
+    existing_path = Path(existing_path)
+
+    if existing_path.exists():
+        if existing_path.suffix == ".parquet":
+            existing = pd.read_parquet(existing_path)
+        else:
+            existing = pd.read_csv(existing_path)
+
+        # Combine and deduplicate
+        combined = pd.concat([existing, new_data], ignore_index=True)
+        combined = combined.drop_duplicates(
+            subset=[timestamp_col, symbol_col], keep="last"
+        )
+        combined = combined.sort_values([symbol_col, timestamp_col]).reset_index(drop=True)
+    else:
+        combined = new_data.copy()
+
+    # Save back
+    if existing_path.suffix == ".parquet":
+        combined.to_parquet(existing_path, index=False)
+    else:
+        combined.to_csv(existing_path, index=False)
+
+    return combined

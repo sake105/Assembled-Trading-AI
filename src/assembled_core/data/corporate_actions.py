@@ -1,4 +1,4 @@
-"""Corporate actions (splits, dividends) stub module."""
+"""Corporate actions: splits, dividends, total return adjustment."""
 
 from __future__ import annotations
 
@@ -195,5 +195,80 @@ def adjust_prices_for_splits(
         apply_mask = sym_mask & before_mask
 
         result.loc[apply_mask, "close"] = result.loc[apply_mask, "close"] / ratio
+
+    return result
+
+
+def compute_total_return_index(
+    prices: pd.DataFrame,
+    dividend_actions: pd.DataFrame,
+) -> pd.DataFrame:
+    """Compute total return (price + reinvested dividends) per symbol.
+
+    Adds a 'close_total_return' column that accounts for dividend reinvestment.
+    This corrects the ~2% p.a. bias from ignoring dividends in return computation.
+
+    Args:
+        prices: DataFrame with columns: symbol, timestamp (or date), close.
+            Must be sorted by (symbol, timestamp).
+        dividend_actions: DataFrame with columns: symbol, effective_date,
+            dividend_cash, action_type='DIVIDEND'.
+
+    Returns:
+        Copy of prices with added 'close_total_return' column.
+    """
+    result = prices.copy()
+    result["close_total_return"] = result["close"].astype(float).copy()
+
+    if dividend_actions.empty:
+        return result
+
+    required = {"symbol", "effective_date", "dividend_cash"}
+    if required - set(dividend_actions.columns):
+        return result
+
+    divs = dividend_actions.copy()
+    if "action_type" in divs.columns:
+        divs = divs[divs["action_type"] == "DIVIDEND"]
+    if divs.empty:
+        return result
+
+    ts_col = "timestamp" if "timestamp" in result.columns else "date"
+    if ts_col not in result.columns:
+        return result
+
+    divs["effective_date"] = pd.to_datetime(divs["effective_date"], utc=True)
+    result[ts_col] = pd.to_datetime(result[ts_col], utc=True)
+
+    # For each symbol, compute cumulative dividend adjustment
+    for sym in result["symbol"].unique():
+        sym_divs = divs[divs["symbol"] == sym].sort_values("effective_date")
+        if sym_divs.empty:
+            continue
+
+        sym_mask = result["symbol"] == sym
+        sym_idx = result.index[sym_mask]
+        sym_ts = result.loc[sym_idx, ts_col]
+        sym_close = result.loc[sym_idx, "close"].astype(float)
+
+        # Build cumulative reinvestment factor per row
+        cum_factor = pd.Series(1.0, index=sym_idx, dtype=float)
+        for _, div_row in sym_divs.iterrows():
+            ex_date = div_row["effective_date"]
+            div_cash = float(div_row["dividend_cash"])
+            # Find the close price on or just before ex-date for reinvestment ratio
+            pre_ex = sym_ts[sym_ts < ex_date]
+            if pre_ex.empty:
+                continue
+            last_pre_idx = pre_ex.index[-1]
+            close_at = float(sym_close.loc[last_pre_idx])
+            if close_at <= 0:
+                continue
+            reinvest_ratio = 1.0 + div_cash / close_at
+            # All rows on or after ex-date get multiplied
+            post_mask = sym_ts >= ex_date
+            cum_factor.loc[sym_idx[post_mask]] *= reinvest_ratio
+
+        result.loc[sym_idx, "close_total_return"] = sym_close.values * cum_factor.values
 
     return result

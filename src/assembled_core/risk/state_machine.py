@@ -449,11 +449,100 @@ def compute_next_state(
     )
 
 
+def compute_drawdown_risk_level(
+    current_drawdown_pct: float,
+    *,
+    caution_threshold: float = -5.0,
+    reduce_threshold: float = -10.0,
+    minimum_threshold: float = -15.0,
+) -> tuple[str, float]:
+    """Compute internal risk level based on portfolio drawdown.
+
+    Independent of external geo-score regime. Returns a risk level and
+    recommended exposure cap (fraction of normal max).
+
+    Thresholds (drawdown in %):
+        > caution   (-5%):  NORMAL    → exposure_cap = 1.0
+        <= caution  (-5%):  CAUTION   → exposure_cap = 0.75
+        <= reduce   (-10%): REDUCE    → exposure_cap = 0.50
+        <= minimum  (-15%): MINIMUM   → exposure_cap = 0.25
+
+    Args:
+        current_drawdown_pct: Current portfolio drawdown as negative percentage
+            (e.g., -8.0 means 8% below peak).
+        caution_threshold: Drawdown % to trigger CAUTION (default -5.0).
+        reduce_threshold: Drawdown % to trigger REDUCE (default -10.0).
+        minimum_threshold: Drawdown % to trigger MINIMUM (default -15.0).
+
+    Returns:
+        (level, exposure_cap) tuple.
+    """
+    dd = current_drawdown_pct
+    if dd <= minimum_threshold:
+        return "MINIMUM", 0.25
+    if dd <= reduce_threshold:
+        return "REDUCE", 0.50
+    if dd <= caution_threshold:
+        return "CAUTION", 0.75
+    return "NORMAL", 1.0
+
+
+# ---------------------------------------------------------------------------
+# Regime-Conditional Risk Limits (Plan 7.4)
+# ---------------------------------------------------------------------------
+
+# Default limits per regime: max_gross, max_drawdown, max_single_weight
+REGIME_RISK_LIMITS: dict[str, dict[str, float]] = {
+    "bull": {"max_gross": 1.0, "max_dd": 0.20, "max_single": 0.15, "max_short_gross": 0.30},
+    "bear": {"max_gross": 0.70, "max_dd": 0.12, "max_single": 0.10, "max_short_gross": 0.20},
+    "crisis": {"max_gross": 0.50, "max_dd": 0.08, "max_single": 0.08, "max_short_gross": 0.10},
+    "recovery": {"max_gross": 0.90, "max_dd": 0.18, "max_single": 0.12, "max_short_gross": 0.25},
+    "sideways": {"max_gross": 0.85, "max_dd": 0.15, "max_single": 0.12, "max_short_gross": 0.20},
+}
+
+
+def compute_regime_risk_limits(
+    regime_probabilities: dict[str, float],
+    custom_limits: dict[str, dict[str, float]] | None = None,
+) -> dict[str, float]:
+    """Blend risk limits across regimes using HMM probabilities.
+
+    When HMM gives P(bull)=0.6, P(crisis)=0.4:
+    ``max_gross = 0.6 × 1.0 + 0.4 × 0.5 = 0.80``
+
+    Smooth transition avoids sudden limit changes at regime boundaries.
+
+    Args:
+        regime_probabilities: Regime → probability (sums to ~1).
+        custom_limits: Override default regime limits.
+
+    Returns:
+        Blended risk limits dict with keys: max_gross, max_dd,
+        max_single, max_short_gross.
+    """
+    limits = custom_limits or REGIME_RISK_LIMITS
+    total_p = sum(regime_probabilities.values())
+    if total_p < 1e-10:
+        return limits.get("sideways", {})
+
+    blended: dict[str, float] = {}
+    for regime, prob in regime_probabilities.items():
+        norm_prob = prob / total_p
+        regime_lim = limits.get(regime, limits.get("sideways", {}))
+        for key, val in regime_lim.items():
+            blended[key] = blended.get(key, 0.0) + norm_prob * val
+
+    return {k: round(v, 4) for k, v in blended.items()}
+
+
 __all__ = [
     "RiskState",
     "RiskStateRecord",
     "atomic_write_json_with_retry",
+    "compute_drawdown_risk_level",
+    "compute_regime_risk_limits",
     "load_risk_state",
     "save_risk_state",
     "compute_next_state",
+    "REGIME_RISK_LIMITS",
 ]

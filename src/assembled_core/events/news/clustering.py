@@ -200,4 +200,124 @@ def build_clusters(events: List[NewsEvent], cfg: Dict) -> List[Dict]:
     return clusters
 
 
-__all__ = ["UnionFind", "build_clusters"]
+# ---------------------------------------------------------------------------
+# FinBERT Sentiment Integration (Plan 4.4)
+# ---------------------------------------------------------------------------
+
+import logging
+
+_logger = logging.getLogger(__name__)
+
+try:
+    from transformers import pipeline as _hf_pipeline  # type: ignore
+
+    _FINBERT_AVAILABLE = True
+except ImportError:
+    _FINBERT_AVAILABLE = False
+    _hf_pipeline = None
+
+
+def _load_finbert():
+    """Lazy-load FinBERT sentiment pipeline."""
+    if not _FINBERT_AVAILABLE:
+        return None
+    try:
+        return _hf_pipeline(
+            "sentiment-analysis",
+            model="ProsusAI/finbert",
+            truncation=True,
+            max_length=512,
+        )
+    except Exception as exc:
+        _logger.warning("[FinBERT] Failed to load model: %s", exc)
+        return None
+
+
+_finbert_pipeline = None
+
+
+def score_cluster_sentiment(
+    sample_titles: List[str],
+    max_texts: int = 5,
+) -> float:
+    """Score cluster sentiment using FinBERT.
+
+    Args:
+        sample_titles: Representative titles from the cluster.
+        max_texts: Max texts to score (FinBERT latency budget).
+
+    Returns:
+        Median sentiment score in [-1, 1].
+        Returns 0.0 if FinBERT unavailable.
+    """
+    global _finbert_pipeline
+
+    if not _FINBERT_AVAILABLE:
+        return 0.0
+
+    texts = [t for t in sample_titles[:max_texts] if t and len(t.strip()) > 10]
+    if not texts:
+        return 0.0
+
+    if _finbert_pipeline is None:
+        _finbert_pipeline = _load_finbert()
+    if _finbert_pipeline is None:
+        return 0.0
+
+    try:
+        results = _finbert_pipeline(texts)
+        scores = []
+        for r in results:
+            label = r["label"].lower()
+            score = r["score"]
+            if label == "positive":
+                scores.append(score)
+            elif label == "negative":
+                scores.append(-score)
+            else:
+                scores.append(0.0)
+
+        if not scores:
+            return 0.0
+        scores.sort()
+        n = len(scores)
+        return round(scores[n // 2], 4)  # median
+    except Exception as exc:
+        _logger.warning("[FinBERT] Scoring failed: %s", exc)
+        return 0.0
+
+
+def enrich_clusters_with_sentiment(
+    clusters: List[Dict],
+    escalation_boost: float = 0.20,
+    deescalation_dampen: float = 0.20,
+) -> List[Dict]:
+    """Add sentiment scores to clusters and adjust magnitude.
+
+    - sentiment < -0.7 → escalation amplifier (+boost magnitude)
+    - sentiment > 0.3 → de-escalation dampener (-dampen magnitude)
+
+    Args:
+        clusters: List of cluster dicts from build_clusters().
+        escalation_boost: Magnitude increase for very negative sentiment.
+        deescalation_dampen: Magnitude decrease for positive sentiment.
+
+    Returns:
+        Clusters with added ``sentiment_score`` and ``magnitude_adjustment``.
+    """
+    for cl in clusters:
+        titles = cl.get("sample_titles", [])
+        sentiment = score_cluster_sentiment(titles)
+        cl["sentiment_score"] = sentiment
+
+        if sentiment < -0.7:
+            cl["magnitude_adjustment"] = escalation_boost
+        elif sentiment > 0.3:
+            cl["magnitude_adjustment"] = -deescalation_dampen
+        else:
+            cl["magnitude_adjustment"] = 0.0
+
+    return clusters
+
+
+__all__ = ["UnionFind", "build_clusters", "score_cluster_sentiment", "enrich_clusters_with_sentiment"]

@@ -57,7 +57,10 @@ from src.assembled_core.features.factor_store_integration import build_or_load_f
 from src.assembled_core.features.ta_features import (
     add_all_features,
 )
-from src.assembled_core.risk.correlation_guard import apply_correlation_guard
+from src.assembled_core.risk.correlation_guard import (
+    apply_correlation_guard,
+    detect_correlation_regime_shift,
+)
 from src.assembled_core.risk.georisk_overlay import (
     apply_exposure_multiplier_to_targets,
     compute_exposure_multiplier,
@@ -610,6 +613,69 @@ def _build_features_default(
     return prices_with_features
 
 
+def should_rebalance(
+    ctx: TradingContext,
+    target_positions: pd.DataFrame,
+    current_weights: dict[str, float] | None = None,
+    *,
+    weight_drift_threshold: float = 0.05,
+    vol_regime_change: bool = False,
+    corr_spike: bool = False,
+    scheduled: bool = True,
+    drawdown_pct: float | None = None,
+) -> tuple[bool, str]:
+    """Determine whether rebalancing is warranted (V14).
+
+    Checks 4 triggers:
+    1. Scheduled rebalance date (existing behavior, default True)
+    2. Weight drift exceeds threshold
+    3. Vol regime changed (from vol_targeting)
+    4. Correlation spike detected (from correlation_guard)
+
+    Plus: drawdown-based gradual de-risking signal.
+
+    Returns:
+        (should_rebalance: bool, reason: str)
+    """
+    reasons: list[str] = []
+
+    # Trigger 1: Scheduled
+    if scheduled:
+        reasons.append("scheduled")
+
+    # Trigger 2: Weight drift
+    if current_weights and not target_positions.empty and "symbol" in target_positions.columns:
+        target_w = {}
+        if "target_weight" in target_positions.columns:
+            for _, row in target_positions.iterrows():
+                target_w[row["symbol"]] = float(row.get("target_weight", 0.0))
+        all_syms = set(current_weights.keys()) | set(target_w.keys())
+        if all_syms:
+            max_drift = max(
+                abs(current_weights.get(s, 0.0) - target_w.get(s, 0.0))
+                for s in all_syms
+            )
+            if max_drift > weight_drift_threshold:
+                reasons.append(f"weight_drift={max_drift:.3f}")
+
+    # Trigger 3: Vol regime change
+    if vol_regime_change:
+        reasons.append("vol_regime_change")
+
+    # Trigger 4: Correlation spike
+    if corr_spike:
+        reasons.append("corr_spike")
+
+    # Trigger 5: Drawdown de-risking
+    if drawdown_pct is not None and drawdown_pct < -0.10:
+        reasons.append(f"drawdown={drawdown_pct:.2%}")
+
+    if not reasons:
+        return False, "no_trigger"
+
+    return True, "|".join(reasons)
+
+
 def _generate_orders_default(
     ctx: TradingContext,
     target_positions: pd.DataFrame,
@@ -759,10 +825,13 @@ def _apply_risk_controls_default(
                 _rl = _pol.get("risk_limits") or {}
                 _dd = _rl.get("max_drawdown") or {}
                 _tv = _rl.get("turnover") or {}
+                _cg = _rl.get("concentration_guard") or {}
                 _policy_defaults = {
                     "max_weight_per_symbol": _rl.get("max_position_weight"),
                     "drawdown_threshold": _dd.get("kill"),
                     "turnover_cap": _tv.get("daily_cap"),
+                    "max_sector_exposure": _cg.get("max_sector_weight"),
+                    "max_gross_exposure": _pol.get("shorts", {}).get("max_gross_exposure"),
                 }
                 logger.debug(
                     "PRE_TRADE: using policy.yaml risk_limits as PreTradeConfig fallback: %s",
@@ -794,8 +863,14 @@ def _apply_risk_controls_default(
                         or _policy_defaults.get("drawdown_threshold")
                     ),
                     de_risk_scale=ctx.risk_config.get("de_risk_scale", 0.0),
-                    max_gross_exposure=ctx.risk_config.get("max_gross_exposure"),
-                    max_sector_exposure=ctx.risk_config.get("max_sector_exposure"),
+                    max_gross_exposure=(
+                        ctx.risk_config.get("max_gross_exposure")
+                        or _policy_defaults.get("max_gross_exposure")
+                    ),
+                    max_sector_exposure=(
+                        ctx.risk_config.get("max_sector_exposure")
+                        or _policy_defaults.get("max_sector_exposure")
+                    ),
                     max_region_exposure=ctx.risk_config.get("max_region_exposure"),
                     max_fx_exposure=ctx.risk_config.get("max_fx_exposure"),
                     base_currency=ctx.risk_config.get("base_currency", "USD"),
@@ -1542,6 +1617,8 @@ def run_trading_cycle(
                     from src.assembled_core.portfolio.black_litterman import (
                         BlackLittermanOptimizer,
                     )
+                    from src.assembled_core.portfolio.covariance import estimate_covariance
+
                     prices_for_bl = result.prices_filtered if result.prices_filtered is not None else ctx.prices
                     bl = BlackLittermanOptimizer(
                         risk_aversion=float(sizing_cfg.get("risk_aversion", 2.5)),
@@ -1549,32 +1626,48 @@ def run_trading_cycle(
                         max_position=float(sizing_cfg.get("max_weight", 0.15)),
                         min_position=float(sizing_cfg.get("min_position", 0.0)),
                     )
-                    # Build views from signal scores
-                    views = {}
-                    view_confidence = {}
+                    # Build scores from signals
+                    scores_dict: dict[str, float] = {}
                     if not result.signals.empty and "symbol" in result.signals.columns:
                         for _, row in result.signals.iterrows():
                             sym = row["symbol"]
                             score = float(row.get("score", 0.0))
-                            conf = float(row.get("confidence", 0.5))
                             if abs(score) > 0.01:
-                                views[sym] = score * 0.10  # Map score to expected return
-                                view_confidence[sym] = conf
-                    if views and prices_for_bl is not None and not prices_for_bl.empty:
-                        bl_weights = bl.optimize_from_scores(
-                            prices=prices_for_bl,
-                            signal_scores=views,
-                            confidence=view_confidence,
-                        )
-                        # Convert to target_positions format
-                        rows = []
-                        for sym, w in bl_weights.items():
-                            rows.append({
-                                "symbol": sym,
-                                "target_weight": round(w, 4),
-                                "target_qty": round(w * ctx.capital, 2),
-                            })
-                        result.target_positions = pd.DataFrame(rows)
+                                scores_dict[sym] = score
+                    if scores_dict and prices_for_bl is not None and not prices_for_bl.empty:
+                        # Compute covariance matrix using Ledoit-Wolf shrinkage
+                        _ts_col = "timestamp" if "timestamp" in prices_for_bl.columns else prices_for_bl.columns[0]
+                        _sym_col = "symbol" if "symbol" in prices_for_bl.columns else None
+                        if _sym_col and "close" in prices_for_bl.columns:
+                            _pivot = prices_for_bl.pivot_table(
+                                index=_ts_col, columns=_sym_col, values="close"
+                            )
+                            _returns = _pivot.pct_change().dropna(how="all")
+                            _cov_method = sizing_cfg.get("cov_method", "ledoit_wolf")
+                            sigma = estimate_covariance(_returns, method=_cov_method)
+                        else:
+                            sigma = pd.DataFrame()
+
+                        if not sigma.empty:
+                            scores_series = pd.Series(scores_dict)
+                            bl_conf = float(sizing_cfg.get("bl_confidence", 0.5))
+                            bl_weights = bl.optimize_from_scores(
+                                scores=scores_series,
+                                sigma=sigma,
+                                confidence=bl_conf,
+                            )
+                            # Convert to target_positions format
+                            rows = []
+                            for sym, w in bl_weights.items():
+                                rows.append({
+                                    "symbol": sym,
+                                    "target_weight": round(w, 4),
+                                    "target_qty": round(w * ctx.capital, 2),
+                                })
+                            result.target_positions = pd.DataFrame(rows)
+                        else:
+                            log.warning("BL: could not compute covariance — using default sizing")
+                            result.target_positions = ctx.position_sizing_fn(result.signals, ctx.capital)
                     else:
                         # Fallback to default sizing if no views
                         result.target_positions = ctx.position_sizing_fn(result.signals, ctx.capital)
@@ -1848,12 +1941,70 @@ def run_trading_cycle(
                 log.info(
                     "CORRELATION_GUARD: %d clusters scaled down", len(corr_reasons)
                 )
+
+            # V4: Apply correlation regime shift exposure scaling
+            symbols_in_portfolio = list(
+                result.target_positions["symbol"].unique()
+            )
+            if len(symbols_in_portfolio) >= 2:
+                shift_result = detect_correlation_regime_shift(
+                    corr_prices, symbols_in_portfolio
+                )
+                if shift_result.get("regime_shift_detected", False):
+                    exp_scale = shift_result["exposure_scale"]
+                    result.target_positions["target_weight"] *= exp_scale
+                    if "target_qty" in result.target_positions.columns:
+                        result.target_positions["target_qty"] *= exp_scale
+                    result.meta["correlation_regime_shift"] = {
+                        "avg_corr_short": shift_result["avg_corr_short"],
+                        "avg_corr_long": shift_result["avg_corr_long"],
+                        "shift": shift_result["shift"],
+                        "exposure_scale": exp_scale,
+                    }
+                    log.warning(
+                        "CORR_REGIME_SHIFT: shift=%.3f, scaling exposure by %.2f",
+                        shift_result["shift"],
+                        exp_scale,
+                    )
     except Exception as e:
         log.debug("correlation_guard check skipped: %s", e)
 
+    # Step 4.5 (V14): Check rebalancing triggers — skip order generation if no trigger
+    rebal_scheduled = True  # Default: always rebalance (backward compatible)
+    vol_regime_changed = bool(result.meta.get("vol_targeting", {}).get("regime_changed", False))
+    corr_spiked = bool(result.meta.get("correlation_regime_shift", {}).get("exposure_scale", 1.0) < 1.0)
+    dd_pct = result.meta.get("drawdown_pct")
+    current_w: dict[str, float] = {}
+    if hasattr(ctx, "current_positions") and ctx.current_positions is not None:
+        if isinstance(ctx.current_positions, dict):
+            current_w = ctx.current_positions
+        elif isinstance(ctx.current_positions, pd.DataFrame) and "symbol" in ctx.current_positions.columns:
+            for _, row in ctx.current_positions.iterrows():
+                current_w[row["symbol"]] = float(row.get("weight", row.get("target_weight", 0.0)))
+
+    do_rebal, rebal_reason = should_rebalance(
+        ctx, result.target_positions,
+        current_weights=current_w,
+        weight_drift_threshold=float(policy.get("rebalancing", {}).get("weight_drift_threshold", 0.05)),
+        vol_regime_change=vol_regime_changed,
+        corr_spike=corr_spiked,
+        scheduled=rebal_scheduled,
+        drawdown_pct=float(dd_pct) if dd_pct is not None else None,
+    )
+    result.meta["rebalance_decision"] = {"triggered": do_rebal, "reason": rebal_reason}
+    if not do_rebal:
+        log.info("REBALANCE SKIPPED: %s — no orders generated", rebal_reason)
+        result.orders = pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
+        result.orders_filtered = result.orders.copy()
+        # Skip to outputs
+    else:
+        log.info("REBALANCE TRIGGERED: %s", rebal_reason)
+
     # Step 5: Generate orders (hook point: generate_orders)
     try:
-        if "generate_orders" in hooks:
+        if not do_rebal:
+            pass  # Already set empty orders above
+        elif "generate_orders" in hooks:
             result.orders = hooks["generate_orders"](ctx, result.target_positions)
         else:
             # Default: use existing order generation module

@@ -77,6 +77,10 @@ EVENT_TYPE_FILL = "FILL"
 EVENT_TYPE_CANCEL = "CANCEL"
 EVENT_TYPE_REJECT = "REJECT"
 EVENT_TYPE_CASH_MOVEMENT = "CASH_MOVEMENT"
+EVENT_TYPE_DIVIDEND = "DIVIDEND"
+EVENT_TYPE_BORROW_FEE = "BORROW_FEE"
+EVENT_TYPE_MARGIN_INTEREST = "MARGIN_INTEREST"
+EVENT_TYPE_MARGIN_CALL = "MARGIN_CALL"
 
 VALID_EVENT_TYPES = [
     EVENT_TYPE_ORDER_SUBMIT,
@@ -85,6 +89,10 @@ VALID_EVENT_TYPES = [
     EVENT_TYPE_CANCEL,
     EVENT_TYPE_REJECT,
     EVENT_TYPE_CASH_MOVEMENT,
+    EVENT_TYPE_DIVIDEND,
+    EVENT_TYPE_BORROW_FEE,
+    EVENT_TYPE_MARGIN_INTEREST,
+    EVENT_TYPE_MARGIN_CALL,
 ]
 
 
@@ -418,3 +426,185 @@ def events_from_trades(
     )
 
     return events_df
+
+
+# ---------------------------------------------------------------------------
+# Dividend Tracking (Plan 8.2)
+# ---------------------------------------------------------------------------
+
+
+def generate_dividend_events(
+    positions: dict[str, float],
+    dividends: dict[str, float],
+    event_ts: pd.Timestamp,
+    run_id: str = "dividend_run",
+) -> pd.DataFrame:
+    """Generate DIVIDEND ledger events for positions receiving dividends.
+
+    Long positions receive positive cash (dividend income).
+    Short positions pay negative cash (dividend obligation).
+
+    Args:
+        positions: Symbol -> quantity (positive=long, negative=short).
+        dividends: Symbol -> dividend per share (in dollars).
+        event_ts: Timestamp of the dividend event.
+        run_id: Run identifier.
+
+    Returns:
+        DataFrame of DIVIDEND ledger events.
+    """
+    events = []
+    for sym, qty in positions.items():
+        if sym not in dividends or qty == 0:
+            continue
+        div_per_share = dividends[sym]
+        cash_delta = qty * div_per_share  # long->positive, short->negative
+
+        event_id = generate_event_id(
+            EVENT_TYPE_DIVIDEND, event_ts, sym, qty, div_per_share,
+        )
+        events.append({
+            "event_ts": event_ts,
+            "event_type": EVENT_TYPE_DIVIDEND,
+            "symbol": sym,
+            "qty": qty,
+            "price": div_per_share,
+            "cash_delta": round(cash_delta, 4),
+            "run_id": run_id,
+            "event_id": event_id,
+        })
+
+    if not events:
+        return pd.DataFrame(columns=REQUIRED_COLUMNS)
+    return pd.DataFrame(events)
+
+
+# ---------------------------------------------------------------------------
+# Margin Accounting (Plan 8.3)
+# ---------------------------------------------------------------------------
+
+
+def check_margin_requirements(
+    positions: dict[str, float],
+    prices: dict[str, float],
+    cash_balance: float,
+    initial_margin_pct: float = 0.50,
+    maintenance_margin_pct: float = 0.30,
+) -> dict:
+    """Check Reg-T margin requirements.
+
+    Initial margin: 50% of position value required to open.
+    Maintenance margin: 30% of position value to maintain.
+
+    Args:
+        positions: Symbol -> quantity.
+        prices: Symbol -> current price.
+        cash_balance: Available cash.
+        initial_margin_pct: Initial margin requirement (default 50%).
+        maintenance_margin_pct: Maintenance margin (default 30%).
+
+    Returns:
+        Dict with margin_used, margin_available, maintenance_excess,
+        margin_call (bool), margin_call_amount.
+    """
+    total_position_value = 0.0
+    for sym, qty in positions.items():
+        price = prices.get(sym, 0.0)
+        total_position_value += abs(qty * price)
+
+    margin_used = total_position_value * initial_margin_pct
+    maintenance_req = total_position_value * maintenance_margin_pct
+    equity = cash_balance + sum(
+        qty * prices.get(sym, 0.0) for sym, qty in positions.items()
+    )
+
+    margin_call = equity < maintenance_req
+    margin_call_amount = max(0.0, maintenance_req - equity) if margin_call else 0.0
+
+    if margin_call:
+        logger.warning(
+            "[Margin] MARGIN CALL: equity=%.2f < maintenance=%.2f, shortfall=%.2f",
+            equity, maintenance_req, margin_call_amount,
+        )
+
+    return {
+        "total_position_value": round(total_position_value, 2),
+        "margin_used": round(margin_used, 2),
+        "maintenance_required": round(maintenance_req, 2),
+        "equity": round(equity, 2),
+        "margin_available": round(max(0.0, equity - margin_used), 2),
+        "maintenance_excess": round(equity - maintenance_req, 2),
+        "margin_call": margin_call,
+        "margin_call_amount": round(margin_call_amount, 2),
+    }
+
+
+# ---------------------------------------------------------------------------
+# 8.5  Cash Management and Drag
+# ---------------------------------------------------------------------------
+
+def compute_cash_drag(
+    cash_balance: float,
+    total_equity: float,
+    risk_free_rate_annual: float = 0.05,
+    trading_days: int = 252,
+) -> dict:
+    """Compute daily cash drag from uninvested cash.
+
+    Args:
+        cash_balance: Current cash balance.
+        total_equity: Total portfolio equity.
+        risk_free_rate_annual: Risk-free rate (SOFR proxy).
+        trading_days: Trading days per year.
+
+    Returns:
+        Dict with cash_pct, daily_interest, annual_drag_bps.
+    """
+    cash_pct = cash_balance / max(total_equity, 1.0)
+    daily_interest = cash_balance * risk_free_rate_annual / trading_days
+    # Drag = opportunity cost from being in cash vs. invested
+    # If risk-free rate < expected return, cash is a drag
+    invested_pct = 1.0 - cash_pct
+
+    return {
+        "cash_pct": round(cash_pct, 4),
+        "daily_interest": round(daily_interest, 2),
+        "invested_pct": round(invested_pct, 4),
+    }
+
+
+# ---------------------------------------------------------------------------
+# 8.9  Interest Accrual (Borrow + Margin)
+# ---------------------------------------------------------------------------
+
+def compute_daily_interest_accrual(
+    short_notionals: dict[str, float],
+    margin_balance: float = 0.0,
+    borrow_rate_annual: float = 0.0025,
+    margin_rate_annual: float = 0.06,
+    trading_days: int = 252,
+) -> dict:
+    """Compute daily interest accrual for borrow fees and margin interest.
+
+    Args:
+        short_notionals: Symbol → short notional (negative values).
+        margin_balance: Outstanding margin balance.
+        borrow_rate_annual: Default annual borrow rate.
+        margin_rate_annual: Annual margin interest rate.
+        trading_days: Trading days per year.
+
+    Returns:
+        Dict with borrow_fees, margin_interest, total_daily_cost.
+    """
+    borrow_total = 0.0
+    for sym, notional in short_notionals.items():
+        if notional < 0:
+            borrow_total += abs(notional) * borrow_rate_annual / trading_days
+
+    margin_interest = abs(margin_balance) * margin_rate_annual / trading_days
+
+    return {
+        "borrow_fees": round(borrow_total, 2),
+        "margin_interest": round(margin_interest, 2),
+        "total_daily_cost": round(borrow_total + margin_interest, 2),
+    }

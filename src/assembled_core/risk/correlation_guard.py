@@ -193,8 +193,77 @@ def apply_correlation_guard(
     return adjusted, reasons
 
 
+def compute_avg_correlation(corr_matrix: pd.DataFrame) -> float:
+    """Compute the average pairwise correlation (off-diagonal).
+
+    Returns 0.0 if matrix is empty or has fewer than 2 symbols.
+    Higher values indicate correlation convergence (crisis regime).
+    """
+    if corr_matrix is None or corr_matrix.empty or len(corr_matrix) < 2:
+        return 0.0
+    import numpy as np
+    mask = ~np.eye(len(corr_matrix), dtype=bool)
+    vals = corr_matrix.values[mask]
+    vals = vals[~pd.isna(vals)]
+    if len(vals) == 0:
+        return 0.0
+    return float(vals.mean())
+
+
+def detect_correlation_regime_shift(
+    prices: pd.DataFrame,
+    symbols: list[str],
+    *,
+    short_window: int = 20,
+    long_window: int = 120,
+    shift_threshold: float = 0.15,
+) -> dict[str, float | bool]:
+    """Detect if correlations are regime-shifting toward convergence.
+
+    Compares short-window average correlation vs long-window average.
+    When short >> long, diversification is collapsing (crisis signal).
+
+    Args:
+        prices: Price DataFrame with timestamp, symbol, close.
+        symbols: Symbols to analyze.
+        short_window: Recent lookback for short-term correlation.
+        long_window: Baseline lookback for long-term correlation.
+        shift_threshold: Difference threshold to flag a shift.
+
+    Returns:
+        Dict with:
+            avg_corr_short: short-window average pairwise correlation
+            avg_corr_long: long-window average pairwise correlation
+            shift: difference (short - long)
+            regime_shift_detected: True if shift > threshold
+            exposure_scale: suggested exposure scaling (1.0 = no change, <1 = reduce)
+    """
+    corr_short = compute_correlation_matrix(prices, symbols, short_window)
+    corr_long = compute_correlation_matrix(prices, symbols, long_window)
+
+    avg_short = compute_avg_correlation(corr_short)
+    avg_long = compute_avg_correlation(corr_long)
+    shift = avg_short - avg_long
+
+    detected = shift > shift_threshold
+    # Suggest exposure reduction proportional to shift magnitude
+    exposure_scale = 1.0
+    if detected:
+        exposure_scale = max(0.5, 1.0 - (shift - shift_threshold) * 2.0)
+
+    return {
+        "avg_corr_short": round(avg_short, 4),
+        "avg_corr_long": round(avg_long, 4),
+        "shift": round(shift, 4),
+        "regime_shift_detected": detected,
+        "exposure_scale": round(exposure_scale, 4),
+    }
+
+
 __all__ = [
+    "compute_avg_correlation",
     "compute_correlation_matrix",
     "detect_correlated_clusters",
+    "detect_correlation_regime_shift",
     "apply_correlation_guard",
 ]

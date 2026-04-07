@@ -313,6 +313,8 @@ class ShockTransmission(BaseModel):
     # M15 continuous magnitude
     magnitude: float = 1.0  # initial shock strength
     dampened_magnitude: float = 1.0  # after per-hop dampening
+    # M16: estimated days until impact materializes
+    time_to_impact_days: float = 0.0
 
     model_config = {"frozen": False}
 

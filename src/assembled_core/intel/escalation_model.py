@@ -8,7 +8,6 @@ for geopolitical conflict scenarios.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from .models import ConflictState, EscalationLevel
 
@@ -130,6 +129,10 @@ ACTIVE_CONFLICTS: dict[str, ConflictState] = {
 
 # Sector impact per escalation level relative to current level
 # Format: {level_delta: {sector: additional_impact 0-1}}
+# Sector impact by conflict domain.
+# Positive values = sector is NEGATIVELY affected (risk/harm).
+# Negative values = sector BENEFITS from escalation.
+# DEFENSE benefits from all military escalations (increased spending, contracts).
 _SECTOR_IMPACT_BY_DOMAIN: dict[str, dict[str, float]] = {
     "UKRAINE_RUSSIA": {
         "ENERGY": 0.80, "DEFENSE": -0.60, "AGRICULTURE": 0.50,
@@ -145,6 +148,7 @@ _SECTOR_IMPACT_BY_DOMAIN: dict[str, dict[str, float]] = {
     },
     "HORN_OF_AFRICA": {
         "SHIPPING": 0.80, "ENERGY": 0.45, "CONSUMER": 0.30,
+        "DEFENSE": -0.25,
     },
     "SOUTH_CHINA_SEA": {
         "ENERGY": 0.50, "SHIPPING": 0.65, "DEFENSE": -0.40,

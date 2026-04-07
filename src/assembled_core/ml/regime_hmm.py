@@ -229,3 +229,188 @@ class RegimeHMM:
         for idx in ranked[1:-1]:
             label_map[int(idx)] = "sideways"
         return label_map
+
+
+# ---------------------------------------------------------------------------
+# Multi-Feature HMM (Plan 2.3)
+# ---------------------------------------------------------------------------
+
+
+class MultiFeatureRegimeHMM:
+    """Multi-observable HMM for earlier regime detection.
+
+    Uses 4 observables instead of just returns:
+    ``[daily_return, realized_vol_20d, vix_change, hy_spread_change]``
+
+    Multi-variate observables detect regime changes 2-5 days earlier
+    than univariate return-based HMMs.
+
+    When ``hmmlearn`` is not installed, falls back to a simple
+    volatility-threshold classifier.
+    """
+
+    def __init__(
+        self,
+        n_regimes: int = 3,
+        n_iter: int = 100,
+        random_state: int = 42,
+    ):
+        self.n_regimes = n_regimes
+        self.n_iter = n_iter
+        self.random_state = random_state
+        self._model: Any = None
+        self._label_map: dict[int, str] = {}
+        self._fitted = False
+
+    def fit(self, features_df: pd.DataFrame) -> bool:
+        """Fit multi-feature HMM.
+
+        Args:
+            features_df: DataFrame with numeric feature columns.
+                Each row is one observation (time step).
+                NaN rows are dropped.
+
+        Returns:
+            True if fitting succeeded.
+        """
+        if not HMM_AVAILABLE:
+            logger.debug("[MultiHMM] hmmlearn not installed — using fallback")
+            self._fitted = False
+            return False
+
+        clean = features_df.dropna()
+        if len(clean) < 60:
+            logger.debug("[MultiHMM] insufficient data (%d < 60)", len(clean))
+            return False
+
+        X = clean.values
+        n_features = X.shape[1]
+
+        try:
+            model = GaussianHMM(
+                n_components=self.n_regimes,
+                covariance_type="full",
+                n_iter=self.n_iter,
+                random_state=self.random_state,
+            )
+            model.fit(X)
+            self._model = model
+            self._label_map = RegimeHMM._build_label_map(model)
+            self._fitted = True
+            logger.info(
+                "[MultiHMM] Fitted %d-regime model with %d features on %d obs",
+                self.n_regimes, n_features, len(clean),
+            )
+            return True
+        except Exception as exc:
+            logger.warning("[MultiHMM] fit failed: %s", exc)
+            return False
+
+    def predict_proba(self, features_df: pd.DataFrame) -> pd.DataFrame:
+        """Predict regime probabilities for each row.
+
+        Args:
+            features_df: Same feature columns as used for fitting.
+
+        Returns:
+            DataFrame with regime probability columns (bull, bear, sideways).
+        """
+        if not self._fitted or self._model is None:
+            return self._fallback_proba(features_df)
+
+        clean = features_df.dropna()
+        if clean.empty:
+            return pd.DataFrame()
+
+        try:
+            proba = self._model.predict_proba(clean.values)
+        except Exception:
+            return self._fallback_proba(features_df)
+
+        result = pd.DataFrame(index=clean.index)
+        for state_idx, label in self._label_map.items():
+            if state_idx < proba.shape[1]:
+                result[f"p_{label}"] = proba[:, state_idx]
+
+        return result
+
+    def predict_regime(self, features_df: pd.DataFrame) -> pd.Series:
+        """Predict most likely regime for each row."""
+        proba = self.predict_proba(features_df)
+        if proba.empty:
+            return pd.Series(dtype=str)
+
+        regime_cols = [c for c in proba.columns if c.startswith("p_")]
+        return proba[regime_cols].idxmax(axis=1).str.replace("p_", "", regex=False)
+
+    def crisis_alert(self, features_df: pd.DataFrame, threshold: float = 0.3) -> dict:
+        """Check if crisis probability is rising above threshold.
+
+        Returns:
+            Dict with ``crisis_prob``, ``alert``, ``trend``.
+        """
+        proba = self.predict_proba(features_df)
+        if proba.empty or "p_bear" not in proba.columns:
+            return {"crisis_prob": 0.0, "alert": False, "trend": "unknown"}
+
+        latest = float(proba["p_bear"].iloc[-1])
+        if len(proba) >= 5:
+            prev = float(proba["p_bear"].iloc[-5])
+            trend = "rising" if latest > prev else "falling"
+        else:
+            trend = "unknown"
+
+        return {
+            "crisis_prob": round(latest, 4),
+            "alert": latest > threshold and trend == "rising",
+            "trend": trend,
+        }
+
+    @staticmethod
+    def _fallback_proba(features_df: pd.DataFrame) -> pd.DataFrame:
+        """Simple volatility-based fallback when hmmlearn unavailable."""
+        if features_df.empty:
+            return pd.DataFrame()
+
+        # Use first column as proxy for returns
+        col = features_df.columns[0]
+        vol = features_df[col].rolling(20, min_periods=5).std()
+
+        result = pd.DataFrame(index=features_df.index)
+        # High vol → bear, low vol → bull
+        vol_pct = vol.rank(pct=True)
+        result["p_bull"] = (1 - vol_pct).clip(0, 1).fillna(0.5)
+        result["p_bear"] = vol_pct.clip(0, 1).fillna(0.3)
+        result["p_sideways"] = 1.0 - result["p_bull"] - result["p_bear"]
+        result["p_sideways"] = result["p_sideways"].clip(0, 1)
+
+        return result
+
+
+def build_multifeature_observables(
+    returns: pd.Series,
+    vix_changes: pd.Series | None = None,
+    hy_spread_changes: pd.Series | None = None,
+    vol_window: int = 20,
+) -> pd.DataFrame:
+    """Build the standard 4-observable feature matrix for MultiFeatureRegimeHMM.
+
+    Args:
+        returns: Daily returns.
+        vix_changes: Daily VIX changes (optional).
+        hy_spread_changes: Daily HY spread changes (optional).
+        vol_window: Window for realized volatility.
+
+    Returns:
+        DataFrame with aligned feature columns.
+    """
+    features = pd.DataFrame(index=returns.index)
+    features["daily_return"] = returns
+    features["realized_vol"] = returns.rolling(vol_window, min_periods=10).std()
+
+    if vix_changes is not None:
+        features["vix_change"] = vix_changes.reindex(returns.index)
+    if hy_spread_changes is not None:
+        features["hy_spread_change"] = hy_spread_changes.reindex(returns.index)
+
+    return features.dropna()

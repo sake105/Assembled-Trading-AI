@@ -120,3 +120,42 @@ def add_latest_macro_value(
     )
 
     return result
+
+
+# ── 3.8  Extended FRED Macro Feature Config ──────────────────────────
+# series_id → (friendly name, publication lag in days)
+EXTENDED_FRED_SERIES: dict[str, tuple[str, int]] = {
+    "UNRATE": ("unemployment_rate", 30),
+    "ICSA": ("initial_claims", 7),
+    "UMCSENT": ("consumer_sentiment", 14),
+    "HOUST": ("housing_starts", 30),
+    "INDPRO": ("industrial_production", 30),
+    "PCEPI": ("pce_inflation", 30),
+    "T10Y2Y": ("yield_curve_10y2y", 1),
+    "DFF": ("fed_funds_rate", 1),
+}
+
+
+def compute_diffusion_index(
+    macro_values: dict[str, pd.Series],
+    momentum_window: int = 3,
+) -> pd.Series:
+    """Compute macro diffusion index: % of indicators with positive momentum.
+
+    Args:
+        macro_values: Dict of series_id → time-series of values.
+        momentum_window: Number of periods for momentum calculation.
+
+    Returns:
+        Series with diffusion index (0-1 range).
+    """
+    if not macro_values:
+        return pd.Series(dtype=float)
+
+    combined = pd.DataFrame(macro_values)
+    if combined.empty:
+        return pd.Series(dtype=float)
+
+    momentum = combined.diff(momentum_window)
+    positive_frac = (momentum > 0).sum(axis=1) / momentum.notna().sum(axis=1)
+    return positive_frac.fillna(0.5)

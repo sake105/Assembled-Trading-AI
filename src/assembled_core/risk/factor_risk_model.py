@@ -323,3 +323,45 @@ class FactorRiskModel:
     def _check_fitted(self) -> None:
         if not self._is_fitted:
             raise RuntimeError("FactorRiskModel must be fitted before calling predict*")
+
+
+# ---------------------------------------------------------------------------
+# 7.6  Factor Exposure Limits
+# ---------------------------------------------------------------------------
+
+def check_factor_exposure_limits(
+    weights: pd.Series,
+    factor_exposures: pd.DataFrame,
+    max_factor_exposure: float = 0.5,
+) -> list[dict]:
+    """Check if portfolio factor exposures exceed limits.
+
+    Args:
+        weights: Symbol → weight.
+        factor_exposures: DataFrame with symbol index and factor columns.
+        max_factor_exposure: Maximum absolute factor exposure.
+
+    Returns:
+        List of violation dicts with factor, exposure, limit.
+    """
+    syms = [s for s in weights.index if s in factor_exposures.index]
+    if not syms:
+        return []
+
+    w = weights.reindex(syms).fillna(0).values
+    B = factor_exposures.reindex(syms).fillna(0).values
+
+    port_exposures = B.T @ w  # (k,)
+
+    violations = []
+    for i, factor_name in enumerate(factor_exposures.columns):
+        exposure = float(port_exposures[i])
+        if abs(exposure) > max_factor_exposure:
+            violations.append({
+                "factor": factor_name,
+                "exposure": round(exposure, 4),
+                "limit": max_factor_exposure,
+                "breach": round(abs(exposure) - max_factor_exposure, 4),
+            })
+
+    return violations

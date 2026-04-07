@@ -384,3 +384,104 @@ class ImplementationShortfallModel:
             "min_cost_bps": float(costs[optimal_idx]),
             "cost_by_day": dict(zip(horizons.tolist(), costs)),
         }
+
+
+# ---------------------------------------------------------------------------
+# Intraday Volume Profile (Plan 6.4)
+# ---------------------------------------------------------------------------
+
+INTRADAY_VOLUME_PROFILE: dict[str, float] = {
+    "09:30-10:00": 0.15,
+    "10:00-12:00": 0.25,
+    "12:00-14:00": 0.15,
+    "14:00-15:30": 0.25,
+    "15:30-16:00": 0.20,
+}
+
+
+def get_volume_fraction(time_bucket: str) -> float:
+    """Get expected volume fraction for a time bucket.
+
+    Args:
+        time_bucket: Time range string (e.g., "09:30-10:00").
+
+    Returns:
+        Expected fraction of daily volume.
+    """
+    return INTRADAY_VOLUME_PROFILE.get(time_bucket, 0.10)
+
+
+# ---------------------------------------------------------------------------
+# Participation Rate Limit (Plan 6.6)
+# ---------------------------------------------------------------------------
+
+
+def compute_multi_day_execution_plan(
+    order_qty: float,
+    adv: float,
+    max_participation_pct: float = 0.05,
+) -> list[dict]:
+    """Create multi-day execution plan for large orders.
+
+    Args:
+        order_qty: Total shares to execute.
+        adv: Average daily volume.
+        max_participation_pct: Max daily participation (default 5%).
+
+    Returns:
+        List of daily execution slices.
+    """
+    if adv <= 0:
+        return []
+
+    max_daily = adv * max_participation_pct
+    remaining = abs(order_qty)
+    plan = []
+    day = 1
+
+    while remaining > 0:
+        slice_qty = min(remaining, max_daily)
+        plan.append({
+            "day": day,
+            "quantity": round(slice_qty, 0),
+            "pct_of_adv": round(slice_qty / adv * 100, 2),
+            "remaining_after": round(remaining - slice_qty, 0),
+        })
+        remaining -= slice_qty
+        day += 1
+
+    return plan
+
+
+# ---------------------------------------------------------------------------
+# Implementation Shortfall (Plan 6.7)
+# ---------------------------------------------------------------------------
+
+
+def compute_implementation_shortfall(
+    decision_price: float,
+    avg_fill_price: float,
+    side: str = "BUY",
+) -> float:
+    """Compute implementation shortfall in basis points.
+
+    IS = (avg_fill - decision_price) / decision_price × 10000 (for BUY)
+    IS = (decision_price - avg_fill) / decision_price × 10000 (for SELL)
+
+    Args:
+        decision_price: Price at time of decision.
+        avg_fill_price: Volume-weighted average fill price.
+        side: BUY or SELL.
+
+    Returns:
+        Implementation shortfall in bps (positive = cost).
+    """
+    if decision_price <= 0:
+        return 0.0
+
+    if side.upper() == "BUY":
+        is_bps = (avg_fill_price - decision_price) / decision_price * 10000
+    else:
+        is_bps = (decision_price - avg_fill_price) / decision_price * 10000
+
+    return round(is_bps, 2)

@@ -17,9 +17,80 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+
+def compute_atr_stop_pct(
+    prices_df: pd.DataFrame,
+    symbol: str,
+    *,
+    atr_period: int = 14,
+    regime: str = "sideways",
+) -> float | None:
+    """Compute ATR-based stop-loss as a fraction of price.
+
+    ATR multiplier is regime-dependent:
+        crisis/bear: 1.5 ATR  (tighter stops — protect capital)
+        sideways:    2.0 ATR
+        bull:        3.0 ATR  (wider stops — let position breathe)
+
+    Args:
+        prices_df: DataFrame with columns [symbol, date, high, low, close]
+                   or MultiIndex with symbol level.
+        symbol: Ticker to compute ATR for.
+        atr_period: ATR lookback period (default 14).
+        regime: Market regime string.
+
+    Returns:
+        Stop-loss as fraction (e.g., 0.12 = 12%), or None if insufficient data.
+    """
+    atr_multipliers = {
+        "crisis": 1.5,
+        "bear": 1.5,
+        "sideways": 2.0,
+        "bull": 3.0,
+    }
+    multiplier = atr_multipliers.get(regime, 2.0)
+
+    # Extract symbol data
+    if "symbol" in prices_df.columns:
+        sym_data = prices_df[prices_df["symbol"] == symbol].copy()
+    else:
+        sym_data = prices_df.copy()
+
+    if len(sym_data) < atr_period + 1:
+        return None
+
+    # Compute ATR
+    high = sym_data["high"] if "high" in sym_data.columns else None
+    low = sym_data["low"] if "low" in sym_data.columns else None
+    close = sym_data["close"] if "close" in sym_data.columns else None
+
+    if high is None or low is None or close is None:
+        return None
+
+    high = high.astype(float)
+    low = low.astype(float)
+    close = close.astype(float)
+
+    prev_close = close.shift(1)
+    tr = pd.concat([
+        (high - low),
+        (high - prev_close).abs(),
+        (low - prev_close).abs(),
+    ], axis=1).max(axis=1)
+
+    atr = tr.rolling(atr_period).mean().iloc[-1]
+    last_price = close.iloc[-1]
+
+    if np.isnan(atr) or last_price <= 0:
+        return None
+
+    stop_pct = (multiplier * atr) / last_price
+    return float(min(stop_pct, 0.50))  # Cap at 50% to prevent nonsensical stops
 
 # ---------------------------------------------------------------------------
 # Config
@@ -299,11 +370,22 @@ class ShortRiskManager:
         short_positions: pd.DataFrame,
         current_prices: pd.Series,
         entry_prices: pd.Series,
+        *,
+        atr_stops: dict[str, float] | None = None,
     ) -> list[str]:
         """Check which shorts have hit their stop-loss level.
 
+        Args:
+            short_positions: DataFrame with at least 'symbol' column and
+                optional 'stop_loss_pct' column.
+            current_prices: Series mapping symbol → current price.
+            entry_prices: Series mapping symbol → entry price.
+            atr_stops: Optional dict mapping symbol → ATR-based stop fraction.
+                If provided for a symbol, takes precedence over fixed stop.
+
         Returns list of symbols to close (stop-out triggered).
         """
+        atr_stops = atr_stops or {}
         stop_outs = []
         for _, row in short_positions.iterrows():
             symbol = row.get("symbol")
@@ -317,13 +399,19 @@ class ShortRiskManager:
 
             # For shorts: loss = (current - entry) / entry (price RISE = short loss)
             pnl_pct = (current - entry) / entry
-            stop_loss = row.get("stop_loss_pct", self.max_stop_loss)
+
+            # ATR-based stop takes precedence, then per-position, then global max
+            if symbol in atr_stops:
+                stop_loss = atr_stops[symbol]
+            else:
+                stop_loss = row.get("stop_loss_pct", self.max_stop_loss)
 
             if pnl_pct > stop_loss:
                 logger.warning(
                     "[ShortRisk] Stop-out triggered: %s moved +%.1f%% against short "
-                    "(stop=%.1f%%)",
+                    "(stop=%.1f%%%s)",
                     symbol, pnl_pct * 100, stop_loss * 100,
+                    " ATR" if symbol in atr_stops else "",
                 )
                 stop_outs.append(symbol)
 

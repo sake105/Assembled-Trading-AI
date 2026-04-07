@@ -864,3 +864,104 @@ def apply_limit_order_fills(
         result = result.sort_values(["timestamp", "symbol"], ignore_index=True)
 
     return result
+
+
+# ── Circuit Breaker simulation (Plan 6.1) ────────────────���────────────
+
+@dataclass
+class CircuitBreakerConfig:
+    """Market-wide and single-stock circuit breaker thresholds.
+
+    Market-wide halts (NYSE Rule 80B / S&P 500 based):
+    - Level 1: -7% → 15-min halt
+    - Level 2: -13% → 15-min halt
+    - Level 3: -20% → halt for remainder of day
+
+    Single-stock LULD:
+    - ±5% in 5 minutes → 5-min trading pause
+    """
+
+    level1_pct: float = -0.07
+    level2_pct: float = -0.13
+    level3_pct: float = -0.20
+    luld_pct: float = 0.05
+
+
+def check_circuit_breaker(
+    market_return_today: float,
+    symbol_5min_return: float | None = None,
+    config: CircuitBreakerConfig | None = None,
+) -> tuple[bool, str]:
+    """Check whether circuit breaker would halt trading.
+
+    Args:
+        market_return_today: Intraday return of market index.
+        symbol_5min_return: 5-min return for single-stock LULD check.
+        config: Circuit breaker thresholds.
+
+    Returns:
+        ``(is_halted, reason)`` — if halted, orders should be REJECTED.
+    """
+    if config is None:
+        config = CircuitBreakerConfig()
+
+    if market_return_today <= config.level3_pct:
+        return True, f"CIRCUIT_BREAKER_L3: market {market_return_today:.1%}"
+    if market_return_today <= config.level2_pct:
+        return True, f"CIRCUIT_BREAKER_L2: market {market_return_today:.1%}"
+    if market_return_today <= config.level1_pct:
+        return True, f"CIRCUIT_BREAKER_L1: market {market_return_today:.1%}"
+
+    if symbol_5min_return is not None and abs(symbol_5min_return) > config.luld_pct:
+        return True, f"LULD_HALT: 5min move {symbol_5min_return:.1%}"
+
+    return False, ""
+
+
+# ── Adversarial fill simulation (Plan 6.3) ────────────────────────────
+
+
+def compute_adversarial_fill_cost(
+    order_size: float,
+    signal_strength: float,
+    adv: float,
+    *,
+    kyle_lambda: float = 0.1,
+    max_cost_bps: float = 50.0,
+) -> float:
+    """Compute adverse selection cost using Kyle (1985) lambda model.
+
+    ``adverse_cost = lambda * |signal| * sqrt(size / ADV) * 10000``
+
+    Informed orders (high signal strength) get worse fills.
+
+    Args:
+        order_size: Dollar value of the order.
+        signal_strength: Absolute signal score [0, 1].
+        adv: Average daily volume in dollars.
+        kyle_lambda: Kyle's lambda (market depth).
+        max_cost_bps: Cap on adverse cost.
+
+    Returns:
+        Adverse selection cost in basis points.
+    """
+    if adv <= 0 or order_size <= 0:
+        return 0.0
+
+    cost_bps = kyle_lambda * abs(signal_strength) * np.sqrt(order_size / adv) * 10_000
+    return float(np.clip(cost_bps, 0.0, max_cost_bps))
+
+
+def apply_adversarial_fill_adjustment(
+    fill_price: float,
+    side: str,
+    adversarial_cost_bps: float,
+) -> float:
+    """Adjust fill price for adverse selection.
+
+    BUY orders fill higher (worse), SELL orders fill lower (worse).
+    """
+    adjustment = fill_price * adversarial_cost_bps / 10_000
+    if side.upper() == "BUY":
+        return fill_price + adjustment
+    return fill_price - adjustment

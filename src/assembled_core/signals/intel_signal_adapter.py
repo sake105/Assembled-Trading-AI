@@ -305,3 +305,101 @@ class IntelSignalAdapter:
 
         df = pd.DataFrame(signals)
         return df.drop_duplicates(subset=["symbol"], keep="first").reset_index(drop=True)
+
+
+# ---------------------------------------------------------------------------
+# Quantitative intel alpha factor (Plan 1.5)
+# ---------------------------------------------------------------------------
+
+
+def compute_symbol_intel_scores(
+    sector_impacts: dict[str, float] | None = None,
+    supply_chain_vulnerability: dict[str, float] | None = None,
+    sanctions_beneficiary: dict[str, float] | None = None,
+    chokepoint_exposure: dict[str, float] | None = None,
+    confidence: dict[str, float] | None = None,
+    *,
+    weights: tuple[float, float, float, float] = (0.30, 0.25, 0.25, 0.20),
+) -> dict[str, float]:
+    """Compute composite intel alpha score per symbol.
+
+    Positive = intel-favorable (beneficiary), negative = intel-adverse.
+
+    Args:
+        sector_impacts: Symbol → sector impact [-1, 1].
+        supply_chain_vulnerability: Symbol → vulnerability [0, 1] (inverted).
+        sanctions_beneficiary: Symbol → beneficiary score [0, 1].
+        chokepoint_exposure: Symbol → exposure [0, 1] (inverted).
+        confidence: Symbol → confidence weight [0, 1].
+        weights: Relative weights for the 4 dimensions.
+
+    Returns:
+        Symbol → composite intel alpha score.
+    """
+    import numpy as np
+
+    all_symbols: set[str] = set()
+    for d in [sector_impacts, supply_chain_vulnerability, sanctions_beneficiary, chokepoint_exposure]:
+        if d:
+            all_symbols.update(d.keys())
+
+    if not all_symbols:
+        return {}
+
+    w_sector, w_supply, w_sanctions, w_chokepoint = weights
+    scores: dict[str, float] = {}
+
+    for sym in all_symbols:
+        components: list[tuple[float, float]] = []
+
+        if sector_impacts and sym in sector_impacts:
+            components.append((sector_impacts[sym], w_sector))
+        if supply_chain_vulnerability and sym in supply_chain_vulnerability:
+            components.append((-supply_chain_vulnerability[sym], w_supply))
+        if sanctions_beneficiary and sym in sanctions_beneficiary:
+            components.append((sanctions_beneficiary[sym], w_sanctions))
+        if chokepoint_exposure and sym in chokepoint_exposure:
+            components.append((-chokepoint_exposure[sym], w_chokepoint))
+
+        if not components:
+            continue
+
+        total_w = sum(w for _, w in components)
+        raw = sum(v * w for v, w in components) / total_w if total_w > 0 else 0.0
+        conf = confidence.get(sym, 1.0) if confidence else 1.0
+        scores[sym] = round(raw * conf, 6)
+
+    return scores
+
+
+def normalize_intel_scores(scores: dict[str, float]) -> dict[str, float]:
+    """Cross-sectionally normalize intel scores to z-scores."""
+    import numpy as np
+
+    if not scores or len(scores) < 2:
+        return scores
+
+    values = np.array(list(scores.values()))
+    mean, std = float(np.mean(values)), float(np.std(values))
+    if std < 1e-10:
+        return {s: 0.0 for s in scores}
+    return {s: round((v - mean) / std, 6) for s, v in scores.items()}
+
+
+def build_intel_alpha_factor(
+    sector_impacts: dict[str, float] | None = None,
+    supply_chain_vulnerability: dict[str, float] | None = None,
+    sanctions_beneficiary: dict[str, float] | None = None,
+    chokepoint_exposure: dict[str, float] | None = None,
+    confidence: dict[str, float] | None = None,
+) -> pd.Series:
+    """Build ``intel_alpha`` factor as normalized Series."""
+    raw = compute_symbol_intel_scores(
+        sector_impacts=sector_impacts,
+        supply_chain_vulnerability=supply_chain_vulnerability,
+        sanctions_beneficiary=sanctions_beneficiary,
+        chokepoint_exposure=chokepoint_exposure,
+        confidence=confidence,
+    )
+    normalized = normalize_intel_scores(raw)
+    return pd.Series(normalized, name="intel_alpha")

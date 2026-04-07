@@ -336,12 +336,16 @@ def generate_multifactor_long_short_signals(
     for timestamp in mf_df_rebalance["timestamp"].unique():
         timestamp_df = mf_df_rebalance[mf_df_rebalance["timestamp"] == timestamp]
 
-        # Get regime label for this timestamp if regime overlay is enabled
+        # Get regime label + posteriors for this timestamp if regime overlay is enabled
         regime_label = None
+        regime_posteriors: dict[str, float] = {}
         if regime_state_df is not None:
             regime_for_ts = regime_state_df[regime_state_df["timestamp"] == timestamp]
             if not regime_for_ts.empty:
                 regime_label = regime_for_ts["regime_label"].iloc[0]
+                # Extract continuous HMM posteriors for smooth blending
+                from assembled_core.signals.multifactor_signal import extract_regime_posteriors
+                regime_posteriors = extract_regime_posteriors(regime_state_df, timestamp)
 
         # Long signals (top quantile)
         long_symbols = timestamp_df[timestamp_df["mf_long_flag"] == 1]
@@ -354,6 +358,8 @@ def generate_multifactor_long_short_signals(
             }
             if regime_label is not None:
                 signal_dict["regime"] = regime_label
+            if regime_posteriors:
+                signal_dict["regime_posteriors"] = regime_posteriors
             signals.append(signal_dict)
 
         # Short signals (bottom quantile)
@@ -367,6 +373,8 @@ def generate_multifactor_long_short_signals(
             }
             if regime_label is not None:
                 signal_dict["regime"] = regime_label
+            if regime_posteriors:
+                signal_dict["regime_posteriors"] = regime_posteriors
             signals.append(signal_dict)
 
     signals_df = pd.DataFrame(signals)

@@ -675,3 +675,35 @@ def build_insider_activity_factors(
         )
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Earnings Revision Momentum (Plan 3.5)
+# ---------------------------------------------------------------------------
+
+
+def compute_revision_momentum(
+    current_estimate: float,
+    estimate_30d_ago: float,
+) -> float:
+    """Compute earnings revision momentum.
+
+    ``revision_momentum = (current - past) / abs(past)``
+    """
+    if abs(estimate_30d_ago) < 1e-10:
+        return 0.0
+    return (current_estimate - estimate_30d_ago) / abs(estimate_30d_ago)
+
+
+def compute_sue(
+    actual_eps: float,
+    estimated_eps: float,
+    surprise_std: float,
+) -> float:
+    """Standardized Unexpected Earnings.
+
+    ``SUE = (actual - estimate) / std(surprises)``
+    """
+    if surprise_std < 1e-10:
+        return 0.0
+    return (actual_eps - estimated_eps) / surprise_std

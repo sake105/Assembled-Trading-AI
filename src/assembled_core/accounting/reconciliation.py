@@ -210,3 +210,83 @@ def reconcile_ledger_vs_broker(
         "missing_in_broker": missing_in_broker,
         "message": message,
     }
+
+
+# ── Daily P&L Reconciliation (Plan 8.1) ──────────────────────────────
+
+
+import numpy as np  # noqa: E402
+
+
+def reconcile_daily_pnl(
+    positions: dict[str, float],
+    position_prices_start: dict[str, float],
+    position_prices_end: dict[str, float],
+    portfolio_return: float,
+    *,
+    tolerance_pct: float = 0.001,
+) -> dict:
+    """Reconcile daily P&L: sum of position-level returns vs portfolio return.
+
+    Checks that:
+        ``sum(position_i × return_i) ≈ portfolio_return ± tolerance``
+
+    If the two diverge, the break is flagged with diagnostic info.
+
+    Args:
+        positions: Dict mapping symbol → weight (or dollar exposure).
+        position_prices_start: Symbol → start-of-day price.
+        position_prices_end: Symbol → end-of-day price.
+        portfolio_return: Reported portfolio return for the day.
+        tolerance_pct: Maximum acceptable deviation (0.001 = 0.1%).
+
+    Returns:
+        Dict with ``ok``, ``explained_return``, ``unexplained_return``,
+        ``break_pct``, ``position_contributions``.
+    """
+    contributions: dict[str, float] = {}
+    explained = 0.0
+
+    for sym, weight in positions.items():
+        p_start = position_prices_start.get(sym)
+        p_end = position_prices_end.get(sym)
+
+        if p_start is None or p_end is None or p_start == 0:
+            contributions[sym] = 0.0
+            continue
+
+        sym_return = (p_end - p_start) / p_start
+        contrib = weight * sym_return
+        contributions[sym] = round(contrib, 8)
+        explained += contrib
+
+    unexplained = portfolio_return - explained
+    break_pct = abs(unexplained)
+    ok = break_pct <= tolerance_pct
+
+    # Break reason analysis
+    break_reason = ""
+    if not ok:
+        if abs(unexplained) > 0.01:
+            break_reason = "LARGE_BREAK: possible missing position, corporate action, or fee"
+        elif abs(unexplained) > tolerance_pct:
+            break_reason = "MINOR_BREAK: rounding, timing, or cash drag"
+
+    result = {
+        "ok": ok,
+        "explained_return": round(explained, 8),
+        "unexplained_return": round(unexplained, 8),
+        "break_pct": round(break_pct, 8),
+        "portfolio_return": round(portfolio_return, 8),
+        "tolerance_pct": tolerance_pct,
+        "break_reason": break_reason,
+        "position_contributions": contributions,
+    }
+
+    if not ok:
+        logger.warning(
+            "[Reconcile] P&L break: explained=%.6f, portfolio=%.6f, break=%.6f%% (%s)",
+            explained, portfolio_return, break_pct * 100, break_reason,
+        )
+
+    return result

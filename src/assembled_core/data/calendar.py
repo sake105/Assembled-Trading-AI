@@ -172,3 +172,57 @@ def filter_prices_to_trading_days(
         mask = ts.dt.dayofweek < 5
 
     return prices[mask].copy()
+
+
+# ---------------------------------------------------------------------------
+# Calendar Validation (Plan 10.3)
+# ---------------------------------------------------------------------------
+
+
+def validate_dates_against_calendar(
+    dates: pd.DatetimeIndex | list,
+    tolerance_missing_pct: float = 5.0,
+) -> dict:
+    """Validate a set of dates against the NYSE trading calendar.
+
+    Checks for:
+    - Non-trading-day entries (weekends, holidays present in data)
+    - Missing trading days (gaps in expected sessions)
+
+    Args:
+        dates: Dates to validate.
+        tolerance_missing_pct: Alert threshold for missing session %.
+
+    Returns:
+        Dict with n_dates, n_non_trading, non_trading_dates,
+        n_missing_sessions, missing_pct, valid.
+    """
+    dates = pd.DatetimeIndex(dates)
+    if dates.empty:
+        return {"n_dates": 0, "valid": True, "n_non_trading": 0, "n_missing_sessions": 0}
+
+    date_set = set(dates.normalize().date)
+
+    # Check for non-trading days in data
+    non_trading = []
+    for d in sorted(date_set):
+        if not is_trading_day_safe(d):
+            non_trading.append(str(d))
+
+    # Check for missing trading sessions
+    min_d = min(date_set)
+    max_d = max(date_set)
+    expected = get_trading_sessions(str(min_d), str(max_d))
+    expected_set = set(expected)
+    missing = expected_set - date_set
+    missing_pct = len(missing) / len(expected_set) * 100 if expected_set else 0.0
+
+    return {
+        "n_dates": len(date_set),
+        "n_non_trading": len(non_trading),
+        "non_trading_dates": non_trading[:10],  # sample
+        "n_expected_sessions": len(expected_set),
+        "n_missing_sessions": len(missing),
+        "missing_pct": round(missing_pct, 2),
+        "valid": len(non_trading) == 0 and missing_pct <= tolerance_missing_pct,
+    }

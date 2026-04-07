@@ -2277,3 +2277,70 @@ def flag_decayed_factors(
         )
     result = pd.DataFrame(records).sort_values("z_score")
     return result
+
+
+# ---------------------------------------------------------------------------
+# Alpha Decay Half-Life Estimation (Plan 1.4)
+# ---------------------------------------------------------------------------
+
+
+def estimate_alpha_decay_halflife(
+    ic_decay_df: pd.DataFrame,
+) -> dict[str, float]:
+    """Estimate the half-life of alpha decay from an IC-decay curve.
+
+    Fits an exponential decay ``IC(h) = IC_0 × exp(-ln(2) × h / half_life)``
+    to the IC-decay curve and returns the half-life in days.
+
+    Args:
+        ic_decay_df: Output of ``compute_ic_decay_curve()`` with columns
+            ``horizon_days`` and ``ic_mean``.
+
+    Returns:
+        Dict with ``half_life_days``, ``ic_0`` (initial IC),
+        ``r_squared`` (fit quality), ``decay_rate``.
+    """
+    if ic_decay_df.empty or "horizon_days" not in ic_decay_df.columns:
+        return {"half_life_days": float("nan"), "ic_0": 0.0, "r_squared": 0.0, "decay_rate": 0.0}
+
+    h = ic_decay_df["horizon_days"].values.astype(float)
+    ic = ic_decay_df["ic_mean"].values.astype(float)
+
+    # Filter to positive ICs for log-linear fit
+    mask = ic > 0
+    if mask.sum() < 2:
+        return {"half_life_days": float("nan"), "ic_0": float(ic[0]) if len(ic) > 0 else 0.0,
+                "r_squared": 0.0, "decay_rate": 0.0}
+
+    h_pos = h[mask]
+    log_ic = np.log(ic[mask])
+
+    # Linear regression: log(IC) = log(IC_0) - (ln2 / half_life) × h
+    # → log(IC) = a + b × h, where b = -ln(2) / half_life
+    try:
+        coeffs = np.polyfit(h_pos, log_ic, 1)
+        b = coeffs[0]  # slope (should be negative)
+        a = coeffs[1]  # intercept
+
+        ic_0 = np.exp(a)
+        if b >= 0:
+            # IC is not decaying
+            half_life = float("inf")
+        else:
+            half_life = -np.log(2) / b
+
+        # R² goodness of fit
+        predicted = a + b * h_pos
+        ss_res = np.sum((log_ic - predicted) ** 2)
+        ss_tot = np.sum((log_ic - np.mean(log_ic)) ** 2)
+        r2 = 1 - ss_res / ss_tot if ss_tot > 0 else 0.0
+
+    except Exception:
+        return {"half_life_days": float("nan"), "ic_0": 0.0, "r_squared": 0.0, "decay_rate": 0.0}
+
+    return {
+        "half_life_days": round(half_life, 1),
+        "ic_0": round(float(ic_0), 6),
+        "r_squared": round(float(r2), 4),
+        "decay_rate": round(float(-b), 6),
+    }

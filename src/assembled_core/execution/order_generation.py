@@ -27,6 +27,7 @@ def generate_orders_from_targets_fast(
     current_positions: pd.DataFrame | None = None,
     timestamp: datetime | None = None,
     prices_latest: pd.DataFrame | None = None,
+    min_trade_value: float = 0.0,
 ) -> pd.DataFrame:
     """Fast-path order generation when target and current positions are already aligned.
 
@@ -128,6 +129,11 @@ def generate_orders_from_targets_fast(
     abs_delta = np.abs(qty_delta)
     non_zero_mask = abs_delta > 1e-6
 
+    # Min-trade-value filter: skip trades below threshold (cost > expected benefit)
+    if min_trade_value > 0:
+        trade_values = abs_delta * prices_array
+        non_zero_mask = non_zero_mask & (trade_values >= min_trade_value)
+
     if not np.any(non_zero_mask):
         return pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
 
@@ -160,6 +166,7 @@ def generate_orders_from_targets(
     current_positions: pd.DataFrame | None = None,
     timestamp: datetime | None = None,
     prices: pd.DataFrame | None = None,
+    min_trade_value: float = 0.0,
 ) -> pd.DataFrame:
     """Generate orders to transition from current to target positions.
 
@@ -272,6 +279,7 @@ def generate_orders_from_targets(
                         current_positions=current_sorted,
                         timestamp=timestamp,
                         prices_latest=prices_latest,
+                        min_trade_value=min_trade_value,
                     )
                 except (ValueError, KeyError):
                     # Fallback to merge-based path if fast-path fails
@@ -393,3 +401,30 @@ def generate_orders_from_signals(
     return generate_orders_from_targets(
         targets, current_positions=current_positions, timestamp=timestamp, prices=prices
     )
+
+
+# ---------------------------------------------------------------------------
+# Order Netting (Plan 6.5)
+# ---------------------------------------------------------------------------
+
+
+def net_orders(orders: "pd.DataFrame", symbol_col: str = "symbol", qty_col: str = "qty") -> "pd.DataFrame":
+    """Net opposing orders per symbol.
+
+    Aggregates and eliminates offsetting buy/sell orders for the same symbol.
+
+    Args:
+        orders: DataFrame with symbol and qty columns.
+        symbol_col: Symbol column name.
+        qty_col: Quantity column name.
+
+    Returns:
+        Netted orders (only symbols with non-zero net quantity).
+    """
+    import pandas as pd
+
+    if orders.empty:
+        return orders
+
+    netted = orders.groupby(symbol_col, as_index=False)[qty_col].sum()
+    return netted[netted[qty_col].abs() > 1e-10].reset_index(drop=True)

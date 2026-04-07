@@ -3,10 +3,16 @@
 This module provides an in-memory paper trading engine that simulates order execution
 without any file I/O or network calls. Orders are immediately filled and positions
 are aggregated in memory.
+
+Fill model (optional):
+    When ``fill_model`` is provided to the constructor, the engine applies
+    realistic execution costs: spread, market impact, and timing noise.
+    Without it, the engine fills at the exact order price (legacy behaviour).
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Literal
@@ -14,6 +20,71 @@ from typing import Literal
 from src.assembled_core.logging_utils import setup_logging
 
 logger = setup_logging(level="INFO")
+
+
+@dataclass
+class FillModel:
+    """Configurable fill-cost model for realistic paper execution.
+
+    Costs applied per order:
+        effective_price = order_price
+            + spread_cost          (half bid-ask spread)
+            + market_impact_cost   (Almgren-Chriss square-root model)
+
+    All costs are expressed as price offsets (positive = worse fill).
+    For BUY orders, costs are *added* to price; for SELL, *subtracted*.
+
+    Attributes:
+        half_spread_bps: Half bid-ask spread in basis points (default: 5 bps).
+        impact_coefficient: Market-impact multiplier (default: 0.10).
+            impact = coefficient * sigma * sqrt(order_qty / adv)
+        default_adv: Default average daily volume if not provided per symbol.
+        default_sigma: Default daily volatility if not provided per symbol.
+    """
+
+    half_spread_bps: float = 5.0
+    impact_coefficient: float = 0.10
+    default_adv: float = 1_000_000.0
+    default_sigma: float = 0.02
+
+    def compute_fill_price(
+        self,
+        order_price: float,
+        side: str,
+        quantity: float,
+        adv: float | None = None,
+        sigma: float | None = None,
+    ) -> tuple[float, dict[str, float]]:
+        """Compute realistic fill price including execution costs.
+
+        Returns:
+            (fill_price, cost_breakdown) where cost_breakdown has keys:
+            spread_cost, impact_cost, total_cost_bps.
+        """
+        adv = adv or self.default_adv
+        sigma = sigma or self.default_sigma
+
+        # Spread cost (half-spread)
+        spread_cost = order_price * self.half_spread_bps / 10_000
+
+        # Market impact: Almgren-Chriss square-root model
+        participation = quantity / adv if adv > 0 else 0.01
+        impact_cost = self.impact_coefficient * sigma * order_price * math.sqrt(participation)
+
+        total_cost = spread_cost + impact_cost
+        total_cost_bps = (total_cost / order_price * 10_000) if order_price > 0 else 0.0
+
+        # BUY → pay more, SELL → receive less
+        if side == "BUY":
+            fill_price = order_price + total_cost
+        else:
+            fill_price = order_price - total_cost
+
+        return fill_price, {
+            "spread_cost": round(spread_cost, 6),
+            "impact_cost": round(impact_cost, 6),
+            "total_cost_bps": round(total_cost_bps, 2),
+        }
 
 
 @dataclass
@@ -47,6 +118,8 @@ class PaperOrder:
     source: str | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(tz=timezone.utc))
     filled_at: datetime | None = None
+    fill_price: float | None = None
+    fill_cost_breakdown: dict | None = None
 
 
 @dataclass
@@ -73,11 +146,18 @@ class PaperTradingEngine:
         _positions: Dictionary mapping symbol -> net quantity
     """
 
-    def __init__(self) -> None:
-        """Initialize paper trading engine with empty state."""
+    def __init__(self, fill_model: FillModel | None = None) -> None:
+        """Initialize paper trading engine with empty state.
+
+        Args:
+            fill_model: Optional FillModel for realistic execution costs.
+                If None, orders are filled at exact order price (legacy behaviour).
+        """
         self._orders: list[PaperOrder] = []
         self._positions: dict[str, float] = {}
-        logger.debug("Paper trading engine initialized")
+        self._fill_model = fill_model
+        logger.debug("Paper trading engine initialized (fill_model=%s)",
+                      "enabled" if fill_model else "off")
 
     def submit_orders(self, orders: list[PaperOrder]) -> list[PaperOrder]:
         """Submit orders for execution.
@@ -118,6 +198,18 @@ class PaperTradingEngine:
             order.status = "FILLED"
             order.filled_at = datetime.now(tz=timezone.utc)
             order.symbol = symbol  # Store normalized symbol
+
+            # Apply fill model for realistic execution costs
+            if self._fill_model is not None and order.price is not None:
+                fill_px, cost_info = self._fill_model.compute_fill_price(
+                    order_price=order.price,
+                    side=order.side,
+                    quantity=order.quantity,
+                )
+                order.fill_price = fill_px
+                order.fill_cost_breakdown = cost_info
+            else:
+                order.fill_price = order.price
 
             # Update position
             if symbol not in self._positions:

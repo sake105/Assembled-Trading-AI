@@ -183,3 +183,27 @@ def get_options_factor_names() -> list[str]:
         "vix_regime", "put_call_ratio_raw", "put_call_ratio_ma_20d",
         "equity_put_call_extreme", "vix_zscore_252d",
     ]
+
+
+# ---------------------------------------------------------------------------
+# Options Skew and IV Features (Plan 3.6)
+# ---------------------------------------------------------------------------
+
+
+def compute_vix_term_structure(vix: float, vix3m: float) -> float:
+    """VIX term structure: VIX3M/VIX. <1 = backwardation (acute fear)."""
+    if vix < 0.1:
+        return 1.0
+    return vix3m / vix
+
+
+def compute_implied_vs_realized_spread(vix: float, realized_vol_20d: float) -> float:
+    """Spread between implied and realized vol. Positive = fear > reality."""
+    return vix / 100 - realized_vol_20d
+
+
+def compute_skew_vix_divergence(skew: float, vix: float) -> float:
+    """SKEW/VIX ratio. Rises when tail risk increases without panic."""
+    if vix < 1.0:
+        return 0.0
+    return skew / vix

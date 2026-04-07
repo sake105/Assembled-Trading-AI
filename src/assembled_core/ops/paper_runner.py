@@ -22,6 +22,8 @@ def run_paper_daily_one(
     *,
     root: Path,
     day_index: int | None = None,
+    execution_mode: str = "sim",
+    broker_adapter: Any | None = None,
 ) -> tuple[int, str | None]:
     """Run a single paper/shadow day. Returns (exit_code, reconcile_status or None)."""
     from src.assembled_core.config.policy_loader import load_policy
@@ -265,6 +267,7 @@ def run_paper_daily_one(
     if mode == "paper" and ledger_state is not None and ledger_path is not None:
         import copy
         from src.assembled_core.ops.paper_ledger import (
+            append_equity_curve_deduped,
             apply_fills_to_ledger,
             mark_to_market_equity,
             save_ledger_state,
@@ -286,13 +289,68 @@ def run_paper_daily_one(
             prices_for_fills = result.prices_with_features
         cost_cfg = (app_cfg.get("paper_runner") or {}).get("cost_model") or {}
         ledger_before = copy.deepcopy(ledger_state)
-        fills = simulate_fills(orders_for_fills, prices_for_fills, cost_cfg)
+
+        # --- Execution mode validation & branch ---
+        _VALID_EXEC_MODES = ("sim", "broker", "dry_run")
+        if execution_mode not in _VALID_EXEC_MODES:
+            log.error(
+                "Unknown execution_mode=%r (valid: %s) — falling back to sim",
+                execution_mode,
+                _VALID_EXEC_MODES,
+            )
+            execution_mode = "sim"
+        if execution_mode in ("broker", "dry_run") and broker_adapter is None:
+            log.warning(
+                "execution_mode=%r but broker_adapter is None — falling back to sim",
+                execution_mode,
+            )
+            execution_mode = "sim"
+
+        broker_exec_meta: dict[str, Any] = {}
+        if execution_mode == "broker" and broker_adapter is not None:
+            from src.assembled_core.execution.broker_execution import (
+                execute_via_broker,
+            )
+
+            exec_result = execute_via_broker(
+                broker_adapter,
+                orders_for_fills,
+                dry_run=False,
+            )
+            fills = exec_result.fills_for_ledger
+            broker_exec_meta = {
+                "filled": len(exec_result.filled),
+                "rejected": len(exec_result.rejected),
+                "timed_out": len(exec_result.timed_out),
+                "errors": exec_result.errors,
+                "execution_time_s": exec_result.execution_time_s,
+            }
+        elif execution_mode == "dry_run" and broker_adapter is not None:
+            from src.assembled_core.execution.broker_execution import (
+                execute_via_broker,
+            )
+
+            exec_result = execute_via_broker(
+                broker_adapter,
+                orders_for_fills,
+                dry_run=True,
+            )
+            fills = []  # No fills in dry run
+            broker_exec_meta = {
+                "filled": 0,
+                "rejected": 0,
+                "timed_out": 0,
+                "dry_run": True,
+                "would_submit": len(exec_result.submitted),
+            }
+        else:
+            # Default: simulate fills in-memory (existing behavior)
+            fills = simulate_fills(orders_for_fills, prices_for_fills, cost_cfg)
+
         state_after = apply_fills_to_ledger(ledger_state, fills)
         equity_after = mark_to_market_equity(state_after, prices_for_fills)
         now_iso = pd.Timestamp.now("UTC").isoformat()
-        state_after["equity_curve"] = list(state_after.get("equity_curve") or []) + [
-            {"utc": now_iso, "equity": equity_after}
-        ]
+        append_equity_curve_deduped(state_after, now_iso, equity_after)
         report = build_reconcile_report(
             as_of_utc=now_iso,
             ledger_before=ledger_before,
@@ -310,11 +368,15 @@ def run_paper_daily_one(
             "equity": equity_after,
             "equity_curve_point": {"utc": now_iso, "equity": equity_after},
         }
+        if broker_exec_meta:
+            result.meta["broker_execution"] = broker_exec_meta
 
-    _ = maybe_execute_orders(
-        mode,
-        result.orders_filtered if not result.orders_filtered.empty else result.orders,
-    )
+    # Skip maybe_execute_orders when broker already handled execution
+    if execution_mode == "sim":
+        _ = maybe_execute_orders(
+            mode,
+            result.orders_filtered if not result.orders_filtered.empty else result.orders,
+        )
 
     policy = load_policy()
     kpis_path = write_run_kpis(

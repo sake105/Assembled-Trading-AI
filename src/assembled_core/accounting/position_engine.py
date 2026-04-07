@@ -395,3 +395,77 @@ def build_positions_from_ledger(
         "cash_balance": cash_balance,
         "summary": summary,
     }
+
+
+# ---------------------------------------------------------------------------
+# 8.6  Corporate Action Adjustments
+# ---------------------------------------------------------------------------
+
+def adjust_for_stock_split(
+    positions: dict[str, dict],
+    symbol: str,
+    split_ratio: float,
+) -> dict[str, dict]:
+    """Adjust positions for a stock split.
+
+    Args:
+        positions: Symbol → {qty, cost_basis, ...} dict.
+        symbol: Symbol being split.
+        split_ratio: e.g. 4.0 for a 4:1 split.
+
+    Returns:
+        Updated positions dict.
+    """
+    if symbol not in positions:
+        return positions
+
+    pos = positions[symbol]
+    old_qty = pos["qty"]
+    old_cost_basis = pos["cost_basis"]
+
+    # qty × ratio, cost stays same (per-share cost / ratio)
+    pos["qty"] = old_qty * split_ratio
+    # cost_basis stays the same in total dollars
+    # avg_price = cost_basis / qty → new avg_price = old_avg_price / ratio
+    positions[symbol] = pos
+    return positions
+
+
+def adjust_for_spinoff(
+    positions: dict[str, dict],
+    parent_symbol: str,
+    child_symbol: str,
+    parent_cost_fraction: float = 0.85,
+    shares_ratio: float = 0.1,
+) -> dict[str, dict]:
+    """Adjust positions for a spinoff.
+
+    Args:
+        positions: Symbol → {qty, cost_basis, ...} dict.
+        parent_symbol: Parent company symbol.
+        child_symbol: New spinoff symbol.
+        parent_cost_fraction: Fraction of cost basis remaining with parent.
+        shares_ratio: Ratio of child shares per parent share.
+
+    Returns:
+        Updated positions dict.
+    """
+    if parent_symbol not in positions:
+        return positions
+
+    parent = positions[parent_symbol]
+    old_cost_basis = parent["cost_basis"]
+
+    # Split cost basis
+    parent["cost_basis"] = old_cost_basis * parent_cost_fraction
+
+    # Create child position
+    child_qty = parent["qty"] * shares_ratio
+    child_cost = old_cost_basis * (1.0 - parent_cost_fraction)
+    positions[child_symbol] = {
+        "qty": child_qty,
+        "cost_basis": child_cost,
+        "realized_pnl": 0.0,
+    }
+
+    return positions

@@ -89,6 +89,7 @@ class PreTradeConfig:
     max_sector_exposure: float | None = None
     max_region_exposure: float | None = None
     max_fx_exposure: float | None = None
+    max_cvar_95: float | None = None  # Max CVaR(95%) as negative fraction (e.g. -0.05 = -5%)
     base_currency: str = "USD"
     missing_security_meta: Literal["raise", "unknown"] = "raise"
 
@@ -988,6 +989,34 @@ def run_pre_trade_checks(
 
     # Note: Sector/Region/FX exposure checks are implemented in Step 8 above
 
+    # Step 9: CVaR check — if portfolio CVaR exceeds limit, scale down orders
+    if (
+        config.max_cvar_95 is not None
+        and risk_summary is not None
+        and risk_summary.get("cvar_95") is not None
+    ):
+        portfolio_cvar = float(risk_summary["cvar_95"])
+        if portfolio_cvar < config.max_cvar_95:  # CVaR is negative, more negative = worse
+            cvar_scale = config.max_cvar_95 / portfolio_cvar if portfolio_cvar != 0 else 0.0
+            cvar_scale = max(0.0, min(cvar_scale, 1.0))
+            if cvar_scale < 1.0 and not filtered_orders.empty and "qty" in filtered_orders.columns:
+                buy_mask = filtered_orders["side"] == "BUY"
+                filtered_orders.loc[buy_mask, "qty"] = (
+                    filtered_orders.loc[buy_mask, "qty"] * cvar_scale
+                )
+                for _, row in filtered_orders[buy_mask].iterrows():
+                    reduced_orders.append({
+                        "symbol": row.get("symbol", "?"),
+                        "reason": "RISK_REDUCE_CVAR_95",
+                        "details": {
+                            "portfolio_cvar_95": round(portfolio_cvar, 4),
+                            "limit": config.max_cvar_95,
+                            "scale": round(cvar_scale, 4),
+                        },
+                    })
+            summary["cvar_95"] = portfolio_cvar
+            summary["cvar_95_limit"] = config.max_cvar_95
+
     # Final summary
     summary["total_orders"] = len(orders)
     summary["passed_orders"] = len(filtered_orders)
@@ -1104,3 +1133,94 @@ def apply_adv_cap(
         len(orders),
     )
     return orders
+
+
+# ---------------------------------------------------------------------------
+# Pre-Trade Stress Test (Plan 7.2)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class StressScenario:
+    """A pre-trade stress scenario."""
+    name: str
+    equity_shock: float = 0.0       # e.g. -0.05 = -5%
+    vix_shock_pct: float = 0.0      # e.g. 0.50 = +50%
+    credit_spread_bps: float = 0.0  # e.g. 200 = +200bps
+    rate_shock_bps: float = 0.0     # e.g. 50 = +50bps
+
+
+DEFAULT_STRESS_SCENARIOS = [
+    StressScenario("mild_selloff", equity_shock=-0.05, vix_shock_pct=0.50),
+    StressScenario("moderate_crash", equity_shock=-0.10, vix_shock_pct=1.00, credit_spread_bps=200),
+    StressScenario("severe_crisis", equity_shock=-0.20, vix_shock_pct=2.00, credit_spread_bps=500),
+    StressScenario("rate_shock", equity_shock=-0.03, rate_shock_bps=100),
+]
+
+
+def run_pre_trade_stress_test(
+    portfolio_weights: dict[str, float],
+    portfolio_value: float,
+    betas: dict[str, float] | None = None,
+    scenarios: list[StressScenario] | None = None,
+    max_stress_loss_pct: float = 0.15,
+) -> dict:
+    """Run stress tests on proposed portfolio before trade execution.
+
+    For each scenario, estimates portfolio loss using:
+    ``loss_i = weight_i × beta_i × equity_shock``
+
+    If any scenario's loss > max_stress_loss_pct → block BUY orders.
+
+    Args:
+        portfolio_weights: Symbol → weight.
+        portfolio_value: Total portfolio value in dollars.
+        betas: Symbol → market beta. Defaults to 1.0 for all.
+        scenarios: List of stress scenarios. Uses defaults if None.
+        max_stress_loss_pct: Maximum acceptable loss (default 15%).
+
+    Returns:
+        Dict with ``passed``, ``worst_scenario``, ``worst_loss_pct``,
+        ``scenario_results`` list.
+    """
+    scenarios = scenarios or DEFAULT_STRESS_SCENARIOS
+    betas = betas or {}
+
+    results = []
+    worst_loss = 0.0
+    worst_name = ""
+
+    for sc in scenarios:
+        portfolio_loss = 0.0
+        for sym, w in portfolio_weights.items():
+            beta = betas.get(sym, 1.0)
+            # Equity component
+            sym_loss = w * beta * sc.equity_shock
+            portfolio_loss += sym_loss
+
+        loss_pct = abs(portfolio_loss)
+        results.append({
+            "scenario": sc.name,
+            "loss_pct": round(loss_pct, 6),
+            "loss_dollars": round(loss_pct * portfolio_value, 2),
+            "breached": loss_pct > max_stress_loss_pct,
+        })
+
+        if loss_pct > worst_loss:
+            worst_loss = loss_pct
+            worst_name = sc.name
+
+    passed = all(not r["breached"] for r in results)
+
+    if not passed:
+        logger.warning(
+            "[StressTest] FAILED — worst scenario '%s' loss %.1f%% > limit %.1f%%",
+            worst_name, worst_loss * 100, max_stress_loss_pct * 100,
+        )
+
+    return {
+        "passed": passed,
+        "worst_scenario": worst_name,
+        "worst_loss_pct": round(worst_loss, 6),
+        "scenario_results": results,
+    }

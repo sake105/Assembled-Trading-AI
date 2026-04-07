@@ -363,3 +363,201 @@ def compute_vol_scaled_weights(
     result["target_qty"] = result["target_weight"] * total_capital
     result = result[["symbol", "target_weight", "target_qty", "volatility"]]
     return result.sort_values("symbol").reset_index(drop=True)
+
+
+# ---------------------------------------------------------------------------
+# TC-Penalized Rebalancing (Plan 5.3)
+# ---------------------------------------------------------------------------
+
+
+def apply_tc_penalized_rebalancing(
+    target_weights: dict[str, float],
+    current_weights: dict[str, float],
+    cost_bps: dict[str, float] | float = 10.0,
+    dead_zone_pct: float = 0.02,
+    tc_penalty_gamma: float = 1.0,
+) -> dict[str, float]:
+    """Apply transaction-cost-aware rebalancing with dead zones.
+
+    Adjusts target weights to penalise turnover:
+    - If ``|w_target - w_current| < dead_zone_pct`` → no change (keep current).
+    - Otherwise, shrink the trade toward current by ``gamma × cost``.
+
+    Objective direction:  ``max E[return] - lambda*risk - gamma*TC``
+    where ``TC = sum(|w_new - w_old| × cost_bps_i)``.
+
+    Args:
+        target_weights: Symbol → target weight from optimizer.
+        current_weights: Symbol → current portfolio weight.
+        cost_bps: Per-symbol cost in bps (dict) or flat cost for all (float).
+        dead_zone_pct: Minimum weight change to execute (default 2%).
+        tc_penalty_gamma: TC penalty multiplier. Bull→0.5, Crisis→2.0.
+
+    Returns:
+        Adjusted weights dict (symbol → weight).
+    """
+    all_symbols = set(target_weights.keys()) | set(current_weights.keys())
+    adjusted: dict[str, float] = {}
+
+    for sym in all_symbols:
+        w_target = target_weights.get(sym, 0.0)
+        w_current = current_weights.get(sym, 0.0)
+        delta = w_target - w_current
+
+        # Dead zone: skip small adjustments
+        if abs(delta) < dead_zone_pct:
+            adjusted[sym] = w_current
+            continue
+
+        # TC penalty: shrink trade toward current
+        if isinstance(cost_bps, dict):
+            sym_cost = cost_bps.get(sym, 10.0) / 10000.0
+        else:
+            sym_cost = float(cost_bps) / 10000.0
+
+        penalty = tc_penalty_gamma * sym_cost
+        if delta > 0:
+            adjusted[sym] = w_target - penalty
+        else:
+            adjusted[sym] = w_target + penalty
+
+        # Don't overshoot — keep between current and target
+        if delta > 0:
+            adjusted[sym] = max(w_current, min(adjusted[sym], w_target))
+        else:
+            adjusted[sym] = min(w_current, max(adjusted[sym], w_target))
+
+    # Renormalize to sum to <= 1.0 (preserve cash)
+    total = sum(max(0.0, w) for w in adjusted.values())
+    if total > 1.0:
+        adjusted = {s: max(0.0, w) / total for s, w in adjusted.items()}
+
+    return adjusted
+
+
+# ---------------------------------------------------------------------------
+# Liquidity-Constrained Sizing (Plan 7.3)
+# ---------------------------------------------------------------------------
+
+
+def apply_liquidity_constraint(
+    target_weights: dict[str, float],
+    adv_dollars: dict[str, float],
+    total_capital: float,
+    max_participation_pct: float = 0.05,
+    max_days: int = 3,
+) -> dict[str, float]:
+    """Constrain position sizes by liquidity (ADV).
+
+    ``max_position = min(target_weight × capital, max_participation × ADV × max_days)``
+
+    Illiquid assets (ADV < $1M) get their weight automatically reduced.
+
+    Args:
+        target_weights: Symbol → target weight.
+        adv_dollars: Symbol → average daily dollar volume.
+        total_capital: Total portfolio capital in dollars.
+        max_participation_pct: Max fraction of daily volume (default 5%).
+        max_days: Max days to fill position (default 3).
+
+    Returns:
+        Adjusted weights (may sum to < 1.0 — residual goes to cash).
+    """
+    adjusted: dict[str, float] = {}
+
+    for sym, w in target_weights.items():
+        adv = adv_dollars.get(sym, 0.0)
+        if adv <= 0:
+            adjusted[sym] = 0.0
+            continue
+
+        max_dollar = max_participation_pct * adv * max_days
+        max_weight = max_dollar / total_capital if total_capital > 0 else 0.0
+        adjusted[sym] = min(w, max_weight)
+
+    return adjusted
+
+
+# ── 5.6  Maximum Diversification Portfolio ─────────────────────────────
+def compute_max_diversification_weights(
+    cov_matrix: np.ndarray,
+    vols: np.ndarray | None = None,
+    max_iter: int = 500,
+) -> np.ndarray:
+    """Compute Maximum Diversification Ratio portfolio weights.
+
+    Maximizes DR = sum(w_i * sigma_i) / sqrt(w' Sigma w)
+    via iterative inverse-vol reweighting.
+
+    Args:
+        cov_matrix: N×N covariance matrix.
+        vols: Individual asset volatilities. If None, extracted from cov diagonal.
+        max_iter: Maximum iterations for convergence.
+
+    Returns:
+        Array of portfolio weights (sum=1, long-only).
+    """
+    n = cov_matrix.shape[0]
+    if vols is None:
+        vols = np.sqrt(np.diag(cov_matrix))
+
+    w = np.ones(n) / n  # start equal weight
+
+    for _ in range(max_iter):
+        port_vol = float(np.sqrt(w @ cov_matrix @ w))
+        if port_vol < 1e-12:
+            break
+        # Marginal risk contribution
+        mrc = cov_matrix @ w / port_vol
+        # Update: weight inversely to marginal risk, scaled by asset vol
+        w_new = vols / np.maximum(mrc, 1e-12)
+        w_new = w_new / w_new.sum()
+
+        if np.max(np.abs(w_new - w)) < 1e-8:
+            break
+        w = w_new
+
+    return w
+
+
+# ── 5.8  Tail Risk Parity (CVaR-based) ────────────────────────────────
+def compute_tail_risk_parity_weights(
+    returns: pd.DataFrame,
+    alpha: float = 0.05,
+    max_iter: int = 200,
+) -> dict[str, float]:
+    """Compute weights so each asset contributes equally to portfolio CVaR.
+
+    Args:
+        returns: DataFrame of asset returns (columns = assets).
+        alpha: CVaR confidence level (default 5%).
+        max_iter: Maximum iterations.
+
+    Returns:
+        Dict of asset → weight.
+    """
+    assets = list(returns.columns)
+    n = len(assets)
+    w = np.ones(n) / n
+
+    for _ in range(max_iter):
+        port_ret = returns.values @ w
+        cutoff = np.percentile(port_ret, alpha * 100)
+        tail_mask = port_ret <= cutoff
+        if tail_mask.sum() < 2:
+            break
+
+        # Marginal CVaR: avg contribution in tail
+        tail_returns = returns.values[tail_mask]
+        marginal_cvar = np.abs(tail_returns.mean(axis=0))
+        marginal_cvar = np.maximum(marginal_cvar, 1e-12)
+
+        # Inverse marginal CVaR weighting
+        w_new = (1.0 / marginal_cvar)
+        w_new = w_new / w_new.sum()
+
+        if np.max(np.abs(w_new - w)) < 1e-8:
+            break
+        w = 0.5 * w + 0.5 * w_new  # damped update
+
+    return {assets[i]: float(w[i]) for i in range(n)}

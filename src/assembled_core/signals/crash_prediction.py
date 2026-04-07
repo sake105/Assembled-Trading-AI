@@ -516,3 +516,35 @@ class CrashPredictionEngine:
         agreement = n_active / n_total
         avg_strength = sum(vals) / n_total
         return min((agreement * 0.6 + avg_strength * 0.4), 1.0)
+
+
+# ---------------------------------------------------------------------------
+# Dynamic Threshold Computation (Plan 1.7)
+# ---------------------------------------------------------------------------
+
+
+def compute_rolling_percentile_thresholds(
+    series: pd.Series,
+    window: int = 252,
+    percentiles: tuple[float, ...] = (0.75, 0.90, 0.99),
+    min_periods: int = 60,
+) -> pd.DataFrame:
+    """Compute rolling percentile-based thresholds for crash indicators.
+
+    Replaces hardcoded VIX thresholds (25/35/50) with adaptive
+    rolling percentiles that adjust to the current volatility regime.
+
+    Args:
+        series: Time series (e.g., VIX, put/call ratio, yield curve).
+        window: Rolling window in trading days (default: 252 = 1 year).
+        percentiles: Percentile levels to compute.
+        min_periods: Minimum observations for valid percentile.
+
+    Returns:
+        DataFrame with columns like ``p75``, ``p90``, ``p99``.
+    """
+    result = pd.DataFrame(index=series.index)
+    for p in percentiles:
+        col_name = f"p{int(p * 100)}"
+        result[col_name] = series.rolling(window, min_periods=min_periods).quantile(p)
+    return result

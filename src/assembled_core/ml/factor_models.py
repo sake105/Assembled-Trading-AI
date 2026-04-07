@@ -977,3 +977,70 @@ def train_with_hyperopt(
         model_type, cv_results.get("global_metrics", {}).get("ic_mean", float("nan")),
     )
     return {"best_config": best_cfg, "cv_results": cv_results}
+
+
+# ---------------------------------------------------------------------------
+# Feature-Specific NaN Imputation (Plan 2.8)
+# ---------------------------------------------------------------------------
+
+FEATURE_NEUTRAL_LOOKUP: dict[str, object] = {
+    "returns": 0.0,
+    "rsi_14": 50.0,
+    "macd": 0.0,
+    "bollinger_pctb": 0.5,
+    "volume": "rolling_median",
+    "vix": "rolling_median",
+    "atr": "rolling_median",
+    "momentum": 0.0,
+    "mf_score": 0.0,
+}
+
+
+def impute_features_smart(
+    df: "pd.DataFrame",
+    feature_cols: list[str] | None = None,
+    add_nan_indicators: bool = True,
+    lookup: dict[str, object] | None = None,
+) -> "pd.DataFrame":
+    """Feature-specific NaN imputation with optional NaN indicators.
+
+    Uses domain-appropriate neutral values instead of blind mean/zero fill.
+    Adds ``is_nan_{feature}`` binary columns when ``add_nan_indicators=True``
+    so tree models can learn whether data absence is informative.
+
+    Args:
+        df: Feature DataFrame.
+        feature_cols: Columns to impute. If None, uses all numeric columns.
+        add_nan_indicators: Add binary is_nan columns (default True).
+        lookup: Override neutral value lookup.
+
+    Returns:
+        DataFrame with imputed values and optional indicator columns.
+    """
+    import numpy as np
+    import pandas as pd
+
+    df = df.copy()
+    lut = lookup or FEATURE_NEUTRAL_LOOKUP
+    cols = feature_cols or [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
+
+    for col in cols:
+        if col not in df.columns:
+            continue
+        has_nan = df[col].isna()
+        if not has_nan.any():
+            continue
+
+        if add_nan_indicators:
+            df[f"is_nan_{col}"] = has_nan.astype(int)
+
+        neutral = lut.get(col)
+        if neutral == "rolling_median":
+            fill_val = df[col].rolling(20, min_periods=1).median()
+            df[col] = df[col].fillna(fill_val).fillna(df[col].median()).fillna(0.0)
+        elif neutral is not None:
+            df[col] = df[col].fillna(float(neutral))
+        else:
+            df[col] = df[col].fillna(df[col].median()).fillna(0.0)
+
+    return df

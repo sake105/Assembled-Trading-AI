@@ -245,3 +245,35 @@ def compute_loop_activation_probability(
 
     # Scale: 0 precursors = 5% base, all precursors = 70%
     return 0.05 + coverage * 0.65
+
+
+def track_loop_activation(
+    loop: FeedbackLoop,
+    active_shocks_history: list[list[str]],
+) -> dict:
+    """Track feedback loop activation over a rolling window.
+
+    Args:
+        loop: The feedback loop to track.
+        active_shocks_history: List of daily active shock lists (most recent last).
+
+    Returns:
+        Dict with activation_score, activated_elements, alert flag.
+    """
+    if not loop.chain or not active_shocks_history:
+        return {"activation_score": 0.0, "activated_elements": 0, "total_elements": len(loop.chain), "alert": False}
+
+    # Count unique chain elements activated in any recent day
+    activated = set()
+    for daily_shocks in active_shocks_history:
+        for shock in daily_shocks:
+            if shock in loop.chain:
+                activated.add(shock)
+
+    score = len(activated) / len(loop.chain) if loop.chain else 0.0
+    return {
+        "activation_score": round(score, 3),
+        "activated_elements": len(activated),
+        "total_elements": len(loop.chain),
+        "alert": score > 0.6,
+    }

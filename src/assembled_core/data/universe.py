@@ -71,18 +71,25 @@ def get_universe_members(
     as_of: pd.Timestamp | str | None = None,
     universe_name: str = "default",
     root: Path | None = None,
+    require_active_status: bool = False,
 ) -> list[str]:
     """Return sorted list of symbols active in the universe at *as_of*.
 
     Rules:
       - Symbol is active if start_date <= as_of < end_date (end_date exclusive)
-      - end_date=None means still active indefinitely
+      - end_date=NaT with status='active' (or no status column) → still active
+      - end_date=NaT with require_active_status=True AND status not 'active'
+        → conservatively excluded (avoids survivorship bias from delistings
+        without explicit end_date)
       - as_of=None falls back to watchlist.txt
 
     Args:
         as_of: Point-in-time timestamp. Naive timestamps treated as UTC.
         universe_name: Universe to query.
         root: Directory containing universe files.
+        require_active_status: If True, symbols with end_date=NaT must have
+            status='active' to be included. Prevents survivorship bias when
+            delisted symbols have no recorded end_date.
     """
     if as_of is None:
         wl = Path("watchlist.txt")
@@ -109,6 +116,125 @@ def get_universe_members(
 
     started = history["start_date"] <= as_of
     not_ended = history["end_date"].isna() | (history["end_date"] > as_of)
+
+    if require_active_status and "status" in history.columns:
+        # When end_date is NaT, only include if status is explicitly 'active'
+        # This prevents survivorship bias from delistings without end_date
+        null_end = history["end_date"].isna()
+        explicitly_active = history["status"].str.lower().eq("active")
+        not_ended = (null_end & explicitly_active) | (~null_end & (history["end_date"] > as_of))
+
     active = history.loc[started & not_ended, "symbol"]
 
     return sorted(str(s).strip().upper() for s in active)
+
+
+# ---------------------------------------------------------------------------
+# Universe Reconstitution (Plan 10.1)
+# ---------------------------------------------------------------------------
+
+
+def build_monthly_snapshots(
+    history: pd.DataFrame,
+    start_date: str,
+    end_date: str,
+) -> dict[str, list[str]]:
+    """Build monthly universe snapshots for survivorship-bias-free backtesting.
+
+    Args:
+        history: Universe history with columns: symbol, start_date, end_date, status.
+        start_date: Start of backtest period (YYYY-MM-DD).
+        end_date: End of backtest period (YYYY-MM-DD).
+
+    Returns:
+        Dict mapping month string (YYYY-MM) -> list of active symbols.
+    """
+    months = pd.date_range(start_date, end_date, freq="MS", tz="UTC")
+    snapshots: dict[str, list[str]] = {}
+
+    hist = history.copy()
+    hist["start_date"] = pd.to_datetime(hist["start_date"], utc=True)
+    hist["end_date"] = pd.to_datetime(hist["end_date"], utc=True, errors="coerce")
+
+    for month_start in months:
+        key = month_start.strftime("%Y-%m")
+        started = hist["start_date"] <= month_start
+        not_ended = hist["end_date"].isna() | (hist["end_date"] > month_start)
+        if "status" in hist.columns:
+            null_end = hist["end_date"].isna()
+            active_status = hist["status"].str.lower().eq("active")
+            not_ended = (null_end & active_status) | (~null_end & (hist["end_date"] > month_start))
+        active = hist.loc[started & not_ended, "symbol"]
+        snapshots[key] = sorted(str(s).strip().upper() for s in active)
+
+    return snapshots
+
+
+def get_pit_members_for_date(
+    snapshots: dict[str, list[str]],
+    date: pd.Timestamp,
+) -> list[str]:
+    """Look up PIT universe members for a specific date from monthly snapshots.
+
+    Args:
+        snapshots: Output from build_monthly_snapshots().
+        date: Date to look up.
+
+    Returns:
+        List of symbols active in the month containing ``date``.
+    """
+    key = pd.Timestamp(date).strftime("%Y-%m")
+    return snapshots.get(key, [])
+
+
+# ---------------------------------------------------------------------------
+# 10.7  Survivorship-Bias-Free Delisting Detection
+# ---------------------------------------------------------------------------
+
+def detect_delisted_symbols(
+    prices: pd.DataFrame,
+    as_of_date: str | pd.Timestamp,
+    max_stale_days: int = 90,
+    terminal_return: float = -0.30,
+) -> dict:
+    """Detect delisted symbols from price staleness.
+
+    Args:
+        prices: Price DataFrame with timestamp, symbol, close columns.
+        as_of_date: Current date for staleness check.
+        max_stale_days: Days without price update to flag as delisted.
+        terminal_return: Return to apply in backtest for delisted stocks.
+
+    Returns:
+        Dict with delisted list and terminal values.
+    """
+    as_of = pd.Timestamp(as_of_date)
+    if as_of.tzinfo is None:
+        as_of = as_of.tz_localize("UTC")
+
+    prices_copy = prices.copy()
+    prices_copy["timestamp"] = pd.to_datetime(prices_copy["timestamp"], utc=True)
+
+    delisted = []
+    terminal_values = {}
+
+    for sym, group in prices_copy.groupby("symbol"):
+        last_date = group["timestamp"].max()
+        days_stale = (as_of - last_date).days
+
+        if days_stale > max_stale_days:
+            last_price = float(group.sort_values("timestamp").iloc[-1]["close"])
+            terminal_price = last_price * (1.0 + terminal_return)
+            delisted.append(str(sym))
+            terminal_values[str(sym)] = {
+                "last_price": round(last_price, 2),
+                "last_date": str(last_date.date()),
+                "days_stale": days_stale,
+                "terminal_price": round(terminal_price, 2),
+            }
+
+    return {
+        "delisted": delisted,
+        "n_delisted": len(delisted),
+        "terminal_values": terminal_values,
+    }

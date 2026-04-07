@@ -271,3 +271,87 @@ class BlackLittermanOptimizer:
         conf_dict = {sym: confidence for sym in symbols}
 
         return self.optimize(market_weights, sigma, views, conf_dict)
+
+
+# ---------------------------------------------------------------------------
+# Intel → BL Views Bridge (Plan 5.5)
+# ---------------------------------------------------------------------------
+
+
+def intel_to_bl_views(
+    sector_impacts: dict[str, float],
+    bayesian_confidence: dict[str, float] | None = None,
+    regime_multiplier: float = 1.0,
+    return_scale: float = 0.05,
+) -> tuple[dict[str, float], dict[str, float]]:
+    """Convert intel pipeline sector impacts to Black-Litterman views.
+
+    Positive intel signal → positive view (sector will outperform).
+    Negative signal → negative view.
+
+    Args:
+        sector_impacts: Symbol/ETF → impact score (from IntelSignalAdapter).
+            Positive = beneficiary, negative = loser.
+        bayesian_confidence: Symbol → Bayesian posterior confidence [0, 1].
+            If None, uses abs(impact) as proxy.
+        regime_multiplier: Scale views by regime factor (crisis=0.5, bull=1.5).
+        return_scale: Maximum view magnitude in decimal (default 5% p.a.).
+
+    Returns:
+        Tuple of (views_dict, confidence_dict) ready for BL optimizer.
+    """
+    if not sector_impacts:
+        return {}, {}
+
+    # Normalize impacts to [-1, 1]
+    max_abs = max(abs(v) for v in sector_impacts.values()) or 1.0
+    views: dict[str, float] = {}
+    confidence: dict[str, float] = {}
+
+    for sym, impact in sector_impacts.items():
+        normalized = impact / max_abs
+        view_return = normalized * return_scale * regime_multiplier
+        views[sym] = round(view_return, 6)
+
+        if bayesian_confidence and sym in bayesian_confidence:
+            confidence[sym] = min(1.0, max(0.05, bayesian_confidence[sym]))
+        else:
+            confidence[sym] = min(1.0, max(0.1, abs(normalized) * 0.8))
+
+    return views, confidence
+
+
+# ---------------------------------------------------------------------------
+# 5.7  Robust BL (Uncertainty-Set around mu)
+# ---------------------------------------------------------------------------
+
+def robust_bl_shrinkage(
+    mu_bl: np.ndarray,
+    sigma: np.ndarray,
+    n_obs: int = 252,
+    kappa_scale: float = 1.0,
+) -> np.ndarray:
+    """Shrink BL expected returns toward zero by estimation uncertainty.
+
+    Applies ellipsoid uncertainty: mu_robust = mu_bl * shrinkage_factor
+    where shrinkage_factor = 1 - kappa / ||mu_bl||, clamped to [0, 1].
+
+    Args:
+        mu_bl: BL posterior expected returns (N,).
+        sigma: Covariance matrix (N×N).
+        n_obs: Number of observations used for estimation.
+        kappa_scale: Multiplier for uncertainty radius.
+
+    Returns:
+        Shrunk expected returns.
+    """
+    n = len(mu_bl)
+    # Estimation uncertainty proportional to sqrt(1/n_obs)
+    kappa = kappa_scale * np.sqrt(n / max(n_obs, 1))
+    mu_norm = np.sqrt(mu_bl @ mu_bl)
+
+    if mu_norm < 1e-10:
+        return mu_bl.copy()
+
+    shrinkage = max(0.0, 1.0 - kappa / mu_norm)
+    return mu_bl * shrinkage
