@@ -8,9 +8,7 @@ import pytest
 
 from src.assembled_core.qa.portfolio_analyzer import (
     PerformanceProfile,
-    PortfolioStructure,
     RegimePerformance,
-    AttributionReport,
     PortfolioAnalysisResult,
     compute_performance_profile,
     compute_portfolio_structure,

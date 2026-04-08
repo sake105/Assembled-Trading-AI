@@ -212,7 +212,7 @@ def validate_dates_against_calendar(
     # Check for missing trading sessions
     min_d = min(date_set)
     max_d = max(date_set)
-    expected = get_trading_sessions(str(min_d), str(max_d))
+    expected = trading_sessions(str(min_d), str(max_d))
     expected_set = set(expected)
     missing = expected_set - date_set
     missing_pct = len(missing) / len(expected_set) * 100 if expected_set else 0.0

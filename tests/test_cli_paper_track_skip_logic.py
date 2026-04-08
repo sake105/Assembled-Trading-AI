@@ -50,7 +50,7 @@ def _patch_paper_track_runtime(monkeypatch, tmp_path: Path):
             sell_count=0,
         )
 
-    def fake_write_paper_day_outputs(result, output_dir, config=None):
+    def fake_write_paper_day_outputs(result, output_dir, config=None, **kwargs):
         _write_minimal_outputs(output_dir, result.config.strategy_name, result.date)
 
     def fake_save_paper_state(state, state_path):

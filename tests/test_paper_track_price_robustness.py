@@ -144,7 +144,7 @@ def test_run_paper_day_with_nan_symbol_no_orders(
     """Test that run_paper_day handles NaN symbols gracefully and produces no orders for them."""
 
     # Mock load_eod_prices_for_universe to return our synthetic data
-    def _mock_load_eod_prices_for_universe(universe_file, freq):
+    def _mock_load_eod_prices_for_universe(universe_file=None, freq="1d", **kwargs):
         return prices_with_nan_symbol
 
     monkeypatch.setattr(
@@ -206,7 +206,7 @@ def test_run_paper_day_with_missing_price_at_as_of(
     prices = pd.DataFrame(data)
 
     # Mock load_eod_prices_for_universe
-    def _mock_load_eod_prices_for_universe(universe_file, freq):
+    def _mock_load_eod_prices_for_universe(universe_file=None, freq="1d", **kwargs):
         return prices
 
     monkeypatch.setattr(
@@ -250,7 +250,7 @@ def test_daily_summary_includes_universe_stats(
     """Test that daily_summary.json includes n_symbols_requested, n_tradeable, n_missing."""
 
     # Mock load_eod_prices_for_universe
-    def _mock_load_eod_prices_for_universe(universe_file, freq):
+    def _mock_load_eod_prices_for_universe(universe_file=None, freq="1d", **kwargs):
         return prices_with_nan_symbol
 
     monkeypatch.setattr(

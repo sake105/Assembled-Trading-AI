@@ -41,7 +41,7 @@ def audit_feature_flags(
     disabled = []
     missing = []
 
-    features_config = policy.get("features", {})
+    _features_config = policy.get("features", {})
 
     for flag_name, config_path in FEATURE_FLAGS.items():
         parts = config_path.split(".")

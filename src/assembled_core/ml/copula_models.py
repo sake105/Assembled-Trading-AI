@@ -57,7 +57,7 @@ def _clayton_logpdf(u: np.ndarray, v: np.ndarray, theta: float) -> float:
     """Log-density of Clayton copula."""
     if theta <= 0:
         return -np.inf
-    n = len(u)
+    _n = len(u)
     # c(u,v) = (1+theta) * (u*v)^{-(1+theta)} * (u^{-theta} + v^{-theta} - 1)^{-(2+1/theta)}
     eps = 1e-10
     u = np.clip(u, eps, 1 - eps)
@@ -88,7 +88,7 @@ def _gumbel_logpdf(u: np.ndarray, v: np.ndarray, theta: float) -> float:
     # Log-density via mixed partial derivative (computed analytically)
     # c(u,v) = C(u,v) * (1/(u*v)) * A^{theta-2} * ((- ln u)(- ln v))^{theta-1}
     #          * (1 + (theta-1)/A)
-    C_uv = np.exp(-A)
+    _C_uv = np.exp(-A)
     log_C = -A
 
     log_neg_ln_u = np.log(np.maximum(-np.log(u), eps))

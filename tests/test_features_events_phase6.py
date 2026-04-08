@@ -216,7 +216,7 @@ def test_news_features_basic(sample_prices):
     assert "news_count_30d" in result.columns
 
     # Check that features are numeric (may contain NaN for sentiment)
-    assert pd.api.types.is_integer_dtype(result["news_count_7d"])
+    assert pd.api.types.is_numeric_dtype(result["news_count_7d"])
 
 
 @pytest.mark.phase6

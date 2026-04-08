@@ -6,7 +6,6 @@ SHA-256 hash over price data per run for lineage tracking.
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
 from datetime import datetime, timezone
 

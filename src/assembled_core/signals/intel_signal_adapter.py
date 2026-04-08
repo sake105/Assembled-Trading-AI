@@ -336,7 +336,6 @@ def compute_symbol_intel_scores(
     Returns:
         Symbol → composite intel alpha score.
     """
-    import numpy as np
 
     all_symbols: set[str] = set()
     for d in [sector_impacts, supply_chain_vulnerability, sanctions_beneficiary, chokepoint_exposure]:

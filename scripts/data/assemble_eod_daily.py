@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
 import sys
-import glob
-import json
 from pathlib import Path
+
+import glob
 import pandas as pd
 
 REPO = Path(__file__).resolve().parents[2]  # <repo>/scripts/data/ -> up 2

@@ -4,12 +4,9 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pandas as pd
-import pytest
 
 from src.assembled_core.execution.broker_adapter import BrokerPosition
 from src.assembled_core.execution.position_sync import (
-    SyncResult,
     get_broker_equity,
     rebuild_ledger_from_broker,
     sync_positions_from_broker,

@@ -14,10 +14,9 @@ Hysteresis: regime must persist for 3 consecutive bars before switching.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
-import pandas as pd
 
 _log = logging.getLogger(__name__)
 

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import pytest
 
 
 # ---------------------------------------------------------------------------
@@ -56,7 +55,6 @@ class TestRegimeBlendedWeights:
     def test_all_five_regimes(self):
         from src.assembled_core.signals.multifactor_signal import (
             REGIME_FACTOR_WEIGHTS,
-            compute_regime_blended_weights,
         )
 
         # All 5 regimes exist

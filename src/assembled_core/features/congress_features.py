@@ -182,7 +182,6 @@ def compute_congress_net_buy_score(
     Returns:
         Symbol -> net buy score.
     """
-    import pandas as pd
 
     if trades_df is None or trades_df.empty:
         return {}

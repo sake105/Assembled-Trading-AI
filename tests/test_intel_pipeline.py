@@ -17,8 +17,18 @@ from __future__ import annotations
 import hashlib
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import pytest
+if TYPE_CHECKING:
+    from src.assembled_core.intel.models import (
+        CrisisState,
+        EvidenceCluster,
+        GeoTrigger,
+        NewsEvent,
+        SourceTier,
+        TriggerType,
+    )
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -46,7 +56,7 @@ def _make_event(
     geo_tags: list[str] | None = None,
     entities: list[str] | None = None,
 ) -> "NewsEvent":
-    from src.assembled_core.intel.models import NewsEvent, SourceTier
+    from src.assembled_core.intel.models import NewsEvent
     from src.assembled_core.intel.source_registry import get_source_tier
 
     eid = event_id or hashlib.sha256(f"{title}{source_id}".encode()).hexdigest()[:16]
@@ -138,7 +148,7 @@ class TestModels:
         assert restored.source_tier == SourceTier.T1
 
     def test_geo_trigger_is_expired(self):
-        from src.assembled_core.intel.models import GeoTrigger, SourceTier, TriggerType
+        from src.assembled_core.intel.models import GeoTrigger, TriggerType
 
         now = _now()
         trigger = GeoTrigger(
@@ -695,7 +705,7 @@ class TestShockPropagation:
         )
         # Check we got transmissions or they terminated at defense nodes
         if transmissions:
-            signal = to_dependency_signal(transmissions, "trig_war", trigger_score=3)
+            _signal = to_dependency_signal(transmissions, "trig_war", trigger_score=3)
             # DEFENSE_SECTOR should be a beneficiary or in the path
             all_path_nodes = {hop.node_id for t in transmissions for hop in t.path}
             assert "DEFENSE_SECTOR" in all_path_nodes or "WAR_ESCALATION_EVENT" in all_path_nodes
@@ -1017,7 +1027,7 @@ class TestCrisisStateMachine:
 
     def test_dependency_signal_id_stored(self):
         from src.assembled_core.intel.crisis_alpha_worker import update_crisis_state
-        from src.assembled_core.intel.models import CrisisMode, DependencySignal
+        from src.assembled_core.intel.models import DependencySignal
 
         prev = self._normal_state()
         trigger = self._make_trigger(score=2)

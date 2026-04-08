@@ -86,7 +86,7 @@ class PurgedKFold:
 
             test_ts = unique_ts.iloc[test_start_idx:test_end_idx]
             test_start_date = test_ts.min()
-            test_end_date = test_ts.max()
+            _test_end_date = test_ts.max()
 
             # --- raw train window ---
             if train_size is None:

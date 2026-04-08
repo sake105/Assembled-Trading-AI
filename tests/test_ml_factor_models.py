@@ -277,7 +277,7 @@ def test_run_time_series_cv_insufficient_data(sample_factor_panel_df):
     experiment = MLExperimentConfig(
         label_col="fwd_return_20d",
         n_splits=10,  # Too many splits for small data
-        min_train_samples=5,
+        min_train_samples=10,
     )
 
     model_cfg = MLModelConfig(name="linear_test", model_type="linear")

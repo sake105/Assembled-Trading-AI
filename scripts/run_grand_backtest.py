@@ -225,7 +225,6 @@ def main() -> None:
     print("\n[3/7] Starting backtest loop...")
 
     # ── Helper: compute trend signals with pullback score (E1) ───────────────
-    from assembled_core.signals.rules_trend import generate_trend_signals_from_prices
 
     def compute_entry_scores(prices_to_date: pd.DataFrame, syms: list[str]) -> dict[str, float]:
         """Compute MA trend + RSI pullback + volume confirmation entry score."""
@@ -476,7 +475,7 @@ def main() -> None:
     print(f"Universe:     {len(equity_syms)} equities + {len(sector_syms)} sectors + {len(macro_syms)} macro + inverse ETFs")
     print(f"Period:       {START} → {END}")
     print(f"Rebalances:   {n_rebalances}")
-    print(f"Starting:     $100,000")
+    print("Starting:     $100,000")
     print(f"Final:        ${equity[-1]:,.2f}")
     print(f"Total Return: {(equity[-1]/equity[0]-1)*100:.2f}%")
 
@@ -498,7 +497,7 @@ def main() -> None:
     losses = returns[returns < 0]
     pf = float(np.sum(wins) / abs(np.sum(losses))) if np.sum(losses) != 0 else 0.0
 
-    print(f"\nRisk-Adjusted:")
+    print("\nRisk-Adjusted:")
     print(f"  Sharpe:      {sharpe:.3f}")
     print(f"  Sortino:     {sortino:.3f}")
     print(f"  Calmar:      {calmar:.3f}")
@@ -514,7 +513,7 @@ def main() -> None:
         w_arr = np.array(list(holdings.values()))
         hhi = float(np.sum(w_arr ** 2))
         eff_n = round(1 / hhi, 1) if hhi > 0 else 0
-        print(f"\nPortfolio Structure (last rebalance):")
+        print("\nPortfolio Structure (last rebalance):")
         print(f"  Positions:   {len(holdings)}")
         print(f"  HHI:         {hhi:.3f} (eff. N = {eff_n})")
         top5 = sorted(holdings.items(), key=lambda x: abs(x[1]), reverse=True)[:5]
@@ -581,7 +580,7 @@ def main() -> None:
     m15_best = {"sharpe": 3.39, "total_return": 0.370, "max_dd": -0.048, "beta": 0.133, "hhi": 0.202}
     print(f"{'Metric':<22} {'M15-Best':>12} {'M16-Grand':>12} {'Delta':>12}")
     print("-" * 60)
-    m16 = {"sharpe": sharpe, "total_return": equity[-1]/equity[0]-1, "max_dd": max_dd, "hhi": hhi if holdings else 0}
+    _m16 = {"sharpe": sharpe, "total_return": equity[-1]/equity[0]-1, "max_dd": max_dd, "hhi": hhi if holdings else 0}  # noqa: F841
     comparisons = [
         ("Sharpe", m15_best["sharpe"], sharpe, ""),
         ("Total Return", m15_best["total_return"]*100, (equity[-1]/equity[0]-1)*100, "%"),
@@ -614,7 +613,7 @@ def main() -> None:
     }
     with open("output/grand_backtest/results.json", "w") as f:
         json.dump(result_dict, f, indent=2)
-    print(f"\nResults saved → output/grand_backtest/results.json")
+    print("\nResults saved → output/grand_backtest/results.json")
     print("=" * 70)
 
 

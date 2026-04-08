@@ -12,7 +12,7 @@ import math
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .models import EvidenceCluster, GeoTrigger, SourceTier
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +174,7 @@ def compute_cluster_confidence(
     if not source_tiers:
         return 0.0
 
-    prior = TRIGGER_BASE_PRIORS.get(trigger_type, DEFAULT_PRIOR)
+    _prior = TRIGGER_BASE_PRIORS.get(trigger_type, DEFAULT_PRIOR)
 
     # Build evidence list
     evidence_list = []

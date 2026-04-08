@@ -421,7 +421,7 @@ def adjust_for_stock_split(
 
     pos = positions[symbol]
     old_qty = pos["qty"]
-    old_cost_basis = pos["cost_basis"]
+    _old_cost_basis = pos["cost_basis"]  # noqa: F841
 
     # qty × ratio, cost stays same (per-share cost / ratio)
     pos["qty"] = old_qty * split_ratio

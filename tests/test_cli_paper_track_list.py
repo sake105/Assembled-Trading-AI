@@ -39,17 +39,10 @@ def temp_configs_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     with open(config2_path, "w", encoding="utf-8") as f:
         yaml.dump(config2, f)
 
-    # Mock ROOT to point to tmp_path
-    import scripts.run_paper_track as rpt_module
-
-    original_root = rpt_module.ROOT
-    rpt_module.ROOT = tmp_path
+    # Mock ROOT to point to tmp_path (monkeypatch restores automatically)
     monkeypatch.setattr("scripts.run_paper_track.ROOT", tmp_path)
 
-    yield configs_dir
-
-    # Restore original ROOT
-    rpt_module.ROOT = original_root
+    return configs_dir
 
 
 def test_list_paper_track_configs_show_configs(
@@ -73,10 +66,6 @@ def test_list_paper_track_configs_no_configs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Test that --list shows appropriate message when no configs found."""
-    import scripts.run_paper_track as rpt_module
-
-    original_root = rpt_module.ROOT
-    rpt_module.ROOT = tmp_path
     monkeypatch.setattr("scripts.run_paper_track.ROOT", tmp_path)
 
     from scripts.run_paper_track import list_paper_track_configs
@@ -86,9 +75,6 @@ def test_list_paper_track_configs_no_configs(
 
     assert exit_code == 0
     assert "No paper track configs found" in captured.out
-
-    # Restore original ROOT
-    rpt_module.ROOT = original_root
 
 
 def test_discover_paper_track_configs(temp_configs_dir: Path) -> None:
@@ -126,10 +112,6 @@ def test_find_config_by_strategy_name_from_output_dir(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Test that find_config_by_strategy_name finds config in output/paper_track/{name}/."""
-    import scripts.run_paper_track as rpt_module
-
-    original_root = rpt_module.ROOT
-    rpt_module.ROOT = tmp_path
     monkeypatch.setattr("scripts.run_paper_track.ROOT", tmp_path)
 
     # Create output/paper_track/{strategy_name}/config.yaml
@@ -155,18 +137,11 @@ def test_find_config_by_strategy_name_from_output_dir(
     assert found_path.name == "config.yaml"
     assert "test_strategy_output" in str(found_path.parent)
 
-    # Restore original ROOT
-    rpt_module.ROOT = original_root
-
 
 def test_find_config_by_strategy_name_not_found(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Test that find_config_by_strategy_name returns None when config not found."""
-    import scripts.run_paper_track as rpt_module
-
-    original_root = rpt_module.ROOT
-    rpt_module.ROOT = tmp_path
     monkeypatch.setattr("scripts.run_paper_track.ROOT", tmp_path)
 
     from scripts.run_paper_track import find_config_by_strategy_name
@@ -174,9 +149,6 @@ def test_find_config_by_strategy_name_not_found(
     config_path = find_config_by_strategy_name("nonexistent_strategy")
 
     assert config_path is None
-
-    # Restore original ROOT
-    rpt_module.ROOT = original_root
 
 
 def test_cli_list_flag(
@@ -233,10 +205,6 @@ def test_cli_strategy_name_not_found(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Test that --strategy-name shows error when config not found."""
-    import scripts.run_paper_track as rpt_module
-
-    original_root = rpt_module.ROOT
-    rpt_module.ROOT = tmp_path
     monkeypatch.setattr("scripts.run_paper_track.ROOT", tmp_path)
 
     from scripts.run_paper_track import find_config_by_strategy_name
@@ -244,6 +212,3 @@ def test_cli_strategy_name_not_found(
     config_path = find_config_by_strategy_name("nonexistent")
 
     assert config_path is None
-
-    # Restore original ROOT
-    rpt_module.ROOT = original_root

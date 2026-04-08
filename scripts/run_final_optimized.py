@@ -21,15 +21,14 @@ import pandas as pd
 
 from assembled_core.signals.rules_trend import generate_trend_signals_from_prices
 from assembled_core.features.ta_features import add_all_features
-from assembled_core.qa.benchmark_metrics import compute_benchmark_metrics, brinson_fachler_attribution
+from assembled_core.qa.benchmark_metrics import compute_benchmark_metrics
 from assembled_core.ml.cpcv import generate_cpcv_splits, compute_cpcv_sharpe_distribution
 from assembled_core.risk.liquidity_scoring import compute_liquidity_scores, apply_liquidity_adjusted_sizing
 from assembled_core.risk.trailing_stops import compute_trailing_stops, apply_stop_reductions_to_weights
 from assembled_core.portfolio.cost_aware_optimizer import optimize_portfolio, OptimizerConfig
 from assembled_core.portfolio.stress_test_constraints import evaluate_stress_scenarios, StressTestConfig
-from assembled_core.risk.crowding_detector import detect_crowding, compute_hhi
+from assembled_core.risk.crowding_detector import compute_hhi
 from assembled_core.data.cost_model_policy import get_per_symbol_costs
-from assembled_core.qa.signal_decay import compute_ic_series
 
 
 # Sector mapping for stress tests & attribution
@@ -99,7 +98,7 @@ def main():
     total_cost = 0.0
     n_rebalances = 0
     stop_states: dict = {}
-    position_history: list[dict] = []
+    _position_history: list[dict] = []  # reserved for future use
     sector_weights_history: list[dict] = []
     hhi_history: list[float] = []
 
@@ -212,7 +211,7 @@ def main():
     profit_factor = abs(avg_win * len(win_days)) / abs(avg_loss * len(loss_days)) if len(loss_days) > 0 and avg_loss != 0 else 0
 
     print(f"\n{'=' * 70}")
-    print(f"PERFORMANCE METRICS")
+    print("PERFORMANCE METRICS")
     print(f"{'=' * 70}")
     print(f"  Total Return:     {(equity[-1]/equity[0]-1)*100:+.2f}%")
     print(f"  CAGR:             {cagr*100:+.2f}%")
@@ -226,7 +225,7 @@ def main():
     print(f"  Avg Win:          {avg_win*100:.3f}%/day")
     print(f"  Avg Loss:         {avg_loss*100:.3f}%/day")
 
-    print(f"\nTRADING EFFICIENCY:")
+    print("\nTRADING EFFICIENCY:")
     print(f"  Rebalances:       {n_rebalances}")
     print(f"  Total Turnover:   {total_turnover:.1f}x")
     print(f"  Ann. Turnover:    {total_turnover*252/len(returns):.1f}x")
@@ -239,7 +238,7 @@ def main():
         bm = compute_benchmark_metrics(
             pd.Series(returns[:len(spy_aligned)]), pd.Series(spy_aligned)
         )
-        print(f"\nBENCHMARK ATTRIBUTION (vs SPY):")
+        print("\nBENCHMARK ATTRIBUTION (vs SPY):")
         print(f"  Alpha (ann.):     {bm.alpha*100:+.2f}%")
         print(f"  Beta:             {bm.beta:.3f}")
         print(f"  R-squared:        {bm.r_squared:.3f}")
@@ -253,7 +252,7 @@ def main():
         print(f"  Excess Return:    {(equity[-1]/equity[0]-1 - spy_total)*100:+.2f}%")
 
     # === SECTOR ANALYSIS ===
-    print(f"\nSECTOR EXPOSURE (average over period):")
+    print("\nSECTOR EXPOSURE (average over period):")
     all_sectors: dict[str, list[float]] = {}
     for sw in sector_weights_history:
         for sec, w in sw.items():
@@ -265,12 +264,12 @@ def main():
 
     # === CONCENTRATION ===
     avg_hhi = float(np.mean(hhi_history))
-    print(f"\nCONCENTRATION:")
+    print("\nCONCENTRATION:")
     print(f"  Avg HHI:          {avg_hhi:.4f} (1/N={1/12:.4f} for 12 positions)")
     print(f"  Effective N:      {1/avg_hhi:.1f} positions" if avg_hhi > 0 else "  Effective N: N/A")
 
     # === STRESS TESTS ===
-    print(f"\nSTRESS TEST ANALYSIS (final weights):")
+    print("\nSTRESS TEST ANALYSIS (final weights):")
     stress_cfg = StressTestConfig(sector_mapping=SECTOR_MAP)
     stress = evaluate_stress_scenarios(holdings, list(holdings.keys()), SECTOR_MAP, stress_cfg)
     for sc, loss in sorted(stress.scenario_losses.items(), key=lambda x: x[1]):
@@ -281,7 +280,7 @@ def main():
     print(f"  All within floors: {stress.all_within_floors}")
 
     # === CPCV ===
-    print(f"\nCPCV OVERFITTING ANALYSIS:")
+    print("\nCPCV OVERFITTING ANALYSIS:")
     splits = generate_cpcv_splits(len(returns), n_groups=6, k_test_groups=2, purge_length=5, embargo_length=3)
     if splits:
         path_rets = [returns[tidx] for _, tidx in splits]
@@ -296,7 +295,7 @@ def main():
         print(f"  Likely Overfit:   {cpcv.is_likely_overfit}")
 
     # === WALK-FORWARD (4-split) ===
-    print(f"\nWALK-FORWARD ANALYSIS (4 splits):")
+    print("\nWALK-FORWARD ANALYSIS (4 splits):")
     n = len(returns)
     wf_size = n // 4
     for split_i in range(4):
@@ -313,7 +312,7 @@ def main():
         print(f"  Split {split_i+1}: Return={wf_ret*100:+.1f}% Sharpe={wf_sharpe:.2f} MaxDD={wf_dd*100:.1f}% ({len(wf_rets)} days)")
 
     # === MONTHLY RETURNS ===
-    print(f"\nMONTHLY RETURNS:")
+    print("\nMONTHLY RETURNS:")
     date_arr = np.array(dates[1:])
     months = pd.Series(returns, index=pd.to_datetime(date_arr))
     monthly = months.resample("ME").apply(lambda x: float(np.prod(1 + x) - 1))
@@ -355,8 +354,8 @@ def main():
     eq_df.to_csv("output/final_optimized/equity_curve.csv", index=False)
 
     print(f"\n{'=' * 70}")
-    print(f"Results: output/final_optimized/results.json")
-    print(f"Equity:  output/final_optimized/equity_curve.csv")
+    print("Results: output/final_optimized/results.json")
+    print("Equity:  output/final_optimized/equity_curve.csv")
     print(f"{'=' * 70}")
 
 

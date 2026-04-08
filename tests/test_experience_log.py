@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
-import pandas as pd
 import pytest
 
 from src.assembled_core.ops.experience_log import (

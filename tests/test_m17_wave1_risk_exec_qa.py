@@ -2,7 +2,6 @@
 
 import numpy as np
 import pandas as pd
-import pytest
 
 
 # ── Circuit Breaker (6.1) ─────────────────────────────────────────────
@@ -53,7 +52,6 @@ class TestAdversarialFill:
     def test_import(self):
         from src.assembled_core.execution.fill_model import (
             compute_adversarial_fill_cost,
-            apply_adversarial_fill_adjustment,
         )
         assert compute_adversarial_fill_cost is not None
 

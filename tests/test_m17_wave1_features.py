@@ -12,8 +12,6 @@ class TestCorrelationFeatures:
     def test_import(self):
         from src.assembled_core.features.correlation_features import (
             compute_avg_pairwise_correlation,
-            compute_return_dispersion,
-            compute_correlation_regime_features,
         )
         assert compute_avg_pairwise_correlation is not None
 
@@ -169,7 +167,7 @@ class TestWeaponizedInterdependence:
 
     def test_import(self):
         from src.assembled_core.intel.weaponized_interdependence import (
-            compute_wi_score, get_known_wi_pairs,
+            compute_wi_score,
         )
         assert compute_wi_score is not None
 
@@ -274,7 +272,7 @@ class TestScenarioTrees:
 
 def _scipy_available():
     try:
-        import scipy
+        import scipy  # noqa: F401
         return True
     except ImportError:
         return False
@@ -331,7 +329,7 @@ class TestBarbellStrategy:
 
     def test_import(self):
         from src.assembled_core.portfolio.barbell_strategy import (
-            compute_tail_risk_score, build_barbell_allocation,
+            compute_tail_risk_score,
         )
         assert compute_tail_risk_score is not None
 
@@ -479,7 +477,7 @@ class TestVolatilityFeatures:
 
     def test_import(self):
         from src.assembled_core.features.volatility_features import (
-            compute_garch_features, compute_garch_features_snapshot,
+            compute_garch_features,
         )
         assert compute_garch_features is not None
 

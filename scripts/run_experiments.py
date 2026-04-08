@@ -8,9 +8,8 @@ from __future__ import annotations
 
 import sys
 import os
-import json
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 sys.path.insert(0, str(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -515,7 +514,7 @@ def main():
         })
     df = pd.DataFrame(rows)
     df.to_csv("output/experiments/all_results.csv", index=False)
-    print(f"\nFull results saved to output/experiments/all_results.csv")
+    print("\nFull results saved to output/experiments/all_results.csv")
     print(f"{'=' * 80}")
 
 

@@ -109,6 +109,11 @@ def test_health_check_ok_with_healthy_data(sample_backtest_dir: Path, tmp_path: 
     # Create backtests root
     backtests_root = sample_backtest_dir.parent
 
+    # Use isolated temp paths for paper-track and batch to avoid picking up
+    # real project data from output/ when running with cwd=project root
+    empty_paper_track = tmp_path / "empty_paper_track"
+    empty_batch = tmp_path / "empty_batch"
+
     cmd = [
         sys.executable,
         str(script_path),
@@ -120,6 +125,12 @@ def test_health_check_ok_with_healthy_data(sample_backtest_dir: Path, tmp_path: 
         "100",  # Large window so freshness check passes
         "--format",
         "json",
+        "--paper-track-root",
+        str(empty_paper_track),
+        "--skip-paper-track-if-missing",
+        "--batch-root",
+        str(empty_batch),
+        "--skip-batch-if-missing",
     ]
 
     result = subprocess.run(
@@ -189,6 +200,12 @@ def test_health_check_warn_when_risk_report_missing(
         "100",
         "--format",
         "json",
+        "--paper-track-root",
+        str(tmp_path / "nonexistent_pt"),
+        "--skip-paper-track-if-missing",
+        "--batch-root",
+        str(tmp_path / "nonexistent_batch"),
+        "--skip-batch-if-missing",
     ]
 
     result = subprocess.run(
@@ -200,7 +217,7 @@ def test_health_check_warn_when_risk_report_missing(
     assert result.returncode in [
         0,
         1,
-    ], f"Expected exit code 0 or 1, got {result.returncode}"
+    ], f"Expected exit code 0 or 1, got {result.returncode}\nstderr: {result.stderr}\nstdout: {result.stdout}"
 
     # Check JSON content
     summary_json = output_dir / "health_summary.json"
@@ -412,6 +429,8 @@ def test_check_health_smoke_test_minimal(tmp_path: Path):
         str(output_dir),
         "--format",
         "json",
+        "--skip-paper-track-if-missing",
+        "--skip-batch-if-missing",
     ]
 
     result = subprocess.run(

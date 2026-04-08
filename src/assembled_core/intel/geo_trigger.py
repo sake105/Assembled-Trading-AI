@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime, timezone
+import re
 from typing import Any
 
 from .models import (
@@ -175,6 +175,18 @@ def _text_tokens(event: NewsEvent) -> str:
     return " ".join(parts)
 
 
+def _kw_in_text(kw: str, text: str) -> bool:
+    """Check if keyword appears in text using word-boundary matching.
+
+    Multi-word keywords use simple substring matching (they are specific enough).
+    Single-word keywords use regex word boundaries to avoid partial matches
+    (e.g. 'sco' should not match 'score').
+    """
+    if " " in kw:
+        return kw in text
+    return bool(re.search(r"\b" + re.escape(kw) + r"\b", text))
+
+
 def score_event(event: NewsEvent, keyword_rules: dict[TriggerType, list[str]] | None = None) -> float:
     """
     Score a single event based on keyword matches.
@@ -187,7 +199,7 @@ def score_event(event: NewsEvent, keyword_rules: dict[TriggerType, list[str]] | 
     matched_types = 0
     for _trigger_type, keywords in rules.items():
         for kw in keywords:
-            if kw in text:
+            if _kw_in_text(kw, text):
                 matched_types += 1
                 break  # count each type at most once
 
@@ -214,7 +226,7 @@ def classify_trigger_type(
     best_count = 0
 
     for trigger_type, keywords in rules.items():
-        count = sum(1 for kw in keywords if kw in text)
+        count = sum(1 for kw in keywords if _kw_in_text(kw, text))
         if count > best_count:
             best_count = count
             best_type = trigger_type
@@ -254,7 +266,7 @@ def score_cluster(
     t0_count = source_breakdown.get(SourceTier.T0.value, 0)
     t1_count = source_breakdown.get(SourceTier.T1.value, 0)
     t2_count = source_breakdown.get(SourceTier.T2.value, 0)
-    t3_count = source_breakdown.get(SourceTier.T3.value, 0)
+    _t3_count = source_breakdown.get(SourceTier.T3.value, 0)
 
     # Count independent sources (unique source_ids)
     unique_sources = {e.source_id for e in cluster_events}

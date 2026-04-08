@@ -52,7 +52,7 @@ def mock_run_paper_day(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
 def mock_write_paper_day_outputs(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     """Mock write_paper_day_outputs to create minimal files."""
 
-    def _mock_write(result, output_dir, config):
+    def _mock_write(result, output_dir, config=None, **kwargs):
         run_date_str = result.date.strftime("%Y%m%d")
         run_dir = output_dir / "runs" / run_date_str
         run_dir.mkdir(parents=True, exist_ok=True)

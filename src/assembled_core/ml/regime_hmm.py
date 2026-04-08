@@ -273,7 +273,7 @@ class MultiFeatureRegimeHMM:
         Returns:
             True if fitting succeeded.
         """
-        if not HMM_AVAILABLE:
+        if not HMMLEARN_AVAILABLE:
             logger.debug("[MultiHMM] hmmlearn not installed — using fallback")
             self._fitted = False
             return False

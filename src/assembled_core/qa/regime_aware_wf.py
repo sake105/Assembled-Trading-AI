@@ -9,7 +9,7 @@ Extends standard walk-forward analysis with HMM regime conditioning:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd

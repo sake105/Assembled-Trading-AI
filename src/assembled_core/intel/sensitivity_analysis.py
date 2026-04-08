@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .dependency_graph import DependencyGraph
-    from .models import DependencyEdge
 
 logger = logging.getLogger(__name__)
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 import subprocess
 from pathlib import Path
@@ -18,26 +19,29 @@ pytestmark = pytest.mark.advanced
 
 @pytest.fixture
 def sample_price_data(tmp_path: Path) -> Path:
-    """Create sample price data files for testing (one file per symbol).
+    """Create a single aggregated price panel for testing.
 
-    LocalParquetPriceDataSource expects: <local_data_root>/<freq>/<SYMBOL>.parquet
+    LocalParquetPriceDataSource._resolve_path looks for:
+      <output_dir>/aggregates/<freq>.parquet
+    So we create <tmp_path>/aggregates/1d.parquet with all symbols combined.
+    The returned path is the 'output_dir' root (tmp_path).
     """
     dates = pd.date_range("2020-01-01", periods=50, freq="D", tz="UTC")
     symbols = ["AAPL", "MSFT", "GOOGL"]
 
-    # Create directory structure: <tmp_path>/1d/
-    data_dir = tmp_path / "1d"
-    data_dir.mkdir(parents=True, exist_ok=True)
+    # Create directory structure: <tmp_path>/aggregates/
+    agg_dir = tmp_path / "aggregates"
+    agg_dir.mkdir(parents=True, exist_ok=True)
 
-    # Create one parquet file per symbol
+    # Build single combined panel
+    all_data = []
     for symbol in symbols:
         base_price = (
             100.0 if symbol == "AAPL" else (200.0 if symbol == "MSFT" else 150.0)
         )
-        data = []
         for i, date in enumerate(dates):
             price = base_price + i * 0.1 + (hash(symbol) % 10) * 0.01
-            data.append(
+            all_data.append(
                 {
                     "timestamp": date,
                     "symbol": symbol,
@@ -49,14 +53,13 @@ def sample_price_data(tmp_path: Path) -> Path:
                 }
             )
 
-        df = pd.DataFrame(data)
-        df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+    df = pd.DataFrame(all_data)
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
 
-        # Save to <tmp_path>/1d/<SYMBOL>.parquet
-        symbol_file = data_dir / f"{symbol}.parquet"
-        df.to_parquet(symbol_file, index=False)
+    # Save as single aggregated panel
+    df.to_parquet(agg_dir / "1d.parquet", index=False)
 
-    return tmp_path  # Return the root directory (local_data_root)
+    return tmp_path  # Return the output_dir root
 
 
 @pytest.fixture
@@ -72,10 +75,8 @@ def test_analyze_factors_cli_basic(
 ):
     """Test basic analyze_factors CLI functionality."""
     # Set up environment for local data source
-    # sample_price_data is now the root directory (tmp_path)
-    data_dir = sample_price_data
-
-    monkeypatch.setenv("ASSEMBLED_LOCAL_DATA_ROOT", str(data_dir))
+    # sample_price_data is the output_dir root containing aggregates/1d.parquet
+    monkeypatch.setenv("ASSEMBLED_OUTPUT_DIR", str(sample_price_data))
     monkeypatch.setenv("ASSEMBLED_DATA_SOURCE", "local")
 
     # Create output directory
@@ -107,12 +108,18 @@ def test_analyze_factors_cli_basic(
         str(output_dir),
     ]
 
+    # Pass env vars to subprocess (monkeypatch only affects current process)
+    env = os.environ.copy()
+    env["ASSEMBLED_OUTPUT_DIR"] = str(sample_price_data)
+    env["ASSEMBLED_DATA_SOURCE"] = "local"
+
     result = subprocess.run(
         cmd,
         cwd=str(ROOT),
         capture_output=True,
         text=True,
         timeout=60,
+        env=env,
     )
 
     # Check exit code
@@ -149,14 +156,21 @@ def test_analyze_factors_direct_call(
     """Test analyze_factors by calling the function directly."""
     from scripts.run_factor_analysis import run_factor_analysis_from_args
     from argparse import Namespace
+    from assembled_core.config.settings import reset_settings
 
     # Set up environment
-    # sample_price_data is now the root directory (tmp_path)
-    data_dir = sample_price_data
-    monkeypatch.setenv("ASSEMBLED_LOCAL_DATA_ROOT", str(data_dir))
+    # sample_price_data is the output_dir root containing aggregates/1d.parquet
+    monkeypatch.setenv("ASSEMBLED_OUTPUT_DIR", str(sample_price_data))
     monkeypatch.setenv("ASSEMBLED_DATA_SOURCE", "local")
+    # Reset settings in both module namespaces (dual-import: assembled_core vs src.assembled_core)
+    reset_settings()
+    try:
+        import src.assembled_core.config.settings as src_settings
+        src_settings.reset_settings()
+    except ImportError:
+        pass
 
-    # Create output directory
+    # Create output directory for analysis results
     output_dir = tmp_path / "output" / "factor_analysis"
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -207,14 +221,21 @@ def test_analyze_factors_with_vol_liquidity(
     """Test analyze_factors with vol_liquidity factor set."""
     from scripts.run_factor_analysis import run_factor_analysis_from_args
     from argparse import Namespace
+    from assembled_core.config.settings import reset_settings
 
     # Set up environment
-    # sample_price_data is now the root directory (tmp_path)
-    data_dir = sample_price_data
-    monkeypatch.setenv("ASSEMBLED_LOCAL_DATA_ROOT", str(data_dir))
+    # sample_price_data is the output_dir root containing aggregates/1d.parquet
+    monkeypatch.setenv("ASSEMBLED_OUTPUT_DIR", str(sample_price_data))
     monkeypatch.setenv("ASSEMBLED_DATA_SOURCE", "local")
+    # Reset settings in both module namespaces (dual-import: assembled_core vs src.assembled_core)
+    reset_settings()
+    try:
+        import src.assembled_core.config.settings as src_settings
+        src_settings.reset_settings()
+    except ImportError:
+        pass
 
-    # Create output directory
+    # Create output directory for analysis results
     output_dir = tmp_path / "output" / "factor_analysis"
     output_dir.mkdir(parents=True, exist_ok=True)
 

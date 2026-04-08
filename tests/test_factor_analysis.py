@@ -293,22 +293,25 @@ class TestComputeRankIc:
         """Test that compute_rank_ic runs and returns Rank-IC DataFrame."""
         result = compute_rank_ic(
             factor_panel_with_forward_returns,
-            factor_cols=["perfect_factor"],
-            fwd_return_col="fwd_return_1d",
+            forward_returns_col="fwd_return_1d",
         )
 
-        assert "timestamp" in result.columns
-        assert "factor" in result.columns
-        assert "ic" in result.columns
+        # compute_rank_ic returns wide format: timestamp as index, ic_<factor> columns
+        assert result.index.name == "timestamp"
+        assert any(col.startswith("ic_") for col in result.columns)
         assert len(result) > 0
 
     def test_rank_ic_vs_regular_ic(self, factor_panel_with_forward_returns):
         """Test that Rank-IC uses Spearman correlation (rank-based)."""
-        # Rank-IC should handle monotonic relationships better
+        # compute_rank_ic uses forward_returns_col (not factor_cols/fwd_return_col)
+        # It returns wide format with ic_<factor> columns and timestamp as index.
+        # Filter input to only include the factor we care about.
+        cols_to_keep = ["timestamp", "symbol", "perfect_factor", "fwd_return_1d"]
+        df_subset = factor_panel_with_forward_returns[cols_to_keep].copy()
+
         result_rank = compute_rank_ic(
-            factor_panel_with_forward_returns,
-            factor_cols=["perfect_factor"],
-            fwd_return_col="fwd_return_1d",
+            df_subset,
+            forward_returns_col="fwd_return_1d",
         )
 
         result_regular = compute_factor_ic(
@@ -321,7 +324,7 @@ class TestComputeRankIc:
         # For perfect linear relationship, both should be similar
         # But Rank-IC should also be high
         if len(result_rank) > 0 and len(result_regular) > 0:
-            rank_ic = result_rank["ic"].dropna()
+            rank_ic = result_rank["ic_perfect_factor"].dropna()
             regular_ic = result_regular["ic"].dropna()
 
             if len(rank_ic) > 0 and len(regular_ic) > 0:

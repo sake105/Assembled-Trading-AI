@@ -100,7 +100,7 @@ class TestPurgedKFold:
 
         kf = PurgedKFold(n_splits=3, label_horizon=5)
         expanding = kf.split(timestamps, train_size=None)
-        rolling = kf.split(timestamps, train_size=200)
+        _rolling = kf.split(timestamps, train_size=200)
 
         # Expanding should have more training data in later folds
         if len(expanding) >= 2:
@@ -233,7 +233,7 @@ class TestEVTModels:
     """Tests for Extreme Value Theory models."""
 
     def test_import(self):
-        from src.assembled_core.ml.evt_models import fit_evt_pot, EVTResult
+        from src.assembled_core.ml.evt_models import fit_evt_pot
         assert fit_evt_pot is not None
 
     @pytest.mark.skipif(
@@ -303,7 +303,7 @@ class TestCopulaModels:
     """Tests for copula-based tail dependence."""
 
     def test_import(self):
-        from src.assembled_core.ml.copula_models import fit_copula_pair, CopulaResult
+        from src.assembled_core.ml.copula_models import fit_copula_pair
         assert fit_copula_pair is not None
 
     @pytest.mark.skipif(

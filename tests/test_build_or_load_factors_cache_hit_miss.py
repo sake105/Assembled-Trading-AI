@@ -243,10 +243,8 @@ def test_build_or_load_factors_universe_key_computation(tmp_path: Path) -> None:
                 load_call_kwargs = mock_load.call_args[1]
                 assert "universe_key" in load_call_kwargs
                 assert load_call_kwargs["universe_key"] is not None
-                assert (
-                    "AAPL" in load_call_kwargs["universe_key"]
-                    or "MSFT" in load_call_kwargs["universe_key"]
-                )
+                # Universe key is a hash of sorted symbols, not the symbols themselves
+                assert load_call_kwargs["universe_key"].startswith("universe_")
 
                 # Verify universe_key was passed to store_factors
                 store_call_kwargs = mock_store.call_args[1]

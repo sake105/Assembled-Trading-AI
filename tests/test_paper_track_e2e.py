@@ -126,7 +126,7 @@ def test_paper_track_mini_e2e_5days(
     # Monkey-patch load_eod_prices_for_universe to return our synthetic data
     import src.assembled_core.paper.paper_track as paper_module
 
-    def mock_load_prices(universe_file, freq):
+    def mock_load_prices(universe_file=None, freq="1d", **kwargs):
         return synthetic_prices_5days.copy()
 
     # Temporarily replace the function
@@ -236,7 +236,7 @@ def test_paper_track_aggregated_artifacts_parquet(
     """Test that aggregated artifacts can be written as Parquet files."""
     import src.assembled_core.paper.paper_track as paper_module
 
-    def mock_load_prices(universe_file, freq):
+    def mock_load_prices(universe_file=None, freq="1d", **kwargs):
         return synthetic_prices_5days.copy()
 
     original_load = paper_module.load_eod_prices_for_universe
@@ -318,7 +318,7 @@ def test_paper_track_determinism(
     """Test that paper track produces deterministic results with fixed seed."""
     import src.assembled_core.paper.paper_track as paper_module
 
-    def mock_load_prices(universe_file, freq):
+    def mock_load_prices(universe_file=None, freq="1d", **kwargs):
         return synthetic_prices_5days.copy()
 
     original_load = paper_module.load_eod_prices_for_universe
@@ -411,7 +411,7 @@ def test_paper_track_outputs_format(
     # Ensure deterministic prices
     set_global_seed(42)
 
-    def mock_load_prices(universe_file, freq):
+    def mock_load_prices(universe_file=None, freq="1d", **kwargs):
         return synthetic_prices_5days.copy()
 
     original_load = paper_module.load_eod_prices_for_universe

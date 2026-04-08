@@ -125,7 +125,7 @@ def _patch_paper_track_runtime(monkeypatch, output_root: Path, strategy_name: st
             error_message=None,
         )
 
-    def fake_write_paper_day_outputs(result, output_dir: Path):
+    def fake_write_paper_day_outputs(result, output_dir: Path, **kwargs):
         """Fake write_paper_day_outputs that writes minimal files."""
         # output_dir already includes strategy_name from config (output.root/strategy_dir)
         # So we write directly to output_dir/runs/YYYYMMDD

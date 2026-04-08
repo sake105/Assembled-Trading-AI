@@ -10,7 +10,9 @@ Tests:
 """
 from __future__ import annotations
 
-import sys, os, json, time
+import sys
+import os
+import time
 from dataclasses import dataclass
 
 sys.path.insert(0, str(os.path.join(os.path.dirname(__file__), "..")))
@@ -24,10 +26,9 @@ from assembled_core.qa.benchmark_metrics import compute_benchmark_metrics
 from assembled_core.ml.cpcv import generate_cpcv_splits, compute_cpcv_sharpe_distribution
 from assembled_core.risk.liquidity_scoring import compute_liquidity_scores, apply_liquidity_adjusted_sizing
 from assembled_core.risk.trailing_stops import compute_trailing_stops, apply_stop_reductions_to_weights
-from assembled_core.risk.crowding_detector import detect_crowding, compute_hhi
+from assembled_core.risk.crowding_detector import compute_hhi
 from assembled_core.portfolio.cost_aware_optimizer import optimize_portfolio, OptimizerConfig
 from assembled_core.portfolio.market_neutral_optimizer import optimize_market_neutral, MarketNeutralConfig
-from assembled_core.portfolio.stress_test_constraints import evaluate_stress_scenarios, StressTestConfig, get_cvxpy_stress_constraints
 
 SECTOR_MAP = {
     "AAPL": "Technology", "MSFT": "Technology", "GOOGL": "Technology",
@@ -72,7 +73,7 @@ def build_enhanced_signals(
     rows = []
 
     for date in all_dates:
-        day_prices = prices[prices["timestamp"] == date]
+        _day_prices = prices[prices["timestamp"] == date]  # noqa: F841
         day_trend = trend_signals[trend_signals["timestamp"] == date]
 
         for sym in symbols:
@@ -547,7 +548,7 @@ def main():
     a_exps = [r for r in results if r.name.startswith("A")]
     if a_exps:
         best_a = max(a_exps, key=lambda r: r.sharpe)
-        print(f"\nA. SIGNAL TYPE:")
+        print("\nA. SIGNAL TYPE:")
         for r in sorted(a_exps, key=lambda r: -r.sharpe):
             print(f"   {r.name:<30} Sharpe={r.sharpe:.2f} Return={r.total_return*100:+.1f}% DD={r.max_drawdown*100:.1f}%")
         print(f"   -> Winner: {best_a.name}")
@@ -556,7 +557,7 @@ def main():
     b_exps = [r for r in results if r.name.startswith("B")]
     if b_exps:
         best_b = max(b_exps, key=lambda r: r.sharpe)
-        print(f"\nB. LONG vs LONG/SHORT:")
+        print("\nB. LONG vs LONG/SHORT:")
         for r in sorted(b_exps, key=lambda r: -r.sharpe):
             ls = "L/S" if r.short_count > 0 else "Long"
             print(f"   {r.name:<30} [{ls:>4}] Sharpe={r.sharpe:.2f} Return={r.total_return*100:+.1f}% Beta={r.beta:.3f}")
@@ -565,7 +566,7 @@ def main():
     # C: HHI fix
     c_exps = [r for r in results if r.name.startswith("C")]
     if c_exps:
-        print(f"\nC. HHI CONCENTRATION FIX:")
+        print("\nC. HHI CONCENTRATION FIX:")
         for r in sorted(c_exps, key=lambda r: r.avg_hhi):
             eff_n = 1 / r.avg_hhi if r.avg_hhi > 0 else 0
             print(f"   {r.name:<30} HHI={r.avg_hhi:.3f} EffN={eff_n:.1f} Sharpe={r.sharpe:.2f}")
@@ -574,7 +575,7 @@ def main():
     d_exps = [r for r in results if r.name.startswith("D")]
     if d_exps:
         best_d = max(d_exps, key=lambda r: r.sharpe)
-        print(f"\nD. REBALANCE + POSITION COMBOS:")
+        print("\nD. REBALANCE + POSITION COMBOS:")
         for r in sorted(d_exps, key=lambda r: -r.sharpe):
             print(f"   {r.name:<30} Sharpe={r.sharpe:.2f} TO={r.turnover:.1f}x Return={r.total_return*100:+.1f}%")
         print(f"   -> Winner: {best_d.name}")
@@ -582,8 +583,8 @@ def main():
     # E: Best combos
     e_exps = [r for r in results if r.name.startswith("E")]
     if e_exps:
-        best_e = max(e_exps, key=lambda r: r.sharpe)
-        print(f"\nE. BEST COMBINED CONFIGURATIONS:")
+        _best_e = max(e_exps, key=lambda r: r.sharpe)  # noqa: F841
+        print("\nE. BEST COMBINED CONFIGURATIONS:")
         for r in sorted(e_exps, key=lambda r: -r.sharpe):
             ls = "L/S" if r.short_count > 0 else "Long"
             eff_n = 1 / r.avg_hhi if r.avg_hhi > 0 else 0
@@ -614,7 +615,7 @@ def main():
     for r in results:
         rows.append(vars(r))
     pd.DataFrame(rows).to_csv("output/experiments/full_results.csv", index=False)
-    print(f"\nResults: output/experiments/full_results.csv")
+    print("\nResults: output/experiments/full_results.csv")
 
 
 if __name__ == "__main__":

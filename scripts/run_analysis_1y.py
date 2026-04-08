@@ -95,9 +95,9 @@ def main():
     equity = np.array(portfolio_value)
 
     print(f"\n{'=' * 60}")
-    print(f"1-YEAR BACKTEST RESULTS (Apr 2025 - Mar 2026)")
+    print("1-YEAR BACKTEST RESULTS (Apr 2025 - Mar 2026)")
     print(f"{'=' * 60}")
-    print(f"Starting Capital: $100,000")
+    print("Starting Capital: $100,000")
     print(f"Final Value:      ${equity[-1]:,.2f}")
     print(f"Total Return:     {(equity[-1] / equity[0] - 1) * 100:.2f}%")
 
@@ -117,7 +117,7 @@ def main():
     cagr = float((equity[-1] / equity[0]) ** (252 / len(returns)) - 1) if len(returns) > 0 else 0
     calmar = float(cagr / abs(max_dd)) if abs(max_dd) > 0 else 0
 
-    print(f"\nRisk-Adjusted Metrics:")
+    print("\nRisk-Adjusted Metrics:")
     print(f"  Sharpe Ratio:   {sharpe:.3f}")
     print(f"  Sortino Ratio:  {sortino:.3f}")
     print(f"  Calmar Ratio:   {calmar:.3f}")
@@ -125,9 +125,9 @@ def main():
     print(f"  Volatility:     {vol * 100:.2f}%")
     print(f"  Max Drawdown:   {max_dd * 100:.2f}%")
 
-    print(f"\nTrading Stats:")
+    print("\nTrading Stats:")
     print(f"  Rebalance Days: {len(rebal_dates)}")
-    print(f"  Avg Positions:  ~10 (top scoring)")
+    print("  Avg Positions:  ~10 (top scoring)")
 
     # Benchmark comparison
     bm_dict = {}
@@ -151,7 +151,7 @@ def main():
             spy_sharpe = float(
                 np.mean(spy_ret_aligned) / np.std(spy_ret_aligned) * np.sqrt(252)
             )
-            print(f"\nBenchmark Comparison (vs SPY):")
+            print("\nBenchmark Comparison (vs SPY):")
             print(f"  Alpha (ann.):     {bm.alpha * 100:.2f}%")
             print(f"  Beta:             {bm.beta:.3f}")
             print(f"  Information Ratio:{bm.information_ratio:.3f}")
@@ -163,7 +163,7 @@ def main():
             print(f"  SPY Sharpe:       {spy_sharpe:.3f}")
 
     # CPCV Analysis
-    print(f"\nCPCV Overfitting Analysis:")
+    print("\nCPCV Overfitting Analysis:")
     splits = generate_cpcv_splits(
         len(returns), n_groups=6, k_test_groups=2, purge_length=5, embargo_length=3
     )
@@ -193,7 +193,7 @@ def main():
         print(f"  Likely Overfit:   {cpcv.is_likely_overfit}")
 
     # Liquidity scores
-    print(f"\nLiquidity Analysis:")
+    print("\nLiquidity Analysis:")
     liq_scores = compute_liquidity_scores(prices)
     liq_dict = {}
     if liq_scores:
@@ -206,7 +206,7 @@ def main():
         print(f"  Avg liquidity:    {avg_score:.3f}")
 
     # Cost analysis
-    print(f"\nCost Model Analysis:")
+    print("\nCost Model Analysis:")
     cost_dict = {}
     try:
         costs = get_per_symbol_costs(prices)
@@ -224,7 +224,7 @@ def main():
         print(f"  Cost model: {e}")
 
     print(f"\n{'=' * 60}")
-    print(f"ANALYSIS COMPLETE")
+    print("ANALYSIS COMPLETE")
     print(f"{'=' * 60}")
 
     # Save results

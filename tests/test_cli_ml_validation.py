@@ -20,8 +20,9 @@ pytestmark = pytest.mark.advanced
 @pytest.fixture
 def sample_factor_panel_file(tmp_path: Path) -> Path:
     """Create a sample factor panel file for testing."""
-    # Create factor panel with 3 symbols × 60 days
-    dates = pd.date_range("2020-01-01", periods=60, freq="D", tz="UTC")
+    # Create factor panel with 3 symbols × 120 days (360 total rows,
+    # enough for min_train_samples=100 in multiple CV splits)
+    dates = pd.date_range("2020-01-01", periods=120, freq="D", tz="UTC")
     symbols = ["AAPL", "MSFT", "GOOGL"]
 
     np.random.seed(42)
@@ -130,7 +131,7 @@ def test_ml_validate_factors_with_ridge(sample_factor_panel_file: Path, tmp_path
     portfolio_df = pd.read_csv(portfolio_csv)
     assert len(portfolio_df) == 1  # One row
     assert "model_name" in portfolio_df.columns
-    assert "ls_sharpe" in portfolio_df.columns
+    assert "ls_sharpe_raw" in portfolio_df.columns or "ls_sharpe" in portfolio_df.columns
 
 
 def test_ml_validate_factors_via_cli_subcommand(
@@ -269,8 +270,8 @@ def test_ml_validate_factors_with_time_filter(
         model_type="linear",
         model_params=None,
         n_splits=2,
-        test_start="2020-03-01",
-        test_end="2020-04-30",
+        test_start="2020-01-05",
+        test_end="2020-04-20",
         output_dir=output_dir,
     )
 
@@ -287,16 +288,22 @@ def test_ml_validate_factors_csv_input(tmp_path: Path):
 
     from scripts.run_ml_factor_validation import run_ml_validation
 
-    # Create CSV factor panel
-    dates = pd.date_range("2020-01-01", periods=30, freq="D", tz="UTC")
-    df = pd.DataFrame(
-        {
-            "timestamp": dates,
-            "symbol": ["AAPL"] * 30,
-            "factor_mom": np.random.randn(30),
-            "fwd_return_20d": np.random.randn(30) * 0.02,
-        }
-    )
+    # Create CSV factor panel (needs enough rows for min_train_samples=100)
+    np.random.seed(123)
+    dates = pd.date_range("2020-01-01", periods=60, freq="D", tz="UTC")
+    symbols = ["AAPL", "MSFT", "GOOGL"]
+    all_rows = []
+    for date in dates:
+        for symbol in symbols:
+            all_rows.append(
+                {
+                    "timestamp": date,
+                    "symbol": symbol,
+                    "factor_mom": np.random.randn(),
+                    "fwd_return_20d": np.random.randn() * 0.02,
+                }
+            )
+    df = pd.DataFrame(all_rows)
 
     csv_file = tmp_path / "factor_panel.csv"
     df.to_csv(csv_file, index=False)

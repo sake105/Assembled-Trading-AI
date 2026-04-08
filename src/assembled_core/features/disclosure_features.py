@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import re
 
-import numpy as np
 
 
 def compute_fog_index(text: str) -> float:

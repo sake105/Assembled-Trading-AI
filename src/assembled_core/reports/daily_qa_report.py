@@ -395,7 +395,6 @@ def _build_report_content(
             import numpy as np
             from src.assembled_core.qa.portfolio_analyzer import (
                 compute_performance_profile,
-                format_portfolio_report,
             )
 
             # Extract daily returns from equity curve
@@ -426,7 +425,6 @@ def _build_report_content(
                 try:
                     from src.assembled_core.qa.monte_carlo import (
                         bootstrap_returns,
-                        summarize_monte_carlo,
                     )
 
                     if len(daily_rets) >= 30:

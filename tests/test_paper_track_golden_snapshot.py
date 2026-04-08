@@ -111,7 +111,7 @@ def test_paper_track_golden_snapshot(tmp_path: Path):
     # Monkey-patch price loader
     import src.assembled_core.paper.paper_track as paper_module
 
-    def mock_load_prices(universe_file, freq):
+    def mock_load_prices(universe_file=None, freq="1d", **kwargs):
         return synthetic_prices.copy()
 
     original_load = paper_module.load_eod_prices_for_universe
@@ -240,7 +240,7 @@ def test_paper_track_golden_snapshot_with_actual_values(tmp_path: Path):
     # Monkey-patch
     import src.assembled_core.paper.paper_track as paper_module
 
-    def mock_load_prices(universe_file, freq):
+    def mock_load_prices(universe_file=None, freq="1d", **kwargs):
         return synthetic_prices.copy()
 
     original_load = paper_module.load_eod_prices_for_universe

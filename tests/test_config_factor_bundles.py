@@ -152,8 +152,8 @@ def test_bundle_options_validation():
 
     assert isinstance(bundle.options, FactorBundleOptions)
 
-    # Check ML alpha bundle has winsorize: false (as specified)
-    assert bundle.options.winsorize is False
+    # Check ML alpha bundle has winsorize: true (as specified in YAML)
+    assert bundle.options.winsorize is True
 
     # Check mixed bundle has winsorize: true
     mixed_bundle = load_factor_bundle(

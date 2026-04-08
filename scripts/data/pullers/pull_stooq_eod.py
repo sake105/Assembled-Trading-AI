@@ -8,12 +8,15 @@ Exit codes:
   2 = alles fehlgeschlagen/leer
 """
 from __future__ import annotations
-import argparse, sys, time, random, io
+import argparse
+import sys
+import time
+import random
+import io
 from pathlib import Path
 from typing import Optional, List
 
 import pandas as pd
-import numpy as np
 import requests
 import yfinance as yf
 

@@ -421,7 +421,6 @@ def net_orders(orders: "pd.DataFrame", symbol_col: str = "symbol", qty_col: str 
     Returns:
         Netted orders (only symbols with non-zero net quantity).
     """
-    import pandas as pd
 
     if orders.empty:
         return orders

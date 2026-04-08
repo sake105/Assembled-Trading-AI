@@ -112,7 +112,7 @@ def test_multifactor_adapter_generates_targets_with_patched_runtime(
     """
 
     # Patch price loader so run_paper_day uses synthetic prices (no I/O)
-    def mock_load_prices(universe_file, freq):  # type: ignore[override]
+    def mock_load_prices(universe_file=None, freq="1d", **kwargs):  # type: ignore[override]
         return synthetic_prices_5days.copy()
 
     monkeypatch.setattr(paper_module, "load_eod_prices_for_universe", mock_load_prices)

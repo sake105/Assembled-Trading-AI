@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -92,7 +92,7 @@ def fit_garch(
     # Scale to percentage for numerical stability (arch convention)
     ret_pct = returns * 100.0
 
-    vol_type_map = {"garch": "GARCH", "egarch": "EGARCH", "gjr": "GARCH"}
+    _vol_type_map = {"garch": "GARCH", "egarch": "EGARCH", "gjr": "GARCH"}
 
     try:
         if model_type == "gjr":
@@ -134,7 +134,7 @@ def fit_garch(
     vol_5d_ann = np.sqrt(var_1d * 5) * np.sqrt(_TRADING_DAYS / 5)
     # Simpler: vol_5d_ann ≈ vol_1d_ann (same annualized vol, different horizon)
     # But for reporting the 5-day realized vol forecast:
-    vol_5d_total = np.sqrt(var_1d * 5)  # total vol over 5 days
+    _vol_5d_total = np.sqrt(var_1d * 5)  # total vol over 5 days
 
     # Persistence & asymmetry
     alpha = float(params_dict.get("alpha[1]", 0.0))

@@ -7,7 +7,9 @@ Usage:
   python pull_coingecko_ohlc.py --coins "BTC,ETH" --vs USD --days 30 --out data/raw/crypto/coingecko
 """
 from __future__ import annotations
-import argparse, sys, time
+import argparse
+import sys
+import time
 from pathlib import Path
 import requests
 import pandas as pd

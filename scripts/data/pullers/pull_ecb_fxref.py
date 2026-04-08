@@ -7,7 +7,8 @@ Usage:
   python pull_ecb_fxref.py --pairs "EURUSD,EURGBP" --out data/raw/fx/ecb
 """
 from __future__ import annotations
-import argparse, sys
+import argparse
+import sys
 from pathlib import Path
 import pandas as pd
 

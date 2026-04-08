@@ -58,7 +58,7 @@ def main():
     liq_scores = compute_liquidity_scores(prices)
 
     # Compute covariance for optimizer
-    symbols = sorted(prices["symbol"].unique())
+    _symbols = sorted(prices["symbol"].unique())  # noqa: F841
     pivot = prices.pivot(index="timestamp", columns="symbol", values="close")
     rets_matrix = pivot.pct_change().dropna()
     cov_matrix = rets_matrix.cov() * 252  # Annualized
@@ -174,9 +174,9 @@ def main():
 
     # === RESULTS ===
     print(f"\n{'=' * 60}")
-    print(f"IMPROVED BACKTEST RESULTS (Apr 2025 - Mar 2026)")
+    print("IMPROVED BACKTEST RESULTS (Apr 2025 - Mar 2026)")
     print(f"{'=' * 60}")
-    print(f"Starting Capital: $100,000")
+    print("Starting Capital: $100,000")
     print(f"Final Value:      ${equity[-1]:,.2f}")
     print(f"Total Return:     {(equity[-1] / equity[0] - 1) * 100:.2f}%")
 
@@ -191,7 +191,7 @@ def main():
     cagr = float((equity[-1] / equity[0]) ** (252 / len(returns)) - 1) if len(returns) > 0 else 0
     calmar = float(cagr / abs(max_dd)) if abs(max_dd) > 0 else 0
 
-    print(f"\nRisk-Adjusted Metrics:")
+    print("\nRisk-Adjusted Metrics:")
     print(f"  Sharpe Ratio:   {sharpe:.3f}")
     print(f"  Sortino Ratio:  {sortino:.3f}")
     print(f"  Calmar Ratio:   {calmar:.3f}")
@@ -199,7 +199,7 @@ def main():
     print(f"  Volatility:     {vol * 100:.2f}%")
     print(f"  Max Drawdown:   {max_dd * 100:.2f}%")
 
-    print(f"\nTrading Efficiency:")
+    print("\nTrading Efficiency:")
     print(f"  Rebalances:     {n_rebalances}")
     print(f"  Total Turnover: {total_turnover:.2f}x")
     print(f"  Annualized TO:  {total_turnover * 252 / len(returns):.1f}x")
@@ -212,7 +212,7 @@ def main():
             pd.Series(returns[:len(spy_ret_aligned)]),
             pd.Series(spy_ret_aligned),
         )
-        print(f"\nBenchmark Comparison (vs SPY):")
+        print("\nBenchmark Comparison (vs SPY):")
         print(f"  Alpha (ann.):     {bm.alpha * 100:.2f}%")
         print(f"  Beta:             {bm.beta:.3f}")
         print(f"  Information Ratio:{bm.information_ratio:.3f}")
@@ -223,7 +223,7 @@ def main():
     if splits:
         path_returns = [returns[test_idx] for _, test_idx in splits]
         cpcv = compute_cpcv_sharpe_distribution(path_returns)
-        print(f"\nCPCV Analysis:")
+        print("\nCPCV Analysis:")
         print(f"  Mean Sharpe:      {cpcv.mean_sharpe:.3f}")
         print(f"  P(Sharpe > 0):    {cpcv.prob_positive_sharpe:.2%}")
         print(f"  Deflated Sharpe:  {cpcv.deflated_sharpe}")
@@ -231,7 +231,7 @@ def main():
 
     # Load baseline for comparison
     print(f"\n{'=' * 60}")
-    print(f"COMPARISON: BASELINE vs IMPROVED")
+    print("COMPARISON: BASELINE vs IMPROVED")
     print(f"{'=' * 60}")
     try:
         with open("output/backtest_1y/analysis_results.json") as f:
@@ -273,7 +273,7 @@ def main():
     os.makedirs("output/backtest_1y", exist_ok=True)
     with open("output/backtest_1y/improved_results.json", "w") as f:
         json.dump(improved_results, f, indent=2)
-    print(f"\nResults saved to output/backtest_1y/improved_results.json")
+    print("\nResults saved to output/backtest_1y/improved_results.json")
     print(f"{'=' * 60}")
 
 

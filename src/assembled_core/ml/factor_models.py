@@ -1017,7 +1017,6 @@ def impute_features_smart(
     Returns:
         DataFrame with imputed values and optional indicator columns.
     """
-    import numpy as np
     import pandas as pd
 
     df = df.copy()

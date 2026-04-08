@@ -215,7 +215,6 @@ def reconcile_ledger_vs_broker(
 # ── Daily P&L Reconciliation (Plan 8.1) ──────────────────────────────
 
 
-import numpy as np  # noqa: E402
 
 
 def reconcile_daily_pnl(

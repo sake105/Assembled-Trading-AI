@@ -15,7 +15,6 @@ import logging
 from dataclasses import dataclass, field
 
 import numpy as np
-import pandas as pd
 
 _log = logging.getLogger(__name__)
 
@@ -216,7 +215,7 @@ def get_cvxpy_stress_constraints(
         List of CVXPY constraints.
     """
     try:
-        import cvxpy as cp
+        import cvxpy as cp  # noqa: F401
     except ImportError:
         _log.warning("CVXPY not available — no stress constraints")
         return []

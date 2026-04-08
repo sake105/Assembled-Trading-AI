@@ -12,7 +12,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from .escalation_model import ACTIVE_CONFLICTS, compute_market_impact_by_level
-from .models import TriggerType
 
 logger = logging.getLogger(__name__)
 

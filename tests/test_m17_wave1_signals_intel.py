@@ -7,7 +7,7 @@ import pytest
 
 def _scipy_available():
     try:
-        import scipy
+        import scipy  # noqa: F401
         return True
     except ImportError:
         return False
@@ -19,7 +19,7 @@ class TestSignalConfidence:
 
     def test_import(self):
         from src.assembled_core.signals.signal_confidence import (
-            compute_signal_confidence, confidence_position_scaler,
+            compute_signal_confidence,
         )
         assert compute_signal_confidence is not None
 
@@ -65,7 +65,7 @@ class TestMultiChannelPropagation:
 
     def test_import(self):
         from src.assembled_core.intel.multichannel_propagation import (
-            propagate_multichannel, PropagationChannel,
+            propagate_multichannel,
         )
         assert propagate_multichannel is not None
 

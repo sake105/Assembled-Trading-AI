@@ -3473,6 +3473,34 @@ Examples:
         help="Minimum acceptable max drawdown for paper track (default: -0.25 = -25%%)",
     )
 
+    check_health_parser.add_argument(
+        "--paper-track-max-gap-days",
+        type=int,
+        default=5,
+        help="Maximum allowed gap in business days for paper track equity curve (default: 5)",
+    )
+
+    check_health_parser.add_argument(
+        "--batch-root",
+        type=Path,
+        default=None,
+        help="Root directory containing batch backtest outputs (default: auto-detect under output/)",
+    )
+
+    check_health_parser.add_argument(
+        "--batch-max-failure-rate",
+        type=float,
+        default=0.2,
+        help="Maximum acceptable failure rate for batch runs (default: 0.2 = 20%%)",
+    )
+
+    check_health_parser.add_argument(
+        "--skip-batch-if-missing",
+        action="store_true",
+        default=False,
+        help="Skip batch checks if batch directory doesn't exist (default: False = WARN)",
+    )
+
     check_health_parser.set_defaults(func=check_health_subcommand)
 
     # paper_track subcommand

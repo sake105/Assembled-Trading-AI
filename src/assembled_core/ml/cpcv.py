@@ -13,7 +13,6 @@ from itertools import combinations
 from dataclasses import dataclass
 
 import numpy as np
-import pandas as pd
 
 _log = logging.getLogger(__name__)
 
@@ -142,7 +141,7 @@ def compute_cpcv_sharpe_distribution(
     # Deflated Sharpe: adjust for multiple testing
     # DSR = (observed_sharpe - E[max(Sharpe)]) / SE(Sharpe)
     n_tests = len(sharpes)
-    n_obs = max(len(r) for r in returns_per_path) if returns_per_path else 252
+    _n_obs = max(len(r) for r in returns_per_path) if returns_per_path else 252
 
     try:
         from scipy.stats import norm

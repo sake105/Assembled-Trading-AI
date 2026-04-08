@@ -296,7 +296,7 @@ def cmd_reconcile_only(args):
     if sync_result.missing_in_broker:
         print(f"Missing in broker: {sync_result.missing_in_broker}")
     if sync_result.mismatches:
-        print(f"\nPosition mismatches:")
+        print("\nPosition mismatches:")
         for m in sync_result.mismatches:
             print(f"  {m['symbol']}: ledger={m.get('ledger_qty')}, broker={m.get('broker_qty')}")
 
