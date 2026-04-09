@@ -82,11 +82,14 @@ def submit_orders_to_broker(
         get_alpaca_rate_limiter,
         retry_with_backoff,
     )
-    from src.assembled_core.execution.intent_store import record_order_submit
+    from src.assembled_core.execution.intent_store import (
+        record_order_complete,
+        record_order_submit,
+    )
 
     rate_limiter = get_alpaca_rate_limiter()
     results: list[BrokerOrder | None] = []
-    # Map order_id → intent key for later completion tracking
+    # Map order_id -> intent key for later completion tracking
     intent_keys: dict[str, str] = {}
 
     for idx, row in orders_df.iterrows():
@@ -146,7 +149,7 @@ def submit_orders_to_broker(
             if intent_key:
                 intent_keys[broker_order.order_id] = intent_key
             logger.info(
-                "[broker_execution] submitted %s %s qty=%.2f → order_id=%s status=%s",
+                "[broker_execution] submitted %s %s qty=%.2f -> order_id=%s status=%s",
                 side.upper(),
                 symbol,
                 qty,
@@ -161,6 +164,22 @@ def submit_orders_to_broker(
                 qty,
                 exc,
             )
+            # Record completion for failed submit so crash recovery
+            # doesn't treat this as a "lost" order
+            if intent_key:
+                try:
+                    record_order_complete(
+                        symbol=symbol,
+                        side=side,
+                        qty=qty,
+                        filled_qty=0.0,
+                        filled_price=None,
+                        status="submit_failed",
+                        intent_key=intent_key,
+                        store_path=intent_store_path,
+                    )
+                except Exception:
+                    pass  # Best-effort; original error already logged
             results.append(None)
 
     return results, intent_keys
@@ -221,7 +240,7 @@ def poll_order_fills(
                 pending[order_id] = updated
                 if updated.status in _TERMINAL_STATUSES:
                     logger.info(
-                        "[broker_execution] order %s → %s (filled_qty=%.2f price=%s)",
+                        "[broker_execution] order %s -> %s (filled_qty=%.2f price=%s)",
                         order_id[:8],
                         updated.status,
                         updated.filled_qty,
@@ -268,7 +287,7 @@ def convert_broker_fills_to_ledger_format(
     """Convert filled BrokerOrders to the dict format expected by apply_fills_to_ledger().
 
     CRITICAL conversions:
-    - BrokerOrder.side is lowercase ("buy"/"sell") → must be UPPERCASE for ledger
+    - BrokerOrder.side is lowercase ("buy"/"sell") -> must be UPPERCASE for ledger
     - Uses filled_qty (not requested qty) to handle partial fills correctly
     - Uses filled_avg_price (actual fill price from broker)
 
@@ -347,7 +366,7 @@ def execute_via_broker(
     poll_interval_s: float = 2.0,
     intent_store_path: str | None = None,
 ) -> BrokerExecutionResult:
-    """High-level orchestrator: submit orders → poll fills → convert to ledger format.
+    """High-level orchestrator: submit orders -> poll fills -> convert to ledger format.
 
     This is the main entry point for broker-based execution.
 

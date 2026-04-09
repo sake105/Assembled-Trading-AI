@@ -1,5 +1,6 @@
 paper_runner:
-  mode: "shadow"          # shadow|paper
+  mode: "paper"           # shadow|paper
+  start_capital: 100000.0 # match Alpaca paper account
   output_dir: "output/runs"
   include_news_pipeline: false
   as_of: null             # optional timestamp override
@@ -8,7 +9,14 @@ paper_runner:
     name: "ema_trend_v0"   # ema_trend_v0 | none
     ema_fast: 20
     ema_slow: 60
-    equal_weight: true
+    equal_weight: false         # score-based sizing (EMA spread as weight)
+    max_positions: 10           # top-N by signal score
+    min_position_weight: 0.03   # 3% minimum per position ($3k at $100k)
+    target_invested_pct: 0.80   # 80% capital target (20% cash reserve)
+    # Exit management
+    stop_loss_pct: 0.08         # 8% stop-loss below entry
+    trailing_stop_pct: 0.10     # 10% trailing stop below HWM
+    take_profit_pct: 0.15       # 15% profit -> sell 50%
   intel:
     mode: "sim"            # real | sim | none
     run_news_pipeline: true

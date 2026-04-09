@@ -48,7 +48,7 @@ def test_ema_trend_generates_signals_on_uptrend() -> None:
     assert "direction" in signals.columns
     assert "score" in signals.columns
     assert (signals["direction"] == "LONG").all()
-    assert (signals["score"] == 1.0).all()
+    assert (signals["score"] > 0).all()  # score = EMA spread, positive in uptrend
     assert "AAPL" in signals["symbol"].tolist()
 
 
@@ -94,14 +94,14 @@ def test_compute_target_positions_empty_signals() -> None:
 
 
 def test_compute_target_positions_no_prices_latest() -> None:
-    """With signals but no prices_latest, target_qty is 0."""
+    """With signals but no prices_latest, target_qty is NOTIONAL (> 0)."""
     prices = _make_prices_uptrend(n_days=80, symbols=["AAPL"])
     signals = compute_signals(prices, ema_fast=20, ema_slow=60)
     targets = compute_target_positions(
         signals, 10000.0, equal_weight=True, prices_latest=None
     )
     assert not targets.empty
-    assert (targets["target_qty"] == 0.0).all()
+    assert (targets["target_qty"] > 0).all()  # NOTIONAL = capital * weight
     assert (targets["target_weight"] > 0).all()
 
 

@@ -109,14 +109,14 @@ def _rotate_backups(p: Path) -> None:
         if src.exists():
             try:
                 shutil.copy2(str(src), str(dst))
-            except OSError:
-                pass
+            except OSError as exc:
+                logger.warning("[PaperLedger] backup rotation copy failed %s -> %s: %s", src, dst, exc)
     # Current → .1
     if p.exists():
         try:
             shutil.copy2(str(p), str(p.with_suffix(p.suffix + ".1")))
-        except OSError:
-            pass
+        except OSError as exc:
+            logger.warning("[PaperLedger] backup rotation copy failed for current -> .1: %s", exc)
 
 
 def save_ledger_state(state: dict[str, Any], path: str | Path) -> Path:
@@ -248,10 +248,12 @@ def apply_fills_to_ledger(
         else:
             new_qty = pos_qty - qty
             if new_qty <= 0:
+                # Full close (or oversell): sell all held shares at fill_price
+                sell_qty = min(qty, pos_qty)
                 out["positions"].pop(symbol, None)
-                out["cash"] += pos_qty * pos_avg if pos_qty > 0 else 0.0
-                out["cash"] += (qty - pos_qty) * price if qty > pos_qty else qty * price
+                out["cash"] += sell_qty * price
             else:
+                # Partial sell: reduce position, keep avg_price
                 out["positions"][symbol] = {"qty": new_qty, "avg_price": pos_avg}
                 out["cash"] += qty * price
     return out

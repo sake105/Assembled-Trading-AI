@@ -42,7 +42,8 @@ def run_paper_daily_one(
     )
 
     reconcile_status: str | None = None
-    start_capital = 10000.0
+    paper_cfg_sc = app_cfg.get("paper_runner") or {}
+    start_capital = float(paper_cfg_sc.get("start_capital", 100000.0))
     ledger_state: dict[str, Any] | None = None
     ledger_path: Path | None = None
     equity_before = start_capital
@@ -126,6 +127,7 @@ def run_paper_daily_one(
     strategy_name = (strategy_cfg.get("name") or "none").strip().lower()
     if strategy_name == "ema_trend_v0":
         from src.assembled_core.strategies.ema_trend_v0 import (
+            check_exit_signals as ema_check_exits,
             compute_signals as ema_compute_signals,
             compute_target_positions as ema_compute_targets,
         )
@@ -133,29 +135,59 @@ def run_paper_daily_one(
         ema_fast = int(strategy_cfg.get("ema_fast") or 20)
         ema_slow = int(strategy_cfg.get("ema_slow") or 60)
         equal_weight = bool(strategy_cfg.get("equal_weight", True))
+        max_positions = int(strategy_cfg.get("max_positions") or 0)
+        min_position_weight = float(strategy_cfg.get("min_position_weight") or 0.0)
+        target_invested_pct = float(strategy_cfg.get("target_invested_pct") or 1.0)
 
         def _ema_signal_fn(df: pd.DataFrame) -> pd.DataFrame:
-            return ema_compute_signals(df, ema_fast=ema_fast, ema_slow=ema_slow)
+            signals = ema_compute_signals(df, ema_fast=ema_fast, ema_slow=ema_slow)
+
+            # Check exit signals for current positions
+            if ledger_state and (ledger_state.get("positions") or {}):
+                prices_latest_exit = None
+                if df is not None and not df.empty and "close" in df.columns:
+                    prices_latest_exit = (
+                        df.groupby("symbol", group_keys=False)["close"]
+                        .last()
+                        .reset_index()
+                    )
+                exit_signals = ema_check_exits(
+                    ledger_state.get("positions", {}),
+                    prices_latest_exit,
+                    strategy_cfg,
+                )
+                if not exit_signals.empty:
+                    # For full exits: remove from LONG signals + add FLAT
+                    full_exits = exit_signals[exit_signals["exit_qty_pct"] >= 1.0]
+                    for _, ex in full_exits.iterrows():
+                        sym = ex["symbol"]
+                        # Remove from LONG signals if present
+                        if not signals.empty and sym in signals["symbol"].values:
+                            signals = signals[signals["symbol"] != sym]
+                        log.info(
+                            "[EMA] EXIT signal: %s — %s", sym, ex["exit_reason"]
+                        )
+                    # For partial exits: log but keep in signals (reduce later)
+                    partial_exits = exit_signals[exit_signals["exit_qty_pct"] < 1.0]
+                    for _, ex in partial_exits.iterrows():
+                        log.info(
+                            "[EMA] PARTIAL EXIT signal: %s (%.0f%%) — %s",
+                            ex["symbol"],
+                            ex["exit_qty_pct"] * 100,
+                            ex["exit_reason"],
+                        )
+            return signals
 
         signal_fn = _ema_signal_fn
 
         def _ema_sizing(sig: pd.DataFrame, cap: float) -> pd.DataFrame:
-            prices_latest = None
-            if (
-                ctx.prices is not None
-                and not ctx.prices.empty
-                and ctx.as_of is not None
-            ):
-                p_ts = pd.to_datetime(ctx.prices["timestamp"], utc=True)
-                p_cut = ctx.prices.loc[p_ts <= ctx.as_of]
-                if not p_cut.empty:
-                    prices_latest = (
-                        p_cut.groupby("symbol", group_keys=False)["close"]
-                        .last()
-                        .reset_index()
-                    )
             return ema_compute_targets(
-                sig, cap, equal_weight=equal_weight, prices_latest=prices_latest
+                sig,
+                cap,
+                equal_weight=equal_weight,
+                max_positions=max_positions,
+                min_position_weight=min_position_weight,
+                target_invested_pct=target_invested_pct,
             )
 
         position_sizing_fn = _ema_sizing
@@ -246,8 +278,8 @@ def run_paper_daily_one(
                     list(none_reasons.items())[:2]
                 )
                 result.meta["news_debug_funnel"] = compact
-    except Exception:
-        pass
+    except Exception as exc:
+        log.warning("[PaperRunner] failed to load news triggers: %s", exc)
     try:
         discl_snap = load_disclosures_triggers(discl_path)
         result.meta["disclosures_triggers_summary"] = {
@@ -371,6 +403,31 @@ def run_paper_daily_one(
         if broker_exec_meta:
             result.meta["broker_execution"] = broker_exec_meta
 
+        # Trade Journal: log each fill
+        if fills:
+            try:
+                from src.assembled_core.ops.trade_journal import (
+                    append_trade_journal_entries,
+                    write_daily_summary,
+                )
+
+                append_trade_journal_entries(
+                    fills,
+                    signal_context=None,
+                    ledger_state=ledger_before,
+                    run_id=str(output_dir.name) if output_dir else "",
+                )
+                # Write daily summary
+                write_daily_summary(
+                    date_str=as_of_ts.strftime("%Y-%m-%d"),
+                    ledger_state=state_after,
+                    equity=equity_after,
+                    start_capital=start_capital,
+                    fills=fills,
+                )
+            except Exception as exc:
+                log.warning("[PaperRunner] trade journal write failed: %s", exc)
+
     # Skip maybe_execute_orders when broker already handled execution
     if execution_mode == "sim":
         _ = maybe_execute_orders(
@@ -395,7 +452,8 @@ def run_paper_daily_one(
 
     try:
         current_kpis = json.loads(kpis_path.read_text(encoding="utf-8"))
-    except Exception:
+    except Exception as exc:
+        log.warning("[PaperRunner] failed to read run_kpis for diff: %s", exc)
         current_kpis = {}
     prev_date = as_of_ts.date() - timedelta(days=1)
     prev_dir = output_dir.parent / prev_date.isoformat()
@@ -416,15 +474,15 @@ def run_paper_daily_one(
                 reasons_data = json.loads(
                     (out / "reasons_latest.json").read_text(encoding="utf-8")
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                log.warning("[PaperRunner] failed to read reasons_latest.json: %s", exc)
         if (out / "diff_vs_prev.json").exists():
             try:
                 diff_data = json.loads(
                     (out / "diff_vs_prev.json").read_text(encoding="utf-8")
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                log.warning("[PaperRunner] failed to read diff_vs_prev.json: %s", exc)
         generated_utc = run_kpis_data.get("generated_utc") or ""
         alerts_list = compute_alerts(run_kpis_data, reasons_data, diff_data, app_cfg)
         if mode == "paper" and reconcile_status == "FAIL":

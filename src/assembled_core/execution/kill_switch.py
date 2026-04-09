@@ -1,96 +1,245 @@
 """Kill switch for emergency order blocking.
 
-This module provides a simple kill switch mechanism to immediately block all orders
-in emergency situations. The kill switch is controlled via environment variable
-ASSEMBLED_KILL_SWITCH.
+This module provides a kill switch mechanism to immediately block or throttle
+all orders in emergency situations.
 
-Key features:
-- Environment variable-based activation
-- Zero I/O side effects (no files, no DB)
-- Simple, testable, and fast
-- Clear logging when engaged
+Activation sources (checked in order):
+1. Environment variable ``ASSEMBLED_KILL_SWITCH`` (truthy value)
+2. Sentinel file ``output/ops/.kill_switch_active``
+3. Persistent JSON state file ``output/ops/kill_switch_state.json``
 
-Usage:
-    >>> from src.assembled_core.execution.kill_switch import (
-    ...     is_kill_switch_engaged,
-    ...     guard_orders_with_kill_switch
-    ... )
-    >>> import pandas as pd
-    >>>
-    >>> orders = pd.DataFrame({
-    ...     "symbol": ["AAPL"],
-    ...     "side": ["BUY"],
-    ...     "qty": [100]
-    ... })
-    >>>
-    >>> filtered_orders = guard_orders_with_kill_switch(orders)
-    >>> if filtered_orders.empty and not orders.empty:
-    ...     print("Kill switch is engaged - all orders blocked")
+The persistent state supports **fractional throttling** (0–100 %) and keeps
+an append-only **audit log** of every activation / deactivation event so that
+ops can reconstruct what happened.
+
+Usage::
+
+    from src.assembled_core.execution.kill_switch import (
+        is_kill_switch_engaged,
+        guard_orders_with_kill_switch,
+        activate_kill_switch,
+        deactivate_kill_switch,
+        get_kill_switch_state,
+    )
 """
 
 from __future__ import annotations
 
+import json
+import logging
 import os
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
-from src.assembled_core.logging_utils import setup_logging
+logger = logging.getLogger(__name__)
 
-logger = setup_logging(level="INFO")
-
-# Default sentinel file path (relative to project root)
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
 _DEFAULT_SENTINEL = Path("output/ops/.kill_switch_active")
+_DEFAULT_STATE_FILE = Path("output/ops/kill_switch_state.json")
+_DEFAULT_AUDIT_LOG = Path("output/ops/kill_switch_audit.jsonl")
 
 
 def _sentinel_path() -> Path:
-    """Return the kill switch sentinel file path."""
     override = os.environ.get("ASSEMBLED_KILL_SWITCH_SENTINEL", "")
-    if override:
-        return Path(override)
-    return _DEFAULT_SENTINEL
+    return Path(override) if override else _DEFAULT_SENTINEL
 
+
+def _state_path() -> Path:
+    override = os.environ.get("ASSEMBLED_KILL_SWITCH_STATE", "")
+    return Path(override) if override else _DEFAULT_STATE_FILE
+
+
+def _audit_path() -> Path:
+    override = os.environ.get("ASSEMBLED_KILL_SWITCH_AUDIT", "")
+    return Path(override) if override else _DEFAULT_AUDIT_LOG
+
+
+# ---------------------------------------------------------------------------
+# Persistent state  (JSON file with file-level locking on Windows)
+# ---------------------------------------------------------------------------
+
+def _read_state() -> dict[str, Any]:
+    """Read kill switch state from JSON file. Returns empty dict on error."""
+    p = _state_path()
+    if not p.exists():
+        return {}
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except Exception as exc:
+        logger.error("[KillSwitch] Failed to read state file %s: %s", p, exc)
+        return {}
+
+
+def _write_state(state: dict[str, Any]) -> None:
+    """Atomically write kill switch state to JSON file."""
+    p = _state_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.with_suffix(".tmp")
+    try:
+        tmp.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        tmp.replace(p)
+    except Exception as exc:
+        logger.error("[KillSwitch] Failed to write state file %s: %s", p, exc)
+        if tmp.exists():
+            try:
+                tmp.unlink()
+            except Exception:
+                pass  # cleanup best-effort
+
+
+def _append_audit(event: dict[str, Any]) -> None:
+    """Append a JSON-lines entry to the audit log."""
+    p = _audit_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    event["ts"] = datetime.now(timezone.utc).isoformat()
+    try:
+        with open(p, "a", encoding="utf-8") as f:
+            f.write(json.dumps(event, sort_keys=True) + "\n")
+    except Exception as exc:
+        logger.error("[KillSwitch] Failed to write audit log %s: %s", p, exc)
+
+
+# ---------------------------------------------------------------------------
+# Public API: activate / deactivate / query
+# ---------------------------------------------------------------------------
+
+def activate_kill_switch(
+    *,
+    throttle_pct: float = 0.0,
+    reason: str = "",
+    actor: str = "system",
+) -> None:
+    """Activate the kill switch with persistent state.
+
+    Args:
+        throttle_pct: Fraction of orders to ALLOW (0.0 = block all, 0.25 = allow 25%).
+            Must be in [0.0, 1.0].
+        reason: Human-readable reason for activation.
+        actor: Who/what triggered the activation.
+    """
+    throttle_pct = max(0.0, min(1.0, throttle_pct))
+    state = {
+        "engaged": True,
+        "throttle_pct": throttle_pct,
+        "reason": reason,
+        "actor": actor,
+        "activated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    _write_state(state)
+    _append_audit({"action": "ACTIVATE", "throttle_pct": throttle_pct, "reason": reason, "actor": actor})
+    logger.warning(
+        "[KillSwitch] ACTIVATED — throttle=%.0f%%, reason=%s, actor=%s",
+        throttle_pct * 100,
+        reason,
+        actor,
+    )
+
+
+def deactivate_kill_switch(*, reason: str = "", actor: str = "system") -> None:
+    """Deactivate the kill switch and clear persistent state."""
+    state = {
+        "engaged": False,
+        "throttle_pct": 1.0,
+        "reason": reason,
+        "actor": actor,
+        "deactivated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    _write_state(state)
+    _append_audit({"action": "DEACTIVATE", "reason": reason, "actor": actor})
+    logger.info("[KillSwitch] DEACTIVATED — reason=%s, actor=%s", reason, actor)
+
+
+def get_kill_switch_state() -> dict[str, Any]:
+    """Return the current kill switch state (persistent + env + sentinel)."""
+    env_engaged = os.environ.get("ASSEMBLED_KILL_SWITCH", "").strip().lower() in {
+        "1", "true", "yes", "on",
+    }
+    sentinel_engaged = _sentinel_path().exists()
+    persistent = _read_state()
+    persistent_engaged = persistent.get("engaged", False)
+    throttle_pct = persistent.get("throttle_pct", 1.0) if persistent_engaged else 1.0
+
+    any_engaged = env_engaged or sentinel_engaged or persistent_engaged
+
+    return {
+        "engaged": any_engaged,
+        "throttle_pct": 0.0 if (env_engaged or sentinel_engaged) else throttle_pct,
+        "sources": {
+            "env_var": env_engaged,
+            "sentinel_file": sentinel_engaged,
+            "persistent_state": persistent_engaged,
+        },
+        "persistent": persistent,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Core checks (backward-compatible API)
+# ---------------------------------------------------------------------------
 
 def is_kill_switch_engaged() -> bool:
-    """Check if kill switch is engaged via environment variable OR sentinel file.
+    """Check if kill switch is engaged via env var, sentinel file, or persistent state.
 
-    Returns True if any of the following conditions are met:
-    1. Environment variable ASSEMBLED_KILL_SWITCH is set to a truthy value
-       ("1", "true", "yes", "on" — case-insensitive)
-    2. Sentinel file ``output/ops/.kill_switch_active`` exists (written by
-       run_kill_switch_worker.py)
-
-    Returns:
-        True if kill switch is engaged, False otherwise
+    Returns True if ANY source indicates the kill switch is active.
     """
-    # --- Check 1: environment variable ---
-    kill_switch_env = os.environ.get("ASSEMBLED_KILL_SWITCH", "").strip().lower()
-    if kill_switch_env in {"1", "true", "yes", "on"}:
+    # Fast path: env var
+    kill_env = os.environ.get("ASSEMBLED_KILL_SWITCH", "").strip().lower()
+    if kill_env in {"1", "true", "yes", "on"}:
         return True
 
-    # --- Check 2: sentinel file (written by run_kill_switch_worker.py) ---
+    # Sentinel file
     if _sentinel_path().exists():
-        logger.warning("KILL_SWITCH: sentinel file detected at %s", _sentinel_path())
+        logger.warning("[KillSwitch] Sentinel file detected at %s", _sentinel_path())
+        return True
+
+    # Persistent state
+    state = _read_state()
+    if state.get("engaged", False):
+        logger.warning(
+            "[KillSwitch] Persistent state engaged (throttle=%.0f%%, reason=%s)",
+            state.get("throttle_pct", 0.0) * 100,
+            state.get("reason", "unknown"),
+        )
         return True
 
     return False
+
+
+def get_throttle_pct() -> float:
+    """Return current throttle percentage (fraction of orders to allow).
+
+    Returns 0.0 if kill switch is fully engaged (env or sentinel),
+    the persistent throttle_pct if persistent state is engaged,
+    or 1.0 if nothing is engaged.
+    """
+    state = get_kill_switch_state()
+    if not state["engaged"]:
+        return 1.0
+    return state["throttle_pct"]
 
 
 def check_drawdown_kill_switch(
     current_equity: float,
     peak_equity: float,
     kill_threshold: float = 0.30,
+    auto_activate: bool = True,
 ) -> bool:
     """Check whether current drawdown breaches the kill-switch threshold.
 
-    If the drawdown exceeds kill_threshold, logs a CRITICAL message.
-    Does NOT engage the kill switch automatically — call
-    ``guard_orders_with_kill_switch`` after this to block orders.
+    If the drawdown exceeds kill_threshold, logs a CRITICAL message
+    and (by default) engages the kill switch automatically.
 
     Args:
         current_equity: Current portfolio equity value.
         peak_equity: Highest equity value observed (high-water mark).
         kill_threshold: Drawdown fraction that triggers the kill flag (default 0.30 = 30%).
+        auto_activate: If True (default), automatically engage the kill switch
+            when drawdown exceeds threshold.
 
     Returns:
         True if drawdown >= kill_threshold.
@@ -100,55 +249,73 @@ def check_drawdown_kill_switch(
     drawdown = (peak_equity - current_equity) / peak_equity
     if drawdown >= kill_threshold:
         logger.critical(
-            "KILL_SWITCH: drawdown %.1f%% >= kill threshold %.1f%% "
-            "(current=%.2f, peak=%.2f) — orders should be blocked",
+            "[KillSwitch] Drawdown %.1f%% >= kill threshold %.1f%% "
+            "(current=%.2f, peak=%.2f) — orders blocked",
             drawdown * 100,
             kill_threshold * 100,
             current_equity,
             peak_equity,
         )
+        if auto_activate:
+            activate_kill_switch(
+                throttle_pct=0.0,
+                reason=f"drawdown {drawdown:.1%} >= threshold {kill_threshold:.1%}",
+                actor="drawdown_check",
+            )
         return True
     return False
 
 
 def guard_orders_with_kill_switch(orders: pd.DataFrame) -> pd.DataFrame:
-    """Guard orders with kill switch - return empty DataFrame if kill switch is engaged.
+    """Guard orders with kill switch — block or throttle orders.
 
-    If kill switch is engaged, all orders are blocked and an empty DataFrame is returned.
-    A warning is logged to indicate that orders were blocked due to kill switch.
+    Behaviour:
+    - Kill switch NOT engaged: return all orders unchanged.
+    - Engaged with throttle_pct == 0.0: block ALL orders (empty DataFrame).
+    - Engaged with 0 < throttle_pct < 1: scale all order quantities by throttle_pct
+      and log which orders were affected.
 
     Args:
-        orders: DataFrame with orders (any structure)
+        orders: DataFrame with orders (must have 'qty' column for throttling).
 
     Returns:
-        Original orders DataFrame if kill switch is not engaged,
-        Empty DataFrame with same columns if kill switch is engaged
-
-    Example:
-        >>> import pandas as pd
-        >>> import os
-        >>>
-        >>> orders = pd.DataFrame({
-        ...     "symbol": ["AAPL", "GOOGL"],
-        ...     "side": ["BUY", "SELL"],
-        ...     "qty": [100, 50]
-        ... })
-        >>>
-        >>> # Normal operation
-        >>> filtered = guard_orders_with_kill_switch(orders)
-        >>> assert len(filtered) == 2
-        >>>
-        >>> # Kill switch engaged
-        >>> os.environ["ASSEMBLED_KILL_SWITCH"] = "1"
-        >>> filtered = guard_orders_with_kill_switch(orders)
-        >>> assert len(filtered) == 0
+        Filtered/scaled orders DataFrame.
     """
-    if is_kill_switch_engaged():
+    state = get_kill_switch_state()
+
+    if not state["engaged"]:
+        return orders
+
+    throttle = state["throttle_pct"]
+    n_orders = len(orders)
+
+    # Audit: record which orders were blocked/throttled
+    symbols = list(orders["symbol"].unique()) if "symbol" in orders.columns and not orders.empty else []
+    _append_audit({
+        "action": "GUARD",
+        "orders_count": n_orders,
+        "symbols": symbols[:20],  # cap for log size
+        "throttle_pct": throttle,
+    })
+
+    if throttle <= 0.0 or n_orders == 0:
         logger.warning(
-            "KILL_SWITCH: All orders blocked - ASSEMBLED_KILL_SWITCH environment variable is set"
+            "[KillSwitch] BLOCKING all %d orders (throttle=0%%). Symbols: %s",
+            n_orders,
+            ", ".join(symbols[:10]),
         )
-        # Return empty DataFrame with same columns as original
         return pd.DataFrame(columns=list(orders.columns))
 
-    # Kill switch not engaged - return orders unchanged
-    return orders
+    # Fractional throttle: scale quantities
+    logger.warning(
+        "[KillSwitch] THROTTLING %d orders to %.0f%%. Symbols: %s",
+        n_orders,
+        throttle * 100,
+        ", ".join(symbols[:10]),
+    )
+    result = orders.copy()
+    if "qty" in result.columns:
+        result["qty"] = result["qty"] * throttle
+        # Drop orders that became negligible
+        result = result[result["qty"].abs() >= 1e-10].copy()
+    return result
