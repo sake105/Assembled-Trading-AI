@@ -192,6 +192,63 @@ def run_paper_daily_one(
 
         position_sizing_fn = _ema_sizing
 
+    elif strategy_name == "multifactor_v1":
+        from src.assembled_core.strategies.multifactor_v1 import (
+            check_exit_signals as mf_check_exits,
+            compute_signals as mf_compute_signals,
+            compute_target_positions as mf_compute_targets,
+        )
+
+        max_positions = int(strategy_cfg.get("max_positions") or 10)
+        min_position_weight = float(strategy_cfg.get("min_position_weight") or 0.03)
+        target_invested_pct = float(strategy_cfg.get("target_invested_pct") or 0.80)
+        equal_weight = bool(strategy_cfg.get("equal_weight", False))
+
+        def _mf_signal_fn(df: pd.DataFrame) -> pd.DataFrame:
+            signals = mf_compute_signals(df, strategy_cfg=strategy_cfg)
+
+            # Check exit signals for current positions
+            if ledger_state and (ledger_state.get("positions") or {}):
+                prices_latest_exit = None
+                if df is not None and not df.empty and "close" in df.columns:
+                    prices_latest_exit = (
+                        df.groupby("symbol", group_keys=False)["close"]
+                        .last()
+                        .reset_index()
+                    )
+                exit_signals = mf_check_exits(
+                    ledger_state.get("positions", {}),
+                    prices_latest_exit,
+                    strategy_cfg,
+                )
+                if not exit_signals.empty:
+                    full_exits = exit_signals[exit_signals["exit_qty_pct"] >= 1.0]
+                    for _, ex in full_exits.iterrows():
+                        sym = ex["symbol"]
+                        if not signals.empty and sym in signals["symbol"].values:
+                            signals = signals[signals["symbol"] != sym]
+                        log.info("[MF-V1] EXIT signal: %s — %s", sym, ex["exit_reason"])
+                    partial_exits = exit_signals[exit_signals["exit_qty_pct"] < 1.0]
+                    for _, ex in partial_exits.iterrows():
+                        log.info(
+                            "[MF-V1] PARTIAL EXIT signal: %s (%.0f%%) — %s",
+                            ex["symbol"], ex["exit_qty_pct"] * 100, ex["exit_reason"],
+                        )
+            return signals
+
+        signal_fn = _mf_signal_fn
+
+        def _mf_sizing(sig: pd.DataFrame, cap: float) -> pd.DataFrame:
+            return mf_compute_targets(
+                sig, cap,
+                equal_weight=equal_weight,
+                max_positions=max_positions,
+                min_position_weight=min_position_weight,
+                target_invested_pct=target_invested_pct,
+            )
+
+        position_sizing_fn = _mf_sizing
+
     ctx = TradingContext(
         prices=prices,
         as_of=as_of_ts,
