@@ -79,6 +79,7 @@ def _norm_position(v: Any) -> dict[str, float]:
     if isinstance(v, dict):
         qty = v.get("qty")
         avg_price = v.get("avg_price")
+        hwm = v.get("hwm")
         try:
             qty_f = float(qty) if qty is not None else 0.0
         except (TypeError, ValueError):
@@ -87,8 +88,12 @@ def _norm_position(v: Any) -> dict[str, float]:
             avg_f = float(avg_price) if avg_price is not None else 0.0
         except (TypeError, ValueError):
             avg_f = 0.0
-        return {"qty": qty_f, "avg_price": avg_f}
-    return {"qty": 0.0, "avg_price": 0.0}
+        try:
+            hwm_f = float(hwm) if hwm is not None else avg_f
+        except (TypeError, ValueError):
+            hwm_f = avg_f
+        return {"qty": qty_f, "avg_price": avg_f, "hwm": hwm_f}
+    return {"qty": 0.0, "avg_price": 0.0, "hwm": 0.0}
 
 
 def _fresh_state(start_capital: float) -> dict[str, Any]:
@@ -237,13 +242,15 @@ def apply_fills_to_ledger(
         price = float(f.get("price", 0))
         if qty <= 0 or price <= 0:
             continue
-        pos = out["positions"].setdefault(symbol, {"qty": 0.0, "avg_price": 0.0})
+        pos = out["positions"].setdefault(symbol, {"qty": 0.0, "avg_price": 0.0, "hwm": 0.0})
         pos_qty = pos["qty"]
         pos_avg = pos["avg_price"]
+        pos_hwm = pos.get("hwm", pos_avg)
         if side == "BUY":
             new_qty = pos_qty + qty
             new_avg = (pos_avg * pos_qty + price * qty) / new_qty if new_qty else 0.0
-            out["positions"][symbol] = {"qty": new_qty, "avg_price": new_avg}
+            new_hwm = max(pos_hwm, price) if pos_hwm > 0 else price
+            out["positions"][symbol] = {"qty": new_qty, "avg_price": new_avg, "hwm": new_hwm}
             out["cash"] -= qty * price
         else:
             new_qty = pos_qty - qty
@@ -253,8 +260,8 @@ def apply_fills_to_ledger(
                 out["positions"].pop(symbol, None)
                 out["cash"] += sell_qty * price
             else:
-                # Partial sell: reduce position, keep avg_price
-                out["positions"][symbol] = {"qty": new_qty, "avg_price": pos_avg}
+                # Partial sell: reduce position, keep avg_price and hwm
+                out["positions"][symbol] = {"qty": new_qty, "avg_price": pos_avg, "hwm": pos_hwm}
                 out["cash"] += qty * price
     return out
 
@@ -280,7 +287,10 @@ def append_equity_curve_deduped(
 
 
 def mark_to_market_equity(state: dict[str, Any], prices_latest: pd.DataFrame) -> float:
-    """Compute equity = cash + sum(position qty * latest price)."""
+    """Compute equity = cash + sum(position qty * latest price).
+
+    Also updates HWM (high-water mark) for each position in-place.
+    """
     cash = float(state.get("cash", 0))
     positions = state.get("positions") or {}
     if not positions:
@@ -300,6 +310,11 @@ def mark_to_market_equity(state: dict[str, Any], prices_latest: pd.DataFrame) ->
         except (TypeError, ValueError):
             px = 0.0
         mtm += qty * px
+        # Update HWM for trailing stop support
+        if px > 0:
+            current_hwm = float(pos.get("hwm", 0))
+            if px > current_hwm:
+                pos["hwm"] = px
     return mtm
 
 

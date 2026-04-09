@@ -1874,6 +1874,23 @@ def run_trading_cycle(
                 prices_for_turnover,
                 portfolio_value=ctx.capital,
             )
+            # Compute invested_pct for ramp-up acceleration
+            _invested_pct = None
+            if ctx.capital > 0:
+                _invested_notional = 0.0
+                if (
+                    ctx.current_positions is not None
+                    and not ctx.current_positions.empty
+                    and "qty" in ctx.current_positions.columns
+                ):
+                    _price_s = prices_for_turnover.groupby("symbol")["close"].last() if (prices_for_turnover is not None and not prices_for_turnover.empty and "close" in prices_for_turnover.columns) else pd.Series(dtype=float)
+                    for _, _row in ctx.current_positions.iterrows():
+                        _sym = _row.get("symbol", "")
+                        _qty = float(_row.get("qty", 0) or 0)
+                        _px = float(_price_s.get(_sym, 0) or 0) if not _price_s.empty else 0.0
+                        _invested_notional += _qty * _px
+                    _invested_pct = _invested_notional / ctx.capital
+            _target_inv = float(tb.get("target_invested_pct", 0.80) or 0.80)
             if estimated == float("inf"):
                 result.target_positions, scale_factor = apply_turnover_gate(
                     result.target_positions,
@@ -1883,6 +1900,8 @@ def run_trading_cycle(
                     behavior="block",
                     prices=prices_for_turnover,
                     portfolio_value=ctx.capital,
+                    invested_pct=_invested_pct,
+                    target_invested_pct=_target_inv,
                 )
             else:
                 result.target_positions, scale_factor = apply_turnover_gate(
@@ -1893,6 +1912,8 @@ def run_trading_cycle(
                     behavior=behavior,
                     prices=prices_for_turnover,
                     portfolio_value=ctx.capital,
+                    invested_pct=_invested_pct,
+                    target_invested_pct=_target_inv,
                 )
             result.meta["turnover_budget"] = {
                 "estimated_turnover": estimated,

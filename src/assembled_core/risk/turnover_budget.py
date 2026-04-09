@@ -99,8 +99,13 @@ def apply_turnover_gate(
     behavior: str = "scale",
     prices: pd.DataFrame | None = None,
     portfolio_value: float = 1.0,
+    invested_pct: float | None = None,
+    target_invested_pct: float = 0.80,
 ) -> tuple[pd.DataFrame, float]:
     """Apply turnover cap: scale target deltas if turnover exceeds cap.
+
+    Ramp-up: if invested_pct < 50% of target_invested_pct, double the effective cap
+    to allow faster initial portfolio buildup.
 
     Returns (new_target_positions, scale_factor). scale_factor 1.0 when no scaling.
     """
@@ -108,7 +113,14 @@ def apply_turnover_gate(
         return target_positions, 1.0
     if cap <= 0:
         return target_positions, 1.0
-    if estimated_turnover <= cap:
+
+    # Ramp-up acceleration: double cap when significantly under-invested
+    effective_cap = cap
+    if invested_pct is not None and target_invested_pct > 0:
+        if invested_pct < target_invested_pct * 0.50:
+            effective_cap = cap * 2.0
+
+    if estimated_turnover <= effective_cap:
         return target_positions.copy(), 1.0
 
     price_series = (
@@ -118,7 +130,7 @@ def apply_turnover_gate(
     )
     pv = portfolio_value if portfolio_value > 0 else 1.0
 
-    scale_factor = cap / estimated_turnover
+    scale_factor = effective_cap / estimated_turnover
     if behavior == "block":
         # Block: set targets to current (no trades)
         out = target_positions.copy()

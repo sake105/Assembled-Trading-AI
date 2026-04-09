@@ -428,6 +428,44 @@ def run_paper_daily_one(
             except Exception as exc:
                 log.warning("[PaperRunner] trade journal write failed: %s", exc)
 
+        # Post-trade analysis: compute hit rate + learning records
+        try:
+            from src.assembled_core.qa.post_trade_analyzer import (
+                build_learning_record,
+                compute_forward_returns,
+                compute_signal_hit_rate,
+            )
+            from src.assembled_core.qa.learning_store import append_learning_record
+
+            prices_for_analysis = result.prices_with_features
+            if not prices_for_analysis.empty and "close" in prices_for_analysis.columns:
+                fwd_returns = compute_forward_returns(prices_for_analysis, horizon_days=5)
+                trades_for_analysis = pd.DataFrame([
+                    {
+                        "symbol": f["symbol"],
+                        "side": f.get("side", "BUY"),
+                        "event_ts": as_of_ts,
+                        "qty": f.get("qty", 0),
+                        "price": f.get("price", 0),
+                    }
+                    for f in fills
+                ])
+                if not trades_for_analysis.empty and not fwd_returns.empty:
+                    hit_rate_df = compute_signal_hit_rate(trades_for_analysis, fwd_returns)
+                    if not hit_rate_df.empty:
+                        record = build_learning_record(
+                            run_id=str(output_dir.name) if output_dir else "",
+                            analysis_date=as_of_ts.strftime("%Y-%m-%d"),
+                            hit_rate_df=hit_rate_df,
+                        )
+                        append_learning_record(record)
+                        result.meta["post_trade_analysis"] = {
+                            "symbols_analyzed": len(hit_rate_df),
+                            "avg_hit_rate": float(hit_rate_df["hit_rate"].mean()),
+                        }
+        except Exception as exc:
+            log.warning("[PaperRunner] post-trade analysis failed: %s", exc)
+
     # Skip maybe_execute_orders when broker already handled execution
     if execution_mode == "sim":
         _ = maybe_execute_orders(
