@@ -2008,6 +2008,99 @@ def run_trading_cycle(
         result.error_message = f"Error in size_positions hook: {e}"
         return result
 
+    # Phase 11.5: Sprint 1 / W1 — Trailing Stops (regime-adaptive ATR)
+    # -------------------------------------------------------------------
+    # After profit-lock / vol / stress overlays, the trailing-stops module
+    # decides which existing positions should be exited or partially
+    # reduced based on regime-scaled ATR rules and VIX.
+    try:
+        ts_cfg = policy.get("trailing_stops") or {}
+        if ts_cfg.get("enabled", False) and not result.target_positions.empty:
+            current_positions_df = ctx.current_positions
+            if current_positions_df is not None and not current_positions_df.empty:
+                from src.assembled_core.risk.trailing_stops import (
+                    apply_stop_reductions_to_weights,
+                    compute_trailing_stops,
+                )
+                pos_map: dict[str, dict] = {}
+                for _, row in current_positions_df.iterrows():
+                    sym = str(row.get("symbol", "")).upper()
+                    if not sym:
+                        continue
+                    entry = (
+                        row.get("avg_entry_price")
+                        or row.get("entry_price")
+                        or row.get("price")
+                    )
+                    if entry is None:
+                        continue
+                    pos_map[sym] = {
+                        "entry_price": float(entry),
+                        "qty": float(row.get("qty", 0.0) or 0.0),
+                        "weight": float(row.get("weight", 0.0) or 0.0),
+                    }
+
+                rs_meta = result.meta.get("risk_state") or {}
+                regime_label = str(rs_meta.get("regime", "unknown")).lower()
+                vix_level = None
+                if ctx.market_stress:
+                    vix_level = ctx.market_stress.get("vix_level")
+
+                if pos_map and result.prices_filtered is not None:
+                    ts_result = compute_trailing_stops(
+                        positions=pos_map,
+                        prices_df=result.prices_filtered,
+                        regime=regime_label,
+                        atr_window=int(ts_cfg.get("atr_window", 14)),
+                        vix_level=vix_level,
+                    )
+                    if ts_result.triggered_symbols or ts_result.reduction_symbols:
+                        tw_col = (
+                            "target_weight"
+                            if "target_weight" in result.target_positions.columns
+                            else "weight"
+                        )
+                        if tw_col in result.target_positions.columns:
+                            weights_map = {
+                                str(r["symbol"]).upper(): float(r[tw_col])
+                                for _, r in result.target_positions.iterrows()
+                            }
+                            adjusted = apply_stop_reductions_to_weights(
+                                weights_map, ts_result
+                            )
+                            result.target_positions[tw_col] = (
+                                result.target_positions["symbol"]
+                                .astype(str)
+                                .str.upper()
+                                .map(adjusted)
+                                .fillna(result.target_positions[tw_col])
+                            )
+                            if "target_qty" in result.target_positions.columns:
+                                for sym in ts_result.triggered_symbols:
+                                    mask = (
+                                        result.target_positions["symbol"]
+                                        .astype(str)
+                                        .str.upper()
+                                        == sym
+                                    )
+                                    result.target_positions.loc[
+                                        mask, "target_qty"
+                                    ] = 0.0
+                        result.meta["trailing_stops"] = {
+                            "regime": regime_label,
+                            "vix_level": vix_level,
+                            "triggered": ts_result.triggered_symbols,
+                            "reductions": ts_result.reduction_symbols,
+                        }
+                        log.warning(
+                            "TRAILING_STOPS: regime=%s triggered=%s reductions=%s",
+                            regime_label,
+                            ts_result.triggered_symbols,
+                            ts_result.reduction_symbols,
+                        )
+    except Exception as e:
+        log.debug("trailing_stops check skipped: %s", e)
+
     # Turnover budget gate (INT-6): after GeoRisk, before order generation
     tb = policy.get("turnover_budget") or {}
     if tb.get("enabled", False) and not result.target_positions.empty:
