@@ -760,6 +760,68 @@ def _generate_orders_default(
     return orders
 
 
+def _evaluate_auto_dd_kill_switch(
+    ctx: "TradingContext",
+    result: "TradingCycleResult",
+    policy: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Sprint 1 / C7 — evaluate auto-drawdown kill-switch staircase.
+
+    Returns a decision dict when a threshold is breached, otherwise ``None``.
+    The caller is responsible for engaging the kill-switch and clearing
+    orders. Pure function: no side effects, easy to unit-test.
+
+    Staircase (``throttle_allowed_pct`` is the fraction of orders ALLOWED):
+        dd ≤ kill (-18%) → 0.0  (block all)
+        dd ≤ hard (-12%) → 0.2  (20% allowed)
+        dd ≤ soft (-8%)  → 0.5  (50% allowed)
+    """
+    dd_cfg = (policy or {}).get("drawdown_policy") or {}
+    if not dd_cfg.get("auto_kill_enabled", True):
+        return None
+
+    current_equity = getattr(ctx, "current_equity", None)
+    peak_equity = getattr(ctx, "peak_equity", None) or getattr(ctx, "hwm_equity", None)
+
+    dd: float | None = None
+    if current_equity is not None and peak_equity and peak_equity > 0:
+        dd = float((current_equity - peak_equity) / peak_equity)
+    else:
+        _dd_meta = result.meta.get("drawdown_pct") if result is not None else None
+        if _dd_meta is not None:
+            dd = float(_dd_meta)
+
+    if dd is None or dd >= 0:
+        return None
+
+    levels = dd_cfg.get("levels") or {"soft": -0.08, "hard": -0.12, "kill": -0.18}
+    soft = float(levels.get("soft", -0.08))
+    hard = float(levels.get("hard", -0.12))
+    kill = float(levels.get("kill", -0.18))
+
+    if dd <= kill:
+        level_name = "kill"
+        throttle = 0.0
+    elif dd <= hard:
+        level_name = "hard"
+        throttle = 0.2
+    elif dd <= soft:
+        level_name = "soft"
+        throttle = 0.5
+    else:
+        return None
+
+    return {
+        "level": level_name,
+        "drawdown": dd,
+        "throttle_allowed_pct": throttle,
+        "reason": (
+            f"auto_dd_{level_name}: drawdown={dd:.2%} "
+            f"(soft={soft:.0%}, hard={hard:.0%}, kill={kill:.0%})"
+        ),
+    }
+
+
 def _apply_risk_controls_default(
     ctx: TradingContext,
     orders: pd.DataFrame,
@@ -2111,6 +2173,33 @@ def run_trading_cycle(
         result.status = "error"
         result.error_message = f"Error in risk_controls: {e}"
         return result
+
+    # Step 6.4: Sprint 1 / C7 — Auto-Drawdown Kill-Switch trigger
+    try:
+        dd_decision = _evaluate_auto_dd_kill_switch(ctx, result, policy)
+        if dd_decision is not None:
+            from src.assembled_core.execution.kill_switch import (
+                activate_kill_switch,
+                is_kill_switch_engaged,
+            )
+            activate_kill_switch(
+                throttle_pct=dd_decision["throttle_allowed_pct"],
+                reason=dd_decision["reason"],
+                actor="trading_cycle_auto_dd",
+            )
+            result.meta["auto_dd_kill_switch"] = dd_decision
+            log.warning(
+                "AUTO_DD_KILL_SWITCH: level=%s drawdown=%.2f%% throttle_allowed=%.0f%% — %s",
+                dd_decision["level"],
+                dd_decision["drawdown"] * 100,
+                dd_decision["throttle_allowed_pct"] * 100,
+                "kill switch engaged" if is_kill_switch_engaged() else "pending",
+            )
+            # Kill-mode blocks ALL orders for this cycle too.
+            if dd_decision["level"] == "kill":
+                result.orders_filtered = result.orders_filtered.iloc[0:0].copy()
+    except Exception as e:
+        log.debug("auto_dd_kill_switch skipped: %s", e)
 
     # Step 6.5: D12 — Scenario engine stress tests (post-orders, optional)
     try:
