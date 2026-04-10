@@ -129,6 +129,56 @@ def get_universe_members(
     return sorted(str(s).strip().upper() for s in active)
 
 
+def get_universe_members_pit(
+    as_of: pd.Timestamp | str,
+    universe_name: str = "default",
+    root: Path | None = None,
+    require_active_status: bool = True,
+) -> list[str]:
+    """Strict point-in-time universe lookup — raises when no members are found.
+
+    Wraps ``get_universe_members`` with two hardening guarantees that make it
+    safer for production backtest and live decision paths:
+
+    1. ``as_of`` is mandatory. No silent fallback to ``watchlist.txt`` — a
+       missing timestamp is an error, not a default.
+    2. An empty result set raises :class:`UniverseLookupError` instead of
+       returning ``[]``. This prevents a survivorship-bias-free backtest from
+       silently proceeding on an empty universe (which would otherwise look
+       like a perfectly-legal zero-position day).
+    3. ``require_active_status=True`` by default, so symbols with
+       ``end_date=NaT`` must have ``status='active'`` to be included. This
+       closes the second survivorship gap: delisted symbols that never got an
+       explicit ``end_date`` recorded.
+
+    Raises:
+        UniverseLookupError: if the universe history is missing, empty, or
+            contains no members that satisfy the PIT filter at ``as_of``.
+    """
+    from src.assembled_core.errors import UniverseLookupError
+
+    if as_of is None:
+        raise UniverseLookupError(
+            universe_name=universe_name,
+            as_of="None",
+            details="as_of is required — strict PIT lookup has no fallback",
+        )
+
+    members = get_universe_members(
+        as_of=as_of,
+        universe_name=universe_name,
+        root=root,
+        require_active_status=require_active_status,
+    )
+    if not members:
+        raise UniverseLookupError(
+            universe_name=universe_name,
+            as_of=str(as_of),
+            details="PIT filter yielded zero members — check universe history coverage",
+        )
+    return members
+
+
 # ---------------------------------------------------------------------------
 # Universe Reconstitution (Plan 10.1)
 # ---------------------------------------------------------------------------

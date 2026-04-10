@@ -81,6 +81,26 @@ class BrokerConnectionError(RecoverableError):
     """Broker API connection failed — retry with backoff."""
 
 
+class UniverseLookupError(RecoverableError):
+    """PIT universe lookup returned no members for the given as_of timestamp.
+
+    Raised by ``get_universe_members_pit`` when a strict PIT query finds no
+    active members — typically means the universe history file is missing,
+    the as_of is outside the stored range, or the universe is genuinely empty
+    at that point in time. Callers must decide whether to fail the run or
+    fall back to a safer default.
+    """
+
+    def __init__(self, universe_name: str, as_of: str, details: str = "") -> None:
+        self.universe_name = universe_name
+        self.as_of = as_of
+        self.details = details
+        msg = f"No universe members for '{universe_name}' at {as_of}"
+        if details:
+            msg += f": {details}"
+        super().__init__(msg)
+
+
 # ---------------------------------------------------------------------------
 # Domain-specific errors (Degradable)
 # ---------------------------------------------------------------------------
