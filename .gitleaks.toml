@@ -1,0 +1,29 @@
+# gitleaks configuration for Assembled-Trading-AI
+# See https://github.com/gitleaks/gitleaks for syntax.
+#
+# We extend the default ruleset and add targeted allowlists for
+# known-safe artifacts (tests with dummy keys, docs with placeholder keys,
+# the pre-existing .env which is tracked and scheduled for rotation).
+
+title = "Assembled-Trading-AI gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allowlist for known-safe artifacts"
+
+paths = [
+    '''\.env$''',
+    '''\.secrets\.baseline$''',
+    '''CHANGELOG_DUE_DILIGENCE\.md$''',
+    '''\.venv/.*''',
+    '''output/.*''',
+    '''data/.*''',
+    '''\.git/.*''',
+    '''tests/test_data_finnhub_events_client\.py$''',
+    '''tests/test_data_finnhub_news_macro_client\.py$''',
+    '''docs/INTEGRATION_PLAN_ALTERNATIVE_APIS\.md$''',
+    '''docs/WORKFLOWS_EVENT_STUDIES\.md$''',
+    '''docs/backend_core\.md$''',
+]
