@@ -2003,9 +2003,9 @@ def summarize_factor_portfolios(
                             skew=0.0,
                             kurtosis=3.0,
                         )
-                    except (ValueError, TypeError, AttributeError):
+                    except (ValueError, TypeError, AttributeError) as exc:
                         # Keep existing value (or NaN) if stats computation fails
-                        pass
+                        logger.warning("[FactorAnalysis] stats computation failed for factor: %s", exc)
 
     # Sort by Sharpe Ratio (descending)
     result_df = result_df.sort_values("sharpe", ascending=False).reset_index(drop=True)

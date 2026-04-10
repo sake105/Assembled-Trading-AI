@@ -7,6 +7,10 @@ This package provides:
 
 from __future__ import annotations
 
+import logging
+
+_logger = logging.getLogger(__name__)
+
 # Import legacy config for backward compatibility
 from src.assembled_core.config.config import (
     OUTPUT_DIR,
@@ -27,7 +31,7 @@ try:
     )
 except ImportError:
     # pydantic_settings not installed — settings features unavailable
-    pass
+    _logger.warning("[Config] pydantic_settings not installed — settings features unavailable")
 
 __all__ = [
     # Legacy exports (for backward compatibility)
@@ -61,7 +65,7 @@ try:
     )
 except ImportError:
     # Factor bundles module may not be available in all contexts
-    pass
+    _logger.warning("[Config] factor_bundles module not available")
 
 # Import config models (strict validation)
 from src.assembled_core.config.models import (  # noqa: F401

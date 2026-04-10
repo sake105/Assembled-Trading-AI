@@ -128,7 +128,7 @@ georisk_overlay:
 turnover_budget:
   enabled: true
   mode: "daily"
-  cap: 0.15
+  cap: 0.50
   min_trade_notional: 0
   behavior: "scale"
   qc:

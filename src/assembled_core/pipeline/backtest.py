@@ -3,12 +3,15 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 from src.assembled_core.config import OUTPUT_DIR
+
+logger = logging.getLogger(__name__)
 
 
 def _simulate_fills_per_order(
@@ -140,9 +143,9 @@ def _simulate_fills_per_order(
                     )
 
                 return updated_cash, updated_positions
-        except (ImportError, AttributeError, KeyError):
+        except (ImportError, AttributeError, KeyError) as exc:
             # Fall through to pure NumPy implementation
-            pass
+            logger.error("[Backtest] numba fill simulation failed, falling back to NumPy: %s", exc)
 
     # Pure NumPy implementation (fallback or if use_numba=False)
     # Extract numpy arrays from DataFrame columns (fillna + to_numpy for pyarrow compat)
@@ -295,9 +298,9 @@ def _update_equity_mark_to_market(
                 mtm = compute_mark_to_market_numba(positions_array, prices_array)
                 equity = cash + mtm
                 return equity
-        except (ImportError, AttributeError):
+        except (ImportError, AttributeError) as exc:
             # Fall through to pure NumPy implementation
-            pass
+            logger.error("[Backtest] numba mark-to-market failed, falling back to NumPy: %s", exc)
 
     # Pure NumPy implementation (fallback or if use_numba=False)
     # Vectorized mark-to-market: sum(position_shares * price)

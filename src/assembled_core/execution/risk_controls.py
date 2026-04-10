@@ -124,6 +124,31 @@ def filter_orders_with_risk_controls(
     pre_trade_result: PreTradeCheckResult | None = None
     kill_switch_engaged = False
 
+    # Step 0: Graduated drawdown exposure caps (from risk state machine)
+    # Applies BEFORE pre-trade checks so all downstream logic sees reduced orders.
+    if current_equity is not None and peak_equity is not None and peak_equity > 0:
+        current_dd_pct = ((current_equity / peak_equity) - 1.0) * 100.0  # e.g. -8.0
+        try:
+            from src.assembled_core.risk.state_machine import compute_drawdown_risk_level
+
+            risk_level, exposure_cap = compute_drawdown_risk_level(current_dd_pct)
+        except ImportError:
+            risk_level, exposure_cap = "NORMAL", 1.0
+
+        if exposure_cap < 1.0 and not filtered_orders.empty and "qty" in filtered_orders.columns:
+            logger.warning(
+                "[RiskControls] Drawdown %.1f%% -> risk_level=%s, exposure_cap=%.2f. "
+                "Scaling all order quantities by %.0f%%.",
+                current_dd_pct,
+                risk_level,
+                exposure_cap,
+                exposure_cap * 100,
+            )
+            filtered_orders = filtered_orders.copy()
+            filtered_orders["qty"] = filtered_orders["qty"] * exposure_cap
+            # Drop orders that became negligible after scaling
+            filtered_orders = filtered_orders[filtered_orders["qty"].abs() >= 1e-10].copy()
+
     # Step 1: Pre-trade checks
     if enable_pre_trade_checks:
         logger.debug("Applying pre-trade checks...")

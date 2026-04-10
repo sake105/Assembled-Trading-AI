@@ -171,8 +171,8 @@ class EarningsCalendarSource:
                             "eps_actual": actual,
                             "surprise_pct": surprise,
                         })
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("[EarningsCalendar] earnings history parse error for %s: %s", symbol, exc)
 
         return rows
 

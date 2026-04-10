@@ -50,8 +50,8 @@ def _get_git_commit_hash() -> str | None:
         )
         if result.returncode == 0 and result.stdout.strip():
             return result.stdout.strip()
-    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
-        pass
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as exc:
+        logger.warning("[BatchRunner] failed to get git revision: %s", exc)
     return None
 
 
@@ -180,8 +180,8 @@ def _get_git_commit_hash() -> str | None:
         )
         if result.returncode == 0 and result.stdout.strip():
             return result.stdout.strip()
-    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
-        pass
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as exc:
+        logger.warning("[BatchRunner] failed to get git revision: %s", exc)
     return None
 
 

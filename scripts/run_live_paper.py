@@ -25,6 +25,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from dotenv import load_dotenv
+load_dotenv(ROOT / ".env")
+
 from src.assembled_core.logging_config import generate_run_id, setup_logging
 
 logger = logging.getLogger(__name__)
@@ -59,41 +62,96 @@ def _create_adapter():
         sys.exit(1)
 
     logger.info(
-        "[run_live_paper] broker connected — equity=%.2f buying_power=%.2f",
-        health.get("equity", 0),
-        health.get("buying_power", 0),
+        "[run_live_paper] broker connected — equity=%.2f",
+        health.get("account_equity") or 0,
     )
     return adapter
 
 
 def _load_prices(app_cfg: dict):
-    """Load latest prices via standard ingest path."""
-    import pandas as pd
+    """Load prices for live paper trading.
 
-    from src.assembled_core.data.prices_ingest import load_cached_or_fetch
+    Strategy: fetch fresh data via yfinance (1 year history for features),
+    fall back to local parquet cache if yfinance fails.
+    Non-US symbols (containing '.') are skipped for Alpaca compatibility.
+    """
+    import pandas as pd
 
     universe_path = ROOT / "watchlist.txt"
     if not universe_path.exists():
         logger.error("[run_live_paper] watchlist.txt not found")
         return pd.DataFrame()
 
-    symbols = [
+    all_symbols = [
         s.strip()
         for s in universe_path.read_text(encoding="utf-8").splitlines()
         if s.strip() and not s.strip().startswith("#")
     ]
+    # Filter to US symbols only (Alpaca paper supports US equities)
+    symbols = [s for s in all_symbols if "." not in s]
+    skipped = [s for s in all_symbols if "." in s]
+    if skipped:
+        logger.info(
+            "[run_live_paper] skipping %d non-US symbols: %s",
+            len(skipped),
+            ", ".join(skipped[:5]) + ("..." if len(skipped) > 5 else ""),
+        )
+
     if not symbols:
-        logger.error("[run_live_paper] watchlist.txt is empty")
+        logger.error("[run_live_paper] no tradeable US symbols in watchlist")
         return pd.DataFrame()
 
-    logger.info("[run_live_paper] loading prices for %d symbols", len(symbols))
+    logger.info("[run_live_paper] loading prices for %d US symbols", len(symbols))
+
+    # --- Try 1: local parquet cache (fast) ---
     try:
-        prices = load_cached_or_fetch(symbols, freq="1d")
-        logger.info("[run_live_paper] loaded %d price rows", len(prices))
-        return prices
+        from src.assembled_core.data.prices_ingest import load_eod_prices
+
+        prices = load_eod_prices(symbols=symbols)
+        if not prices.empty:
+            latest = prices["timestamp"].max()
+            n_syms = prices["symbol"].nunique()
+            logger.info(
+                "[run_live_paper] loaded %d rows for %d symbols from cache "
+                "(latest: %s)",
+                len(prices),
+                n_syms,
+                latest.date() if hasattr(latest, "date") else latest,
+            )
+            return prices
     except Exception as exc:
-        logger.error("[run_live_paper] price loading failed: %s", exc)
-        return pd.DataFrame()
+        logger.info("[run_live_paper] local cache unavailable: %s", exc)
+
+    # --- Try 2: yfinance batch (slower, free) ---
+    try:
+        from src.assembled_core.data.sources.yfinance_source import (
+            fetch_prices_yfinance,
+        )
+
+        end_date = (
+            pd.Timestamp.now("UTC") + pd.DateOffset(days=1)
+        ).strftime("%Y-%m-%d")
+        start_date = (
+            pd.Timestamp.now("UTC") - pd.DateOffset(days=400)
+        ).strftime("%Y-%m-%d")
+
+        logger.info(
+            "[run_live_paper] fetching %d symbols via yfinance (%s to %s)",
+            len(symbols),
+            start_date,
+            end_date,
+        )
+        prices = fetch_prices_yfinance(symbols, start_date, end_date)
+        if not prices.empty:
+            logger.info(
+                "[run_live_paper] fetched %d rows via yfinance", len(prices)
+            )
+            return prices
+    except Exception as exc:
+        logger.warning("[run_live_paper] yfinance fetch failed: %s", exc)
+
+    logger.error("[run_live_paper] no price data available from any source")
+    return pd.DataFrame()
 
 
 def _preflight_checks(adapter, app_cfg: dict) -> bool:

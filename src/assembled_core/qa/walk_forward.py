@@ -1157,8 +1157,8 @@ def walk_forward_param_optimization(
                 test_signals = sig_fn(test_prices)
                 if test_signals is not None and hasattr(test_signals, 'mean'):
                     oos_metric = float(test_signals.mean())
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("[WalkForward] OOS signal evaluation failed for window %s: %s", window_idx, exc)
 
         results.append({
             "window": window_idx,

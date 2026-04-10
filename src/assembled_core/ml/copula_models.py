@@ -177,8 +177,8 @@ def fit_copula_pair(
             ll_c = -float(res_c.fun)
             lambda_L = 2.0 ** (-1.0 / theta_c) if theta_c > 0 else 0.0
             results.append(("clayton", theta_c, lambda_L, 0.0, ll_c))
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("[CopulaModels] Clayton fit failed: %s", exc)
 
     # --- Gumbel ---
     try:
@@ -191,8 +191,8 @@ def fit_copula_pair(
             ll_g = -float(res_g.fun)
             lambda_U = 2.0 - 2.0 ** (1.0 / theta_g) if theta_g > 1 else 0.0
             results.append(("gumbel", theta_g, 0.0, lambda_U, ll_g))
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("[CopulaModels] Gumbel fit failed: %s", exc)
 
     # --- Gaussian ---
     try:
@@ -204,8 +204,8 @@ def fit_copula_pair(
             rho = float(res_n.x)
             ll_n = -float(res_n.fun)
             results.append(("gaussian", rho, 0.0, 0.0, ll_n))
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("[CopulaModels] Gaussian fit failed: %s", exc)
 
     if not results:
         return None

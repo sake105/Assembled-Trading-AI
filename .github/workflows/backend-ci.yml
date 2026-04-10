@@ -46,11 +46,25 @@ jobs:
       - name: Initialize backend CI log
         run: echo "Backend CI started at $(date -Iseconds)" > backend_ci_log.txt
       
-      - name: Run backend core tests (all phases)
+      - name: Run backend core tests (all phases) with coverage
         run: |
           set -o pipefail
-          pytest -m "(phase4 or phase6 or phase7 or phase8 or phase9 or phase10 or phase11) and not slow" -q --maxfail=1 -W error 2>&1 | tee -a backend_ci_log.txt
+          pytest -m "(phase4 or phase6 or phase7 or phase8 or phase9 or phase10 or phase11) and not slow" -q --maxfail=1 -W error \
+            --cov=src/assembled_core --cov-report=term-missing --cov-report=xml:coverage.xml \
+            --cov-fail-under=0 2>&1 | tee -a backend_ci_log.txt
       
+      - name: Security scan — dependency vulnerabilities (pip-audit)
+        run: |
+          pip install pip-audit
+          pip-audit --strict --desc 2>&1 | tee -a backend_ci_log.txt || true
+        continue-on-error: true  # advisory — does not block CI yet
+
+      - name: Security scan — code analysis (bandit)
+        run: |
+          pip install bandit
+          bandit -r src/assembled_core -c pyproject.toml --severity-level medium -q 2>&1 | tee -a backend_ci_log.txt || true
+        continue-on-error: true  # advisory — does not block CI yet
+
       - name: Run ruff (linting)
         run: |
           set -o pipefail
@@ -67,6 +81,14 @@ jobs:
           mypy src/assembled_core/data src/assembled_core/features src/assembled_core/signals src/assembled_core/execution src/assembled_core/portfolio 2>&1 | tee -a backend_ci_log.txt || true
         continue-on-error: true  # mypy is optional for now
       
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-${{ matrix.python-version }}
+          path: coverage.xml
+          if-no-files-found: ignore
+
       - name: Upload backend CI log on failure
         if: failure()
         uses: actions/upload-artifact@v4

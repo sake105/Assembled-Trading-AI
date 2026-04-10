@@ -20,6 +20,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
+import pandas as pd
+
 from src.assembled_core.qa.metrics import PerformanceMetrics
 
 
@@ -495,6 +497,69 @@ def check_profit_factor(
                 "min_profit_factor": min_profit_factor,
                 "warning_profit_factor": warning_profit_factor,
             },
+        )
+
+
+def check_leakage(
+    feature_df: pd.DataFrame | None = None,
+    feature_col: str = "feature",
+    disclosure_col: str = "disclosure_date",
+    timestamp_col: str = "timestamp",
+) -> QAGateResult:
+    """Check for look-ahead bias / data leakage (mandatory gate).
+
+    If feature_df is provided, validates that feature values are zero before
+    their disclosure date.  If not provided (no altdata features in this
+    backtest), returns OK.
+
+    Args:
+        feature_df: DataFrame with feature values and disclosure dates.
+        feature_col: Column containing feature values.
+        disclosure_col: Column containing disclosure dates.
+        timestamp_col: Column containing observation timestamps.
+
+    Returns:
+        QAGateResult: BLOCK if leakage detected, OK otherwise.
+    """
+    gate_name = "leakage_detection"
+
+    if feature_df is None or feature_df.empty:
+        return QAGateResult(
+            gate_name=gate_name,
+            result=QAResult.OK,
+            reason="No altdata features to check for leakage",
+            details={"skipped": True},
+        )
+
+    try:
+        from src.assembled_core.qa.leakage_tests import assert_feature_zero_before_disclosure
+
+        # This raises AssertionError if leakage is found
+        assert_feature_zero_before_disclosure(
+            df=feature_df,
+            feature_col=feature_col,
+            disclosure_col=disclosure_col,
+            timestamp_col=timestamp_col,
+        )
+        return QAGateResult(
+            gate_name=gate_name,
+            result=QAResult.OK,
+            reason="No look-ahead leakage detected in altdata features",
+            details={"rows_checked": len(feature_df)},
+        )
+    except (AssertionError, ValueError) as exc:
+        return QAGateResult(
+            gate_name=gate_name,
+            result=QAResult.BLOCK,
+            reason=f"LEAKAGE DETECTED: {exc}",
+            details={"error": str(exc)},
+        )
+    except ImportError:
+        return QAGateResult(
+            gate_name=gate_name,
+            result=QAResult.WARNING,
+            reason="Leakage test module not available",
+            details={"skipped": True},
         )
 
 

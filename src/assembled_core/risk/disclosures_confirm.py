@@ -7,7 +7,10 @@ ctx.news_geo["boost"] and reasons artifact.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any, Dict
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from src.assembled_core.pipeline.trading_cycle import TradingContext
@@ -81,8 +84,8 @@ def apply_disclosures_confirm(ctx: "TradingContext", policy: Dict[str, Any]) -> 
                     "added": add_confidence,
                     "max_discl_sev": max_discl_sev,
                 }
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.error("[DisclosuresConfirm] failed to set geo_confidence via __setitem__: %s", exc)
         else:
             try:
                 setattr(news_geo, "geo_confidence", new_conf)
@@ -95,8 +98,8 @@ def apply_disclosures_confirm(ctx: "TradingContext", policy: Dict[str, Any]) -> 
                         "max_discl_sev": max_discl_sev,
                     },
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.error("[DisclosuresConfirm] failed to set geo_confidence via setattr: %s", exc)
 
 
 __all__ = ["apply_disclosures_confirm"]

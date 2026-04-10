@@ -13,6 +13,8 @@ from typing import Any
 
 import pandas as pd
 
+logger = logging.getLogger(__name__)
+
 from src.assembled_core.accounting.broker_snapshot import normalize_broker_snapshot
 from src.assembled_core.accounting.broker_snapshot_store import (
     store_broker_snapshot_json,
@@ -63,9 +65,9 @@ def _parse_float_like(value: Any) -> float | None:
             if pd.isna(value):  # type: ignore[arg-type]
                 return None
             return float(value)
-    except Exception:
+    except Exception as exc:
         # Fall through to string parsing
-        pass
+        logger.warning("[BrokerSnapshotImporter] numeric parse failed, falling through to string: %s", exc)
 
     # Work with string representation
     s = str(value).strip()

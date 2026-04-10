@@ -18,6 +18,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
+from src.assembled_core.errors import PriceLookupError
+
 logger = logging.getLogger(__name__)
 
 
@@ -370,40 +372,54 @@ class AlpacaAdapter(BrokerAdapter):
                 )
 
     def _estimate_price(self, symbol: str) -> float:
-        """Best-effort price estimate for notional limit checks.
+        """Get price estimate for notional limit checks.
 
-        Tries to get the last trade price from the broker. Returns 0.0
-        if unavailable (notional check will be skipped for this order).
+        Tries to get the last trade price from the broker.
+        Raises PriceLookupError if price cannot be obtained — callers must
+        not silently proceed with a zero/garbage price.
         """
+        errors: list[str] = []
         try:
             api = self._get_api()
-            # Try alpaca-py style
-            try:
-                from alpaca.data.requests import StockLatestTradeRequest  # type: ignore[import]
-                from alpaca.data import StockHistoricalDataClient  # type: ignore[import]
+        except Exception as exc:
+            raise PriceLookupError(
+                symbol, f"Cannot get API client: {exc}"
+            ) from exc
 
-                data_client = StockHistoricalDataClient(
-                    api_key=api._api_key if hasattr(api, "_api_key") else None,
-                    secret_key=api._secret_key if hasattr(api, "_secret_key") else None,
-                )
-                trade = data_client.get_stock_latest_trade(
-                    StockLatestTradeRequest(symbol_or_symbols=symbol)
-                )
-                if hasattr(trade, symbol):
-                    return float(getattr(trade, symbol).price)
-                return float(trade[symbol].price)
-            except (ImportError, Exception):
-                pass
+        # Try alpaca-py style
+        try:
+            from alpaca.data.requests import StockLatestTradeRequest  # type: ignore[import]
+            from alpaca.data import StockHistoricalDataClient  # type: ignore[import]
 
-            # Fallback: try legacy alpaca_trade_api
-            try:
-                trade = api.get_latest_trade(symbol)
-                return float(trade.price)
-            except Exception:
-                pass
-        except Exception:
-            pass
-        return 0.0
+            data_client = StockHistoricalDataClient(
+                api_key=api._api_key if hasattr(api, "_api_key") else None,
+                secret_key=api._secret_key if hasattr(api, "_secret_key") else None,
+            )
+            trade = data_client.get_stock_latest_trade(
+                StockLatestTradeRequest(symbol_or_symbols=symbol)
+            )
+            if hasattr(trade, symbol):
+                return float(getattr(trade, symbol).price)
+            return float(trade[symbol].price)
+        except ImportError:
+            errors.append("alpaca-py SDK not installed")
+        except Exception as exc:
+            errors.append(f"alpaca-py call failed: {exc}")
+
+        # Fallback: try legacy alpaca_trade_api
+        try:
+            trade = api.get_latest_trade(symbol)
+            return float(trade.price)
+        except Exception as exc:
+            errors.append(f"legacy alpaca_trade_api failed: {exc}")
+
+        # All methods failed — raise instead of returning garbage
+        logger.error(
+            "[AlpacaAdapter] Price lookup failed for %s. Errors: %s",
+            symbol,
+            "; ".join(errors),
+        )
+        raise PriceLookupError(symbol, "; ".join(errors))
 
     def submit_market_order(
         self,

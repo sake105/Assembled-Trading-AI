@@ -390,13 +390,17 @@ class TestBuildMlDatasetForStrategy:
 
     def test_build_ml_dataset_for_strategy_unknown_strategy(self, tmp_path: Path):
         """Test that unknown strategy raises ValueError."""
-        # Create a valid price file (not empty) to avoid "No price data loaded" error
+        # Create a valid price file with full OHLCV to avoid rejection
         dates = pd.date_range("2024-01-01", periods=10, freq="D", tz="UTC")
         prices = pd.DataFrame(
             {
                 "timestamp": dates,
                 "symbol": ["AAPL"] * 10,
+                "open": [100.0] * 10,
+                "high": [101.0] * 10,
+                "low": [99.0] * 10,
                 "close": [100.0] * 10,
+                "volume": [1000000.0] * 10,
             }
         )
 
@@ -414,13 +418,17 @@ class TestBuildMlDatasetForStrategy:
 
     def test_build_ml_dataset_for_strategy_no_data_in_range(self, tmp_path: Path):
         """Test that date range with no data raises ValueError."""
-        # Create price file with data in 2024
+        # Create price file with full OHLCV data in 2024
         dates = pd.date_range("2024-01-01", periods=10, freq="D", tz="UTC")
         prices = pd.DataFrame(
             {
                 "timestamp": dates,
                 "symbol": ["AAPL"] * 10,
+                "open": [100.0] * 10,
+                "high": [101.0] * 10,
+                "low": [99.0] * 10,
                 "close": [100.0] * 10,
+                "volume": [1000000.0] * 10,
             }
         )
 

@@ -200,8 +200,8 @@ def get_qa_metrics(freq: str) -> PerformanceMetricsResponse:
             trades_df = load_orders(freq, output_dir=OUTPUT_DIR, strict=False)
             if trades_df.empty:
                 trades_df = None
-        except Exception:
-            pass  # Trades are optional
+        except Exception as exc:
+            logger.warning("[QA] failed to load trades for metrics: %s", exc)
 
         # Compute metrics
         # Extract start_capital from equity (first value) or use default
@@ -353,8 +353,8 @@ def get_qa_gates(freq: str) -> QAGatesSummaryResponse:
             trades_df = load_orders(freq, output_dir=OUTPUT_DIR, strict=False)
             if trades_df.empty:
                 trades_df = None
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("[QA] failed to load trades for gates: %s", exc)
 
         # Compute metrics
         start_capital = (

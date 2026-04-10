@@ -97,8 +97,8 @@ def get_qa_status_summary(
                         last_updated = datetime.fromisoformat(
                             str(manifest["timestamp"]).replace("Z", "+00:00")
                         )
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.warning("[Monitoring] failed to parse QA manifest timestamp: %s", exc)
 
                 return QAStatusSummary(
                     overall_result=overall_result,
@@ -149,8 +149,8 @@ def get_qa_status_summary(
             trades_df = load_orders(freq, output_dir=OUTPUT_DIR, strict=False)
             if trades_df.empty:
                 trades_df = None
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("[Monitoring] failed to load trades for QA status: %s", exc)
 
         # Compute metrics
         start_capital = (
@@ -449,8 +449,8 @@ def get_regime_status(
         # Try to load from risk module directly
         try:
             return {"status": "unavailable", "regime": "unknown", "message": "no regime data on disk"}
-        except ImportError:
-            pass
+        except ImportError as exc:
+            logger.warning("[Monitoring] regime module import failed: %s", exc)
 
         return {"status": "unavailable", "regime": "unknown"}
     except Exception as exc:
@@ -485,8 +485,8 @@ def get_active_alerts(
                     "message": f"{len(zombie_syms)} zombie position(s) detected: {zombie_syms}",
                     "source": zombie_files[0].name,
                 })
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("[Monitoring] failed to load zombie alerts: %s", exc)
 
     # Kill-switch state
     try:
@@ -498,8 +498,8 @@ def get_active_alerts(
                 "severity": "CRITICAL",
                 "message": "Kill switch is ACTIVE — trading halted",
             })
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("[Monitoring] failed to check kill-switch state: %s", exc)
 
     # Correlation guard
     try:
@@ -516,8 +516,8 @@ def get_active_alerts(
                     "message": "Correlation guard active — position weights scaled down",
                     "source": corr_files[0].name,
                 })
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("[Monitoring] failed to check correlation guard: %s", exc)
 
     return {
         "status": "ok",

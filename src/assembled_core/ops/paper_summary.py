@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION = "paper.summary.v1"
 
@@ -32,16 +35,16 @@ def _collect_equity_curve(
                 if curve:
                     last_pt = curve[-1]
                     eq_val = _safe_float(last_pt.get("equity"))
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("[PaperSummary] failed to read ledger_state for %s: %s", d, exc)
         if eq_val is None:
             snapshot_path = day_dir / "ledger_snapshot.json"
             if snapshot_path.exists():
                 try:
                     data = json.loads(snapshot_path.read_text(encoding="utf-8"))
                     eq_val = _safe_float(data.get("equity"))
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("[PaperSummary] failed to read ledger_snapshot for %s: %s", d, exc)
         if eq_val is not None:
             out.append((d, eq_val))
     return out
@@ -140,8 +143,8 @@ def build_paper_summary(output_root: str | Path, dates: list[str]) -> dict[str, 
                     ) or ""
                     if reason:
                         reason_counts[reason] = reason_counts.get(reason, 0) + 1
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("[PaperSummary] failed to parse run_kpis for %s: %s", d, exc)
         alerts_path = day_dir / "alerts_latest.json"
         if alerts_path.exists():
             try:
@@ -151,8 +154,8 @@ def build_paper_summary(output_root: str | Path, dates: list[str]) -> dict[str, 
                     kind = item.get("kind") or "unknown"
                     alerts_by_level[level] = alerts_by_level.get(level, 0) + 1
                     alerts_by_kind[kind] = alerts_by_kind.get(kind, 0) + 1
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("[PaperSummary] failed to parse alerts for %s: %s", d, exc)
 
     risk_state_transitions = 0
     prev_state = None

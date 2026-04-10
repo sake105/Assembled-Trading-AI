@@ -19,11 +19,37 @@ Usage::
 
 from __future__ import annotations
 
+import json
 import logging
+import os
+from datetime import datetime, timezone
+from pathlib import Path
 
 import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# PIT audit log (append-only JSONL for warn-mode usage tracking)
+# ---------------------------------------------------------------------------
+_DEFAULT_PIT_AUDIT_LOG = Path("output/ops/pit_guard_audit.jsonl")
+
+
+def _pit_audit_path() -> Path:
+    override = os.environ.get("ASSEMBLED_PIT_AUDIT_LOG", "")
+    return Path(override) if override else _DEFAULT_PIT_AUDIT_LOG
+
+
+def _append_pit_audit(event: dict) -> None:
+    """Append a JSON-lines entry to the PIT audit log."""
+    p = _pit_audit_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    event["ts"] = datetime.now(timezone.utc).isoformat()
+    try:
+        with open(p, "a", encoding="utf-8") as f:
+            f.write(json.dumps(event, sort_keys=True, default=str) + "\n")
+    except Exception as exc:
+        logger.error("[PITGuard] Failed to write audit log %s: %s", p, exc)
 
 
 class PITViolationError(Exception):
@@ -47,6 +73,13 @@ class PITGuard:
             as_of = as_of.tz_localize("UTC")
         self.as_of = as_of
         self.mode = mode
+
+        # Audit: log every warn-mode instantiation so ops can track usage
+        if mode == "warn":
+            _append_pit_audit({
+                "action": "INIT_WARN_MODE",
+                "as_of": str(as_of),
+            })
 
     # ------------------------------------------------------------------
 
@@ -89,6 +122,14 @@ class PITGuard:
         if self.mode == "assert":
             raise PITViolationError(msg)
 
+        # Audit: record every warn-mode violation for ops traceability
+        _append_pit_audit({
+            "action": "WARN_VIOLATION",
+            "as_of": str(self.as_of),
+            "context": context,
+            "n_future_rows": n_future,
+            "latest_future_ts": str(max_ts),
+        })
         logger.warning(msg)
         return False
 

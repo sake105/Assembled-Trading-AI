@@ -385,8 +385,8 @@ def list_factor_partitions(
         for p in sorted(universe_dir.glob("year=*.parquet")):
             try:
                 years.append(int(p.stem.split("=")[1]))
-            except (ValueError, IndexError):
-                pass
+            except (ValueError, IndexError) as exc:
+                logger.warning("[FactorStore] failed to parse year from %s: %s", p, exc)
         entry: dict[str, Any] = {
             "factor_group": group,
             "freq": freq,
@@ -400,8 +400,8 @@ def list_factor_partitions(
                 for key in ("factor_columns", "schema", "date_range", "config_hash"):
                     if key in manifest:
                         entry[key] = manifest[key]
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("[FactorStore] failed to read metadata from %s: %s", manifest_file, exc)
         result.append(entry)
 
     return result

@@ -146,7 +146,22 @@ def parse_eod_args() -> argparse.Namespace:
         help="Create evidence pack (ZIP + manifest) after ledger/accounting step.",
     )
 
-    return p.parse_args()
+    args = p.parse_args()
+
+    # Validate arguments
+    if args.start_capital is not None and args.start_capital <= 0:
+        p.error(f"--start-capital must be positive, got {args.start_capital}")
+    if args.start_date and args.end_date and args.start_date != "today" and args.end_date != "today":
+        if args.start_date > args.end_date:
+            p.error(f"--start-date ({args.start_date}) must be <= --end-date ({args.end_date})")
+    if args.commission_bps is not None and args.commission_bps < 0:
+        p.error(f"--commission-bps must be non-negative, got {args.commission_bps}")
+    if args.spread_w is not None and args.spread_w < 0:
+        p.error(f"--spread-w must be non-negative, got {args.spread_w}")
+    if args.impact_w is not None and args.impact_w < 0:
+        p.error(f"--impact-w must be non-negative, got {args.impact_w}")
+
+    return args
 
 
 def run_eod_from_args(args: argparse.Namespace) -> dict:
@@ -271,11 +286,34 @@ def main() -> int:
 
     try:
         args = parse_eod_args()
-        run_eod_from_args(args)
-        logger.info("=" * 60)
-        logger.info("EOD Pipeline completed successfully")
-        logger.info("=" * 60)
-        return 0
+        manifest = run_eod_from_args(args)
+
+        # Check QA status and pipeline failures for exit code
+        qa_status = manifest.get("qa_overall_status", "ok") if manifest else "ok"
+        has_failure = manifest.get("failure", False) if manifest else False
+
+        if has_failure or qa_status == "error":
+            logger.error("=" * 60)
+            logger.error(
+                "EOD Pipeline finished with ERRORS (qa_status=%s, failure=%s). Exit code 2.",
+                qa_status,
+                has_failure,
+            )
+            logger.error("=" * 60)
+            return 2
+        elif qa_status == "warning":
+            logger.warning("=" * 60)
+            logger.warning(
+                "EOD Pipeline finished with WARNINGS (qa_status=%s). Exit code 3.",
+                qa_status,
+            )
+            logger.warning("=" * 60)
+            return 3
+        else:
+            logger.info("=" * 60)
+            logger.info("EOD Pipeline completed successfully")
+            logger.info("=" * 60)
+            return 0
     except Exception as e:
         logger.error(f"FATAL ERROR: {e}", exc_info=True)
         return 1

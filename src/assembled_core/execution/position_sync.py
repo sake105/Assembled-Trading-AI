@@ -101,6 +101,7 @@ def sync_positions_from_broker(
         broker_cash=broker_cash,
         cash_tol=0.01,  # 1 cent tolerance for real broker
         qty_tol=0.001,  # fractional share tolerance
+        fail_fast=False,  # return result dict, don't raise
     )
 
     result.ok = recon.get("ok", False)

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any, Dict, List
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from src.assembled_core.logging_config import setup_logging
+
+logger = logging.getLogger(__name__)
 
 from .baseline import update_baseline
 from .burst import compute_bursts_for_window
@@ -333,9 +336,9 @@ def run_news_pipeline(
                             ev.raw["near_duplicate_of"] = best_event_id
                             ev.raw["near_duplicate_distance"] = int(best_dist)
                             near_dupes_tagged += 1
-            except Exception:
+            except Exception as exc:
                 # Do not break pipeline on store errors
-                pass
+                logger.warning("[NewsPipeline] store/dedupe error (non-fatal): %s", exc)
 
         events.append(ev)
 

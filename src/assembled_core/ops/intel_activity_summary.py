@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any, Dict
+
+logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION = "run.intel_activity.v1"
 
@@ -42,8 +45,8 @@ def _max_severity_from_run_kpis(kpis: Dict[str, Any]) -> int | None:
         if m is not None:
             try:
                 max_sev = int(m)
-            except (TypeError, ValueError):
-                pass
+            except (TypeError, ValueError) as exc:
+                logger.warning("[IntelActivitySummary] failed to parse max_severity: %s", exc)
     for t in kpis.get("top_triggers") or []:
         if not isinstance(t, dict):
             continue
@@ -53,8 +56,8 @@ def _max_severity_from_run_kpis(kpis: Dict[str, Any]) -> int | None:
                 si = int(s)
                 if max_sev is None or si > max_sev:
                     max_sev = si
-            except (TypeError, ValueError):
-                pass
+            except (TypeError, ValueError) as exc:
+                logger.warning("[IntelActivitySummary] failed to parse trigger severity: %s", exc)
     return max_sev
 
 
@@ -74,8 +77,8 @@ def _news_max_severity(kpis: Dict[str, Any]) -> int | None:
         if m is not None:
             try:
                 return int(m)
-            except (TypeError, ValueError):
-                pass
+            except (TypeError, ValueError) as exc:
+                logger.warning("[IntelActivitySummary] failed to parse news max_severity: %s", exc)
     return _max_severity_from_run_kpis(kpis)
 
 
@@ -95,8 +98,8 @@ def _disclosures_max_severity(kpis: Dict[str, Any]) -> int | None:
         if m is not None:
             try:
                 return int(m)
-            except (TypeError, ValueError):
-                pass
+            except (TypeError, ValueError) as exc:
+                logger.warning("[IntelActivitySummary] failed to parse disclosures max_severity: %s", exc)
     return None
 
 
@@ -247,8 +250,8 @@ def build_intel_activity_summary(
                                             or si > news_max_severity_seen
                                         ):
                                             news_max_severity_seen = si
-                                    except (TypeError, ValueError):
-                                        pass
+                                    except (TypeError, ValueError) as exc:
+                                        logger.warning("[IntelActivitySummary] bad news trigger severity value: %s", exc)
                     if (
                         kind == "disclosures"
                         and discl_max_severity_seen is None
@@ -265,10 +268,10 @@ def build_intel_activity_summary(
                                             or si > discl_max_severity_seen
                                         ):
                                             discl_max_severity_seen = si
-                                    except (TypeError, ValueError):
-                                        pass
-                except Exception:
-                    pass
+                                    except (TypeError, ValueError) as exc:
+                                        logger.warning("[IntelActivitySummary] bad disclosures trigger severity value: %s", exc)
+                except Exception as exc:
+                    logger.warning("[IntelActivitySummary] failed to parse intel artifact for day: %s", exc)
 
     days_ok_n, days_degraded_n, days_error_n = _status_counts(news_statuses)
     days_ok_d, days_degraded_d, days_error_d = _status_counts(discl_statuses)

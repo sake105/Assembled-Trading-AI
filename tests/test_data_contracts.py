@@ -236,9 +236,9 @@ class TestLoadEodPrices:
         assert result["symbol"].nunique() == 1
         assert all(result["symbol"] == "AAPL")
 
-    def test_load_eod_prices_synthetic_ohlcv(self, tmp_path: Path):
-        """Test that load_eod_prices creates synthetic OHLCV when only close is available."""
-        # Create data with only timestamp, symbol, close
+    def test_load_eod_prices_rejects_missing_ohlcv(self, tmp_path: Path):
+        """Test that load_eod_prices raises ValueError when OHLCV columns are missing."""
+        # Create data with only timestamp, symbol, close (no open/high/low/volume)
         sample_data = pd.DataFrame(
             {
                 "timestamp": pd.date_range(
@@ -252,13 +252,8 @@ class TestLoadEodPrices:
         sample_file = tmp_path / "sample_prices.parquet"
         sample_data.to_parquet(sample_file, index=False)
 
-        result = load_eod_prices(price_file=sample_file)
-
-        assert not result.empty
-        assert all(col in result.columns for col in ["open", "high", "low", "volume"])
-        # Synthetic OHLCV: open=high=low=close, volume=0
-        assert all(result["open"] == result["close"])
-        assert all(result["volume"] == 0.0)
+        with pytest.raises(ValueError, match="missing OHLCV columns"):
+            load_eod_prices(price_file=sample_file)
 
 
 class TestLoadEodPricesForUniverse:

@@ -19,9 +19,9 @@ def reconcile_ledger_vs_broker(
     broker_positions_df: pd.DataFrame,
     broker_cash: float,
     *,
-    cash_tol: float = 1e-6,
-    qty_tol: float = 1e-8,
-    fail_fast: bool = False,
+    cash_tol: float = 1e-8,
+    qty_tol: float = 1e-6,
+    fail_fast: bool = True,
 ) -> dict:
     """Reconcile ledger state vs broker snapshot.
 

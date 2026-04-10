@@ -147,6 +147,10 @@ warn_unused_ignores = true
 warn_no_return = true
 mypy_path = "src"
 
+[tool.bandit]
+exclude_dirs = ["tests", "scripts/tools"]
+skips = ["B101"]  # assert used intentionally in guards and tests
+
 [tool.pytest.ini_options]
 markers = [
   "phase10: M5 Crisis Alpha tests",

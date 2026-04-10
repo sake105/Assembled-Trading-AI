@@ -281,9 +281,9 @@ def generate_orders_from_targets(
                         prices_latest=prices_latest,
                         min_trade_value=min_trade_value,
                     )
-                except (ValueError, KeyError):
+                except (ValueError, KeyError) as exc:
                     # Fallback to merge-based path if fast-path fails
-                    pass
+                    logger.error("[OrderGeneration] fast-path order gen failed, falling back to merge: %s", exc)
 
     # Fallback to merge-based path (handles misaligned or missing symbols)
     # Ensure both DataFrames are sorted by symbol for stable alignment

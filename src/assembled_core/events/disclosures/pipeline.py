@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any, Dict, List
+
+logger = logging.getLogger(__name__)
 
 from .dedupe import dedupe_events
 from .emit import emit_json_artifact
@@ -56,7 +59,8 @@ def _collect_raw_items(
                         if isinstance(full_state, dict)
                         else None
                     )
-                except Exception:
+                except Exception as exc:
+                    logger.warning("[DisclosuresPipeline] failed to load fetch state for %s: %s", src.source_id, exc)
                     fetch_state = None
             cfg = {**house_ptr_cfg, **src.config}
             src_items, failure, stats = fetch_house_ptr_filings(
@@ -71,8 +75,8 @@ def _collect_raw_items(
                             state = json.loads(
                                 fetch_state_path.read_text(encoding="utf-8")
                             )
-                        except Exception:
-                            pass
+                        except Exception as exc:
+                            logger.warning("[DisclosuresPipeline] failed to read cache state (house_ptr): %s", exc)
                         if not isinstance(state, dict):
                             state = {}
                     state[src.source_id] = {
@@ -86,8 +90,8 @@ def _collect_raw_items(
                     fetch_state_path.write_text(
                         json.dumps(state, indent=2), encoding="utf-8"
                     )
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("[DisclosuresPipeline] failed to write cache state (house_ptr) for %s: %s", src.source_id, exc)
         elif src.type == "edgar_form4":
             fetch_state: Dict[str, Any] | None = None
             if fetch_state_path.exists():
@@ -96,7 +100,8 @@ def _collect_raw_items(
                         fetch_state_path.read_text(encoding="utf-8")
                     )
                     fetch_state = fetch_state.get(src.source_id)
-                except Exception:
+                except Exception as exc:
+                    logger.warning("[DisclosuresPipeline] failed to load fetch state for %s: %s", src.source_id, exc)
                     fetch_state = None
             cfg = {**form4_cfg, **src.config}
             src_items, failure, stats = fetch_edgar_form4(
@@ -111,8 +116,8 @@ def _collect_raw_items(
                             state = json.loads(
                                 fetch_state_path.read_text(encoding="utf-8")
                             )
-                        except Exception:
-                            pass
+                        except Exception as exc:
+                            logger.warning("[DisclosuresPipeline] failed to read cache state (edgar_form4): %s", exc)
                         if not isinstance(state, dict):
                             state = {}
                     state[src.source_id] = {
@@ -123,8 +128,8 @@ def _collect_raw_items(
                     fetch_state_path.write_text(
                         json.dumps(state, indent=2), encoding="utf-8"
                     )
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("[DisclosuresPipeline] failed to write cache state (edgar_form4) for %s: %s", src.source_id, exc)
         elif src.type == "edgar":
             src_items, failure, stats = fetch_edgar(
                 src.source_id, src.config, timeout_s=timeout_s, user_agent=user_agent

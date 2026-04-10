@@ -84,12 +84,13 @@ def load_eod_prices(
     has_ohlcv = all(col in df.columns for col in ["open", "high", "low", "volume"])
 
     if not has_ohlcv:
-        # If only 'close' is available, create synthetic OHLCV from close
-        # This is a fallback for compatibility with existing aggregated files
-        df["open"] = df["close"]
-        df["high"] = df["close"]
-        df["low"] = df["close"]
-        df["volume"] = 0.0  # Default volume if not available
+        missing_cols = [c for c in ["open", "high", "low", "volume"] if c not in df.columns]
+        raise ValueError(
+            f"Price file {source_path} is missing OHLCV columns: {missing_cols}. "
+            f"Only 'close' is available. Synthetic OHLCV generation has been disabled "
+            f"because it produces unreliable spread models, volume-based features, and "
+            f"liquidity checks. Please provide data with full OHLCV columns."
+        )
 
     # Ensure OHLCV columns have correct types
     for col in ["open", "high", "low", "close"]:

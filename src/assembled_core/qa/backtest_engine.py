@@ -66,6 +66,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+logger = logging.getLogger(__name__)
+
 from src.assembled_core.costs import CostModel, get_default_cost_model
 from src.assembled_core.execution.order_generation import generate_orders_from_targets
 from src.assembled_core.execution.transaction_costs import (
@@ -222,9 +224,9 @@ def _update_positions_vectorized(
                 ].reset_index(drop=True)
 
                 return updated_positions
-        except (ImportError, AttributeError):
+        except (ImportError, AttributeError) as exc:
             # Fall through to pandas implementation
-            pass
+            logger.warning("[BacktestEngine] numba fill simulation failed, falling back to pandas: %s", exc)
 
     # Pure pandas implementation (fallback or if use_numba=False)
     # Use vectorized numpy operations instead of apply

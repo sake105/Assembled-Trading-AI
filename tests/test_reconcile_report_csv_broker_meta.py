@@ -246,6 +246,7 @@ def test_csv_deterministic_sorting_preserved_with_broker_meta(tmp_path: Path):
         ledger_cash=10000.0,
         broker_positions_df=broker_positions,
         broker_cash=10000.0,
+        fail_fast=False,  # intentional mismatches for CSV formatting test
     )
 
     result["ledger_cash"] = 10000.0

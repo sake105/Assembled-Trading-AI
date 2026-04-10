@@ -32,7 +32,7 @@ class CommissionModel:
     """
 
     mode: Literal["bps", "fixed", "bps_plus_fixed"] = "bps"
-    commission_bps: float = 0.0
+    commission_bps: float = 1.0  # 1.0 bps default — realistic for US equities
     fixed_per_trade: float = 0.0
 
     def __post_init__(self) -> None:

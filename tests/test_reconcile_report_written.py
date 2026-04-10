@@ -90,6 +90,7 @@ def test_schema_stable(tmp_path: Path):
         ledger_cash=10000.0,
         broker_positions_df=broker_positions,
         broker_cash=10000.0,
+        fail_fast=False,  # intentional mismatch for schema test
     )
 
     result["ledger_cash"] = 10000.0
@@ -215,6 +216,7 @@ def test_csv_sort_deterministic(tmp_path: Path):
         ledger_cash=10000.0,
         broker_positions_df=broker_positions,
         broker_cash=10000.0,
+        fail_fast=False,  # intentional mismatch for sorting test
     )
 
     result["ledger_cash"] = 10000.0

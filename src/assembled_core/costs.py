@@ -23,12 +23,16 @@ class CostModel:
 def get_default_cost_model() -> CostModel:
     """Get default cost model parameters.
 
-    Default values are based on best grid result from cost sensitivity analysis:
-    - commission_bps = 0.0 (no commission)
-    - spread_w = 0.25 (25% of spread)
-    - impact_w = 0.5 (50% of impact)
+    This is the **single source of truth** for cost defaults used by both
+    the backtest engine and the paper-trading engine.  Any change here
+    propagates to both paths automatically.
+
+    Values:
+    - commission_bps = 1.0 (realistic for US equities, ~$0.001/share equiv.)
+    - spread_w = 0.25 (25% of estimated bid/ask spread)
+    - impact_w = 0.5 (50% of estimated market impact)
 
     Returns:
         CostModel instance with default parameters
     """
-    return CostModel(commission_bps=0.0, spread_w=0.25, impact_w=0.5)
+    return CostModel(commission_bps=1.0, spread_w=0.25, impact_w=0.5)

@@ -59,6 +59,7 @@ def test_qty_mismatch_detected():
         ledger_cash=10000.0,
         broker_positions_df=broker_positions,
         broker_cash=10000.0,
+        fail_fast=False,  # intentional mismatch for assertion testing
     )
 
     assert result["ok"] is False
@@ -88,6 +89,7 @@ def test_cash_mismatch_detected():
         ledger_cash=10000.0,
         broker_positions_df=broker_positions,
         broker_cash=10001.0,  # Cash mismatch
+        fail_fast=False,  # intentional mismatch for assertion testing
     )
 
     assert result["ok"] is False
@@ -116,6 +118,7 @@ def test_missing_symbol_detected():
         ledger_cash=10000.0,
         broker_positions_df=broker_positions,
         broker_cash=10000.0,
+        fail_fast=False,  # intentional mismatch for assertion testing
     )
 
     assert result["ok"] is False
@@ -142,6 +145,7 @@ def test_missing_symbol_detected():
         ledger_cash=10000.0,
         broker_positions_df=broker_positions2,
         broker_cash=10000.0,
+        fail_fast=False,  # intentional mismatch for assertion testing
     )
 
     assert result2["ok"] is False
@@ -183,6 +187,7 @@ def test_tolerance_behavior_deterministic():
         broker_positions_df=broker_positions,
         broker_cash=10000.0,
         qty_tol=1e-10,
+        fail_fast=False,  # intentional mismatch for assertion testing
     )
 
     assert result2["ok"] is False
@@ -206,6 +211,7 @@ def test_tolerance_behavior_deterministic():
         broker_positions_df=broker_positions,
         broker_cash=10000.0 + 1e-5,  # Larger cash difference
         cash_tol=1e-6,
+        fail_fast=False,  # intentional mismatch for assertion testing
     )
 
     assert result4["ok"] is False
@@ -362,6 +368,7 @@ def test_tiny_residual_qty_ignored():
         broker_positions_df=broker_positions,
         broker_cash=10000.0,
         qty_tol=1e-12,  # Stricter tolerance
+        fail_fast=False,  # intentional mismatch for assertion testing
     )
 
     # Should detect missing in ledger (GOOGL not filtered out)
@@ -390,6 +397,7 @@ def test_missing_lists_deterministically_sorted():
         ledger_cash=10000.0,
         broker_positions_df=broker_positions,
         broker_cash=10000.0,
+        fail_fast=False,  # intentional mismatch for sorting test
     )
 
     # missing_in_ledger should be sorted (GOOGL, NVDA, TSLA)
@@ -408,6 +416,7 @@ def test_missing_lists_deterministically_sorted():
         ledger_cash=10000.0,
         broker_positions_df=broker_positions,
         broker_cash=10000.0,
+        fail_fast=False,  # intentional mismatch for sorting test
     )
 
     assert result2["missing_in_ledger"] == result["missing_in_ledger"]

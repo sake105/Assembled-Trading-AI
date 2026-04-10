@@ -57,7 +57,7 @@ def append_experience(
 
         lock = FileLock(str(lock_path), timeout=5)
     except ImportError:
-        pass
+        pass  # filelock is optional — best-effort locking
 
     def _do_write() -> None:
         with open(p, "a", encoding="utf-8") as fh:
@@ -112,8 +112,8 @@ def load_experience(
             df["_ts"] = pd.to_datetime(df["timestamp_utc"], utc=True)
             cutoff = pd.Timestamp.now("UTC") - pd.Timedelta(days=days)
             df = df[df["_ts"] >= cutoff].drop(columns=["_ts"])
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("[ExperienceLog] failed to filter by date range: %s", exc)
 
     return df
 

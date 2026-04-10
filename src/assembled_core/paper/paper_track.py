@@ -77,8 +77,8 @@ def _get_git_commit_hash() -> str | None:
         )
         if result.returncode == 0 and result.stdout.strip():
             return result.stdout.strip()
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-        pass
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
+        logger.warning("[PaperTrack] failed to get git revision: %s", exc)
     return None
 
 

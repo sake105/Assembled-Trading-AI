@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
 import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+
+logger = logging.getLogger(__name__)
 
 ATOM_NS = "http://www.w3.org/2005/Atom"
 RSS_NS = "http://purl.org/rss/1.0/"
@@ -200,8 +203,8 @@ def _parse_json_list(content: bytes, max_items: int) -> List[Dict[str, Any]]:
                             "raw": dict(entry),
                         }
                     )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("[FetchHousePtr] failed to parse RSS/Atom feed: %s", exc)
     return items
 
 
@@ -235,8 +238,8 @@ def _compute_pdf_meta(
                     h.update(chunk)
             sha256_hex = h.hexdigest()
             hashed = True
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("[FetchHousePtr] failed to compute sha256 for %s: %s", path, exc)
     out: Dict[str, Any] = {
         "local_path": str(path),
         "size_bytes": size_bytes,
@@ -258,8 +261,8 @@ def _download_pdf(url: str, dest_path: Path, user_agent: str, timeout_s: float) 
             dest_path.parent.mkdir(parents=True, exist_ok=True)
             dest_path.write_bytes(resp.content)
             return True
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("[FetchHousePtr] PDF download failed for %s: %s", url, exc)
     return False
 
 
@@ -317,8 +320,8 @@ def fetch_house_ptr_filings(
                     stats["http_status"] = 200
                     stats["duration_ms"] = 0
                     return list(cached_items), None, stats
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("[FetchHousePtr] failed to parse cached state for %s: %s", source_id, exc)
 
     if not index_url or index_url.startswith("https://<"):
         failure = {"source": source_id, "reason": "missing_index_url"}
@@ -339,8 +342,8 @@ def fetch_house_ptr_filings(
                         stats["items"] = len(cached_items)
                         stats["cached"] = True
                         return list(cached_items), failure, stats
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("[FetchHousePtr] stale-on-error cache parse failed for %s: %s", source_id, exc)
         return items, failure, stats
 
     start = time.perf_counter()
@@ -377,8 +380,8 @@ def fetch_house_ptr_filings(
                             stats["items"] = len(cached_items)
                             stats["cached"] = True
                             return list(cached_items), failure, stats
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.warning("[FetchHousePtr] stale-on-error cache parse failed (http) for %s: %s", source_id, exc)
             return items, failure, stats
 
         content = resp.content
@@ -459,8 +462,8 @@ def fetch_house_ptr_filings(
                         stats["items"] = len(cached_items)
                         stats["cached"] = True
                         return list(cached_items), failure, stats
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("[FetchHousePtr] stale-on-error cache parse failed (request) for %s: %s", source_id, exc)
         return items, failure, stats
     except ET.ParseError as e:
         duration_ms = int((time.perf_counter() - start) * 1000)
@@ -482,8 +485,8 @@ def fetch_house_ptr_filings(
                         stats["items"] = len(cached_items)
                         stats["cached"] = True
                         return list(cached_items), failure, stats
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.warning("[FetchHousePtr] stale-on-error cache parse failed (parse_error) for %s: %s", source_id, exc)
         return items, failure, stats
     except Exception as e:
         duration_ms = int((time.perf_counter() - start) * 1000)

@@ -47,6 +47,33 @@ class FillModel:
     default_adv: float = 1_000_000.0
     default_sigma: float = 0.02
 
+    @classmethod
+    def from_cost_model(cls, cost_model: object | None = None) -> FillModel:
+        """Create a FillModel aligned with the central CostModel defaults.
+
+        This ensures paper trading uses the **same** cost assumptions as
+        the backtest engine.  If *cost_model* is ``None``, the project-wide
+        default from ``costs.get_default_cost_model()`` is loaded.
+
+        Mapping:
+        - commission_bps is applied separately in the backtest engine and
+          is NOT part of the fill-price offset; paper trades should add
+          commission externally when computing P&L.
+        - spread_w scales the half-spread: ``half_spread_bps = 5.0 * spread_w``
+        - impact_w scales the impact coefficient: ``impact_coefficient = 0.10 * impact_w``
+        """
+        if cost_model is None:
+            from src.assembled_core.costs import get_default_cost_model
+            cost_model = get_default_cost_model()
+
+        spread_w = getattr(cost_model, "spread_w", 0.25)
+        impact_w = getattr(cost_model, "impact_w", 0.5)
+
+        return cls(
+            half_spread_bps=5.0 * spread_w,
+            impact_coefficient=0.10 * impact_w,
+        )
+
     def compute_fill_price(
         self,
         order_price: float,

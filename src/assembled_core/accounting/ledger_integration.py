@@ -233,8 +233,10 @@ def build_ledger_from_trades(
                     f"Expected path: {expected_path}"
                 )
             # Fallback: Use positions_df as broker snapshot (paper broker view)
-            logger.info(
-                "No stored broker snapshot found, using paper broker view (fallback)"
+            logger.warning(
+                "[Reconciliation] No stored broker snapshot found — falling back to "
+                "paper broker view. Reconciliation will compare paper vs. paper, "
+                "which CANNOT detect real position mismatches."
             )
             broker_positions_df = positions_df[["symbol", "qty"]].copy()
             broker_cash = cash_balance

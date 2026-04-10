@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import time
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Tuple
+
+logger = logging.getLogger(__name__)
 
 ATOM_NS = "http://www.w3.org/2005/Atom"
 
@@ -80,8 +83,8 @@ def fetch_edgar_form4(
                     stats["http_status"] = 200
                     stats["duration_ms"] = 0
                     return list(cached_entries), None, stats
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("[FetchEdgar] failed to parse cached state for %s: %s", source_id, exc)
 
     if not feed_url:
         failure = {"source": source_id, "reason": "missing_feed_url"}

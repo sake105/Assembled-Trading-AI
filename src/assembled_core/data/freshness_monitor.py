@@ -9,6 +9,8 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
+import pandas as pd
+
 logger = logging.getLogger(__name__)
 
 
@@ -60,4 +62,62 @@ class FreshnessMonitor:
         return alerts
 
 
-__all__ = ["SourceFreshness", "FreshnessMonitor"]
+def detect_stale_features(
+    df: pd.DataFrame,
+    feature_cols: list[str],
+    timestamp_col: str = "timestamp",
+    symbol_col: str = "symbol",
+    stale_days: int = 5,
+) -> list[dict]:
+    """Detect features that have been constant for too long (possible data feed outage).
+
+    For each (symbol, feature) pair, checks if the feature value has been
+    identical for the last ``stale_days`` trading days.  If so, it flags it
+    as potentially stale.
+
+    Args:
+        df: DataFrame with features, timestamps, and symbols.
+        feature_cols: List of feature column names to check.
+        timestamp_col: Column with timestamps.
+        symbol_col: Column with symbols.
+        stale_days: Number of consecutive identical values to trigger alert.
+
+    Returns:
+        List of dicts with keys: symbol, feature, last_value, constant_days.
+    """
+    alerts: list[dict] = []
+
+    if df.empty or timestamp_col not in df.columns:
+        return alerts
+
+    for col in feature_cols:
+        if col not in df.columns:
+            continue
+
+        for symbol, group in df.groupby(symbol_col):
+            sorted_group = group.sort_values(timestamp_col).tail(stale_days + 1)
+            if len(sorted_group) < stale_days:
+                continue
+
+            recent_values = sorted_group[col].dropna()
+            if len(recent_values) < stale_days:
+                continue
+
+            tail_values = recent_values.tail(stale_days)
+            if tail_values.nunique() == 1:
+                alerts.append({
+                    "symbol": str(symbol),
+                    "feature": col,
+                    "last_value": float(tail_values.iloc[-1]),
+                    "constant_days": stale_days,
+                })
+                logger.warning(
+                    "[Staleness] Feature '%s' for %s has been constant (%.4f) "
+                    "for %d consecutive days — possible data feed outage",
+                    col, symbol, float(tail_values.iloc[-1]), stale_days,
+                )
+
+    return alerts
+
+
+__all__ = ["SourceFreshness", "FreshnessMonitor", "detect_stale_features"]

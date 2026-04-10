@@ -12,12 +12,15 @@ Usage:
 
 from __future__ import annotations
 
+import logging
 from enum import Enum
 from pathlib import Path
 from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 
 class Environment(str, Enum):
@@ -322,18 +325,18 @@ def get_runtime_profile(
         profile_str = str(profile).upper()
         try:
             return RuntimeProfile(profile_str)
-        except ValueError:
+        except ValueError as exc:
             # Invalid profile, fall through to default
-            pass
+            logger.warning("[Settings] invalid runtime profile %r, falling through to default: %s", profile_str, exc)
 
     # Priority 2: Environment variable
     env_value = os.environ.get(env_var, "").strip().upper()
     if env_value:
         try:
             return RuntimeProfile(env_value)
-        except ValueError:
+        except ValueError as exc:
             # Invalid value in env var, fall through to default
-            pass
+            logger.warning("[Settings] invalid runtime profile in env var %r, falling through to default: %s", env_value, exc)
 
     # Priority 3: Default
     return RuntimeProfile.DEV

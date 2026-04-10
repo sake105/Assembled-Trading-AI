@@ -9,7 +9,10 @@ This module provides functions to generate QA reports that summarize:
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 from pathlib import Path
 from typing import Any
 
@@ -208,9 +211,8 @@ def _build_report_content(
                 lines.append(
                     f"- **Expected Shortfall (95%):** {risk_metrics['es_95']:.2f}"
                 )
-        except Exception:
-            # Silently fail if risk metrics computation fails (backward compatibility)
-            pass
+        except Exception as exc:
+            logger.warning("[DailyQAReport] risk metrics computation failed: %s", exc)
 
     lines.append("")
 
@@ -277,9 +279,8 @@ def _build_report_content(
             lines.append(f"- **Risk Level:** {risk_flags['risk_level']}")
             lines.append(f"- **Risk Reason:** {risk_flags['risk_reason']}")
             lines.append("")
-        except Exception:
-            # Silently fail if shipping risk computation fails (backward compatibility)
-            pass
+        except Exception as exc:
+            logger.warning("[DailyQAReport] shipping risk computation failed: %s", exc)
 
     # QA Gates Section
     if gate_result is not None:
