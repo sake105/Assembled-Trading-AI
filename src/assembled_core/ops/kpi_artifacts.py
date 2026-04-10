@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 
 import pandas as pd
 
+from src.assembled_core.risk.exposure_engine import compute_exposures
 from src.assembled_core.risk.georisk_overlay import compute_exposure_multiplier
 
 
@@ -307,6 +308,152 @@ def write_reasons_artifact(
         "qc_flags": intel_flags,
     }
 
+    return _atomic_write_json(path, payload)
+
+
+def build_exposure_report(
+    target_positions: Any,
+    prices_latest: Any,
+    equity: float,
+    *,
+    top_n: int = 10,
+) -> Dict[str, Any]:
+    """Build an exposure-report payload (Sprint 1 / W5).
+
+    Computes:
+    - gross / net exposure (absolute and percent of equity)
+    - per-symbol notional + weight list
+    - top-N contributors by |weight|
+    - Herfindahl-Hirschman Index (HHI) on |weights| as concentration proxy
+
+    Returns a dict suitable for JSON serialisation. Defensive: empty or
+    malformed inputs yield a zero-valued report rather than raising.
+    """
+    empty_payload: Dict[str, Any] = {
+        "schema_version": "run.exposure_report.v1",
+        "generated_utc": datetime.now(timezone.utc).isoformat(),
+        "equity": _safe_float(equity),
+        "summary": {
+            "gross_exposure": 0.0,
+            "net_exposure": 0.0,
+            "gross_exposure_pct": 0.0,
+            "net_exposure_pct": 0.0,
+            "n_positions": 0,
+            "hhi": 0.0,
+        },
+        "positions": [],
+        "top_concentration": [],
+    }
+
+    if (
+        not isinstance(target_positions, pd.DataFrame)
+        or target_positions.empty
+        or "symbol" not in target_positions.columns
+    ):
+        return empty_payload
+
+    # Normalise to the (symbol, target_qty) shape expected by compute_exposures.
+    tp = target_positions.copy()
+    if "target_qty" not in tp.columns:
+        if "qty" in tp.columns:
+            tp["target_qty"] = tp["qty"]
+        elif "target_weight" in tp.columns and equity and equity > 0:
+            # Fall back to weight-derived notional via synthetic qty=weight
+            # (price=1) — only used when no qty column is present.
+            tp["target_qty"] = tp["target_weight"]
+        else:
+            return empty_payload
+
+    if (
+        not isinstance(prices_latest, pd.DataFrame)
+        or prices_latest.empty
+        or "symbol" not in prices_latest.columns
+    ):
+        return empty_payload
+
+    if equity is None or equity <= 0:
+        return empty_payload
+
+    try:
+        exposures_df, summary = compute_exposures(
+            tp[["symbol", "target_qty"]],
+            prices_latest,
+            equity=float(equity),
+            missing_price_handling="zero",
+        )
+    except Exception:
+        return empty_payload
+
+    if exposures_df.empty:
+        return empty_payload
+
+    abs_weights = exposures_df["weight"].abs()
+    total_abs = float(abs_weights.sum())
+    if total_abs > 1e-12:
+        shares = abs_weights / total_abs
+        hhi = float((shares * shares).sum())
+    else:
+        hhi = 0.0
+
+    positions_list: list[Dict[str, Any]] = []
+    for _, row in exposures_df.iterrows():
+        positions_list.append(
+            {
+                "symbol": row.get("symbol"),
+                "target_qty": _safe_float(row.get("target_qty")),
+                "price": _safe_float(row.get("price")),
+                "notional": _safe_float(row.get("notional")),
+                "weight": _safe_float(row.get("weight")),
+            }
+        )
+
+    top_df = exposures_df.assign(abs_weight=abs_weights).sort_values(
+        "abs_weight", ascending=False
+    ).head(int(top_n))
+    top_list: list[Dict[str, Any]] = [
+        {
+            "symbol": row.get("symbol"),
+            "weight": _safe_float(row.get("weight")),
+            "notional": _safe_float(row.get("notional")),
+        }
+        for _, row in top_df.iterrows()
+    ]
+
+    return {
+        "schema_version": "run.exposure_report.v1",
+        "generated_utc": datetime.now(timezone.utc).isoformat(),
+        "equity": float(equity),
+        "summary": {
+            "gross_exposure": float(summary.gross_exposure),
+            "net_exposure": float(summary.net_exposure),
+            "gross_exposure_pct": float(summary.gross_exposure_pct),
+            "net_exposure_pct": float(summary.net_exposure_pct),
+            "n_positions": int(summary.n_positions),
+            "hhi": hhi,
+        },
+        "positions": positions_list,
+        "top_concentration": top_list,
+    }
+
+
+def write_exposure_report(
+    output_dir: str | Path,
+    target_positions: Any,
+    prices_latest: Any,
+    equity: float,
+    *,
+    top_n: int = 10,
+) -> Path:
+    """Write exposure_report.json (Sprint 1 / W5).
+
+    Thin I/O wrapper around build_exposure_report that atomically writes
+    the JSON payload to <output_dir>/exposure_report.json.
+    """
+    out_dir = Path(output_dir)
+    path = out_dir / "exposure_report.json"
+    payload = build_exposure_report(
+        target_positions, prices_latest, equity, top_n=top_n
+    )
     return _atomic_write_json(path, payload)
 
 
