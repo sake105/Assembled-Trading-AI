@@ -148,7 +148,7 @@ def compute_basic_risk_metrics(
     if kurtosis is not None and np.isnan(kurtosis):
         kurtosis = None
 
-    # VaR (95%): 5th percentile of returns
+    # VaR (95%): 5th percentile of returns (historical)
     var_95 = None
     if len(returns) >= 5:
         var_95 = float(np.percentile(returns, 5))
@@ -164,6 +164,12 @@ def compute_basic_risk_metrics(
             if np.isnan(cvar_95):
                 cvar_95 = None
 
+    # Parametric VaR + Cornish-Fisher VaR (Sprint 1 / C5a)
+    var_95_parametric = compute_parametric_var(returns, alpha=0.95)
+    var_99_parametric = compute_parametric_var(returns, alpha=0.99)
+    var_95_cornish_fisher = compute_cornish_fisher_var(returns, alpha=0.95)
+    var_99_cornish_fisher = compute_cornish_fisher_var(returns, alpha=0.99)
+
     return {
         "mean_return_annualized": mean_return_annualized,
         "vol_annualized": vol_annualized,
@@ -175,8 +181,120 @@ def compute_basic_risk_metrics(
         "kurtosis": kurtosis,
         "var_95": var_95,
         "cvar_95": cvar_95,
+        "var_95_parametric": var_95_parametric,
+        "var_99_parametric": var_99_parametric,
+        "var_95_cornish_fisher": var_95_cornish_fisher,
+        "var_99_cornish_fisher": var_99_cornish_fisher,
         "n_periods": n_periods,
     }
+
+
+# ---------------------------------------------------------------------------
+# Sprint 1 / C5a — Parametric + Cornish-Fisher VaR
+# ---------------------------------------------------------------------------
+
+# z-scores for standard-normal distribution (one-tailed lower quantile)
+_Z_SCORES: dict[float, float] = {
+    0.90: 1.2816,
+    0.95: 1.6449,
+    0.975: 1.9600,
+    0.99: 2.3263,
+    0.995: 2.5758,
+    0.999: 3.0902,
+}
+
+
+def _z_score(alpha: float) -> float:
+    """Return the standard-normal z-score for the given confidence level.
+
+    Falls back to :func:`scipy.stats.norm.ppf` if ``alpha`` is not in the
+    lookup table; if scipy is unavailable, raises ``ValueError``.
+    """
+    if alpha in _Z_SCORES:
+        return _Z_SCORES[alpha]
+    try:
+        from scipy.stats import norm  # type: ignore
+        return float(norm.ppf(alpha))
+    except Exception as exc:  # pragma: no cover - scipy missing
+        raise ValueError(
+            f"Unsupported alpha={alpha}; add to _Z_SCORES table or install scipy"
+        ) from exc
+
+
+def compute_parametric_var(
+    returns: pd.Series | np.ndarray,
+    alpha: float = 0.95,
+    horizon: int = 1,
+) -> float | None:
+    """Parametric (Gaussian) Value-at-Risk.
+
+    ``VaR_α = -(μ - z_α · σ) · √horizon``
+
+    Returned as a **positive loss magnitude** (e.g. ``0.023`` = 2.3 % loss).
+    ``None`` when the input has fewer than 5 observations or is degenerate.
+
+    Args:
+        returns: Period returns (e.g. daily).
+        alpha: Confidence level (default 0.95).
+        horizon: Forecast horizon in periods (default 1). Uses √h scaling.
+    """
+    r = pd.Series(returns).dropna()
+    if len(r) < 5:
+        return None
+
+    mu = float(r.mean())
+    sigma = float(r.std(ddof=1))
+    if not np.isfinite(mu) or not np.isfinite(sigma) or sigma == 0.0:
+        return None
+
+    z = _z_score(alpha)
+    var = -(mu - z * sigma) * np.sqrt(max(1, int(horizon)))
+    if not np.isfinite(var):
+        return None
+    return float(var)
+
+
+def compute_cornish_fisher_var(
+    returns: pd.Series | np.ndarray,
+    alpha: float = 0.95,
+    horizon: int = 1,
+) -> float | None:
+    """Cornish-Fisher adjusted VaR (accounts for skew & excess kurtosis).
+
+    ``z_CF = z + (z² - 1)/6 · S + (z³ - 3z)/24 · K - (2z³ - 5z)/36 · S²``
+    ``VaR_CF = -(μ - z_CF · σ) · √horizon``
+
+    For fat-tailed, left-skewed distributions this yields a **larger** loss
+    estimate than the plain parametric VaR. Returns ``None`` when the input
+    has fewer than 4 observations or higher moments cannot be computed.
+    """
+    r = pd.Series(returns).dropna()
+    if len(r) < 4:
+        return None
+
+    mu = float(r.mean())
+    sigma = float(r.std(ddof=1))
+    if not np.isfinite(mu) or not np.isfinite(sigma) or sigma == 0.0:
+        return None
+
+    s = float(r.skew())
+    k = float(r.kurtosis())  # pandas returns excess kurtosis
+    if not np.isfinite(s):
+        s = 0.0
+    if not np.isfinite(k):
+        k = 0.0
+
+    z = _z_score(alpha)
+    z_cf = (
+        z
+        + (z**2 - 1) / 6.0 * s
+        + (z**3 - 3 * z) / 24.0 * k
+        - (2 * z**3 - 5 * z) / 36.0 * s**2
+    )
+    var = -(mu - z_cf * sigma) * np.sqrt(max(1, int(horizon)))
+    if not np.isfinite(var):
+        return None
+    return float(var)
 
 
 def compute_exposure_timeseries(
