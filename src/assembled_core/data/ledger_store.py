@@ -368,7 +368,10 @@ class LedgerStore:
             conditions.append("filled_at <= ?")
             params.append(end_date)
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
-        sql = f"SELECT * FROM fills {where} ORDER BY filled_at DESC LIMIT {limit}"
+        # Safe: `where` is built from a fixed set of hardcoded clauses with
+        # parameterized `?` placeholders; `limit` is cast to int. No user string
+        # is interpolated into the SQL.
+        sql = f"SELECT * FROM fills {where} ORDER BY filled_at DESC LIMIT {int(limit)}"  # nosec B608
         with self._conn() as con:
             rows = con.execute(sql, params).fetchall()
         if not rows:

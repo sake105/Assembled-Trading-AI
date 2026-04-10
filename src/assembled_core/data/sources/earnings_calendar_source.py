@@ -193,7 +193,8 @@ class EarningsCalendarSource:
             f"&to={end_date.strftime('%Y-%m-%d')}"
             f"&token={self.finnhub_api_key}"
         )
-        with urllib.request.urlopen(url, timeout=10) as resp:
+        # URL is built from a fixed finnhub.io endpoint with validated params.
+        with urllib.request.urlopen(url, timeout=10) as resp:  # nosec B310
             data = json.loads(resp.read())
 
         rows = []

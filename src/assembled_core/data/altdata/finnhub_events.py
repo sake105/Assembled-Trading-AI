@@ -77,7 +77,8 @@ def fetch_earnings_events(
         event_date = item.get("date", "")
         ts = pd.Timestamp(event_date, tz="UTC") if event_date else pd.NaT
         event_id = hashlib.md5(
-            f"earnings_{sym}_{event_date}_{item.get('fiscalPeriod','')}".encode()
+            f"earnings_{sym}_{event_date}_{item.get('fiscalPeriod','')}".encode(),
+            usedforsecurity=False,
         ).hexdigest()
 
         rows.append(
@@ -161,7 +162,8 @@ def fetch_insider_events(
                 )
 
             event_id = hashlib.md5(
-                f"insider_{sym}_{tx_date}_{item.get('name','')}_{item.get('share','')}".encode()
+                f"insider_{sym}_{tx_date}_{item.get('name','')}_{item.get('share','')}".encode(),
+                usedforsecurity=False,
             ).hexdigest()
 
             rows.append(

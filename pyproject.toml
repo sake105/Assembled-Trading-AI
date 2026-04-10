@@ -149,7 +149,10 @@ mypy_path = "src"
 
 [tool.bandit]
 exclude_dirs = ["tests", "scripts/tools"]
-skips = ["B101"]  # assert used intentionally in guards and tests
+# B101: assert used intentionally in guards and tests
+# B314: XML parsing of trusted gov/financial sources only (SEC EDGAR, House PTR).
+#       No user-supplied XML. Migration to defusedxml tracked as Sprint 4 hardening.
+skips = ["B101", "B314"]
 
 [tool.pytest.ini_options]
 markers = [

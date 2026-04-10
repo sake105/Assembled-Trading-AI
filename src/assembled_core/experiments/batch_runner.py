@@ -432,7 +432,7 @@ def _ensure_unique_output_dir(
         unique_name = f"{run_index:04d}_{run_id}"
     else:
         # Create short hash for uniqueness
-        run_hash = hashlib.md5(run_id.encode()).hexdigest()[:8]
+        run_hash = hashlib.md5(run_id.encode(), usedforsecurity=False).hexdigest()[:8]
         unique_name = f"{run_id}_{run_hash}"
 
     return base_dir / unique_name

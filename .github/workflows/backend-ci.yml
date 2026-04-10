@@ -55,15 +55,29 @@ jobs:
       
       - name: Security scan — dependency vulnerabilities (pip-audit)
         run: |
+          set -o pipefail
           pip install pip-audit
-          pip-audit --strict --desc 2>&1 | tee -a backend_ci_log.txt || true
-        continue-on-error: true  # advisory — does not block CI yet
+          # Blocking scan. Known-accepted CVEs in transitive/tooling deps are
+          # ignored with explicit rationale; any NEW vulnerability fails CI.
+          # - CVE-2026-33752 (curl-cffi): transitive, not in runtime call path
+          # - CVE-2025-8869, CVE-2026-1703 (pip): toolchain only, not shipped
+          # - CVE-2026-4539 (pygments): docs/formatting only
+          # - CVE-2026-25645 (requests): upgrade tracked in Sprint 4 dep refresh
+          pip-audit --strict --desc \
+            --ignore-vuln CVE-2026-33752 \
+            --ignore-vuln CVE-2025-8869 \
+            --ignore-vuln CVE-2026-1703 \
+            --ignore-vuln CVE-2026-4539 \
+            --ignore-vuln CVE-2026-25645 \
+            2>&1 | tee -a backend_ci_log.txt
 
       - name: Security scan — code analysis (bandit)
         run: |
+          set -o pipefail
           pip install bandit
-          bandit -r src/assembled_core -c pyproject.toml --severity-level medium -q 2>&1 | tee -a backend_ci_log.txt || true
-        continue-on-error: true  # advisory — does not block CI yet
+          # Blocking scan for medium+ severity findings. Config in pyproject.toml
+          # [tool.bandit] governs skips and exclusions with documented rationale.
+          bandit -r src/assembled_core -c pyproject.toml --severity-level medium -q 2>&1 | tee -a backend_ci_log.txt
 
       - name: Run ruff (linting)
         run: |

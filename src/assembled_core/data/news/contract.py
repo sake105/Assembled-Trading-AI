@@ -83,7 +83,8 @@ def normalize_news_events(
     else:
         df["_hash"] = df.apply(
             lambda r: hashlib.md5(
-                f"{r.get('publish_ts')}{r.get('source')}{r.get('headline')}".encode()
+                f"{r.get('publish_ts')}{r.get('source')}{r.get('headline')}".encode(),
+                usedforsecurity=False,
             ).hexdigest(),
             axis=1,
         )

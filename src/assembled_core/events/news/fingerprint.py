@@ -22,7 +22,7 @@ def simhash64(text: str) -> int:
 
     vector = [0] * 64
     for token in tokens:
-        h_bytes = hashlib.md5(token.encode("utf-8")).digest()[:8]
+        h_bytes = hashlib.md5(token.encode("utf-8"), usedforsecurity=False).digest()[:8]
         h = int.from_bytes(h_bytes, byteorder="big", signed=False)
         for bit in range(64):
             if h & (1 << bit):
