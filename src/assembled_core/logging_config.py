@@ -20,6 +20,7 @@ from __future__ import annotations
 import logging
 import sys
 from datetime import datetime
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Literal
 from uuid import uuid4
@@ -102,7 +103,14 @@ def setup_logging(
     console_handler.setLevel(numeric_level)
     console_handler.setFormatter(console_formatter)
 
-    file_handler = logging.FileHandler(log_file, mode="a", encoding="utf-8")
+    # RotatingFileHandler: 100 MB per file, keep 10 backups (C13 — bounded disk usage)
+    file_handler = RotatingFileHandler(
+        log_file,
+        mode="a",
+        maxBytes=100 * 1024 * 1024,
+        backupCount=10,
+        encoding="utf-8",
+    )
     file_handler.setLevel(numeric_level)
     file_handler.setFormatter(file_formatter)
 

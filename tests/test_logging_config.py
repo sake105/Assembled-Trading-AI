@@ -118,7 +118,7 @@ class TestSetupLogging:
         # Check handler types
         handler_types = [type(h).__name__ for h in handlers]
         assert "StreamHandler" in handler_types or "ConsoleHandler" in handler_types
-        assert "FileHandler" in handler_types
+        assert "FileHandler" in handler_types or "RotatingFileHandler" in handler_types
 
     def test_setup_logging_logs_to_file(self, tmp_path: Path, caplog):
         """Test that logs are written to file."""
