@@ -760,6 +760,72 @@ def _generate_orders_default(
     return orders
 
 
+def _evaluate_circuit_breaker_daily(
+    prices: pd.DataFrame | None,
+    policy: dict[str, Any] | None,
+    as_of: pd.Timestamp | None = None,
+) -> dict[str, Any] | None:
+    """Sprint 1 / W4b — daily-bar circuit breaker (stateless).
+
+    Checks the most recent close-to-close return of the configured market
+    reference (default ``SPY``). If the drop exceeds the configured
+    threshold, returns a trip dict. Returns ``None`` when no data or no
+    trip.
+
+    Policy::
+
+        circuit_breaker:
+          enabled: true
+          reference_symbol: SPY
+          drop_threshold_pct: 3.0   # |pct drop| that trips the breaker
+    """
+    cb_cfg = (policy or {}).get("circuit_breaker") or {}
+    if not cb_cfg.get("enabled", False):
+        return None
+    if prices is None or prices.empty or "symbol" not in prices.columns:
+        return None
+
+    ref = str(cb_cfg.get("reference_symbol", "SPY")).upper()
+    threshold = float(cb_cfg.get("drop_threshold_pct", 3.0))
+
+    ref_df = prices[prices["symbol"].astype(str).str.upper() == ref]
+    if ref_df.empty or "close" not in ref_df.columns:
+        return None
+
+    if "timestamp" in ref_df.columns:
+        ref_df = ref_df.sort_values("timestamp")
+        if as_of is not None:
+            ts = pd.to_datetime(ref_df["timestamp"], utc=True)
+            as_of_utc = pd.Timestamp(as_of)
+            if as_of_utc.tzinfo is None:
+                as_of_utc = as_of_utc.tz_localize("UTC")
+            ref_df = ref_df.loc[ts <= as_of_utc]
+    closes = ref_df["close"].astype(float).dropna()
+    if len(closes) < 2:
+        return None
+
+    prev = float(closes.iloc[-2])
+    curr = float(closes.iloc[-1])
+    if prev <= 0:
+        return None
+
+    drop_pct = (prev - curr) / prev * 100.0
+    if drop_pct < threshold:
+        return None
+
+    return {
+        "reference_symbol": ref,
+        "previous_close": prev,
+        "current_close": curr,
+        "drop_pct": drop_pct,
+        "threshold_pct": threshold,
+        "reason": (
+            f"circuit_breaker: {ref} dropped {drop_pct:.2f}% "
+            f"(prev={prev:.2f}, curr={curr:.2f}, threshold={threshold:.1f}%)"
+        ),
+    }
+
+
 def _evaluate_auto_dd_kill_switch(
     ctx: "TradingContext",
     result: "TradingCycleResult",
@@ -1236,6 +1302,29 @@ def run_trading_cycle(
             ctx.market_stress = compute_market_stress(ctx.prices, policy)
         else:
             ctx.market_stress = None
+
+        # Phase 5.5: Sprint 1 / W4b — Daily Circuit Breaker
+        # Stateless close-to-close check against a market reference (SPY).
+        # A trip engages the kill-switch with 100 % throttle (block all) and
+        # marks the cycle so downstream phases know trading is halted.
+        try:
+            cb_trip = _evaluate_circuit_breaker_daily(ctx.prices, policy, ctx.as_of)
+            if cb_trip is not None:
+                from src.assembled_core.execution.kill_switch import (
+                    activate_kill_switch,
+                )
+                activate_kill_switch(
+                    throttle_pct=0.0,
+                    reason=cb_trip["reason"],
+                    actor="trading_cycle_circuit_breaker",
+                )
+                result.meta["circuit_breaker"] = cb_trip
+                logger.critical(
+                    "CIRCUIT_BREAKER: %s — kill-switch engaged (block all)",
+                    cb_trip["reason"],
+                )
+        except Exception as e:
+            logger.debug("circuit_breaker_daily check skipped: %s", e)
 
         # Disclosures confirm (DISCL-4.2): boost news_geo.geo_confidence when disclosures triggers sev >= 1
         try:
