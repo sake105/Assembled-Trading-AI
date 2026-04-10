@@ -1891,6 +1891,69 @@ def run_trading_cycle(
         except Exception as e:
             logger.warning("load_policy failed, using empty policy: %s", e)
             policy = {}
+
+        # Phase 9.5: Sprint 1 / W2 — Liquidity-aware position scaling
+        # -----------------------------------------------------------
+        # Applied immediately after sizing so every downstream overlay
+        # (GeoRisk, profit-lock, vol-targeting, turnover) operates on
+        # liquidity-adjusted weights. Gated by policy.liquidity_scoring
+        # (default disabled) to keep behaviour unchanged until opt-in.
+        try:
+            liq_cfg = policy.get("liquidity_scoring") or {}
+            if (
+                liq_cfg.get("enabled", False)
+                and not result.target_positions.empty
+                and "target_weight" in result.target_positions.columns
+                and result.prices_filtered is not None
+                and not result.prices_filtered.empty
+            ):
+                from src.assembled_core.risk.liquidity_scoring import (
+                    apply_liquidity_adjusted_sizing,
+                    compute_liquidity_scores,
+                )
+                liq_scores = compute_liquidity_scores(
+                    result.prices_filtered,
+                    lookback_days=int(liq_cfg.get("lookback_days", 60)),
+                )
+                if liq_scores:
+                    tw_map = {
+                        str(r["symbol"]).upper(): float(r["target_weight"])
+                        for _, r in result.target_positions.iterrows()
+                    }
+                    # Normalise symbol case for the score list too
+                    for s in liq_scores:
+                        s.symbol = s.symbol.upper()
+                    adjusted_tw = apply_liquidity_adjusted_sizing(
+                        target_weights=tw_map,
+                        liquidity_scores=liq_scores,
+                        alpha=float(liq_cfg.get("alpha", 0.5)),
+                        min_score_threshold=float(
+                            liq_cfg.get("min_score_threshold", 0.1)
+                        ),
+                    )
+                    result.target_positions["target_weight"] = (
+                        result.target_positions["symbol"]
+                        .astype(str)
+                        .str.upper()
+                        .map(adjusted_tw)
+                        .fillna(result.target_positions["target_weight"])
+                    )
+                    result.meta["liquidity_scoring"] = {
+                        "applied": True,
+                        "n_symbols": len(liq_scores),
+                        "tiers": {
+                            t: sum(1 for s in liq_scores if s.tier == t)
+                            for t in ["mega", "large", "mid", "small", "micro"]
+                        },
+                    }
+                    log.info(
+                        "LIQUIDITY_SCORING: adjusted %d symbols, tiers=%s",
+                        len(liq_scores),
+                        result.meta["liquidity_scoring"]["tiers"],
+                    )
+        except Exception as e:
+            log.debug("liquidity_scoring skipped: %s", e)
+
         geo_multiplier = compute_exposure_multiplier(ctx, policy)
         # Soft Profit Lock (INT-6.2): combine multiplicatively with GeoRisk
         pl_cfg = policy.get("profit_lock") or {}
