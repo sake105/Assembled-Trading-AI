@@ -135,6 +135,78 @@ class PITGuard:
 
     # ------------------------------------------------------------------
 
+    def validate_universe(
+        self,
+        symbols: list[str] | set[str],
+        universe_name: str = "default",
+        root: "Path | None" = None,
+        context: str = "",
+    ) -> bool:
+        """Check that every ``symbol`` was a PIT-valid member at ``self.as_of``.
+
+        Cross-checks the candidate symbols against the stored universe history
+        (via ``get_universe_members_pit``) and fails the ones that were not
+        listed / had been delisted by ``as_of``. This closes the gap where the
+        feature-mode ``validate`` only checks timestamps but not symbol
+        membership — a symbol can have a perfectly-timed row yet still be a
+        survivorship-bias leak if it wasn't in the index at that point.
+
+        Args:
+            symbols: Candidate symbols to check.
+            universe_name: Universe history file name.
+            root: Optional override directory for the universe store.
+            context: Optional label for error messages.
+
+        Returns:
+            True if every symbol is PIT-valid, False in warn mode when at
+            least one symbol was not a PIT-member.
+
+        Raises:
+            PITViolationError: In assert mode when invalid symbols are found.
+            UniverseLookupError: When the universe history is missing or empty
+                at ``as_of`` (propagated from ``get_universe_members_pit``).
+        """
+        if not symbols:
+            return True
+
+        # Local import to avoid circular dependency (errors → universe → pit_guard)
+        from src.assembled_core.data.universe import get_universe_members_pit
+
+        pit_members = set(get_universe_members_pit(
+            as_of=self.as_of,
+            universe_name=universe_name,
+            root=root,
+        ))
+
+        candidates = {str(s).strip().upper() for s in symbols}
+        invalid = sorted(candidates - pit_members)
+
+        if not invalid:
+            return True
+
+        msg = (
+            f"PIT universe violation{f' ({context})' if context else ''}: "
+            f"{len(invalid)} symbol(s) not in '{universe_name}' at "
+            f"as_of={self.as_of}: {invalid[:10]}"
+            + (" …" if len(invalid) > 10 else "")
+        )
+
+        if self.mode == "assert":
+            raise PITViolationError(msg)
+
+        _append_pit_audit({
+            "action": "UNIVERSE_VIOLATION",
+            "as_of": str(self.as_of),
+            "context": context,
+            "universe_name": universe_name,
+            "n_invalid": len(invalid),
+            "invalid_sample": invalid[:10],
+        })
+        logger.warning(msg)
+        return False
+
+    # ------------------------------------------------------------------
+
     def truncate(
         self,
         df: pd.DataFrame,
