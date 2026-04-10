@@ -541,12 +541,69 @@ def _compute_breadth_score(df: pd.DataFrame) -> float:
     return 0.0
 
 
+def _crash_prediction_multiplier(df: pd.DataFrame, cfg: dict) -> float:
+    """Sprint 1 / W6 — Crash-prediction exposure multiplier.
+
+    Maps the CrashPredictionEngine composite probability to an exposure
+    scaler as specified in the plan:
+      crash_prob < 0.30 -> 1.0
+      0.30..0.50       -> 0.8
+      0.50..0.70       -> 0.5
+      0.70..0.85       -> 0.2
+      >= 0.85          -> 0.0
+
+    Gated by cfg['crash_prediction']['enabled'] (default False). Any
+    exception is swallowed and the multiplier defaults to 1.0 so the
+    strategy remains inert when the engine cannot run.
+    """
+    try:
+        cp_cfg = (cfg or {}).get("crash_prediction") or {}
+        if not cp_cfg.get("enabled", False):
+            return 1.0
+
+        ref_symbol = str(cp_cfg.get("reference_symbol", "SPY")).upper()
+        if "symbol" not in df.columns or "close" not in df.columns:
+            return 1.0
+
+        sym_df = df[df["symbol"].astype(str).str.upper() == ref_symbol]
+        if sym_df.empty:
+            return 1.0
+        if "timestamp" in sym_df.columns:
+            sym_df = sym_df.sort_values("timestamp")
+
+        from src.assembled_core.signals.crash_prediction import CrashPredictionEngine
+
+        engine = CrashPredictionEngine()
+        signal = engine.predict(market_data=sym_df)
+        prob = float(signal.crash_probability)
+
+        if prob >= 0.85:
+            mult = 0.0
+        elif prob >= 0.70:
+            mult = 0.2
+        elif prob >= 0.50:
+            mult = 0.5
+        elif prob >= 0.30:
+            mult = 0.8
+        else:
+            mult = 1.0
+
+        logger.info(
+            "[MF-V1] CrashPrediction prob=%.3f -> mult=%.2f", prob, mult
+        )
+        return mult
+    except Exception as exc:
+        logger.debug("[MF-V1] crash-prediction unavailable: %s", exc)
+        return 1.0
+
+
 def _compute_regime_multiplier(df: pd.DataFrame, cfg: dict) -> float:
     """Compute regime-based exposure multiplier.
 
     Tries to detect current market regime from available features.
     Falls back to 1.0 (no adjustment) if insufficient data.
     """
+    base_mult: float
     try:
         from src.assembled_core.risk.regime_models import build_regime_state
 
@@ -554,21 +611,25 @@ def _compute_regime_multiplier(df: pd.DataFrame, cfg: dict) -> float:
         if regime_df is not None and not regime_df.empty:
             latest_regime = regime_df.iloc[-1]
             label = str(latest_regime.get("regime_label", "neutral")).lower()
-            mult = REGIME_EXPOSURE.get(label, 0.70)
-            logger.info("[MF-V1] Regime=%s -> exposure_mult=%.2f", label, mult)
-            return mult
+            base_mult = REGIME_EXPOSURE.get(label, 0.70)
+            logger.info("[MF-V1] Regime=%s -> exposure_mult=%.2f", label, base_mult)
+        else:
+            raise RuntimeError("empty regime_df")
     except Exception as exc:
         logger.debug("[MF-V1] Regime detection unavailable: %s", exc)
+        # Fallback: simple breadth-based regime
+        breadth = _compute_breadth_score(df)
+        if breadth < -0.4:
+            base_mult = 0.40  # Bearish market
+        elif breadth < -0.1:
+            base_mult = 0.70  # Cautious
+        elif breadth > 0.3:
+            base_mult = 1.0   # Bullish
+        else:
+            base_mult = 0.85  # Neutral
 
-    # Fallback: simple breadth-based regime
-    breadth = _compute_breadth_score(df)
-    if breadth < -0.4:
-        return 0.40  # Bearish market
-    elif breadth < -0.1:
-        return 0.70  # Cautious
-    elif breadth > 0.3:
-        return 1.0   # Bullish
-    return 0.85       # Neutral
+    crash_mult = _crash_prediction_multiplier(df, cfg)
+    return base_mult * crash_mult
 
 
 __all__ = ["compute_signals", "compute_target_positions", "check_exit_signals"]
