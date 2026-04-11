@@ -1089,3 +1089,94 @@ def compute_cdar(
 
     worst = drawdowns.nsmallest(threshold_idx)
     return round(float(worst.mean()), 6)
+
+
+# ---------------------------------------------------------------------------
+# Component VaR / Marginal VaR (Sprint 2 / C5b)
+# ---------------------------------------------------------------------------
+
+
+def compute_component_var(
+    returns: pd.DataFrame | np.ndarray,
+    weights: np.ndarray | pd.Series,
+    *,
+    alpha: float = 0.95,
+) -> dict[str, np.ndarray | float]:
+    """Compute parametric component VaR and marginal VaR per position.
+
+    Decomposes portfolio VaR into additive per-asset contributions using
+    the Euler / parametric formulation:
+
+        sigma_p     = sqrt(w' Sigma w)
+        VaR_p       = z_alpha * sigma_p
+        mVaR_i      = z_alpha * (Sigma w)_i / sigma_p
+        cVaR_i      = w_i * mVaR_i
+
+    By construction sum(cVaR_i) == VaR_p (additivity).
+
+    Args:
+        returns: Wide-format returns (dates × assets) or 2D array.
+        weights: Portfolio weights aligned with the columns of ``returns``.
+        alpha: VaR confidence level (default 0.95).
+
+    Returns:
+        Dict with:
+            - ``portfolio_var``: Parametric portfolio VaR at ``alpha``.
+            - ``portfolio_vol``: Portfolio 1-period volatility.
+            - ``marginal_var``: Array of marginal VaR per asset.
+            - ``component_var``: Array of component VaR per asset.
+            - ``pct_contribution``: cVaR_i / VaR_p (shares summing to 1).
+    """
+    if isinstance(returns, pd.DataFrame):
+        ret_arr = returns.dropna().values
+    else:
+        ret_arr = np.asarray(returns)
+        ret_arr = ret_arr[~np.any(np.isnan(ret_arr), axis=1)]
+
+    if isinstance(weights, pd.Series):
+        w = weights.values.astype(float)
+    else:
+        w = np.asarray(weights, dtype=float)
+
+    n_assets = ret_arr.shape[1] if ret_arr.ndim == 2 else 1
+    if len(ret_arr) < 10 or n_assets < 1 or len(w) != n_assets:
+        zeros = np.zeros(n_assets, dtype=float)
+        return {
+            "portfolio_var": 0.0,
+            "portfolio_vol": 0.0,
+            "marginal_var": zeros,
+            "component_var": zeros,
+            "pct_contribution": zeros,
+        }
+
+    cov = np.cov(ret_arr, rowvar=False)
+    if cov.ndim == 0:
+        cov = np.array([[float(cov)]])
+
+    sigma_p = float(np.sqrt(max(w @ cov @ w, 0.0)))
+    z = _z_score(alpha)
+    var_p = z * sigma_p
+
+    if sigma_p <= 1e-12:
+        zeros = np.zeros(n_assets, dtype=float)
+        return {
+            "portfolio_var": 0.0,
+            "portfolio_vol": 0.0,
+            "marginal_var": zeros,
+            "component_var": zeros,
+            "pct_contribution": zeros,
+        }
+
+    marginal = z * (cov @ w) / sigma_p
+    component = w * marginal
+    # Normalise to shares; handle the (rare) case of a zero-sum division.
+    total = float(np.sum(component))
+    pct = component / total if abs(total) > 1e-12 else np.zeros_like(component)
+
+    return {
+        "portfolio_var": round(var_p, 8),
+        "portfolio_vol": round(sigma_p, 8),
+        "marginal_var": marginal,
+        "component_var": component,
+        "pct_contribution": pct,
+    }
