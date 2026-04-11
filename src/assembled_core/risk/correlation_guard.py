@@ -171,12 +171,39 @@ def apply_correlation_guard(
     if corr_matrix.empty:
         return dict(target_weights), []
 
+    # Sprint 3 / C8: optional tail-dependence tightening via Clayton copula.
+    # When enabled, if portfolio avg lower-tail dependence exceeds the trigger,
+    # tighten `max_cluster_weight` by `tightening_factor` so clusters that look
+    # fine under linear correlation but crash jointly are reined in.
+    reasons_tail: list[str] = []
+    tail_cfg = cg.get("tail_dependence") or {}
+    if tail_cfg.get("enabled", False) and len(symbols) >= 2:
+        try:
+            from src.assembled_core.ml.copula_models import compute_portfolio_tail_risk
+
+            returns_wide = _pivot_returns(prices, symbols, lookback_days)
+            if not returns_wide.empty and returns_wide.shape[1] >= 2:
+                tail_metrics = compute_portfolio_tail_risk(returns_wide)
+                avg_td = float(tail_metrics.get("avg_lower_tail_dep", 0.0) or 0.0)
+                trigger = float(tail_cfg.get("trigger", 0.5) or 0.5)
+                tightening_factor = float(tail_cfg.get("tightening_factor", 1.3) or 1.3)
+                if avg_td > trigger and tightening_factor > 1.0:
+                    new_cap = max_cluster_weight / tightening_factor
+                    reasons_tail.append(
+                        f"correlation_guard: avg_lower_tail_dep={avg_td:.3f} > "
+                        f"trigger={trigger:.2f}, max_cluster_weight "
+                        f"{max_cluster_weight:.3f} -> {new_cap:.3f}"
+                    )
+                    max_cluster_weight = new_cap
+        except Exception as exc:  # noqa: BLE001 - defensive, optional scipy
+            reasons_tail.append(f"correlation_guard: tail_dependence skipped ({exc})")
+
     clusters = detect_correlated_clusters(corr_matrix, threshold=threshold)
     if not clusters:
         return dict(target_weights), []
 
     adjusted = dict(target_weights)
-    reasons: list[str] = []
+    reasons: list[str] = list(reasons_tail)
 
     for cluster in clusters:
         cluster_weight = sum(adjusted.get(sym, 0.0) for sym in cluster)
