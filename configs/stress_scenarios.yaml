@@ -1,0 +1,52 @@
+# Historical stress scenarios (Sprint 3 / Plan C6).
+#
+# Each entry maps to src.assembled_core.qa.scenario_engine.Scenario. These are
+# replay-style configurations: shock_type + shock_magnitude + shock window.
+# Use run_stress_replay.py (or tests) to apply them to cached prices.
+#
+# shock_type values the engine supports:
+#   equity_crash | vol_spike | shipping_blockade |
+#   oil_spike | gold_flight | defense_surge | geopolitical_shock
+
+scenarios:
+  - name: "2008_lehman"
+    shock_type: "equity_crash"
+    shock_magnitude: -0.45
+    shock_start: "2008-09-15"
+    shock_end: "2008-12-31"
+    description: "Lehman bankruptcy and Q4 2008 broad market crash"
+
+  - name: "2015_august_china"
+    shock_type: "vol_spike"
+    shock_magnitude: 3.0
+    shock_start: "2015-08-18"
+    shock_end: "2015-08-25"
+    description: "August 2015 China devaluation + global vol spike"
+
+  - name: "2018_q4_volmageddon"
+    shock_type: "equity_crash"
+    shock_magnitude: -0.19
+    shock_start: "2018-10-01"
+    shock_end: "2018-12-24"
+    description: "Q4 2018 sell-off driven by Fed hikes + growth scare"
+
+  - name: "2020_covid"
+    shock_type: "equity_crash"
+    shock_magnitude: -0.34
+    shock_start: "2020-02-19"
+    shock_end: "2020-03-23"
+    description: "COVID-19 pandemic crash (fastest -30% in history)"
+
+  - name: "2022_bonds"
+    shock_type: "vol_spike"
+    shock_magnitude: 2.0
+    shock_start: "2022-01-03"
+    shock_end: "2022-10-14"
+    description: "2022 bond crash and multi-asset drawdown"
+
+  - name: "2024_yen_unwind"
+    shock_type: "vol_spike"
+    shock_magnitude: 2.5
+    shock_start: "2024-08-01"
+    shock_end: "2024-08-07"
+    description: "August 2024 Yen carry unwind + global vol spike"

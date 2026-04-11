@@ -1009,3 +1009,116 @@ def run_correlated_stress_test(
         "cvar_95": round(cvar_95, 6),
         "worst_case": round(float(port_returns.min()), 6),
     }
+
+
+# ---------------------------------------------------------------------------
+# YAML scenario loader (Sprint 3 / C6)
+# ---------------------------------------------------------------------------
+
+
+def load_scenarios_from_yaml(path: str) -> list[Scenario]:
+    """Load a list of :class:`Scenario` objects from a YAML config file.
+
+    Expected file shape::
+
+        scenarios:
+          - name: "2020_covid"
+            shock_type: "equity_crash"
+            shock_magnitude: -0.34
+            shock_start: "2020-02-19"
+            shock_end: "2020-03-23"
+            description: "COVID-19 pandemic crash"
+
+    ``shock_start`` / ``shock_end`` are parsed to UTC datetimes; ``description``
+    is accepted and ignored (it lives in the yaml for human readers). Any row
+    with an unknown or missing ``shock_type`` is skipped with a logged warning.
+    Returns an empty list if the file is missing or unreadable — the caller
+    decides whether that is fatal.
+    """
+    import logging
+    import os
+    from datetime import timezone
+
+    log = logging.getLogger(__name__)
+
+    if not os.path.exists(path):
+        log.warning("[scenario_engine] yaml not found: %s", path)
+        return []
+
+    try:
+        import yaml  # type: ignore
+    except ImportError:
+        log.warning("[scenario_engine] PyYAML not installed; cannot load scenarios")
+        return []
+
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = yaml.safe_load(fh) or {}
+    except Exception as exc:  # noqa: BLE001
+        log.warning("[scenario_engine] yaml parse failed: %s", exc)
+        return []
+
+    raw_list = data.get("scenarios") or []
+    if not isinstance(raw_list, list):
+        log.warning("[scenario_engine] yaml 'scenarios' is not a list")
+        return []
+
+    valid_types = {
+        "equity_crash",
+        "vol_spike",
+        "shipping_blockade",
+        "oil_spike",
+        "gold_flight",
+        "defense_surge",
+        "geopolitical_shock",
+    }
+
+    out: list[Scenario] = []
+    for row in raw_list:
+        if not isinstance(row, dict):
+            continue
+        shock_type = row.get("shock_type")
+        if shock_type not in valid_types:
+            log.warning(
+                "[scenario_engine] skipping scenario %r: unknown shock_type=%r",
+                row.get("name"), shock_type,
+            )
+            continue
+        try:
+            magnitude = float(row["shock_magnitude"])
+        except (KeyError, TypeError, ValueError):
+            log.warning(
+                "[scenario_engine] skipping scenario %r: invalid shock_magnitude",
+                row.get("name"),
+            )
+            continue
+
+        def _parse(ts_val: object) -> datetime | None:
+            if ts_val is None:
+                return None
+            try:
+                ts = pd.to_datetime(ts_val, utc=True)
+                py_dt = ts.to_pydatetime() if hasattr(ts, "to_pydatetime") else ts
+                if py_dt.tzinfo is None:
+                    py_dt = py_dt.replace(tzinfo=timezone.utc)
+                return py_dt
+            except Exception:  # noqa: BLE001
+                return None
+
+        try:
+            scenario = Scenario(
+                name=str(row.get("name", "unnamed")),
+                shock_type=shock_type,  # type: ignore[arg-type]
+                shock_magnitude=magnitude,
+                shock_start=_parse(row.get("shock_start")),
+                shock_end=_parse(row.get("shock_end")),
+                affected_symbols=list(row.get("affected_symbols") or []),
+                sector_mapping=dict(row.get("sector_mapping") or {}),
+                sector_impact_multipliers=dict(row.get("sector_impact_multipliers") or {}),
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("[scenario_engine] skipping scenario %r: %s", row.get("name"), exc)
+            continue
+        out.append(scenario)
+
+    return out
