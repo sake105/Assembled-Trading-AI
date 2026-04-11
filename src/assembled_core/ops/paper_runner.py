@@ -485,6 +485,47 @@ def run_paper_daily_one(
             except Exception as exc:
                 log.warning("[PaperRunner] trade journal write failed: %s", exc)
 
+        # W15 (Sprint 2): TCA — implementation shortfall vs arrival price
+        if fills:
+            try:
+                from src.assembled_core.qa.tca import (
+                    compute_implementation_shortfall,
+                )
+
+                fills_df = pd.DataFrame(
+                    [
+                        {
+                            "symbol": f["symbol"],
+                            "side": f.get("side", "BUY"),
+                            "fill_price": float(f.get("price", 0.0)),
+                            "fill_qty": float(f.get("qty", 0.0)),
+                        }
+                        for f in fills
+                    ]
+                )
+                if (
+                    not fills_df.empty
+                    and orders_for_fills is not None
+                    and not orders_for_fills.empty
+                    and "arrival_price" in orders_for_fills.columns
+                ):
+                    arrival_lookup = (
+                        orders_for_fills[["symbol", "arrival_price"]]
+                        .drop_duplicates("symbol")
+                    )
+                    fills_df = fills_df.merge(arrival_lookup, on="symbol", how="left")
+                is_df = compute_implementation_shortfall(fills_df)
+                if not is_df.empty and "is_bps" in is_df.columns:
+                    is_vals = pd.to_numeric(is_df["is_bps"], errors="coerce").dropna()
+                    result.meta["tca"] = {
+                        "n_fills": int(len(is_df)),
+                        "avg_is_bps": float(is_vals.mean()) if not is_vals.empty else 0.0,
+                        "max_is_bps": float(is_vals.max()) if not is_vals.empty else 0.0,
+                        "min_is_bps": float(is_vals.min()) if not is_vals.empty else 0.0,
+                    }
+            except Exception as exc:
+                log.debug("[PaperRunner] TCA IS compute failed: %s", exc)
+
         # Post-trade analysis: compute hit rate + learning records
         try:
             from src.assembled_core.qa.post_trade_analyzer import (
