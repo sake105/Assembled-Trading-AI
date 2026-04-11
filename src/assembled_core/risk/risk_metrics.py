@@ -1180,3 +1180,40 @@ def compute_component_var(
         "component_var": component,
         "pct_contribution": pct,
     }
+
+
+# ---------------------------------------------------------------------------
+# EVT Tail-VaR (Sprint 3 / C9) — GPD Peaks-Over-Threshold wrapper
+# ---------------------------------------------------------------------------
+
+
+def compute_evt_tail_var(
+    returns: pd.Series | np.ndarray,
+    *,
+    threshold_quantile: float = 0.95,
+) -> dict[str, float]:
+    """Compute EVT-based tail VaR/CVaR from a return series.
+
+    Thin wrapper over ``ml.evt_models.compute_evt_risk_metrics`` that lives in
+    the risk namespace so pipeline/portfolio code can import a single source of
+    tail-risk numbers without reaching into the ML layer. Returns the standard
+    flat metric dict with keys ``evt_var_95``, ``evt_var_99``, ``evt_var_999``,
+    ``evt_cvar_95``, ``evt_cvar_99``, ``evt_shape_xi``, ``evt_return_period_100y``.
+
+    Defensive: on any failure (scipy missing, insufficient data, fit error) the
+    underlying module returns zeros rather than raising, so callers can blend
+    EVT metrics into risk budgets without a hard dependency on scipy.
+    """
+    try:
+        from src.assembled_core.ml.evt_models import compute_evt_risk_metrics
+    except Exception:  # pragma: no cover - optional import path
+        return {
+            "evt_var_95": 0.0,
+            "evt_var_99": 0.0,
+            "evt_var_999": 0.0,
+            "evt_cvar_95": 0.0,
+            "evt_cvar_99": 0.0,
+            "evt_shape_xi": 0.0,
+            "evt_return_period_100y": 0.0,
+        }
+    return compute_evt_risk_metrics(returns, threshold_quantile=threshold_quantile)
