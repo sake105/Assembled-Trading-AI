@@ -188,4 +188,199 @@ def apply_bl_sizing_from_policy(
     )
 
 
-__all__ = ["apply_bl_sizing", "apply_bl_sizing_from_policy"]
+def compute_bl_target_weights(
+    returns_panel: pd.DataFrame,
+    view_scores: pd.Series,
+    tau: float = 0.05,
+    target_gross: float = 0.80,
+    equal_weight_prior: bool = True,
+) -> pd.Series:
+    """Compute Black-Litterman target weights from a wide returns panel and views.
+
+    Inline BL math (does not call :class:`BlackLittermanOptimizer`) to keep the
+    sidecar additive and independent of the dormant optimiser API. The dormant
+    module expects a scipy-based Sharpe maximiser which is heavier than needed
+    here; this function implements the analytic BL posterior directly via
+    ``numpy.linalg.solve`` and then maps the posterior to long-only weights
+    through an inverse-variance scaling. That avoids dragging cvxpy/scipy.optimize
+    into the call path and keeps the function deterministic.
+
+    Assumptions / simplifications (documented, not implicit):
+      - Prior ``w_mkt = 1/n`` for every symbol when ``equal_weight_prior`` is
+        True. Real market-cap weights are a future upgrade.
+      - Risk aversion ``delta = 2.5`` (Litterman's equity convention, hardcoded).
+      - View expected returns = ``z_score * 0.10`` (crude calibration: 10%
+        annual return per 1-sigma signal).
+      - Pick-matrix ``P`` is the identity (one view per asset, in the order of
+        ``returns_panel.columns``).
+      - View uncertainty ``Omega = diag(tau * sigma_i^2)`` where ``sigma_i^2``
+        is taken from the diagonal of ``tau * Sigma``.
+      - Posterior -> weights via ``w_i proportional to max(E[R]_i, 0) /
+        sigma_i^2``, then normalised to ``target_gross``.
+
+    Args:
+        returns_panel: Wide DataFrame (index=dates, columns=symbols) of
+            returns. Sample covariance is built from this directly via
+            ``returns_panel.cov()``.
+        view_scores: ``pd.Series`` indexed by symbol with factor z-scores.
+            Must cover every column in ``returns_panel``.
+        tau: Prior uncertainty scaling (Litterman convention ~0.025-0.10).
+        target_gross: Target sum of weights after long-only clipping and
+            renormalisation.
+        equal_weight_prior: If True use ``w_mkt = 1/n``. Currently the only
+            supported prior (kept as a kwarg for forward compatibility).
+
+    Returns:
+        ``pd.Series`` indexed by the panel symbols, name ``"bl_weight"``,
+        summing to ``target_gross`` (modulo float epsilon).
+
+    Raises:
+        ValueError: If the panel has fewer than 30 rows, fewer than 2
+            symbols, or ``view_scores`` does not cover the panel symbols,
+            or ``target_gross <= 0``.
+    """
+    if target_gross <= 0:
+        raise ValueError(f"target_gross must be > 0, got {target_gross}")
+
+    if not isinstance(returns_panel, pd.DataFrame):
+        raise ValueError("returns_panel must be a pandas DataFrame")
+
+    if len(returns_panel) < 30:
+        raise ValueError(
+            f"insufficient history: {len(returns_panel)} rows < 30"
+        )
+
+    if returns_panel.shape[1] < 2:
+        raise ValueError(
+            f"need at least 2 symbols, got {returns_panel.shape[1]}"
+        )
+
+    if not isinstance(view_scores, pd.Series):
+        raise ValueError("view_scores must be a pandas Series")
+
+    symbols = list(returns_panel.columns)
+    missing = [s for s in symbols if s not in view_scores.index]
+    if missing:
+        raise ValueError(
+            f"view_scores missing symbols present in returns_panel: {missing}"
+        )
+
+    n = len(symbols)
+    sigma = returns_panel.cov().reindex(index=symbols, columns=symbols)
+    sigma_arr = sigma.to_numpy(dtype=float)
+
+    # Stabilise the covariance slightly to keep solves well-conditioned on
+    # pathological test data (tiny diagonal noise, no fundamental change).
+    sigma_arr = sigma_arr + np.eye(n) * 1e-12
+
+    # Prior (equal-weight market portfolio).
+    if not equal_weight_prior:
+        raise ValueError(
+            "equal_weight_prior=False is not yet supported in the sidecar"
+        )
+    w_mkt = np.full(n, 1.0 / n)
+
+    # Litterman implied excess returns: Pi = delta * Sigma * w_mkt with delta=2.5.
+    delta = 2.5
+    pi = delta * sigma_arr @ w_mkt
+
+    # Views: z_score -> expected return via crude 10%-per-sigma calibration.
+    z = view_scores.reindex(symbols).to_numpy(dtype=float)
+    Q = z * 0.10
+
+    # Pick matrix is identity: one view per asset in panel order.
+    P = np.eye(n)
+
+    tau_sigma = tau * sigma_arr
+    # Omega = diag(tau * sigma_i^2), where sigma_i^2 comes from the diagonal
+    # of tau*Sigma (consistent with the BL reference convention here).
+    omega_diag = np.diag(tau_sigma).copy()
+    # Floor to avoid singular Omega on near-zero-variance columns.
+    omega_diag = np.maximum(omega_diag, 1e-12)
+    Omega = np.diag(omega_diag)
+
+    # Posterior:
+    #   E[R] = [ (tau*Sigma)^-1 + P' Omega^-1 P ]^-1
+    #          [ (tau*Sigma)^-1 Pi + P' Omega^-1 Q ]
+    try:
+        tau_sigma_inv = np.linalg.inv(tau_sigma + np.eye(n) * 1e-10)
+        omega_inv = np.linalg.inv(Omega)
+        M = tau_sigma_inv + P.T @ omega_inv @ P
+        rhs = tau_sigma_inv @ pi + P.T @ omega_inv @ Q
+        mu_bl = np.linalg.solve(M, rhs)
+    except np.linalg.LinAlgError as exc:
+        raise ValueError(f"BL linear system failed: {exc}") from exc
+
+    # Inverse-variance-weighted long-only scaling.
+    var_diag = np.maximum(np.diag(sigma_arr), 1e-12)
+    raw = mu_bl / var_diag
+    raw = np.clip(raw, 0.0, None)  # long-only
+
+    total = float(raw.sum())
+    if total <= 1e-12:
+        # Everything clipped to zero — degenerate view. Fall back to equal
+        # weights scaled to target_gross so the caller still gets a usable
+        # long-only allocation.
+        raw = np.ones(n)
+        total = float(raw.sum())
+
+    weights = pd.Series(
+        raw * (target_gross / total),
+        index=symbols,
+        name="bl_weight",
+        dtype=float,
+    )
+    return weights
+
+
+def blend_bl_with_score(
+    bl_weights: pd.Series,
+    score_weights: pd.Series,
+    bl_alpha: float = 0.7,
+) -> pd.Series:
+    """Convex blend of BL and score-based weights.
+
+    ``out = bl_alpha * bl + (1 - bl_alpha) * score``
+
+    Inputs are aligned on the union of their symbol indices; missing symbols
+    are treated as zero on the side where they are absent. The final result
+    is renormalised to the maximum of the two input gross sums so the blend
+    cannot inflate exposure. Mirrors :func:`blend_hrp_with_score` in
+    ``hrp_sizing``.
+
+    Args:
+        bl_weights: BL weights indexed by symbol.
+        score_weights: Score-based weights indexed by symbol.
+        bl_alpha: Blend coefficient in ``[0, 1]``. ``1.0`` returns BL,
+            ``0.0`` returns score (both up to renormalisation).
+
+    Raises:
+        ValueError: If ``bl_alpha`` is outside ``[0, 1]``.
+    """
+    if not 0.0 <= bl_alpha <= 1.0:
+        raise ValueError(f"bl_alpha must be in [0, 1], got {bl_alpha}")
+
+    all_symbols = bl_weights.index.union(score_weights.index)
+    bl_aligned = bl_weights.reindex(all_symbols, fill_value=0.0).astype(float)
+    score_aligned = score_weights.reindex(all_symbols, fill_value=0.0).astype(float)
+
+    blended = bl_alpha * bl_aligned + (1.0 - bl_alpha) * score_aligned
+
+    bl_sum = float(bl_weights.sum())
+    score_sum = float(score_weights.sum())
+    target = max(bl_sum, score_sum)
+
+    blended_sum = float(blended.sum())
+    if blended_sum > 0 and target > 0:
+        blended = blended * (target / blended_sum)
+
+    blended.name = "blended_weight"
+    return blended
+
+
+__all__ = [
+    "apply_bl_sizing",
+    "apply_bl_sizing_from_policy",
+    "compute_bl_target_weights",
+    "blend_bl_with_score",
+]
