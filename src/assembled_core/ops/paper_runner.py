@@ -434,7 +434,44 @@ def run_paper_daily_one(
             }
         else:
             # Default: simulate fills in-memory (existing behavior)
-            fills = simulate_fills(orders_for_fills, prices_for_fills, cost_cfg)
+            # W13 (Sprint 2): Optional partial-fill model based on ADV participation cap
+            orders_for_sim = orders_for_fills
+            partial_cfg = (cost_cfg or {}).get("partial_fill") or {}
+            if partial_cfg.get("enabled", False) and not orders_for_fills.empty:
+                try:
+                    from src.assembled_core.execution.fill_model import (
+                        PartialFillModel,
+                        apply_partial_fills,
+                    )
+
+                    pfm = PartialFillModel(
+                        participation_cap=float(partial_cfg.get("participation_cap", 0.1)),
+                        min_fill_qty=float(partial_cfg.get("min_fill_qty", 1.0)),
+                        adv_window=int(partial_cfg.get("adv_window", 20)),
+                        fallback_fill_ratio=float(partial_cfg.get("fallback_fill_ratio", 1.0)),
+                    )
+                    clipped = apply_partial_fills(
+                        orders_for_fills,
+                        prices=prices_for_fills,
+                        partial_fill_model=pfm,
+                    )
+                    if not clipped.empty and "fill_qty" in clipped.columns:
+                        orders_for_sim = orders_for_fills.copy()
+                        qty_map = dict(
+                            zip(clipped["symbol"].astype(str), clipped["fill_qty"].astype(float))
+                        )
+                        orders_for_sim["qty"] = orders_for_sim["symbol"].map(
+                            lambda s, _m=qty_map: _m.get(str(s), 0.0)
+                        )
+                        orders_for_sim = orders_for_sim[orders_for_sim["qty"] > 0]
+                        result.meta["partial_fill"] = {
+                            "n_orders_in": int(len(orders_for_fills)),
+                            "n_orders_out": int(len(orders_for_sim)),
+                            "participation_cap": pfm.participation_cap,
+                        }
+                except Exception as exc:
+                    log.debug("[PaperRunner] partial_fill skipped: %s", exc)
+            fills = simulate_fills(orders_for_sim, prices_for_fills, cost_cfg)
 
         state_after = apply_fills_to_ledger(ledger_state, fills)
         equity_after = mark_to_market_equity(state_after, prices_for_fills)
