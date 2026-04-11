@@ -888,6 +888,95 @@ def _evaluate_auto_dd_kill_switch(
     }
 
 
+def _apply_pre_trade_impact(
+    orders: pd.DataFrame,
+    prices_filtered: pd.DataFrame | None,
+    impact_cfg: dict,
+) -> tuple[pd.DataFrame, dict]:
+    """Annotate each order with pre-trade implementation-shortfall estimate.
+
+    Sprint 2 / C10. Pure helper (no ctx, no side effects on caller globals)
+    so it can be unit-tested in isolation.
+
+    Returns a modified copy of ``orders`` with a new ``expected_impact_bps``
+    column, plus a metadata dict with aggregate statistics. Orders whose
+    estimated cost exceeds ``max_total_cost_bps`` are scaled down
+    proportionally (``qty *= max_bps / total_cost_bps``).
+    """
+    import numpy as np
+
+    from src.assembled_core.execution.algo_execution import (
+        ImplementationShortfallModel,
+    )
+
+    model = ImplementationShortfallModel(
+        kyle_lambda=float(impact_cfg.get("kyle_lambda", 0.1)),
+        timing_risk_pct=float(impact_cfg.get("timing_risk_pct", 0.5)),
+        opportunity_cost_bps=float(impact_cfg.get("opportunity_cost_bps", 5.0)),
+    )
+    max_bps = float(impact_cfg.get("max_total_cost_bps", 50.0))
+    adv_window = int(impact_cfg.get("adv_window", 60))
+
+    adv_map: dict[str, float] = {}
+    vol_map: dict[str, float] = {}
+    pf = prices_filtered
+    if (
+        pf is not None
+        and not pf.empty
+        and {"symbol", "volume", "close"}.issubset(pf.columns)
+    ):
+        for sym, grp in pf.groupby("symbol"):
+            grp_sorted = (
+                grp.sort_values("timestamp") if "timestamp" in grp.columns else grp
+            )
+            tail = grp_sorted.tail(adv_window)
+            if tail.empty:
+                continue
+            sym_key = str(sym).upper()
+            adv_map[sym_key] = float(tail["volume"].mean())
+            closes = tail["close"].astype(float)
+            if len(closes) >= 5:
+                rets = np.log(closes / closes.shift(1)).dropna()
+                vol_map[sym_key] = float(rets.std()) if len(rets) > 0 else 0.0
+
+    new_orders = orders.copy()
+    if "expected_impact_bps" not in new_orders.columns:
+        new_orders["expected_impact_bps"] = 0.0
+
+    estimates: list[float] = []
+    scaled_symbols: list[str] = []
+    for idx, order in new_orders.iterrows():
+        sym = str(order["symbol"]).upper()
+        qty_signed = float(order.get("qty", 0.0))
+        qty_abs = abs(qty_signed)
+        price = float(order.get("price", 0.0) or 0.0)
+        adv = adv_map.get(sym, 0.0)
+        d_vol = vol_map.get(sym, 0.0)
+        est = model.estimate_cost(
+            quantity=qty_abs,
+            adv=adv,
+            daily_vol=d_vol,
+            price=price,
+            execution_days=1.0,
+        )
+        bps = float(est["total_cost_bps"])
+        new_orders.at[idx, "expected_impact_bps"] = bps
+        estimates.append(bps)
+        if bps > max_bps and qty_abs > 0:
+            scale = max_bps / bps
+            new_orders.at[idx, "qty"] = qty_signed * scale
+            scaled_symbols.append(sym)
+
+    meta = {
+        "n_orders": len(estimates),
+        "avg_bps": float(np.mean(estimates)) if estimates else 0.0,
+        "max_bps": float(np.max(estimates)) if estimates else 0.0,
+        "scaled_symbols": scaled_symbols,
+        "max_total_cost_bps": max_bps,
+    }
+    return new_orders, meta
+
+
 def _apply_risk_controls_default(
     ctx: TradingContext,
     orders: pd.DataFrame,
@@ -2386,6 +2475,25 @@ def run_trading_cycle(
         result.status = "error"
         result.error_message = f"Error in generate_orders: {e}"
         return result
+
+    # Phase 17.8 (Sprint 2 / C10): Pre-Trade Impact estimate
+    try:
+        impact_cfg = (policy.get("execution", {}) or {}).get("pre_trade_impact", {}) or {}
+        if impact_cfg.get("enabled", False) and not result.orders.empty:
+            new_orders, impact_meta = _apply_pre_trade_impact(
+                result.orders, result.prices_filtered, impact_cfg
+            )
+            result.orders = new_orders
+            result.meta["pre_trade_impact"] = impact_meta
+            if impact_meta.get("scaled_symbols"):
+                log.info(
+                    "[PRE_TRADE_IMPACT] scaled %d orders exceeding %.1fbps: %s",
+                    len(impact_meta["scaled_symbols"]),
+                    impact_meta.get("max_total_cost_bps", 0.0),
+                    impact_meta["scaled_symbols"],
+                )
+    except Exception as e:
+        log.debug("pre_trade_impact skipped: %s", e)
 
     # QA Gate: Block orders if qa_block_trading is True (Sprint 3 / D2)
     if ctx.qa_block_trading:
