@@ -145,6 +145,8 @@ def generate_orders_from_targets_fast(
     prices_filtered = prices_array[non_zero_mask]
 
     # Build DataFrame directly (no pandas operations except construction)
+    # arrival_price (Sprint 2 / C11): snapshot the price at decision time
+    # so downstream TCA can compute implementation shortfall.
     result = pd.DataFrame(
         {
             "timestamp": timestamp,
@@ -152,11 +154,14 @@ def generate_orders_from_targets_fast(
             "side": sides,
             "qty": qtys,
             "price": prices_filtered,
+            "arrival_price": prices_filtered,
         }
     )
 
     # Ensure columns are in correct order
-    result = result[["timestamp", "symbol", "side", "qty", "price"]]
+    result = result[
+        ["timestamp", "symbol", "side", "qty", "price", "arrival_price"]
+    ]
     result.attrs["qty_unit"] = "shares"
     return result
 
@@ -361,9 +366,11 @@ def generate_orders_from_targets(
     # Select output columns
     result = orders[["symbol", "side", "qty", "price"]].copy()
     result["timestamp"] = timestamp
+    # arrival_price (Sprint 2 / C11): snapshot decision-time price
+    result["arrival_price"] = result["price"]
 
     # Reorder columns
-    result = result[["timestamp", "symbol", "side", "qty", "price"]]
+    result = result[["timestamp", "symbol", "side", "qty", "price", "arrival_price"]]
     result = result.sort_values("symbol").reset_index(drop=True)
     result.attrs["qty_unit"] = "shares"
     return result

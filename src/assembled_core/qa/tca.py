@@ -160,6 +160,88 @@ def build_tca_report(
     return tca_report
 
 
+def compute_implementation_shortfall(
+    fills_df: pd.DataFrame,
+    arrival_prices_df: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    """Compute Implementation Shortfall vs arrival price (Sprint 2 / C11).
+
+    Implementation Shortfall (IS) is the signed difference between the
+    fill price and the arrival price at decision time, expressed in basis
+    points of the arrival price:
+
+        is_bps_i = sign_i * (fill_price_i - arrival_price_i) / arrival_price_i * 10000
+
+    Sign convention: positive IS is a cost to the trader.
+        - BUY side: fill above arrival = positive cost
+        - SELL side: fill below arrival = positive cost
+
+    Args:
+        fills_df: Trades / fills with at minimum:
+            symbol, side, fill_price (or price), fill_qty (or qty),
+            and either an ``arrival_price`` column directly or a key usable
+            for the join with ``arrival_prices_df``.
+        arrival_prices_df: Optional lookup frame ``[timestamp, symbol,
+            arrival_price]``. If omitted, ``fills_df`` must already carry
+            an ``arrival_price`` column.
+
+    Returns:
+        Copy of ``fills_df`` with two added columns:
+            - ``arrival_price``
+            - ``is_bps``
+        Rows without a valid arrival price receive ``is_bps = 0.0``.
+    """
+    if fills_df.empty:
+        out = fills_df.copy()
+        out["arrival_price"] = pd.Series(dtype=float)
+        out["is_bps"] = pd.Series(dtype=float)
+        return out
+
+    out = fills_df.copy()
+
+    # Resolve arrival price column
+    if "arrival_price" not in out.columns:
+        if arrival_prices_df is None or arrival_prices_df.empty:
+            out["arrival_price"] = np.nan
+        else:
+            join_cols = [c for c in ("timestamp", "symbol") if c in out.columns and c in arrival_prices_df.columns]
+            if not join_cols:
+                out["arrival_price"] = np.nan
+            else:
+                out = out.merge(
+                    arrival_prices_df[[*join_cols, "arrival_price"]],
+                    on=join_cols,
+                    how="left",
+                )
+
+    # Resolve fill price column
+    fill_price = out["fill_price"] if "fill_price" in out.columns else out.get("price")
+    if fill_price is None:
+        out["is_bps"] = 0.0
+        return out
+    fill_price = pd.to_numeric(fill_price, errors="coerce")
+
+    arrival = pd.to_numeric(out["arrival_price"], errors="coerce")
+
+    # Sign: +1 for BUY, -1 for SELL; default +1 if no side column present
+    if "side" in out.columns:
+        sign = out["side"].astype(str).str.upper().map({"BUY": 1.0, "SELL": -1.0}).fillna(1.0)
+    else:
+        sign = pd.Series(1.0, index=out.index)
+
+    valid = arrival.notna() & (arrival > 0) & fill_price.notna()
+    is_bps = pd.Series(0.0, index=out.index)
+    is_bps.loc[valid] = (
+        sign.loc[valid]
+        * (fill_price.loc[valid] - arrival.loc[valid])
+        / arrival.loc[valid]
+        * 10000.0
+    )
+    out["is_bps"] = is_bps.astype(np.float64)
+    out["arrival_price"] = arrival
+    return out
+
+
 def write_tca_report_csv(
     tca_report: pd.DataFrame,
     output_path: Path | str,
