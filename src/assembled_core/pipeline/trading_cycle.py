@@ -977,6 +977,88 @@ def _apply_pre_trade_impact(
     return new_orders, meta
 
 
+def _apply_group_exposure_caps(
+    orders: pd.DataFrame,
+    security_meta_df: pd.DataFrame | None,
+    group_cfg: dict,
+) -> tuple[pd.DataFrame, dict]:
+    """Scale orders down to respect per-sector/region/currency gross caps.
+
+    Sprint 2 / W3. Pure helper. For each group dimension configured
+    (``max_sector_gross``, ``max_region_gross``, ``max_currency_gross``),
+    aggregates absolute notional per group from buys-as-new-exposure
+    (sign-aware), then proportionally scales symbols in over-cap groups.
+
+    Caps are expressed as fractions of the order-book total gross notional
+    (self-normalizing, does NOT require ledger equity). This keeps the
+    helper independent and unit-testable; downstream risk-control still
+    enforces absolute exposure against the real ledger.
+    """
+    import numpy as np
+
+    if orders is None or orders.empty or security_meta_df is None or security_meta_df.empty:
+        return orders, {"scaled_groups": [], "n_orders": 0 if orders is None else len(orders)}
+
+    group_caps = {
+        "sector": float(group_cfg.get("max_sector_gross", 0.0) or 0.0),
+        "region": float(group_cfg.get("max_region_gross", 0.0) or 0.0),
+        "currency": float(group_cfg.get("max_currency_gross", 0.0) or 0.0),
+    }
+    # Keep only dims with meaningful cap (>0) that exist in meta
+    active_dims = [
+        dim for dim, cap in group_caps.items()
+        if cap > 0 and dim in security_meta_df.columns
+    ]
+    if not active_dims:
+        return orders, {"scaled_groups": [], "n_orders": len(orders)}
+
+    out = orders.copy()
+    meta_slim = security_meta_df[["symbol", *active_dims]].drop_duplicates("symbol")
+    out = out.merge(meta_slim, on="symbol", how="left")
+
+    # notional per row (abs, for gross)
+    qty = out["qty"].astype(float).values
+    price = out["price"].astype(float).values if "price" in out.columns else np.ones_like(qty)
+    gross = np.abs(qty * price)
+    total_gross = float(gross.sum())
+    if total_gross <= 0:
+        out = out.drop(columns=active_dims, errors="ignore")
+        return out, {"scaled_groups": [], "n_orders": len(out)}
+
+    scale_factors = np.ones(len(out), dtype=np.float64)
+    scaled_groups: list[dict] = []
+
+    for dim in active_dims:
+        cap = group_caps[dim]
+        groups = out[dim].fillna("UNKNOWN").values
+        # fraction per group vs total_gross
+        for grp in set(groups):
+            mask = groups == grp
+            grp_gross = float(gross[mask].sum())
+            grp_frac = grp_gross / total_gross if total_gross > 0 else 0.0
+            if grp_frac > cap and grp_frac > 0:
+                factor = cap / grp_frac
+                scale_factors[mask] = np.minimum(scale_factors[mask], factor)
+                scaled_groups.append({
+                    "dim": dim,
+                    "group": str(grp),
+                    "fraction": round(grp_frac, 6),
+                    "cap": cap,
+                    "scale": round(factor, 6),
+                })
+
+    out["qty"] = (out["qty"].astype(float).values * scale_factors)
+    out = out.drop(columns=active_dims, errors="ignore")
+
+    meta = {
+        "n_orders": len(out),
+        "active_dims": active_dims,
+        "scaled_groups": scaled_groups,
+        "total_gross": round(total_gross, 2),
+    }
+    return out, meta
+
+
 def _apply_risk_controls_default(
     ctx: TradingContext,
     orders: pd.DataFrame,
@@ -2494,6 +2576,36 @@ def run_trading_cycle(
                 )
     except Exception as e:
         log.debug("pre_trade_impact skipped: %s", e)
+
+    # Phase 17.9 (Sprint 2 / W3): Group-Exposure caps (sector/region/currency)
+    try:
+        group_cfg = (policy.get("risk", {}) or {}).get("group_limits", {}) or {}
+        if group_cfg.get("enabled", False) and not result.orders.empty:
+            sec_meta = None
+            try:
+                from src.assembled_core.data.security_master import (
+                    load_security_master,
+                )
+                sec_meta = load_security_master(
+                    group_cfg.get("security_master_path") or None
+                )
+            except Exception as _e:
+                log.debug("security_master load failed: %s", _e)
+                sec_meta = None
+            if sec_meta is not None:
+                new_orders, grp_meta = _apply_group_exposure_caps(
+                    result.orders, sec_meta, group_cfg
+                )
+                result.orders = new_orders
+                result.meta["group_exposures"] = grp_meta
+                if grp_meta.get("scaled_groups"):
+                    log.info(
+                        "[GROUP_EXPOSURES] scaled %d groups: %s",
+                        len(grp_meta["scaled_groups"]),
+                        [g["group"] for g in grp_meta["scaled_groups"]],
+                    )
+    except Exception as e:
+        log.debug("group_exposures skipped: %s", e)
 
     # QA Gate: Block orders if qa_block_trading is True (Sprint 3 / D2)
     if ctx.qa_block_trading:
