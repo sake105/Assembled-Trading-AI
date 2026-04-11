@@ -121,3 +121,120 @@ class CircuitBreaker:
             "cooldown_minutes": self.cooldown_minutes,
             "observations_in_window": len(self._observations),
         }
+
+
+@dataclass
+class VolCircuitBreaker:
+    """Volatility-spike circuit breaker (Sprint 4 / Plan C28).
+
+    Complements :class:`CircuitBreaker` by tripping when realised short-term
+    volatility exceeds a configurable multiple of realised long-term
+    volatility. Both volatilities are computed from daily close returns
+    passed in by the caller — the breaker itself is stateless beyond the
+    trip flag and trip count.
+
+    Default trigger: realised 5d stdev > 2.0 * realised 60d stdev.
+
+    Usage::
+
+        vcb = VolCircuitBreaker(short_window=5, long_window=60, ratio_threshold=2.0)
+        if vcb.check_returns(recent_returns):
+            # breaker just tripped — throttle, alert, etc.
+            ...
+    """
+
+    short_window: int = 5
+    long_window: int = 60
+    ratio_threshold: float = 2.0
+    cooldown_minutes: int = 30
+
+    _tripped_at: datetime | None = field(default=None, repr=False)
+    _trip_count: int = field(default=0, repr=False)
+    _last_ratio: float = field(default=0.0, repr=False)
+
+    def check_returns(self, returns: list[float] | "object") -> bool:
+        """Evaluate a sequence of recent returns and trip if vol ratio exceeds threshold.
+
+        Args:
+            returns: Sequence of daily returns in chronological order.
+                Must contain at least ``long_window`` observations, otherwise
+                the breaker stays inactive.
+
+        Returns:
+            True if the breaker just tripped on this call.
+        """
+        # Local import to keep the module lightweight and optional-dep-free
+        try:
+            import statistics
+        except Exception:  # pragma: no cover - statistics is stdlib
+            return False
+
+        try:
+            seq = list(returns)
+        except TypeError:
+            return False
+
+        if len(seq) < self.long_window or self.long_window < 2 or self.short_window < 2:
+            return False
+
+        long_slice = seq[-self.long_window:]
+        short_slice = seq[-self.short_window:]
+
+        try:
+            long_vol = statistics.pstdev(long_slice)
+            short_vol = statistics.pstdev(short_slice)
+        except statistics.StatisticsError:
+            return False
+
+        if long_vol <= 1e-12:
+            return False
+
+        ratio = short_vol / long_vol
+        self._last_ratio = ratio
+
+        if ratio >= self.ratio_threshold:
+            self._tripped_at = datetime.now(timezone.utc)
+            self._trip_count += 1
+            logger.critical(
+                "[VolCircuitBreaker] TRIPPED: short/long vol ratio=%.3f "
+                "(short=%.5f over %d bars, long=%.5f over %d bars, threshold=%.2f). "
+                "Trip #%d.",
+                ratio, short_vol, self.short_window, long_vol, self.long_window,
+                self.ratio_threshold, self._trip_count,
+            )
+            return True
+
+        return False
+
+    @property
+    def is_tripped(self) -> bool:
+        if self._tripped_at is None:
+            return False
+        now = datetime.now(timezone.utc)
+        cooldown_end = self._tripped_at + timedelta(minutes=self.cooldown_minutes)
+        return now < cooldown_end
+
+    @property
+    def trip_count(self) -> int:
+        return self._trip_count
+
+    @property
+    def last_ratio(self) -> float:
+        return self._last_ratio
+
+    def reset(self) -> None:
+        self._tripped_at = None
+        self._last_ratio = 0.0
+        logger.info("[VolCircuitBreaker] Manually reset by operator.")
+
+    def get_state(self) -> dict:
+        return {
+            "is_tripped": self.is_tripped,
+            "trip_count": self._trip_count,
+            "last_ratio": self._last_ratio,
+            "tripped_at": self._tripped_at.isoformat() if self._tripped_at else None,
+            "short_window": self.short_window,
+            "long_window": self.long_window,
+            "ratio_threshold": self.ratio_threshold,
+            "cooldown_minutes": self.cooldown_minutes,
+        }
