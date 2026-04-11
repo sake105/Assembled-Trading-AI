@@ -12,13 +12,15 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+# HRP uses scipy linkage; skip when missing.
+pytest.importorskip("scipy")
+
 from src.assembled_core.portfolio.hrp_sizing import (  # noqa: E402
     apply_hrp_sizing,
     apply_hrp_sizing_from_policy,
+    blend_hrp_with_score,
+    compute_hrp_target_weights,
 )
-
-# HRP uses scipy linkage; skip when missing.
-pytest.importorskip("scipy")
 
 
 def _panel(symbols: list[str], n_bars: int = 120, seed: int = 5) -> pd.DataFrame:
@@ -117,3 +119,124 @@ def test_from_policy_enabled_applies_blend() -> None:
     total = sum(adjusted.values())
     assert abs(total - 0.9) < 1e-6
     assert any("blended HRP" in r for r in reasons)
+
+
+# ---------------------------------------------------------------------------
+# W10 sidecar: compute_hrp_target_weights + blend_hrp_with_score
+# ---------------------------------------------------------------------------
+
+
+def _wide_returns_panel(n_days: int = 90, n_symbols: int = 5) -> pd.DataFrame:
+    rng = np.random.default_rng(42)
+    data = rng.normal(loc=0.0005, scale=0.01, size=(n_days, n_symbols))
+    cols = [f"SYM{i}" for i in range(n_symbols)]
+    idx = pd.date_range("2024-01-02", periods=n_days, freq="B")
+    return pd.DataFrame(data, index=idx, columns=cols)
+
+
+@pytest.mark.phase12
+def test_compute_hrp_target_weights_sum_to_target_gross() -> None:
+    panel = _wide_returns_panel()
+    w = compute_hrp_target_weights(panel, target_gross=0.80)
+    assert isinstance(w, pd.Series)
+    assert w.name == "hrp_weight"
+    assert w.sum() == pytest.approx(0.80, abs=1e-6)
+
+
+@pytest.mark.phase12
+def test_compute_hrp_target_weights_non_negative() -> None:
+    panel = _wide_returns_panel()
+    w = compute_hrp_target_weights(panel)
+    assert (w >= 0).all()
+
+
+@pytest.mark.phase12
+def test_compute_hrp_target_weights_custom_gross() -> None:
+    panel = _wide_returns_panel()
+    w = compute_hrp_target_weights(panel, target_gross=1.25)
+    assert w.sum() == pytest.approx(1.25, abs=1e-6)
+
+
+@pytest.mark.phase12
+def test_compute_hrp_target_weights_too_short_raises() -> None:
+    panel = _wide_returns_panel(n_days=10)
+    with pytest.raises(ValueError, match="insufficient history"):
+        compute_hrp_target_weights(panel, min_history=30)
+
+
+@pytest.mark.phase12
+def test_compute_hrp_target_weights_single_symbol_raises() -> None:
+    panel = _wide_returns_panel(n_symbols=1)
+    with pytest.raises(ValueError, match="at least 2 symbols"):
+        compute_hrp_target_weights(panel)
+
+
+@pytest.mark.phase12
+def test_compute_hrp_target_weights_invalid_gross_raises() -> None:
+    panel = _wide_returns_panel()
+    with pytest.raises(ValueError, match="target_gross"):
+        compute_hrp_target_weights(panel, target_gross=0.0)
+
+
+@pytest.mark.phase12
+def test_compute_hrp_target_weights_not_dataframe_raises() -> None:
+    with pytest.raises(ValueError, match="DataFrame"):
+        compute_hrp_target_weights([1, 2, 3])  # type: ignore[arg-type]
+
+
+@pytest.mark.phase12
+def test_blend_alpha_one_returns_hrp() -> None:
+    hrp = pd.Series({"A": 0.4, "B": 0.3, "C": 0.1}, name="hrp_weight")
+    score = pd.Series({"A": 0.2, "B": 0.2, "C": 0.4}, name="score")
+    out = blend_hrp_with_score(hrp, score, hrp_alpha=1.0)
+    for sym in ["A", "B", "C"]:
+        assert out[sym] == pytest.approx(hrp[sym], abs=1e-9)
+
+
+@pytest.mark.phase12
+def test_blend_alpha_zero_returns_score() -> None:
+    hrp = pd.Series({"A": 0.4, "B": 0.3, "C": 0.1}, name="hrp_weight")
+    score = pd.Series({"A": 0.2, "B": 0.2, "C": 0.4}, name="score")
+    out = blend_hrp_with_score(hrp, score, hrp_alpha=0.0)
+    for sym in ["A", "B", "C"]:
+        assert out[sym] == pytest.approx(score[sym], abs=1e-9)
+
+
+@pytest.mark.phase12
+def test_blend_alpha_half_midpoint_same_gross() -> None:
+    hrp = pd.Series({"A": 0.5, "B": 0.5}, name="hrp_weight")
+    score = pd.Series({"A": 0.5, "B": 0.5}, name="score")
+    out = blend_hrp_with_score(hrp, score, hrp_alpha=0.5)
+    assert out["A"] == pytest.approx(0.5, abs=1e-9)
+    assert out["B"] == pytest.approx(0.5, abs=1e-9)
+    assert out.sum() == pytest.approx(1.0, abs=1e-9)
+
+
+@pytest.mark.phase12
+def test_blend_alpha_out_of_range_raises() -> None:
+    hrp = pd.Series({"A": 0.5, "B": 0.5}, name="hrp_weight")
+    score = pd.Series({"A": 0.5, "B": 0.5}, name="score")
+    with pytest.raises(ValueError, match="hrp_alpha"):
+        blend_hrp_with_score(hrp, score, hrp_alpha=1.5)
+    with pytest.raises(ValueError, match="hrp_alpha"):
+        blend_hrp_with_score(hrp, score, hrp_alpha=-0.1)
+
+
+@pytest.mark.phase12
+def test_blend_handles_disjoint_symbols() -> None:
+    hrp = pd.Series({"A": 0.4, "B": 0.3, "C": 0.1}, name="hrp_weight")
+    score = pd.Series({"A": 0.3, "B": 0.2, "D": 0.3}, name="score")
+    out = blend_hrp_with_score(hrp, score, hrp_alpha=0.5)
+    assert set(out.index) == {"A", "B", "C", "D"}
+    target = max(hrp.sum(), score.sum())
+    assert out.sum() == pytest.approx(target, abs=1e-9)
+    assert out["C"] > 0
+    assert out["D"] > 0
+
+
+@pytest.mark.phase12
+def test_blend_gross_does_not_inflate() -> None:
+    hrp = pd.Series({"A": 0.6, "B": 0.2}, name="hrp_weight")
+    score = pd.Series({"A": 0.3, "B": 0.3, "C": 0.4}, name="score")
+    out = blend_hrp_with_score(hrp, score, hrp_alpha=0.7)
+    assert out.sum() == pytest.approx(1.0, abs=1e-9)

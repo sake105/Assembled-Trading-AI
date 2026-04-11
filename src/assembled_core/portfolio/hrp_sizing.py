@@ -161,4 +161,129 @@ def apply_hrp_sizing_from_policy(
     )
 
 
-__all__ = ["apply_hrp_sizing", "apply_hrp_sizing_from_policy"]
+def compute_hrp_target_weights(
+    returns_panel: pd.DataFrame,
+    min_history: int = 30,
+    target_gross: float = 0.80,
+) -> pd.Series:
+    """Compute HRP target weights scaled to a target gross exposure.
+
+    Thin sidecar wrapper around ``compute_hrp_weights`` that validates the
+    input panel, drops columns with insufficient history, delegates to the
+    dormant HRP module, and rescales weights so the sum equals
+    ``target_gross``.
+
+    Args:
+        returns_panel: Wide-format DataFrame (index=dates, columns=symbols)
+            of daily returns.
+        min_history: Minimum rows required and minimum non-NaN observations
+            per symbol column.
+        target_gross: Target sum of weights (HRP produces weights summing to
+            1.0; this rescales).
+
+    Returns:
+        ``pd.Series`` indexed by symbol, name ``"hrp_weight"``, summing to
+        ``target_gross``.
+
+    Raises:
+        ValueError: On invalid input (too few rows, too few symbols, empty
+            HRP result, or non-positive ``target_gross``).
+    """
+    if target_gross <= 0:
+        raise ValueError(f"target_gross must be > 0, got {target_gross}")
+
+    if not isinstance(returns_panel, pd.DataFrame):
+        raise ValueError("returns_panel must be a pandas DataFrame")
+
+    if len(returns_panel) < min_history:
+        raise ValueError(
+            f"insufficient history: {len(returns_panel)} rows < min_history={min_history}"
+        )
+
+    if returns_panel.shape[1] < 2:
+        raise ValueError(
+            f"need at least 2 symbols, got {returns_panel.shape[1]}"
+        )
+
+    valid_cols = [
+        c for c in returns_panel.columns
+        if returns_panel[c].notna().sum() >= min_history
+    ]
+    if len(valid_cols) < 2:
+        raise ValueError(
+            f"need at least 2 symbols with >= {min_history} observations, "
+            f"got {len(valid_cols)}"
+        )
+
+    filtered = returns_panel[valid_cols]
+
+    raw = compute_hrp_weights(filtered)
+    if not raw:
+        raise ValueError(
+            "HRP module returned empty weights — scipy may be missing or "
+            "data insufficient after dropna"
+        )
+
+    weights = pd.Series(raw, name="hrp_weight", dtype=float)
+    total = float(weights.sum())
+    if total <= 0:
+        raise ValueError("HRP produced non-positive weight sum")
+
+    weights = weights * (target_gross / total)
+    weights.name = "hrp_weight"
+    return weights
+
+
+def blend_hrp_with_score(
+    hrp_weights: pd.Series,
+    score_weights: pd.Series,
+    hrp_alpha: float = 0.7,
+) -> pd.Series:
+    """Convex blend of HRP and score-based weights.
+
+    ``out = hrp_alpha * hrp + (1 - hrp_alpha) * score``
+
+    Inputs are aligned on the union of their symbol indices; missing symbols
+    are treated as zero on the side where they are absent. The final result
+    is renormalized to the maximum of the two input gross sums so the blend
+    cannot inflate exposure.
+
+    Args:
+        hrp_weights: HRP weights indexed by symbol.
+        score_weights: Score-based weights indexed by symbol.
+        hrp_alpha: Blend coefficient in ``[0, 1]``. ``1.0`` returns HRP,
+            ``0.0`` returns score (both up to renormalization).
+
+    Returns:
+        ``pd.Series`` indexed by the union of both input indices.
+
+    Raises:
+        ValueError: If ``hrp_alpha`` is outside ``[0, 1]``.
+    """
+    if not 0.0 <= hrp_alpha <= 1.0:
+        raise ValueError(f"hrp_alpha must be in [0, 1], got {hrp_alpha}")
+
+    all_symbols = hrp_weights.index.union(score_weights.index)
+    hrp_aligned = hrp_weights.reindex(all_symbols, fill_value=0.0).astype(float)
+    score_aligned = score_weights.reindex(all_symbols, fill_value=0.0).astype(float)
+
+    blended = hrp_alpha * hrp_aligned + (1.0 - hrp_alpha) * score_aligned
+
+    hrp_sum = float(hrp_weights.sum())
+    score_sum = float(score_weights.sum())
+    target = max(hrp_sum, score_sum)
+
+    blended_sum = float(blended.sum())
+    if blended_sum > 0 and target > 0:
+        blended = blended * (target / blended_sum)
+
+    blended.name = "blended_weight"
+    return blended
+
+
+__all__ = [
+    "apply_hrp_sizing",
+    "apply_hrp_sizing_from_policy",
+    "compute_hrp_target_weights",
+    "blend_hrp_with_score",
+]
