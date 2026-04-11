@@ -46,6 +46,90 @@ from src.assembled_core.strategies.multifactor_v1 import (
 logger = logging.getLogger(__name__)
 
 STRATEGY_VERSION = "v2"
+# Sprint 2/3 scaffold marker — current module is a pass-through to v1. The
+# 15 new factors, regime-conditional weights, and meta-model filter will be
+# added in follow-up commits. Keep this string ending in ".skeleton" until
+# the native v2 factor computation lands.
+VERSION = "multifactor_v2.skeleton"
+
+
+# ---------------------------------------------------------------------------
+# 30-factor target contract (Sprint 2 plan §4.1)
+# ---------------------------------------------------------------------------
+#
+# This list encodes the TARGET CONTRACT for v2 — it is documentation-in-code,
+# NOT used in the current pass-through compute path. It mirrors the table in
+# section 4.1 of the Sprint 2 plan (lively-hugging-dolphin.md lines ~410-455):
+# factors 1-15 are the existing v1 factors (re-weighted), factors 16-29 are
+# new additive alpha sources, and factor 30 is the meta-model confidence
+# which is applied as a MULTIPLIER on the composite, not as an additive
+# summand. The additive weights are normalized to sum to 1.0 on return.
+#
+# The plan text explicitly notes a minor normalization is needed (raw sums
+# do not land exactly at 1.0); we resolve that here via a single proportional
+# rescale of the 29 additive weights. The meta_model factor carries
+# weight=0.0 and kind="multiplicative" so downstream code can branch on kind.
+_FACTOR_LIST_V2_RAW: list[dict[str, Any]] = [
+    # --- existing v1 factors (re-calibrated weights) -----------------------
+    {"id": 1, "name": "trend_ema_spread", "dimension": "trend", "kind": "additive", "weight": 0.10},
+    {"id": 2, "name": "trend_ma200_position", "dimension": "trend", "kind": "additive", "weight": 0.07},
+    {"id": 3, "name": "trend_adx_strength", "dimension": "trend", "kind": "additive", "weight": 0.05},
+    {"id": 4, "name": "trend_macd_hist", "dimension": "trend", "kind": "additive", "weight": 0.05},
+    {"id": 5, "name": "mom_rsi_centered", "dimension": "momentum", "kind": "additive", "weight": 0.06},
+    {"id": 6, "name": "mom_volume_weighted", "dimension": "momentum", "kind": "additive", "weight": 0.05},
+    {"id": 7, "name": "mom_obv_trend", "dimension": "momentum", "kind": "additive", "weight": 0.03},
+    {"id": 8, "name": "mr_bollinger_pctb", "dimension": "mean_reversion", "kind": "additive", "weight": 0.04},
+    {"id": 9, "name": "mr_stoch_oversold", "dimension": "mean_reversion", "kind": "additive", "weight": 0.03},
+    {"id": 10, "name": "vol_abnormal", "dimension": "volume", "kind": "additive", "weight": 0.03},
+    {"id": 11, "name": "vol_tick_imbalance", "dimension": "volume", "kind": "additive", "weight": 0.03},
+    {"id": 12, "name": "vola_regime_score", "dimension": "volatility", "kind": "additive", "weight": 0.03},
+    {"id": 13, "name": "vola_vov_penalty", "dimension": "volatility", "kind": "additive", "weight": 0.03},
+    {"id": 14, "name": "breadth_above_ma", "dimension": "breadth", "kind": "additive", "weight": 0.04},
+    {"id": 15, "name": "breadth_ad_line", "dimension": "breadth", "kind": "additive", "weight": 0.03},
+    # --- new v2 factors ----------------------------------------------------
+    {"id": 16, "name": "mr_zscore_reversal_3d", "dimension": "mean_reversion", "kind": "additive", "weight": 0.03},
+    {"id": 17, "name": "mr_rsi_extreme_uptrend", "dimension": "mean_reversion", "kind": "additive", "weight": 0.03},
+    {"id": 18, "name": "sector_rotation_bias", "dimension": "sector", "kind": "additive", "weight": 0.05},
+    {"id": 19, "name": "earnings_surprise_z", "dimension": "event", "kind": "additive", "weight": 0.04},
+    {"id": 20, "name": "insider_activity_score", "dimension": "event", "kind": "additive", "weight": 0.03},
+    {"id": 21, "name": "news_sentiment_7d", "dimension": "news", "kind": "additive", "weight": 0.03},
+    {"id": 22, "name": "news_volume_spike", "dimension": "news", "kind": "additive", "weight": 0.02},
+    {"id": 23, "name": "macro_growth_momentum", "dimension": "macro", "kind": "additive", "weight": 0.02},
+    {"id": 24, "name": "macro_inflation_surprise", "dimension": "macro", "kind": "additive", "weight": 0.02},
+    {"id": 25, "name": "intermarket_bond_equity", "dimension": "intermarket", "kind": "additive", "weight": 0.02},
+    {"id": 26, "name": "intermarket_credit_spread", "dimension": "intermarket", "kind": "additive", "weight": 0.01},
+    {"id": 27, "name": "options_put_call_extreme", "dimension": "options", "kind": "additive", "weight": 0.02},
+    {"id": 28, "name": "vix_regime_score", "dimension": "options", "kind": "additive", "weight": 0.02},
+    {"id": 29, "name": "crash_probability_inverse", "dimension": "risk", "kind": "additive", "weight": 0.03},
+    # --- multiplicative meta-model filter (NOT additive) -------------------
+    {"id": 30, "name": "meta_model_confidence", "dimension": "ml", "kind": "multiplicative", "weight": 0.0},
+]
+
+
+def _get_factor_list_v2() -> list[dict[str, Any]]:
+    """Return the 30-factor target contract for multifactor_v2.
+
+    This is documentation-in-code. The current compute path is a pass-through
+    to v1 and does NOT use this list. It exists so downstream work (regime
+    weight training, meta-model training, factor-store coverage checks) has
+    a single authoritative reference for the target 30-factor stack.
+
+    Additive weights are proportionally rescaled so that their sum equals
+    1.0 exactly, matching the plan's stated "normalize to 1.0" intent. The
+    multiplicative factor (id=30, meta_model_confidence) always carries
+    weight=0.0 and must be applied as a multiplier on the composite.
+
+    Returns:
+        A fresh list of 30 dict entries, each with keys:
+            id (int), name (str), dimension (str), kind (str), weight (float).
+    """
+    factors = [dict(f) for f in _FACTOR_LIST_V2_RAW]
+    additive = [f for f in factors if f["kind"] == "additive"]
+    raw_sum = sum(f["weight"] for f in additive)
+    if raw_sum > 0:
+        for f in additive:
+            f["weight"] = f["weight"] / raw_sum
+    return factors
 
 
 def compute_signals(
