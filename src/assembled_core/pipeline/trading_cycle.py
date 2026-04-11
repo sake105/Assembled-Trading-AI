@@ -1474,6 +1474,41 @@ def run_trading_cycle(
         else:
             ctx.market_stress = None
 
+        # Phase 5.2 (Sprint 2 / W9): Market-breadth snapshot
+        # Computes fraction-above-MA at the latest bar and publishes into
+        # result.meta for downstream strategies / reporting. Opt-in, cheap,
+        # never raises into the cycle.
+        try:
+            mb_cfg = policy.get("market_breadth") or {}
+            if mb_cfg.get("enabled", False) and ctx.prices is not None and not ctx.prices.empty:
+                from src.assembled_core.features.market_breadth import (
+                    compute_market_breadth_ma,
+                )
+
+                ma_window = int(mb_cfg.get("ma_window", 50))
+                breadth_df = compute_market_breadth_ma(ctx.prices, ma_window=ma_window)
+                if not breadth_df.empty:
+                    last_row = breadth_df.iloc[-1]
+                    frac_col = f"fraction_above_ma_{ma_window}"
+                    frac = float(last_row.get(frac_col, 0.0) or 0.0)
+                    if frac >= 0.7:
+                        regime = "strong"
+                    elif frac >= 0.5:
+                        regime = "neutral"
+                    elif frac >= 0.3:
+                        regime = "weak"
+                    else:
+                        regime = "narrow"
+                    result.meta["market_breadth"] = {
+                        "ma_window": ma_window,
+                        "fraction_above_ma": round(frac, 4),
+                        "count_above_ma": int(last_row.get("count_above_ma", 0) or 0),
+                        "count_total": int(last_row.get("count_total", 0) or 0),
+                        "regime": regime,
+                    }
+        except Exception as e:
+            logger.debug("market_breadth snapshot skipped: %s", e)
+
         # Phase 5.5: Sprint 1 / W4b — Daily Circuit Breaker
         # Stateless close-to-close check against a market reference (SPY).
         # A trip engages the kill-switch with 100 % throttle (block all) and
