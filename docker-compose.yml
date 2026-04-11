@@ -1,0 +1,31 @@
+# docker-compose for local testing (Sprint 4 / Plan C25).
+#
+# Usage:
+#   docker compose build
+#   docker compose run --rm trader python scripts/run_live_paper.py once --dry-run
+#   docker compose up -d trader  # runs the paper scheduler
+#
+# Secrets: put your API keys in a .env file at the project root. That
+# file is NOT baked into the image; it is only read at container start.
+# The file must never be committed (.gitignore already excludes it).
+
+services:
+  trader:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: assembled-trading-ai:local
+    container_name: assembled-trader
+    # Inject secrets at run time, never at build time.
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ASSEMBLED_OUTPUT_DIR=/app/output
+    # Persist run artefacts (ledger, reports, logs) across container
+    # restarts by mounting the host directories read/write.
+    volumes:
+      - ./output:/app/output
+      - ./data:/app/data
+    # Restart policy matches typical paper-trading cron behaviour.
+    restart: unless-stopped
