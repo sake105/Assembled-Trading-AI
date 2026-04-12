@@ -610,6 +610,26 @@ def _build_features_default(
         except Exception as e:
             logger.debug("[Features] Earnings calendar features skipped: %s", e)
 
+    # ---------------------------------------------------------------
+    # D10: Congressional trading features (optional, Sprint 5)
+    # ---------------------------------------------------------------
+    if feature_cfg_obj is not None and getattr(feature_cfg_obj, "include_congress", False):
+        try:
+            from src.assembled_core.data.congress_trades_ingest import load_congress_sample
+            from src.assembled_core.features.congress_features import add_congress_features
+
+            congress_path = getattr(feature_cfg_obj, "congress_data_path", None)
+            congress_events = load_congress_sample(path=congress_path)
+            if not congress_events.empty:
+                prices_with_features = add_congress_features(
+                    prices_with_features,
+                    congress_events,
+                    as_of=ctx.as_of,
+                )
+                logger.debug("[Features] Congress trading features merged")
+        except Exception as e:
+            logger.debug("[Features] Congress features skipped: %s", e)
+
     return prices_with_features
 
 
@@ -2611,6 +2631,38 @@ def run_trading_cycle(
                 )
     except Exception as e:
         log.debug("pre_trade_impact skipped: %s", e)
+
+    # Phase 17.85 (Sprint 5 / C12): Optional TWAP order slicing
+    try:
+        exec_cfg = (policy.get("execution", {}) or {}).get("algo", {}) or {}
+        algo_mode = str(exec_cfg.get("mode", "market")).lower()
+        if algo_mode.startswith("twap") and not result.orders.empty:
+            from datetime import datetime, timedelta
+
+            from src.assembled_core.execution.algo_execution import TWAPScheduler
+
+            n_slices = int(exec_cfg.get("n_slices", 10))
+            window_minutes = int(exec_cfg.get("window_minutes", 60))
+            scheduler = TWAPScheduler(n_slices=n_slices, randomize=True)
+            sliced_orders = []
+            now = datetime.utcnow()
+            for _, order in result.orders.iterrows():
+                slices = scheduler.schedule(
+                    symbol=str(order.get("symbol", "")),
+                    total_qty=abs(float(order.get("qty", 0))),
+                    side=str(order.get("side", "BUY")),
+                    start_time=now,
+                    end_time=now + timedelta(minutes=window_minutes),
+                )
+                sliced_orders.extend(s.to_dict() for s in slices)
+            result.meta["twap_slices"] = len(sliced_orders)
+            result.meta["twap_parent_orders"] = len(result.orders)
+            log.info(
+                "[TWAP] Sliced %d orders into %d TWAP slices (%d min window)",
+                len(result.orders), len(sliced_orders), window_minutes,
+            )
+    except Exception as e:
+        log.debug("twap slicing skipped: %s", e)
 
     # Phase 17.9 (Sprint 2 / W3): Group-Exposure caps (sector/region/currency)
     try:

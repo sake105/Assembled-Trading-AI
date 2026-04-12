@@ -272,3 +272,168 @@ def compute_total_return_index(
         result.loc[sym_idx, "close_total_return"] = sym_close.values * cum_factor.values
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Delisting: forced position closure (Sprint 5 / C2)
+# ---------------------------------------------------------------------------
+
+
+def apply_delisting_exits(
+    positions: pd.DataFrame,
+    actions: pd.DataFrame,
+    prices: pd.DataFrame,
+    as_of: pd.Timestamp | None = None,
+) -> pd.DataFrame:
+    """Generate forced-exit events for delisted symbols.
+
+    When a symbol reaches its delisting effective_date, any open position is
+    closed at the last available price.  The result is a ledger-ready DataFrame
+    with ``exit_type='DELIST_EXIT'``.
+
+    Args:
+        positions: Open positions with columns ``symbol``, ``qty``.
+        actions: Corporate actions with ``action_type='DELISTING'``,
+            ``symbol``, ``effective_date``.
+        prices: Price panel with ``symbol``, ``timestamp`` (or first col),
+            ``close``.
+        as_of: Optional cutoff — only delistings on or before *as_of* are
+            processed.
+
+    Returns:
+        DataFrame with columns ``timestamp``, ``symbol``, ``exit_type``,
+        ``exit_price``, ``qty``.  Empty if no delistings apply.
+    """
+    out_cols = ["timestamp", "symbol", "exit_type", "exit_price", "qty"]
+    if positions is None or positions.empty:
+        return pd.DataFrame(columns=out_cols)
+    if actions is None or actions.empty:
+        return pd.DataFrame(columns=out_cols)
+
+    required = {"symbol", "action_type", "effective_date"}
+    if required - set(actions.columns):
+        return pd.DataFrame(columns=out_cols)
+
+    delistings = actions[actions["action_type"] == "DELISTING"].copy()
+    if delistings.empty:
+        return pd.DataFrame(columns=out_cols)
+
+    delistings["effective_date"] = pd.to_datetime(
+        delistings["effective_date"], utc=True,
+    )
+    if as_of is not None:
+        cutoff = pd.Timestamp(as_of)
+        if cutoff.tzinfo is None:
+            cutoff = cutoff.tz_localize("UTC")
+        else:
+            cutoff = cutoff.tz_convert("UTC")
+        delistings = delistings[delistings["effective_date"] <= cutoff]
+
+    if delistings.empty:
+        return pd.DataFrame(columns=out_cols)
+
+    ts_col = "timestamp" if "timestamp" in prices.columns else prices.columns[0]
+    rows: list[dict] = []
+    for _, dl in delistings.iterrows():
+        sym = dl["symbol"]
+        eff = dl["effective_date"]
+        pos_mask = positions["symbol"] == sym
+        if not pos_mask.any():
+            continue
+        qty = float(positions.loc[pos_mask, "qty"].iloc[0])
+        if qty == 0:
+            continue
+        # Last available price on or before delisting date
+        sym_prices = prices[prices["symbol"] == sym].copy()
+        if sym_prices.empty:
+            continue
+        sym_prices[ts_col] = pd.to_datetime(sym_prices[ts_col], utc=True)
+        before = sym_prices[sym_prices[ts_col] <= eff]
+        if before.empty:
+            last_price = float(sym_prices["close"].iloc[-1])
+        else:
+            last_price = float(before["close"].iloc[-1])
+        rows.append({
+            "timestamp": eff,
+            "symbol": sym,
+            "exit_type": "DELIST_EXIT",
+            "exit_price": last_price,
+            "qty": qty,
+        })
+
+    if not rows:
+        return pd.DataFrame(columns=out_cols)
+    return pd.DataFrame(rows).sort_values("timestamp").reset_index(drop=True)
+
+
+# ---------------------------------------------------------------------------
+# Spin-off: position split into parent + child (Sprint 5 / C2)
+# ---------------------------------------------------------------------------
+
+
+def apply_spinoff(
+    positions: pd.DataFrame,
+    actions: pd.DataFrame,
+) -> pd.DataFrame:
+    """Apply spin-off actions: split a position into parent + child.
+
+    A spin-off action distributes shares of a new entity (``child_symbol``)
+    to holders of the parent at a given ``spinoff_ratio`` (child shares per
+    parent share).  The parent position qty is unchanged; a new row for the
+    child is created.
+
+    Required action columns: ``symbol`` (parent), ``action_type`` (``'SPINOFF'``),
+    ``effective_date``, ``child_symbol``, ``spinoff_ratio``.
+
+    Args:
+        positions: Current positions with ``symbol``, ``qty``,
+            ``avg_price`` (optional).
+        actions: Corporate actions.
+
+    Returns:
+        Updated positions DataFrame with new child rows appended.
+        Original rows are preserved.
+    """
+    if positions is None or positions.empty:
+        return positions.copy() if positions is not None else pd.DataFrame()
+    if actions is None or actions.empty:
+        return positions.copy()
+
+    required = {"symbol", "action_type", "effective_date", "child_symbol", "spinoff_ratio"}
+    if required - set(actions.columns):
+        return positions.copy()
+
+    spinoffs = actions[actions["action_type"] == "SPINOFF"].copy()
+    if spinoffs.empty:
+        return positions.copy()
+
+    result = positions.copy()
+    new_rows: list[dict] = []
+    for _, sp in spinoffs.iterrows():
+        parent = sp["symbol"]
+        child = sp["child_symbol"]
+        ratio = float(sp["spinoff_ratio"])
+        if ratio <= 0:
+            continue
+        parent_mask = result["symbol"] == parent
+        if not parent_mask.any():
+            continue
+        parent_qty = float(result.loc[parent_mask, "qty"].iloc[0])
+        child_qty = parent_qty * ratio
+        row = {"symbol": child, "qty": child_qty}
+        if "avg_price" in result.columns:
+            row["avg_price"] = 0.0  # cost basis TBD by accounting
+        # Copy any other columns from parent row with sensible defaults
+        parent_row = result.loc[parent_mask].iloc[0]
+        for col in result.columns:
+            if col not in row:
+                row[col] = parent_row[col]
+        row["symbol"] = child
+        row["qty"] = child_qty
+        new_rows.append(row)
+
+    if new_rows:
+        new_df = pd.DataFrame(new_rows)
+        result = pd.concat([result, new_df], ignore_index=True)
+
+    return result

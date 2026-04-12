@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -35,6 +36,20 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 _DEFAULT_STATE_PATH = Path("output") / "state" / "symbol_kill_switch.json"
+
+# Per-file locks to prevent concurrent read-modify-write corruption.
+# Keyed by resolved path so independent state files get independent locks.
+_FILE_LOCKS: dict[str, threading.Lock] = {}
+_FILE_LOCKS_GUARD = threading.Lock()
+
+
+def _get_lock(path: Path) -> threading.Lock:
+    """Return a per-path threading lock (created on first access)."""
+    key = str(path.resolve())
+    with _FILE_LOCKS_GUARD:
+        if key not in _FILE_LOCKS:
+            _FILE_LOCKS[key] = threading.Lock()
+        return _FILE_LOCKS[key]
 
 
 def _read_state(path: Path) -> dict[str, Any]:
@@ -63,14 +78,20 @@ def block_symbol(
     *,
     state_path: str | Path | None = None,
 ) -> dict[str, Any]:
-    """Block ``symbol`` with a free-form reason. Idempotent."""
+    """Block ``symbol`` with a free-form reason. Idempotent.
+
+    Thread-safe: uses a per-file lock so concurrent block/unblock calls on
+    the same state file do not corrupt each other's writes.
+    """
     path = Path(state_path or _DEFAULT_STATE_PATH)
-    state = _read_state(path)
-    state["blocked"][symbol] = {
-        "reason": reason,
-        "blocked_at": datetime.now(timezone.utc).isoformat(),
-    }
-    _write_state(path, state)
+    lock = _get_lock(path)
+    with lock:
+        state = _read_state(path)
+        state["blocked"][symbol] = {
+            "reason": reason,
+            "blocked_at": datetime.now(timezone.utc).isoformat(),
+        }
+        _write_state(path, state)
     logger.info("[symbol_kill_switch] BLOCK %s: %s", symbol, reason)
     return state["blocked"][symbol]
 
@@ -80,14 +101,19 @@ def unblock_symbol(
     *,
     state_path: str | Path | None = None,
 ) -> bool:
-    """Remove ``symbol`` from the block list. Returns True if removed."""
+    """Remove ``symbol`` from the block list. Returns True if removed.
+
+    Thread-safe: uses a per-file lock.
+    """
     path = Path(state_path or _DEFAULT_STATE_PATH)
-    state = _read_state(path)
-    if symbol in state["blocked"]:
-        del state["blocked"][symbol]
-        _write_state(path, state)
-        logger.info("[symbol_kill_switch] UNBLOCK %s", symbol)
-        return True
+    lock = _get_lock(path)
+    with lock:
+        state = _read_state(path)
+        if symbol in state["blocked"]:
+            del state["blocked"][symbol]
+            _write_state(path, state)
+            logger.info("[symbol_kill_switch] UNBLOCK %s", symbol)
+            return True
     return False
 
 

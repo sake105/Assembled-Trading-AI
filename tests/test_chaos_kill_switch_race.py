@@ -14,8 +14,6 @@ import sys
 import threading
 from pathlib import Path
 
-import pytest
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
@@ -80,18 +78,6 @@ def test_concurrent_block_unblock_converges(tmp_path: Path) -> None:
     assert set(final.keys()).issubset(set(symbols))
 
 
-@pytest.mark.xfail(
-    reason=(
-        "Documented chaos finding: symbol_kill_switch uses JSON "
-        "read-modify-write without a lock. Concurrent block() calls "
-        "on unrelated symbols can overwrite each other's writes. "
-        "Not a regression — the module is designed for single-writer "
-        "use. Fix requires adding a file lock (portalocker / fcntl) "
-        "before enabling multi-threaded callers. See C21 chaos "
-        "results in the Sprint 4 follow-up list."
-    ),
-    strict=False,
-)
 def test_block_then_query_is_consistent(tmp_path: Path) -> None:
     """A blocked symbol must be observable as blocked immediately
     after the block call returns, even with other threads racing

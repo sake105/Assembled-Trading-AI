@@ -6,12 +6,17 @@ All tests are marked @pytest.mark.phase12.
 
 from __future__ import annotations
 
+import sys
 from dataclasses import fields
+from pathlib import Path
 from typing import List
 
 import pytest
 
-from assembled_core.ops.daily_scheduler import (
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from src.assembled_core.ops.daily_scheduler import (
     DailyScheduler,
     WorkerResult,
     build_cycle_summary,

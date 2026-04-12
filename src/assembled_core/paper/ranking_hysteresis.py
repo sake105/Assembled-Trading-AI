@@ -78,7 +78,9 @@ def apply_ranking_hysteresis(
             meta["kept_by_hysteresis"] += 1
 
     if symbols_to_flat:
-        out.loc[out["symbol"].isin(symbols_to_flat), "direction"] = "FLAT"
-        out.loc[out["symbol"].isin(symbols_to_flat), "score"] = 0.0
+        mask = out["symbol"].isin(symbols_to_flat)
+        out.loc[mask, "direction"] = "FLAT"
+        if "score" in out.columns:
+            out.loc[mask, "score"] = 0.0
 
     return out, meta

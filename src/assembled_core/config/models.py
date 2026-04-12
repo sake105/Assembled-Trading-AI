@@ -57,6 +57,14 @@ class FeatureConfig(BaseModel):
         default=False,
         description="Include options-derived signals (put/call skew, IV percentile, etc.)",
     )
+    include_congress: bool = Field(
+        default=False,
+        description="Include congressional trading features (trade count, amounts in rolling windows)",
+    )
+    congress_data_path: str | None = Field(
+        default=None,
+        description="Path to congress trades data file (CSV or Parquet). None uses dummy data.",
+    )
 
     @field_validator("ma_windows")
     @classmethod
