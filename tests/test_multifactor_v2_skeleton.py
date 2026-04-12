@@ -138,52 +138,39 @@ def test_v2_public_api_exists_and_callable() -> None:
 
 
 @pytest.mark.phase12
-def test_v2_version_marker_contains_skeleton() -> None:
-    """VERSION constant must exist and mark this as a skeleton scaffold."""
+def test_v2_version_marker() -> None:
+    """VERSION constant must exist and identify v2."""
     assert hasattr(multifactor_v2, "VERSION")
     assert isinstance(multifactor_v2.VERSION, str)
-    assert "skeleton" in multifactor_v2.VERSION.lower()
+    assert "multifactor_v2" in multifactor_v2.VERSION.lower()
 
 
 @pytest.mark.phase12
-def test_v2_pass_through_equivalence_to_v1() -> None:
-    """v2 skeleton must produce identical output to v1 on a small synthetic input."""
+def test_v2_produces_signals_like_v1() -> None:
+    """v2 must produce signals on the same input as v1 (same schema, may differ in values)."""
     prices = _build_prices_with_features(n_symbols=4, n_bars=60)
     cfg = {"min_signal_score": -10.0}
-    v1_out = multifactor_v1.compute_signals(prices, cfg)
     v2_out = multifactor_v2.compute_signals(prices, cfg)
-    assert len(v1_out) == len(v2_out)
-    if not v1_out.empty:
-        v1_sorted = v1_out.sort_values("symbol").reset_index(drop=True)
-        v2_sorted = v2_out.sort_values("symbol").reset_index(drop=True)
-        assert list(v1_sorted["symbol"]) == list(v2_sorted["symbol"])
-        for a, b in zip(v1_sorted["score"], v2_sorted["score"]):
-            assert abs(float(a) - float(b)) < 1e-12
+    # Both should produce signals (exact values will differ due to v2's extra factors)
+    assert isinstance(v2_out, pd.DataFrame)
+    if not v2_out.empty:
+        assert "symbol" in v2_out.columns
+        assert "score" in v2_out.columns
+        assert "direction" in v2_out.columns
 
 
 @pytest.mark.phase12
-def test_v2_factor_list_shape_and_weight_sum() -> None:
-    """_get_factor_list_v2 must return exactly 30 entries; additive weights ~1.0."""
-    factors = multifactor_v2._get_factor_list_v2()
-    assert isinstance(factors, list)
-    assert len(factors) == 30, f"expected 30 factors, got {len(factors)}"
+def test_v2_default_weights_shape_and_sum() -> None:
+    """DEFAULT_V2_WEIGHTS must have 29 additive factors summing to ~1.0."""
+    weights = multifactor_v2.DEFAULT_V2_WEIGHTS
+    assert isinstance(weights, dict)
+    assert len(weights) == 29, f"expected 29 factors, got {len(weights)}"
 
-    required_keys = {"id", "name", "dimension", "kind", "weight"}
-    names = set()
-    ids = set()
-    for f in factors:
-        assert required_keys.issubset(f.keys()), f"factor missing keys: {f}"
-        names.add(f["name"])
-        ids.add(f["id"])
-    assert len(names) == 30, "factor names must be unique"
-    assert ids == set(range(1, 31)), "factor ids must be 1..30"
-
-    additive_sum = sum(f["weight"] for f in factors if f["kind"] == "additive")
-    assert abs(additive_sum - 1.0) <= 0.02, (
-        f"additive factor weights should normalize to ~1.0 (tol 0.02); got {additive_sum:.4f}"
+    total = sum(weights.values())
+    assert abs(total - 1.0) <= 0.02, (
+        f"factor weights should sum to ~1.0 (tol 0.02); got {total:.4f}"
     )
 
-    # Factor 30 must be the multiplicative meta-model hook
-    factor_30 = next(f for f in factors if f["id"] == 30)
-    assert factor_30["kind"] == "multiplicative"
-    assert factor_30["name"] == "meta_model_confidence"
+    # All weights should be positive
+    for name, w in weights.items():
+        assert w > 0, f"weight for {name} must be positive, got {w}"

@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
 
-from assembled_core.risk.tail_dependence import (
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from src.assembled_core.risk.tail_dependence import (  # noqa: E402
     classify_tail_regime,
     compute_empirical_tail_dependence,
     compute_portfolio_tail_dependence_score,
