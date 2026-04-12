@@ -1,19 +1,17 @@
-"""Portfolio Value-at-Risk methods (C5a).
+"""Portfolio Value-at-Risk methods (C5a + C5b).
 
 This module provides a small, testable ``PortfolioVaR`` class offering several
 VaR methodologies used in institutional risk management.
 
-Scope of this pass (synchronous, no scipy):
+Methods:
     - historical_var      : empirical percentile of the portfolio return series
     - parametric_var      : Normal (Gaussian) VaR using mean and std
     - cornish_fisher_var  : Cornish-Fisher expansion correcting z_alpha for
                             sample skewness and (excess) kurtosis
     - expected_shortfall  : historical average of returns below the VaR threshold
                             (also known as CVaR)
-
-Deferred (Sprint 3):
-    - Monte-Carlo VaR (requires copulas)
-    - Component-VaR (requires full covariance-matrix wiring)
+    - monte_carlo_var     : Gaussian MC simulation from empirical cov matrix
+    - component_var       : Euler decomposition of portfolio VaR by asset
 
 Conventions
 -----------
@@ -259,3 +257,78 @@ class PortfolioVaR:
 
         es_1d = -float(np.mean(tail))
         return float(es_1d * math.sqrt(horizon))
+
+    # ------------------------------------------------------------------
+    # Monte-Carlo VaR (C5b)
+    # ------------------------------------------------------------------
+
+    def monte_carlo_var(
+        self,
+        alpha: float = 0.95,
+        horizon: int = 1,
+        n_sims: int = 10_000,
+        seed: int | None = 42,
+    ) -> float:
+        """Monte-Carlo VaR via multivariate Normal simulation.
+
+        Simulates ``n_sims`` joint return scenarios from the empirical mean
+        vector and covariance matrix of the asset returns, then computes the
+        portfolio return distribution and reads off the VaR quantile.
+
+        This is a Gaussian MC (no copula). For fat-tail MC, combine with
+        the EVT module (:mod:`evt_tail_var`).
+
+        Returns positive loss magnitude at ``alpha`` confidence.
+        """
+        self._validate_alpha(alpha)
+        self._validate_horizon(horizon)
+
+        rng = np.random.default_rng(seed)
+
+        # Empirical moments
+        mean_vec = self._returns.mean().to_numpy()
+        cov_mat = self._returns.cov().to_numpy()
+
+        # Simulate joint returns
+        sim_returns = rng.multivariate_normal(mean_vec, cov_mat, size=n_sims)
+        w = self._weights.reindex(self._returns.columns, fill_value=0.0).to_numpy()
+        portfolio_sims = sim_returns @ w
+
+        var_1d = -float(np.quantile(portfolio_sims, 1.0 - alpha))
+        return float(var_1d * math.sqrt(horizon))
+
+    # ------------------------------------------------------------------
+    # Component VaR (C5b)
+    # ------------------------------------------------------------------
+
+    def component_var(self, alpha: float = 0.95) -> pd.Series:
+        """Component VaR: contribution of each asset to portfolio VaR.
+
+        Uses the marginal VaR approach:
+            CVaR_i = w_i * (Sigma @ w)_i / sigma_p * VaR_portfolio
+
+        The sum of component VaRs equals the portfolio VaR (Euler
+        decomposition property).
+
+        Returns a Series indexed by asset symbols.
+        """
+        self._validate_alpha(alpha)
+
+        w = self._weights.reindex(self._returns.columns, fill_value=0.0)
+        cov_mat = self._returns.cov()
+        sigma_w = cov_mat.values @ w.values  # Sigma @ w
+        sigma_p = float(np.sqrt(w.values @ sigma_w))  # portfolio vol
+
+        if sigma_p < 1e-12:
+            return pd.Series(0.0, index=self._returns.columns, dtype=float)
+
+        portfolio_var = self.parametric_var(alpha, horizon=1)
+        marginal_var = sigma_w / sigma_p  # dVaR/dw_i (proportional)
+        component = w.values * marginal_var * (portfolio_var / sigma_p)
+
+        # Normalize so components sum exactly to portfolio_var
+        raw_sum = float(np.sum(component))
+        if abs(raw_sum) > 1e-12:
+            component = component * (portfolio_var / raw_sum)
+
+        return pd.Series(component, index=self._returns.columns, dtype=float)

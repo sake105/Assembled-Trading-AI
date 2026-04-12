@@ -218,3 +218,89 @@ def test_z_from_alpha_known_points() -> None:
         _z_from_alpha(0.0)
     with pytest.raises(ValueError):
         _z_from_alpha(1.0)
+
+
+# --------------------------------------------------------------------------- #
+# Monte-Carlo VaR (C5b)
+# --------------------------------------------------------------------------- #
+
+
+def test_mc_var_converges_to_parametric_for_gauss() -> None:
+    """With Gaussian returns, MC VaR should converge to parametric VaR."""
+    panel = _gauss_panel(n=10_000, sigma=0.01, seed=42)
+    w = pd.Series({"AAPL": 1.0})
+    pv = PortfolioVaR(panel, w)
+
+    mc = pv.monte_carlo_var(0.95, n_sims=50_000, seed=42)
+    param = pv.parametric_var(0.95)
+    # Should be within ~10% of each other for large n_sims
+    assert mc == pytest.approx(param, rel=0.15)
+
+
+def test_mc_var_two_symbols() -> None:
+    """MC VaR with 2 independent symbols should be less than single-symbol VaR."""
+    panel = _two_symbol_panel(n=5000, seed=7)
+    w_single = pd.Series({"AAPL": 1.0, "MSFT": 0.0})
+    w_diversified = pd.Series({"AAPL": 0.5, "MSFT": 0.5})
+
+    pv_single = PortfolioVaR(panel, w_single)
+    pv_div = PortfolioVaR(panel, w_diversified)
+
+    mc_single = pv_single.monte_carlo_var(0.95, seed=42)
+    mc_div = pv_div.monte_carlo_var(0.95, seed=42)
+    assert mc_div < mc_single  # diversification reduces VaR
+
+
+def test_mc_var_positive() -> None:
+    panel = _gauss_panel(n=2000, sigma=0.01, seed=42)
+    w = pd.Series({"AAPL": 1.0})
+    pv = PortfolioVaR(panel, w)
+    assert pv.monte_carlo_var(0.95) > 0
+
+
+def test_mc_var_alpha_monotone() -> None:
+    """Higher alpha → higher VaR (stricter confidence)."""
+    panel = _gauss_panel(n=5000, sigma=0.01, seed=42)
+    w = pd.Series({"AAPL": 1.0})
+    pv = PortfolioVaR(panel, w)
+
+    var_90 = pv.monte_carlo_var(0.90, seed=42)
+    var_95 = pv.monte_carlo_var(0.95, seed=42)
+    var_99 = pv.monte_carlo_var(0.99, seed=42)
+    assert var_90 < var_95 < var_99
+
+
+# --------------------------------------------------------------------------- #
+# Component VaR (C5b)
+# --------------------------------------------------------------------------- #
+
+
+def test_component_var_sums_to_portfolio_var() -> None:
+    """Euler decomposition: sum of component VaRs == portfolio VaR."""
+    panel = _two_symbol_panel(n=5000, seed=7)
+    w = pd.Series({"AAPL": 0.6, "MSFT": 0.4})
+    pv = PortfolioVaR(panel, w)
+
+    cvar = pv.component_var(0.95)
+    total_var = pv.parametric_var(0.95)
+    assert float(cvar.sum()) == pytest.approx(total_var, rel=1e-6)
+
+
+def test_component_var_has_correct_index() -> None:
+    panel = _two_symbol_panel(n=2000, seed=7)
+    w = pd.Series({"AAPL": 0.5, "MSFT": 0.5})
+    pv = PortfolioVaR(panel, w)
+
+    cvar = pv.component_var(0.95)
+    assert list(cvar.index) == ["AAPL", "MSFT"]
+
+
+def test_component_var_single_asset() -> None:
+    """With one asset, component VaR equals portfolio VaR."""
+    panel = _gauss_panel(n=3000, sigma=0.01, seed=42)
+    w = pd.Series({"AAPL": 1.0})
+    pv = PortfolioVaR(panel, w)
+
+    cvar = pv.component_var(0.95)
+    total = pv.parametric_var(0.95)
+    assert float(cvar["AAPL"]) == pytest.approx(total, rel=1e-6)
