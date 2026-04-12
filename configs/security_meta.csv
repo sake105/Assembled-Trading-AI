@@ -1,0 +1,31 @@
+symbol,sector,industry,region,currency,market_cap_tier
+AAPL,Information Technology,Technology Hardware,US,USD,mega
+ABBV,Health Care,Pharmaceuticals,US,USD,mega
+ADBE,Information Technology,Application Software,US,USD,mega
+AMZN,Consumer Discretionary,Internet Retail,US,USD,mega
+AVGO,Information Technology,Semiconductors,US,USD,mega
+COST,Consumer Staples,Warehouse Clubs,US,USD,mega
+CRM,Information Technology,Application Software,US,USD,mega
+CVX,Energy,Integrated Oil,US,USD,mega
+GOOGL,Communication Services,Interactive Media,US,USD,mega
+HD,Consumer Discretionary,Home Improvement,US,USD,mega
+JNJ,Health Care,Pharmaceuticals,US,USD,mega
+JPM,Financials,Diversified Banks,US,USD,mega
+KO,Consumer Staples,Soft Drinks,US,USD,mega
+LLY,Health Care,Pharmaceuticals,US,USD,mega
+MA,Financials,Transaction Processing,US,USD,mega
+MCD,Consumer Discretionary,Restaurants,US,USD,mega
+META,Communication Services,Interactive Media,US,USD,mega
+MRK,Health Care,Pharmaceuticals,US,USD,mega
+MSFT,Information Technology,Systems Software,US,USD,mega
+NFLX,Communication Services,Movies Entertainment,US,USD,mega
+NVDA,Information Technology,Semiconductors,US,USD,mega
+PEP,Consumer Staples,Soft Drinks,US,USD,mega
+PG,Consumer Staples,Household Products,US,USD,mega
+TMO,Health Care,Life Sciences Tools,US,USD,mega
+TSLA,Consumer Discretionary,Auto Manufacturers,US,USD,mega
+UNH,Health Care,Managed Health Care,US,USD,mega
+V,Financials,Transaction Processing,US,USD,mega
+WMT,Consumer Staples,Hypermarkets,US,USD,mega
+XOM,Energy,Integrated Oil,US,USD,mega
+SPY,Index,S&P 500 ETF,US,USD,macro_ref
