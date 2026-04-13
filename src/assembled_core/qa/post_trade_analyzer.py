@@ -9,6 +9,7 @@ PIT-safe: only uses price data available after trade close.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -209,3 +210,237 @@ def build_learning_record(
         record.update(extra)
 
     return record
+
+
+def analyze_and_learn(
+    trades_df: pd.DataFrame,
+    prices_df: pd.DataFrame,
+    factor_panel_df: pd.DataFrame | None = None,
+    regime_state_df: pd.DataFrame | None = None,
+    learning_store_path: Path | None = None,
+) -> dict:
+    """Extended post-trade analysis with factor attribution and regime context.
+
+    Extends compute_signal_hit_rate() with:
+    - Factor attribution per trade (if factor_panel_df provided)
+    - Regime context at entry (if regime_state_df provided)
+    - Signal-strength vs outcome binning (weak/medium/strong)
+    - Writes enriched records to learning store JSONL
+
+    Log prefix: [POST-TRADE]
+
+    Args:
+        trades_df: DataFrame with columns: event_ts, symbol, side/direction,
+            and optionally pnl, score.
+        prices_df: Price DataFrame with columns: timestamp, symbol, close.
+        factor_panel_df: Optional DataFrame with factor values per
+            (timestamp, symbol). If provided, factor columns (all non-index
+            columns except timestamp/symbol) are used for attribution.
+        regime_state_df: Optional DataFrame with columns: timestamp,
+            regime (or regime_label). Joined to trades by nearest timestamp.
+        learning_store_path: Path to JSONL store. If None, uses
+            DEFAULT_LEARNING_STORE_PATH from learning_store module.
+
+    Returns:
+        Summary dict with keys: hit_rate_summary, factor_attribution,
+        regime_breakdown, strength_bins, n_trades_analyzed, store_path.
+    """
+    from pathlib import Path as _Path
+
+    logger.info("[POST-TRADE] analyze_and_learn called with %d trades", len(trades_df) if trades_df is not None else 0)
+
+    result: dict[str, Any] = {
+        "hit_rate_summary": {},
+        "factor_attribution": [],
+        "regime_breakdown": {},
+        "strength_bins": {},
+        "n_trades_analyzed": 0,
+        "store_path": None,
+    }
+
+    # Guard: need at least some data
+    if trades_df is None or trades_df.empty:
+        logger.warning("[POST-TRADE] trades_df is empty — nothing to analyze")
+        return result
+    if prices_df is None or prices_df.empty:
+        logger.warning("[POST-TRADE] prices_df is empty — skipping analysis")
+        return result
+
+    # --- Step 1: Compute basic signal hit rate ---
+    try:
+        hit_df = compute_signal_hit_rate(trades_df, prices_df)
+        if not hit_df.empty:
+            total = int(hit_df["total_trades"].sum())
+            hits = int(hit_df["hits"].sum())
+            overall_hr = hits / total if total > 0 else 0.0
+            result["hit_rate_summary"] = {
+                "overall_hit_rate": round(overall_hr, 4),
+                "total_trades": total,
+                "hits": hits,
+                "per_symbol": hit_df.to_dict(orient="records"),
+            }
+            result["n_trades_analyzed"] = total
+            logger.info("[POST-TRADE] hit rate: %.3f (%d/%d)", overall_hr, hits, total)
+    except Exception as exc:
+        logger.warning("[POST-TRADE] compute_signal_hit_rate failed: %s", exc)
+
+    # --- Step 2: Build enriched trade records (merge factor/regime info) ---
+    enriched = trades_df.copy()
+
+    # Normalise timestamp column name
+    ts_col = "event_ts" if "event_ts" in enriched.columns else (
+        "timestamp" if "timestamp" in enriched.columns else None
+    )
+
+    # Attach factor values at entry
+    if factor_panel_df is not None and not factor_panel_df.empty and ts_col is not None:
+        try:
+            fp = factor_panel_df.copy()
+            # Identify factor columns (everything except timestamp/symbol)
+            meta_cols = {"timestamp", "symbol", "date"}
+            factor_cols = [c for c in fp.columns if c.lower() not in meta_cols]
+            if factor_cols:
+                fp_ts = "timestamp" if "timestamp" in fp.columns else fp.columns[0]
+                fp["_merge_ts"] = pd.to_datetime(fp[fp_ts], errors="coerce")
+                enriched["_merge_ts"] = pd.to_datetime(enriched[ts_col], errors="coerce")
+
+                # Merge on nearest timestamp + symbol if possible
+                sym_col_fp = "symbol" if "symbol" in fp.columns else None
+                sym_col_tr = "symbol" if "symbol" in enriched.columns else None
+
+                if sym_col_fp and sym_col_tr:
+                    merged = pd.merge_asof(
+                        enriched.sort_values("_merge_ts"),
+                        fp[["_merge_ts", sym_col_fp] + factor_cols].sort_values("_merge_ts"),
+                        on="_merge_ts",
+                        by=sym_col_fp,
+                        direction="backward",
+                        tolerance=pd.Timedelta(days=5),
+                    )
+                    enriched = merged
+                logger.info("[POST-TRADE] factor_panel merged, %d factor cols", len(factor_cols))
+        except Exception as exc:
+            logger.warning("[POST-TRADE] factor_panel merge failed: %s", exc)
+            factor_cols = []
+    else:
+        factor_cols = []
+
+    # Attach regime label at entry
+    if regime_state_df is not None and not regime_state_df.empty and ts_col is not None:
+        try:
+            rdf = regime_state_df.copy()
+            regime_ts_col = "timestamp" if "timestamp" in rdf.columns else rdf.columns[0]
+            regime_label_col = next(
+                (c for c in rdf.columns if "regime" in c.lower()), None
+            )
+            if regime_label_col:
+                rdf["_regime_ts"] = pd.to_datetime(rdf[regime_ts_col], errors="coerce")
+                enriched["_regime_ts"] = pd.to_datetime(enriched[ts_col], errors="coerce")
+                rdf_slim = rdf[["_regime_ts", regime_label_col]].sort_values("_regime_ts")
+                merged_r = pd.merge_asof(
+                    enriched.sort_values("_regime_ts"),
+                    rdf_slim,
+                    on="_regime_ts",
+                    direction="backward",
+                    tolerance=pd.Timedelta(days=5),
+                )
+                enriched = merged_r
+                logger.info("[POST-TRADE] regime column '%s' merged", regime_label_col)
+        except Exception as exc:
+            logger.warning("[POST-TRADE] regime merge failed: %s", exc)
+
+    # --- Step 3: Factor attribution ---
+    if factor_cols:
+        try:
+            from src.assembled_core.qa.learning_store import compute_factor_attribution
+            attr_df = compute_factor_attribution(enriched, factor_cols)
+            result["factor_attribution"] = attr_df.to_dict(orient="records")
+        except Exception as exc:
+            logger.warning("[POST-TRADE] factor_attribution failed: %s", exc)
+
+    # --- Step 4: Regime breakdown ---
+    try:
+        regime_col = next(
+            (c for c in enriched.columns if "regime" in c.lower() and c != "_regime_ts"),
+            None,
+        )
+        if regime_col:
+            pnl_col = "pnl" if "pnl" in enriched.columns else None
+            if pnl_col:
+                rbreakdown = (
+                    enriched.groupby(regime_col)[pnl_col]
+                    .agg(["mean", "count", "sum"])
+                    .rename(columns={"mean": "avg_pnl", "count": "n_trades", "sum": "total_pnl"})
+                )
+                result["regime_breakdown"] = rbreakdown.to_dict(orient="index")
+    except Exception as exc:
+        logger.warning("[POST-TRADE] regime breakdown failed: %s", exc)
+
+    # --- Step 5: Signal-strength binning (weak/medium/strong) ---
+    try:
+        score_col = "score" if "score" in enriched.columns else None
+        pnl_col = "pnl" if "pnl" in enriched.columns else None
+        if score_col and pnl_col:
+            scores = enriched[score_col].dropna()
+            if not scores.empty:
+                q33 = float(scores.quantile(0.33))
+                q66 = float(scores.quantile(0.66))
+
+                def _strength_bin(s: float) -> str:
+                    try:
+                        if s <= q33:
+                            return "weak"
+                        elif s <= q66:
+                            return "medium"
+                        else:
+                            return "strong"
+                    except Exception:
+                        return "unknown"
+
+                enriched = enriched.copy()
+                enriched["_strength_bin"] = enriched[score_col].apply(
+                    lambda x: _strength_bin(float(x)) if pd.notna(x) else "unknown"
+                )
+                bins_summary = (
+                    enriched.groupby("_strength_bin")[pnl_col]
+                    .agg(["mean", "count"])
+                    .rename(columns={"mean": "avg_pnl", "count": "n_trades"})
+                )
+                result["strength_bins"] = bins_summary.to_dict(orient="index")
+    except Exception as exc:
+        logger.warning("[POST-TRADE] strength binning failed: %s", exc)
+
+    # --- Step 6: Write enriched records to learning store ---
+    try:
+        from src.assembled_core.qa.learning_store import (
+            DEFAULT_LEARNING_STORE_PATH,
+            append_learning_record,
+        )
+        store_path = _Path(learning_store_path) if learning_store_path else DEFAULT_LEARNING_STORE_PATH
+
+        import uuid
+        from datetime import date
+
+        record = {
+            "run_id": str(uuid.uuid4())[:8],
+            "analysis_date": str(date.today()),
+            "n_trades_analyzed": result["n_trades_analyzed"],
+            "overall_hit_rate": result["hit_rate_summary"].get("overall_hit_rate"),
+            "factor_attribution": result["factor_attribution"],
+            "regime_breakdown": {
+                str(k): v for k, v in result["regime_breakdown"].items()
+            },
+            "strength_bins": result["strength_bins"],
+        }
+        append_learning_record(record, store_path)
+        result["store_path"] = str(store_path)
+        logger.info("[POST-TRADE] enriched record written to %s", store_path)
+    except Exception as exc:
+        logger.warning("[POST-TRADE] writing to learning store failed: %s", exc)
+
+    logger.info(
+        "[POST-TRADE] analyze_and_learn complete: %d trades, hit_rate=%s",
+        result["n_trades_analyzed"],
+        result["hit_rate_summary"].get("overall_hit_rate"),
+    )
+    return result

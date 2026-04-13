@@ -1,0 +1,47 @@
+# Self-Learning Configuration for Assembled-Trading-AI
+# Controls the autonomous improvement loop (Feedback, Retraining, Online Learning)
+
+self_learning:
+  enabled: true
+
+  feedback_loop:
+    check_interval_days: 5          # Check every 5 trading days
+    retrain_cooldown_days: 30       # Min 30 days between retrains
+    max_retrain_per_quarter: 4      # Hard limit: max 4 retrains per quarter
+    ic_degradation_threshold: -0.02 # IC drop that triggers investigation
+    require_oos_improvement: true   # New model must beat current on OOS
+    min_trades_for_evaluation: 50   # Min trades before evaluating performance
+
+  online_learning:
+    enabled: true
+    forgetting_factor: 0.97         # EWRLS lambda (effective window ~33 days)
+    max_online_updates_before_retrain: 100
+    performance_guard: -0.01        # Stop online updates if performance drops
+
+  retraining:
+    auto_deploy: false              # CRITICAL: human must approve new models
+    max_model_age_days: 90          # After 90 days, recommend retrain
+    calendar_retrain_interval_days: 90
+    regime_change_triggers_retrain: true
+
+  hyperopt:
+    enabled: true
+    n_trials: 50                    # Optuna trials
+    timeout_seconds: 3600           # 1 hour max
+    cpcv_check: true                # Validate top candidates with CPCV
+
+  guardrails:
+    min_oos_sharpe: 0.3
+    min_oos_auc: 0.52               # Must beat random
+    max_drawdown: 0.20              # 20% max drawdown
+    max_turnover_annual: 12.0       # Max 12x annual turnover
+    max_tree_depth: 8               # Prevent overly complex trees
+    max_train_test_gap: 0.30        # |train_sharpe - test_sharpe| / train_sharpe
+    min_cpcv_prob_positive: 0.60    # P(Sharpe > 0) from CPCV
+
+  monitoring:
+    report_after_each_run: true
+    alert_on_ic_degradation: true
+    alert_on_feature_drift: true
+    alert_on_calibration_error: true
+    shap_drift_check_monthly: true

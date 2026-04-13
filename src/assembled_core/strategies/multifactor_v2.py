@@ -1,13 +1,21 @@
-"""STRATEGY-V2: 30-factor multi-factor strategy with regime-conditional weights.
+"""STRATEGY-V2: 18-factor multi-factor strategy with regime-conditional weights.
 
-Extends v1's 15 technical factors with 14 additional alpha sources:
-  - Mean-reversion (factors 16-17): 3d reversal z-score, RSI-extreme-in-uptrend
-  - Sector rotation (18): SPDR ETF momentum bias per symbol's sector
-  - Event/Earnings (19-20): earnings surprise z, insider activity
-  - News/Macro (21-24): sentiment, volume spike, GDP momentum, CPI surprise
-  - Intermarket (25-26): bond-equity ratio, credit spread change
-  - Options (27-28): put-call extreme, VIX regime score
-  - Risk (29): inverse crash probability
+Active factors (18):
+  - Trend (1-4): EMA spread, MA200 position, ADX strength, MACD histogram
+  - Momentum (5-7): RSI centered, volume-weighted momentum, OBV trend
+  - Mean-reversion (8-9, 16-17): Bollinger %B, Stochastic, 3d reversal, RSI extreme
+  - Volume (10-11): abnormal volume, tick imbalance
+  - Volatility (12-13): regime score, VoV penalty
+  - Breadth (14-15): pct above MA, advance-decline slope
+  - Sector (18): rotation bias
+
+Crash probability is applied as a multiplicative scaler on the composite score,
+not as a z-scored additive factor.
+
+Factors 19-28 (earnings, insider, news, macro, intermarket, options) are
+structurally defined but excluded from DEFAULT_V2_WEIGHTS because they
+require external data sources not yet wired. They activate automatically
+once regime weights JSON includes them with non-zero weight.
 
 Factor 30 (meta-model confidence) is a multiplicative filter, not an additive
 summand. It gates signals via a min-confidence threshold and scales scores.
@@ -55,44 +63,38 @@ from src.assembled_core.strategies.multifactor_v1 import (
 logger = logging.getLogger(__name__)
 
 STRATEGY_VERSION = "v2"
-VERSION = "multifactor_v2.1.0"
+VERSION = "multifactor_v2.2.0"
 
 # ---------------------------------------------------------------------------
 # Default v2 factor weights (used when regime weights file is unavailable)
 # ---------------------------------------------------------------------------
 
 DEFAULT_V2_WEIGHTS: dict[str, float] = {
-    # --- v1 factors (re-calibrated) ---
-    "trend_ema_spread": 0.10,
-    "trend_ma200_position": 0.07,
-    "trend_adx_strength": 0.05,
-    "trend_macd_hist": 0.05,
-    "mom_rsi_centered": 0.06,
-    "mom_volume_weighted": 0.05,
-    "mom_obv_trend": 0.03,
-    "mr_bollinger_pctb": 0.04,
-    "mr_stoch_oversold": 0.03,
-    "vol_abnormal": 0.03,
-    "vol_tick_imbalance": 0.03,
-    "vola_regime_score": 0.03,
-    "vola_vov_penalty": 0.03,
-    "breadth_above_ma": 0.04,
-    "breadth_ad_line": 0.03,
-    # --- new v2 factors ---
-    "mr_zscore_reversal_3d": 0.03,
-    "mr_rsi_extreme_uptrend": 0.03,
-    "sector_rotation_bias": 0.05,
-    "earnings_surprise_z": 0.04,
-    "insider_activity_score": 0.03,
-    "news_sentiment_7d": 0.02,
-    "news_volume_spike": 0.02,
-    "macro_growth_momentum": 0.01,
-    "macro_inflation_surprise": 0.01,
-    "intermarket_bond_equity": 0.02,
-    "intermarket_credit_spread": 0.01,
-    "options_put_call_extreme": 0.02,
-    "vix_regime_score": 0.02,
-    "crash_probability_inverse": 0.02,
+    # --- v1 factors (re-calibrated, scaled to sum=1.0) ---
+    "trend_ema_spread": 0.13,
+    "trend_ma200_position": 0.09,
+    "trend_adx_strength": 0.06,
+    "trend_macd_hist": 0.06,
+    "mom_rsi_centered": 0.08,
+    "mom_volume_weighted": 0.06,
+    "mom_obv_trend": 0.04,
+    "mr_bollinger_pctb": 0.05,
+    "mr_stoch_oversold": 0.04,
+    "vol_abnormal": 0.04,
+    "vol_tick_imbalance": 0.04,
+    "vola_regime_score": 0.04,
+    "vola_vov_penalty": 0.04,
+    "breadth_above_ma": 0.05,
+    "breadth_ad_line": 0.04,
+    # --- v2 factors with working data sources ---
+    "mr_zscore_reversal_3d": 0.04,
+    "mr_rsi_extreme_uptrend": 0.04,
+    "sector_rotation_bias": 0.06,
+    # NOTE: factors 19-28 (earnings, insider, news, macro, intermarket, options)
+    # excluded -- they always return 0.0 without external data, diluting the
+    # composite score. They activate via regime weights JSON when data is wired.
+    # NOTE: crash_probability_inverse removed from additive weights; it is now
+    # applied as a multiplicative scaler on the final composite (see Fix 15).
 }
 
 # ---------------------------------------------------------------------------
@@ -172,6 +174,41 @@ def _detect_regime(df: pd.DataFrame, cfg: dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 # New factor computations (factors 16-29)
 # ---------------------------------------------------------------------------
+
+
+def _compute_breadth_ad_slope(df: pd.DataFrame) -> float:
+    """Factor 15: Advance-decline ratio slope (5-day).
+
+    Counts symbols where close > close_5d_ago (advances) vs
+    close < close_5d_ago (declines). Returns AD ratio centered
+    around 0: ratio = advances / (advances + declines), score = (ratio - 0.5) * 2.
+    This is genuinely different from breadth_above_ma (pct above MA50).
+    """
+    if df.empty or "symbol" not in df.columns or "close" not in df.columns:
+        return 0.0
+    try:
+        sorted_df = df.sort_values("timestamp")
+        latest = sorted_df.groupby("symbol", group_keys=False).tail(1)
+        hist_5d = sorted_df.groupby("symbol", group_keys=False).nth(-6)
+
+        if latest.empty or hist_5d.empty:
+            return 0.0
+
+        latest_prices = latest.set_index("symbol")["close"].astype(float)
+        hist_prices = hist_5d.set_index("symbol")["close"].astype(float)
+        common = latest_prices.index.intersection(hist_prices.index)
+        if len(common) < 2:
+            return 0.0
+
+        advances = (latest_prices[common] > hist_prices[common]).sum()
+        declines = (latest_prices[common] < hist_prices[common]).sum()
+        total = advances + declines
+        if total == 0:
+            return 0.0
+        ratio = float(advances) / float(total)
+        return (ratio - 0.5) * 2.0
+    except Exception:
+        return 0.0
 
 
 def _compute_mr_zscore_reversal_3d(df: pd.DataFrame) -> pd.Series:
@@ -408,7 +445,10 @@ def compute_signals(
     # --- Detect regime ---
     regime_label = _detect_regime(df, cfg)
     weights = _get_weights_for_regime(regime_label, cfg)
-    logger.info("[MF-V2] Regime=%s, using %d factor weights", regime_label, len(weights))
+    logger.info(
+        "[MF-V2] Regime=%s, %d weight entries, universe=%d symbols",
+        regime_label, len(weights), len(latest_symbols),
+    )
 
     # --- Compute raw factor values (factors 1-15 from v1) ---
     scores = pd.DataFrame({"symbol": latest["symbol"].values})
@@ -439,10 +479,9 @@ def compute_signals(
     scores["vola_regime_score"] = _volatility_regime_score(latest)
     scores["vola_vov_penalty"] = _vov_penalty(latest)
 
-    # Factors 14-15: Breadth
-    breadth_score = _compute_breadth_score(df)
-    scores["breadth_above_ma"] = breadth_score
-    scores["breadth_ad_line"] = breadth_score
+    # Factors 14-15: Breadth (two genuinely different signals)
+    scores["breadth_above_ma"] = _compute_breadth_score(df)
+    scores["breadth_ad_line"] = _compute_breadth_ad_slope(df)
 
     # --- New v2 factors (16-29) — defensive, all return NaN on failure ---
 
@@ -484,37 +523,53 @@ def compute_signals(
     scores["options_put_call_extreme"] = 0.0
     scores["vix_regime_score"] = 0.0
 
-    # Factor 29: Crash probability inverse
+    # Factor 29: Crash probability inverse -- computed but NOT added as z-scored
+    # factor (scalar gets zeroed by z-score). Applied as multiplier post-composite.
     crash_inv = _compute_crash_prob_inverse(df, cfg)
-    scores["crash_probability_inverse"] = crash_inv
 
     # --- Cross-sectional z-score per factor ---
+    # Use ddof=0 (population std) to avoid NaN for single-row universes.
+    # For very small universes (< 5 symbols), z-scoring is statistically
+    # meaningless, so use rank-normalization instead.
     factor_cols = [c for c in scores.columns if c != "symbol"]
+    n_rows = len(scores)
     for col in factor_cols:
         vals = scores[col].astype(float)
-        mean_v = vals.mean()
-        std_v = vals.std()
-        if std_v > 1e-10:
-            scores[col] = (vals - mean_v) / std_v
+        if n_rows < 5:
+            # Rank-normalize: rank / N, centered around 0
+            ranks = vals.rank(method="average", na_option="bottom")
+            scores[col] = ((ranks / max(n_rows, 1)) - 0.5) * 2.0
         else:
-            scores[col] = 0.0
+            mean_v = vals.mean()
+            std_v = vals.std(ddof=0)
+            if std_v > 1e-10:
+                scores[col] = (vals - mean_v) / std_v
+            else:
+                scores[col] = 0.0
         scores[col] = scores[col].clip(-3.0, 3.0)
 
     # --- Weighted composite with regime-conditional weights ---
+    # Fix 20: Only count factors that contributed non-zero values to avoid
+    # dead factors diluting the composite via their weight in total_weight.
     composite = pd.Series(0.0, index=scores.index)
     total_weight = 0.0
     used_factors = []
     for factor_name, weight in weights.items():
         if factor_name in scores.columns:
             factor_vals = scores[factor_name].fillna(0.0)
-            composite += weight * factor_vals
-            total_weight += weight
-            used_factors.append(factor_name)
+            if factor_vals.abs().sum() > 1e-10:
+                composite += weight * factor_vals
+                total_weight += weight
+                used_factors.append(factor_name)
 
     if total_weight > 0:
         composite = composite / total_weight
 
-    # --- Regime exposure multiplier ---
+    # --- Regime + crash exposure multiplier ---
+    # crash_probability is applied ONLY via _crash_prediction_multiplier as a
+    # risk-overlay exposure scaler (0.0–1.0). No separate additive/scaler
+    # application — that would double-count.
+    #
     regime_mult = REGIME_EXPOSURE.get(regime_label, 0.70)
     crash_mult = _crash_prediction_multiplier(df, cfg)
     exposure_mult = regime_mult * crash_mult
@@ -562,8 +617,10 @@ def compute_signals(
             logger.debug("[MF-V2] meta_model filter skipped: %s", exc)
 
     logger.info(
-        "[MF-V2] %d LONG signals from %d symbols (regime=%s, mult=%.2f, factors=%d)",
-        len(result), len(latest), regime_label, exposure_mult, len(used_factors),
+        "[MF-V2] %d LONG signals from %d symbols "
+        "(regime=%s, exposure=%.2f, crash_scaler=%.3f, active_factors=%d/%d)",
+        len(result), len(latest), regime_label, exposure_mult,
+        crash_scaler, len(used_factors), len(weights),
     )
     return result
 

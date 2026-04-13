@@ -105,11 +105,25 @@ class StackedEnsemble:
         if not self.base_configs:
             raise ValueError("base_configs is empty — add at least one MLModelConfig")
 
-        # Prepare dataset
-        X, y = prepare_ml_dataset(panel_df, experiment, feature_cols=feature_cols,
+        # Prepare dataset -- set feature_cols on experiment if provided
+        if feature_cols is not None:
+            experiment.feature_cols = feature_cols
+        X, y = prepare_ml_dataset(panel_df, experiment,
                                    timestamp_col=timestamp_col, symbol_col=symbol_col)
+        # Reset index to 0..N-1 so positional and label indexing are identical.
+        # prepare_ml_dataset may leave gaps after dropna/feature filtering.
+        X = X.reset_index(drop=True)
+        y = y.reset_index(drop=True)
         self._feature_cols = list(X.columns)
-        splits = list(_split_time_series(y.index, experiment))
+        n_total = len(X)
+        splits = []
+        for i in range(experiment.n_splits):
+            test_start = n_total * (i + 1) // (experiment.n_splits + 1)
+            test_end = min(n_total * (i + 2) // (experiment.n_splits + 1), n_total)
+            train_idx = list(range(test_start))
+            test_idx = list(range(test_start, test_end))
+            if len(train_idx) > 0 and len(test_idx) > 0:
+                splits.append((train_idx, test_idx))
         if not splits:
             raise ValueError("No CV splits generated — check experiment config")
 

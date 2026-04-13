@@ -59,20 +59,25 @@ def test_empty_prices_returns_empty() -> None:
     assert out.empty
 
 
-def test_delegation_equivalence_when_meta_disabled() -> None:
-    """v2 must equal v1 when meta_model is disabled (default)."""
+def test_v2_produces_signals_consistent_with_v1() -> None:
+    """v2 should select the same symbols as v1 (scores may differ).
+
+    Exact score equivalence is NOT expected because v2 has:
+    - different breadth_ad_line (advance-decline slope vs pct above MA)
+    - crash_probability as multiplicative scaler instead of z-scored factor
+    - dead-factor exclusion from weight budget
+    - ddof=0 z-scoring and small-universe rank fallback
+    """
     prices = _build_prices_with_features()
     v1_out = multifactor_v1.compute_signals(prices, {"min_signal_score": -10.0})
     v2_out = multifactor_v2.compute_signals(prices, {"min_signal_score": -10.0})
     # Same row count
     assert len(v1_out) == len(v2_out)
     if not v1_out.empty:
-        # Same symbols, same scores
-        v1_sorted = v1_out.sort_values("symbol").reset_index(drop=True)
-        v2_sorted = v2_out.sort_values("symbol").reset_index(drop=True)
-        assert list(v1_sorted["symbol"]) == list(v2_sorted["symbol"])
-        for a, b in zip(v1_sorted["score"], v2_sorted["score"]):
-            assert abs(a - b) < 1e-12
+        # Same symbols selected
+        v1_syms = sorted(v1_out["symbol"].tolist())
+        v2_syms = sorted(v2_out["symbol"].tolist())
+        assert v1_syms == v2_syms
 
 
 def test_meta_model_missing_file_falls_back() -> None:
@@ -161,10 +166,14 @@ def test_v2_produces_signals_like_v1() -> None:
 
 @pytest.mark.phase12
 def test_v2_default_weights_shape_and_sum() -> None:
-    """DEFAULT_V2_WEIGHTS must have 29 additive factors summing to ~1.0."""
+    """DEFAULT_V2_WEIGHTS must have 18 active factors summing to ~1.0.
+
+    12 dead factors (19-28 + crash_prob_inverse) removed to avoid
+    diluting the composite score with zero-valued factors.
+    """
     weights = multifactor_v2.DEFAULT_V2_WEIGHTS
     assert isinstance(weights, dict)
-    assert len(weights) == 29, f"expected 29 factors, got {len(weights)}"
+    assert len(weights) == 18, f"expected 18 active factors, got {len(weights)}"
 
     total = sum(weights.values())
     assert abs(total - 1.0) <= 0.02, (

@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from typing import Literal
 
+import numpy as np
+
 import pandas as pd
 
 LabelType = Literal["binary_outperformance", "binary_absolute", "multi_class"]
@@ -613,4 +615,145 @@ def generate_trade_labels(
             drop=True
         )
 
+    return result_df
+
+
+# ---------------------------------------------------------------------------
+# Triple-Barrier Labeling (Lopez de Prado)
+# ---------------------------------------------------------------------------
+
+
+def generate_triple_barrier_labels(
+    prices: pd.DataFrame,
+    signals: pd.DataFrame,
+    profit_target: float = 0.03,
+    stop_loss: float = 0.02,
+    max_holding: int = 10,
+) -> pd.DataFrame:
+    """Generate triple-barrier meta-labels (Lopez de Prado).
+
+    For each signal at time t, three barriers race:
+    1. Upper barrier: cumulative return >= +profit_target  → label = 1
+    2. Lower barrier: cumulative return <= -stop_loss      → label = 0
+    3. Time barrier:  max_holding days elapsed             → label based on final return
+
+    This captures path-dependency: a trade that hits +5% but first drawdowns -3%
+    is fundamentally different from one that goes straight to +5%.
+
+    Args:
+        prices: DataFrame with columns [timestamp, symbol, close].
+        signals: DataFrame with columns [timestamp, symbol] (+ optional direction, score).
+        profit_target: Upper barrier as fraction (default 0.03 = 3%).
+        stop_loss: Lower barrier as fraction (default 0.02 = 2%).  Positive number.
+        max_holding: Maximum holding period in trading days (default 10).
+
+    Returns:
+        DataFrame with columns:
+        - timestamp, symbol: from signals
+        - label: 1 (profit target hit first), 0 (stop-loss hit first or negative at expiry)
+        - barrier_hit: "profit_target" | "stop_loss" | "time_barrier"
+        - realized_return: cumulative return at barrier hit
+        - holding_days: actual days held until barrier hit
+        - max_drawdown: worst cumulative return during the holding period
+        - max_runup: best cumulative return during the holding period
+        - entry_price, exit_price
+        - All original signal columns preserved
+    """
+    if prices.empty or signals.empty:
+        return pd.DataFrame()
+
+    prices = prices.copy()
+    signals = signals.copy()
+    prices["timestamp"] = pd.to_datetime(prices["timestamp"], utc=True)
+    signals["timestamp"] = pd.to_datetime(signals["timestamp"], utc=True)
+
+    prices = prices.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
+    prices_by_symbol: dict[str, pd.DataFrame] = {
+        sym: grp.reset_index(drop=True) for sym, grp in prices.groupby("symbol", sort=False)
+    }
+
+    results: list[dict] = []
+
+    for _, signal in signals.iterrows():
+        symbol = signal["symbol"]
+        signal_time = signal["timestamp"]
+
+        sym_prices = prices_by_symbol.get(symbol)
+        if sym_prices is None or sym_prices.empty:
+            continue
+
+        # Find entry index: first close on or after signal time
+        mask = sym_prices["timestamp"] >= signal_time
+        if not mask.any():
+            continue
+        entry_idx = mask.idxmax()
+        entry_price = float(sym_prices.at[entry_idx, "close"])
+
+        # Forward window: next max_holding trading days
+        fwd_start = entry_idx + 1
+        fwd_end = min(entry_idx + 1 + max_holding, len(sym_prices))
+        if fwd_start >= len(sym_prices):
+            continue
+
+        fwd_slice = sym_prices.iloc[fwd_start:fwd_end]
+        if fwd_slice.empty:
+            continue
+
+        # Cumulative returns relative to entry
+        cum_returns = fwd_slice["close"].values / entry_price - 1.0
+
+        # Search for first barrier hit
+        barrier_hit = "time_barrier"
+        hit_idx = len(cum_returns) - 1  # default: time barrier
+        realized_return = float(cum_returns[-1])
+
+        for i, cr in enumerate(cum_returns):
+            if cr >= profit_target:
+                barrier_hit = "profit_target"
+                hit_idx = i
+                realized_return = float(cr)
+                break
+            if cr <= -stop_loss:
+                barrier_hit = "stop_loss"
+                hit_idx = i
+                realized_return = float(cr)
+                break
+
+        # Compute path stats up to barrier hit
+        path = cum_returns[: hit_idx + 1]
+        max_drawdown = float(np.min(path)) if len(path) > 0 else 0.0
+        max_runup = float(np.max(path)) if len(path) > 0 else 0.0
+        holding_days = hit_idx + 1
+
+        # Label: 1 if profit target hit, or positive at time barrier
+        if barrier_hit == "profit_target":
+            label = 1
+        elif barrier_hit == "stop_loss":
+            label = 0
+        else:
+            label = 1 if realized_return > 0 else 0
+
+        exit_price = float(fwd_slice.iloc[hit_idx]["close"])
+
+        row: dict = {}
+        # Preserve all original signal columns
+        for col in signal.index:
+            row[col] = signal[col]
+        row["label"] = label
+        row["barrier_hit"] = barrier_hit
+        row["realized_return"] = realized_return
+        row["holding_days"] = holding_days
+        row["max_drawdown"] = max_drawdown
+        row["max_runup"] = max_runup
+        row["entry_price"] = entry_price
+        row["exit_price"] = exit_price
+
+        results.append(row)
+
+    if not results:
+        return pd.DataFrame()
+
+    result_df = pd.DataFrame(results)
+    if "timestamp" in result_df.columns and "symbol" in result_df.columns:
+        result_df = result_df.sort_values(["timestamp", "symbol"]).reset_index(drop=True)
     return result_df

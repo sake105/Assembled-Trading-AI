@@ -1940,3 +1940,121 @@ def _write_aggregated_artifacts(
         )
 
     logger.debug(f"Updated aggregated artifacts in {aggregates_dir}")
+
+
+# ---------------------------------------------------------------------------
+# Unified engine delegation (policy-driven routing)
+# ---------------------------------------------------------------------------
+
+def run_unified_paper_day_if_configured(
+    config: PaperTrackConfig,
+    as_of: pd.Timestamp,
+    state_path: Path | None = None,
+    prices: pd.DataFrame | None = None,
+    dry_run: bool = False,
+) -> "PaperTrackDayResult | None":
+    """Route a paper trading day to UnifiedPaperEngine when policy demands it.
+
+    Reads configs/policy.yaml. If paper_trading.engine == "unified", delegates
+    to UnifiedPaperEngine and returns a lightweight PaperTrackDayResult wrapper.
+    Returns None if the unified engine is not configured, so the caller can fall
+    back to the legacy run_paper_day() path.
+
+    Integration points wired inside UnifiedPaperEngine:
+    - FillModel (execution/fill_model.py)  -- spread + Almgren-Chriss impact
+    - Ledger  (accounting/ledger.py)       -- Parquet ledger events
+    - Reconciliation (accounting/reconciliation.py) -- position cross-check
+    - SmartOrderRouter (execution/smart_order_router.py) -- venue selection
+
+    Args:
+        config:     PaperTrackConfig (seed_capital used if policy omits it).
+        as_of:      Trading date (UTC timestamp).
+        state_path: Unused by unified engine (it uses its own state_dir); kept
+                    for API compatibility with run_paper_day().
+        prices:     Optional price DataFrame forwarded to UnifiedPaperEngine.
+        dry_run:    If True, no state or ledger writes occur.
+
+    Returns:
+        PaperTrackDayResult on successful delegation, None if not unified mode.
+    """
+    try:
+        from src.assembled_core.config.policy_loader import load_policy
+    except Exception as exc:
+        logger.warning("[UNIFIED-PAPER] policy_loader unavailable: %s", exc)
+        return None
+
+    try:
+        policy = load_policy()
+    except Exception as exc:
+        logger.warning("[UNIFIED-PAPER] load_policy failed: %s", exc)
+        return None
+
+    pt_cfg = policy.get("paper_trading") or {}
+    engine_name = str(pt_cfg.get("engine") or "legacy").strip().lower()
+
+    if engine_name != "unified":
+        logger.debug("[UNIFIED-PAPER] engine=%s -- skipping unified delegation", engine_name)
+        return None
+
+    logger.info("[UNIFIED-PAPER] Routing %s to UnifiedPaperEngine", as_of.date())
+
+    try:
+        from src.assembled_core.execution.unified_paper_engine import (
+            UnifiedPaperConfig,
+            UnifiedPaperEngine,
+        )
+    except Exception as exc:
+        logger.error("[UNIFIED-PAPER] Cannot import UnifiedPaperEngine: %s", exc)
+        return None
+
+    seed_capital = float(pt_cfg.get("seed_capital") or config.seed_capital)
+    enable_ledger = bool(pt_cfg.get("enable_ledger", True))
+    enable_reconciliation = bool(pt_cfg.get("enable_reconciliation", True))
+    enable_fat_finger = bool(pt_cfg.get("enable_fat_finger", True))
+
+    unified_cfg = UnifiedPaperConfig(
+        seed_capital=seed_capital,
+        enable_ledger=enable_ledger,
+        enable_reconciliation=enable_reconciliation,
+        enable_fat_finger=enable_fat_finger,
+        run_id=f"unified_{config.strategy_name}",
+    )
+
+    try:
+        engine = UnifiedPaperEngine(unified_cfg)
+        day_result = engine.run_paper_day(
+            as_of_date=as_of.strftime("%Y-%m-%d"),
+            prices=prices,
+            dry_run=dry_run,
+        )
+    except Exception as exc:
+        logger.error("[UNIFIED-PAPER] UnifiedPaperEngine.run_paper_day failed: %s", exc)
+        return None
+
+    # Wrap into PaperTrackDayResult for API compatibility
+    now = pd.Timestamp.now("UTC")
+    state_stub = PaperTrackState(
+        strategy_name=config.strategy_name,
+        last_run_date=as_of,
+        cash=day_result.equity_after,
+        equity=day_result.equity_after,
+        seed_capital=seed_capital,
+        total_pnl=day_result.equity_after - seed_capital,
+        created_at=now,
+        updated_at=now,
+    )
+
+    return PaperTrackDayResult(
+        date=as_of,
+        config=config,
+        state_before=state_stub,
+        state_after=state_stub,
+        orders=pd.DataFrame(),
+        daily_return_pct=day_result.daily_return * 100.0,
+        daily_pnl=day_result.equity_after - day_result.equity_before,
+        trades_count=day_result.n_fills,
+        buy_count=0,
+        sell_count=0,
+        status=day_result.status if day_result.status in ("success", "error") else "error",
+        error_message="; ".join(day_result.errors) if day_result.errors else None,
+    )

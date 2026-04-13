@@ -176,7 +176,7 @@ class TradingContext:
     """
 
     # Feature building
-    use_factor_store: bool = False
+    use_factor_store: bool = True
     factor_store_root: Path | None = None
     factor_group: str = "core_ta"
     feature_config: dict[str, Any] | FeatureConfig | None = None
@@ -1245,12 +1245,15 @@ def _apply_risk_controls_default(
 
         return filtered_orders
     except Exception as e:
-        # If risk controls fail, log warning and pass through orders
+        # CRITICAL: risk controls failed -- block ALL orders for safety.
+        # Never pass through unfiltered orders when risk checks are broken.
         log = ctx.logger if ctx.logger is not None else logger
-        log.warning(
-            f"Risk controls failed: {e}. Passing through orders without filtering."
+        log.critical(
+            "[RISK-SAFETY] Risk controls raised %s: %s. "
+            "BLOCKING all %d orders. Fix the risk module before trading.",
+            type(e).__name__, e, len(orders),
         )
-        return orders.copy()
+        return []
 
 
 def run_trading_cycle(
@@ -1309,6 +1312,45 @@ def run_trading_cycle(
     """
     # Use context logger or module logger
     log = ctx.logger if ctx.logger is not None else logger
+
+    # Fix 13: In backtest mode, snapshot kill-switch state so a circuit-breaker
+    # trip on one bar does not permanently affect subsequent bars.
+    _ks_state_backup: bool | None = None
+    _is_backtest = getattr(ctx, "mode", None) in ("backtest", "bt")
+    if _is_backtest:
+        try:
+            from src.assembled_core.execution.kill_switch import is_kill_switch_engaged
+            _ks_state_backup = is_kill_switch_engaged()
+        except Exception as _ks_err:
+            log.warning("[KS-BACKUP] kill-switch state snapshot failed: %s", _ks_err)
+
+    try:
+        return _run_trading_cycle_inner(ctx, hooks=hooks, log=log)
+    finally:
+        if _ks_state_backup is not None and not _ks_state_backup and _is_backtest:
+            try:
+                from src.assembled_core.execution.kill_switch import (
+                    deactivate_kill_switch,
+                    is_kill_switch_engaged,
+                )
+                if is_kill_switch_engaged():
+                    deactivate_kill_switch(
+                        reason="backtest_bar_restore",
+                        actor="trading_cycle_backtest_guard",
+                    )
+            except Exception as _ks_err:
+                log.warning("[KS-RESTORE] kill-switch state restore failed: %s", _ks_err)
+
+
+def _run_trading_cycle_inner(
+    ctx: "TradingContext",
+    *,
+    hooks: "dict[str, Callable] | None" = None,
+    log: "logging.Logger | None" = None,
+) -> "TradingCycleResult":
+    """Inner implementation of run_trading_cycle (extracted to support backtest KS guard)."""
+    if log is None:
+        log = logger
 
     # Initialize result
     result = TradingCycleResult(
@@ -1550,7 +1592,7 @@ def run_trading_cycle(
                     cb_trip["reason"],
                 )
         except Exception as e:
-            logger.debug("circuit_breaker_daily check skipped: %s", e)
+            logger.warning("[RISK-SAFETY] circuit_breaker_daily check failed: %s — breaker may not engage", e)
 
         # Disclosures confirm (DISCL-4.2): boost news_geo.geo_confidence when disclosures triggers sev >= 1
         try:
@@ -1848,6 +1890,187 @@ def run_trading_cycle(
     except Exception as e:
         log.debug("zombie_killer check skipped: %s", e)
 
+    # Step 3.1: Intel signal layer (Phase 9 / Plan 1.5)
+    # Gated by policy intel.signal_layer.enabled — skip cleanly if missing
+    try:
+        intel_sig_cfg = (policy.get("intel") or {}).get("signal_layer") or {}
+        if intel_sig_cfg.get("enabled", False) and not result.signals.empty:
+            from src.assembled_core.signals.intel_signal_adapter import (
+                IntelSignalAdapter,
+                compute_symbol_intel_scores,
+            )
+            # Gather intel dimensions from ctx if wired
+            sector_impacts = getattr(ctx, "intel_sector_impacts", None)
+            supply_vuln = getattr(ctx, "intel_supply_vulnerability", None)
+            sanctions_ben = getattr(ctx, "intel_sanctions_beneficiary", None)
+            chokepoint_exp = getattr(ctx, "intel_chokepoint_exposure", None)
+            intel_conf = getattr(ctx, "intel_confidence", None)
+
+            if any(x is not None for x in [sector_impacts, supply_vuln, sanctions_ben, chokepoint_exp]):
+                raw_scores = compute_symbol_intel_scores(
+                    sector_impacts=sector_impacts,
+                    supply_chain_vulnerability=supply_vuln,
+                    sanctions_beneficiary=sanctions_ben,
+                    chokepoint_exposure=chokepoint_exp,
+                    confidence=intel_conf,
+                )
+                if raw_scores and "score" in result.signals.columns:
+                    intel_weight = float(intel_sig_cfg.get("weight", 0.15))
+                    for idx, row in result.signals.iterrows():
+                        sym = row.get("symbol", "")
+                        if sym in raw_scores:
+                            result.signals.at[idx, "score"] = (
+                                float(row["score"]) + intel_weight * raw_scores[sym]
+                            )
+                    result.meta["intel_signal_layer"] = {
+                        "n_symbols": len(raw_scores),
+                        "weight": intel_weight,
+                    }
+                    log.info("[INTEL] signal layer applied: %d symbols scored", len(raw_scores))
+
+            # Also wire shock beneficiaries if active shocks in context
+            active_shocks = getattr(ctx, "intel_active_shocks", None)
+            if active_shocks:
+                adapter = IntelSignalAdapter(
+                    allow_short_signals=intel_sig_cfg.get("allow_short", False),
+                    min_confidence=float(intel_sig_cfg.get("min_confidence", 0.50)),
+                )
+                shock_df = adapter.enrich_signals_with_shock_beneficiaries(
+                    active_shocks,
+                    base_confidence=float(intel_sig_cfg.get("shock_confidence", 0.60)),
+                )
+                if not shock_df.empty:
+                    # Add shock-derived symbols not already in signals
+                    existing_syms = set(result.signals["symbol"].values)
+                    new_shock = shock_df[~shock_df["symbol"].isin(existing_syms)].copy()
+                    if not new_shock.empty:
+                        new_shock["timestamp"] = ctx.as_of or pd.Timestamp.now("UTC")
+                        new_shock["direction"] = "LONG"
+                        result.signals = pd.concat([result.signals, new_shock[["timestamp", "symbol", "direction", "score"]]], ignore_index=True)
+                        log.info("[INTEL] %d shock beneficiary signals added", len(new_shock))
+    except Exception as _e:
+        log.debug("[INTEL] intel_signal_layer skipped: %s", _e)
+
+    # Step 3.2: Sector rotation signals (Phase 9)
+    # Gated by policy signal_generation.sector_rotation.enabled
+    try:
+        sr_cfg = (policy.get("signal_generation") or {}).get("sector_rotation") or {}
+        if sr_cfg.get("enabled", False):
+            from src.assembled_core.signals.sector_rotation import (
+                generate_sector_rotation_signals,
+                get_sector_weights,
+            )
+            # Build a scores_row from available prices or context
+            scores_row = getattr(ctx, "sector_rotation_scores", None)
+            if scores_row is not None:
+                sr_signals = generate_sector_rotation_signals(scores_row)
+                sr_weights = get_sector_weights(
+                    sr_signals,
+                    long_weight=float(sr_cfg.get("long_weight", 0.12)),
+                    short_weight=float(sr_cfg.get("short_weight", 0.08)),
+                )
+                if sr_weights:
+                    ts_now = ctx.as_of or pd.Timestamp.now("UTC")
+                    existing_syms = set(result.signals["symbol"].values) if not result.signals.empty else set()
+                    sr_rows = []
+                    for sym, w in sr_weights.items():
+                        if sym not in existing_syms:
+                            sr_rows.append({
+                                "timestamp": ts_now,
+                                "symbol": sym,
+                                "direction": "LONG" if w > 0 else "SHORT",
+                                "score": round(w, 4),
+                            })
+                    if sr_rows:
+                        result.signals = pd.concat(
+                            [result.signals, pd.DataFrame(sr_rows)], ignore_index=True
+                        )
+                    result.meta["sector_rotation"] = {
+                        "longs": sr_signals.longs,
+                        "shorts": sr_signals.shorts,
+                        "is_risk_off": sr_signals.is_risk_off,
+                        "negative_count": sr_signals.negative_count,
+                    }
+                    log.info(
+                        "[SIGNAL-DIAG] sector_rotation: longs=%s shorts=%s risk_off=%s",
+                        sr_signals.longs, sr_signals.shorts, sr_signals.is_risk_off,
+                    )
+    except Exception as _e:
+        log.debug("[SIGNAL-DIAG] sector_rotation skipped: %s", _e)
+
+    # Step 3.3: Earnings guard — suppress signals pre-earnings (Phase 9)
+    # Gated by policy signal_generation.earnings_guard.enabled
+    try:
+        eg_cfg = (policy.get("signal_generation") or {}).get("earnings_guard") or {}
+        if eg_cfg.get("enabled", False) and not result.signals.empty:
+            from src.assembled_core.signals.earnings_integration import apply_earnings_integration
+
+            earnings_calendar = getattr(ctx, "earnings_calendar", None)
+            earnings_events = getattr(ctx, "earnings_events", None)
+            as_of_for_earnings = ctx.as_of or pd.Timestamp.now("UTC")
+
+            if earnings_calendar is not None or earnings_events is not None:
+                adjusted_signals, earnings_result = apply_earnings_integration(
+                    result.signals,
+                    earnings_calendar=earnings_calendar,
+                    earnings_events=earnings_events,
+                    as_of=as_of_for_earnings,
+                    suppress_window=int(eg_cfg.get("suppress_window", 3)),
+                    pead_window_days=int(eg_cfg.get("pead_window_days", 60)),
+                    pead_weight=float(eg_cfg.get("pead_weight", 0.15)),
+                )
+                result.signals = adjusted_signals
+                result.meta["earnings_guard"] = {
+                    "suppressed": earnings_result.suppressed_symbols,
+                    "pead_count": len(earnings_result.pead_signals),
+                    "concentration_warning": earnings_result.concentration_warning,
+                    "pct_near_earnings": earnings_result.pct_near_earnings,
+                }
+                if earnings_result.suppressed_symbols:
+                    log.info(
+                        "[SIGNAL-DIAG] earnings_guard: suppressed %d symbols %s",
+                        len(earnings_result.suppressed_symbols),
+                        earnings_result.suppressed_symbols,
+                    )
+    except Exception as _e:
+        log.debug("[SIGNAL-DIAG] earnings_guard skipped: %s", _e)
+
+    # Step 3.4: Bayesian signal confidence scoring (Phase 9 / Plan 1.9)
+    # Applied when policy signal_generation.bayesian_confidence.enabled is true
+    try:
+        bc_cfg = (policy.get("signal_generation") or {}).get("bayesian_confidence") or {}
+        if bc_cfg.get("enabled", False) and not result.signals.empty and "score" in result.signals.columns:
+            from src.assembled_core.signals.signal_confidence import (
+                compute_signal_confidence,
+                confidence_position_scaler,
+            )
+            current_scores = result.signals.set_index("symbol")["score"].dropna()
+            if len(current_scores) >= 2:
+                historical_scores = getattr(ctx, "signal_historical_scores", None)
+                confidences = compute_signal_confidence(
+                    current_scores,
+                    historical_scores=historical_scores,
+                    ci_level=float(bc_cfg.get("ci_level", 0.90)),
+                )
+                # Scale scores by confidence width (narrow CI = more confident = larger position)
+                for idx, row in result.signals.iterrows():
+                    sym = row.get("symbol", "")
+                    if sym in confidences:
+                        scaler = confidence_position_scaler(
+                            confidences[sym],
+                            max_scale=float(bc_cfg.get("max_scale", 1.5)),
+                            min_scale=float(bc_cfg.get("min_scale", 0.5)),
+                        )
+                        result.signals.at[idx, "score"] = float(row["score"]) * scaler
+                avg_width = sum(c.confidence_width for c in confidences.values()) / max(len(confidences), 1)
+                result.meta["bayesian_confidence"] = {
+                    "n_symbols": len(confidences),
+                    "avg_ci_width": round(avg_width, 4),
+                }
+                log.info("[SIGNAL-DIAG] bayesian_confidence: %d symbols, avg_ci_width=%.4f", len(confidences), avg_width)
+    except Exception as _e:
+        log.debug("[SIGNAL-DIAG] bayesian_confidence skipped: %s", _e)
+
     # Step 3.5: Crash prediction + short signal generation
     try:
         shorts_policy = policy.get("shorts", {})
@@ -1941,9 +2164,8 @@ def run_trading_cycle(
             # Policy-driven sizing method dispatch
             sizing_cfg = policy.get("position_sizing") or {}
             sizing_method = sizing_cfg.get("method", "default")
-            if sizing_method != "default" and ctx.position_sizing_fn is not None:
-                # Use the caller-provided function (backward compatible)
-                sizing_method = "default"
+            # Policy-driven sizing takes precedence over caller fn.
+            # Only fall back to caller fn when policy says "default".
 
             if sizing_method == "kelly":
                 from src.assembled_core.portfolio.position_sizing import (
@@ -2051,6 +2273,82 @@ def run_trading_cycle(
                     result.meta["sizing_method"] = "black_litterman"
                 except Exception as e:
                     log.warning("Black-Litterman sizing failed, using default: %s", e)
+                    result.target_positions = ctx.position_sizing_fn(result.signals, ctx.capital)
+            elif sizing_method == "cost_aware":
+                # [RISK-WIRE] Cost-aware optimizer (turnover-penalized MVO)
+                try:
+                    from src.assembled_core.portfolio.cost_aware_optimizer import (
+                        OptimizerConfig,
+                        optimize_portfolio,
+                    )
+                    from src.assembled_core.portfolio.covariance import estimate_covariance
+
+                    prices_for_cao = (
+                        result.prices_filtered if result.prices_filtered is not None else ctx.prices
+                    )
+                    if (
+                        prices_for_cao is not None
+                        and not prices_for_cao.empty
+                        and not result.signals.empty
+                        and "symbol" in result.signals.columns
+                    ):
+                        _ts_col = "timestamp" if "timestamp" in prices_for_cao.columns else prices_for_cao.columns[0]
+                        if "close" in prices_for_cao.columns and "symbol" in prices_for_cao.columns:
+                            _pivot_cao = prices_for_cao.pivot_table(
+                                index=_ts_col, columns="symbol", values="close"
+                            )
+                            _rets_cao = _pivot_cao.pct_change().dropna(how="all")
+                            sigma_cao = estimate_covariance(_rets_cao, method="ledoit_wolf")
+                            mu_cao = result.signals.set_index("symbol")["score"] if "score" in result.signals.columns else pd.Series(dtype=float)
+                            mu_cao = mu_cao.reindex(sigma_cao.index).fillna(0.0)
+                            cao_cfg = OptimizerConfig(
+                                risk_aversion=float(sizing_cfg.get("risk_aversion", 1.0)),
+                                turnover_penalty=float(sizing_cfg.get("turnover_penalty", 0.001)),
+                                max_weight=float(sizing_cfg.get("max_weight", 0.10)),
+                            )
+                            # Build current weights inline (current_w computed later in cycle)
+                            _cao_cur_w: dict[str, float] = {}
+                            if hasattr(ctx, "current_positions") and ctx.current_positions is not None:
+                                if isinstance(ctx.current_positions, dict):
+                                    _cao_cur_w = ctx.current_positions
+                                elif isinstance(ctx.current_positions, pd.DataFrame) and "symbol" in ctx.current_positions.columns:
+                                    for _, _cao_row in ctx.current_positions.iterrows():
+                                        _cao_cur_w[_cao_row["symbol"]] = float(
+                                            _cao_row.get("weight", _cao_row.get("target_weight", 0.0))
+                                        )
+                            cao_result = optimize_portfolio(
+                                expected_returns=mu_cao,
+                                covariance=sigma_cao,
+                                current_weights=_cao_cur_w,
+                                config=cao_cfg,
+                            )
+                            rows = [
+                                {
+                                    "symbol": s,
+                                    "target_weight": round(w, 4),
+                                    "target_qty": round(w * ctx.capital, 2),
+                                }
+                                for s, w in cao_result.weights.items()
+                                if abs(w) > 1e-6
+                            ]
+                            result.target_positions = pd.DataFrame(rows)
+                            result.meta["cost_aware_optimizer"] = {
+                                "method": cao_result.method,
+                                "solver_status": cao_result.solver_status,
+                                "turnover_cost": cao_result.turnover_cost,
+                            }
+                            log.info(
+                                "[RISK-WIRE] cost_aware sizing: method=%s status=%s turnover_cost=%.6f",
+                                cao_result.method,
+                                cao_result.solver_status,
+                                cao_result.turnover_cost,
+                            )
+                        else:
+                            raise ValueError("cost_aware: missing close/symbol columns in prices")
+                    else:
+                        raise ValueError("cost_aware: insufficient data — falling back")
+                except Exception as e:
+                    log.warning("[RISK-WIRE] cost_aware_optimizer failed, using default: %s", e)
                     result.target_positions = ctx.position_sizing_fn(result.signals, ctx.capital)
             else:
                 # Default: call position_sizing_fn (equal weight or score-based)
@@ -2275,6 +2573,19 @@ def run_trading_cycle(
             * ms_multiplier
             * crisis_alpha_multiplier
         )
+        # Floor: never compress exposure below 5% -- prevents near-zero orders
+        # when multiple overlays fire simultaneously (EVT+Copula+Barbell+geo+vol)
+        _MIN_EXPOSURE_MULT = 0.05
+        if final_multiplier < _MIN_EXPOSURE_MULT:
+            log.warning(
+                "[RISK-WIRE] Cumulative exposure multiplier %.4f below floor %.2f "
+                "-- clamping to floor. Components: geo=%.3f profit=%.3f vol=%.3f "
+                "stress=%.3f crisis=%.3f",
+                final_multiplier, _MIN_EXPOSURE_MULT,
+                geo_multiplier, profit_lock_mult, vol_scale_factor,
+                ms_multiplier, crisis_alpha_multiplier,
+            )
+            final_multiplier = _MIN_EXPOSURE_MULT
         if abs(final_multiplier - 1.0) > 1e-9 and not result.target_positions.empty:
             result.target_positions = apply_exposure_multiplier_to_targets(
                 result.target_positions,
@@ -2523,6 +2834,90 @@ def run_trading_cycle(
     except Exception as e:
         log.debug("correlation_guard check skipped: %s", e)
 
+    # [RISK-WIRE] Quantile asymmetry sizing — reduce positions with high downside skew
+    try:
+        qm_cfg = (policy.get("risk", {}) or {}).get("quantile_sizing", {}) or {}
+        if (
+            qm_cfg.get("enabled", False)
+            and not result.target_positions.empty
+            and "target_weight" in result.target_positions.columns
+            and not result.prices_with_features.empty
+        ):
+            from src.assembled_core.ml.quantile_models import predict_quantiles
+
+            _feature_cols = qm_cfg.get("feature_cols", [])
+            _target_col = qm_cfg.get("target_col", "return_1d")
+            _asym_threshold = float(qm_cfg.get("asymmetry_threshold", 1.5))
+            _asym_reduction = float(qm_cfg.get("asymmetry_reduction", 0.5))
+
+            if _feature_cols and _target_col in result.prices_with_features.columns:
+                _valid_fcols = [c for c in _feature_cols if c in result.prices_with_features.columns]
+                if _valid_fcols:
+                    _qpreds = predict_quantiles(
+                        result.prices_with_features,
+                        target_col=_target_col,
+                        feature_cols=_valid_fcols,
+                    )
+                    _asym_map: dict[str, float] = {qp.symbol: qp.asymmetry for qp in _qpreds}
+                    _reduced: list[str] = []
+                    for idx, row in result.target_positions.iterrows():
+                        sym = row.get("symbol", "")
+                        asym = _asym_map.get(sym, 0.0)
+                        if asym > _asym_threshold:
+                            result.target_positions.at[idx, "target_weight"] *= _asym_reduction
+                            if "target_qty" in result.target_positions.columns:
+                                result.target_positions.at[idx, "target_qty"] *= _asym_reduction
+                            _reduced.append(sym)
+                    if _reduced:
+                        log.info(
+                            "[RISK-WIRE] quantile_asymmetry: reduced %d positions with asymmetry>%.1f: %s",
+                            len(_reduced), _asym_threshold, _reduced,
+                        )
+                    result.meta["quantile_asymmetry"] = {
+                        "reduced_symbols": _reduced,
+                        "asymmetry_threshold": _asym_threshold,
+                    }
+    except Exception as e:
+        log.debug("[RISK-WIRE] quantile_asymmetry skipped: %s", e)
+
+    # [RISK-WIRE] Crowding detector — HHI cap and weight ceiling
+    try:
+        if not result.target_positions.empty and "target_weight" in result.target_positions.columns:
+            from src.assembled_core.risk.crowding_detector import compute_hhi
+
+            _tw_dict_crowd = dict(
+                zip(
+                    result.target_positions["symbol"],
+                    result.target_positions["target_weight"].fillna(0.0),
+                )
+            )
+            _hhi = compute_hhi(_tw_dict_crowd)
+            result.meta["crowding_hhi"] = round(_hhi, 4)
+
+            if _hhi > 0.15:
+                log.warning(
+                    "[RISK-WIRE] crowding_detector: HHI=%.4f > 0.15 (concentration warning)",
+                    _hhi,
+                )
+            if _hhi > 0.25 and len(_tw_dict_crowd) >= 5:
+                # Cap each position at 10% (only meaningful for portfolios of 5+ names)
+                _capped = 0
+                _max_w = 0.10
+                for idx, row in result.target_positions.iterrows():
+                    if abs(float(row.get("target_weight", 0.0))) > _max_w:
+                        result.target_positions.at[idx, "target_weight"] = _max_w
+                        if "target_qty" in result.target_positions.columns:
+                            result.target_positions.at[idx, "target_qty"] = _max_w * ctx.capital
+                        _capped += 1
+                if _capped:
+                    log.warning(
+                        "[RISK-WIRE] crowding_detector: HHI=%.4f > 0.25 — capped %d positions to 10%%",
+                        _hhi, _capped,
+                    )
+                result.meta["crowding_hhi_capped"] = _capped
+    except Exception as e:
+        log.debug("[RISK-WIRE] crowding_detector skipped: %s", e)
+
     # Step 4.5 (V14): Check rebalancing triggers — skip order generation if no trigger
     rebal_scheduled = True  # Default: always rebalance (backward compatible)
     vol_regime_changed = bool(result.meta.get("vol_targeting", {}).get("regime_changed", False))
@@ -2707,6 +3102,147 @@ def run_trading_cycle(
         result.meta["qa_block_trading"] = True
         log.info("QA Gate: Orders set to empty (trading blocked)")
 
+    # [RISK-WIRE] EVT tail VaR — post-portfolio exposure check
+    try:
+        if not result.orders.empty:
+            _prices_for_evt = (
+                result.prices_filtered if result.prices_filtered is not None else ctx.prices
+            )
+            if _prices_for_evt is not None and not _prices_for_evt.empty and "close" in _prices_for_evt.columns:
+                from src.assembled_core.risk.evt_tail_var import evt_var
+
+                # Build portfolio return series (equal-weighted proxy)
+                _pivot_evt = _prices_for_evt.pivot_table(
+                    index="timestamp" if "timestamp" in _prices_for_evt.columns else _prices_for_evt.columns[0],
+                    columns="symbol" if "symbol" in _prices_for_evt.columns else None,
+                    values="close",
+                )
+                _rets_evt = _pivot_evt.pct_change().dropna(how="all")
+                if len(_rets_evt) >= 60 and not _rets_evt.empty:
+                    _port_rets = _rets_evt.mean(axis=1).dropna()
+                    _losses = (-_port_rets).values  # positive = loss
+                    # Historical VaR (99%) as baseline
+                    import numpy as _np_evt
+                    _hist_var_99 = float(_np_evt.quantile(_losses, 0.99))
+                    try:
+                        _evt_var_99 = evt_var(_losses, alpha=0.99, threshold_pct=0.90)
+                    except Exception as _evt_err:
+                        log.debug("[RISK-WIRE] evt_var fit failed: %s", _evt_err)
+                        _evt_var_99 = None
+
+                    if _evt_var_99 is not None:
+                        result.meta["evt_var_99"] = round(float(_evt_var_99), 6)
+                        result.meta["hist_var_99"] = round(_hist_var_99, 6)
+                        log.info(
+                            "[RISK-WIRE] EVT VaR 99%%=%.4f  Hist VaR 99%%=%.4f",
+                            _evt_var_99, _hist_var_99,
+                        )
+                        # If EVT VaR > 2x historical VaR: reduce order exposure by 20%
+                        if _hist_var_99 > 1e-8 and _evt_var_99 > 2.0 * _hist_var_99:
+                            _scale_evt = 0.80
+                            result.orders["qty"] = result.orders["qty"] * _scale_evt
+                            log.warning(
+                                "[RISK-WIRE] EVT VaR %.4f > 2x Hist VaR %.4f — reducing exposure by 20%%",
+                                _evt_var_99, _hist_var_99,
+                            )
+                            result.meta["evt_exposure_reduction"] = _scale_evt
+    except Exception as e:
+        log.debug("[RISK-WIRE] evt_tail_var skipped: %s", e)
+
+    # [RISK-WIRE] Copula tail dependence — additional exposure cut if avg_lower_tail_dep > 0.5
+    try:
+        if not result.orders.empty:
+            _prices_for_cop = (
+                result.prices_filtered if result.prices_filtered is not None else ctx.prices
+            )
+            if _prices_for_cop is not None and not _prices_for_cop.empty and "close" in _prices_for_cop.columns:
+                from src.assembled_core.ml.copula_models import compute_portfolio_tail_risk
+
+                _pivot_cop = _prices_for_cop.pivot_table(
+                    index="timestamp" if "timestamp" in _prices_for_cop.columns else _prices_for_cop.columns[0],
+                    columns="symbol" if "symbol" in _prices_for_cop.columns else None,
+                    values="close",
+                )
+                _rets_cop = _pivot_cop.pct_change().dropna(how="all")
+                # Only run if enough data and not too many symbols (avoid O(n^2) explosion)
+                if len(_rets_cop) >= 60 and 1 < _rets_cop.shape[1] <= 30:
+                    _cop_metrics = compute_portfolio_tail_risk(_rets_cop)
+                    _avg_ltd = float(_cop_metrics.get("avg_lower_tail_dep", 0.0))
+                    result.meta["copula_tail_risk"] = _cop_metrics
+                    log.info(
+                        "[RISK-WIRE] Copula avg_lower_tail_dep=%.4f max=%.4f n_pairs=%d",
+                        _avg_ltd,
+                        float(_cop_metrics.get("max_lower_tail_dep", 0.0)),
+                        int(_cop_metrics.get("n_pairs", 0)),
+                    )
+                    if _avg_ltd > 0.5:
+                        _scale_cop = 0.80
+                        result.orders["qty"] = result.orders["qty"] * _scale_cop
+                        log.warning(
+                            "[RISK-WIRE] Copula avg_lower_tail_dep=%.4f > 0.5 — reducing exposure by additional 20%%",
+                            _avg_ltd,
+                        )
+                        result.meta["copula_exposure_reduction"] = _scale_cop
+    except Exception as e:
+        log.debug("[RISK-WIRE] copula_tail_risk skipped: %s", e)
+
+    # [RISK-WIRE] Barbell strategy — crisis overlay when composite tail risk score > 0.30
+    try:
+        _tail_score_for_barbell = 0.0
+        _barbell_reasons: list[str] = []
+        # Gather available signals into barbell score
+        _evt_var_meta = result.meta.get("evt_var_99", 0.0) or 0.0
+        _hist_var_meta = result.meta.get("hist_var_99", 0.0) or 0.0
+        _cop_ltd_meta = float((result.meta.get("copula_tail_risk") or {}).get("avg_lower_tail_dep", 0.0))
+
+        from src.assembled_core.portfolio.barbell_strategy import (
+            build_barbell_allocation,
+            compute_tail_risk_score,
+        )
+
+        _bb_score, _bb_reasons = compute_tail_risk_score(
+            evt_var_99=float(_evt_var_meta),
+            evt_var_99_historical_avg=float(_hist_var_meta),
+            hmm_crisis_prob=0.0,  # not wired yet
+            vix_current=0.0,      # not wired yet
+            vix_5d_change=0.0,
+            avg_copula_tail_dep=_cop_ltd_meta,
+        )
+        result.meta["barbell_tail_risk_score"] = round(_bb_score, 4)
+
+        if _bb_score > 0.30 and not result.orders.empty:
+            # Build alpha scores from signals for speculative sleeve
+            _alpha_scores: dict[str, float] = {}
+            if not result.signals.empty and "symbol" in result.signals.columns and "score" in result.signals.columns:
+                _alpha_scores = dict(zip(result.signals["symbol"], result.signals["score"].fillna(0.0)))
+
+            _bb_alloc = build_barbell_allocation(
+                tail_risk_score=_bb_score,
+                trigger_reasons=_bb_reasons,
+                alpha_scores=_alpha_scores,
+            )
+            if _bb_alloc.active:
+                # Scale down all orders to reflect barbell exposure compression
+                _bb_scale = _bb_alloc.speculative_weight
+                result.orders["qty"] = result.orders["qty"] * _bb_scale
+                result.meta["barbell"] = {
+                    "active": True,
+                    "tail_risk_score": _bb_score,
+                    "safe_weight": _bb_alloc.safe_weight,
+                    "speculative_weight": _bb_alloc.speculative_weight,
+                    "trigger_reasons": _bb_reasons,
+                    "speculative_symbols": _bb_alloc.speculative_symbols,
+                }
+                log.warning(
+                    "[RISK-WIRE] Barbell ACTIVATED: score=%.3f safe=%.0f%% spec=%.0f%% triggers=%s",
+                    _bb_score,
+                    _bb_alloc.safe_weight * 100,
+                    _bb_alloc.speculative_weight * 100,
+                    ", ".join(_bb_reasons),
+                )
+    except Exception as e:
+        log.debug("[RISK-WIRE] barbell_strategy skipped: %s", e)
+
     # Step 6: Apply risk controls (hook point: risk_controls)
     try:
         if "risk_controls" in hooks:
@@ -2815,6 +3351,135 @@ def run_trading_cycle(
         result.status = "error"
         result.error_message = f"Error in write_outputs hook: {e}"
         return result
+
+    # Phase 9: Signal diagnostics (end of cycle) — write signal_health.json
+    try:
+        sd_cfg = (policy.get("signal_generation") or {}).get("signal_diagnostics") or {}
+        if sd_cfg.get("enabled", False) and not result.prices_with_features.empty:
+            from src.assembled_core.signals.signal_diagnostics import (
+                compute_signal_health,
+                generate_signal_health_alerts,
+                save_signal_health_artifact,
+            )
+            # Only run if forward_returns col is present (backtest mode typically)
+            fwd_col = sd_cfg.get("forward_returns_col", "return_1d")
+            if fwd_col in result.prices_with_features.columns:
+                factor_cols = [
+                    c for c in result.prices_with_features.columns
+                    if c not in {"timestamp", "symbol", "open", "high", "low", "close", "volume", fwd_col}
+                    and result.prices_with_features[c].dtype in ("float64", "float32")
+                ][:20]  # cap at 20 factors
+                if factor_cols and "timestamp" in result.prices_with_features.columns:
+                    health_df = compute_signal_health(
+                        result.prices_with_features,
+                        forward_returns_col=fwd_col,
+                        factor_cols=factor_cols,
+                    )
+                    alerts = generate_signal_health_alerts(
+                        health_df,
+                        ic_alert_threshold=float(sd_cfg.get("ic_alert_threshold", 0.0)),
+                    )
+                    diag_dir = sd_cfg.get("output_dir", "output/diagnostics")
+                    save_signal_health_artifact(
+                        health_df,
+                        alerts,
+                        output_dir=str(ctx.output_dir / "diagnostics") if ctx.write_outputs else diag_dir,
+                        run_date=ctx.as_of.strftime("%Y-%m-%d") if ctx.as_of else None,
+                    )
+                    result.meta["signal_diagnostics"] = {
+                        "n_factors": len(factor_cols),
+                        "n_alerts": len(alerts),
+                    }
+                    if alerts:
+                        log.warning("[SIGNAL-DIAG] %d signal health alerts: %s", len(alerts), alerts)
+                    else:
+                        log.info("[SIGNAL-DIAG] signal health: %d factors, no alerts", len(factor_cols))
+    except Exception as _e:
+        log.debug("[SIGNAL-DIAG] signal_diagnostics skipped: %s", _e)
+
+    # Phase 10: Monte Carlo bootstrap (end of cycle, gated by policy monte_carlo.auto_run)
+    try:
+        mc_cfg = policy.get("monte_carlo") or {}
+        if mc_cfg.get("auto_run", False):
+            from src.assembled_core.qa.monte_carlo import bootstrap_returns
+            # Build return series from prices_filtered if available
+            _prices_mc = result.prices_filtered if result.prices_filtered is not None else ctx.prices
+            if _prices_mc is not None and not _prices_mc.empty and "close" in _prices_mc.columns and "symbol" in _prices_mc.columns:
+                _pivot_mc = _prices_mc.pivot_table(
+                    index="timestamp" if "timestamp" in _prices_mc.columns else _prices_mc.columns[0],
+                    columns="symbol",
+                    values="close",
+                )
+                _rets_mc = _pivot_mc.pct_change().dropna(how="all")
+                _port_rets_mc = _rets_mc.mean(axis=1).dropna()
+                if len(_port_rets_mc) >= 20:
+                    mc_result = bootstrap_returns(
+                        _port_rets_mc,
+                        n_paths=int(mc_cfg.get("n_paths", 500)),
+                        confidence_level=float(mc_cfg.get("confidence_level", 0.95)),
+                        seed=mc_cfg.get("seed", None),
+                    )
+                    ci_sharpe = mc_result.confidence_intervals["sharpe"]
+                    ci_cagr = mc_result.confidence_intervals["cagr"]
+                    ci_mdd = mc_result.confidence_intervals["max_drawdown"]
+                    result.meta["monte_carlo"] = {
+                        "n_paths": mc_result.n_paths,
+                        "sharpe_point": round(ci_sharpe.point_estimate, 4),
+                        "sharpe_ci_lower": round(ci_sharpe.ci_lower, 4),
+                        "sharpe_ci_upper": round(ci_sharpe.ci_upper, 4),
+                        "cagr_point": round(ci_cagr.point_estimate, 4),
+                        "cagr_ci_lower": round(ci_cagr.ci_lower, 4),
+                        "cagr_ci_upper": round(ci_cagr.ci_upper, 4),
+                        "max_dd_point": round(ci_mdd.point_estimate, 4),
+                        "p_value_vs_zero": round(mc_result.p_value_vs_zero, 4),
+                        "confidence_level": mc_result.confidence_intervals["sharpe"].confidence_level,
+                    }
+                    log.info(
+                        "[MONTE-CARLO] bootstrap: paths=%d sharpe=%.3f [%.3f, %.3f] p_vs_zero=%.3f",
+                        mc_result.n_paths,
+                        ci_sharpe.point_estimate,
+                        ci_sharpe.ci_lower,
+                        ci_sharpe.ci_upper,
+                        mc_result.p_value_vs_zero,
+                    )
+    except Exception as _e:
+        log.debug("[MONTE-CARLO] monte_carlo bootstrap skipped: %s", _e)
+
+    # Phase 11: KPI export — Prometheus metrics after each cycle
+    try:
+        kpi_cfg = policy.get("kpi_export") or {}
+        if kpi_cfg.get("enabled", False):
+            from src.assembled_core.ops.metrics_exporter import export_metrics
+            kpi_metrics: dict[str, float] = {}
+            # Collect available numeric meta values
+            kpi_metrics["assembled_orders_generated_total"] = float(len(result.orders_filtered))
+            kpi_metrics["assembled_targets_count"] = float(len(result.target_positions))
+            kpi_metrics["assembled_signals_count"] = float(len(result.signals))
+            # Turnover
+            tb_meta = result.meta.get("turnover_budget") or {}
+            if "estimated_turnover" in tb_meta and tb_meta["estimated_turnover"] != float("inf"):
+                kpi_metrics["assembled_turnover_estimated"] = float(tb_meta["estimated_turnover"])
+            # Vol targeting
+            vt_meta = result.meta.get("vol_targeting") or {}
+            if "realized_vol" in vt_meta:
+                kpi_metrics["assembled_realized_vol"] = float(vt_meta["realized_vol"])
+            # Monte Carlo if available
+            mc_meta = result.meta.get("monte_carlo") or {}
+            if "sharpe_point" in mc_meta:
+                kpi_metrics["assembled_mc_sharpe"] = float(mc_meta["sharpe_point"])
+            # GeoRisk multiplier
+            if "georisk_overlay" in result.meta:
+                kpi_metrics["assembled_georisk_multiplier"] = float(result.meta["georisk_overlay"].get("multiplier", 1.0))
+            metrics_dir = ctx.output_dir / "metrics" if ctx.write_outputs else None
+            export_result = export_metrics(
+                kpi_metrics,
+                labels={"strategy": ctx.strategy_name or "unknown", "mode": ctx.mode},
+                path=metrics_dir / "assembled.prom" if metrics_dir else None,
+            )
+            result.meta["kpi_export"] = {"file": export_result.get("file"), "n_metrics": export_result.get("metrics_count", 0)}
+            log.info("[KPI] metrics exported: %d metrics to %s", export_result.get("metrics_count", 0), export_result.get("file"))
+    except Exception as _e:
+        log.debug("[KPI] kpi_export skipped: %s", _e)
 
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"

@@ -1000,6 +1000,9 @@ def run_portfolio_backtest(
                 )
 
             order_generation_timings = []
+            # Fix 18: track running equity (cash + MTM) so position sizing uses
+            # current equity rather than start_capital throughout the backtest.
+            _legacy_cash: float = start_capital
             # Rebalance only on selected bars (weekly = every 5th for 1d)
             sig_timeline = sorted(signals["timestamp"].unique())
             if rebalance_schedule == "weekly":
@@ -1012,6 +1015,21 @@ def run_portfolio_backtest(
             for timestamp, signal_group in signals.groupby("timestamp"):
                 if timestamp not in rebalance_timestamps_legacy:
                     continue
+
+                # Fix 18: compute current equity = cash + mark-to-market of positions
+                _current_equity: float = _legacy_cash
+                try:
+                    prices_at_ts = prices[prices["timestamp"] == timestamp]
+                    if not prices_at_ts.empty and not current_positions.empty:
+                        px = prices_at_ts.set_index("symbol")["close"]
+                        qty_series = current_positions.set_index("symbol")["qty"]
+                        mtm = float(
+                            (qty_series * px.reindex(qty_series.index).fillna(0.0)).sum()
+                        )
+                        _current_equity = _legacy_cash + mtm
+                except Exception:
+                    pass
+
                 # Order generation (includes position sizing and order generation)
                 with timed_step(f"order_generation_{timestamp}", timings, logger):
                     orders, updated_positions, targets = _process_rebalancing_timestamp(
@@ -1019,7 +1037,7 @@ def run_portfolio_backtest(
                         signal_group=signal_group,
                         current_positions=current_positions,
                         position_sizing_fn=position_sizing_fn,
-                        start_capital=start_capital,
+                        start_capital=_current_equity,
                         prices=prices,
                         include_targets=include_targets,
                     )
@@ -1028,6 +1046,21 @@ def run_portfolio_backtest(
                     order_generation_timings.append(
                         timings[f"order_generation_{timestamp}"]["duration_ms"]
                     )
+
+                # Fix 18: update running cash from executed orders
+                try:
+                    if not orders.empty:
+                        for _, _row in orders.iterrows():
+                            _side = _row.get("side", "BUY")
+                            _qty = float(_row.get("qty", 0) or 0)
+                            _price = float(_row.get("price", 0) or 0)
+                            _notional = _qty * _price
+                            if _side == "BUY":
+                                _legacy_cash -= _notional
+                            else:
+                                _legacy_cash += _notional
+                except Exception:
+                    pass
 
                 # Position update is done inside _process_rebalancing_timestamp for legacy path
                 current_positions = updated_positions

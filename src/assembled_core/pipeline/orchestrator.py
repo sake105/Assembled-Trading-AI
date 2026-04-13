@@ -327,10 +327,71 @@ def _gate_result_to_dict(gate_result) -> dict[str, Any] | None:
     }
 
 
+def _enrich_signals_post_generation(
+    signals: "pd.DataFrame",
+    prices: "pd.DataFrame",
+    policy: dict,
+) -> None:
+    """Apply optional post-generation signal enrichment steps in-place.
+
+    Each enrichment step is individually guarded so that failures in one step
+    do not block others or the main pipeline.  All imports are lazy so that
+    optional dependencies do not cause import-time errors.
+
+    Steps applied (when enabled in policy):
+    - earnings_integration   (earnings_guard.enabled)
+    - signal_confidence      (bayesian_confidence.enabled)
+    - signal_diagnostics     (signal_diagnostics.enabled)
+
+    Args:
+        signals: Signal DataFrame (modified in-place where applicable).
+        prices: Price DataFrame used by enrichment steps.
+        policy: Parsed policy.yaml dict (may be empty).
+    """
+    if signals is None or signals.empty:
+        return
+
+    # --- Earnings integration ---
+    try:
+        earnings_cfg = (policy.get("earnings_guard") or {})
+        if earnings_cfg.get("enabled", False):
+            from src.assembled_core.features.event_features import apply_earnings_guard
+            apply_earnings_guard(signals, policy=earnings_cfg)
+            logger.debug("[ORCHESTRATOR] earnings_guard applied")
+    except Exception as exc:
+        logger.debug("[ORCHESTRATOR] earnings_guard skipped: %s", exc)
+
+    # --- Bayesian signal confidence ---
+    try:
+        bayes_cfg = (policy.get("bayesian_confidence") or {})
+        if bayes_cfg.get("enabled", False):
+            from src.assembled_core.signals.signal_confidence import (
+                apply_bayesian_confidence,
+            )
+            apply_bayesian_confidence(signals, prices=prices, config=bayes_cfg)
+            logger.debug("[ORCHESTRATOR] bayesian_confidence applied")
+    except Exception as exc:
+        logger.debug("[ORCHESTRATOR] bayesian_confidence skipped: %s", exc)
+
+    # --- Signal diagnostics ---
+    try:
+        diag_cfg = (policy.get("signal_diagnostics") or {})
+        if diag_cfg.get("enabled", False):
+            from src.assembled_core.qa.signal_diagnostics import run_signal_diagnostics
+            run_signal_diagnostics(signals, prices=prices, config=diag_cfg)
+            logger.debug("[ORCHESTRATOR] signal_diagnostics applied")
+    except Exception as exc:
+        logger.debug("[ORCHESTRATOR] signal_diagnostics skipped: %s", exc)
+
+
 def run_execute_step(
     freq: str, output_dir: Path | None = None, price_file: str | None = None
 ) -> tuple[Path, pd.DataFrame]:
-    """Run execution step: generate orders from EMA signals.
+    """Run execution step: generate orders from policy-driven signals.
+
+    Signal mode is read from ``configs/policy.yaml`` → ``signal_generation.mode``.
+    Supported modes: ``ema`` (legacy default), ``multifactor``, ``ml_enhanced``.
+    Falls back to ``ema`` if mode is unrecognised or the policy key is absent.
 
     Args:
         freq: Trading frequency ("1d" or "5min")
@@ -345,14 +406,65 @@ def run_execute_step(
     """
     base = output_dir if output_dir else OUTPUT_DIR
 
-    # Get EMA defaults
-    ema_config = get_default_ema_config(freq)
-
     # Load prices
     prices = load_prices(freq, price_file=price_file, output_dir=base)
 
-    # Compute signals
-    signals = compute_ema_signals(prices, ema_config.fast, ema_config.slow)
+    # Determine signal mode from policy
+    signal_mode = "ema"
+    try:
+        import yaml
+        _policy_path = Path("configs/policy.yaml")
+        if _policy_path.exists():
+            with open(_policy_path, "r", encoding="utf-8") as _pf:
+                _policy = yaml.safe_load(_pf) or {}
+            signal_mode = (_policy.get("signal_generation") or {}).get("mode", "ema")
+    except Exception as exc:
+        logger.debug("Could not read signal_generation.mode from policy: %s", exc)
+
+    # Compute signals based on mode
+    if signal_mode == "multifactor":
+        try:
+            from src.assembled_core.strategies.multifactor_v2 import (
+                compute_signals as mf_compute_signals,
+            )
+            signals = mf_compute_signals(prices)
+            logger.info("[ORCHESTRATOR] Signal mode: multifactor_v2 (%d signals)", len(signals))
+        except Exception as exc:
+            logger.warning("[ORCHESTRATOR] multifactor_v2 failed, falling back to EMA: %s", exc)
+            ema_config = get_default_ema_config(freq)
+            signals = compute_ema_signals(prices, ema_config.fast, ema_config.slow)
+    elif signal_mode == "ml_enhanced":
+        # Phase 2+: Meta-model enhanced signals (placeholder until meta-model trained)
+        logger.info("[ORCHESTRATOR] Signal mode: ml_enhanced (not yet trained, using multifactor)")
+        try:
+            from src.assembled_core.strategies.multifactor_v2 import (
+                compute_signals as mf_compute_signals,
+            )
+            signals = mf_compute_signals(prices)
+        except Exception as exc:
+            logger.warning("[ORCHESTRATOR] multifactor fallback failed: %s", exc)
+            ema_config = get_default_ema_config(freq)
+            signals = compute_ema_signals(prices, ema_config.fast, ema_config.slow)
+    else:
+        # Default: legacy EMA signals
+        ema_config = get_default_ema_config(freq)
+        signals = compute_ema_signals(prices, ema_config.fast, ema_config.slow)
+        logger.info("[ORCHESTRATOR] Signal mode: ema (fast=%d, slow=%d)", ema_config.fast, ema_config.slow)
+
+    # --- Phase 9: Post-signal enrichment (same as trading_cycle) ---
+    try:
+        _policy_for_enrichment: dict = {}
+        try:
+            import yaml as _yaml
+            _pe_path = Path("configs/policy.yaml")
+            if _pe_path.exists():
+                with open(_pe_path, "r", encoding="utf-8") as _pef:
+                    _policy_for_enrichment = _yaml.safe_load(_pef) or {}
+        except Exception as _pe_exc:
+            logger.debug("[ORCHESTRATOR] Could not load policy for enrichment: %s", _pe_exc)
+        _enrich_signals_post_generation(signals, prices, _policy_for_enrichment)
+    except Exception as exc:
+        logger.debug("[ORCHESTRATOR] Post-signal enrichment skipped: %s", exc)
 
     # Generate orders
     orders = signals_to_orders(signals)

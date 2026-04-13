@@ -6,7 +6,7 @@ paper_runner:
   as_of: null             # optional timestamp override
   ledger_path: "output/runs/_paper_ledger/ledger_state.json"  # paper mode only
   strategy:
-    name: "multifactor_v1"   # multifactor_v1 | ema_trend_v0 | none
+    name: "multifactor_v2"   # multifactor_v2 | multifactor_v1 | ema_trend_v0 | none
     ema_fast: 20
     ema_slow: 60
     equal_weight: false         # score-based sizing (multi-factor score as weight)

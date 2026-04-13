@@ -833,3 +833,76 @@ def apply_signal_hysteresis(
             bars_since_flip = 0
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Meta-Model Confidence Filter (Phase 2 integration)
+# ---------------------------------------------------------------------------
+
+
+def apply_meta_model_filter(
+    signals_df: pd.DataFrame,
+    model_path: str = "models/meta/meta_model_latest.joblib",
+    confidence_threshold: float = 0.55,
+    scale_by_confidence: bool = True,
+    score_col: str = "mf_score",
+) -> pd.DataFrame:
+    """Filter and scale signals using meta-model confidence predictions.
+
+    Loads a trained MetaModel from disk, predicts confidence_score for each
+    signal row, then:
+    1. Drops signals below confidence_threshold
+    2. Optionally scales mf_score by confidence_score
+
+    Args:
+        signals_df: DataFrame with factor columns and mf_score.
+        model_path: Path to saved MetaModel joblib.
+        confidence_threshold: Minimum confidence to keep a signal (default 0.55).
+        scale_by_confidence: If True, mf_score *= confidence_score.
+        score_col: Name of the score column to scale.
+
+    Returns:
+        Filtered (and optionally scaled) DataFrame.
+    """
+    import pathlib
+
+    model_file = pathlib.Path(model_path)
+    if not model_file.exists():
+        logger.debug(
+            "[META-FILTER] Model not found at %s — passing through",
+            model_path,
+        )
+        return signals_df
+
+    if signals_df.empty:
+        return signals_df
+
+    try:
+        from src.assembled_core.signals.meta_model import load_meta_model
+
+        meta_model = load_meta_model(model_file)
+        confidence = meta_model.predict_proba(signals_df)
+
+        signals_df = signals_df.copy()
+        signals_df["confidence_score"] = confidence.values
+
+        n_before = len(signals_df)
+        signals_df = signals_df[signals_df["confidence_score"] >= confidence_threshold]
+        n_after = len(signals_df)
+
+        if scale_by_confidence and score_col in signals_df.columns:
+            signals_df[score_col] = (
+                signals_df[score_col] * signals_df["confidence_score"]
+            )
+
+        logger.info(
+            "[META-FILTER] %d/%d passed (thr=%.2f, scaled=%s)",
+            n_after, n_before, confidence_threshold, scale_by_confidence,
+        )
+        return signals_df
+
+    except Exception as exc:
+        logger.warning(
+            "[META-FILTER] Failed: %s — passing through", exc,
+        )
+        return signals_df

@@ -74,6 +74,14 @@ intel:
     enabled: false
     path: "output/intel/disclosures/triggers_latest.json"
 
+  # Phase 9: Intel alpha signal layer wired into signal pipeline
+  signal_layer:
+    enabled: false           # enable compute_symbol_intel_scores() in trading_cycle
+    weight: 0.15             # additive weight of intel score on signal score
+    allow_short: false       # allow short signals from intel losers
+    min_confidence: 0.50     # minimum intel signal confidence
+    shock_confidence: 0.60   # base confidence for shock beneficiary signals
+
 # Disclosures confirmation boost for NEWS geo_confidence (DISCL-4.2).
 disclosures_confirm:
   enabled: true
@@ -199,6 +207,84 @@ risk_state_machine:
     if_intel_degraded: "WATCH"
 
 
+# ---------------------------------------------------------------------------
+# Regime detection (Phase 0D)
+# ---------------------------------------------------------------------------
+regime_detection:
+  enabled: true
+  method: "hmm"              # "hmm" | "multifeature_hmm" | "rule_based"
+  n_regimes: 3               # bull / bear / sideways
+  benchmark_symbol: "SPY"
+  multifeature: false        # true → MultiFeatureRegimeHMM (4 observables)
+  min_history_days: 120      # minimum trading days before HMM fit
+
+# ---------------------------------------------------------------------------
+# Signal generation mode (Phase 0.1)
+# ---------------------------------------------------------------------------
+signal_generation:
+  mode: "multifactor"        # "ema" | "multifactor" | "ml_enhanced"
+  multifactor:
+    top_n: 15                # long candidates
+    bottom_n: 5              # short candidates (if shorts_allowed)
+    score_method: "adaptive" # "static" | "adaptive" (IC-weighted)
+    regime_blending: true    # use regime-conditional weights
+    sector_neutralize: false # sector-bias elimination (Phase 9)
+  ml_enhanced:
+    meta_model_path: "models/meta/meta_model_latest.joblib"
+    confidence_threshold: 0.55
+    scale_by_confidence: true
+    use_stacking: true
+    use_quantile_sizing: false
+
+# ---------------------------------------------------------------------------
+# Position sizing (Phase 0C)
+# ---------------------------------------------------------------------------
+position_sizing:
+  method: "black_litterman"    # "equal_weight" | "score_weighted" | "vol_scaled" | "black_litterman" | "cost_aware"
+  black_litterman:
+    risk_aversion: 2.5
+    tau: 0.05
+    max_weight: 0.15
+    min_history_days: 60       # fallback to vol_scaled if insufficient data
+  fallback_method: "vol_scaled"  # used when BL fails to converge
+
+# ---------------------------------------------------------------------------
+# Anti-churn / hysteresis (Phase 0D)
+# ---------------------------------------------------------------------------
+anti_churn:
+  ranking_hysteresis_enabled: true
+  entry_n: 5                   # new positions need top-5 rank
+  hold_n: 7                    # existing positions stay if top-7
+  deadzone_enabled: true
+  deadzone_pct: 0.02           # rebalance only if weight diff > 2%
+
+  # Phase 9: Sector rotation overlay (gate: signal_generation.sector_rotation.enabled)
+  sector_rotation:
+    enabled: false           # enable to wire generate_sector_rotation_signals() as additional source
+    long_weight: 0.12        # per-sector long ETF weight
+    short_weight: 0.08       # per-sector short ETF weight (absolute)
+
+  # Phase 9: Pre-earnings signal suppression + PEAD (gate: signal_generation.earnings_guard.enabled)
+  earnings_guard:
+    enabled: false           # enable to suppress signals 3d before earnings + PEAD drift
+    suppress_window: 3       # days before earnings to zero out mean-reversion signals
+    pead_window_days: 60     # PEAD drift window (days after earnings)
+    pead_weight: 0.15        # weight added to score from PEAD signal
+
+  # Phase 9: Bayesian signal confidence scoring (gate: signal_generation.bayesian_confidence.enabled)
+  bayesian_confidence:
+    enabled: false           # enable Bayesian CI scoring for position scaling
+    ci_level: 0.90           # credible interval level (90%)
+    max_scale: 1.50          # maximum position scale factor from confidence
+    min_scale: 0.50          # minimum position scale factor from confidence
+
+  # Phase 9: Signal health diagnostics at end of each cycle
+  signal_diagnostics:
+    enabled: false           # enable compute_signal_health() + JSON artifact
+    forward_returns_col: "return_1d"
+    ic_alert_threshold: 0.0  # rolling IC below this triggers WARNING
+    output_dir: "output/diagnostics"
+
 evidence_engine:
   enabled: true
   require_grade_for_active: "B"   # minimum evidence grade to allow WATCH->ACTIVE
@@ -212,3 +298,52 @@ evidence_engine:
       description: "Weak: >=1 source but below B threshold"
     D:
       description: "Insufficient: no qualifying evidence or misinfo too high"
+
+# ---------------------------------------------------------------------------
+# Paper trading engine selection
+# ---------------------------------------------------------------------------
+paper_trading:
+  engine: "unified"              # "unified" uses UnifiedPaperEngine; other values fall back to legacy PaperTrackRunner
+  seed_capital: 100000.0
+  enable_ledger: true
+  enable_reconciliation: true
+  enable_fat_finger: true
+
+# ---------------------------------------------------------------------------
+# Phase 10: Monte Carlo robustness (bootstrap after each cycle / backtest)
+# ---------------------------------------------------------------------------
+monte_carlo:
+  auto_run: false            # if true: bootstrap_returns() runs after each trading cycle
+  n_paths: 500               # bootstrap paths (500 = fast; use 1000+ for reports)
+  confidence_level: 0.95     # CI level
+  seed: null                 # null = random; set integer for reproducibility
+
+# Phase 10: Parameter robustness (optional, heavier — intended for batch runs)
+robustness:
+  enabled: false             # gate: enable run_param_grid_sweep() on batch backtest
+  deterministic: true
+
+# Phase 10: Regime-aware walk-forward validation
+regime_walk_forward:
+  enabled: false             # gate: enable regime-aware WF as validation step
+
+# ---------------------------------------------------------------------------
+# Phase 11: Alert system
+# ---------------------------------------------------------------------------
+alerts:
+  enabled: true              # enable alert_health_worker in daily_scheduler
+  rate_limit_seconds: 300    # seconds between identical alert messages
+  output_dir: "output/alerts"
+  sinks:
+    slack:
+      enabled: false         # enable SlackWebhookSink (set ASSEMBLED_SLACK_WEBHOOK_URL env var)
+      min_severity: "WARNING"
+    email:
+      enabled: false         # enable EmailSink (set ASSEMBLED_SMTP_* env vars)
+      min_severity: "CRITICAL"
+
+# Phase 11: KPI / Prometheus metrics export
+kpi_export:
+  enabled: true              # enable metrics_exporter + kpi_export_worker
+  output_dir: "output/metrics"
+  gateway_url: null          # set to Prometheus Pushgateway URL if desired

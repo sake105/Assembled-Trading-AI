@@ -192,12 +192,21 @@ def run_paper_daily_one(
 
         position_sizing_fn = _ema_sizing
 
-    elif strategy_name == "multifactor_v1":
-        from src.assembled_core.strategies.multifactor_v1 import (
-            check_exit_signals as mf_check_exits,
-            compute_signals as mf_compute_signals,
-            compute_target_positions as mf_compute_targets,
-        )
+    elif strategy_name in ("multifactor_v1", "multifactor_v2"):
+        if strategy_name == "multifactor_v2":
+            from src.assembled_core.strategies.multifactor_v2 import (
+                check_exit_signals as mf_check_exits,
+                compute_signals as mf_compute_signals,
+                compute_target_positions as mf_compute_targets,
+            )
+            _mf_tag = "[MF-V2]"
+        else:
+            from src.assembled_core.strategies.multifactor_v1 import (
+                check_exit_signals as mf_check_exits,
+                compute_signals as mf_compute_signals,
+                compute_target_positions as mf_compute_targets,
+            )
+            _mf_tag = "[MF-V1]"
 
         max_positions = int(strategy_cfg.get("max_positions") or 10)
         min_position_weight = float(strategy_cfg.get("min_position_weight") or 0.03)
@@ -227,12 +236,15 @@ def run_paper_daily_one(
                         sym = ex["symbol"]
                         if not signals.empty and sym in signals["symbol"].values:
                             signals = signals[signals["symbol"] != sym]
-                        log.info("[MF-V1] EXIT signal: %s — %s", sym, ex["exit_reason"])
+                        log.info(
+                            "%s EXIT signal: %s — %s",
+                            _mf_tag, sym, ex["exit_reason"],
+                        )
                     partial_exits = exit_signals[exit_signals["exit_qty_pct"] < 1.0]
                     for _, ex in partial_exits.iterrows():
                         log.info(
-                            "[MF-V1] PARTIAL EXIT signal: %s (%.0f%%) — %s",
-                            ex["symbol"], ex["exit_qty_pct"] * 100, ex["exit_reason"],
+                            "%s PARTIAL EXIT signal: %s (%.0f%%) — %s",
+                            _mf_tag, ex["symbol"], ex["exit_qty_pct"] * 100, ex["exit_reason"],
                         )
             return signals
 

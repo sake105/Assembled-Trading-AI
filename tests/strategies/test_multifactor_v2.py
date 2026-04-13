@@ -161,8 +161,9 @@ def test_default_weights_sum_to_one() -> None:
     assert abs(total - 1.0) < 0.01
 
 
-def test_default_weights_has_29_factors() -> None:
-    assert len(DEFAULT_V2_WEIGHTS) == 29
+def test_default_weights_has_18_active_factors() -> None:
+    """18 active factors after removing 11 dead factors (19-28 + crash_prob)."""
+    assert len(DEFAULT_V2_WEIGHTS) == 18
 
 
 def test_get_weights_unknown_regime_returns_defaults() -> None:

@@ -113,6 +113,77 @@ def _post_trade_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerR
                             duration_s=time.monotonic() - t0, error_msg=msg)
 
 
+def _feedback_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerResult:
+    """Run FeedbackLoopController after post-trade data has been written.
+
+    Loads the learning store and the most recent factor panel (if available),
+    then calls run_feedback_check(). Logs the result with [FEEDBACK] prefix.
+    Returns a WorkerResult matching the existing scheduler contract.
+    """
+    t0 = time.monotonic()
+    if dry_run:
+        logger.info("[FEEDBACK] dry_run=True — skipping feedback check")
+        return WorkerResult(worker_name="feedback_worker", status="skip",
+                            duration_s=time.monotonic() - t0)
+    try:
+        from src.assembled_core.ml.feedback_loop import (  # type: ignore
+            FeedbackLoopController,
+            FeedbackLoopConfig,
+        )
+        from src.assembled_core.qa.learning_store import (  # type: ignore
+            load_learning_records_as_dataframe,
+            DEFAULT_LEARNING_STORE_PATH,
+        )
+        import pandas as pd
+
+        out_path = Path(output_dir)
+
+        # Locate learning store — fall back to module default if not in output_dir
+        local_store = out_path / "post_trade_learning.jsonl"
+        learning_store_path = local_store if local_store.exists() else Path(DEFAULT_LEARNING_STORE_PATH)
+
+        # Locate current model — use a best-effort path; FeedbackLoopController
+        # handles a missing model gracefully via its internal guards.
+        model_candidates = sorted(out_path.glob("model_*.pkl"), reverse=True)
+        current_model_path = model_candidates[0] if model_candidates else out_path / "model.pkl"
+
+        # Load recent factor panel — use most recent factor_scores parquet if present
+        panel_files = sorted(out_path.glob("factor_scores_*.parquet"), reverse=True)
+        if panel_files:
+            panel_df = pd.read_parquet(str(panel_files[0]))
+        else:
+            panel_df = load_learning_records_as_dataframe(learning_store_path)
+
+        controller = FeedbackLoopController(
+            config=FeedbackLoopConfig(),
+            state_dir=out_path / "feedback_state",
+        )
+        result = controller.run_feedback_check(
+            learning_store_path=learning_store_path,
+            current_model_path=current_model_path,
+            panel_df=panel_df,
+        )
+
+        logger.info(
+            "[FEEDBACK] check complete — signals=%d retrain=%s deployed=%s report=%s",
+            result.active_signal_count,
+            result.retrain_triggered,
+            result.new_model_deployed,
+            result.report_path,
+        )
+        return WorkerResult(worker_name="feedback_worker", status="ok",
+                            duration_s=time.monotonic() - t0)
+    except ImportError as exc:
+        logger.info("[FEEDBACK] not available (%s)", exc)
+        return WorkerResult(worker_name="feedback_worker", status="skip",
+                            duration_s=time.monotonic() - t0)
+    except Exception as exc:
+        msg = f"{type(exc).__name__}: {exc}"
+        logger.error("[FEEDBACK] error: %s", msg)
+        return WorkerResult(worker_name="feedback_worker", status="error",
+                            duration_s=time.monotonic() - t0, error_msg=msg)
+
+
 def _reconcile_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerResult:
     """Reconcile paper ledger against fills and write reconciliation report."""
     t0 = time.monotonic()
@@ -221,6 +292,135 @@ def _health_check_worker(date_str: str, output_dir: str, dry_run: bool) -> Worke
     )
 
 
+def _retrain_scheduler_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerResult:
+    """Run RetrainingScheduler after feedback_worker to evaluate 5 retrain signals.
+
+    Reads state from output_dir (equity curve, IC series, regime series) and
+    produces a RetrainingRecommendation. auto_deploy is always False.
+    Log prefix: [RETRAIN-SCHED]
+    """
+    t0 = time.monotonic()
+    if dry_run:
+        logger.info("[RETRAIN-SCHED] dry_run=True — skipping retrain scheduler")
+        return WorkerResult(
+            worker_name="retrain_scheduler_worker",
+            status="skip",
+            duration_s=time.monotonic() - t0,
+        )
+    try:
+        from src.assembled_core.ml.retraining_scheduler import RetrainingScheduler  # type: ignore
+        import json
+
+        out_path = Path(output_dir)
+        scheduler = RetrainingScheduler()
+
+        import pandas as _sched_pd
+
+        # --- Optional: load equity curve ---
+        equity_since_retrain = None
+        try:
+            eq_candidates = sorted(out_path.glob("equity_curve_*.parquet"), reverse=True)
+            if not eq_candidates:
+                eq_candidates = sorted(out_path.glob("equity_curve.parquet"), reverse=True)
+            if eq_candidates:
+                eq_df = _sched_pd.read_parquet(str(eq_candidates[0]))
+                if "equity" in eq_df.columns:
+                    equity_since_retrain = eq_df["equity"]
+        except Exception:
+            pass
+
+        # --- Optional: load IC series ---
+        ic_series = None
+        try:
+            ic_candidates = sorted(out_path.glob("ic_series_*.parquet"), reverse=True)
+            if ic_candidates:
+                ic_df = _sched_pd.read_parquet(str(ic_candidates[0]))
+                if "ic" in ic_df.columns:
+                    ic_series = ic_df["ic"]
+        except Exception:
+            pass
+
+        # --- Optional: load regime series ---
+        regime_series = None
+        try:
+            reg_candidates = sorted(out_path.glob("regime_*.parquet"), reverse=True)
+            if reg_candidates:
+                reg_df = _sched_pd.read_parquet(str(reg_candidates[0]))
+                if "regime" in reg_df.columns:
+                    regime_series = reg_df["regime"]
+        except Exception:
+            pass
+
+        # --- Optional: load last retrain date ---
+        model_last_trained_date = None
+        try:
+            state_file = out_path / "feedback_state" / "feedback_state.json"
+            if state_file.exists():
+                state_data = json.loads(state_file.read_text(encoding="ascii", errors="replace"))
+                last_retrain_str = state_data.get("last_retrain_date")
+                if last_retrain_str:
+                    from datetime import date as _date
+                    model_last_trained_date = _date.fromisoformat(str(last_retrain_str)[:10])
+        except Exception:
+            pass
+
+        rec = scheduler.evaluate(
+            model_last_trained_date=model_last_trained_date,
+            ic_series=ic_series,
+            equity_since_retrain=equity_since_retrain,
+            regime_series=regime_series,
+        )
+
+        # Persist recommendation JSON
+        rec_path = out_path / f"retrain_recommendation_{date_str}.json"
+        rec_dict = {
+            "checked_at": rec.checked_at,
+            "signals_fired": rec.signals_fired,
+            "decision": rec.decision,
+            "auto_deploy": rec.auto_deploy,
+            "notes": rec.notes,
+            "signal_details": [
+                {
+                    "name": d.name,
+                    "fired": d.fired,
+                    "reason": d.reason,
+                    "value": d.value,
+                }
+                for d in rec.signal_details
+            ],
+        }
+        rec_path.write_text(json.dumps(rec_dict, indent=2))
+
+        logger.info(
+            "[RETRAIN-SCHED] decision=%s signals=%d auto_deploy=%s report=%s",
+            rec.decision,
+            rec.signals_fired,
+            rec.auto_deploy,
+            rec_path,
+        )
+        return WorkerResult(
+            worker_name="retrain_scheduler_worker",
+            status="ok",
+            duration_s=time.monotonic() - t0,
+        )
+    except ImportError as exc:
+        logger.info("[RETRAIN-SCHED] not available (%s)", exc)
+        return WorkerResult(
+            worker_name="retrain_scheduler_worker",
+            status="skip",
+            duration_s=time.monotonic() - t0,
+        )
+    except Exception as exc:
+        msg = f"{type(exc).__name__}: {exc}"
+        logger.error("[RETRAIN-SCHED] error: %s", msg)
+        return WorkerResult(
+            worker_name="retrain_scheduler_worker",
+            status="error",
+            duration_s=time.monotonic() - t0,
+            error_msg=msg,
+        )
+
+
 def _factor_curation_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerResult:
     """Quarterly factor curation: compute DSR for all active factors, flag decayed ones.
 
@@ -327,13 +527,193 @@ def _factor_curation_worker(date_str: str, output_dir: str, dry_run: bool) -> Wo
                             duration_s=time.monotonic() - t0, error_msg=msg)
 
 
+def _alert_health_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerResult:
+    """Check system-level alert conditions and dispatch via AlertManager (Phase 11).
+
+    CRITICAL: kill-switch engaged, drawdown > 20%, reconciliation failure.
+    WARNING: IC degradation, model stale, feature drift.
+    INFO: regime change, new equity highs/lows.
+    """
+    t0 = time.monotonic()
+    if dry_run:
+        logger.info("[ALERT] dry_run=True -- skipping alert health check")
+        return WorkerResult(worker_name="alert_health_worker", status="skip",
+                            duration_s=time.monotonic() - t0)
+    try:
+        from src.assembled_core.ops.alert_manager import AlertManager
+        mgr = AlertManager(output_dir=str(Path(output_dir) / "alerts"))
+        out_path = Path(output_dir)
+
+        # CRITICAL: Kill-switch state
+        try:
+            from src.assembled_core.execution.kill_switch import is_kill_switch_engaged  # type: ignore
+            if is_kill_switch_engaged():
+                mgr.alert("CRITICAL", "kill_switch", "Kill switch is currently engaged",
+                          details={"date": date_str})
+        except Exception as _ke:
+            logger.debug("[ALERT] kill_switch check skipped: %s", _ke)
+
+        # CRITICAL: Reconciliation failure (error files present)
+        try:
+            error_files = list(out_path.glob("*.error"))
+            if error_files:
+                mgr.alert("CRITICAL", "reconciliation",
+                          f"Error files found: {[f.name for f in error_files[:3]]}",
+                          details={"date": date_str, "n_errors": len(error_files)})
+        except Exception as _re:
+            logger.debug("[ALERT] reconciliation error check skipped: %s", _re)
+
+        # WARNING: Signal health / IC degradation
+        try:
+            import json
+            diag_path = out_path / "diagnostics" / f"signal_health_{date_str}.json"
+            if diag_path.exists():
+                diag_data = json.loads(diag_path.read_text())
+                n_alerts = diag_data.get("n_alerts", 0)
+                if n_alerts > 0:
+                    mgr.alert("WARNING", "signal_diagnostics",
+                              f"IC degradation: {n_alerts} factor alerts",
+                              details={"alerts": diag_data.get("alerts", [])[:5], "date": date_str})
+        except Exception as _sd:
+            logger.debug("[ALERT] signal_health check skipped: %s", _sd)
+
+        # WARNING: Model stale (no model updated in >30 days)
+        try:
+            model_files = sorted(out_path.glob("model_*.pkl"), reverse=True)
+            if not model_files:
+                model_files = list(out_path.glob("model.pkl"))
+            if model_files:
+                import os as _os
+                model_age_days = (time.time() - _os.path.getmtime(str(model_files[0]))) / 86400
+                if model_age_days > 30:
+                    mgr.alert("WARNING", "model_staleness",
+                              f"Model file is {model_age_days:.0f} days old (>30)",
+                              details={"model": model_files[0].name, "age_days": round(model_age_days, 1)})
+        except Exception as _ms:
+            logger.debug("[ALERT] model_stale check skipped: %s", _ms)
+
+        # INFO: Risk state not WATCH (regime change)
+        try:
+            import json
+            kpis_path = out_path / "run_kpis.json"
+            if kpis_path.exists():
+                kpis = json.loads(kpis_path.read_text())
+                risk_state = kpis.get("risk_state")
+                if risk_state and risk_state not in ("WATCH", None):
+                    mgr.alert("INFO", "risk_state_machine",
+                              f"Risk state: {risk_state}",
+                              details={"state": risk_state, "date": date_str})
+        except Exception as _rse:
+            logger.debug("[ALERT] regime_change check skipped: %s", _rse)
+
+        alert_file = mgr.flush_to_json()
+        logger.info("[ALERT] health check done: date=%s file=%s", date_str, alert_file)
+        return WorkerResult(worker_name="alert_health_worker", status="ok",
+                            duration_s=time.monotonic() - t0)
+    except ImportError as exc:
+        logger.info("[ALERT] not available (%s)", exc)
+        return WorkerResult(worker_name="alert_health_worker", status="skip",
+                            duration_s=time.monotonic() - t0)
+    except Exception as exc:
+        msg = f"{type(exc).__name__}: {exc}"
+        logger.error("[ALERT] alert_health_worker error: %s", msg)
+        return WorkerResult(worker_name="alert_health_worker", status="error",
+                            duration_s=time.monotonic() - t0, error_msg=msg)
+
+
+def _kpi_export_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerResult:
+    """Export Prometheus-format KPI metrics to output/metrics/ (Phase 11 / Plan C15)."""
+    t0 = time.monotonic()
+    if dry_run:
+        logger.info("[KPI] dry_run=True -- skipping KPI export")
+        return WorkerResult(worker_name="kpi_export_worker", status="skip",
+                            duration_s=time.monotonic() - t0)
+    try:
+        import json
+        from src.assembled_core.ops.metrics_exporter import export_metrics
+
+        out_path = Path(output_dir)
+        metrics: dict = {}
+
+        # Load run_kpis.json if present
+        kpis_path = out_path / "run_kpis.json"
+        if kpis_path.exists():
+            try:
+                kpis = json.loads(kpis_path.read_text())
+                mults = kpis.get("multipliers") or {}
+                if "georisk" in mults:
+                    metrics["assembled_georisk_multiplier"] = float(mults["georisk"])
+                if "profit_lock" in mults:
+                    metrics["assembled_profit_lock_multiplier"] = float(mults["profit_lock"])
+                if "final_exposure_multiplier" in mults:
+                    metrics["assembled_exposure_multiplier"] = float(mults["final_exposure_multiplier"])
+                targets_summary = kpis.get("targets_summary") or {}
+                if "n_targets" in targets_summary:
+                    metrics["assembled_targets_count"] = float(targets_summary["n_targets"])
+            except Exception as _kje:
+                logger.debug("[KPI] run_kpis.json parse error: %s", _kje)
+
+        # Load reconcile report if present
+        reconcile_path = out_path / f"reconcile_{date_str}.json"
+        if reconcile_path.exists():
+            try:
+                rec = json.loads(reconcile_path.read_text())
+                if rec.get("n_positions") is not None:
+                    metrics["assembled_n_positions"] = float(rec["n_positions"])
+                if rec.get("last_equity") is not None:
+                    metrics["assembled_equity"] = float(rec["last_equity"])
+                if rec.get("cash") is not None:
+                    metrics["assembled_cash"] = float(rec["cash"])
+            except Exception as _rje:
+                logger.debug("[KPI] reconcile parse error: %s", _rje)
+
+        # Signal diagnostics alert count
+        diag_path = out_path / "diagnostics" / f"signal_health_{date_str}.json"
+        if diag_path.exists():
+            try:
+                diag = json.loads(diag_path.read_text())
+                metrics["assembled_signal_health_alerts"] = float(diag.get("n_alerts", 0))
+                metrics["assembled_signal_health_factors"] = float(diag.get("n_factors", 0))
+            except Exception as _dge:
+                logger.debug("[KPI] signal_health parse error: %s", _dge)
+
+        if not metrics:
+            logger.info("[KPI] no metrics available for %s -- skip", date_str)
+            return WorkerResult(worker_name="kpi_export_worker", status="skip",
+                                duration_s=time.monotonic() - t0)
+
+        metrics_dir = out_path / "metrics"
+        export_result = export_metrics(
+            metrics,
+            labels={"date": date_str},
+            path=metrics_dir / "assembled.prom",
+        )
+        logger.info("[KPI] exported %d metrics to %s",
+                    export_result.get("metrics_count", 0), export_result.get("file"))
+        return WorkerResult(worker_name="kpi_export_worker", status="ok",
+                            duration_s=time.monotonic() - t0)
+    except ImportError as exc:
+        logger.info("[KPI] not available (%s)", exc)
+        return WorkerResult(worker_name="kpi_export_worker", status="skip",
+                            duration_s=time.monotonic() - t0)
+    except Exception as exc:
+        msg = f"{type(exc).__name__}: {exc}"
+        logger.error("[KPI] kpi_export_worker error: %s", msg)
+        return WorkerResult(worker_name="kpi_export_worker", status="error",
+                            duration_s=time.monotonic() - t0, error_msg=msg)
+
+
 # Default worker registry (callables that accept date_str, output_dir, dry_run)
 _DEFAULT_WORKERS: List[Callable] = [
     _ingest_worker,
     _post_trade_worker,
+    _feedback_worker,
+    _retrain_scheduler_worker,   # runs after feedback to evaluate 5 retrain signals
     _reconcile_worker,
     _health_check_worker,
     _factor_curation_worker,
+    _alert_health_worker,        # Phase 11: alert conditions after health check
+    _kpi_export_worker,          # Phase 11: Prometheus metrics export
 ]
 
 

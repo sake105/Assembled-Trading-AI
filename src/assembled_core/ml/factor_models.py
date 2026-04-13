@@ -378,7 +378,14 @@ def _split_time_series(
     unique_timestamps = pd.Series(unique_timestamps).sort_values()
 
     # Calculate test size (approximately equal splits)
-    total_days = (unique_timestamps.max() - unique_timestamps.min()).days
+    _ts_diff = unique_timestamps.max() - unique_timestamps.min()
+    total_days = getattr(_ts_diff, "days", None)
+    if total_days is None:
+        # Fallback: convert numpy timedelta to days
+        try:
+            total_days = int(pd.Timedelta(_ts_diff).days)
+        except Exception:
+            total_days = len(unique_timestamps)  # approximate with count
     total_days // (n_splits + 1)  # Reserve some data for first train set
 
     splits = []
