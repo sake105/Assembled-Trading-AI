@@ -165,6 +165,8 @@ class BlackLittermanOptimizer:
         sigma: pd.DataFrame,
         views: dict[str, float],
         confidence: Optional[dict[str, float]] = None,
+        current_weights: Optional[dict[str, float]] = None,
+        turnover_penalty: float = 0.0,
     ) -> pd.Series:
         """Full Black-Litterman optimize: compute posterior returns then maximize Sharpe.
 
@@ -173,6 +175,8 @@ class BlackLittermanOptimizer:
             sigma: Annualized covariance matrix.
             views: Symbol → absolute expected annual return view.
             confidence: Symbol → confidence in view [0, 1].
+            current_weights: Current portfolio weights (for turnover penalty).
+            turnover_penalty: Lambda_tc for L1 turnover penalty (0 = disabled).
 
         Returns:
             Optimal portfolio weights as Series (index = symbols).
@@ -191,18 +195,27 @@ class BlackLittermanOptimizer:
 
         n = len(symbols)
         w0 = np.ones(n) / n
+        w_old = np.array([
+            (current_weights or {}).get(s, 1.0 / n) for s in symbols
+        ])
 
         def neg_sharpe(w: np.ndarray) -> float:
             port_ret = float(mu @ w)
             port_vol = float(np.sqrt(w @ S @ w + 1e-10))
-            return -port_ret / port_vol
+            obj = -port_ret / port_vol
+            if turnover_penalty > 0:
+                obj += turnover_penalty * float(np.sum(np.abs(w - w_old)))
+            return obj
 
         def neg_sharpe_grad(w: np.ndarray) -> np.ndarray:
             port_vol = float(np.sqrt(w @ S @ w + 1e-10))
             grad_ret = mu
             grad_vol = (S @ w) / port_vol
             sharpe = float(mu @ w) / port_vol
-            return -(grad_ret / port_vol - sharpe * grad_vol / port_vol)
+            grad = -(grad_ret / port_vol - sharpe * grad_vol / port_vol)
+            if turnover_penalty > 0:
+                grad += turnover_penalty * np.sign(w - w_old)
+            return grad
 
         constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1.0}]
         bounds = [(self.min_position, self.max_position)] * n

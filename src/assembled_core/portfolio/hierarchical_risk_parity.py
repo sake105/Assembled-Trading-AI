@@ -224,7 +224,64 @@ def hrp_vs_equal_weight_comparison(
     }
 
 
+def hrp_with_turnover_control(
+    returns: pd.DataFrame,
+    current_weights: dict[str, float],
+    max_turnover: float = 0.30,
+    blend_speed: float = 0.5,
+    **kwargs,
+) -> dict[str, float]:
+    """HRP with post-optimization turnover overlay.
+
+    Blends HRP target weights with current weights to control turnover.
+    If full rebalance turnover exceeds max_turnover, partially adjust
+    using blend_speed.
+
+    Args:
+        returns: Wide-format DataFrame (dates × symbols) of daily returns.
+        current_weights: Current portfolio weights.
+        max_turnover: Maximum one-way turnover allowed.
+        blend_speed: How fast to converge to HRP target (0-1).
+            0 = keep current, 1 = full rebalance.
+        **kwargs: Passed to compute_hrp_weights.
+
+    Returns:
+        Dict mapping symbol → weight with turnover control.
+    """
+    hrp_target = compute_hrp_weights(returns, **kwargs)
+    if not hrp_target:
+        return current_weights
+
+    symbols = sorted(set(hrp_target) | set(current_weights))
+
+    w_target = np.array([hrp_target.get(s, 0.0) for s in symbols])
+    w_curr = np.array([current_weights.get(s, 0.0) for s in symbols])
+
+    # Full turnover
+    full_turnover = float(np.sum(np.abs(w_target - w_curr)))
+
+    if full_turnover <= max_turnover:
+        # Within budget — use HRP target directly
+        return hrp_target
+
+    # Partial adjustment: blend current and target
+    effective_speed = min(blend_speed, max_turnover / (full_turnover + 1e-10))
+    w_final = w_curr + effective_speed * (w_target - w_curr)
+    w_final = np.maximum(w_final, 0.0)
+    total = w_final.sum()
+    if total > 1e-8:
+        w_final /= total
+
+    logger.info(
+        "[HRP] Turnover control: full=%.4f, max=%.4f, effective_speed=%.4f",
+        full_turnover, max_turnover, effective_speed,
+    )
+
+    return {s: round(float(w_final[i]), 6) for i, s in enumerate(symbols)}
+
+
 __all__ = [
     "compute_hrp_weights",
     "hrp_vs_equal_weight_comparison",
+    "hrp_with_turnover_control",
 ]

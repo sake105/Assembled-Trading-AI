@@ -239,7 +239,7 @@ def run_feature_selection(
     min_stability: float = 0.5,
     ic_window: int | None = None,
 ) -> FeatureSelectionResult:
-    """Run the full feature selection pipeline: IC → collinearity → stability.
+    """Run the full feature selection pipeline: IC -> collinearity -> stability.
 
     Args:
         factor_panel: Panel with timestamp, symbol, feature columns, forward_return_col.
@@ -293,7 +293,7 @@ def run_feature_selection(
 
     _log.info(
         "Feature selection complete: %d selected, %d dropped "
-        "(IC: %d→%d, collinear: %d→%d, stability: %d→%d)",
+        "(IC: %d->%d, collinear: %d->%d, stability: %d->%d)",
         len(stable_kept), len(dropped),
         len(all_numeric), len(ic_kept),
         len(ic_kept), len(collinear_kept),
@@ -303,10 +303,165 @@ def run_feature_selection(
     return result
 
 
+def check_factor_diversification(
+    weights: dict[str, float],
+    *,
+    min_effective_n: float = 4.0,
+) -> tuple[bool, float]:
+    """Factor diversification gate (M16.6).
+
+    Checks that portfolio factor weights are not over-concentrated.
+    Uses the Herfindahl-based effective N metric:
+        effective_N = (sum |w_i|)^2 / sum(w_i^2)
+
+    Args:
+        weights: Factor name -> weight mapping.
+        min_effective_n: Minimum effective number of factors (default: 4).
+
+    Returns:
+        Tuple of (passed: bool, effective_n: float).
+    """
+    import numpy as np
+
+    w = np.array([abs(v) for v in weights.values() if v != 0], dtype=float)
+    if len(w) == 0:
+        _log.warning("[Diversification] No active factors — gate fails")
+        return False, 0.0
+
+    sum_abs = w.sum()
+    sum_sq = (w ** 2).sum()
+    effective_n = (sum_abs ** 2) / sum_sq if sum_sq > 1e-15 else 0.0
+
+    passed = effective_n >= min_effective_n
+    _log.info(
+        "[Diversification] effective_N=%.1f (min=%.1f) -> %s",
+        effective_n, min_effective_n, "PASS" if passed else "FAIL",
+    )
+    return passed, round(float(effective_n), 2)
+
+
+def mutual_information_ranking(
+    features: "pd.DataFrame",
+    target: "pd.Series",
+    top_k: int | None = None,
+    discrete_features: bool = False,
+) -> list[tuple[str, float]]:
+    """Rank features by Mutual Information with target (Task 19.9).
+
+    Non-linear alternative to Pearson IC — captures non-linear dependencies.
+
+    Args:
+        features: (T, N) feature DataFrame.
+        target: (T,) target returns.
+        top_k: Return top-K features. None = all.
+        discrete_features: Whether features are discrete.
+
+    Returns:
+        List of (feature_name, MI_score) sorted descending.
+
+    Reference: sklearn.feature_selection.mutual_info_regression
+    """
+    import numpy as np
+    cols = list(features.columns)
+    X = features.values.astype(float)
+    y = np.asarray(target, dtype=float)
+
+    # Remove NaN rows
+    valid = ~(np.isnan(X).any(axis=1) | np.isnan(y))
+    X_clean = X[valid]
+    y_clean = y[valid]
+
+    if len(y_clean) < 30:
+        _log.warning("[MI] Insufficient valid data (%d rows)", len(y_clean))
+        return [(c, 0.0) for c in cols]
+
+    try:
+        from sklearn.feature_selection import mutual_info_regression
+        mi_scores = mutual_info_regression(
+            X_clean, y_clean,
+            discrete_features=discrete_features,
+            random_state=42,
+            n_neighbors=5,
+        )
+    except ImportError:
+        # Fallback: absolute Spearman correlation as proxy
+        _log.info("[MI] sklearn not available, using Spearman proxy")
+        mi_scores = np.array([
+            abs(np.corrcoef(X_clean[:, i], y_clean)[0, 1])
+            for i in range(X_clean.shape[1])
+        ])
+        mi_scores = np.nan_to_num(mi_scores, 0.0)
+
+    ranked = sorted(zip(cols, mi_scores), key=lambda x: x[1], reverse=True)
+    if top_k is not None:
+        ranked = ranked[:top_k]
+
+    _log.info("[MI] Top features: %s", [(n, round(s, 4)) for n, s in ranked[:5]])
+    return ranked
+
+
+def conditional_mutual_information(
+    features: "pd.DataFrame",
+    target: "pd.Series",
+    already_selected: list[str],
+    candidate: str,
+) -> float:
+    """Conditional MI: I(candidate; target | already_selected) (Task 19.9).
+
+    Measures information that candidate adds BEYOND what selected features provide.
+
+    Args:
+        features: Feature DataFrame.
+        target: Target returns.
+        already_selected: Already chosen features.
+        candidate: Candidate feature to evaluate.
+
+    Returns:
+        Approximate conditional MI score.
+    """
+    import numpy as np
+
+    y = np.asarray(target, dtype=float)
+
+    if not already_selected:
+        # No conditioning — just MI
+        ranked = mutual_information_ranking(features[[candidate]], target)
+        return ranked[0][1] if ranked else 0.0
+
+    # Approximate: MI(candidate; target) - MI(candidate; selected_mean)
+    # This is a fast heuristic; exact CMI requires density estimation
+    cand_vals = features[candidate].values.astype(float)
+    sel_mean = features[already_selected].mean(axis=1).values.astype(float)
+
+    valid = ~(np.isnan(cand_vals) | np.isnan(y) | np.isnan(sel_mean))
+    if valid.sum() < 30:
+        return 0.0
+
+    # Residualize candidate on selected features
+    from numpy.linalg import lstsq
+    X_sel = features[already_selected].values[valid].astype(float)
+    cand_clean = cand_vals[valid]
+    y_clean = y[valid]
+
+    # Regress candidate on selected
+    coef = lstsq(X_sel, cand_clean, rcond=None)[0]
+    residual = cand_clean - X_sel @ coef
+
+    # MI of residual with target (proxy for CMI)
+    if np.std(residual) < 1e-10:
+        return 0.0
+
+    corr = abs(np.corrcoef(residual, y_clean)[0, 1])
+    return float(np.nan_to_num(corr, 0.0))
+
+
 __all__ = [
     "FeatureSelectionResult",
     "ic_prescreen",
     "collinearity_filter",
     "stability_filter",
     "run_feature_selection",
+    "check_factor_diversification",
+    "mutual_information_ranking",
+    "conditional_mutual_information",
 ]

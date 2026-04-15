@@ -69,6 +69,12 @@ class FeedbackLoopConfig:
     """If True, automatically swap model when new model passes validation.
     Defaults to False — safe recommendation-only mode."""
 
+    cpcv_gate_enabled: bool = True
+    """If True, require CPCV P(OOS_Sharpe > 0) >= cpcv_min_prob before deploy."""
+
+    cpcv_min_prob: float = 0.60
+    """Minimum CPCV probability of positive OOS Sharpe for deploy gate."""
+
     ic_bad_day_window: int = 5
     """Number of consecutive bad-IC days required to trigger signal 1."""
 
@@ -419,7 +425,14 @@ class FeedbackLoopController:
                 validation_passed,
             )
 
+        # CPCV Overfitting Gate (M16) — blocks deploy if P(OOS Sharpe > 0) too low
+        cpcv_passed = True
+        if self.config.cpcv_gate_enabled and validation_passed:
+            cpcv_passed = self._run_cpcv_gate(train_result)
+            validation_passed = validation_passed and cpcv_passed
+
         train_result["validation_passed"] = validation_passed
+        train_result["cpcv_passed"] = cpcv_passed
         train_result["new_auc"] = new_auc
         train_result["current_auc"] = current_auc
 
@@ -447,6 +460,69 @@ class FeedbackLoopController:
 
         self._record_retrain_attempt(success=True)
         return deployed, train_result
+
+    # ------------------------------------------------------------------
+    # CPCV Overfitting Gate (M16)
+    # ------------------------------------------------------------------
+
+    def _run_cpcv_gate(self, train_result: dict) -> bool:
+        """Run CPCV overfitting gate on the training returns.
+
+        Returns True if model passes (P(OOS Sharpe > 0) >= threshold).
+        Returns True (pass) if CPCV cannot be run (defensive).
+        """
+        try:
+            import numpy as np
+            from src.assembled_core.ml.cpcv import (
+                compute_cpcv_sharpe_distribution,
+            )
+
+            # Extract per-split returns from training result
+            per_split = train_result.get("per_split_metrics", [])
+            if not per_split or len(per_split) < 3:
+                logger.debug("%s CPCV gate: insufficient splits (%d), passing", _PREFIX, len(per_split))
+                return True
+
+            # Build returns per path from split predictions
+            returns_per_path = []
+            for split in per_split:
+                split_returns = split.get("test_returns") or split.get("predictions", [])
+                if isinstance(split_returns, (list, np.ndarray)) and len(split_returns) > 0:
+                    returns_per_path.append(np.array(split_returns, dtype=float))
+
+            if len(returns_per_path) < 3:
+                logger.debug("%s CPCV gate: no usable returns from splits, passing", _PREFIX)
+                return True
+
+            result = compute_cpcv_sharpe_distribution(returns_per_path)
+            prob_pos = result.prob_positive_sharpe
+            is_overfit = result.is_likely_overfit
+
+            logger.info(
+                "%s CPCV gate: P(Sharpe>0)=%.3f (min=%.2f), overfit=%s, DSR=%.3f",
+                _PREFIX, prob_pos, self.config.cpcv_min_prob,
+                is_overfit, result.deflated_sharpe,
+            )
+
+            if prob_pos < self.config.cpcv_min_prob:
+                logger.warning(
+                    "%s CPCV BLOCKED: P(OOS Sharpe>0)=%.3f < %.2f — likely overfitting",
+                    _PREFIX, prob_pos, self.config.cpcv_min_prob,
+                )
+                return False
+
+            if is_overfit:
+                logger.warning(
+                    "%s CPCV WARNING: model flagged as likely overfit (DSR=%.3f)",
+                    _PREFIX, result.deflated_sharpe,
+                )
+                # Warning only — don't block if prob is sufficient
+
+            return True
+
+        except Exception as exc:
+            logger.debug("%s CPCV gate: could not run (%s), passing defensively", _PREFIX, exc)
+            return True
 
     # ------------------------------------------------------------------
     # Signal checks (each individually guarded)

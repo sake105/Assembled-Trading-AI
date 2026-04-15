@@ -82,9 +82,9 @@ def _add_hammer(df: pd.DataFrame) -> pd.Series:
     lower = _lower_shadow(df)
     upper = _upper_shadow(df)
     cond = (
-        (body / rng.fillna(1e-9)).fillna(1.0) <= _SMALL_BODY_RATIO
-        & (lower >= _LONG_SHADOW_RATIO * body.replace(0, np.nan)).fillna(False)
-        & (upper <= 0.1 * rng.fillna(1e-9)).fillna(False)
+        ((body / rng.fillna(1e-9)).fillna(1.0) <= _SMALL_BODY_RATIO)
+        & ((lower >= _LONG_SHADOW_RATIO * body.replace(0, np.nan)).fillna(False))
+        & ((upper <= 0.1 * rng.fillna(1e-9)).fillna(False))
     )
     return pd.Series(np.where(cond, 1.0, 0.0), index=df.index, name="cs_hammer_v1")
 
@@ -96,9 +96,9 @@ def _add_hanging_man(df: pd.DataFrame) -> pd.Series:
     lower = _lower_shadow(df)
     upper = _upper_shadow(df)
     cond = (
-        (body / rng.fillna(1e-9)).fillna(1.0) <= _SMALL_BODY_RATIO
-        & (lower >= _LONG_SHADOW_RATIO * body.replace(0, np.nan)).fillna(False)
-        & (upper <= 0.1 * rng.fillna(1e-9)).fillna(False)
+        ((body / rng.fillna(1e-9)).fillna(1.0) <= _SMALL_BODY_RATIO)
+        & ((lower >= _LONG_SHADOW_RATIO * body.replace(0, np.nan)).fillna(False))
+        & ((upper <= 0.1 * rng.fillna(1e-9)).fillna(False))
     )
     return pd.Series(np.where(cond, -1.0, 0.0), index=df.index, name="cs_hanging_man_v1")
 
@@ -110,9 +110,9 @@ def _add_shooting_star(df: pd.DataFrame) -> pd.Series:
     lower = _lower_shadow(df)
     upper = _upper_shadow(df)
     cond = (
-        (body / rng.fillna(1e-9)).fillna(1.0) <= _SMALL_BODY_RATIO
-        & (upper >= _LONG_SHADOW_RATIO * body.replace(0, np.nan)).fillna(False)
-        & (lower <= 0.1 * rng.fillna(1e-9)).fillna(False)
+        ((body / rng.fillna(1e-9)).fillna(1.0) <= _SMALL_BODY_RATIO)
+        & ((upper >= _LONG_SHADOW_RATIO * body.replace(0, np.nan)).fillna(False))
+        & ((lower <= 0.1 * rng.fillna(1e-9)).fillna(False))
     )
     return pd.Series(np.where(cond, -1.0, 0.0), index=df.index, name="cs_shooting_star_v1")
 

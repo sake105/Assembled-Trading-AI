@@ -1,6 +1,6 @@
-"""STRATEGY-V2: 18-factor multi-factor strategy with regime-conditional weights.
+"""STRATEGY-V2: 30-factor multi-factor strategy with regime-conditional weights.
 
-Active factors (18):
+Active factors (30):
   - Trend (1-4): EMA spread, MA200 position, ADX strength, MACD histogram
   - Momentum (5-7): RSI centered, volume-weighted momentum, OBV trend
   - Mean-reversion (8-9, 16-17): Bollinger %B, Stochastic, 3d reversal, RSI extreme
@@ -8,16 +8,20 @@ Active factors (18):
   - Volatility (12-13): regime score, VoV penalty
   - Breadth (14-15): pct above MA, advance-decline slope
   - Sector (18): rotation bias
+  - Earnings/Insider (19-20): EPS surprise z, insider activity score
+  - News/Macro (21-24): sentiment, volume spike, growth momentum, inflation
+  - Intermarket (25-27): bond-equity divergence, credit spread, yield curve
+  - Options (28-29): put-call extreme, VIX regime score
+  - Congress (30): congressional trading activity
 
 Crash probability is applied as a multiplicative scaler on the composite score,
 not as a z-scored additive factor.
 
-Factors 19-28 (earnings, insider, news, macro, intermarket, options) are
-structurally defined but excluded from DEFAULT_V2_WEIGHTS because they
-require external data sources not yet wired. They activate automatically
-once regime weights JSON includes them with non-zero weight.
+All 30 factors are now wired to their data sources. Factors gracefully degrade
+to 0.0 when external data is unavailable (no dilution — zero-variance factors
+are excluded from the composite via the dead-factor filter).
 
-Factor 30 (meta-model confidence) is a multiplicative filter, not an additive
+Factor 31 (meta-model confidence) is a multiplicative filter, not an additive
 summand. It gates signals via a min-confidence threshold and scales scores.
 
 Regime-conditional weights are loaded from configs/factor_weights_by_regime.json
@@ -63,38 +67,53 @@ from src.assembled_core.strategies.multifactor_v1 import (
 logger = logging.getLogger(__name__)
 
 STRATEGY_VERSION = "v2"
-VERSION = "multifactor_v2.2.0"
+VERSION = "multifactor_v2.3.0"
 
 # ---------------------------------------------------------------------------
 # Default v2 factor weights (used when regime weights file is unavailable)
 # ---------------------------------------------------------------------------
 
 DEFAULT_V2_WEIGHTS: dict[str, float] = {
-    # --- v1 factors (re-calibrated, scaled to sum=1.0) ---
-    "trend_ema_spread": 0.13,
-    "trend_ma200_position": 0.09,
-    "trend_adx_strength": 0.06,
-    "trend_macd_hist": 0.06,
-    "mom_rsi_centered": 0.08,
-    "mom_volume_weighted": 0.06,
-    "mom_obv_trend": 0.04,
-    "mr_bollinger_pctb": 0.05,
-    "mr_stoch_oversold": 0.04,
-    "vol_abnormal": 0.04,
-    "vol_tick_imbalance": 0.04,
-    "vola_regime_score": 0.04,
-    "vola_vov_penalty": 0.04,
-    "breadth_above_ma": 0.05,
-    "breadth_ad_line": 0.04,
-    # --- v2 factors with working data sources ---
-    "mr_zscore_reversal_3d": 0.04,
-    "mr_rsi_extreme_uptrend": 0.04,
-    "sector_rotation_bias": 0.06,
-    # NOTE: factors 19-28 (earnings, insider, news, macro, intermarket, options)
-    # excluded -- they always return 0.0 without external data, diluting the
-    # composite score. They activate via regime weights JSON when data is wired.
-    # NOTE: crash_probability_inverse removed from additive weights; it is now
-    # applied as a multiplicative scaler on the final composite (see Fix 15).
+    # --- v1 factors (re-calibrated) ---
+    "trend_ema_spread": 0.10,
+    "trend_ma200_position": 0.07,
+    "trend_adx_strength": 0.05,
+    "trend_macd_hist": 0.05,
+    "mom_rsi_centered": 0.06,
+    "mom_volume_weighted": 0.05,
+    "mom_obv_trend": 0.03,
+    "mr_bollinger_pctb": 0.04,
+    "mr_stoch_oversold": 0.03,
+    "vol_abnormal": 0.03,
+    "vol_tick_imbalance": 0.03,
+    "vola_regime_score": 0.03,
+    "vola_vov_penalty": 0.03,
+    "breadth_above_ma": 0.04,
+    "breadth_ad_line": 0.03,
+    # --- v2 factors (16-18) ---
+    "mr_zscore_reversal_3d": 0.03,
+    "mr_rsi_extreme_uptrend": 0.03,
+    "sector_rotation_bias": 0.04,
+    # --- Earnings/Insider (19-20) ---
+    "earnings_surprise_z": 0.03,
+    "insider_activity_score": 0.02,
+    # --- News/Macro (21-24) ---
+    "news_sentiment_7d": 0.02,
+    "news_volume_spike": 0.01,
+    "macro_growth_momentum": 0.02,
+    "macro_inflation_surprise": 0.01,
+    # --- Intermarket (25-27) ---
+    "intermarket_bond_equity": 0.02,
+    "intermarket_credit_spread": 0.02,
+    "intermarket_yield_curve": 0.02,
+    # --- Options (28-29) ---
+    "options_put_call_extreme": 0.02,
+    "vix_regime_score": 0.02,
+    # --- Congress (30) ---
+    "congress_activity": 0.02,
+    # NOTE: crash_probability_inverse is applied as a multiplicative scaler
+    # on the final composite, not as an additive factor.
+    # Sum = 1.00
 }
 
 # ---------------------------------------------------------------------------
@@ -373,27 +392,120 @@ def _compute_news_macro_factors(
     return result
 
 
-def _compute_intermarket_factors(latest_symbols: list[str]) -> dict[str, pd.Series]:
-    """Factors 25-26: bond-equity ratio, credit spread change."""
+def _compute_intermarket_factors(
+    latest_symbols: list[str],
+    latest: pd.DataFrame,
+) -> dict[str, pd.Series]:
+    """Factors 25-27: bond-equity divergence, credit spread, yield curve.
+
+    Strategy:
+    1. Read pre-merged columns from latest (populated by trading_cycle).
+    2. If missing, fetch directly via build_intermarket_factors().
+    Universal factors — same value per date, broadcast to all symbols.
+    """
     result: dict[str, pd.Series] = {}
+    sym_idx = latest["symbol"] if "symbol" in latest.columns else pd.Series(latest_symbols)
+
+    # --- Path 1: columns already in latest (from trading_cycle merge) ---
+    col_map = {
+        "intermarket_bond_equity": "bond_equity_divergence_flag",
+        "intermarket_credit_spread": "credit_spread_change_5d",
+        "intermarket_yield_curve": "yield_curve_slope",
+    }
+    found_any = False
+    for factor_name, src_col in col_map.items():
+        if src_col in latest.columns:
+            vals = pd.to_numeric(latest[src_col], errors="coerce").fillna(0.0)
+            result[factor_name] = pd.Series(vals.values, index=sym_idx.values)
+            found_any = True
+
+    if found_any:
+        logger.debug("[MF-V2] intermarket factors: %d read from panel", len(result))
+        return result
+
+    # --- Path 2: fetch directly ---
     try:
-        # These are universal factors — same value for all symbols per date.
-        # Without external data, return empty. The factor computation requires
-        # yfinance or pre-cached data. Return NaN gracefully.
-        logger.debug("[MF-V2] intermarket factors: need external data, returning NaN")
+        from src.assembled_core.features.intermarket_factors import (
+            build_intermarket_factors,
+        )
+        im = build_intermarket_factors()
+        if not im.empty:
+            last_row = im.iloc[-1]
+            for factor_name, src_col in col_map.items():
+                val = float(last_row.get(src_col, 0.0)) if src_col in im.columns else 0.0
+                result[factor_name] = pd.Series(val, index=sym_idx.values)
+            logger.debug("[MF-V2] intermarket factors: fetched %d directly", len(result))
     except Exception as exc:
         logger.debug("[MF-V2] intermarket factors unavailable: %s", exc)
     return result
 
 
-def _compute_options_factors(latest_symbols: list[str]) -> dict[str, pd.Series]:
-    """Factors 27-28: put-call extreme, VIX regime score."""
+def _compute_options_factors(
+    latest_symbols: list[str],
+    latest: pd.DataFrame,
+) -> dict[str, pd.Series]:
+    """Factors 28-29: put-call extreme, VIX regime z-score.
+
+    Fetches VIX/VIX3M/PCR from CBOESource, computes regime factors.
+    Universal factors — same value per date, broadcast to all symbols.
+    """
     result: dict[str, pd.Series] = {}
+    sym_idx = latest["symbol"] if "symbol" in latest.columns else pd.Series(latest_symbols)
+
     try:
-        # These require CBOE data — return NaN gracefully when unavailable
-        logger.debug("[MF-V2] options factors: need CBOE data, returning NaN")
+        from src.assembled_core.data.sources.cboe_source import CBOESource
+        from src.assembled_core.features.options_derived_signals import (
+            build_options_regime_factors,
+        )
+
+        cboe = CBOESource()
+        cboe_df = cboe.fetch_options_regime_data()
+        if not cboe_df.empty:
+            opts = build_options_regime_factors(cboe_df)
+            if not opts.empty:
+                last_row = opts.iloc[-1]
+                pcr_extreme = float(last_row.get("equity_put_call_extreme", 0.0))
+                vix_z = float(last_row.get("vix_zscore_252d", 0.0))
+                result["options_put_call_extreme"] = pd.Series(pcr_extreme, index=sym_idx.values)
+                result["vix_regime_score"] = pd.Series(vix_z, index=sym_idx.values)
+                logger.debug(
+                    "[MF-V2] options factors: pcr_extreme=%.2f, vix_z=%.2f",
+                    pcr_extreme, vix_z,
+                )
     except Exception as exc:
         logger.debug("[MF-V2] options factors unavailable: %s", exc)
+    return result
+
+
+def _compute_congress_factors(
+    latest_symbols: list[str],
+    latest: pd.DataFrame,
+) -> dict[str, pd.Series]:
+    """Factor 30: congressional trading activity score.
+
+    Reads pre-merged congress columns from the panel (populated by
+    trading_cycle when include_congress=True). Per-symbol factor.
+    """
+    result: dict[str, pd.Series] = {}
+    sym_idx = latest["symbol"] if "symbol" in latest.columns else pd.Series(latest_symbols)
+
+    try:
+        # Congress features are per-symbol — read from panel if available
+        count_col = "congress_trade_count_90d"
+        amount_col = "congress_total_amount_90d"
+
+        if count_col in latest.columns:
+            count_vals = pd.to_numeric(latest[count_col], errors="coerce").fillna(0.0)
+            amount_vals = pd.to_numeric(
+                latest.get(amount_col, pd.Series(0.0, index=latest.index)),
+                errors="coerce",
+            ).fillna(0.0)
+            # Composite: normalize count + log(1+amount) as activity score
+            activity = count_vals + np.log1p(amount_vals.abs()) / 10.0
+            result["congress_activity"] = pd.Series(activity.values, index=sym_idx.values)
+            logger.debug("[MF-V2] congress factors: %d symbols with data", (count_vals > 0).sum())
+    except Exception as exc:
+        logger.debug("[MF-V2] congress factors unavailable: %s", exc)
     return result
 
 
@@ -415,6 +527,10 @@ def compute_signals(
     strategy_cfg: dict[str, Any] | None = None,
 ) -> pd.DataFrame:
     """Generate 30-factor signals with regime-conditional weights.
+
+    All 30 factors are actively computed. Factors degrade gracefully to 0.0
+    when external data is unavailable. Dead factors (zero variance) are
+    excluded from the weighted composite to prevent dilution.
 
     Drop-in replacement for v1. Same input/output schema.
     """
@@ -515,17 +631,35 @@ def compute_signals(
         news_macro.get("macro_inflation_surprise_z", pd.Series(dtype=float))
     ).fillna(0.0) if "macro_inflation_surprise_z" in news_macro else 0.0
 
-    # Factors 25-26: Intermarket (NaN fallback when data unavailable)
-    scores["intermarket_bond_equity"] = 0.0
-    scores["intermarket_credit_spread"] = 0.0
+    # Factors 25-27: Intermarket (bond-equity, credit spread, yield curve)
+    intermarket = _compute_intermarket_factors(latest_symbols, latest)
+    scores["intermarket_bond_equity"] = scores["symbol"].map(
+        intermarket.get("intermarket_bond_equity", pd.Series(dtype=float))
+    ).fillna(0.0) if "intermarket_bond_equity" in intermarket else 0.0
+    scores["intermarket_credit_spread"] = scores["symbol"].map(
+        intermarket.get("intermarket_credit_spread", pd.Series(dtype=float))
+    ).fillna(0.0) if "intermarket_credit_spread" in intermarket else 0.0
+    scores["intermarket_yield_curve"] = scores["symbol"].map(
+        intermarket.get("intermarket_yield_curve", pd.Series(dtype=float))
+    ).fillna(0.0) if "intermarket_yield_curve" in intermarket else 0.0
 
-    # Factors 27-28: Options (NaN fallback when data unavailable)
-    scores["options_put_call_extreme"] = 0.0
-    scores["vix_regime_score"] = 0.0
+    # Factors 28-29: Options (put-call extreme, VIX regime score)
+    options = _compute_options_factors(latest_symbols, latest)
+    scores["options_put_call_extreme"] = scores["symbol"].map(
+        options.get("options_put_call_extreme", pd.Series(dtype=float))
+    ).fillna(0.0) if "options_put_call_extreme" in options else 0.0
+    scores["vix_regime_score"] = scores["symbol"].map(
+        options.get("vix_regime_score", pd.Series(dtype=float))
+    ).fillna(0.0) if "vix_regime_score" in options else 0.0
 
-    # Factor 29: Crash probability inverse -- computed but NOT added as z-scored
-    # factor (scalar gets zeroed by z-score). Applied as multiplier post-composite.
-    crash_inv = _compute_crash_prob_inverse(df, cfg)
+    # Factor 30: Congress trading activity
+    congress = _compute_congress_factors(latest_symbols, latest)
+    scores["congress_activity"] = scores["symbol"].map(
+        congress.get("congress_activity", pd.Series(dtype=float))
+    ).fillna(0.0) if "congress_activity" in congress else 0.0
+
+    # Crash probability inverse -- not z-scored (scalar → zero variance).
+    # Applied as multiplier post-composite via _crash_prediction_multiplier.
 
     # --- Cross-sectional z-score per factor ---
     # Use ddof=0 (population std) to avoid NaN for single-row universes.
@@ -618,9 +752,9 @@ def compute_signals(
 
     logger.info(
         "[MF-V2] %d LONG signals from %d symbols "
-        "(regime=%s, exposure=%.2f, crash_scaler=%.3f, active_factors=%d/%d)",
+        "(regime=%s, exposure=%.2f, crash_mult=%.3f, active_factors=%d/%d)",
         len(result), len(latest), regime_label, exposure_mult,
-        crash_scaler, len(used_factors), len(weights),
+        crash_mult, len(used_factors), len(weights),
     )
     return result
 

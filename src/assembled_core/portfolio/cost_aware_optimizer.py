@@ -35,6 +35,9 @@ class OptimizerConfig:
     max_sector_deviation: float | None = None  # Max abs deviation from benchmark sector weight
     sector_mapping: dict[str, str] = field(default_factory=dict)
     long_only: bool = True
+    # Liquidity penalty: mu_liquidity * sum(w_i^2 / ADV_i^alpha)
+    liquidity_penalty: float = 0.0  # mu_liquidity (0 = disabled)
+    liquidity_alpha: float = 0.5  # ADV exponent
 
 
 @dataclass
@@ -55,6 +58,7 @@ def optimize_portfolio(
     current_weights: dict[str, float] | None = None,
     per_symbol_cost_bps: dict[str, float] | None = None,
     config: OptimizerConfig | None = None,
+    adv_shares: dict[str, float] | None = None,
 ) -> OptimizationResult:
     """Optimize portfolio weights with turnover penalty and constraints.
 
@@ -64,6 +68,8 @@ def optimize_portfolio(
         current_weights: Current portfolio weights (for turnover calc).
         per_symbol_cost_bps: Symbol -> one-way cost in bps (from V2).
         config: Optimizer configuration.
+        adv_shares: Symbol -> average daily volume in shares.
+            Required when config.liquidity_penalty > 0.
 
     Returns:
         OptimizationResult with optimal weights.
@@ -91,13 +97,18 @@ def optimize_portfolio(
         for s in symbols
     ])
 
+    # ADV vector for liquidity penalty
+    adv_vec = np.array([
+        (adv_shares or {}).get(s, 1e8) for s in symbols  # default: very liquid
+    ], dtype=float)
+
     if CVXPY_AVAILABLE:
         return _optimize_cvxpy(
-            symbols, mu, Sigma, w_old, cost_vec, config
+            symbols, mu, Sigma, w_old, cost_vec, config, adv_vec
         )
     else:
         return _optimize_fallback(
-            symbols, mu, Sigma, w_old, cost_vec, config
+            symbols, mu, Sigma, w_old, cost_vec, config, adv_vec
         )
 
 
@@ -108,19 +119,27 @@ def _optimize_cvxpy(
     w_old: np.ndarray,
     cost_vec: np.ndarray,
     config: OptimizerConfig,
+    adv_vec: np.ndarray | None = None,
 ) -> OptimizationResult:
-    """CVXPY-based optimization with turnover penalty."""
+    """CVXPY-based optimization with turnover and liquidity penalties."""
     n = len(symbols)
     w = cp.Variable(n)
 
-    # Objective: maximize return - risk - turnover cost
+    # Objective: maximize return - risk - turnover cost - liquidity cost
     ret = mu @ w
     risk = cp.quad_form(w, Sigma)
     turnover = cp.norm1(cp.multiply(cost_vec, (w - w_old)))
 
-    objective = cp.Maximize(
-        ret - config.risk_aversion * risk - config.turnover_penalty * turnover
-    )
+    obj_expr = ret - config.risk_aversion * risk - config.turnover_penalty * turnover
+
+    # Liquidity penalty: mu_liq * sum(w_i^2 / ADV_i^alpha)
+    if config.liquidity_penalty > 0 and adv_vec is not None:
+        adv_scaled = np.power(np.maximum(adv_vec, 1.0), config.liquidity_alpha)
+        illiq_coeff = config.liquidity_penalty / adv_scaled
+        # sum(illiq_coeff_i * w_i^2) = w' @ diag(illiq_coeff) @ w
+        obj_expr -= cp.quad_form(w, np.diag(illiq_coeff))
+
+    objective = cp.Maximize(obj_expr)
 
     # Constraints
     constraints = [
@@ -173,7 +192,7 @@ def _optimize_cvxpy(
     except Exception as e:
         _log.warning("CVXPY failed: %s — falling back to greedy", e)
 
-    return _optimize_fallback(symbols, mu, Sigma, w_old, cost_vec, config)
+    return _optimize_fallback(symbols, mu, Sigma, w_old, cost_vec, config, adv_vec)
 
 
 def _optimize_fallback(
@@ -183,10 +202,14 @@ def _optimize_fallback(
     w_old: np.ndarray,
     cost_vec: np.ndarray,
     config: OptimizerConfig,
+    adv_vec: np.ndarray | None = None,
 ) -> OptimizationResult:
     """Simple score-based fallback when CVXPY is unavailable."""
-    # Score = expected return - turnover cost
+    # Score = expected return - turnover cost - liquidity penalty
     scores = mu - config.turnover_penalty * np.abs(cost_vec) * np.abs(w_old)
+    if config.liquidity_penalty > 0 and adv_vec is not None:
+        adv_scaled = np.power(np.maximum(adv_vec, 1.0), config.liquidity_alpha)
+        scores -= config.liquidity_penalty / adv_scaled
 
     if config.long_only:
         scores = np.maximum(scores, 0)

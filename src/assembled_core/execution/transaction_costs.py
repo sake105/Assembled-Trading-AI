@@ -857,3 +857,152 @@ def compute_tca_feedback(
         }
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Regime-Dependent Cost Adjustments (M39)
+# ---------------------------------------------------------------------------
+
+# Empirical regime multipliers for spread and slippage.
+# Source: COVID March 2020 spreads were 3-5x normal for mega-caps, 8-10x small-caps.
+REGIME_SPREAD_MULTIPLIER: dict[str, float] = {
+    "bull": 1.0,
+    "sideways": 1.3,
+    "bear": 2.0,
+    "crisis": 3.5,
+}
+
+REGIME_SLIPPAGE_K_MULTIPLIER: dict[str, float] = {
+    "bull": 1.0,
+    "sideways": 1.2,
+    "bear": 1.5,
+    "crisis": 2.5,
+}
+
+# ADV shrinks in crises — effective participation rises.
+REGIME_ADV_FACTOR: dict[str, float] = {
+    "bull": 1.0,
+    "sideways": 0.9,
+    "bear": 0.7,
+    "crisis": 0.5,
+}
+
+
+@dataclass
+class RegimeCostAdjustment:
+    """Result of regime-based cost adjustment."""
+
+    regime: str
+    spread_multiplier: float
+    slippage_k_multiplier: float
+    adv_factor: float
+    adjusted_spread_bps: float
+    adjusted_slippage_bps: float
+    original_spread_bps: float
+    original_slippage_bps: float
+
+
+def get_regime_cost_multipliers(
+    regime: str,
+) -> tuple[float, float, float]:
+    """Get cost multipliers for a given regime.
+
+    Args:
+        regime: Current market regime ("bull", "sideways", "bear", "crisis").
+
+    Returns:
+        Tuple of (spread_mult, slippage_k_mult, adv_factor).
+    """
+    spread_m = REGIME_SPREAD_MULTIPLIER.get(regime, 1.3)
+    slip_m = REGIME_SLIPPAGE_K_MULTIPLIER.get(regime, 1.2)
+    adv_f = REGIME_ADV_FACTOR.get(regime, 0.9)
+    return spread_m, slip_m, adv_f
+
+
+def apply_regime_cost_adjustment(
+    base_spread_bps: float | np.ndarray,
+    base_slippage_bps: float | np.ndarray,
+    regime: str,
+) -> RegimeCostAdjustment | tuple[np.ndarray, np.ndarray]:
+    """Apply regime-dependent multipliers to base cost estimates.
+
+    Args:
+        base_spread_bps: Base spread in bps (scalar or array).
+        base_slippage_bps: Base slippage in bps (scalar or array).
+        regime: Market regime label.
+
+    Returns:
+        RegimeCostAdjustment if scalars, or tuple of (adj_spread, adj_slippage) arrays.
+    """
+    spread_m, slip_m, _adv_f = get_regime_cost_multipliers(regime)
+
+    adj_spread = base_spread_bps * spread_m
+    adj_slippage = base_slippage_bps * slip_m
+
+    if isinstance(base_spread_bps, (int, float)):
+        return RegimeCostAdjustment(
+            regime=regime,
+            spread_multiplier=spread_m,
+            slippage_k_multiplier=slip_m,
+            adv_factor=_adv_f,
+            adjusted_spread_bps=round(float(adj_spread), 2),
+            adjusted_slippage_bps=round(float(adj_slippage), 2),
+            original_spread_bps=float(base_spread_bps),
+            original_slippage_bps=float(base_slippage_bps),
+        )
+    return adj_spread, adj_slippage
+
+
+def compute_regime_adjusted_slippage_bps(
+    notional: np.ndarray,
+    adv_usd: np.ndarray,
+    volatility: np.ndarray,
+    model: "SlippageModel",
+    regime: str = "sideways",
+) -> np.ndarray:
+    """Compute slippage with regime-dependent adjustments (M39.2).
+
+    Adjusts both the slippage coefficient k and effective ADV
+    based on the current market regime. In crisis regimes,
+    spreads widen and liquidity shrinks — both increase costs.
+
+    Formula: slippage = clip(k * regime_k_mult * sigma * sqrt(notional / (adv * adv_factor)) * 10000,
+                             min_bps, max_bps)
+
+    Args:
+        notional: Trade notional values.
+        adv_usd: Average daily volume in USD.
+        volatility: Rolling volatility.
+        model: SlippageModel configuration.
+        regime: Market regime label.
+
+    Returns:
+        Array of slippage values in basis points.
+    """
+    spread_m, slip_k_m, adv_f = get_regime_cost_multipliers(regime)
+
+    # Adjust ADV for regime (lower in crisis)
+    effective_adv = adv_usd * adv_f
+
+    # Participation rate with regime-adjusted ADV
+    participation = np.where(
+        effective_adv > 0,
+        np.minimum(np.abs(notional) / effective_adv, model.participation_rate_cap),
+        model.participation_rate_cap,
+    )
+
+    # Adjusted k
+    k_adj = model.k * slip_k_m
+
+    # Standard slippage formula with regime adjustments
+    safe_vol = np.where(np.isnan(volatility), 0.0, volatility)
+    slippage_bps = k_adj * safe_vol * np.sqrt(participation) * 10_000
+
+    # Clamp
+    slippage_bps = np.clip(slippage_bps, model.min_bps, model.max_bps)
+
+    # Fallback for missing data
+    no_data = np.isnan(adv_usd) | np.isnan(volatility)
+    slippage_bps = np.where(no_data, model.fallback_slippage_bps * slip_k_m, slippage_bps)
+
+    return slippage_bps

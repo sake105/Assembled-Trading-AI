@@ -487,6 +487,66 @@ def compute_drawdown_risk_level(
     return "NORMAL", 1.0
 
 
+def compute_continuous_capital_scale(
+    current_drawdown_pct: float,
+    kill_threshold: float = -20.0,
+    recovery_days_since_high: int = 0,
+    recovery_ramp_days: int = 20,
+) -> tuple[float, str]:
+    """Continuous-scale drawdown capital reduction (M21 Task 21.4).
+
+    Instead of binary block/pass, maps drawdown to a continuous capital fraction:
+        0-5% DD  → 100% capital
+        5-10% DD → 80% capital (linear interpolation)
+        10-15% DD → 50% capital
+        15-20% DD → 20% capital
+        >20% DD  → 0% (KILL SWITCH)
+
+    Recovery ramp: Linear over recovery_ramp_days after new high.
+
+    Args:
+        current_drawdown_pct: Drawdown as negative percentage (e.g. -8.0).
+        kill_threshold: Drawdown for full kill switch (default -20%).
+        recovery_days_since_high: Days since last equity high.
+        recovery_ramp_days: Days for linear recovery ramp (default 20).
+
+    Returns:
+        (capital_fraction, level_name) tuple.
+        capital_fraction in [0.0, 1.0].
+    """
+    dd = abs(current_drawdown_pct)  # Work with positive values
+
+    # Piecewise linear capital curve
+    if dd <= 5.0:
+        fraction = 1.0
+        level = "NORMAL"
+    elif dd <= 10.0:
+        # Linear: 1.0 → 0.5 over 5-10%
+        fraction = 1.0 - (dd - 5.0) / 5.0 * 0.5  # 1.0 → 0.5
+        level = "CAUTION"
+    elif dd <= 15.0:
+        # Linear: 0.5 → 0.2 over 10-15%
+        fraction = 0.5 - (dd - 10.0) / 5.0 * 0.3  # 0.5 → 0.2
+        level = "REDUCE"
+    elif dd <= abs(kill_threshold):
+        # Linear: 0.2 → 0.0 over 15-20%
+        fraction = 0.2 - (dd - 15.0) / (abs(kill_threshold) - 15.0) * 0.2
+        level = "MINIMUM"
+    else:
+        fraction = 0.0
+        level = "KILL"
+
+    fraction = max(0.0, min(1.0, fraction))
+
+    # Recovery ramp: if we're coming back from drawdown, ramp up slowly
+    if recovery_days_since_high > 0 and recovery_days_since_high < recovery_ramp_days:
+        ramp_factor = recovery_days_since_high / recovery_ramp_days
+        # Don't reduce below current fraction, only limit the ramp-up
+        fraction = min(fraction, ramp_factor)
+
+    return round(fraction, 4), level
+
+
 # ---------------------------------------------------------------------------
 # Regime-Conditional Risk Limits (Plan 7.4)
 # ---------------------------------------------------------------------------
@@ -540,6 +600,7 @@ __all__ = [
     "RiskStateRecord",
     "atomic_write_json_with_retry",
     "compute_drawdown_risk_level",
+    "compute_continuous_capital_scale",
     "compute_regime_risk_limits",
     "load_risk_state",
     "save_risk_state",

@@ -445,3 +445,126 @@ def enforce_ensemble_diversity(
         "diverse": avg_corr <= max_correlation,
         "recommendations": recommendations,
     }
+
+
+# ---------------------------------------------------------------------------
+# Online Ensemble Weight Adaptation (Task 19.10)
+# Vovk's Aggregating Algorithm / Exponential Weights
+# ---------------------------------------------------------------------------
+
+class OnlineEnsembleWeights:
+    """Exponential Weights Algorithm for online meta-learner adaptation.
+
+    Instead of fixed stacking weights, adapts weights daily based on
+    each base model's recent prediction performance.
+
+    Reference: Littlestone & Warmuth (1994), Vovk (1990)
+    Sharpe improvement: +5-8%
+    """
+
+    def __init__(
+        self,
+        n_models: int,
+        eta: float = 0.1,
+        min_weight: float = 0.01,
+    ):
+        """Initialize online ensemble.
+
+        Args:
+            n_models: Number of base models.
+            eta: Learning rate for exponential update.
+            min_weight: Minimum weight floor per model.
+        """
+        self.n_models = n_models
+        self.eta = eta
+        self.min_weight = min_weight
+        self.weights = np.ones(n_models) / n_models
+        self._history: list[np.ndarray] = []
+
+    def update(self, losses: np.ndarray) -> np.ndarray:
+        """Update weights based on observed losses.
+
+        w_i(t+1) = w_i(t) * exp(-eta * loss_i(t)) / Z
+
+        Args:
+            losses: (n_models,) loss for each model at this step.
+
+        Returns:
+            Updated weight vector.
+        """
+        losses = np.asarray(losses, dtype=float)
+        assert len(losses) == self.n_models
+
+        # Exponential weight update
+        self.weights *= np.exp(-self.eta * losses)
+
+        # Floor + renormalize
+        self.weights = np.maximum(self.weights, self.min_weight)
+        self.weights /= self.weights.sum()
+
+        self._history.append(self.weights.copy())
+        return self.weights.copy()
+
+    def predict(self, predictions: np.ndarray) -> float:
+        """Weighted ensemble prediction.
+
+        Args:
+            predictions: (n_models,) predictions from each base model.
+
+        Returns:
+            Weighted prediction.
+        """
+        return float(self.weights @ np.asarray(predictions))
+
+    def get_weight_history(self) -> np.ndarray:
+        """Return weight evolution over time.
+
+        Returns:
+            (T, n_models) array of weight history.
+        """
+        if not self._history:
+            return np.array([self.weights])
+        return np.array(self._history)
+
+    def reset(self) -> None:
+        """Reset to uniform weights."""
+        self.weights = np.ones(self.n_models) / self.n_models
+        self._history.clear()
+
+
+def run_online_ensemble(
+    model_predictions: np.ndarray,
+    actual_returns: np.ndarray,
+    eta: float = 0.1,
+    loss_type: str = "squared",
+) -> tuple[np.ndarray, np.ndarray]:
+    """Run online ensemble weight adaptation over a time series.
+
+    Args:
+        model_predictions: (T, n_models) predictions.
+        actual_returns: (T,) actual returns.
+        eta: Learning rate.
+        loss_type: "squared" or "absolute".
+
+    Returns:
+        (ensemble_predictions, final_weights) tuple.
+    """
+    T, n_models = model_predictions.shape
+    ow = OnlineEnsembleWeights(n_models, eta=eta)
+    ensemble_preds = np.zeros(T)
+
+    for t in range(T):
+        # Predict with current weights
+        ensemble_preds[t] = ow.predict(model_predictions[t])
+
+        # Compute per-model losses
+        errors = model_predictions[t] - actual_returns[t]
+        if loss_type == "squared":
+            losses = errors ** 2
+        else:
+            losses = np.abs(errors)
+
+        # Update weights
+        ow.update(losses)
+
+    return ensemble_preds, ow.weights

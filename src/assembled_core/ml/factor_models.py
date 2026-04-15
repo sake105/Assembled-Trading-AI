@@ -475,15 +475,41 @@ def run_time_series_cv(
         timestamps = pd.Series(range(len(X)), index=X.index)
         timestamps = pd.to_datetime(timestamps, unit="D", origin="2000-01-01")
 
-    # Create splits
-    splits = _split_time_series(timestamps, experiment.n_splits, experiment.train_size)
+    # Create splits — prefer PurgedKFold (embargo + label-horizon purge),
+    # fall back to legacy _split_time_series if PurgedKFold unavailable.
+    use_purged = experiment.__dict__.get("use_purged_cv", True)
+    splits: list[tuple] = []
+    if use_purged:
+        try:
+            from src.assembled_core.ml.purged_cv import PurgedKFold
+
+            pkf = PurgedKFold(
+                n_splits=experiment.n_splits,
+                label_horizon=getattr(experiment, "label_horizon", 5),
+                embargo_pct=getattr(experiment, "embargo_pct", 0.01),
+            )
+            splits = pkf.split(
+                timestamps,
+                train_size=experiment.train_size,
+            )
+            logger.info(
+                "[CV] PurgedKFold: %d splits (embargo=%.1f%%, horizon=%dd)",
+                len(splits),
+                pkf.embargo_pct * 100,
+                pkf.label_horizon,
+            )
+        except Exception as exc:
+            logger.warning("[CV] PurgedKFold failed, falling back to legacy: %s", exc)
+            splits = []
+
+    if not splits:
+        splits = _split_time_series(timestamps, experiment.n_splits, experiment.train_size)
+        logger.info("[CV] Legacy splitter: %d splits (no purge/embargo)", len(splits))
 
     if len(splits) == 0:
         raise ValueError(
             "No valid splits created. Check data range and split configuration."
         )
-
-    logger.info(f"Created {len(splits)} time-series splits")
 
     # Collect predictions and metrics
     all_predictions = []

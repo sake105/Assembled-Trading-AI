@@ -31,7 +31,7 @@ class BrokerOrder:
     symbol: str
     side: str  # "buy" or "sell"
     qty: float
-    order_type: str  # "market" or "limit"
+    order_type: str  # "market", "limit", "stop", "stop_limit", "moc", "loc"
     status: str  # "pending", "filled", "cancelled", "rejected"
     filled_qty: float = 0.0
     filled_avg_price: float | None = None
@@ -104,6 +104,114 @@ class BrokerAdapter(ABC):
             BrokerOrder with order_id and initial status.
         """
         ...
+
+    @abstractmethod
+    def submit_limit_order(
+        self,
+        symbol: str,
+        qty: float,
+        side: str,
+        limit_price: float,
+        *,
+        time_in_force: str = "day",
+        comment: str = "",
+    ) -> BrokerOrder:
+        """Submit a limit order.
+
+        Args:
+            symbol: Ticker symbol.
+            qty: Number of shares (positive).
+            side: "buy" or "sell".
+            limit_price: Limit price for the order.
+            time_in_force: "day", "gtc", etc.
+            comment: Optional order comment/tag.
+
+        Returns:
+            BrokerOrder with order_id and initial status.
+        """
+        ...
+
+    @abstractmethod
+    def submit_stop_order(
+        self,
+        symbol: str,
+        qty: float,
+        side: str,
+        stop_price: float,
+        *,
+        limit_price: float | None = None,
+        time_in_force: str = "day",
+        comment: str = "",
+    ) -> BrokerOrder:
+        """Submit a stop or stop-limit order.
+
+        Args:
+            symbol: Ticker symbol.
+            qty: Number of shares (positive).
+            side: "buy" or "sell".
+            stop_price: Trigger price for the stop.
+            limit_price: If provided, creates a stop-limit order.
+            time_in_force: "day", "gtc", etc.
+            comment: Optional order comment/tag.
+
+        Returns:
+            BrokerOrder with order_id and initial status.
+        """
+        ...
+
+    def submit_moc_order(
+        self,
+        symbol: str,
+        qty: float,
+        side: str,
+        *,
+        comment: str = "",
+    ) -> BrokerOrder:
+        """Submit a Market-On-Close (MOC) order.
+
+        Default implementation submits a market order with time_in_force='cls'.
+        Override for broker-specific MOC support.
+
+        Args:
+            symbol: Ticker symbol.
+            qty: Number of shares (positive).
+            side: "buy" or "sell".
+            comment: Optional order comment/tag.
+
+        Returns:
+            BrokerOrder with order_id and initial status.
+        """
+        return self.submit_market_order(
+            symbol, qty, side, time_in_force="cls", comment=comment or "MOC",
+        )
+
+    def submit_loc_order(
+        self,
+        symbol: str,
+        qty: float,
+        side: str,
+        limit_price: float,
+        *,
+        comment: str = "",
+    ) -> BrokerOrder:
+        """Submit a Limit-On-Close (LOC) order.
+
+        Default implementation submits a limit order with time_in_force='cls'.
+        Override for broker-specific LOC support.
+
+        Args:
+            symbol: Ticker symbol.
+            qty: Number of shares (positive).
+            side: "buy" or "sell".
+            limit_price: Limit price for the order.
+            comment: Optional order comment/tag.
+
+        Returns:
+            BrokerOrder with order_id and initial status.
+        """
+        return self.submit_limit_order(
+            symbol, qty, side, limit_price, time_in_force="cls", comment=comment or "LOC",
+        )
 
     @abstractmethod
     def cancel_all_orders(self) -> int:
@@ -481,6 +589,130 @@ class AlpacaAdapter(BrokerAdapter):
             self._max_orders_per_cycle,
             self._cycle_notional_total,
             self._max_notional_per_cycle,
+        )
+        return normalized
+
+    def submit_limit_order(
+        self,
+        symbol: str,
+        qty: float,
+        side: str,
+        limit_price: float,
+        *,
+        time_in_force: str = "day",
+        comment: str = "",
+    ) -> BrokerOrder:
+        """Submit a limit order to Alpaca."""
+        if qty <= 0:
+            raise ValueError(f"qty must be positive, got {qty}")
+        if limit_price <= 0:
+            raise ValueError(f"limit_price must be positive, got {limit_price}")
+        side_lower = side.lower()
+        if side_lower not in ("buy", "sell"):
+            raise ValueError(f"side must be 'buy' or 'sell', got {side!r}")
+
+        self._validate_market_hours()
+        self._check_cycle_limits(qty, limit_price)
+
+        api = self._get_api()
+        try:
+            from alpaca.trading.enums import OrderSide, TimeInForce  # type: ignore[import]
+            from alpaca.trading.requests import LimitOrderRequest  # type: ignore[import]
+
+            order_side = OrderSide.BUY if side_lower == "buy" else OrderSide.SELL
+            tif_map = {"day": TimeInForce.DAY, "gtc": TimeInForce.GTC, "cls": TimeInForce.CLS}
+            tif = tif_map.get(time_in_force.lower(), TimeInForce.DAY)
+
+            request = LimitOrderRequest(
+                symbol=symbol, qty=qty, side=order_side,
+                time_in_force=tif, limit_price=limit_price,
+            )
+            order = api.submit_order(order_data=request)
+        except ImportError:
+            order = api.submit_order(
+                symbol=symbol, qty=qty, side=side_lower,
+                type="limit", time_in_force=time_in_force,
+                limit_price=str(limit_price),
+            )
+
+        normalized = self._normalize_order(order)
+        self._cycle_order_count += 1
+        self._cycle_notional_total += qty * limit_price
+        logger.info(
+            "[AlpacaAdapter] submitted LIMIT %s %s qty=%.2f limit=$%.2f order_id=%s",
+            side_lower.upper(), symbol, qty, limit_price, normalized.order_id,
+        )
+        return normalized
+
+    def submit_stop_order(
+        self,
+        symbol: str,
+        qty: float,
+        side: str,
+        stop_price: float,
+        *,
+        limit_price: float | None = None,
+        time_in_force: str = "day",
+        comment: str = "",
+    ) -> BrokerOrder:
+        """Submit a stop or stop-limit order to Alpaca."""
+        if qty <= 0:
+            raise ValueError(f"qty must be positive, got {qty}")
+        if stop_price <= 0:
+            raise ValueError(f"stop_price must be positive, got {stop_price}")
+        side_lower = side.lower()
+        if side_lower not in ("buy", "sell"):
+            raise ValueError(f"side must be 'buy' or 'sell', got {side!r}")
+
+        self._validate_market_hours()
+        self._check_cycle_limits(qty, stop_price)
+
+        is_stop_limit = limit_price is not None
+        api = self._get_api()
+
+        try:
+            from alpaca.trading.enums import OrderSide, TimeInForce  # type: ignore[import]
+            from alpaca.trading.requests import (  # type: ignore[import]
+                StopLimitOrderRequest,
+                StopOrderRequest,
+            )
+
+            order_side = OrderSide.BUY if side_lower == "buy" else OrderSide.SELL
+            tif_map = {"day": TimeInForce.DAY, "gtc": TimeInForce.GTC, "cls": TimeInForce.CLS}
+            tif = tif_map.get(time_in_force.lower(), TimeInForce.DAY)
+
+            if is_stop_limit:
+                request = StopLimitOrderRequest(
+                    symbol=symbol, qty=qty, side=order_side,
+                    time_in_force=tif, stop_price=stop_price,
+                    limit_price=limit_price,
+                )
+            else:
+                request = StopOrderRequest(
+                    symbol=symbol, qty=qty, side=order_side,
+                    time_in_force=tif, stop_price=stop_price,
+                )
+            order = api.submit_order(order_data=request)
+        except ImportError:
+            order_type = "stop_limit" if is_stop_limit else "stop"
+            kwargs: dict[str, Any] = {
+                "symbol": symbol, "qty": qty, "side": side_lower,
+                "type": order_type, "time_in_force": time_in_force,
+                "stop_price": str(stop_price),
+            }
+            if is_stop_limit:
+                kwargs["limit_price"] = str(limit_price)
+            order = api.submit_order(**kwargs)
+
+        normalized = self._normalize_order(order)
+        self._cycle_order_count += 1
+        self._cycle_notional_total += qty * stop_price
+        order_desc = "STOP_LIMIT" if is_stop_limit else "STOP"
+        logger.info(
+            "[AlpacaAdapter] submitted %s %s %s qty=%.2f stop=$%.2f%s order_id=%s",
+            order_desc, side_lower.upper(), symbol, qty, stop_price,
+            f" limit=${limit_price:.2f}" if is_stop_limit else "",
+            normalized.order_id,
         )
         return normalized
 

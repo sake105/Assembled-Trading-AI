@@ -539,7 +539,7 @@ def compute_zweig_breadth_thrust(
     # Thrust signal: ema crosses from < 0.40 to > 0.615 within window days
     below_threshold = (ema < 0.40).astype(int)
     above_threshold = (ema > 0.615).astype(int)
-    had_low_recently = below_threshold.rolling(window, min_periods=1).max()
+    had_low_recently = below_threshold.rolling(window, min_periods=1).max().astype(int)
     thrust_signal = (above_threshold & had_low_recently).astype(float)
 
     result = pd.DataFrame({

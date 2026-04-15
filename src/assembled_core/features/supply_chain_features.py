@@ -268,6 +268,85 @@ def build_supply_chain_features(
     return features
 
 
+def propagate_returns_through_chain(
+    returns: pd.DataFrame,
+    dependency_edges: list[tuple[str, str, float]],
+    lag_days: int = 1,
+    decay: float = 0.5,
+    max_hops: int = 2,
+) -> pd.DataFrame:
+    """Propagate returns through supply chain graph (Cohen & Frazzini 2008, Task 18.6).
+
+    When a major customer rallies, its suppliers tend to follow with a lag.
+    Computes lagged weighted-average return of connected nodes.
+
+    Args:
+        returns: DataFrame with symbols as columns, dates as index.
+        dependency_edges: List of (supplier, customer, weight) tuples.
+        lag_days: How many days the signal propagates (default 1).
+        decay: Weight decay per hop (default 0.5 = half per hop).
+        max_hops: Maximum hops for propagation (default 2).
+
+    Returns:
+        DataFrame with propagated return features per symbol.
+
+    Reference: Cohen & Frazzini (2008) "Economic Links and Predictable Returns"
+    Alpha: +60-140 bps/year
+    """
+    symbols = list(returns.columns)
+    sym_set = set(symbols)
+
+    # Build adjacency both directions
+    forward: dict[str, list[tuple[str, float]]] = {}
+    reverse: dict[str, list[tuple[str, float]]] = {}
+    for src, dst, w in dependency_edges:
+        if src in sym_set:
+            forward.setdefault(src, []).append((dst, w))
+        if dst in sym_set:
+            reverse.setdefault(dst, []).append((src, w))
+
+    result = pd.DataFrame(0.0, index=returns.index, columns=symbols)
+
+    for sym in symbols:
+        connected: dict[str, float] = {}
+
+        neighbors_1: list[tuple[str, float]] = []
+        for dst, w in forward.get(sym, []):
+            if dst in sym_set:
+                neighbors_1.append((dst, w))
+        for src, w in reverse.get(sym, []):
+            if src in sym_set:
+                neighbors_1.append((src, w))
+
+        for neighbor, w in neighbors_1:
+            connected[neighbor] = connected.get(neighbor, 0) + w
+
+        if max_hops >= 2:
+            for n1, w1 in neighbors_1:
+                for dst, w2 in forward.get(n1, []):
+                    if dst in sym_set and dst != sym:
+                        connected[dst] = connected.get(dst, 0) + w1 * w2 * decay
+                for src, w2 in reverse.get(n1, []):
+                    if src in sym_set and src != sym:
+                        connected[src] = connected.get(src, 0) + w1 * w2 * decay
+
+        if not connected:
+            continue
+
+        total_w = sum(connected.values())
+        if total_w < 1e-10:
+            continue
+
+        weighted_ret = sum(
+            connected[n] * returns[n].shift(lag_days).fillna(0)
+            for n in connected if n in returns.columns
+        ) / total_w
+
+        result[sym] = weighted_ret
+
+    return result
+
+
 __all__ = [
     "build_supply_chain_features",
     "compute_chokepoint_exposure",
@@ -275,4 +354,5 @@ __all__ = [
     "compute_sanctions_vulnerability",
     "compute_single_source_dependency",
     "compute_supply_chain_depth",
+    "propagate_returns_through_chain",
 ]

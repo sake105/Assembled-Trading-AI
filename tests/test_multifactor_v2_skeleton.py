@@ -168,12 +168,11 @@ def test_v2_produces_signals_like_v1() -> None:
 def test_v2_default_weights_shape_and_sum() -> None:
     """DEFAULT_V2_WEIGHTS must have 18 active factors summing to ~1.0.
 
-    12 dead factors (19-28 + crash_prob_inverse) removed to avoid
-    diluting the composite score with zero-valued factors.
+    All 30 factors are now actively wired after M15 alpha activation.
     """
     weights = multifactor_v2.DEFAULT_V2_WEIGHTS
     assert isinstance(weights, dict)
-    assert len(weights) == 18, f"expected 18 active factors, got {len(weights)}"
+    assert len(weights) == 30, f"expected 30 active factors, got {len(weights)}"
 
     total = sum(weights.values())
     assert abs(total - 1.0) <= 0.02, (

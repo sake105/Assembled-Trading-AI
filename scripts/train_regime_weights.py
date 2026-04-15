@@ -30,6 +30,7 @@ REGIMES = ["bull", "sideways", "bear", "crisis"]
 MIN_SAMPLES_PER_REGIME = 100
 
 FACTOR_COLUMNS = [
+    # v1 factors (1-15)
     "trend_ema_spread",
     "trend_ma200_position",
     "trend_adx_strength",
@@ -45,6 +46,27 @@ FACTOR_COLUMNS = [
     "vola_vov_penalty",
     "breadth_above_ma",
     "breadth_ad_line",
+    # v2 factors (16-18)
+    "mr_zscore_reversal_3d",
+    "mr_rsi_extreme_uptrend",
+    "sector_rotation_bias",
+    # Earnings/Insider (19-20)
+    "earnings_surprise_z",
+    "insider_activity_score",
+    # News/Macro (21-24)
+    "news_sentiment_7d",
+    "news_volume_spike",
+    "macro_growth_momentum",
+    "macro_inflation_surprise",
+    # Intermarket (25-27)
+    "intermarket_bond_equity",
+    "intermarket_credit_spread",
+    "intermarket_yield_curve",
+    # Options (28-29)
+    "options_put_call_extreme",
+    "vix_regime_score",
+    # Congress (30)
+    "congress_activity",
 ]
 
 
@@ -62,13 +84,34 @@ def _generate_synthetic_data(
                 row[f] = rng.standard_normal()
             # Forward return with regime-dependent factor relevance
             if regime == "bull":
-                row["fwd_return_5d"] = 0.3 * row["trend_ema_spread"] + rng.normal(0, 0.02)
+                row["fwd_return_5d"] = (
+                    0.20 * row["trend_ema_spread"]
+                    + 0.10 * row["earnings_surprise_z"]
+                    + 0.05 * row["insider_activity_score"]
+                    + rng.normal(0, 0.02)
+                )
             elif regime == "bear":
-                row["fwd_return_5d"] = 0.3 * row["mr_bollinger_pctb"] + rng.normal(0, 0.02)
+                row["fwd_return_5d"] = (
+                    0.20 * row["mr_bollinger_pctb"]
+                    + 0.10 * row["intermarket_bond_equity"]
+                    + 0.08 * row["options_put_call_extreme"]
+                    + rng.normal(0, 0.02)
+                )
             elif regime == "crisis":
-                row["fwd_return_5d"] = 0.3 * row["vola_regime_score"] + rng.normal(0, 0.02)
-            else:
-                row["fwd_return_5d"] = 0.1 * row["mom_rsi_centered"] + rng.normal(0, 0.02)
+                row["fwd_return_5d"] = (
+                    0.20 * row["vola_regime_score"]
+                    + 0.15 * row["vix_regime_score"]
+                    + 0.10 * row["intermarket_credit_spread"]
+                    + rng.normal(0, 0.02)
+                )
+            else:  # sideways
+                row["fwd_return_5d"] = (
+                    0.08 * row["mom_rsi_centered"]
+                    + 0.08 * row["news_sentiment_7d"]
+                    + 0.05 * row["macro_growth_momentum"]
+                    + 0.05 * row["congress_activity"]
+                    + rng.normal(0, 0.02)
+                )
             rows.append(row)
     return pd.DataFrame(rows)
 

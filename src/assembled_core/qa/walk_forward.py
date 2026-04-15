@@ -1177,3 +1177,72 @@ def walk_forward_param_optimization(
         "mean_oos_metric": round(float(np.mean(oos_values)), 6) if oos_values else 0.0,
         "std_oos_metric": round(float(np.std(oos_values)), 6) if oos_values else 0.0,
     }
+
+
+# ---------------------------------------------------------------------------
+# IS/OOS Gap Detection (M16.4)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ISOOSGapResult:
+    """Result of in-sample vs out-of-sample gap analysis."""
+
+    is_sharpe: float
+    oos_sharpe: float
+    gap: float
+    verdict: str  # "ok", "warning", "block"
+
+
+def compute_is_oos_gap(
+    is_returns: np.ndarray | list[float],
+    oos_returns: np.ndarray | list[float],
+    *,
+    periods_per_year: int = 252,
+    warning_threshold: float = 0.5,
+    block_threshold: float = 1.0,
+) -> ISOOSGapResult:
+    """Compute the gap between in-sample and out-of-sample Sharpe ratios.
+
+    A large gap indicates overfitting — the model captured noise in training
+    that didn't persist out-of-sample.
+
+    Args:
+        is_returns: In-sample (training) period returns.
+        oos_returns: Out-of-sample (test) period returns.
+        periods_per_year: Annualization factor (252 for daily).
+        warning_threshold: IS-OOS Sharpe gap above which to warn (default: 0.5).
+        block_threshold: IS-OOS Sharpe gap above which to block (default: 1.0).
+
+    Returns:
+        ISOOSGapResult with Sharpe values, gap, and verdict.
+    """
+    is_arr = np.asarray(is_returns, dtype=float)
+    oos_arr = np.asarray(oos_returns, dtype=float)
+
+    def _sharpe(r: np.ndarray) -> float:
+        if len(r) < 2 or np.std(r) < 1e-10:
+            return 0.0
+        return float(np.mean(r) / np.std(r) * np.sqrt(periods_per_year))
+
+    is_sharpe = _sharpe(is_arr)
+    oos_sharpe = _sharpe(oos_arr)
+    gap = abs(is_sharpe - oos_sharpe)
+
+    if gap > block_threshold:
+        verdict = "block"
+    elif gap > warning_threshold:
+        verdict = "warning"
+    else:
+        verdict = "ok"
+
+    logger.info(
+        "[WF] IS/OOS gap: IS_Sharpe=%.2f, OOS_Sharpe=%.2f, gap=%.2f -> %s",
+        is_sharpe, oos_sharpe, gap, verdict,
+    )
+    return ISOOSGapResult(
+        is_sharpe=round(is_sharpe, 4),
+        oos_sharpe=round(oos_sharpe, 4),
+        gap=round(gap, 4),
+        verdict=verdict,
+    )
