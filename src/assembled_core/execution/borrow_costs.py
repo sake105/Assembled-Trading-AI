@@ -78,6 +78,59 @@ def compute_borrow_cost(
     return notional * daily_rate * float(days_held)
 
 
+def load_rate_table_from_yaml(
+    path: str | "os.PathLike[str]",
+) -> BorrowRateTable:
+    """Load a :class:`BorrowRateTable` from ``config/htb_symbols.yaml``.
+
+    The YAML schema is:
+
+    .. code-block:: yaml
+
+        default_rates_bps:
+          easy: 50
+          htb: 300
+          special: 500
+        symbols:
+          GME:
+            borrow_bps: 500
+            tier: "special"
+
+    Per-symbol ``borrow_bps`` wins over tier defaults. Unknown symbols keep
+    the caller-supplied default rate.
+    """
+    import os  # noqa: F401  (typing support)
+    from pathlib import Path
+
+    import yaml  # type: ignore[import-untyped]
+
+    text = Path(path).read_text(encoding="utf-8")
+    data = yaml.safe_load(text) or {}
+
+    default_rates = data.get("default_rates_bps") or {}
+    easy = float(default_rates.get("easy", EASY_TO_BORROW_BPS))
+    htb = float(default_rates.get("htb", HARD_TO_BORROW_BPS))
+
+    overrides: dict[str, float] = {}
+    htb_symbols: set[str] = set()
+    symbols = data.get("symbols") or {}
+    for sym, entry in symbols.items():
+        entry = entry or {}
+        bps = entry.get("borrow_bps")
+        if bps is not None:
+            overrides[str(sym)] = float(bps)
+        tier = (entry.get("tier") or "").lower()
+        if tier in {"htb", "special"}:
+            htb_symbols.add(str(sym))
+
+    return BorrowRateTable(
+        default_rate_bps=easy,
+        htb_rate_bps=htb,
+        overrides=overrides,
+        htb_symbols=htb_symbols,
+    )
+
+
 def compute_borrow_cost_for_positions(
     positions: dict[str, float],
     prices: dict[str, float],

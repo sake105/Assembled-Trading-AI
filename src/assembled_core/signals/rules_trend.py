@@ -23,6 +23,7 @@ def generate_trend_signals(
     ma_slow: int = 50,
     volume_threshold: float | None = None,
     min_volume_multiplier: float = 1.0,
+    require_weekly_alignment: bool = False,
 ) -> pd.DataFrame:
     """Generate trend-following signals based on moving average crossover.
 
@@ -70,9 +71,15 @@ def generate_trend_signals(
 
     # Compute volume threshold if needed
     if volume_threshold is None and "volume" in df.columns:
-        # Use mean volume per symbol as baseline
-        mean_volume = df.groupby("symbol")["volume"].mean()
-        df["volume_threshold"] = df["symbol"].map(mean_volume) * min_volume_multiplier
+        # Use rolling mean volume per symbol (same window as slow MA) to avoid
+        # distortion from unadjusted historical volume (e.g. pre-split data).
+        # A full-history mean would be dominated by old high-volume data and
+        # block all signals for recent dates.
+        df["volume_threshold"] = (
+            df.groupby("symbol")["volume"]
+            .transform(lambda x: x.rolling(ma_slow, min_periods=1).mean())
+            * min_volume_multiplier
+        )
     elif volume_threshold is not None:
         df["volume_threshold"] = volume_threshold
     else:
@@ -88,6 +95,26 @@ def generate_trend_signals(
         )
     else:
         long_condition = df[ma_fast_col] > df[ma_slow_col]
+
+    # F3 — weekly-alignment gate (opt-in). When enabled, a LONG signal is
+    # only kept if the weekly EMA slope of the symbol's close series is also
+    # positive on that timestamp. Prevents daily whipsaw in chop regimes.
+    if require_weekly_alignment:
+        from src.assembled_core.features.weekly_alignment import add_weekly_alignment
+
+        alignment_frames = []
+        for sym, grp in df.sort_values("timestamp").groupby("symbol", sort=False):
+            g = grp.set_index("timestamp").copy()
+            g["daily_trend"] = np.where(g[ma_fast_col] > g[ma_slow_col], 1.0, -1.0)
+            aligned = add_weekly_alignment(g, price_col="close")
+            alignment_frames.append(
+                aligned[["weekly_alignment_ok"]].assign(
+                    symbol=sym, timestamp=aligned.index
+                )
+            )
+        align_df = pd.concat(alignment_frames).reset_index(drop=True)
+        df = df.merge(align_df, on=["timestamp", "symbol"], how="left")
+        long_condition = long_condition & df["weekly_alignment_ok"].fillna(False)
 
     df["direction"] = np.where(long_condition, "LONG", "FLAT")
 

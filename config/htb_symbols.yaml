@@ -1,0 +1,89 @@
+# E2 — Hard-to-borrow symbol table (Plan v3 Part E2).
+#
+# Seed list for initial HTB coverage. Each entry carries the rate in basis
+# points per annum. 500 bps ≈ 5%/year, which matches BLP empirical averages
+# for Reg SHO threshold / recall-risk names.
+#
+# Extend via `scripts/refresh_htb_from_alpaca.py` (future) which reads the
+# `easy_to_borrow` flag on GET /v2/assets and flips anything that flips off.
+#
+# Format:
+#   symbols:
+#     <TICKER>:
+#       borrow_bps: <int>         # annualised cost in basis points
+#       tier: "easy" | "htb" | "special"
+#       notes: "<why it is on the list>"
+#
+# Tier mapping used by execution/borrow_costs.py:
+#   easy    = 50 bps default
+#   htb     = 300 bps default
+#   special = 500 bps default
+
+version: 1
+updated_at: "2026-04-17"
+source: "seed-list — Plan v3 E2"
+
+default_tier: "easy"
+default_rates_bps:
+  easy: 50
+  htb: 300
+  special: 500
+
+symbols:
+  # Meme / recall-risk cohort
+  GME:
+    borrow_bps: 500
+    tier: "special"
+    notes: "High short interest, historically recall-prone"
+  AMC:
+    borrow_bps: 500
+    tier: "special"
+    notes: "High short interest, retail-driven squeezes"
+  BBBY:
+    borrow_bps: 500
+    tier: "special"
+    notes: "Distressed / high SI"
+  MULN:
+    borrow_bps: 500
+    tier: "special"
+    notes: "Nano-cap, persistent HTB"
+
+  # Biotech binary events
+  SAVA:
+    borrow_bps: 300
+    tier: "htb"
+    notes: "Biotech binary-event risk"
+  ATNF:
+    borrow_bps: 300
+    tier: "htb"
+    notes: "Micro-cap biotech"
+  OCGN:
+    borrow_bps: 300
+    tier: "htb"
+    notes: "Low float biotech"
+
+  # Low-float / recent IPO
+  FFIE:
+    borrow_bps: 500
+    tier: "special"
+    notes: "Low float, historically HTB"
+  RELI:
+    borrow_bps: 300
+    tier: "htb"
+    notes: "Micro-cap tech, limited inventory"
+
+  # SPAC / de-SPAC
+  DWAC:
+    borrow_bps: 500
+    tier: "special"
+    notes: "de-SPAC, recall-prone"
+
+  # Leveraged / inverse ETFs (not shorted by strategy but kept for completeness)
+  TQQQ:
+    borrow_bps: 50
+    tier: "easy"
+    notes: "3x long Nasdaq — readily available"
+  SQQQ:
+    borrow_bps: 50
+    tier: "easy"
+    notes: "3x inverse Nasdaq — readily available"

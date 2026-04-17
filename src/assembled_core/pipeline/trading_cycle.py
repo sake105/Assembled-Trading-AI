@@ -226,6 +226,11 @@ class TradingContext:
 
     # Risk controls
     enable_risk_controls: bool = True
+    # E0.1 parity flag: when True (new default) backtest mode preserves
+    # kill-switch state across bars, matching paper/live. Set False for
+    # research speed-runs where a single-bar trip should not gate
+    # downstream bars. Legacy behavior is False.
+    kill_switch_persist: bool = True
     risk_config: dict[str, Any] | RiskConfig = field(default_factory=dict)
     security_meta_df: pd.DataFrame | None = None
     """Security metadata DataFrame (symbol -> sector/region/currency/asset_type).
@@ -1313,11 +1318,19 @@ def run_trading_cycle(
     # Use context logger or module logger
     log = ctx.logger if ctx.logger is not None else logger
 
-    # Fix 13: In backtest mode, snapshot kill-switch state so a circuit-breaker
-    # trip on one bar does not permanently affect subsequent bars.
+    # E0.1 parity: in backtest mode the kill-switch can either persist across
+    # bars (new default — matches paper/live) or be restored per-bar (legacy
+    # behavior, required only for fast research runs that should not be
+    # gated by a single bar's circuit-breaker trip).
+    #
+    # Opt-out flag: ``ctx.kill_switch_persist=False`` restores the old
+    # "reset-after-each-bar" behavior. Default True so backtest and paper
+    # share the same decision logic.
     _ks_state_backup: bool | None = None
     _is_backtest = getattr(ctx, "mode", None) in ("backtest", "bt")
-    if _is_backtest:
+    _ks_persist = bool(getattr(ctx, "kill_switch_persist", True))
+    _ks_restore_active = _is_backtest and not _ks_persist
+    if _ks_restore_active:
         try:
             from src.assembled_core.execution.kill_switch import is_kill_switch_engaged
             _ks_state_backup = is_kill_switch_engaged()
@@ -1327,7 +1340,11 @@ def run_trading_cycle(
     try:
         return _run_trading_cycle_inner(ctx, hooks=hooks, log=log)
     finally:
-        if _ks_state_backup is not None and not _ks_state_backup and _is_backtest:
+        if (
+            _ks_restore_active
+            and _ks_state_backup is not None
+            and not _ks_state_backup
+        ):
             try:
                 from src.assembled_core.execution.kill_switch import (
                     deactivate_kill_switch,

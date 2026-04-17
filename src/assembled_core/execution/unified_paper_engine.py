@@ -206,6 +206,13 @@ except Exception:  # pragma: no cover
     _HAS_CORP_ACTIONS = False
     logger.warning("[PAPER] corporate_actions unavailable — CA adjustments disabled")
 
+try:
+    from src.assembled_core.costs import get_tier_costs_for_symbol
+    _HAS_COST_TIERS = True
+except Exception:  # pragma: no cover
+    _HAS_COST_TIERS = False
+    logger.warning("[PAPER] cost_tiers unavailable — flat cost fallback")
+
 
 # ---------------------------------------------------------------------------
 # Config and result dataclasses
@@ -247,7 +254,7 @@ class UnifiedPaperConfig:
     sor_urgency: float = 0.5
     sor_max_venues: int = 3
     sor_allow_dark_pools: bool = True
-    enable_borrow_costs: bool = False
+    enable_borrow_costs: bool = True
     borrow_rate_default_bps: float = 50.0
     borrow_rate_htb_bps: float = 500.0
     borrow_rate_overrides: dict[str, float] = field(default_factory=dict)
@@ -282,9 +289,17 @@ class UnifiedPaperConfig:
     )
     half_spread_bps: float = 5.0
     impact_coefficient: float = 0.10
-    default_adv: float = 1_000_000.0
+    default_adv: float = 100_000.0
+    enable_cost_tiers: bool = False
+    reject_unknown_adv: bool = False
     max_participation: float = 0.05
     min_fill_qty: float = 0.0
+    # B2 — state-save batching. 1 = save every day (paper/live safe default).
+    # Backtest callers can pass e.g. 5 to amortise JSON I/O over a week.
+    # ``run_paper_period`` always forces a final save so the on-disk state at
+    # end-of-run is identical regardless of the batching interval.
+    state_save_every_n_days: int = 1
+    manifest_every_n_days: int = 1
     state_dir: Path = field(default_factory=lambda: Path("output/paper_state"))
     ledger_dir: Path = field(default_factory=lambda: Path("output/paper_ledger"))
     lifecycle_dir: Path = field(default_factory=lambda: Path("output/paper_lifecycle"))
@@ -360,6 +375,12 @@ class UnifiedPaperEngine:
         # evaluation in ``_run_reconciliation``.
         self._last_fills: pd.DataFrame = pd.DataFrame()
         self._last_orders_n: int = 0
+
+        # B2 — batched state-save bookkeeping. Counters are days *elapsed since
+        # last flush*, not absolute day indices, so they stay correct even if
+        # callers mix ``run_paper_day`` and ``run_paper_period``.
+        self._days_since_state_save: int = 0
+        self._days_since_manifest: int = 0
 
         # Optional lifecycle tracker — one per engine instance; the tracker
         # accumulates orders across days so the on-disk dump is per-day but
@@ -581,14 +602,15 @@ class UnifiedPaperEngine:
         if not dry_run:
             self._lifecycle_dump(as_of_date)
 
-        # Step 12 — Persist state
+        # Step 12 — Persist state (B2: batched by ``state_save_every_n_days``)
         if not dry_run:
-            self._save_state()
+            self._maybe_save_state()
 
-        # Step 12b — Phase 8: Run manifest + cross-run index.
+        # Step 12b — Phase 8: Run manifest + cross-run index
+        # (B2: batched by ``manifest_every_n_days``).
         if not dry_run:
             try:
-                self._write_manifest_and_index(
+                self._maybe_write_manifest(
                     as_of_date=as_of_date,
                     run_started_utc=run_started_utc,
                     status="success" if not errors else "error",
@@ -670,6 +692,14 @@ class UnifiedPaperEngine:
 
             current += timedelta(days=1)
 
+        # B2 — force a final flush so the on-disk state at end-of-run is
+        # identical regardless of ``state_save_every_n_days``. Without this,
+        # a run that ends on a non-flush boundary would leave the last few
+        # days only in memory.
+        if self._days_since_state_save > 0:
+            self._save_state()
+            self._days_since_state_save = 0
+
         return results
 
     def get_portfolio_snapshot(self) -> dict[str, Any]:
@@ -748,22 +778,103 @@ class UnifiedPaperEngine:
         self._initialized = True
         return self._state
 
-    def _save_state(self) -> None:
-        """Persist state to JSON."""
-        state_path = self.config.state_dir / self._STATE_FILE
-        try:
-            with open(state_path, "w", encoding="utf-8") as fh:
-                json.dump(self._state, fh, indent=2, default=str)
-            logger.debug("[PAPER] State saved to %s", state_path)
-        except Exception as exc:
-            logger.error("[PAPER] Failed to save state: %s", exc)
+    def _maybe_save_state(self) -> None:
+        """B2 — batched wrapper around :meth:`_save_state`.
 
-        equity_path = self.config.state_dir / self._EQUITY_FILE
+        Increments the day counter and only flushes to disk once
+        ``state_save_every_n_days`` days have elapsed since the last flush.
+        Callers that need a guaranteed flush (``run_paper_period`` end-of-run,
+        kill-switch path, crash recovery) must call :meth:`_save_state`
+        directly.
+        """
+        self._days_since_state_save += 1
+        every = max(1, int(getattr(self.config, "state_save_every_n_days", 1)))
+        if self._days_since_state_save >= every:
+            self._save_state()
+            self._days_since_state_save = 0
+
+    def _maybe_write_manifest(
+        self,
+        as_of_date: str,
+        run_started_utc: str,
+        status: str,
+        equity_after: float,
+        total_return: float,
+        n_fills: int,
+        total_cost_bps: float,
+    ) -> None:
+        """B2 — batched wrapper around :meth:`_write_manifest_and_index`."""
+        self._days_since_manifest += 1
+        every = max(1, int(getattr(self.config, "manifest_every_n_days", 1)))
+        if self._days_since_manifest >= every:
+            self._write_manifest_and_index(
+                as_of_date=as_of_date,
+                run_started_utc=run_started_utc,
+                status=status,
+                equity_after=equity_after,
+                total_return=total_return,
+                n_fills=n_fills,
+                total_cost_bps=total_cost_bps,
+            )
+            self._days_since_manifest = 0
+
+    def _save_state(self) -> None:
+        """Persist state to JSON atomically.
+
+        Writes to a ``.tmp`` sibling first, fsyncs, then ``os.replace`` onto
+        the target. On POSIX and Windows (Py >=3.3) ``os.replace`` is atomic
+        for paths on the same filesystem, so a crash mid-save cannot leave
+        a corrupt primary file. If the temp write fails it is cleaned up.
+        """
+        self._atomic_write_json(
+            self.config.state_dir / self._STATE_FILE,
+            self._state,
+            log_failure_level=logging.ERROR,
+            log_label="state",
+        )
+        self._atomic_write_json(
+            self.config.state_dir / self._EQUITY_FILE,
+            self._equity_curve,
+            log_failure_level=logging.WARNING,
+            log_label="equity curve",
+        )
+
+    @staticmethod
+    def _atomic_write_json(
+        target_path: Path,
+        payload: Any,
+        *,
+        log_failure_level: int = logging.ERROR,
+        log_label: str = "file",
+    ) -> None:
+        """Write ``payload`` as JSON to ``target_path`` atomically."""
+        tmp_path = target_path.with_suffix(target_path.suffix + ".tmp")
         try:
-            with open(equity_path, "w", encoding="utf-8") as fh:
-                json.dump(self._equity_curve, fh, indent=2, default=str)
-        except Exception as exc:  # pragma: no cover
-            logger.warning("[PAPER] Could not save equity curve: %s", exc)
+            with open(tmp_path, "w", encoding="utf-8") as fh:
+                json.dump(payload, fh, default=str)
+                fh.flush()
+                try:
+                    os.fsync(fh.fileno())
+                except OSError:
+                    # Some filesystems (network, tmpfs) reject fsync — accept
+                    # the weaker durability guarantee rather than losing the
+                    # whole write.
+                    pass
+            os.replace(tmp_path, target_path)
+            logger.debug("[PAPER] %s saved atomically to %s", log_label, target_path)
+        except Exception as exc:
+            logger.log(
+                log_failure_level,
+                "[PAPER] atomic save of %s to %s failed: %s",
+                log_label,
+                target_path,
+                exc,
+            )
+            try:
+                if tmp_path.exists():
+                    tmp_path.unlink()
+            except Exception:
+                pass
 
     def _default_state(self) -> dict[str, Any]:
         """Return the default initial state."""
@@ -799,7 +910,9 @@ class UnifiedPaperEngine:
         if orders.empty:
             return pd.DataFrame()
 
-        # Build price lookup
+        # B4 — vectorised price_map build. ``iterrows`` was ~3× slower per
+        # symbol than a zipped Series scan and is hit once per ``run_paper_day``
+        # plus once per rebalance bar in backtests.
         price_map: dict[str, float] = {}
         adv_map: dict[str, float] = {}
         if prices is not None and not prices.empty:
@@ -807,19 +920,23 @@ class UnifiedPaperEngine:
             price_col = "close" if "close" in prices.columns else (
                 "price" if "price" in prices.columns else prices.columns[1]
             )
-            for _, row in prices.iterrows():
-                sym = str(row[sym_col])
-                price_map[sym] = float(row[price_col])
-                if "adv" in prices.columns:
-                    adv_map[sym] = float(row["adv"])
-                elif "volume" in prices.columns:
-                    adv_map[sym] = float(row["volume"])
+            syms = prices[sym_col].astype(str).tolist()
+            closes = prices[price_col].astype(float).tolist()
+            price_map = dict(zip(syms, closes, strict=False))
+            if "adv" in prices.columns:
+                advs = prices["adv"].astype(float).tolist()
+                adv_map = dict(zip(syms, advs, strict=False))
+            elif "volume" in prices.columns:
+                vols = prices["volume"].astype(float).tolist()
+                adv_map = dict(zip(syms, vols, strict=False))
 
         fills = []
-        half_spread = self.config.half_spread_bps / 10_000.0
+        default_half_spread = self.config.half_spread_bps / 10_000.0
         impact_coeff = self.config.impact_coefficient
         default_adv = self.config.default_adv
         enable_partial = bool(self.config.enable_partial_fills)
+        enable_tiers = bool(self.config.enable_cost_tiers) and _HAS_COST_TIERS
+        reject_unknown_adv = bool(self.config.reject_unknown_adv)
         max_participation = float(self.config.max_participation)
         min_fill_qty = float(self.config.min_fill_qty)
         enable_adversarial = (
@@ -833,24 +950,75 @@ class UnifiedPaperEngine:
         sor_max_venues = int(self.config.sor_max_venues)
         sor_allow_dark = bool(self.config.sor_allow_dark_pools)
 
-        for _, order in orders.iterrows():
-            sym = str(order.get("symbol", ""))
-            side = str(order.get("side", "BUY")).upper()
-            qty = abs(float(order.get("qty", 0.0)))
-            order_id = order.get("order_id")
-            signal_strength = float(order.get("signal_strength", 0.0) or 0.0)
+        # B4 — pre-extract hot columns as plain Python lists. Row-by-row
+        # ``iterrows()`` creates a fresh pandas Series per iteration and is the
+        # dominant cost in the fill-sim profile. Pulling to lists once keeps
+        # the per-iteration work to arithmetic + dict lookups, which is
+        # 2-4× faster and still deterministic.
+        _n_orders = len(orders)
+        _sym_arr = orders["symbol"].astype(str).tolist() if "symbol" in orders.columns else [""] * _n_orders
+        _side_arr = orders["side"].astype(str).str.upper().tolist() if "side" in orders.columns else ["BUY"] * _n_orders
+        _qty_arr = orders["qty"].astype(float).abs().tolist() if "qty" in orders.columns else [0.0] * _n_orders
+        _order_id_arr = orders["order_id"].tolist() if "order_id" in orders.columns else [None] * _n_orders
+        _price_arr = orders["price"].astype(float).tolist() if "price" in orders.columns else [0.0] * _n_orders
+        if "signal_strength" in orders.columns:
+            _sig_arr = orders["signal_strength"].fillna(0.0).astype(float).tolist()
+        else:
+            _sig_arr = [0.0] * _n_orders
+
+        for _i in range(_n_orders):
+            sym = _sym_arr[_i]
+            side = _side_arr[_i]
+            qty = _qty_arr[_i]
+            order_id = _order_id_arr[_i]
+            signal_strength = _sig_arr[_i]
 
             if qty <= 0:
                 continue
 
-            mid = price_map.get(sym, float(order.get("price", 0.0)))
+            mid = price_map.get(sym, _price_arr[_i])
             if mid <= 0:
                 logger.warning("[PAPER] No valid price for %s — skipping fill", sym)
                 continue
 
+            adv_known = sym in adv_map and adv_map[sym] > 0
             adv = adv_map.get(sym, default_adv)
             if adv <= 0:
                 adv = default_adv
+            if reject_unknown_adv and not adv_known:
+                fills.append(
+                    {
+                        "symbol": sym,
+                        "side": side,
+                        "qty": qty,
+                        "fill_qty": 0.0,
+                        "remaining_qty": qty,
+                        "fill_price": mid,
+                        "mid_price": mid,
+                        "notional": 0.0,
+                        "spread_cost_bps": 0.0,
+                        "impact_cost_bps": 0.0,
+                        "total_cost_bps": 0.0,
+                        "status": "rejected",
+                        "reject_reason": "UNKNOWN_ADV",
+                        "order_id": order_id,
+                    }
+                )
+                continue
+
+            # E0.2 — per-symbol cost tiers. When enabled, derive half_spread
+            # and commission from the ADV-in-USD bucket. Legacy path
+            # (enable_cost_tiers=False) keeps the flat config value so
+            # existing equity curves stay bit-identical.
+            tier_commission_bps = 0.0
+            tier_name: str | None = None
+            if enable_tiers:
+                adv_usd = adv * mid
+                tier_name, tier_costs = get_tier_costs_for_symbol(sym, adv_usd)
+                half_spread = tier_costs["half_spread_bps"] / 10_000.0
+                tier_commission_bps = tier_costs["commission_bps"]
+            else:
+                half_spread = default_half_spread
 
             # Phase 2: participation cap → partial fills + reject-on-min-qty.
             # When disabled, fill_qty == qty and status == "filled", preserving
@@ -889,7 +1057,10 @@ class UnifiedPaperEngine:
 
             side_sign = 1.0 if side == "BUY" else -1.0
 
-            # Spread cost (independent of fill_qty; expressed as price offset)
+            # Spread cost (independent of fill_qty; expressed as price offset).
+            # When tiers are enabled, a tier-driven commission term is added
+            # as an additive bps cost below — this is what the fill_price
+            # and ledger observe.
             spread_component = side_sign * half_spread * mid
 
             # Almgren-Chriss market impact (sqrt model). Impact is computed on
@@ -903,6 +1074,14 @@ class UnifiedPaperEngine:
 
             spread_cost_bps = abs(spread_component / mid) * 10_000
             impact_cost_bps = abs(impact_component / mid) * 10_000
+
+            # Tier commission: applied when enable_cost_tiers=True.
+            # Translated from bps to a side-signed price adjustment so the
+            # ledger's cash delta reflects the full cost.
+            if enable_tiers and tier_commission_bps > 0:
+                commission_adjustment = side_sign * mid * tier_commission_bps / 10_000.0
+                fill_price = fill_price + commission_adjustment
+                fill_price = max(fill_price, 1e-6)
 
             # Phase 3: Kyle-lambda adversarial fill cost. Informed orders
             # (high abs(signal_strength)) get worse fills on top of spread and
@@ -972,10 +1151,13 @@ class UnifiedPaperEngine:
                     "adversarial_cost_bps": adversarial_cost_bps,
                     "sor_cost_bps": sor_cost_bps,
                     "sor_venues": sor_venues,
+                    "commission_bps": tier_commission_bps,
+                    "tier": tier_name,
                     "total_cost_bps": spread_cost_bps
                     + impact_cost_bps
                     + adversarial_cost_bps
-                    + sor_cost_bps,
+                    + sor_cost_bps
+                    + tier_commission_bps,
                     "status": status,
                     "order_id": order_id,
                 }
@@ -995,27 +1177,38 @@ class UnifiedPaperEngine:
         if fills.empty:
             return fills, 0.0
 
-        # Apply cash gate: reject buys that exceed available cash
+        # Apply cash gate: reject buys that exceed available cash.
+        # B4 — iterate via pre-extracted lists. ``iterrows`` was redundant here
+        # because the loop only reads five columns; the vectorised form also
+        # keeps ``running_cash`` accumulation strictly sequential so the cash
+        # gate decision stays deterministic.
         cash = float(self._state.get("cash", self.config.seed_capital))
         buy_mask = fills["side"].str.upper() == "BUY"
         running_cash = cash
-        keep_rows = []
-        for idx, row in fills.iterrows():
-            if row["side"].upper() == "BUY":
-                cost = float(row["notional"])
+        _side_list = fills["side"].astype(str).str.upper().tolist()
+        _notional_list = fills["notional"].astype(float).tolist()
+        _symbol_list = fills["symbol"].astype(str).tolist() if "symbol" in fills.columns else [""] * len(fills)
+        _qty_list = fills["qty"].astype(float).tolist() if "qty" in fills.columns else [0.0] * len(fills)
+        _index_list = list(fills.index)
+        keep_rows: list = []
+        for _i in range(len(fills)):
+            _s = _side_list[_i]
+            _idx = _index_list[_i]
+            if _s == "BUY":
+                cost = _notional_list[_i]
                 if running_cash - cost >= -1e-6:
                     running_cash -= cost
-                    keep_rows.append(idx)
+                    keep_rows.append(_idx)
                 else:
                     logger.info(
                         "[PAPER] Cash gate: rejected BUY %s qty=%s (cash=%.2f notional=%.2f)",
-                        row["symbol"],
-                        row["qty"],
+                        _symbol_list[_i],
+                        _qty_list[_i],
                         running_cash,
                         cost,
                     )
             else:
-                keep_rows.append(idx)
+                keep_rows.append(_idx)
 
         fills = fills.loc[keep_rows].reset_index(drop=True)
 

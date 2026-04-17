@@ -1,0 +1,146 @@
+# Paper-trading-ci — primary scheduler for Alpaca paper cycle
+#
+# Purpose: Run the daily paper-trading cycle from GitHub Actions so it does not
+# depend on a continuously running local daemon (fixes the 7-day stall seen
+# from 2026-04-10 onwards).
+#
+# Two cron expressions cover the EDT/EST daylight-savings boundary. A Python
+# ET-gate skips the cycle outside of [15:20, 15:59] ET.
+#
+# Concurrency: group=paper-trading prevents two overlapping cycles if the
+# local daemon is also running. Idempotency at the order-level is enforced
+# by intent_store inside the engine.
+name: paper-trading-ci
+
+on:
+  schedule:
+    - cron: "30 19 * * 1-5"   # EDT 15:30 ET
+    - cron: "30 20 * * 1-5"   # EST 15:30 ET
+  workflow_dispatch: {}
+
+concurrency:
+  group: paper-trading
+  cancel-in-progress: false
+
+jobs:
+  run-paper-cycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: ET time-gate check
+        id: et_gate
+        run: |
+          python - <<'PY'
+          import sys
+          from datetime import datetime
+          try:
+              from zoneinfo import ZoneInfo
+          except ImportError:
+              import pytz
+              now_et = datetime.now(pytz.timezone("America/New_York"))
+          else:
+              now_et = datetime.now(ZoneInfo("America/New_York"))
+          if now_et.weekday() >= 5:
+              print(f"[ET-GATE] weekend ({now_et.isoformat()}) — skipping")
+              sys.exit(78)
+          t = now_et.time()
+          in_window = (t.hour == 15 and 20 <= t.minute <= 59)
+          if not in_window:
+              print(f"[ET-GATE] {t.isoformat()} ET outside [15:20, 15:59] — skipping")
+              sys.exit(78)
+          print(f"[ET-GATE] {t.isoformat()} ET inside window — proceeding")
+          PY
+
+      - name: Halt-ack gate (pre-check)
+        run: |
+          if [ -f output/ops/halt_ack_required.json ]; then
+            echo "::error::Halt ack required — previous cycle flagged mismatch."
+            echo "Inspect output/ops/halt_ack_required.json and run:"
+            echo "  python scripts/ack_halt.py --reason=\"<reviewed_yyyy-mm-dd>\""
+            cat output/ops/halt_ack_required.json
+            exit 1
+          fi
+
+      - name: Alpaca preflight (broker health_check)
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          ALPACA_BASE_URL: https://paper-api.alpaca.markets
+        run: |
+          python - <<'PY'
+          import sys
+          from src.assembled_core.execution.broker_adapter import AlpacaAdapter
+          adapter = AlpacaAdapter()
+          health = adapter.health_check()
+          if not health.get("ok"):
+              print(f"[PREFLIGHT] FAIL: {health}")
+              sys.exit(1)
+          print(f"[PREFLIGHT] OK — equity={health.get('account_equity')}")
+          PY
+
+      - name: Run paper cycle
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          ALPACA_BASE_URL: https://paper-api.alpaca.markets
+        run: python scripts/run_live_paper.py once
+
+      - name: Alpaca EOD balance snapshot
+        if: always()
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          ALPACA_BASE_URL: https://paper-api.alpaca.markets
+        run: python scripts/snapshot_alpaca_balance.py || echo "snapshot failed (non-fatal)"
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper-run-${{ github.run_id }}
+          path: |
+            output/ops/
+            output/paper/
+            output/executions/
+            output/runs/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Step summary
+        if: always()
+        run: |
+          echo "## Paper cycle run ${{ github.run_id }}" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f output/ops/last_run_date.txt ]; then
+            echo "- last_run_date: $(cat output/ops/last_run_date.txt)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -f output/ops/scheduler.log ]; then
+            echo "### Last [PAPER] log lines" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            tail -50 output/ops/scheduler.log | grep -E "\[PAPER\]" | tail -20 >> "$GITHUB_STEP_SUMMARY" || true
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Failure alert (Discord)
+        if: failure()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          if [ -n "$DISCORD_WEBHOOK" ]; then
+            curl -s -X POST -H "Content-Type: application/json" \
+              -d "{\"content\":\"paper-trading-ci FAILED (run ${{ github.run_id }})\\nSee: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"}" \
+              "$DISCORD_WEBHOOK" || true
+          fi

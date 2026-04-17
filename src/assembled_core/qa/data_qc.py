@@ -34,8 +34,8 @@ DEFAULT_THRESHOLDS = {
     "missing_sessions_warn_pct": 5.0,  # Warn if >5% of trading days missing
     "missing_sessions_fail_pct": 20.0,  # Fail if >20% of trading days missing
     "stale_price_sessions": 3,  # Warn if price unchanged for >=3 sessions
-    "outlier_return_warn": 0.20,  # Warn if abs(daily_return) >= 0.20 (20%)
-    "outlier_return_fail": 0.30,  # Fail if abs(daily_return) >= 0.30 (30%)
+    "outlier_return_warn": 0.25,  # Warn if abs(daily_return) >= 0.25 (25%)
+    "outlier_return_fail": 0.60,  # Fail if abs(daily_return) >= 0.60 (60%) — stock splits can cause 50%+ apparent returns
     "zero_volume_warn_pct": 10.0,  # Warn if >10% of trading days have zero volume
     "zero_volume_fail_pct": 50.0,  # Fail if >50% of trading days have zero volume
 }

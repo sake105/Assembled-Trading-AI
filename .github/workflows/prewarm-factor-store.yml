@@ -1,0 +1,54 @@
+name: prewarm-factor-store
+
+on:
+  schedule:
+    # Weekly: Sunday 03:15 UTC — before Monday market-open, outside paper-trading-ci
+    - cron: "15 3 * * 0"
+  workflow_dispatch:
+    inputs:
+      universe:
+        description: "Universe preset (DEMO, SPX100_MINI) or path to symbols file"
+        required: false
+        default: "SPX100_MINI"
+      start:
+        description: "Start date (YYYY-MM-DD)"
+        required: false
+        default: "2022-01-03"
+      end:
+        description: "End date (YYYY-MM-DD)"
+        required: false
+        default: "2024-12-31"
+      force_rebuild:
+        description: "Force rebuild (overwrite existing cache)"
+        required: false
+        default: "false"
+
+concurrency:
+  group: prewarm-factor-store
+  cancel-in-progress: false
+
+jobs:
+  prewarm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Pre-warm factor store
+        run: |
+          python scripts/prewarm_factor_store.py \
+            --universe "${{ github.event.inputs.universe || 'SPX100_MINI' }}" \
+            --start "${{ github.event.inputs.start || '2022-01-03' }}" \
+            --end "${{ github.event.inputs.end || '2024-12-31' }}" \
+            ${{ github.event.inputs.force_rebuild == 'true' && '--force-rebuild' || '' }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: factor-store-${{ github.run_id }}
+          path: output/factors/
+          retention-days: 14

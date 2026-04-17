@@ -33,6 +33,49 @@ from src.assembled_core.logging_config import generate_run_id, setup_logging
 logger = logging.getLogger(__name__)
 
 
+HALT_FLAG_PATH = ROOT / "output" / "ops" / "halt_ack_required.json"
+
+
+def _reconcile_policy(app_cfg: dict) -> dict:
+    pol = (app_cfg.get("policy") or {}).get("reconciliation") or {}
+    return {
+        "halt_on_mismatch": bool(pol.get("halt_on_mismatch", True)),
+        "cash_threshold_usd": float(pol.get("cash_threshold_usd", 100.0)),
+        "cash_threshold_bps": float(pol.get("cash_threshold_bps", 10.0)),
+    }
+
+
+def _write_halt_flag(payload: dict) -> None:
+    HALT_FLAG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    tmp = HALT_FLAG_PATH.with_suffix(HALT_FLAG_PATH.suffix + ".tmp")
+    tmp.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+    tmp.replace(HALT_FLAG_PATH)
+
+
+def _mismatch_exceeds_threshold(
+    cash_diff: float, broker_equity: float, policy: dict
+) -> tuple[bool, str]:
+    abs_diff = abs(cash_diff)
+    usd_trip = abs_diff > policy["cash_threshold_usd"]
+    bps_trip = False
+    bps_observed = None
+    if broker_equity > 0:
+        bps_observed = abs_diff / broker_equity * 10_000.0
+        bps_trip = bps_observed > policy["cash_threshold_bps"]
+    if not (usd_trip or bps_trip):
+        return False, ""
+    reason_bits = []
+    if usd_trip:
+        reason_bits.append(
+            f"cash_diff=${abs_diff:.2f} > {policy['cash_threshold_usd']:.2f}"
+        )
+    if bps_trip and bps_observed is not None:
+        reason_bits.append(
+            f"cash_diff={bps_observed:.2f}bps > {policy['cash_threshold_bps']:.2f}bps"
+        )
+    return True, " AND ".join(reason_bits)
+
+
 def _load_app_cfg() -> dict:
     """Load app config from configs/app.yaml or return defaults."""
     cfg_path = ROOT / "configs" / "app.yaml"
@@ -282,10 +325,40 @@ def cmd_once(args):
             sync_result = sync_positions_from_broker(adapter, ledger_state)
 
             if not sync_result.ok:
+                policy = _reconcile_policy(app_cfg)
+                tripped, reason = _mismatch_exceeds_threshold(
+                    sync_result.cash_diff,
+                    sync_result.broker_equity,
+                    policy,
+                )
                 logger.warning(
                     "[run_live_paper] POST-EXECUTION MISMATCH: %s",
                     sync_result.message,
                 )
+                if tripped and policy["halt_on_mismatch"]:
+                    _write_halt_flag(
+                        {
+                            "triggered_at_utc": datetime.now(timezone.utc).isoformat(),
+                            "run_id": run_id,
+                            "cycle_date": as_of.strftime("%Y-%m-%d"),
+                            "cash_diff": sync_result.cash_diff,
+                            "broker_equity": sync_result.broker_equity,
+                            "broker_cash": sync_result.broker_cash,
+                            "ledger_cash": sync_result.ledger_cash,
+                            "mismatches_count": len(sync_result.mismatches or []),
+                            "policy": policy,
+                            "reason": reason,
+                            "message": sync_result.message,
+                        }
+                    )
+                    logger.error(
+                        "[run_live_paper] HALT engaged — %s; wrote %s. "
+                        "Clear with: python scripts/ack_halt.py --reason=...",
+                        reason,
+                        HALT_FLAG_PATH,
+                    )
+                    reconcile_status = "halt"
+                    exit_code = max(exit_code, 2)
         except Exception as exc:
             logger.warning("[run_live_paper] post-execution sync failed: %s", exc)
 

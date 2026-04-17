@@ -268,6 +268,7 @@ def make_cycle_fn(
     position_sizing_fn: Callable[[pd.DataFrame, float], pd.DataFrame],
     capital: float,
     run_trading_cycle_fn: Callable | None = None,
+    enable_risk_controls: bool = True,
 ) -> Callable[[pd.Timestamp, pd.DataFrame], "TradingCycleResult"]:
     """Create a callable that runs trading cycle for a given timestamp and positions.
 
@@ -343,7 +344,12 @@ def make_cycle_fn(
             signal_fn=signal_fn,
             position_sizing_fn=position_sizing_fn,
             write_outputs=False,  # Backtest engine handles outputs
-            enable_risk_controls=False,  # Backtest engine doesn't use risk controls (can be added later)
+            # E0.1 parity: risk controls now honored in backtest path. Default
+            # True so backtest and paper share the same decision logic.
+            # Explicit opt-out (enable_risk_controls=False) is still possible
+            # for speed-focused research runs but must be documented at the
+            # call site.
+            enable_risk_controls=enable_risk_controls,
             security_meta_df=ctx_template.security_meta_df,  # Pass through security metadata
             backtest_use_snapshot=getattr(ctx_template, "backtest_use_snapshot", False),
             equity_curve=equity_curve,
@@ -395,12 +401,32 @@ def _process_rebalancing_timestamp(
     # Compute target positions for this timestamp
     targets = position_sizing_fn(signal_group, start_capital)
 
-    # Generate orders to transition from current to target positions
-    prices_at_timestamp = (
-        prices[prices["timestamp"] == timestamp]
-        if len(prices[prices["timestamp"] == timestamp]) > 0
-        else None
-    )
+    # Generate orders to transition from current to target positions.
+    # Use prices at the exact timestamp first; if a symbol being sold is
+    # missing (sparse data / gap day), fall back to its last known close
+    # so SELL orders don't get price=0.
+    prices_at_timestamp = prices[prices["timestamp"] == timestamp]
+    if prices_at_timestamp.empty:
+        prices_at_timestamp = None
+    elif not current_positions.empty:
+        # Ensure SELL-side symbols have prices even on gap days
+        held_symbols = set(current_positions["symbol"].unique())
+        available_symbols = set(prices_at_timestamp["symbol"].unique())
+        missing_symbols = held_symbols - available_symbols
+        if missing_symbols:
+            ts_utc = pd.to_datetime(timestamp, utc=True)
+            hist = prices[
+                (pd.to_datetime(prices["timestamp"], utc=True) <= ts_utc)
+                & (prices["symbol"].isin(missing_symbols))
+            ]
+            if not hist.empty:
+                last_known = hist.groupby("symbol").tail(1)
+                # Override timestamp so it merges correctly
+                last_known = last_known.copy()
+                last_known["timestamp"] = timestamp
+                prices_at_timestamp = pd.concat(
+                    [prices_at_timestamp, last_known], ignore_index=True
+                )
     orders = generate_orders_from_targets(
         target_positions=targets,
         current_positions=current_positions,

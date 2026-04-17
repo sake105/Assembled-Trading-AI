@@ -94,6 +94,45 @@ def compute_signals(
     ema_fast = int(cfg.get("ema_fast", 20))
     ema_slow = int(cfg.get("ema_slow", 60))
 
+    # D5 — signal-decay read-path. When enabled, stale factors are muted via
+    # the weekly decay report at ``output/qa/signal_decay/latest.json``. When
+    # disabled (default), weights pass through unchanged; callers (e.g. the
+    # paper cycle) can still snapshot the hypothetical multipliers to
+    # ``output/shadow/signal_decay_<date>.json`` for the A/B review.
+    from src.assembled_core.strategies.signal_decay_gate import apply_multipliers
+
+    decay_cfg = cfg.get("signal_decay", {}) or {}
+    weights, _decay_multipliers = apply_multipliers(
+        dict(weights),
+        enabled=bool(decay_cfg.get("enabled", False)),
+        stale_multiplier=float(decay_cfg.get("stale_multiplier", 0.0)),
+        report_path=(
+            None if decay_cfg.get("report_path") is None
+            else __import__("pathlib").Path(decay_cfg["report_path"])
+        ),
+    )
+
+    # F1 — IC-decay-weighted factor combination. Default off; enable via
+    # ``strategy_cfg["ic_decay"] = {"enabled": True, "ic_snapshot": {...},
+    # "lags": {...}, "half_lives": {...}}``. When enabled, the base weights
+    # are replaced by decay-adjusted IC weights; when disabled or when no
+    # IC snapshot is provided, the existing weights pass through.
+    ic_cfg = cfg.get("ic_decay", {}) or {}
+    if ic_cfg.get("enabled") and ic_cfg.get("ic_snapshot"):
+        from src.assembled_core.strategies.ic_decay_weights import (
+            DEFAULT_MAX_W_PER_FACTOR,
+            compute_ic_decay_weights,
+        )
+
+        ic_result = compute_ic_decay_weights(
+            ic_cfg["ic_snapshot"],
+            lags=ic_cfg.get("lags") or {},
+            half_lives=ic_cfg.get("half_lives") or {},
+            max_w_per_factor=float(ic_cfg.get("max_w_per_factor", DEFAULT_MAX_W_PER_FACTOR)),
+            fallback_weights=weights,
+        )
+        weights = ic_result.weights
+
     if prices_with_features.empty or "symbol" not in prices_with_features.columns:
         return _empty_signals()
 
@@ -604,6 +643,36 @@ def _compute_regime_multiplier(df: pd.DataFrame, cfg: dict) -> float:
     Falls back to 1.0 (no adjustment) if insufficient data.
     """
     base_mult: float
+    # F2 — posterior-blended path (soft multiplier over regime distribution).
+    reg_cfg = (cfg or {}).get("regime_posterior") or {}
+    if reg_cfg.get("enabled") and reg_cfg.get("posterior"):
+        from src.assembled_core.signals.regime.hmm_posterior import (
+            DEFAULT_HALF_LIFE_DAYS,
+            smooth_posterior,
+        )
+        try:
+            smoothed = smooth_posterior(
+                reg_cfg["posterior"],
+                reg_cfg.get("prev_posterior"),
+                half_life_days=float(
+                    reg_cfg.get("half_life_days", DEFAULT_HALF_LIFE_DAYS)
+                ),
+            )
+            base_mult = float(
+                sum(
+                    float(prob) * float(REGIME_EXPOSURE.get(str(k).lower(), 0.70))
+                    for k, prob in smoothed.items()
+                )
+            )
+            logger.info(
+                "[MF-V1] Regime posterior-blended -> exposure_mult=%.3f (keys=%s)",
+                base_mult, sorted(smoothed.keys()),
+            )
+            crash_mult = _crash_prediction_multiplier(df, cfg)
+            return base_mult * crash_mult
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("[MF-V1] Posterior-blend failed, falling back: %s", exc)
+
     try:
         from src.assembled_core.risk.regime_models import build_regime_state
 
