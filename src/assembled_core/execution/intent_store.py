@@ -28,6 +28,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
@@ -170,8 +171,18 @@ def record_intent(
     }
 
     line = json.dumps(record, ensure_ascii=True) + "\n"
+    # K1: flush + fsync so a crash between write() and kernel flush cannot lose an
+    # ORDER_SUBMIT intent. The extra syscall is a per-record cost; this path is
+    # not in a tight loop.
     with open(path, "a", encoding="utf-8") as fh:
         fh.write(line)
+        fh.flush()
+        try:
+            os.fsync(fh.fileno())
+        except OSError:
+            # Some environments (e.g. certain mocked/virtual filesystems) do not
+            # support fsync on text-mode handles — best-effort is acceptable.
+            logger.debug("[INTENT] fsync unsupported for %s", path)
 
     logger.info(
         "[INTENT] recorded action=%s key=%s store=%s", action, idempotency_key, path

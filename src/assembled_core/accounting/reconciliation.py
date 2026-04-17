@@ -7,10 +7,97 @@ broker snapshots (paper or live), detecting mismatches and missing positions.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 
 import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ReconcileSLO:
+    """Service-level objectives for ledger-vs-broker reconciliation.
+
+    Warn thresholds are informational; fail thresholds should block production
+    and surface as alerts. Units:
+
+    - ``cash_diff_bps_*``: absolute cash diff in basis points of broker_cash.
+    - ``position_qty_diff_*``: absolute share-count diff per symbol.
+    - ``fill_rate_min_*``: minimum fraction of submitted orders that must fill.
+    - ``slippage_p99_bps_*``: 99th-percentile per-fill slippage against arrival.
+
+    The defaults follow the Phase 6 plan: warn-at-lenient, fail-at-strict.
+    """
+
+    cash_diff_bps_warn: float = 5.0
+    cash_diff_bps_fail: float = 25.0
+    position_qty_diff_warn: float = 1.0
+    position_qty_diff_fail: float = 10.0
+    fill_rate_min_warn: float = 0.80
+    fill_rate_min_fail: float = 0.50
+    slippage_p99_bps_warn: float = 30.0
+    slippage_p99_bps_fail: float = 100.0
+
+
+def evaluate_reconcile_slo(
+    *,
+    cash_diff: float,
+    broker_cash: float,
+    max_qty_diff: float,
+    fill_rate: float | None,
+    slippage_p99_bps: float | None,
+    slo: ReconcileSLO,
+) -> dict:
+    """Classify a reconciliation result against SLO thresholds.
+
+    Returns a dict with ``severity`` in {"ok", "warn", "fail"} and a list of
+    ``violations`` explaining which SLOs were breached.
+    """
+    violations: list[dict] = []
+
+    # Cash diff in bps of broker_cash (guard divide-by-zero)
+    denom = max(abs(broker_cash), 1.0)
+    cash_bps = abs(cash_diff) / denom * 10_000.0
+
+    if cash_bps >= slo.cash_diff_bps_fail:
+        violations.append({"metric": "cash_diff_bps", "value": cash_bps,
+                           "threshold": slo.cash_diff_bps_fail, "severity": "fail"})
+    elif cash_bps >= slo.cash_diff_bps_warn:
+        violations.append({"metric": "cash_diff_bps", "value": cash_bps,
+                           "threshold": slo.cash_diff_bps_warn, "severity": "warn"})
+
+    if max_qty_diff >= slo.position_qty_diff_fail:
+        violations.append({"metric": "position_qty_diff", "value": max_qty_diff,
+                           "threshold": slo.position_qty_diff_fail, "severity": "fail"})
+    elif max_qty_diff >= slo.position_qty_diff_warn:
+        violations.append({"metric": "position_qty_diff", "value": max_qty_diff,
+                           "threshold": slo.position_qty_diff_warn, "severity": "warn"})
+
+    if fill_rate is not None:
+        if fill_rate < slo.fill_rate_min_fail:
+            violations.append({"metric": "fill_rate", "value": fill_rate,
+                               "threshold": slo.fill_rate_min_fail, "severity": "fail"})
+        elif fill_rate < slo.fill_rate_min_warn:
+            violations.append({"metric": "fill_rate", "value": fill_rate,
+                               "threshold": slo.fill_rate_min_warn, "severity": "warn"})
+
+    if slippage_p99_bps is not None:
+        if slippage_p99_bps >= slo.slippage_p99_bps_fail:
+            violations.append({"metric": "slippage_p99_bps", "value": slippage_p99_bps,
+                               "threshold": slo.slippage_p99_bps_fail, "severity": "fail"})
+        elif slippage_p99_bps >= slo.slippage_p99_bps_warn:
+            violations.append({"metric": "slippage_p99_bps", "value": slippage_p99_bps,
+                               "threshold": slo.slippage_p99_bps_warn, "severity": "warn"})
+
+    if any(v["severity"] == "fail" for v in violations):
+        severity = "fail"
+    elif violations:
+        severity = "warn"
+    else:
+        severity = "ok"
+
+    return {"severity": severity, "violations": violations,
+            "cash_diff_bps": cash_bps, "max_qty_diff": max_qty_diff}
 
 
 def reconcile_ledger_vs_broker(

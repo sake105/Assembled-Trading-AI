@@ -57,6 +57,33 @@ Do **not** leave a session after meaningful work without checking whether this f
 ## 4. Current execution position
 
 ### Current milestone
+- ID: Paper Engine Upgrade — `wir-m-ssen-unsere-paper-floating-pebble`
+- Name: Paper Trading Engine Deep Upgrade (Phasen 0–11)
+- Overall milestone status: implemented, locally tested (2026-04-17)
+
+### Current task (Paper Engine Upgrade)
+- Phase 0 — partial-accounting bugs (`_update_positions`, `_write_ledger_events`): done.
+- Phase 1 / 1.5 / 2 / 3 / 4 / 5: lifecycle + determinism + partial fills + circuit breaker + adversarial + SOR + borrow/corp-actions: done.
+- Phase 6 — intent store + reconcile SLO + shadow-mode: done; `risk-execution-reviewer` review still open.
+- Phase 7 — TCA artifacts: done.
+- Phase 8 — run manifest + cross-run index: done.
+- Phase 9 — attribution drilldown (cost/regime/factor): done (`accounting/attribution.py`, engine Step 10c).
+- Phase 9.5 — offline cost-model calibrator (`execution/cost_model_calibrator.py`): done.
+- Phase 10 — regime regression pack (`tests/regression/test_paper_engine_regime_pack.py` + `golden_metrics.json`): done.
+- Phase 11 — runbook (`docs/runbooks/11_paper_engine_run.md`) + memory (`memory/paper-engine-upgrade-2026-04-17.md`): done.
+
+### Current objective
+- Targeted Paper-Engine suite: 104/104 green (phases 0–9).
+- Phase 10 regression pack: 5/5 green under `pytest -m regression`.
+- Phase 9.5 calibrator: 4/4 green.
+- CI matrix (ubuntu+windows) status: nicht bestätigt — commit noch ausstehend.
+
+### Next smallest safe step
+1. `risk-execution-reviewer` Subagent-Review Phase 6 (execution/accounting-sensible).
+2. Full phase12 bugrun zur Regressionsabsicherung.
+3. Commit + Push (ohne `.env`).
+
+### Previous milestone (superseded)
 - ID: M14 — Institutional Upgrade (ML + TA + Portfolio + Execution)
 - Name: Von M13 zum institutionellen / Wall-Street-Niveau
 - Overall milestone status: implemented, locally tested (2026-04-04)

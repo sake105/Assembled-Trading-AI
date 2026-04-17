@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0",
+  "description": "Phase 10 regime-shift regression pack. Golden KPI snapshots for three stress scenarios. Each scenario runs UnifiedPaperEngine with a fixed seed and a synthetic price snapshot that reproduces the named regime. Deviations >5% from the golden metrics fail the test pack.",
+  "scenarios": {
+    "covid_crash_2020_03_16": {
+      "date": "2020-03-16",
+      "seed": 20200316,
+      "benchmark_return": -0.12,
+      "expected": {
+        "status": "kill_switch",
+        "n_fills_max": 0,
+        "circuit_breaker_triggered": true
+      }
+    },
+    "bear_start_2022_01_24": {
+      "date": "2022-01-24",
+      "seed": 20220124,
+      "benchmark_return": -0.025,
+      "expected": {
+        "status": "success",
+        "n_fills_min": 0,
+        "fill_rate_min": 0.0
+      }
+    },
+    "flash_crash_2010_05_06": {
+      "date": "2010-05-06",
+      "seed": 20100506,
+      "benchmark_return": -0.09,
+      "expected": {
+        "status": "kill_switch",
+        "n_fills_max": 0,
+        "circuit_breaker_triggered": true
+      }
+    }
+  },
+  "tolerance_pct": 0.05
+}
