@@ -34,7 +34,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.release_gate_walk_forward import (  # noqa: E402
+    _equal_weight_position_fn,
     _synthetic_prices,
+    _trend_signal_fn,
 )
 from src.assembled_core.qa.walk_forward import (  # noqa: E402
     make_walk_forward_splits,
@@ -44,43 +46,72 @@ from src.assembled_core.qa.walk_forward import (  # noqa: E402
 logger = logging.getLogger("quantify_realism_delta")
 
 
-def _pre_e0_backtest_fn(
-    train_start: pd.Timestamp,
-    train_end: pd.Timestamp,
+def _engine_call(
+    prices: pd.DataFrame,
     test_start: pd.Timestamp,
     test_end: pd.Timestamp,
+    *,
+    include_costs: bool,
+    commission_bps: float | None,
+    spread_w: float | None,
+    impact_w: float | None,
 ) -> dict[str, float]:
-    """Optimistic baseline: zero costs, zero borrow, infinite liquidity."""
-    seed = int(pd.Timestamp(test_start).timestamp()) % 1_000_003
-    rng = np.random.default_rng(seed)
-    # Higher mean, same vol → inflated Sharpe.
-    periodic_sharpe = float(rng.normal(0.09, 0.02))
+    from src.assembled_core.qa.backtest_engine import run_portfolio_backtest
+
+    window = prices[
+        (prices["timestamp"] >= test_start) & (prices["timestamp"] < test_end)
+    ].copy()
+    if window.empty:
+        return {"sharpe": 0.0, "total_return": 0.0, "max_drawdown": 0.0, "cagr": 0.0}
+    try:
+        result = run_portfolio_backtest(
+            prices=window,
+            signal_fn=_trend_signal_fn,
+            position_sizing_fn=_equal_weight_position_fn,
+            start_capital=10_000.0,
+            include_costs=include_costs,
+            commission_bps=commission_bps,
+            spread_w=spread_w,
+            impact_w=impact_w,
+            include_trades=False,
+            compute_features=True,
+            strict_session_gate=False,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[REALISM] engine failed %s: %s", test_start.date(), exc)
+        return {"sharpe": 0.0, "total_return": 0.0, "max_drawdown": 0.0, "cagr": 0.0}
+
+    m = result.metrics or {}
+    sharpe = float(m.get("sharpe", 0.0) or 0.0)
+    final_pf = float(m.get("final_pf", 1.0) or 1.0)
     return {
-        "sharpe": periodic_sharpe * np.sqrt(252),
-        "cagr": periodic_sharpe * 252 * 0.005,
-        "max_drawdown": float(rng.uniform(-0.15, -0.05)),
-        "total_return": float(rng.uniform(0.05, 0.35)),
+        "sharpe": sharpe,
+        "total_return": final_pf - 1.0,
+        "max_drawdown": float(m.get("max_drawdown", 0.0) or 0.0),
+        "cagr": float(m.get("cagr", 0.0) or 0.0),
     }
 
 
-def _post_e0_backtest_fn(
-    train_start: pd.Timestamp,
-    train_end: pd.Timestamp,
-    test_start: pd.Timestamp,
-    test_end: pd.Timestamp,
-) -> dict[str, float]:
-    """Realistic: tier-based costs, lower ADV default, borrow accrual."""
-    seed = int(pd.Timestamp(test_start).timestamp()) % 1_000_003
-    rng = np.random.default_rng(seed)
-    # Cost drag: subtract ~0.05 SR per window on average to model the
-    # typical 0.3-0.8 full-horizon drop documented in the plan.
-    periodic_sharpe = float(rng.normal(0.04, 0.02))
-    return {
-        "sharpe": periodic_sharpe * np.sqrt(252),
-        "cagr": periodic_sharpe * 252 * 0.005,
-        "max_drawdown": float(rng.uniform(-0.25, -0.08)),
-        "total_return": float(rng.uniform(-0.05, 0.20)),
-    }
+def _make_pre_e0_fn(prices: pd.DataFrame):
+    """Pre-E0: costs OFF (zero commissions, zero impact)."""
+    def fn(train_start, train_end, test_start, test_end):
+        return _engine_call(
+            prices, test_start, test_end,
+            include_costs=False,
+            commission_bps=0.0, spread_w=0.0, impact_w=0.0,
+        )
+    return fn
+
+
+def _make_post_e0_fn(prices: pd.DataFrame):
+    """Post-E0: realism ON (tier-aware cost model, borrow accrual)."""
+    def fn(train_start, train_end, test_start, test_end):
+        return _engine_call(
+            prices, test_start, test_end,
+            include_costs=True,
+            commission_bps=None, spread_w=None, impact_w=None,
+        )
+    return fn
 
 
 def _aggregate(metrics: dict[str, Any]) -> dict[str, float]:
@@ -108,8 +139,8 @@ def build_delta_report(
         train_days=train_days,
         test_days=test_days,
     )
-    pre = run_walk_forward(backtest_fn=_pre_e0_backtest_fn, splits=splits)
-    post = run_walk_forward(backtest_fn=_post_e0_backtest_fn, splits=splits)
+    pre = run_walk_forward(backtest_fn=_make_pre_e0_fn(prices), splits=splits)
+    post = run_walk_forward(backtest_fn=_make_post_e0_fn(prices), splits=splits)
 
     pre_agg = _aggregate(pre)
     post_agg = _aggregate(post)
@@ -156,9 +187,9 @@ def write_markdown(report: dict[str, Any], path: Path) -> None:
         "",
         "## Notes",
         "",
-        "- This report uses the deterministic stub backtest functions for",
-        "  pre-E0 and post-E0 so the delta is reproducible even before the",
-        "  production signal stack is wired into the walk-forward runner.",
+        "- This report now runs the real ``run_portfolio_backtest`` engine",
+        "  for both passes. Pre-E0 uses costs=OFF; Post-E0 uses the default",
+        "  tier-aware cost model (realism ON).",
         "- A negative Sharpe delta is **expected and correct**. It is the",
         "  honesty-shock called out in the v3 ultra-plan and must be",
         "  archived before enabling D/F-phase gates.",

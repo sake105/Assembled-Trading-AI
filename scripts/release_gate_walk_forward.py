@@ -51,6 +51,7 @@ def _synthetic_prices(
     n_days: int = 500,
     seed: int = 42,
 ) -> pd.DataFrame:
+    """Synthetic OHLCV panel — 5 symbols × ~2y business days."""
     rng = np.random.default_rng(seed)
     start = pd.Timestamp("2022-01-03", tz="UTC")
     dates = pd.date_range(start=start, periods=n_days, freq="B")
@@ -60,34 +61,85 @@ def _synthetic_prices(
         mu = 0.0003 + 0.0001 * sym_i
         sigma = 0.01 + 0.001 * sym_i
         noise = rng.normal(mu, sigma, n_days)
-        prices = 100.0 * np.exp(np.cumsum(noise))
-        for d, p in zip(dates, prices):
-            rows.append({"timestamp": d, "symbol": sym, "close": float(p)})
-    return pd.DataFrame(rows)
+        closes = 100.0 * np.exp(np.cumsum(noise))
+        for d, c in zip(dates, closes):
+            rows.append(
+                {
+                    "timestamp": d,
+                    "symbol": sym,
+                    "open": float(c) * 0.995,
+                    "high": float(c) * 1.01,
+                    "low": float(c) * 0.99,
+                    "close": float(c),
+                    "volume": 1_000_000.0,
+                }
+            )
+    return pd.DataFrame(rows).sort_values(["symbol", "timestamp"]).reset_index(drop=True)
 
 
-def _stub_backtest_fn(
-    train_start: pd.Timestamp,
-    train_end: pd.Timestamp,
-    test_start: pd.Timestamp,
-    test_end: pd.Timestamp,
-) -> dict[str, float]:
-    """Deterministic stub — emits reproducible per-window OOS stats.
+def _trend_signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
+    from src.assembled_core.signals.rules_trend import (
+        generate_trend_signals_from_prices,
+    )
+    return generate_trend_signals_from_prices(prices_df, ma_fast=20, ma_slow=50)
 
-    This keeps the release-gate independent from strategy wiring. When a
-    real signal stack is ready to be gated, replace this with
-    ``make_engine_backtest_fn(...)``.
+
+def _equal_weight_position_fn(signals_df: pd.DataFrame, capital: float) -> pd.DataFrame:
+    from src.assembled_core.portfolio.position_sizing import (
+        compute_target_positions_from_trend_signals,
+    )
+    return compute_target_positions_from_trend_signals(
+        signals_df, total_capital=capital, top_n=None, min_score=0.0
+    )
+
+
+def _make_real_backtest_fn(prices: pd.DataFrame):
+    """E3/E4 — wrap ``run_portfolio_backtest`` directly.
+
+    We call the engine ourselves (rather than ``make_engine_backtest_fn``)
+    because we need ``strict_session_gate=False`` so the CI runner works
+    without the optional ``exchange_calendars`` dependency.
     """
-    seed = int(pd.Timestamp(test_start).timestamp()) % 1_000_003
-    rng = np.random.default_rng(seed)
-    periodic_sharpe = float(rng.normal(0.04, 0.02))
-    daily_ret = periodic_sharpe * rng.normal(1.0, 0.2)
-    return {
-        "sharpe": periodic_sharpe * np.sqrt(252),
-        "cagr": daily_ret * 252,
-        "max_drawdown": float(rng.uniform(-0.25, -0.05)),
-        "total_return": float(rng.uniform(-0.1, 0.3)),
-    }
+    from src.assembled_core.qa.backtest_engine import run_portfolio_backtest
+
+    def backtest_fn(
+        train_start: pd.Timestamp,
+        train_end: pd.Timestamp,
+        test_start: pd.Timestamp,
+        test_end: pd.Timestamp,
+    ) -> dict[str, float]:
+        test_prices = prices[
+            (prices["timestamp"] >= test_start) & (prices["timestamp"] < test_end)
+        ].copy()
+        if test_prices.empty:
+            return {"sharpe": 0.0, "total_return": 0.0, "max_drawdown": 0.0}
+
+        try:
+            result = run_portfolio_backtest(
+                prices=test_prices,
+                signal_fn=_trend_signal_fn,
+                position_sizing_fn=_equal_weight_position_fn,
+                start_capital=10_000.0,
+                include_costs=True,
+                include_trades=False,
+                compute_features=True,
+                strict_session_gate=False,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "[RELEASE-GATE] backtest failed for %s..%s: %s — emitting zeros",
+                test_start.date(), test_end.date(), exc,
+            )
+            return {"sharpe": 0.0, "total_return": 0.0, "max_drawdown": 0.0}
+
+        metrics = result.metrics or {}
+        sharpe = float(metrics.get("sharpe", 0.0) or 0.0)
+        final_pf = float(metrics.get("final_pf", 1.0) or 1.0)
+        total_return = final_pf - 1.0
+        mdd = float(metrics.get("max_drawdown", 0.0) or 0.0)
+        return {"sharpe": sharpe, "total_return": total_return, "max_drawdown": mdd}
+
+    return backtest_fn
 
 
 def _derive_oos_returns(wf_output: dict[str, Any]) -> np.ndarray:
@@ -119,7 +171,8 @@ def build_gate_report(
         train_days=train_days,
         test_days=test_days,
     )
-    wf_output = run_walk_forward(backtest_fn=_stub_backtest_fn, splits=splits)
+    backtest_fn = _make_real_backtest_fn(prices)
+    wf_output = run_walk_forward(backtest_fn=backtest_fn, splits=splits)
 
     oos_metrics = wf_output.get("oos_first_metrics", {}) or {}
     mean_oos_sharpe = float(oos_metrics.get("oos_mean_sharpe", 0.0))
