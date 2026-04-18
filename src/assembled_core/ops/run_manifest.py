@@ -52,6 +52,11 @@ class RunManifest:
     phase_versions: dict[str, str] = field(default_factory=dict)
     artifacts: dict[str, str] = field(default_factory=dict)
     metrics: dict[str, Any] = field(default_factory=dict)
+    # Version tag so downstream readers can detect schema drift instead of
+    # silently parsing an unknown-version manifest. Bump on incompatible
+    # field changes (add-only changes stay at v1 by design — unknown keys
+    # are meant to be ignored).
+    schema_version: str = "run.manifest.v1"
 
 
 def _compute_git_sha() -> str:

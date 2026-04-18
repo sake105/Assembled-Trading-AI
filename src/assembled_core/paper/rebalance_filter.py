@@ -50,6 +50,19 @@ def filter_small_rebalances(
 
     if prices is not None and not prices.empty:
         price_map = dict(zip(prices["symbol"], prices["close"]))
+        # Symbols missing from the feed used to silently resolve to price=0.0
+        # and therefore notional=0, which dropped the order below min_notional
+        # with no trace — exactly the names mid-event (halts, data-feed
+        # partial delivery) were most likely to be suppressed. Warn on
+        # fallback so the operator sees which symbols are mid-event.
+        missing = set(df["symbol"]) - set(price_map.keys())
+        if missing:
+            logger.warning(
+                "[rebalance_filter] %d symbol(s) absent from price feed — "
+                "notional defaults to 0 and order may be dropped: %s",
+                len(missing),
+                sorted(missing)[:10],
+            )
         order_price = df.apply(
             lambda r: (
                 r.get("price", 0.0)

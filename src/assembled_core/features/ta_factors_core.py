@@ -251,8 +251,12 @@ def _add_trend_strength_factors(
         # Trend strength: (price - MA) / ATR
         trend_strength = (result[price_col] - ma_values) / atr_values
 
-        # Handle division by zero
-        trend_strength = np.where(atr_values > 1e-10, trend_strength, 0.0)
+        # Degenerate ATR (halted stocks, zero-range bars, <window warmup) used
+        # to silently produce 0.0 — a fabricated "neutral" signal indistinct
+        # from a genuine no-trend reading downstream. NaN-propagate instead
+        # so cross-sectional rankers / downstream factor wiring can treat
+        # missing-data distinctly from flat-trend (matches iter-4 zscore fix).
+        trend_strength = np.where(atr_values > 1e-10, trend_strength, np.nan)
 
         result[f"trend_strength_{lookback}"] = trend_strength.astype("float64")
 

@@ -201,6 +201,17 @@ def _preflight_checks(adapter, app_cfg: dict) -> bool:
     """Run pre-flight safety checks. Returns True if safe to proceed."""
     from src.assembled_core.execution.kill_switch import is_kill_switch_engaged
 
+    # Halt-ack gate: a prior cycle's reconcile mismatch may have written
+    # HALT_FLAG_PATH. The operator must clear it via scripts/ack_halt.py
+    # before the next run is permitted. Without this check the documented
+    # halt-ack policy was de-facto unenforced.
+    if HALT_FLAG_PATH.exists():
+        logger.critical(
+            "[run_live_paper] HALT FLAG present at %s — clear via scripts/ack_halt.py",
+            HALT_FLAG_PATH,
+        )
+        return False
+
     # Kill switch
     if is_kill_switch_engaged():
         logger.critical("[run_live_paper] KILL SWITCH ENGAGED — aborting")
