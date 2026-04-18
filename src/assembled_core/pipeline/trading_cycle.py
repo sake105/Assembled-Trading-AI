@@ -2024,33 +2024,57 @@ def _run_trading_cycle_inner(
             pos_dicts = ctx.current_positions.to_dict("records")
             zombies = get_zombie_positions(pos_dicts, now_utc, policy)
             if zombies:
+                # [D2] Shadow-mode observation window (Ultra-Plan Part D).
+                from src.assembled_core.ops.shadow_recorder import (
+                    is_shadow_only,
+                    record_shadow,
+                )
+
+                zk_shadow = is_shadow_only(policy, "zombie_killer")
                 zombie_symbols = {pos["symbol"] for pos, _reason in zombies}
+                record_shadow(
+                    "zombie_killer",
+                    {
+                        "zombie_symbols": sorted(zombie_symbols),
+                        "would_force_flat": sorted(zombie_symbols),
+                    },
+                    as_of=str(ctx.as_of) if ctx.as_of is not None else None,
+                    meta={
+                        "zombies_found": len(zombies),
+                        "reasons": [r for _, r in zombies],
+                        "applied": not zk_shadow,
+                    },
+                )
                 for _pos, reason in zombies:
                     log.warning(reason)
-                # Force zombie signals to FLAT so they get exit orders
-                mask = result.signals["symbol"].isin(zombie_symbols)
-                result.signals.loc[mask, "direction"] = "FLAT"
-                # Also add FLAT signals for zombies not already in signals
-                existing_syms = set(result.signals["symbol"].values)
-                missing_zombies = zombie_symbols - existing_syms
-                if missing_zombies:
-                    zombie_rows = pd.DataFrame(
-                        {
-                            "timestamp": [ctx.as_of or pd.Timestamp.now("UTC")] * len(missing_zombies),
-                            "symbol": list(missing_zombies),
-                            "direction": ["FLAT"] * len(missing_zombies),
-                            "score": [0.0] * len(missing_zombies),
-                        }
-                    )
-                    result.signals = pd.concat(
-                        [result.signals, zombie_rows], ignore_index=True
-                    )
+                if not zk_shadow:
+                    # Force zombie signals to FLAT so they get exit orders
+                    mask = result.signals["symbol"].isin(zombie_symbols)
+                    result.signals.loc[mask, "direction"] = "FLAT"
+                    # Also add FLAT signals for zombies not already in signals
+                    existing_syms = set(result.signals["symbol"].values)
+                    missing_zombies = zombie_symbols - existing_syms
+                    if missing_zombies:
+                        zombie_rows = pd.DataFrame(
+                            {
+                                "timestamp": [ctx.as_of or pd.Timestamp.now("UTC")] * len(missing_zombies),
+                                "symbol": list(missing_zombies),
+                                "direction": ["FLAT"] * len(missing_zombies),
+                                "score": [0.0] * len(missing_zombies),
+                            }
+                        )
+                        result.signals = pd.concat(
+                            [result.signals, zombie_rows], ignore_index=True
+                        )
                 result.meta["zombie_killer"] = {
                     "zombies_found": len(zombies),
                     "symbols": sorted(zombie_symbols),
+                    "shadow_only": zk_shadow,
                 }
-                log.info("ZOMBIE_KILLER: %d positions flagged for exit: %s",
-                         len(zombies), sorted(zombie_symbols))
+                log.info(
+                    "ZOMBIE_KILLER: %d positions flagged for exit (shadow=%s): %s",
+                    len(zombies), zk_shadow, sorted(zombie_symbols),
+                )
     except Exception as e:
         log.debug("zombie_killer check skipped: %s", e)
 
@@ -3218,22 +3242,50 @@ def _run_trading_cycle_inner(
                 tw_dict, corr_prices, policy
             )
             if corr_reasons:
+                # [D1] Shadow-mode observation window (Ultra-Plan Part D).
+                # policy.correlation_guard.shadow_only: True logs what would
+                # have been scaled but does not touch target_positions.
+                from src.assembled_core.ops.shadow_recorder import (
+                    is_shadow_only,
+                    record_shadow,
+                )
+
+                cg_shadow = is_shadow_only(policy, "correlation_guard")
+                deltas = {
+                    sym: {"old": tw_dict[sym], "new": adjusted_weights[sym]}
+                    for sym in tw_dict
+                    if abs(tw_dict[sym] - adjusted_weights[sym]) > 1e-9
+                }
+                record_shadow(
+                    "correlation_guard",
+                    {"adjusted_weights": adjusted_weights, "deltas": deltas},
+                    as_of=str(ctx.order_timestamp) if ctx.order_timestamp else None,
+                    meta={
+                        "clusters_scaled": len(corr_reasons),
+                        "reasons": corr_reasons,
+                        "applied": not cg_shadow,
+                    },
+                )
                 for reason in corr_reasons:
                     log.warning(reason)
-                # Apply adjusted weights back to target_positions
-                result.target_positions["target_weight"] = result.target_positions[
-                    "symbol"
-                ].map(adjusted_weights)
-                if "target_qty" in result.target_positions.columns:
-                    result.target_positions["target_qty"] = (
-                        result.target_positions["target_weight"] * ctx.capital
-                    )
+                if not cg_shadow:
+                    # Apply adjusted weights back to target_positions
+                    result.target_positions["target_weight"] = result.target_positions[
+                        "symbol"
+                    ].map(adjusted_weights)
+                    if "target_qty" in result.target_positions.columns:
+                        result.target_positions["target_qty"] = (
+                            result.target_positions["target_weight"] * ctx.capital
+                        )
                 result.meta["correlation_guard"] = {
                     "clusters_scaled": len(corr_reasons),
                     "reasons": corr_reasons,
+                    "shadow_only": cg_shadow,
                 }
                 log.info(
-                    "CORRELATION_GUARD: %d clusters scaled down", len(corr_reasons)
+                    "CORRELATION_GUARD: %d clusters scaled down (shadow=%s)",
+                    len(corr_reasons),
+                    cg_shadow,
                 )
 
             # V4: Apply correlation regime shift exposure scaling
@@ -3262,6 +3314,148 @@ def _run_trading_cycle_inner(
                     )
     except Exception as e:
         log.debug("correlation_guard check skipped: %s", e)
+
+    # [D3] Crash-prediction long-equity cap (Ultra-Plan Part D).
+    # When crash_prob exceeds a threshold, scale long gross exposure down.
+    # Shadow-only by default — the scaling would-be is recorded but not applied
+    # until policy.crash_prediction.shadow_only=False.
+    try:
+        cp_meta = result.meta.get("crash_prediction", {}) or {}
+        crash_prob = float(cp_meta.get("crash_probability", 0.0) or 0.0)
+        cp_cfg = (policy.get("crash_prediction", {}) or {})
+        eq_cap_enabled = bool(cp_cfg.get("equity_cap_enabled", False))
+        if (
+            eq_cap_enabled
+            and not result.target_positions.empty
+            and "target_weight" in result.target_positions.columns
+        ):
+            threshold = float(cp_cfg.get("equity_cap_threshold", 0.4))
+            if crash_prob > threshold:
+                from src.assembled_core.ops.shadow_recorder import (
+                    is_shadow_only,
+                    record_shadow,
+                )
+
+                base_long_gross = float(cp_cfg.get("base_long_gross", 1.0))
+                cap = max(0.5 - crash_prob, 0.0) * base_long_gross
+                long_mask = result.target_positions["target_weight"] > 0
+                current_long_gross = float(
+                    result.target_positions.loc[long_mask, "target_weight"].sum()
+                )
+                scale = (cap / current_long_gross) if current_long_gross > cap > 0 else 1.0
+                cp_shadow = is_shadow_only(policy, "crash_prediction")
+                record_shadow(
+                    "crash_prediction_cap",
+                    {
+                        "cap": cap,
+                        "current_long_gross": current_long_gross,
+                        "scale": scale,
+                    },
+                    as_of=str(ctx.order_timestamp) if ctx.order_timestamp else None,
+                    meta={
+                        "crash_prob": crash_prob,
+                        "threshold": threshold,
+                        "applied": (not cp_shadow) and scale < 1.0,
+                    },
+                )
+                if not cp_shadow and scale < 1.0:
+                    result.target_positions.loc[long_mask, "target_weight"] *= scale
+                    if "target_qty" in result.target_positions.columns:
+                        result.target_positions.loc[long_mask, "target_qty"] *= scale
+                result.meta["crash_prediction_cap"] = {
+                    "crash_prob": crash_prob,
+                    "cap": cap,
+                    "scale": scale,
+                    "shadow_only": cp_shadow,
+                }
+                log.info(
+                    "CRASH_EQ_CAP: prob=%.3f cap=%.3f scale=%.3f (shadow=%s)",
+                    crash_prob, cap, scale, cp_shadow,
+                )
+    except Exception as e:
+        log.debug("crash_prediction equity cap skipped: %s", e)
+
+    # [D4] Inverse-ETF tail hedge (Ultra-Plan Part D).
+    # VIX + crash_prob gate. 1x inverse ETFs only in Phase 1 (no 2x/3x).
+    # Shadow-only by default — records hedge recommendation but does not add
+    # orders until policy.inverse_etf.shadow_only=False.
+    try:
+        ie_cfg = (policy.get("inverse_etf", {}) or {})
+        ie_enabled = bool(ie_cfg.get("enabled", False))
+        cp_meta = result.meta.get("crash_prediction", {}) or {}
+        crash_prob = float(cp_meta.get("crash_probability", 0.0) or 0.0)
+
+        vix_val = None
+        if ctx.prices is not None and not ctx.prices.empty:
+            if "VIX" in ctx.prices.columns:
+                try:
+                    vix_val = float(ctx.prices["VIX"].iloc[-1])
+                except Exception:
+                    vix_val = None
+
+        vix_threshold = float(ie_cfg.get("vix_threshold", 25.0))
+        cp_threshold = float(ie_cfg.get("crash_prob_threshold", 0.4))
+
+        if (
+            ie_enabled
+            and vix_val is not None
+            and vix_val > vix_threshold
+            and crash_prob > cp_threshold
+        ):
+            from src.assembled_core.ops.shadow_recorder import (
+                is_shadow_only,
+                record_shadow,
+            )
+            from src.assembled_core.portfolio.inverse_etf_selector import (
+                InverseETFSelector,
+            )
+
+            selector = InverseETFSelector(allow_2x=False, allow_3x=False)
+            hedge_sym = selector.select_best_short_instrument(
+                sector="BROAD",
+                severity=float(cp_meta.get("severity", 0.5) or 0.5),
+                holding_period_days=int(ie_cfg.get("max_holding_days", 5)),
+            )
+            hedge_ratio = float(ie_cfg.get("hedge_ratio", 0.1))
+            ie_shadow = is_shadow_only(policy, "inverse_etf")
+            record_shadow(
+                "inverse_etf",
+                {
+                    "hedge_symbol": hedge_sym,
+                    "hedge_weight": hedge_ratio,
+                },
+                as_of=str(ctx.order_timestamp) if ctx.order_timestamp else None,
+                meta={
+                    "vix": vix_val,
+                    "crash_prob": crash_prob,
+                    "vix_threshold": vix_threshold,
+                    "cp_threshold": cp_threshold,
+                    "applied": (not ie_shadow) and hedge_sym is not None,
+                },
+            )
+            if not ie_shadow and hedge_sym and "target_weight" in result.target_positions.columns:
+                if hedge_sym not in result.target_positions["symbol"].values:
+                    new_row = pd.DataFrame([{
+                        "symbol": hedge_sym,
+                        "target_weight": hedge_ratio,
+                        "target_qty": hedge_ratio * ctx.capital,
+                    }])
+                    result.target_positions = pd.concat(
+                        [result.target_positions, new_row], ignore_index=True
+                    )
+            result.meta["inverse_etf"] = {
+                "hedge_symbol": hedge_sym,
+                "hedge_ratio": hedge_ratio,
+                "vix": vix_val,
+                "crash_prob": crash_prob,
+                "shadow_only": ie_shadow,
+            }
+            log.info(
+                "INVERSE_ETF: hedge=%s ratio=%.3f vix=%.1f crash_prob=%.3f (shadow=%s)",
+                hedge_sym, hedge_ratio, vix_val, crash_prob, ie_shadow,
+            )
+    except Exception as e:
+        log.debug("inverse_etf hedge skipped: %s", e)
 
     # [RISK-WIRE] Quantile asymmetry sizing — reduce positions with high downside skew
     try:

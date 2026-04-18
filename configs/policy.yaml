@@ -359,3 +359,32 @@ kpi_export:
   enabled: true              # enable metrics_exporter + kpi_export_worker
   output_dir: "output/metrics"
   gateway_url: null          # set to Prometheus Pushgateway URL if desired
+
+# ---------------------------------------------------------------------------
+# Ultra-Plan Part D — shadow-mode gates for activation observation.
+# All default shadow_only=true. Flip to false only after 5 trading-day
+# observation window documented in output/activation_ledger.md.
+# ---------------------------------------------------------------------------
+correlation_guard:
+  shadow_only: true          # D1 — compute but do not apply scaled weights
+  max_pairwise_corr: 0.8
+zombie_killer:
+  shadow_only: true          # D2 — log zombies but do not force-flat
+  max_hold_days: 30
+  stale_signal_bars: 10
+crash_prediction:
+  shadow_only: true          # D3 — long-gross equity cap shadow-only
+  equity_cap_enabled: true
+  equity_cap_threshold: 0.4
+  base_long_gross: 1.0
+inverse_etf:
+  shadow_only: true          # D4 — hedge recommendation only
+  enabled: true              # activate gate evaluation (recording still shadow)
+  vix_threshold: 25.0
+  crash_prob_threshold: 0.4
+  hedge_ratio: 0.1
+  max_holding_days: 5
+signal_decay:
+  shadow_only: true          # D5 — apply multipliers only when false
+  enabled: false
+  stale_multiplier: 0.0
