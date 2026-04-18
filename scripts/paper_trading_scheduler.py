@@ -20,7 +20,7 @@ import signal
 import subprocess
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -86,16 +86,31 @@ def _mark_today_done(dt: datetime) -> None:
 
 
 def _write_heartbeat(status: str = "alive") -> None:
-    """Write heartbeat file for monitoring."""
+    """Write heartbeat file for monitoring (atomic + timezone-aware).
+
+    Uses tmp+replace to avoid producing a truncated JSON file if the process
+    dies mid-write; a truncated file is read back as ``None`` by the health
+    monitor, which would mask a dead scheduler as a merely missing file.
+    """
+    import os as _os
+
     HEARTBEAT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    HEARTBEAT_PATH.write_text(
-        json.dumps({
-            "status": status,
-            "timestamp_utc": datetime.utcnow().isoformat() + "Z",
-            "pid": __import__("os").getpid(),
-        }),
-        encoding="utf-8",
-    )
+    payload = json.dumps({
+        "status": status,
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "pid": _os.getpid(),
+    })
+    tmp = HEARTBEAT_PATH.with_suffix(HEARTBEAT_PATH.suffix + ".tmp")
+    try:
+        tmp.write_text(payload, encoding="utf-8")
+        _os.replace(tmp, HEARTBEAT_PATH)
+    except Exception as exc:
+        logger.error("[Scheduler] heartbeat write failed: %s", exc)
+        try:
+            if tmp.exists():
+                tmp.unlink()
+        except Exception:
+            pass
 
 
 def _run_price_update() -> bool:

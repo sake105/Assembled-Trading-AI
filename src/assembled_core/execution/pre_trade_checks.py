@@ -235,7 +235,31 @@ def run_pre_trade_checks(
             filtered_orders["qty"] * filtered_orders["price"]
         )
     else:
-        # If no price, set notional to 0 (checks will be skipped)
+        # Fail-closed: notional and gross-exposure caps cannot be enforced without
+        # prices. Silently skipping would let unbounded orders flow through.
+        if (
+            config.max_notional_per_symbol is not None
+            or config.max_gross_exposure is not None
+        ):
+            blocked_reasons.append(
+                "pre_trade_missing_price: notional/gross-exposure caps configured "
+                "but 'price' column missing from orders — blocking all orders "
+                "(fail-safe)."
+            )
+            return (
+                PreTradeCheckResult(
+                    is_ok=False,
+                    blocked_reasons=blocked_reasons,
+                    filtered_orders=pd.DataFrame(columns=orders.columns),
+                    summary={
+                        "total_orders": len(orders),
+                        "passed_orders": 0,
+                        "pre_trade_missing_price": True,
+                    },
+                ),
+                pd.DataFrame(columns=orders.columns),
+            )
+        # No notional-based caps configured — notional=0 is safe.
         orders_with_notional["notional"] = 0.0
 
     # 3. Check max_notional_per_symbol

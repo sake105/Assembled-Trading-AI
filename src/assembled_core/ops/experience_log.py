@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -60,8 +61,15 @@ def append_experience(
         pass  # filelock is optional — best-effort locking
 
     def _do_write() -> None:
+        # flush + fsync so a crash between write() and kernel flush cannot lose
+        # an experience record — matches intent_store.record_intent pattern.
         with open(p, "a", encoding="utf-8") as fh:
             fh.write(line)
+            fh.flush()
+            try:
+                os.fsync(fh.fileno())
+            except OSError:
+                logger.debug("[experience_log] fsync unsupported for %s", p)
 
     if lock is not None:
         with lock:

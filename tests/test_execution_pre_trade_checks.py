@@ -185,8 +185,9 @@ class TestPreTradeChecks:
         assert len(filtered) == 1  # Only AAPL passes
         assert filtered["symbol"].iloc[0] == "AAPL"
 
-    def test_pre_trade_checks_no_prices_skips_notional_check(self):
-        """Test that checks are skipped when prices are missing."""
+    def test_pre_trade_checks_no_prices_blocks_when_notional_cap_configured(self):
+        """Notional / gross-exposure caps cannot be enforced without prices;
+        the check fails closed (blocks all orders) instead of silently skipping."""
         orders = pd.DataFrame(
             {
                 "symbol": ["AAPL", "GOOGL"],
@@ -197,10 +198,29 @@ class TestPreTradeChecks:
         )
         config = PreTradeConfig(max_notional_per_symbol=10000.0)
 
-        # Without prices, notional check is skipped
         result, filtered = run_pre_trade_checks(orders, config=config)
 
-        # Should pass (no way to check notional without prices)
+        # Fail-closed: cap is configured, so missing price → block everything.
+        assert result.is_ok is False
+        assert len(filtered) == 0
+        assert any("pre_trade_missing_price" in r for r in result.blocked_reasons)
+        assert result.summary.get("pre_trade_missing_price") is True
+
+    def test_pre_trade_checks_no_prices_no_caps_passes(self):
+        """If no notional/gross caps are configured, missing price is allowed."""
+        orders = pd.DataFrame(
+            {
+                "symbol": ["AAPL", "GOOGL"],
+                "side": ["BUY", "BUY"],
+                "qty": [100, 50],
+                # No price column
+            }
+        )
+        # No notional-based caps — check is safe to proceed.
+        config = PreTradeConfig()
+
+        result, filtered = run_pre_trade_checks(orders, config=config)
+
         assert result.is_ok is True
         assert len(filtered) == 2
 

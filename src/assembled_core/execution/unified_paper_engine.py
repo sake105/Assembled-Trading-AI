@@ -530,6 +530,9 @@ class UnifiedPaperEngine:
             except Exception as exc:
                 errors.append(f"risk_controls error: {exc}")
                 logger.error("[PAPER] Risk controls failed: %s", exc)
+                # Fail-closed: an exception in risk controls must not let the
+                # unfiltered pre-risk order set flow into fill simulation.
+                orders = pd.DataFrame(columns=orders.columns)
 
             # Lifecycle: VALIDATED for survivors, REJECTED for those dropped.
             post_risk_ids = (
