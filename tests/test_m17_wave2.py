@@ -297,3 +297,33 @@ class TestOrderNetting:
         assert len(result) == 2  # AAPL net=40, MSFT=50
         aapl_net = result[result["symbol"] == "AAPL"]["qty"].iloc[0]
         assert aapl_net == 40
+
+    def test_net_opposing_with_side_column(self):
+        """Unsigned qty + side column (the generate_orders_from_targets format)
+        must net to 0 for fully offsetting BUY+SELL, not sum to 2× qty."""
+        from src.assembled_core.execution.order_generation import net_orders
+
+        orders = pd.DataFrame({
+            "symbol": ["AAPL", "AAPL", "MSFT"],
+            "side": ["BUY", "SELL", "BUY"],
+            "qty": [100, 100, 50],
+        })
+        result = net_orders(orders)
+        assert len(result) == 1  # AAPL nets to zero, MSFT survives
+        assert result["symbol"].iloc[0] == "MSFT"
+        assert result["side"].iloc[0] == "BUY"
+        assert result["qty"].iloc[0] == 50
+
+    def test_net_partial_with_side_column(self):
+        """BUY 100 + SELL 40 → net BUY 60 (not BUY 140)."""
+        from src.assembled_core.execution.order_generation import net_orders
+
+        orders = pd.DataFrame({
+            "symbol": ["AAPL", "AAPL"],
+            "side": ["BUY", "SELL"],
+            "qty": [100, 40],
+        })
+        result = net_orders(orders)
+        assert len(result) == 1
+        assert result["side"].iloc[0] == "BUY"
+        assert abs(result["qty"].iloc[0] - 60) < 1e-10

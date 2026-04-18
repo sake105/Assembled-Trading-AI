@@ -415,22 +415,54 @@ def generate_orders_from_signals(
 # ---------------------------------------------------------------------------
 
 
-def net_orders(orders: "pd.DataFrame", symbol_col: str = "symbol", qty_col: str = "qty") -> "pd.DataFrame":
+def net_orders(
+    orders: "pd.DataFrame",
+    symbol_col: str = "symbol",
+    qty_col: str = "qty",
+    side_col: str = "side",
+) -> "pd.DataFrame":
     """Net opposing orders per symbol.
 
     Aggregates and eliminates offsetting buy/sell orders for the same symbol.
 
+    Two input conventions are supported:
+
+    1. Signed ``qty`` (negative = SELL): sums directly.
+    2. Unsigned ``qty`` with a ``side`` column (``BUY``/``SELL``), as produced
+       by ``generate_orders_from_targets``: signs ``qty`` via ``side``, sums,
+       then reconstructs ``side`` and unsigned ``qty``. This prevents the
+       previous bug where BUY 100 + SELL 100 summed to **200** instead of
+       netting to zero.
+
     Args:
-        orders: DataFrame with symbol and qty columns.
+        orders: DataFrame with ``symbol_col`` and ``qty_col`` (optionally
+            ``side_col``).
         symbol_col: Symbol column name.
         qty_col: Quantity column name.
+        side_col: Side column name (used only if present).
 
     Returns:
-        Netted orders (only symbols with non-zero net quantity).
+        Netted orders (only symbols with non-zero net quantity). If
+        ``side_col`` was present in input, it is present in output.
     """
 
     if orders.empty:
         return orders
 
-    netted = orders.groupby(symbol_col, as_index=False)[qty_col].sum()
+    has_side = side_col in orders.columns
+    work = orders.copy()
+
+    if has_side:
+        # Sign the qty via side so netting truly offsets opposing orders.
+        side_sign = work[side_col].astype(str).str.upper().map(
+            {"BUY": 1, "SELL": -1}
+        ).fillna(1)
+        work["__signed_qty__"] = work[qty_col].astype(float) * side_sign
+        netted = work.groupby(symbol_col, as_index=False)["__signed_qty__"].sum()
+        netted = netted[netted["__signed_qty__"].abs() > 1e-10].reset_index(drop=True)
+        netted[side_col] = np.where(netted["__signed_qty__"] >= 0, "BUY", "SELL")
+        netted[qty_col] = netted["__signed_qty__"].abs()
+        return netted[[symbol_col, side_col, qty_col]]
+
+    netted = work.groupby(symbol_col, as_index=False)[qty_col].sum()
     return netted[netted[qty_col].abs() > 1e-10].reset_index(drop=True)

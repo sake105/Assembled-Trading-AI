@@ -13,8 +13,12 @@ Strategies:
 
 from __future__ import annotations
 
+import logging
+
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 def compute_target_positions(
@@ -268,12 +272,29 @@ def compute_risk_parity_weights(
         volatilities = pd.Series(volatilities)
 
     rows = []
+    skipped: list[str] = []
     for _, row in long_signals.iterrows():
         sym = row["symbol"]
-        vol = float(volatilities.get(sym, 0.20)) if hasattr(volatilities, "get") else 0.20
-        if vol < 1e-8:
-            vol = 0.20  # Default if zero/missing
+        # Drop symbols with missing / non-finite / zero vol — silently defaulting
+        # to 0.20 defeats the purpose of risk-parity (all missing symbols would
+        # get identical inverse-vol weights).
+        vol_raw = volatilities.get(sym, None) if hasattr(volatilities, "get") else None
+        vol = float(vol_raw) if vol_raw is not None and pd.notna(vol_raw) else float("nan")
+        if not np.isfinite(vol) or vol < 1e-8:
+            skipped.append(sym)
+            continue
         rows.append({"symbol": sym, "inv_vol": 1.0 / vol, "volatility": vol})
+    if skipped:
+        logger.warning(
+            "[risk_parity] dropped %d symbols with missing/zero volatility: %s",
+            len(skipped),
+            skipped[:20],
+        )
+
+    if not rows:
+        return pd.DataFrame(
+            columns=["symbol", "target_weight", "target_qty", "volatility"]
+        )
 
     result = pd.DataFrame(rows)
     total_inv_vol = result["inv_vol"].sum()
@@ -342,16 +363,30 @@ def compute_vol_scaled_weights(
     sqrt_n = np.sqrt(n_positions) if n_positions > 0 else 1.0
 
     rows = []
+    skipped: list[str] = []
     for _, row in long_signals.iterrows():
         sym = row["symbol"]
-        vol = float(volatilities.get(sym, 0.20)) if hasattr(volatilities, "get") else 0.20
-        if vol < 1e-8:
-            vol = 0.20
+        vol_raw = volatilities.get(sym, None) if hasattr(volatilities, "get") else None
+        vol = float(vol_raw) if vol_raw is not None and pd.notna(vol_raw) else float("nan")
+        if not np.isfinite(vol) or vol < 1e-8:
+            skipped.append(sym)
+            continue
 
         weight = target_vol / (sqrt_n * vol)
         weight = min(weight, max_weight)
 
         rows.append({"symbol": sym, "target_weight": weight, "volatility": vol})
+    if skipped:
+        logger.warning(
+            "[vol_scaled] dropped %d symbols with missing/zero volatility: %s",
+            len(skipped),
+            skipped[:20],
+        )
+
+    if not rows:
+        return pd.DataFrame(
+            columns=["symbol", "target_weight", "target_qty", "volatility"]
+        )
 
     result = pd.DataFrame(rows)
 

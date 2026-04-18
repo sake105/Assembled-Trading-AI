@@ -74,12 +74,19 @@ def add_weekly_alignment(
     out = df.copy()
 
     if "symbol" in out.columns:
-        slopes = []
+        # Panel frames can share the same timestamp across symbols, which
+        # leaves the index with duplicate labels. `pd.concat(...).reindex(...)`
+        # fails on duplicate labels — assign per group via a boolean mask on
+        # the symbol column, which is always unambiguous.
+        slope_col = np.full(len(out), np.nan, dtype=float)
+        sym_arr = out["symbol"].to_numpy()
         for sym, grp in out.groupby("symbol", sort=False):
-            s = _weekly_ema_slope(grp[price_col], cfg).rename("weekly_ema_slope")
-            s.index = grp.index  # keep source order
-            slopes.append(s)
-        out["weekly_ema_slope"] = pd.concat(slopes).reindex(out.index)
+            s = _weekly_ema_slope(grp[price_col], cfg)
+            mask = sym_arr == sym
+            slope_col[mask] = s.values
+        out["weekly_ema_slope"] = pd.Series(
+            slope_col, index=out.index
+        ).fillna(0.0)
     else:
         out["weekly_ema_slope"] = _weekly_ema_slope(out[price_col], cfg)
 

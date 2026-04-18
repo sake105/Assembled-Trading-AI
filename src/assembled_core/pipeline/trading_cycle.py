@@ -3342,7 +3342,13 @@ def _run_trading_cycle_inner(
                 current_long_gross = float(
                     result.target_positions.loc[long_mask, "target_weight"].sum()
                 )
-                scale = (cap / current_long_gross) if current_long_gross > cap > 0 else 1.0
+                # When ``cap == 0`` (max crash_prob), scale must go to 0 — the
+                # previous guard ``current_long_gross > cap > 0`` silently
+                # bypassed the cap at the moment it was most aggressive.
+                if current_long_gross > 0.0:
+                    scale = min(cap / current_long_gross, 1.0)
+                else:
+                    scale = 1.0
                 cp_shadow = is_shadow_only(policy, "crash_prediction")
                 record_shadow(
                     "crash_prediction_cap",
