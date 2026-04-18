@@ -98,9 +98,24 @@ def load_eod_prices(
             df[col] = pd.to_numeric(df[col], errors="coerce").astype("float64")
 
     if "volume" in df.columns:
-        df["volume"] = (
-            pd.to_numeric(df["volume"], errors="coerce").fillna(0.0).astype("float64")
-        )
+        # Non-numeric volume cells (e.g. "N/A", HTML blobs from broken feeds) used
+        # to silently coerce to 0.0 — which downstream looks like a legitimate
+        # zero-volume bar (halts / illiquid session) and rationalises into the
+        # data-quality "zero_volume > 50%" warning rather than surfacing as a
+        # schema breach. Zero has real economic meaning (cannot trade), so we
+        # must distinguish pre-existing NaN (already missing) from coerce-from-
+        # junk (feed corruption) and raise on the latter.
+        raw_volume = pd.to_numeric(df["volume"], errors="coerce")
+        pre_existing_nan = df["volume"].isna()
+        coerced_to_nan = raw_volume.isna() & ~pre_existing_nan
+        n_bad = int(coerced_to_nan.sum())
+        if n_bad > 0:
+            bad_sample = df.loc[coerced_to_nan, "volume"].head(5).tolist()
+            raise ValueError(
+                f"[PRICES] {n_bad} non-numeric volume cells in {source_path}; "
+                f"first 5 bad values: {bad_sample}"
+            )
+        df["volume"] = raw_volume.fillna(0.0).astype("float64")
 
     # Filter by symbols if provided
     if symbols:

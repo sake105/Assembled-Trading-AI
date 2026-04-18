@@ -297,10 +297,24 @@ def run_paper_replay(
             # Evolve positions so the next bar sees the updated book. Fill
             # model-independent: we only update based on *generated* orders,
             # which matches how the backtest loop advances between bars.
+            # Replay is a correctness tool for E0.1 parity — defaulting a
+            # missing ``side`` to BUY or a missing ``qty`` to 0 silently
+            # diverges replay from backtest, so we fail-fast on malformed
+            # rows instead.
             for _, row in stamped.iterrows():
                 sym = str(row["symbol"])
-                qty = float(row.get("qty", 0.0))
-                side = str(row.get("side", "BUY")).upper()
+                raw_side = row.get("side")
+                raw_qty = row.get("qty")
+                if raw_side is None or (isinstance(raw_side, float) and np.isnan(raw_side)):
+                    raise ValueError(f"replay: order row for {sym} has null side")
+                side = str(raw_side).upper()
+                if side not in {"BUY", "SELL"}:
+                    raise ValueError(f"replay: invalid side {side!r} for {sym}")
+                if raw_qty is None:
+                    raise ValueError(f"replay: order row for {sym} has null qty")
+                qty = float(raw_qty)
+                if not np.isfinite(qty) or qty <= 0:
+                    raise ValueError(f"replay: non-positive/finite qty={qty} for {sym}")
                 signed = qty if side == "BUY" else -qty
                 positions[sym] = positions.get(sym, 0.0) + signed
 

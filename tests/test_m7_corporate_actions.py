@@ -128,9 +128,14 @@ class TestAdjustPricesForSplits:
         # Day 3+ (after both splits): unchanged
         assert result["close"].iloc[2] == pytest.approx(100.0)
 
-    def test_missing_required_column_returns_copy_unchanged(self):
+    def test_missing_required_column_raises(self):
+        """Schema drift in the corporate-actions file must fail-closed.
+
+        Silently returning unadjusted prices previously let backtests compute
+        a -90% return across a 10:1 split without any log line; we now raise
+        to align with the sibling ``apply_splits_for_research_prices`` path.
+        """
         prices = _make_prices("AAPL", [200.0, 100.0])
-        # actions missing split_ratio column
         actions = pd.DataFrame(
             {
                 "symbol": ["AAPL"],
@@ -139,9 +144,8 @@ class TestAdjustPricesForSplits:
                 # missing split_ratio
             }
         )
-        result = adjust_prices_for_splits(prices, actions)
-        # Returns copy but unchanged
-        assert result["close"].tolist() == pytest.approx([200.0, 100.0])
+        with pytest.raises(ValueError, match="split_ratio"):
+            adjust_prices_for_splits(prices, actions)
 
     def test_missing_close_column_returns_copy_unchanged(self):
         prices = pd.DataFrame(

@@ -486,8 +486,19 @@ def run_pre_trade_checks(
                     # Block all orders if check fails
                     filtered_orders = pd.DataFrame(columns=orders.columns)
                 except Exception as e:
-                    # Other errors: log and skip check
-                    summary["max_weight_per_symbol_check"] = f"error: {e}"
+                    # Fail-closed: an unexpected crash in the per-symbol weight
+                    # cap check used to be swallowed into a summary string,
+                    # silently skipping a hard portfolio-concentration limit.
+                    # Hard risk gates must never fail-open on exceptions.
+                    logger.error(
+                        "[PreTrade] max_weight_per_symbol check crashed: %s "
+                        "— blocking all orders (fail-safe).", e,
+                    )
+                    blocked_reasons.append(
+                        f"max_weight_per_symbol check errored (fail-closed): {e}"
+                    )
+                    filtered_orders = pd.DataFrame(columns=orders.columns)
+                    summary["max_weight_per_symbol_check"] = f"error_fail_closed: {e}"
         else:
             # Missing required inputs: skip check
             summary["max_weight_per_symbol_check"] = "skipped_missing_inputs"

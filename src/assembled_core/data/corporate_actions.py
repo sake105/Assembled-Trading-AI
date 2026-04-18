@@ -166,8 +166,16 @@ def adjust_prices_for_splits(
     required = {"symbol", "action_type", "effective_date", "split_ratio"}
     missing = required - set(actions.columns)
     if missing:
-        # Cannot apply — return copy unchanged rather than raising (defensive)
-        return prices.copy()
+        # A malformed corporate-actions file (e.g. schema drift renaming
+        # ``split_ratio`` → ``ratio``) used to silently return unadjusted
+        # prices, so backtests computed returns across split boundaries
+        # (a 10:1 split became a -90% "return") without any log line. The
+        # sibling ``apply_splits_for_research_prices`` already raises on
+        # schema gaps; aligning both paths eliminates the silent fork.
+        raise ValueError(
+            f"adjust_prices_for_splits: actions missing columns {sorted(missing)}; "
+            f"available columns: {sorted(actions.columns)}"
+        )
 
     split_actions = actions[actions["action_type"] == "SPLIT"].copy()
     if split_actions.empty:
