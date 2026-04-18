@@ -116,7 +116,18 @@ def compute_news_geo(output_dir: Path) -> Dict[str, Any]:
 
     try:
         data = json.loads(news_triggers_path.read_text(encoding="utf-8"))
-    except Exception:
+    except (OSError, json.JSONDecodeError) as exc:
+        # Previously a bare ``except Exception: return _empty_news_geo()``
+        # silently downgraded a corrupt/unreadable trigger file to a clean
+        # "no geo risk" state (geo_score=0, state_hint=WATCH). That looks
+        # identical to a truly quiet day and disables the downstream risk
+        # overlay exactly when the IO path is broken.
+        logger.warning(
+            "[PAPER-INTEL] Failed to parse news triggers from %s; returning"
+            " empty geo state. Error: %s",
+            news_triggers_path,
+            exc,
+        )
         return _empty_news_geo()
 
     items = data.get("items", [])

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import pandas as pd
@@ -10,6 +11,8 @@ import pandas as pd
 from src.assembled_core.config import OUTPUT_DIR
 from src.assembled_core.utils.dataframe import coerce_price_types, ensure_cols
 from src.assembled_core.utils.paths import get_default_price_path
+
+logger = logging.getLogger(__name__)
 
 
 def load_prices(
@@ -149,8 +152,25 @@ def load_orders(
                 df[c] = 0.0
 
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
-    df["qty"] = pd.to_numeric(df["qty"], errors="coerce").fillna(0.0)
-    df["price"] = pd.to_numeric(df["price"], errors="coerce").fillna(0.0)
+    qty_coerced = pd.to_numeric(df["qty"], errors="coerce")
+    price_coerced = pd.to_numeric(df["price"], errors="coerce")
+    # Count non-numeric cells that used to be silently zero-filled. A row with
+    # qty="N/A" or price="null" previously became a zero-qty / zero-price order
+    # with no trace, which downstream order routing treats as a valid "skip"
+    # rather than a parsing error. Log the count so junk inputs are visible.
+    n_bad_qty = int((qty_coerced.isna() & df["qty"].notna()).sum())
+    n_bad_price = int((price_coerced.isna() & df["price"].notna()).sum())
+    if n_bad_qty or n_bad_price:
+        logger.warning(
+            "[ORDERS] %s: coerced %d non-numeric qty and %d non-numeric price"
+            " cells to 0.0 (source=%s)",
+            p,
+            n_bad_qty,
+            n_bad_price,
+            p,
+        )
+    df["qty"] = qty_coerced.fillna(0.0)
+    df["price"] = price_coerced.fillna(0.0)
     df["side"] = df["side"].astype(str).str.upper().str.strip()
     df["symbol"] = df["symbol"].astype(str).str.strip()
 

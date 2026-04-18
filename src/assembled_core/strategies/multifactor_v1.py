@@ -200,15 +200,22 @@ def compute_signals(
         scores[col] = scores[col].clip(-3.0, 3.0)
 
     # --- Weighted composite score ---
+    # Mirror the v2 guard (multifactor_v2.py:694): only count a factor into
+    # total_weight if it actually contributed non-zero values. A column that is
+    # present but entirely NaN/zero (e.g. insufficient history, upstream feature
+    # outage) previously took its share of the renormalization budget and
+    # silently diluted every other factor — turning a missing feature into a
+    # systematic downweight rather than a visible gap.
     composite = pd.Series(0.0, index=scores.index)
     total_weight = 0.0
     used_factors = []
     for factor_name, weight in weights.items():
         if factor_name in scores.columns:
             factor_vals = scores[factor_name].fillna(0.0)
-            composite += weight * factor_vals
-            total_weight += weight
-            used_factors.append(factor_name)
+            if factor_vals.abs().sum() > 1e-10:
+                composite += weight * factor_vals
+                total_weight += weight
+                used_factors.append(factor_name)
 
     if total_weight > 0:
         composite = composite / total_weight  # Renormalize

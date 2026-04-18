@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List
 
 import yaml  # type: ignore[import]
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -34,7 +37,15 @@ def load_sources_registry(config_path: str | Path) -> List[NewsSource]:
     try:
         with path.open("r", encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
-    except Exception:
+    except (yaml.YAMLError, OSError) as exc:
+        # Was previously a bare ``except Exception: return []``. A corrupt YAML
+        # and a permissions error both collapsed to the same silent "no
+        # sources" state, which downstream NewsHealth reports as ERROR without
+        # anyone seeing *why*. Narrow to the two classes that can realistically
+        # surface here and log so operators have a breadcrumb.
+        logger.warning(
+            "[NEWS] Failed to load sources registry from %s: %s", path, exc
+        )
         return []
 
     sources_cfg = data.get("sources") or []
@@ -94,7 +105,12 @@ def load_news_params(config_path: str | Path) -> Dict[str, Any]:
         try:
             with path.open("r", encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
-        except Exception:
+        except (yaml.YAMLError, OSError) as exc:
+            logger.warning(
+                "[NEWS] Failed to load news params from %s (using defaults): %s",
+                path,
+                exc,
+            )
             data = {}
 
     if not isinstance(data, dict):
