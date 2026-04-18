@@ -40,15 +40,24 @@ class TaxLotTracker:
         ))
 
     def sell(self, symbol: str, quantity: float, price: float, trade_date: date) -> float:
-        """Sell shares using FIFO. Returns realized P&L."""
-        if symbol not in self.lots:
+        """Sell shares using FIFO. Returns realized P&L.
+
+        Raises ``ValueError`` if the requested quantity exceeds held lots —
+        silently discarding the excess would mask duplicate-fill, stale-feed,
+        or short-cover-without-short paths that should surface to the caller.
+        """
+        lots = self.lots.get(symbol)
+        if not lots:
+            if quantity > 1e-10:
+                raise ValueError(
+                    f"TaxLotTracker.sell({symbol}, qty={quantity}): no lots held"
+                )
             return 0.0
 
         remaining = quantity
         realized_pnl = 0.0
-        lots = self.lots[symbol]
 
-        while remaining > 0 and lots:
+        while remaining > 1e-10 and lots:
             lot = lots[0]
             sold_from_lot = min(remaining, lot.quantity)
             realized_pnl += sold_from_lot * (price - lot.cost_basis_per_share)
@@ -56,6 +65,12 @@ class TaxLotTracker:
             remaining -= sold_from_lot
             if lot.quantity <= 1e-10:
                 lots.popleft()
+
+        if remaining > 1e-10:
+            raise ValueError(
+                f"TaxLotTracker.sell({symbol}, qty={quantity}): "
+                f"over-sell by {remaining:.6f} shares"
+            )
 
         return round(realized_pnl, 4)
 

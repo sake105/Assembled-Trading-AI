@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import csv
 import logging
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -100,11 +101,17 @@ def append_run_index(
     # Deterministic sort: by date then run_id.
     updated.sort(key=lambda r: (str(r.get("date", "")), str(r.get("run_id", ""))))
 
-    with open(index_path, "w", encoding="utf-8", newline="") as fh:
+    # Atomic rewrite: a crash or concurrent-scheduler run mid-write would
+    # otherwise truncate the cross-run index and lose every prior row.
+    tmp_path = index_path.with_suffix(index_path.suffix + ".tmp")
+    with open(tmp_path, "w", encoding="utf-8", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=INDEX_COLUMNS)
         writer.writeheader()
         for r in updated:
             writer.writerow({c: r.get(c, "") for c in INDEX_COLUMNS})
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp_path, index_path)
 
     logger.info("[RUN_INDEX] Appended %s/%s to %s", run_id, date, index_path)
     return index_path

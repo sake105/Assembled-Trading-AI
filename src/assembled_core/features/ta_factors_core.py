@@ -292,9 +292,12 @@ def _add_short_term_reversal(
             lambda x: x.rolling(window=zscore_window, min_periods=10).std()
         )
 
-        # Z-score: (return - mean) / std, guarded against near-zero std
+        # Z-score: (return - mean) / std, guarded against near-zero std.
+        # Halted / low-activity symbols with std ≈ 0 must NOT emit a
+        # fabricated 0.0 neutral reading — that's indistinguishable from a
+        # valid signal downstream. NaN forces ranking/weighting to skip.
         zscore = (multi_day_return - rolling_mean) / rolling_std
-        zscore = np.where(rolling_std > 1e-10, zscore, 0.0)
+        zscore = np.where(rolling_std > 1e-10, zscore, np.nan)
 
         result[f"reversal_{horizon}d"] = zscore.astype("float64")
 

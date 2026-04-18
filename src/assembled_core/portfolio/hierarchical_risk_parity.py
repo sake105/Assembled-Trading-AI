@@ -93,11 +93,32 @@ def compute_hrp_weights(
         logger.warning("[HRP] insufficient data (%d rows after dropna)", len(clean))
         return {}
 
+    # Drop symbols with degenerate variance (constant price, halted, etc.).
+    # Silently rewriting their NaN correlations to 0.0 would assign them a
+    # real weight as if they were simply uncorrelated — a dead symbol should
+    # not receive allocation.
+    stds = clean.std()
+    degenerate = stds[(stds <= 1e-12) | ~np.isfinite(stds)].index.tolist()
+    if degenerate:
+        logger.warning(
+            "[HRP] dropping %d degenerate-variance symbols: %s",
+            len(degenerate),
+            degenerate[:20],
+        )
+        clean = clean.drop(columns=degenerate)
+        symbols = list(clean.columns)
+        n = len(symbols)
+        if n < 2:
+            if n == 1:
+                return {symbols[0]: 1.0}
+            return {}
+
     # Step 1: Covariance and correlation
     cov = clean.cov().values
     corr = clean.corr().values
 
-    # Handle NaN in correlation (replace with 0 correlation)
+    # Any remaining NaN correlation is a genuine numerical artifact
+    # (not a dead symbol) — replacing with 0 is acceptable here.
     corr = np.nan_to_num(corr, nan=0.0)
     np.fill_diagonal(corr, 1.0)
 
