@@ -46,3 +46,7 @@ tmp_*.py
 .DS_Store
 Thumbs.db
 src/assembled_trading_core.egg-info/
+
+# System-Check Tournament runs (keep directory, ignore individual runs)
+system_check/runs/*/
+!system_check/runs/.gitkeep

@@ -111,8 +111,13 @@ def build_event_feature_panel(
         result[f"{feature_prefix}_mean_{lookback_days}d"] = pd.NA
         return result
 
-    # Step 2: Filter events by disclosure_date <= as_of (PIT-safe)
-    events = filter_events_pit(events, as_of)
+    # Step 2: Filter events by disclosure_date <= as_of (PIT-safe).
+    # latency_days=0: this builder is the generic Alt-Data Event Contract path.
+    # The contract requires `disclosure_date` to already reflect vendor-side
+    # publication. Source-specific latencies must be baked into disclosure_date
+    # upstream (see data/latency.py::apply_source_latency). Passed explicitly
+    # per P0 finding A5 (Deep Run v2, 2026-04-18).
+    events = filter_events_pit(events, as_of, latency_days=0)
 
     # Step 3: Aggregate events into features (per symbol, per price timestamp)
     # Initialize feature columns
@@ -241,9 +246,11 @@ def add_disclosure_count_feature(
     # Initialize feature column
     result[out_col] = 0
 
-    # If as_of is provided, filter globally (more efficient)
+    # If as_of is provided, filter globally (more efficient).
+    # latency_days=0: generic Alt-Data Event Contract — see build_event_feature_panel
+    # docstring note above. P0 A5 (Deep Run v2, 2026-04-18).
     if as_of is not None:
-        events_normalized = filter_events_pit(events_normalized, as_of)
+        events_normalized = filter_events_pit(events_normalized, as_of, latency_days=0)
 
     # Group by symbol for efficient processing
     for symbol in result["symbol"].unique():

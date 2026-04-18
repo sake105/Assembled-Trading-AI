@@ -1,0 +1,79 @@
+# Tournament default configuration.
+#
+# This file is loaded by `scripts/run_system_check.py`. CLI flags override
+# individual values; the full resolved config is snapshotted to
+# `system_check/runs/{run_id}/config_snapshot.yaml` for reproducibility.
+
+schema_version: "1.0"
+
+# -------------------------------------------------------------------------
+# Model routing
+# -------------------------------------------------------------------------
+# `model_key` in each persona resolves here. Keep the mapping small and
+# explicit so switching a whole cluster to a different model is a single
+# YAML edit.
+models:
+  defender: claude-sonnet-4-6
+  critic: claude-haiku-4-5-20251001
+  judge: claude-sonnet-4-6
+  router: claude-haiku-4-5-20251001      # round-3 elimination router
+
+# -------------------------------------------------------------------------
+# Per-round token caps (hard upper bounds; API will truncate at max_tokens)
+# -------------------------------------------------------------------------
+tokens:
+  critic_attack_max_tokens: 400
+  defender_rebuttal_max_tokens: 1200
+  critic_counter_max_tokens: 500
+  judge_synthesis_max_tokens: 4000
+  router_max_tokens: 300
+
+# -------------------------------------------------------------------------
+# Round scheduling
+# -------------------------------------------------------------------------
+rounds:
+  # If the CLI overrides --critics or --defenders, the limits are applied
+  # to the full persona list preserving order.
+  counter_rebuttal_top_n: 10
+  max_parallel_requests: 8
+  # Each API call aborts after this — includes retries.
+  per_call_timeout_seconds: 120
+
+# -------------------------------------------------------------------------
+# Retry behaviour
+# -------------------------------------------------------------------------
+retry:
+  max_attempts: 3
+  initial_backoff_seconds: 2
+  backoff_multiplier: 2.0
+  # Retry on 429 / 5xx only; never on 400 / 401 / auth errors.
+  retry_on_status: [408, 429, 500, 502, 503, 504]
+
+# -------------------------------------------------------------------------
+# Judge behaviour
+# -------------------------------------------------------------------------
+judge:
+  # Minimum findings expected in section A of the report.
+  min_findings_full: 10
+  min_findings_reduced: 5
+  # Minimum expansion recommendations in section B.
+  min_recommendations_full: 8
+  min_recommendations_reduced: 4
+
+# -------------------------------------------------------------------------
+# Cost estimation (USD per 1M tokens, deliberately conservative)
+# -------------------------------------------------------------------------
+cost_rates_per_mtok:
+  sonnet_input: 3.00
+  sonnet_output: 15.00
+  haiku_input: 0.25
+  haiku_output: 1.25
+
+# -------------------------------------------------------------------------
+# Safety
+# -------------------------------------------------------------------------
+safety:
+  # Abort immediately if .env contains no ANTHROPIC_API_KEY — no dummy key.
+  require_api_key: true
+  # Never log API key, secret-looking strings, or tokens in transcript.
+  redact_env_in_logs: true

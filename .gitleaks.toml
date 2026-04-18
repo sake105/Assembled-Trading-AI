@@ -1,9 +1,12 @@
 # gitleaks configuration for Assembled-Trading-AI
 # See https://github.com/gitleaks/gitleaks for syntax.
 #
-# We extend the default ruleset and add targeted allowlists for
-# known-safe artifacts (tests with dummy keys, docs with placeholder keys,
-# the pre-existing .env which is tracked and scheduled for rotation).
+# We extend the default ruleset and keep narrow allowlists for doc/test
+# placeholder strings and volatile output/data directories. `.env` is
+# DELIBERATELY NOT ALLOWLISTED so that any new commit of `.env` fails the
+# scanner (P0 finding A1, System-Check Deep Run v2, 2026-04-18). See
+# docs/incidents/2026-04-18_env_exposure.md for the rotation status and
+# history-rewrite decision.
 
 title = "Assembled-Trading-AI gitleaks config"
 
@@ -14,7 +17,6 @@ useDefault = true
 description = "Allowlist for known-safe artifacts"
 
 paths = [
-    '''\.env$''',
     '''\.secrets\.baseline$''',
     '''CHANGELOG_DUE_DILIGENCE\.md$''',
     '''\.venv/.*''',

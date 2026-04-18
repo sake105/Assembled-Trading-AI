@@ -61,6 +61,10 @@ class TestRegimeHMM:
         np.testing.assert_allclose(row_sums, 1.0, atol=0.01)
 
     def test_not_fitted_raises(self):
+        try:
+            import hmmlearn  # noqa: F401
+        except ImportError:
+            pytest.skip("hmmlearn not installed")
         hmm = RegimeHMM()
         with pytest.raises(RuntimeError):
             hmm.predict_regime(_synthetic_returns())

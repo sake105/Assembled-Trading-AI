@@ -28,6 +28,8 @@ def build_positions_from_ledger(
     mark_ts: pd.Timestamp | None = None,
     start_cash: float = 0.0,
     missing_price_policy: Literal["raise", "zero"] = "zero",
+    currency_map: dict[str, str] | None = None,
+    fx_rates: dict[str, float] | None = None,
 ) -> dict:
     """Build positions from ledger events using average-cost accounting.
 
@@ -365,6 +367,25 @@ def build_positions_from_ledger(
                 "last_price",
             ]
         )
+
+    # Tier-1 wiring: optional FX-aware mark-to-market (accounting/currency).
+    # Passive — only adds ``currency`` and ``usd_notional`` columns. The
+    # default ``notional`` column is unchanged so existing callers see no
+    # behavior shift unless they read the new columns.
+    if currency_map and not positions_df.empty:
+        try:
+            from src.assembled_core.accounting.currency import FXConverter
+
+            fx = FXConverter(rates=dict(fx_rates)) if fx_rates else FXConverter()
+            positions_df["currency"] = (
+                positions_df["symbol"].map(currency_map).fillna("USD")
+            )
+            positions_df["usd_notional"] = [
+                fx.to_usd(float(row["notional"]), str(row["currency"]))
+                for _, row in positions_df.iterrows()
+            ]
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[FX] usd_notional enrichment skipped: %s", exc)
 
     # Calculate summary
     total_realized_pnl = (

@@ -135,13 +135,37 @@ def normalize_alt_events(events: pd.DataFrame) -> pd.DataFrame:
 def filter_events_pit(
     events: pd.DataFrame,
     as_of: pd.Timestamp,
-    latency_days: int = 0,
+    latency_days: int | None = None,
 ) -> pd.DataFrame:
     """Filter events to those known at *as_of* minus publication latency.
 
     Uses disclosure_date as the publication date boundary. Input can be raw or
     already normalized; normalize_alt_events is applied first to enforce schema.
+
+    PIT contract (P0 finding A5, System-Check Deep Run v2, 2026-04-18)
+    ------------------------------------------------------------------
+    ``latency_days`` is REQUIRED. The previous default of ``0`` silently
+    assumed that every caller's data source publishes with zero additional
+    latency beyond ``disclosure_date``. That is *not* universally true:
+
+    * SEC EDGAR filings: ``disclosure_date`` ≈ public availability,
+      ``latency_days=0`` is correct.
+    * Vendor aggregates (news, congress-trades PTR feeds): the vendor may
+      only ingest and normalize the record hours-to-days after the primary
+      disclosure; ``latency_days >= 1`` is defensible.
+    * Point estimates from third-party research: often carry days-to-weeks
+      of latency before reaching the production feed.
+
+    Forcing each caller to pass a value with justification prevents a silent
+    look-ahead bias on new data sources. Pass ``0`` explicitly with a
+    comment justifying why this source has no vendor-side lag.
     """
+    if latency_days is None:
+        raise ValueError(
+            "filter_events_pit: 'latency_days' is required. Pass an integer "
+            "(0 = same-day disclosure availability, >0 = vendor/publication lag). "
+            "See docstring for guidance — P0 A5 (Deep Run v2, 2026-04-18)."
+        )
     if "disclosure_date" not in events.columns:
         raise ValueError("Missing required column 'disclosure_date'")
 

@@ -1,0 +1,83 @@
+name: signal-decay-update
+
+# D5 / R4 — Weekly offline signal-decay profile refresh.
+#
+# The factor-decay gate in `strategies/signal_decay_gate.py` reads
+# `output/qa/signal_decay/latest.json`. Without this cron, the file ages out
+# and the gate silently trades on stale IC/half-life estimates.
+#
+# Owned by P0 finding A2 (System-Check Deep Run v2, 2026-04-18).
+
+on:
+  schedule:
+    # Weekly: Sunday 02:45 UTC — before the factor-store prewarm (03:15 UTC)
+    # so downstream gates see a fresh decay profile on Monday's open.
+    - cron: "45 2 * * 0"
+  workflow_dispatch:
+    inputs:
+      factors:
+        description: "Comma-separated factor columns"
+        required: false
+        default: "trend_ema_spread,mom_rsi_centered,mom_12_1,low_vol_rank,quality_score"
+      universe:
+        description: "Universe label (metadata only)"
+        required: false
+        default: "weekly-synthetic"
+
+concurrency:
+  group: signal-decay-update
+  cancel-in-progress: false
+
+jobs:
+  refresh-signal-decay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pandas
+
+      - name: Refresh signal-decay profile
+        run: |
+          python scripts/compute_signal_decay_profile.py \
+            --factors "${{ github.event.inputs.factors || 'trend_ema_spread,mom_rsi_centered,mom_12_1,low_vol_rank,quality_score' }}" \
+            --universe "${{ github.event.inputs.universe || 'weekly-synthetic' }}" \
+            --out output/qa/signal_decay/latest.json \
+            --verbose
+
+      - name: Show latest.json
+        run: cat output/qa/signal_decay/latest.json
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: signal-decay-${{ github.run_id }}
+          path: output/qa/signal_decay/latest.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Commit refreshed profile
+        # Only commit on the scheduled run (not manual dispatch with custom
+        # inputs that would diverge from the default weekly artifact).
+        if: github.event_name == 'schedule'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add output/qa/signal_decay/latest.json
+          if git diff --cached --quiet; then
+            echo "No changes in signal_decay/latest.json"
+          else
+            git commit -m "chore(signal-decay): weekly refresh $(date -u +%Y-%m-%d) [skip ci]"
+            git push
+          fi

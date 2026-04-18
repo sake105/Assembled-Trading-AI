@@ -57,31 +57,40 @@ Do **not** leave a session after meaningful work without checking whether this f
 ## 4. Current execution position
 
 ### Current milestone
-- ID: Paper Engine Upgrade — `wir-m-ssen-unsere-paper-floating-pebble`
-- Name: Paper Trading Engine Deep Upgrade (Phasen 0–11)
-- Overall milestone status: implemented, locally tested (2026-04-17)
+- ID: Ultra-Plan — `also-erstens-wir-haben-polished-koala`
+- Name: Alpaca-Revive + Backtest-Speed + Tiefe (v3 — Multi-Agent-Diskurs)
+- Overall milestone status: Phase 0 (E0.1–E0.4) implemented, locally tested (2026-04-18); Tier-2 Module Activation complete (shadow-mode)
 
-### Current task (Paper Engine Upgrade)
-- Phase 0 — partial-accounting bugs (`_update_positions`, `_write_ledger_events`): done.
-- Phase 1 / 1.5 / 2 / 3 / 4 / 5: lifecycle + determinism + partial fills + circuit breaker + adversarial + SOR + borrow/corp-actions: done.
-- Phase 6 — intent store + reconcile SLO + shadow-mode: done; `risk-execution-reviewer` review still open.
-- Phase 7 — TCA artifacts: done.
-- Phase 8 — run manifest + cross-run index: done.
-- Phase 9 — attribution drilldown (cost/regime/factor): done (`accounting/attribution.py`, engine Step 10c).
-- Phase 9.5 — offline cost-model calibrator (`execution/cost_model_calibrator.py`): done.
-- Phase 10 — regime regression pack (`tests/regression/test_paper_engine_regime_pack.py` + `golden_metrics.json`): done.
-- Phase 11 — runbook (`docs/runbooks/11_paper_engine_run.md`) + memory (`memory/paper-engine-upgrade-2026-04-17.md`): done.
+### Current task (Ultra-Plan)
+- Phase 0 / E0.1 — Backtest-Paper-Parity Plumbing: `enable_risk_controls=True` default + `kill_switch_persist=True` default + `run_paper_replay` helper + determinism test green; full bit-identical bt-vs-paper kept as non-strict xfail (needs position-evolution threading).
+- Phase 0 / E0.2 — Cost-Model-Aktivierung: `cost_tiers.yaml` wired, `default_adv=100_000`, `enable_borrow_costs=True` default.
+- Phase 0 / E0.3 — Atomic State-Save: `_atomic_write_json` (tmp+fsync+os.replace).
+- Phase 0 / E0.4 — Reconciliation-Halt-Policy: `halt_on_mismatch` + `scripts/ack_halt.py` + `paper-trading-ci.yml` halt-ack-Gate.
+- Tier-2 Shadow-Mode Wiring: `portfolio_execution` + `almgren_chriss` (default OFF), `scripts/run_cost_calibration.py` offline E5-runner.
+- Part A — GitHub-Actions Scheduler: workflow + halt-ack + ET time-gate + artifact upload + `check_scheduler_health.py` + `snapshot_alpaca_balance.py` + `docs/runbooks/12_paper_entry_point.md` — done.
+- Part B1–B5 (speed): `_save_state` no-indent, `state_save_every_n_days` batching, hot-loop pre-extracted lists, factor-store PIT cache — all implemented, 16 Part-B regression tests green.
+- Part C1–C3: 5 @njit kernels wired, `scripts/prewarm_factor_store.py` + `.github/workflows/prewarm-factor-store.yml`, `qa/parallel_grid.py` joblib+loky with deterministic per-worker seed — all green (equivalence/fallback tests green).
+- Part C4 (Polars): explicitly deferred per plan.
+- Part D1–D5: modules wired (`correlation_guard`, `zombie_killer`, `crash_prediction`, `inverse_etf`, `signal_decay`); **flag-flip gated on User Go/No-Go** per D-Standard A/B methodology (5d shadow + 10d enabled).
+- Part E2: `config/htb_symbols.yaml` seed list + rates table.
+- Part E3 + E4: walk-forward + deflated-sharpe job wired into `release-gate-ci.yml` with 2-week grace-period (`continue-on-error: true`).
+- Part E1 (Sharpe-Drop Dokumentation): outstanding — needs reference-config rerun + delta report.
+- Part E5 (real-vs-synthetic p95 < 2 bps): outstanding — needs 30 Paper-Days of real Alpaca fills.
+- Part F1 (IC-Decay-Weighting), F2 (Regime-Posterior), F3 (Multi-Timeframe): wired with tests green.
+- Part F4 (XGBoost/SHAP/FinBERT): explicitly deferred per plan.
 
 ### Current objective
-- Targeted Paper-Engine suite: 104/104 green (phases 0–9).
-- Phase 10 regression pack: 5/5 green under `pytest -m regression`.
-- Phase 9.5 calibrator: 4/4 green.
+- phase12 suite: 1266 passed, 8 skipped (2026-04-18 end-of-session).
+- regression suite: 126 passed, 1 xfail (full bt-vs-paper equality), 0 failures.
 - CI matrix (ubuntu+windows) status: nicht bestätigt — commit noch ausstehend.
+- No `.env` commit.
 
 ### Next smallest safe step
-1. `risk-execution-reviewer` Subagent-Review Phase 6 (execution/accounting-sensible).
-2. Full phase12 bugrun zur Regressionsabsicherung.
-3. Commit + Push (ohne `.env`).
+Ultra-Plan implementation is functionally complete at code/module/test level. Operational execution is the next natural step:
+1. Let GH-Actions `paper-trading-ci` run 5 consecutive weekdays and verify artifacts.
+2. After 5 clean paper-days: collect Delta-Report for first shadow-mode D module; bring to User for Go/No-Go on flag-flip.
+3. After 30 paper-days: run E5 `tests/regression/test_real_vs_synthetic_fills.py` calibration and write `realism_delta_report.md` (E1).
+4. Commit outstanding changes (no `.env`) when User requests.
 
 ### Previous milestone (superseded)
 - ID: M14 — Institutional Upgrade (ML + TA + Portfolio + Execution)
@@ -119,6 +128,30 @@ Do **not** leave a session after meaningful work without checking whether this f
 ---
 
 ## 5. Last completed step
+
+**Session 2026-04-18 — Ultra-Plan Phase 0 + Tier-2 Shadow Wiring — IMPLEMENTED (locally tested)**
+
+- E0.1 helper `run_paper_replay` in `src/assembled_core/ops/replay_snapshot.py`:
+  - `ReplayResult` dataclass `(orders_df, n_days, seed)`
+  - Drives `run_trading_cycle` day-by-day with evolving positions book (same code path as `run_portfolio_backtest` via its `cycle_fn`)
+  - Determinism test `test_run_paper_replay_emits_deterministic_orders` green (2x same seed → bit-identical order-stream)
+  - Full bt-vs-paper equality `test_bit_identical_order_stream_backtest_vs_paper` kept as non-strict xfail — needs threading of the position-evolution/fill-model through both loops
+- E0.1 plumbing verified (from prior session): `make_cycle_fn.enable_risk_controls=True` default, `TradingContext.kill_switch_persist=True` default, backtest-bar-restore only when `kill_switch_persist=False`
+- E0.2 / E0.3 / E0.4 verified implemented from prior sessions (cost_tiers wired, atomic-save, reconcile halt + ack_halt + CI halt-ack gate)
+- Tier-2 shadow-mode wiring in `src/assembled_core/pipeline/trading_cycle.py` (before final cycle-completed log):
+  - `portfolio_execution` block — policy `portfolio_execution.enabled` (default OFF). Computes correlation matrix from `prices_filtered`, calls `optimize_execution_sequence`, emits `result.meta["execution_batches"]` with `shadow_only=True`.
+  - `almgren_chriss` block — policy `almgren_chriss.enabled` (default OFF). Per-symbol sigma from `prices_filtered` (std of pct_change, tail 60), per-order `estimate_impact_cost`, emits `result.meta["almgren_chriss_impact"]` with `shadow_only=True`.
+- `scripts/run_cost_calibration.py` — E5-loop offline runner (argparse around `calibrate_cost_model` + `write_calibration_report`, `deploy: False`).
+- Tests (new):
+  - `tests/regression/test_portfolio_execution_wiring.py` — 2 tests (disabled-no-meta, enabled-emits-batches)
+  - `tests/regression/test_almgren_chriss_wiring.py` — 2 tests (disabled-no-meta, enabled-emits-impact)
+  - `tests/regression/test_backtest_paper_parity.py` — extended with replay-importable + replay-determinism tests
+- Pre-existing test bug fixed: `tests/test_regime_hmm.py::test_not_fitted_raises` — added `hmmlearn` skip-guard to match siblings (`RegimeHMM()` constructor raised ImportError before the expected RuntimeError).
+- Test results: phase12 1259 passed / 8 skipped; regression 126 passed / 1 xfail / 0 failures.
+- Truth status: locally tested; CI not confirmed; no commit.
+- Non-action: no commit without explicit user request (CLAUDE.md §9.2).
+
+---
 
 **Session 2026-04-04 — M14 Institutional Upgrade (5 Phasen) — IMPLEMENTED (locally tested)**
 

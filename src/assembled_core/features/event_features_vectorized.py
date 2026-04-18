@@ -82,8 +82,11 @@ def build_event_feature_panel_vectorized(
         result[f"{feature_prefix}_mean_{lookback_days}d"] = np.full(len(result), np.nan)
         return result
 
-    # Step 2: Filter events by disclosure_date <= as_of (PIT-safe, global)
-    events = filter_events_pit(events, as_of)
+    # Step 2: Filter events by disclosure_date <= as_of (PIT-safe, global).
+    # latency_days=0: vectorized mirror of event_features.build_event_feature_panel;
+    # the Alt-Data Event Contract already embeds vendor-side latency in
+    # disclosure_date. P0 A5 (Deep Run v2, 2026-04-18).
+    events = filter_events_pit(events, as_of, latency_days=0)
 
     # Step 3: Initialize feature columns (use float to avoid LossySetitemError with NaN)
     result[f"{feature_prefix}_count_{lookback_days}d"] = 0.0
@@ -301,9 +304,10 @@ def add_disclosure_count_feature_vectorized(
         result[out_col] = 0
         return result
 
-    # If as_of is provided, filter globally (more efficient)
+    # If as_of is provided, filter globally (more efficient).
+    # latency_days=0: generic Alt-Data Event Contract. P0 A5 (Deep Run v2).
     if as_of is not None:
-        events_normalized = filter_events_pit(events_normalized, as_of)
+        events_normalized = filter_events_pit(events_normalized, as_of, latency_days=0)
 
     # Initialize feature column
     result[out_col] = 0

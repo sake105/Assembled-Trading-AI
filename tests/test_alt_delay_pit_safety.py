@@ -34,8 +34,8 @@ def test_apply_disclosure_delay_positive_delay_pit_safe():
     # Check PIT-safety: at as_of=2020-01-06, original has 2 events (disclosure <= 2020-01-06), delayed has 0
     as_of = pd.Timestamp("2020-01-06", tz="UTC")
 
-    original_pit = filter_events_pit(events_df, as_of)
-    delayed_pit = filter_events_pit(delayed_df, as_of)
+    original_pit = filter_events_pit(events_df, as_of, latency_days=0)
+    delayed_pit = filter_events_pit(delayed_df, as_of, latency_days=0)
 
     # Contract: disclosure_date <= as_of. So at 2020-01-06 both (01-05 and 01-06) are visible.
     assert len(original_pit) == 2
@@ -45,7 +45,7 @@ def test_apply_disclosure_delay_positive_delay_pit_safe():
 
     # At as_of=2020-01-08, delayed should have both events
     as_of_later = pd.Timestamp("2020-01-08", tz="UTC")
-    delayed_pit_later = filter_events_pit(delayed_df, as_of_later)
+    delayed_pit_later = filter_events_pit(delayed_df, as_of_later, latency_days=0)
     assert len(delayed_pit_later) == 2
 
 
@@ -69,8 +69,8 @@ def test_apply_disclosure_delay_negative_delay_may_introduce_leakage():
     # Check: at as_of=2020-01-03, original has 0 events, delayed has 1 event
     as_of = pd.Timestamp("2020-01-03", tz="UTC")
 
-    original_pit = filter_events_pit(events_df, as_of)
-    delayed_pit = filter_events_pit(delayed_df, as_of)
+    original_pit = filter_events_pit(events_df, as_of, latency_days=0)
+    delayed_pit = filter_events_pit(delayed_df, as_of, latency_days=0)
 
     # Original has 0 events (correct PIT)
     assert len(original_pit) == 0

@@ -851,6 +851,134 @@ def _evaluate_circuit_breaker_daily(
     }
 
 
+def _evaluate_circuit_breaker(
+    ctx: "TradingContext",
+    result: "TradingCycleResult",
+    policy: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Tier-1 wiring — intraday MDD circuit breaker (default OFF).
+
+    Reads ``policy.risk.circuit_breaker``. When enabled, feeds the recent
+    equity / benchmark observations into ``risk.circuit_breaker.CircuitBreaker``
+    and returns a trip decision when the window drawdown exceeds the
+    configured threshold. Caller empties orders on trip. Pure function.
+    """
+    cfg = ((policy or {}).get("risk") or {}).get("circuit_breaker") or {}
+    if not cfg.get("enabled", False):
+        return None
+
+    try:
+        from src.assembled_core.risk.circuit_breaker import CircuitBreaker
+    except Exception:
+        return None
+
+    observations = None
+    if result is not None and isinstance(result.meta, dict):
+        observations = result.meta.get("intraday_equity_observations")
+    if not observations:
+        observations = getattr(ctx, "intraday_equity_observations", None)
+    if not observations:
+        return None
+
+    try:
+        cb = CircuitBreaker(
+            drop_threshold_pct=float(cfg.get("drop_threshold_pct", 3.0)),
+            window_minutes=int(cfg.get("window_minutes", 15)),
+            cooldown_minutes=int(cfg.get("cooldown_minutes", 30)),
+        )
+        tripped_on: dict[str, Any] | None = None
+        for obs in observations:
+            ts = obs.get("timestamp") if isinstance(obs, dict) else obs[0]
+            px = float(obs["price"] if isinstance(obs, dict) else obs[1])
+            if cb.observe(px, timestamp=ts):
+                tripped_on = {
+                    "timestamp": str(ts),
+                    "price": px,
+                    "trip_count": cb.trip_count,
+                }
+        if tripped_on is None:
+            return None
+        return {
+            "breach": True,
+            "reason": "intraday_circuit_breaker_trip",
+            "tripped_on": tripped_on,
+            "drop_threshold_pct": float(cfg.get("drop_threshold_pct", 3.0)),
+            "window_minutes": int(cfg.get("window_minutes", 15)),
+        }
+    except Exception:
+        return None
+
+
+def _evaluate_var_gate(
+    ctx: "TradingContext",
+    result: "TradingCycleResult",
+    policy: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Tier-1 wiring — parametric VaR pre-trade exposure gate.
+
+    Reads ``policy.risk.var_gate`` (default disabled) and, when enabled,
+    computes one-day parametric portfolio VaR from the current price panel
+    using the intended target weights. If VaR exceeds the configured
+    ``max_var_pct``, returns a decision dict — caller empties filtered
+    orders. Pure function; no side effects.
+    """
+    cfg = ((policy or {}).get("risk") or {}).get("var_gate") or {}
+    if not cfg.get("enabled", False):
+        return None
+
+    try:
+        from src.assembled_core.risk.var_methods import PortfolioVaR
+    except Exception:
+        return None
+
+    prices = getattr(ctx, "prices", None)
+    targets = getattr(result, "target_positions", None)
+    if prices is None or prices.empty or targets is None or len(targets) == 0:
+        return None
+
+    price_col = "close" if "close" in prices.columns else (
+        "price" if "price" in prices.columns else None
+    )
+    if price_col is None:
+        return None
+
+    try:
+        wide = prices.pivot_table(
+            index="timestamp", columns="symbol", values=price_col, aggfunc="last"
+        ).sort_index()
+        returns = wide.pct_change().dropna(how="all")
+        if returns.shape[0] < int(cfg.get("min_history", 20)):
+            return None
+
+        # Build weight vector from target_positions: use notional share if
+        # available, otherwise equal-weight the target symbols.
+        if "weight" in targets.columns:
+            w = targets.set_index("symbol")["weight"].astype(float)
+        elif "notional" in targets.columns and float(targets["notional"].abs().sum()) > 0:
+            notl = targets.set_index("symbol")["notional"].astype(float)
+            w = notl / float(notl.abs().sum())
+        else:
+            syms = targets["symbol"].unique()
+            w = pd.Series(1.0 / max(len(syms), 1), index=syms)
+
+        var_calc = PortfolioVaR(returns=returns.fillna(0.0), weights=w)
+        alpha = float(cfg.get("confidence", 0.95))
+        var_1d = float(var_calc.parametric_var(alpha=alpha, horizon=1))
+    except Exception:
+        return None
+
+    max_var = float(cfg.get("max_var_pct", 0.05))
+    if var_1d <= max_var:
+        return None
+    return {
+        "breach": True,
+        "var_1d": var_1d,
+        "max_var_pct": max_var,
+        "confidence": alpha,
+        "reason": f"parametric_var_breach_{var_1d:.4f}>{max_var:.4f}",
+    }
+
+
 def _evaluate_auto_dd_kill_switch(
     ctx: "TradingContext",
     result: "TradingCycleResult",
@@ -1150,12 +1278,31 @@ def _apply_risk_controls_default(
                 _dd = _rl.get("max_drawdown") or {}
                 _tv = _rl.get("turnover") or {}
                 _cg = _rl.get("concentration_guard") or {}
+                # P0 A6 (Deep Run v2, 2026-04-18): gross-exposure cap.
+                # Prefer `risk_limits.max_gross_exposure` (general portfolio cap,
+                # enforced regardless of shorts enablement). Fall back to legacy
+                # `shorts.max_gross_exposure`. When both are set, take the min so
+                # neither is loosened by the other.
+                # Policy value is a ratio (1.0 = 100% of equity). PreTradeConfig.
+                # max_gross_exposure expects a raw notional, so multiply by
+                # `equity` (defined above). If equity is not positive, skip the
+                # cap (the gate will no-op — acceptable for bootstrap runs).
+                _rl_gross = _rl.get("max_gross_exposure")
+                _sh_gross = _pol.get("shorts", {}).get("max_gross_exposure")
+                if _rl_gross is not None and _sh_gross is not None:
+                    _gross_ratio = min(_rl_gross, _sh_gross)
+                else:
+                    _gross_ratio = _rl_gross if _rl_gross is not None else _sh_gross
+                if _gross_ratio is not None and equity is not None and equity > 0:
+                    _gross_cap_notional = float(_gross_ratio) * float(equity)
+                else:
+                    _gross_cap_notional = None
                 _policy_defaults = {
                     "max_weight_per_symbol": _rl.get("max_position_weight"),
                     "drawdown_threshold": _dd.get("kill"),
                     "turnover_cap": _tv.get("daily_cap"),
                     "max_sector_exposure": _cg.get("max_sector_weight"),
-                    "max_gross_exposure": _pol.get("shorts", {}).get("max_gross_exposure"),
+                    "max_gross_exposure": _gross_cap_notional,
                 }
                 logger.debug(
                     "PRE_TRADE: using policy.yaml risk_limits as PreTradeConfig fallback: %s",
@@ -2367,6 +2514,271 @@ def _run_trading_cycle_inner(
                 except Exception as e:
                     log.warning("[RISK-WIRE] cost_aware_optimizer failed, using default: %s", e)
                     result.target_positions = ctx.position_sizing_fn(result.signals, ctx.capital)
+            elif sizing_method == "erc":
+                # [RISK-WIRE] Equal-Risk-Contribution (Maillard-Roncalli-Teïletche)
+                try:
+                    from src.assembled_core.portfolio.risk_budgeting import (
+                        compute_erc_weights,
+                    )
+                    from src.assembled_core.portfolio.covariance import estimate_covariance
+
+                    prices_for_erc = (
+                        result.prices_filtered if result.prices_filtered is not None else ctx.prices
+                    )
+                    if (
+                        prices_for_erc is not None
+                        and not prices_for_erc.empty
+                        and not result.signals.empty
+                        and "symbol" in result.signals.columns
+                        and "close" in prices_for_erc.columns
+                        and "symbol" in prices_for_erc.columns
+                    ):
+                        _ts_col_erc = "timestamp" if "timestamp" in prices_for_erc.columns else prices_for_erc.columns[0]
+                        # Only ERC over symbols that both have a signal and appear in prices
+                        _sig_syms = [
+                            s for s in result.signals["symbol"].tolist()
+                            if s in prices_for_erc["symbol"].unique()
+                        ]
+                        if len(_sig_syms) >= 2:
+                            _pivot_erc = prices_for_erc[
+                                prices_for_erc["symbol"].isin(_sig_syms)
+                            ].pivot_table(
+                                index=_ts_col_erc, columns="symbol", values="close"
+                            )
+                            _rets_erc = _pivot_erc.pct_change().dropna(how="all")
+                            if len(_rets_erc) >= 3:
+                                sigma_erc = estimate_covariance(_rets_erc, method="ledoit_wolf")
+                                erc_res = compute_erc_weights(
+                                    sigma_erc,
+                                    symbols=list(sigma_erc.columns),
+                                    long_only=True,
+                                    max_weight=float(sizing_cfg.get("max_weight", 0.25)),
+                                )
+                                rows = [
+                                    {
+                                        "symbol": s,
+                                        "target_weight": round(w, 6),
+                                        "target_qty": round(w * ctx.capital, 2),
+                                    }
+                                    for s, w in erc_res.weights.items()
+                                    if abs(w) > 1e-6
+                                ]
+                                result.target_positions = pd.DataFrame(rows)
+                                result.meta["erc_sizing"] = {
+                                    "method": erc_res.method,
+                                    "converged": erc_res.converged,
+                                    "max_rc_deviation": erc_res.max_rc_deviation,
+                                    "portfolio_volatility": erc_res.portfolio_volatility,
+                                }
+                                log.info(
+                                    "[RISK-WIRE] erc sizing: method=%s converged=%s max_rc_dev=%.6f",
+                                    erc_res.method,
+                                    erc_res.converged,
+                                    erc_res.max_rc_deviation,
+                                )
+                            else:
+                                raise ValueError("erc: insufficient return history (<3 bars)")
+                        else:
+                            raise ValueError("erc: fewer than 2 symbols overlap signals and prices")
+                    else:
+                        raise ValueError("erc: insufficient data — falling back")
+                except Exception as e:
+                    log.warning("[RISK-WIRE] erc sizing failed, using default: %s", e)
+                    result.target_positions = ctx.position_sizing_fn(result.signals, ctx.capital)
+            elif sizing_method == "bl_blend":
+                # [RISK-WIRE] Black-Litterman score-blend wrapper (apply_bl_sizing).
+                # Distinct from existing "black_litterman" branch — this uses the
+                # bl_sizing wrapper that blends BL posterior with score weights.
+                try:
+                    from src.assembled_core.portfolio.bl_sizing import apply_bl_sizing
+
+                    base_tp = ctx.position_sizing_fn(result.signals, ctx.capital)
+                    prices_for_bl = (
+                        result.prices_filtered if result.prices_filtered is not None else ctx.prices
+                    )
+                    if (
+                        base_tp is not None
+                        and not base_tp.empty
+                        and "target_weight" in base_tp.columns
+                        and prices_for_bl is not None
+                        and not prices_for_bl.empty
+                    ):
+                        score_w = {
+                            str(r["symbol"]): float(r["target_weight"])
+                            for _, r in base_tp.iterrows()
+                            if pd.notna(r.get("target_weight"))
+                        }
+                        bl_w, reasons = apply_bl_sizing(
+                            score_w,
+                            prices_for_bl,
+                            lookback_days=int(sizing_cfg.get("lookback_days", 60)),
+                            risk_aversion=float(sizing_cfg.get("risk_aversion", 2.5)),
+                            tau=float(sizing_cfg.get("tau", 0.05)),
+                            max_position=float(sizing_cfg.get("max_weight", 0.15)),
+                            confidence=float(sizing_cfg.get("bl_confidence", 0.5)),
+                            return_scale=float(sizing_cfg.get("return_scale", 0.10)),
+                            target_invested_pct=float(sizing_cfg.get("target_invested_pct", 1.0)),
+                        )
+                        rows = [
+                            {
+                                "symbol": s,
+                                "target_weight": round(w, 6),
+                                "target_qty": round(w * ctx.capital, 2),
+                            }
+                            for s, w in bl_w.items()
+                            if abs(w) > 1e-6
+                        ]
+                        result.target_positions = pd.DataFrame(rows)
+                        result.meta["bl_blend_sizing"] = {
+                            "reasons": reasons,
+                            "n_symbols": len(bl_w),
+                        }
+                        log.info(
+                            "[RISK-WIRE] bl_blend sizing: %d symbols (reasons=%d)",
+                            len(bl_w), len(reasons),
+                        )
+                    else:
+                        raise ValueError("bl_blend: insufficient data or no target_weight")
+                except Exception as e:
+                    log.warning("[RISK-WIRE] bl_blend sizing failed, using default: %s", e)
+                    result.target_positions = ctx.position_sizing_fn(result.signals, ctx.capital)
+            elif sizing_method == "hrp":
+                # [RISK-WIRE] Hierarchical Risk Parity blend on score-based sizing.
+                try:
+                    from src.assembled_core.portfolio.hrp_sizing import apply_hrp_sizing
+                    base_tp = ctx.position_sizing_fn(result.signals, ctx.capital)
+                    prices_for_hrp = (
+                        result.prices_filtered if result.prices_filtered is not None else ctx.prices
+                    )
+                    if (
+                        base_tp is not None
+                        and not base_tp.empty
+                        and "target_weight" in base_tp.columns
+                        and prices_for_hrp is not None
+                        and not prices_for_hrp.empty
+                    ):
+                        score_w = {
+                            str(r["symbol"]): float(r["target_weight"])
+                            for _, r in base_tp.iterrows()
+                            if pd.notna(r.get("target_weight"))
+                        }
+                        blended, reasons = apply_hrp_sizing(
+                            score_w,
+                            prices_for_hrp,
+                            lookback_days=int(sizing_cfg.get("lookback_days", 60)),
+                            blend=float(sizing_cfg.get("blend", 0.7)),
+                            target_invested_pct=float(sizing_cfg.get("target_invested_pct", 1.0)),
+                            min_weight=float(sizing_cfg.get("min_weight", 0.0)),
+                            max_weight=float(sizing_cfg.get("max_weight", 1.0)),
+                        )
+                        rows = [
+                            {
+                                "symbol": s,
+                                "target_weight": round(w, 6),
+                                "target_qty": round(w * ctx.capital, 2),
+                            }
+                            for s, w in blended.items()
+                            if abs(w) > 1e-6
+                        ]
+                        result.target_positions = pd.DataFrame(rows)
+                        result.meta["hrp_sizing"] = {
+                            "reasons": reasons,
+                            "n_symbols": len(blended),
+                        }
+                        log.info(
+                            "[RISK-WIRE] hrp sizing: %d symbols blended (reasons=%d)",
+                            len(blended), len(reasons),
+                        )
+                    else:
+                        raise ValueError("hrp: insufficient data or no target_weight column")
+                except Exception as e:
+                    log.warning("[RISK-WIRE] hrp sizing failed, using default: %s", e)
+                    result.target_positions = ctx.position_sizing_fn(result.signals, ctx.capital)
+            elif sizing_method == "mvo":
+                # [RISK-WIRE] Markowitz MVO with cardinality constraint.
+                try:
+                    import numpy as _np
+                    from src.assembled_core.portfolio.mvo_optimizer import (
+                        mvo_with_cardinality,
+                    )
+                    from src.assembled_core.portfolio.covariance import estimate_covariance
+
+                    prices_for_mvo = (
+                        result.prices_filtered if result.prices_filtered is not None else ctx.prices
+                    )
+                    if (
+                        prices_for_mvo is not None
+                        and not prices_for_mvo.empty
+                        and not result.signals.empty
+                        and "symbol" in result.signals.columns
+                        and "close" in prices_for_mvo.columns
+                        and "symbol" in prices_for_mvo.columns
+                    ):
+                        _ts_col_mvo = (
+                            "timestamp" if "timestamp" in prices_for_mvo.columns else prices_for_mvo.columns[0]
+                        )
+                        _mvo_syms = [
+                            s for s in result.signals["symbol"].tolist()
+                            if s in prices_for_mvo["symbol"].unique()
+                        ]
+                        if len(_mvo_syms) >= 2:
+                            _pivot_mvo = prices_for_mvo[
+                                prices_for_mvo["symbol"].isin(_mvo_syms)
+                            ].pivot_table(
+                                index=_ts_col_mvo, columns="symbol", values="close"
+                            )
+                            _rets_mvo = _pivot_mvo.pct_change().dropna(how="all")
+                            if len(_rets_mvo) >= 3:
+                                sigma_mvo_df = estimate_covariance(
+                                    _rets_mvo, method="ledoit_wolf"
+                                )
+                                mvo_syms = list(sigma_mvo_df.columns)
+                                sigma_mvo = sigma_mvo_df.values.astype(float)
+                                mu_series = (
+                                    result.signals.set_index("symbol")["score"]
+                                    if "score" in result.signals.columns
+                                    else pd.Series(dtype=float)
+                                )
+                                mu_mvo = _np.asarray(
+                                    mu_series.reindex(mvo_syms).fillna(0.0).values,
+                                    dtype=float,
+                                )
+                                w_arr = mvo_with_cardinality(
+                                    mu_mvo,
+                                    sigma_mvo,
+                                    max_positions=int(sizing_cfg.get("max_positions", 20)),
+                                    risk_aversion=float(sizing_cfg.get("risk_aversion", 1.0)),
+                                    min_weight=float(sizing_cfg.get("min_weight", 0.01)),
+                                )
+                                rows = [
+                                    {
+                                        "symbol": s,
+                                        "target_weight": round(float(w_arr[i]), 6),
+                                        "target_qty": round(float(w_arr[i]) * ctx.capital, 2),
+                                    }
+                                    for i, s in enumerate(mvo_syms)
+                                    if abs(w_arr[i]) > 1e-6
+                                ]
+                                result.target_positions = pd.DataFrame(rows)
+                                result.meta["mvo_sizing"] = {
+                                    "n_symbols": len(rows),
+                                    "max_positions": int(sizing_cfg.get("max_positions", 20)),
+                                    "risk_aversion": float(sizing_cfg.get("risk_aversion", 1.0)),
+                                }
+                                log.info(
+                                    "[RISK-WIRE] mvo sizing: %d active positions (max=%d)",
+                                    len(rows),
+                                    int(sizing_cfg.get("max_positions", 20)),
+                                )
+                            else:
+                                raise ValueError("mvo: insufficient return history (<3 bars)")
+                        else:
+                            raise ValueError("mvo: fewer than 2 symbols overlap signals and prices")
+                    else:
+                        raise ValueError("mvo: insufficient data — falling back")
+                except Exception as e:
+                    log.warning("[RISK-WIRE] mvo sizing failed, using default: %s", e)
+                    result.target_positions = ctx.position_sizing_fn(result.signals, ctx.capital)
             else:
                 # Default: call position_sizing_fn (equal weight or score-based)
                 result.target_positions = ctx.position_sizing_fn(
@@ -3279,6 +3691,23 @@ def _run_trading_cycle_inner(
         result.error_message = f"Error in risk_controls: {e}"
         return result
 
+    # Step 6.35: Tier-1 — parametric VaR exposure gate (default OFF).
+    try:
+        var_decision = _evaluate_var_gate(ctx, result, policy)
+        if var_decision is not None:
+            result.meta["var_gate"] = var_decision
+            log.warning(
+                "[RISK-WIRE] VaR gate breach: var_1d=%.4f > %.4f (%.0f%% conf) — %s",
+                var_decision["var_1d"],
+                var_decision["max_var_pct"],
+                var_decision["confidence"] * 100.0,
+                var_decision["reason"],
+            )
+            # Block all orders for this cycle when breach is detected.
+            result.orders_filtered = result.orders_filtered.iloc[0:0].copy()
+    except Exception as e:
+        log.debug("var_gate skipped: %s", e)
+
     # Step 6.4: Sprint 1 / C7 — Auto-Drawdown Kill-Switch trigger
     try:
         dd_decision = _evaluate_auto_dd_kill_switch(ctx, result, policy)
@@ -3305,6 +3734,21 @@ def _run_trading_cycle_inner(
                 result.orders_filtered = result.orders_filtered.iloc[0:0].copy()
     except Exception as e:
         log.debug("auto_dd_kill_switch skipped: %s", e)
+
+    # Step 6.45: Tier-1 — intraday circuit breaker (default OFF).
+    try:
+        cb_decision = _evaluate_circuit_breaker(ctx, result, policy)
+        if cb_decision is not None:
+            result.meta["circuit_breaker"] = cb_decision
+            log.warning(
+                "[RISK-WIRE] Circuit breaker TRIPPED: threshold=%.1f%% window=%dmin — %s",
+                cb_decision["drop_threshold_pct"],
+                cb_decision["window_minutes"],
+                cb_decision["reason"],
+            )
+            result.orders_filtered = result.orders_filtered.iloc[0:0].copy()
+    except Exception as e:
+        log.debug("circuit_breaker skipped: %s", e)
 
     # Step 6.5: D12 — Scenario engine stress tests (post-orders, optional)
     try:
@@ -3497,6 +3941,266 @@ def _run_trading_cycle_inner(
             log.info("[KPI] metrics exported: %d metrics to %s", export_result.get("metrics_count", 0), export_result.get("file"))
     except Exception as _e:
         log.debug("[KPI] kpi_export skipped: %s", _e)
+
+    # [RISK-WIRE] Tail-hedge recommendation — SHADOW-ONLY by default.
+    # When enabled the cycle computes a tail-hedge recommendation (VIX-based
+    # + vol-elevated) and writes it to result.meta["tail_hedge_recommendation"]
+    # without altering orders. Flag `shadow_only=False` would let a future
+    # sprint translate the recommendation into an actual hedge position.
+    try:
+        th_cfg = policy.get("tail_hedging") or {}
+        if th_cfg.get("enabled", False):
+            from src.assembled_core.risk.tail_hedging import (
+                TailHedgeConfig,
+                recommend_hedge,
+            )
+            current_vix = float(th_cfg.get("current_vix", 0.0))
+            # Prefer policy-provided vix; otherwise derive from result.meta if available
+            if current_vix <= 0.0:
+                vix_meta = result.meta.get("vol_targeting") or {}
+                current_vix = float(vix_meta.get("current_vix", 0.0))
+            portfolio_value = float(getattr(ctx, "capital", 0.0) or 0.0)
+            portfolio_vol = float(
+                (result.meta.get("vol_targeting") or {}).get("realized_vol", 0.0) or 0.0
+            )
+            recent_dd = float(
+                (result.meta.get("profit_lock_state") or {}).get("max_drawdown", 0.0) or 0.0
+            )
+            if current_vix > 0.0 and portfolio_value > 0.0:
+                cfg_th = TailHedgeConfig(
+                    tail_risk_budget_pct=float(th_cfg.get("tail_risk_budget_pct", 1.0)),
+                    vix_hedge_trigger=float(th_cfg.get("vix_hedge_trigger", 25.0)),
+                    vix_full_hedge_level=float(th_cfg.get("vix_full_hedge_level", 35.0)),
+                    max_hedge_ratio=float(th_cfg.get("max_hedge_ratio", 0.30)),
+                    min_hedge_ratio=float(th_cfg.get("min_hedge_ratio", 0.05)),
+                    put_otm_pct=float(th_cfg.get("put_otm_pct", 0.05)),
+                )
+                rec = recommend_hedge(
+                    portfolio_value=portfolio_value,
+                    current_vix=current_vix,
+                    portfolio_vol=portfolio_vol,
+                    recent_max_drawdown=recent_dd,
+                    config=cfg_th,
+                )
+                result.meta["tail_hedge_recommendation"] = {
+                    "hedge_ratio": rec.hedge_ratio,
+                    "trigger_reason": rec.trigger_reason,
+                    "estimated_annual_cost_pct": rec.estimated_annual_cost_pct,
+                    "notional_to_hedge": rec.notional_to_hedge,
+                    "put_strike_pct": rec.put_strike_pct,
+                    "urgency": rec.urgency,
+                    "shadow_only": bool(th_cfg.get("shadow_only", True)),
+                }
+                log.info(
+                    "[RISK-WIRE] tail_hedge_shadow: ratio=%.4f urgency=%.2f reason=%s",
+                    rec.hedge_ratio, rec.urgency, rec.trigger_reason,
+                )
+            else:
+                log.debug(
+                    "[RISK-WIRE] tail_hedge: skipped (vix=%.1f, pv=%.1f)",
+                    current_vix, portfolio_value,
+                )
+    except Exception as _e:
+        log.debug("[RISK-WIRE] tail_hedge skipped: %s", _e)
+
+    # [RISK-WIRE] Attribution report — decompose returns/vol per symbol.
+    # Policy-flag-guarded; default OFF so existing callers see no behavior
+    # change. Populates result.meta["attribution"] when enabled.
+    try:
+        attr_cfg = policy.get("attribution") or {}
+        if (
+            attr_cfg.get("enabled", False)
+            and not result.target_positions.empty
+            and "target_weight" in result.target_positions.columns
+        ):
+            from src.assembled_core.risk.attribution import (
+                compute_attribution_report,
+            )
+
+            weights_map: dict[str, float] = {
+                str(r["symbol"]): float(r["target_weight"])
+                for _, r in result.target_positions.iterrows()
+                if pd.notna(r.get("target_weight"))
+            }
+            # Per-symbol latest return: 1-bar pct_change from prices_filtered
+            returns_map: dict[str, float] = {}
+            prices_for_attr = ctx.prices if ctx.prices is not None else result.prices_filtered
+            if (
+                prices_for_attr is not None
+                and not prices_for_attr.empty
+                and {"timestamp", "symbol", "close"}.issubset(prices_for_attr.columns)
+            ):
+                for sym in weights_map:
+                    sym_rows = prices_for_attr[prices_for_attr["symbol"] == sym].sort_values("timestamp")
+                    if len(sym_rows) >= 2:
+                        last = float(sym_rows["close"].iloc[-1])
+                        prev = float(sym_rows["close"].iloc[-2])
+                        returns_map[sym] = (last - prev) / prev if prev > 0 else 0.0
+
+            attr_report = compute_attribution_report(
+                weights=weights_map,
+                returns=returns_map,
+                prices=prices_for_attr if prices_for_attr is not None else pd.DataFrame(),
+                policy=policy,
+            )
+            result.meta["attribution"] = {
+                "status": attr_report.get("status"),
+                "portfolio_return": attr_report.get("portfolio_return"),
+                "portfolio_vol": attr_report.get("portfolio_vol"),
+                "return_contributions": attr_report.get("return_contributions"),
+                "vol_contributions": attr_report.get("vol_contributions"),
+            }
+            log.info(
+                "[RISK-WIRE] attribution: status=%s port_ret=%.6f port_vol=%s",
+                attr_report.get("status"),
+                float(attr_report.get("portfolio_return") or 0.0),
+                attr_report.get("portfolio_vol"),
+            )
+    except Exception as _e:
+        log.debug("[RISK-WIRE] attribution skipped: %s", _e)
+
+    # [RISK-WIRE] Portfolio-execution batching — SHADOW-ONLY meta.
+    # Policy-flag-guarded; default OFF. Computes execution batches
+    # (correlated opposing trades grouped) and writes to
+    # result.meta["execution_batches"] without reordering the live
+    # order stream. A future sprint can promote this to an actual
+    # batch-aware broker dispatcher.
+    try:
+        pe_cfg = policy.get("portfolio_execution") or {}
+        if (
+            pe_cfg.get("enabled", False)
+            and not result.orders_filtered.empty
+            and {"symbol", "qty"}.issubset(result.orders_filtered.columns)
+        ):
+            from src.assembled_core.execution.portfolio_execution import (
+                optimize_execution_sequence,
+            )
+
+            max_parallel = int(pe_cfg.get("max_parallel", 5))
+            corr_lookback = int(pe_cfg.get("corr_lookback_days", 60))
+
+            # Build correlation matrix from filtered prices (pivot wide).
+            corr_mtx: pd.DataFrame | None = None
+            prices_for_pe = result.prices_filtered if result.prices_filtered is not None else ctx.prices
+            if (
+                prices_for_pe is not None
+                and not prices_for_pe.empty
+                and {"timestamp", "symbol", "close"}.issubset(prices_for_pe.columns)
+            ):
+                wide = (
+                    prices_for_pe.pivot_table(
+                        index="timestamp", columns="symbol", values="close", aggfunc="last"
+                    )
+                    .sort_index()
+                    .tail(corr_lookback)
+                    .pct_change()
+                    .dropna(how="all")
+                )
+                if len(wide) >= 5 and wide.shape[1] >= 2:
+                    corr_mtx = wide.corr()
+
+            batched = optimize_execution_sequence(
+                result.orders_filtered.reset_index(drop=True),
+                correlation_matrix=corr_mtx,
+                max_parallel=max_parallel,
+            )
+            n_batches = int(batched["execution_batch"].nunique()) if not batched.empty else 0
+            result.meta["execution_batches"] = {
+                "n_orders": int(len(batched)),
+                "n_batches": n_batches,
+                "max_parallel": max_parallel,
+                "shadow_only": True,
+                "batches": batched[["symbol", "qty", "execution_batch"]].to_dict(
+                    orient="records"
+                ) if not batched.empty else [],
+            }
+            log.info(
+                "[RISK-WIRE] portfolio_execution (shadow): %d orders -> %d batches",
+                len(batched), n_batches,
+            )
+    except Exception as _e:
+        log.debug("[RISK-WIRE] portfolio_execution skipped: %s", _e)
+
+    # [RISK-WIRE] Almgren-Chriss impact-cost estimate — SHADOW-ONLY meta.
+    # Policy-flag-guarded; default OFF. Per-order estimate plus aggregate.
+    # This is pre-trade insight, not a replacement of the paper engine's
+    # fill model. Populates result.meta["almgren_chriss_impact"].
+    try:
+        ac_cfg = policy.get("almgren_chriss") or {}
+        if (
+            ac_cfg.get("enabled", False)
+            and not result.orders_filtered.empty
+            and {"symbol", "qty", "price"}.issubset(result.orders_filtered.columns)
+        ):
+            from src.assembled_core.execution.almgren_chriss import (
+                estimate_impact_cost,
+            )
+
+            default_adv = float(ac_cfg.get("default_adv", 1_000_000.0))
+            gamma = float(ac_cfg.get("gamma", 0.1))
+            eta = float(ac_cfg.get("eta", 0.05))
+            horizon_days = float(ac_cfg.get("horizon_days", 1.0))
+            sigma_default = float(ac_cfg.get("sigma_default", 0.02))
+
+            # Per-symbol realised sigma from prices_filtered if available.
+            sigma_map: dict[str, float] = {}
+            prices_for_ac = result.prices_filtered if result.prices_filtered is not None else ctx.prices
+            if (
+                prices_for_ac is not None
+                and not prices_for_ac.empty
+                and {"timestamp", "symbol", "close"}.issubset(prices_for_ac.columns)
+            ):
+                wide_ac = (
+                    prices_for_ac.pivot_table(
+                        index="timestamp", columns="symbol", values="close", aggfunc="last"
+                    )
+                    .sort_index()
+                    .tail(60)
+                    .pct_change()
+                    .dropna(how="all")
+                )
+                if not wide_ac.empty:
+                    sigma_series = wide_ac.std(ddof=0)
+                    sigma_map = {
+                        str(s): float(v) for s, v in sigma_series.items() if pd.notna(v)
+                    }
+
+            per_order: list[dict] = []
+            tot_notional = 0.0
+            tot_cost_usd = 0.0
+            for _idx, _row in result.orders_filtered.iterrows():
+                sym = str(_row["symbol"])
+                qty = float(_row["qty"])
+                px = float(_row["price"])
+                if qty == 0 or px <= 0:
+                    continue
+                sigma = sigma_map.get(sym, sigma_default)
+                est = estimate_impact_cost(
+                    total_shares=qty,
+                    price=px,
+                    adv=default_adv,
+                    sigma=sigma,
+                    horizon_days=horizon_days,
+                    gamma=gamma,
+                    eta=eta,
+                )
+                per_order.append({"symbol": sym, **est})
+                tot_notional += abs(qty) * px
+                tot_cost_usd += est["total_cost_usd"]
+            total_bps = (tot_cost_usd / tot_notional * 10_000) if tot_notional > 0 else 0.0
+            result.meta["almgren_chriss_impact"] = {
+                "total_notional_usd": round(tot_notional, 2),
+                "total_cost_usd": round(tot_cost_usd, 2),
+                "aggregate_bps": round(total_bps, 2),
+                "per_order": per_order,
+                "shadow_only": True,
+            }
+            log.info(
+                "[RISK-WIRE] almgren_chriss (shadow): notional=%.0f cost=%.2f bps=%.2f",
+                tot_notional, tot_cost_usd, total_bps,
+            )
+    except Exception as _e:
+        log.debug("[RISK-WIRE] almgren_chriss skipped: %s", _e)
 
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"

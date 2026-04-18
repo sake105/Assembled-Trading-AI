@@ -11,6 +11,12 @@ shorts:
   enabled: true
   max_short_weight_per_position: 0.10   # max 10% per short position
   max_total_short_exposure: 0.30        # max 30% total short exposure
+  # Historical shorts-specific cap (long + |short|). Kept for documentation of
+  # the intended headroom *if* leverage were enabled. Currently overridden by
+  # `risk_limits.max_gross_exposure: 1.0` via `min()` in trading_cycle.py
+  # because scope.leverage_allowed=false. Changing this alone will NOT loosen
+  # the effective cap — you must also raise risk_limits.max_gross_exposure AND
+  # flip leverage_allowed=true (P0 finding A6, Deep Run v2, 2026-04-18).
   max_gross_exposure: 1.50              # long + |short| <= 150%
   max_net_short: 0.20                   # max 20% net short
   allowed_instruments:
@@ -39,6 +45,12 @@ risk_limits:
     hard: 0.20                   # 20% DD hard position reduction
     kill: 0.30                   # 30% DD triggers kill switch
   max_position_weight: 0.20      # max 20% in any single ETF
+  # Gross-exposure cap (long + |short|) for general pre-trade gate. P0 finding A6
+  # (Deep Run v2, 2026-04-18): prior to this key, the only gross cap was under
+  # `shorts.max_gross_exposure` (1.50), which is shorts-specific. This key is
+  # read first by pipeline/trading_cycle.py and must be consistent with
+  # scope.leverage_allowed=false (see policy_schema.py gross-exposure check).
+  max_gross_exposure: 1.0        # leverage_allowed: false → cap at 100%
   turnover:
     weekly_cap: 0.50             # max 50% portfolio turnover per week
     daily_cap: 0.20              # max 20% portfolio turnover per day

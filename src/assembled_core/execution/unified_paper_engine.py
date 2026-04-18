@@ -85,6 +85,15 @@ except Exception:  # pragma: no cover
     logger.warning("[PAPER] pre_trade_checks unavailable — pre-trade checks disabled")
 
 try:
+    from src.assembled_core.execution.symbol_kill_switch import (
+        filter_orders_from_policy as _symbol_kill_filter,
+    )
+    _HAS_SYMBOL_KILL = True
+except Exception:  # pragma: no cover
+    _HAS_SYMBOL_KILL = False
+    logger.warning("[PAPER] symbol_kill_switch unavailable — per-symbol halt disabled")
+
+try:
     from src.assembled_core.execution.fill_model import (
         PartialFillModel,
         apply_cash_gate,
@@ -242,6 +251,10 @@ class UnifiedPaperConfig:
     enable_reconciliation: bool = True
     enable_fat_finger: bool = True
     enable_kill_switch: bool = True
+    # Per-symbol halt list (sidecar state at ``symbol_kill_state_path``).
+    # Default OFF — opt-in via policy or test harness (Tier-1 activation plan).
+    enable_symbol_kill_switch: bool = False
+    symbol_kill_state_path: Path | None = None
     enable_lifecycle_tracking: bool = True
     enable_partial_fills: bool = False
     enable_circuit_breaker: bool = False
@@ -1275,6 +1288,25 @@ class UnifiedPaperEngine:
                     return orders
             except Exception as exc:
                 logger.error("[PAPER] guard_orders_with_kill_switch error: %s", exc)
+
+        # Per-symbol kill switch (Tier-1 R5 wiring).
+        # Policy-gated; default OFF. Rejected rows never reach fills.
+        if (
+            self.config.enable_symbol_kill_switch
+            and _HAS_SYMBOL_KILL
+            and not orders.empty
+        ):
+            try:
+                filtered, reasons = _symbol_kill_filter(
+                    orders,
+                    policy={"symbol_kill_switch": {"enabled": True}},
+                    state_path=self.config.symbol_kill_state_path,
+                )
+                if reasons:
+                    logger.warning("[PAPER] symbol_kill_switch blocked: %s", reasons)
+                orders = filtered
+            except Exception as exc:
+                logger.error("[PAPER] symbol_kill_switch error: %s", exc)
 
         # Fat finger guard
         if self.config.enable_fat_finger and _HAS_FAT_FINGER:

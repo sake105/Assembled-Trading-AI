@@ -104,6 +104,10 @@ all = [
   "yfinance>=0.2.0",
   "pandas-datareader>=0.10.0",
 ]
+system_check = [
+  "anthropic>=0.45.0",
+  "PyYAML>=6.0",
+]
 
 [project.scripts]
 assembled-cli = "scripts.cli:main"

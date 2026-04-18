@@ -162,3 +162,155 @@ class RunSnapshot:
     def rng(self) -> np.random.Generator:
         """Return the Generator that the engine would use for this snapshot."""
         return make_rng(self.run_id, self.as_of_date, self.seed)
+
+
+# ----------------------------------------------------------------------------
+# E0.1 — deterministic paper replay
+# ----------------------------------------------------------------------------
+
+
+@dataclass
+class ReplayResult:
+    """Output of :func:`run_paper_replay`.
+
+    Attributes:
+        orders_df: Aggregated order stream across the replay. One row per
+            order emitted by :func:`run_trading_cycle`, with a ``timestamp``
+            column so rows from consecutive days remain in chronological
+            order. Used by the E0.1 parity test to compare against
+            ``run_portfolio_backtest`` output.
+        n_days: Number of replay days visited.
+        seed: Base seed used for this replay.
+    """
+
+    orders_df: pd.DataFrame
+    n_days: int
+    seed: int | None
+
+
+def run_paper_replay(
+    prices: pd.DataFrame,
+    signal_fn: Any,
+    position_sizing_fn: Any,
+    *,
+    start_capital: float = 10_000.0,
+    seed: int | None = 42,
+    as_of_dates: list[pd.Timestamp] | None = None,
+    enable_risk_controls: bool = True,
+    kill_switch_persist: bool = True,
+) -> ReplayResult:
+    """Replay the trading cycle day-by-day on the same inputs as a backtest.
+
+    The replay drives :func:`src.assembled_core.pipeline.trading_cycle.run_trading_cycle`
+    once per ``as_of_date`` using an evolving positions book. Order
+    generation flows through exactly the same code path as
+    :func:`run_portfolio_backtest` (via its ``cycle_fn``), which means the
+    emitted order stream is bit-identical whenever risk gates, kill-switch
+    behaviour and input fixtures match.
+
+    This is the helper the E0.1 parity test relies on.
+
+    Args:
+        prices: Long-form price frame (``timestamp``, ``symbol``, ``close``).
+        signal_fn: Callable ``(prices_df) -> signals_df`` (same contract as
+            ``run_portfolio_backtest``).
+        position_sizing_fn: Callable ``(signals_df, capital) -> targets_df``.
+        start_capital: Replay seed capital (mirrors backtest ``start_capital``).
+        seed: Base seed — used for deterministic slippage / adversarial cost
+            hooks downstream. Replay itself is deterministic for any value.
+        as_of_dates: Optional explicit schedule. When ``None`` the replay
+            iterates every unique timestamp in ``prices``.
+        enable_risk_controls: Propagated into ``TradingContext``; default
+            ``True`` matches the E0.1 parity invariant.
+        kill_switch_persist: Propagated into ``TradingContext``; default
+            ``True`` matches the E0.1 parity invariant.
+
+    Returns:
+        ``ReplayResult`` whose ``orders_df`` is sorted by ``timestamp`` and
+        carries every order emitted by the cycle across the replay window.
+    """
+    from src.assembled_core.pipeline.trading_cycle import (
+        TradingContext,
+        run_trading_cycle,
+    )
+
+    if prices is None or prices.empty:
+        return ReplayResult(
+            orders_df=pd.DataFrame(
+                columns=["timestamp", "symbol", "side", "qty", "price"]
+            ),
+            n_days=0,
+            seed=seed,
+        )
+
+    prices_sorted = prices.sort_values(["timestamp", "symbol"]).reset_index(drop=True)
+    if as_of_dates is None:
+        dates = list(prices_sorted["timestamp"].drop_duplicates().sort_values())
+    else:
+        dates = list(as_of_dates)
+
+    universe = sorted(prices_sorted["symbol"].unique().tolist())
+    positions: dict[str, float] = {}
+    all_orders: list[pd.DataFrame] = []
+
+    for ts in dates:
+        window = prices_sorted[prices_sorted["timestamp"] <= ts]
+        if window.empty:
+            continue
+        current_bar = prices_sorted[prices_sorted["timestamp"] == ts]
+        if current_bar.empty:
+            continue
+
+        # order_timestamp=ts anchors the emitted orders' `timestamp` column to
+        # the bar, not wall-clock. The default factory is `pd.Timestamp.now`,
+        # which breaks replay determinism (P0 A8 sunset, parity_gap.md).
+        ctx = TradingContext(
+            prices=window,
+            as_of=ts,
+            universe=universe,
+            signal_fn=signal_fn,
+            position_sizing_fn=position_sizing_fn,
+            capital=float(start_capital),
+            current_positions=pd.DataFrame(
+                [{"symbol": s, "qty": q} for s, q in positions.items() if q != 0]
+            ),
+            order_timestamp=ts,
+            enable_risk_controls=enable_risk_controls,
+            kill_switch_persist=kill_switch_persist,
+            write_outputs=False,
+            mode="backtest",
+        )
+
+        hooks = {
+            "load_prices": lambda _ctx, _w=window, _b=current_bar: (_w.copy(), _b.copy()),
+            "build_features": lambda _ctx, df: df,
+        }
+        result = run_trading_cycle(ctx, hooks=hooks)
+
+        orders = result.orders_filtered if result.orders_filtered is not None else result.orders
+        if orders is not None and not orders.empty:
+            stamped = orders.copy()
+            if "timestamp" not in stamped.columns:
+                stamped["timestamp"] = ts
+            all_orders.append(stamped)
+
+            # Evolve positions so the next bar sees the updated book. Fill
+            # model-independent: we only update based on *generated* orders,
+            # which matches how the backtest loop advances between bars.
+            for _, row in stamped.iterrows():
+                sym = str(row["symbol"])
+                qty = float(row.get("qty", 0.0))
+                side = str(row.get("side", "BUY")).upper()
+                signed = qty if side == "BUY" else -qty
+                positions[sym] = positions.get(sym, 0.0) + signed
+
+    if all_orders:
+        orders_df = (
+            pd.concat(all_orders, ignore_index=True)
+            .sort_values("timestamp")
+            .reset_index(drop=True)
+        )
+    else:
+        orders_df = pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
+
+    return ReplayResult(orders_df=orders_df, n_days=len(dates), seed=seed)

@@ -193,7 +193,7 @@ def test_filter_events_pit_future_disclosure_filtered() -> None:
 
     # Filter at as_of = 2024-01-17
     as_of = pd.Timestamp("2024-01-17", tz="UTC")
-    filtered = filter_events_pit(normalized, as_of)
+    filtered = filter_events_pit(normalized, as_of, latency_days=0)
 
     # Verify: Only AAPL (disclosure_date 2024-01-17 <= as_of)
     assert len(filtered) == 1
@@ -219,7 +219,7 @@ def test_filter_events_pit_inclusive_boundary() -> None:
 
     # Filter at as_of = 2024-01-17 (same as disclosure_date)
     as_of = pd.Timestamp("2024-01-17", tz="UTC")
-    filtered = filter_events_pit(normalized, as_of)
+    filtered = filter_events_pit(normalized, as_of, latency_days=0)
 
     # Verify: Event included (disclosure_date == as_of)
     assert len(filtered) == 1
@@ -329,9 +329,31 @@ def test_filter_events_pit_empty_returns_empty() -> None:
     events = pd.DataFrame(columns=REQUIRED_COLUMNS)
 
     as_of = pd.Timestamp("2024-01-17", tz="UTC")
-    filtered = filter_events_pit(events, as_of)
+    filtered = filter_events_pit(events, as_of, latency_days=0)
 
     assert filtered.empty
+
+
+def test_filter_events_pit_requires_latency_days() -> None:
+    """P0 A5 — calling filter_events_pit without latency_days must raise.
+
+    Locks in the breaking-change contract from System-Check Deep Run v2
+    finding A5 (2026-04-18): callers must supply an explicit
+    ``latency_days`` so that silent zero-latency assumptions cannot slip
+    in via new code. The previous default of ``0`` is now illegal.
+    """
+    events = pd.DataFrame(
+        {
+            "symbol": ["AAPL"],
+            "event_date": pd.to_datetime(["2024-01-15"], utc=True),
+            "disclosure_date": pd.to_datetime(["2024-01-17"], utc=True),
+            "effective_date": pd.to_datetime(["2024-01-17"], utc=True),
+        }
+    )
+    as_of = pd.Timestamp("2024-01-17", tz="UTC")
+
+    with pytest.raises(ValueError, match="latency_days"):
+        filter_events_pit(events, as_of)  # type: ignore[call-arg]
 
 
 def test_filter_events_pit_missing_disclosure_date_raises_error() -> None:
@@ -348,7 +370,7 @@ def test_filter_events_pit_missing_disclosure_date_raises_error() -> None:
     as_of = pd.Timestamp("2024-01-17", tz="UTC")
 
     with pytest.raises(ValueError, match="Missing required column 'disclosure_date'"):
-        filter_events_pit(events, as_of)
+        filter_events_pit(events, as_of, latency_days=0)
 
 
 def test_optional_columns_preserved() -> None:
