@@ -48,6 +48,16 @@ class FreshnessMonitor:
     def update(self, source: str) -> None:
         if source in self.sources:
             self.sources[source].last_updated = datetime.now(timezone.utc)
+        else:
+            # Silently ignoring an unregistered source name is the classic
+            # "we thought we were monitoring it" bug — a typo'd source name
+            # leaves the real source stuck at last_updated=None forever.
+            logger.warning(
+                "[Freshness] update() called for unregistered source %r — "
+                "known sources: %s",
+                source,
+                sorted(self.sources.keys()),
+            )
 
     def check_all(self) -> list[dict]:
         alerts = []

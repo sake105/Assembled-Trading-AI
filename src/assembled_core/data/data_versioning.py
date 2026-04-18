@@ -28,7 +28,12 @@ def compute_data_hash(df: pd.DataFrame, columns: list[str] | None = None) -> str
         return hashlib.sha256(b"empty").hexdigest()
 
     subset = df[columns] if columns else df
-    content = subset.to_csv(index=True).encode("utf-8")
+    # Canonicalise: sort columns alphabetically and drop the row index so
+    # the hash depends on content only, not on column order or on the
+    # reload-dependent pandas index. Prior behaviour produced different
+    # hashes for the same data reloaded from Parquet.
+    subset = subset.reindex(sorted(subset.columns), axis=1)
+    content = subset.to_csv(index=False).encode("utf-8")
     return hashlib.sha256(content).hexdigest()
 
 

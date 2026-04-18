@@ -265,10 +265,18 @@ def detect_delisted_symbols(
     prices_copy = prices.copy()
     prices_copy["timestamp"] = pd.to_datetime(prices_copy["timestamp"], utc=True)
 
+    # Point-in-time filter: a historical as_of must not peek at price rows
+    # after that date. Without this, a symbol still trading in the full
+    # panel but delisted at as_of would be missed because group.max() sees
+    # later rows.
+    prices_copy = prices_copy[prices_copy["timestamp"] <= as_of]
+
     delisted = []
     terminal_values = {}
 
     for sym, group in prices_copy.groupby("symbol"):
+        if group.empty:
+            continue
         last_date = group["timestamp"].max()
         days_stale = (as_of - last_date).days
 

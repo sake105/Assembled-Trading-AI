@@ -56,6 +56,31 @@ class FlakyAdapter(BrokerAdapter):
             status="accepted",
         )
 
+    def submit_limit_order(
+        self,
+        symbol: str,
+        qty: float,
+        side: str,
+        limit_price: float,
+        *,
+        time_in_force: str = "day",
+        comment: str = "",
+    ) -> BrokerOrder:
+        raise NotImplementedError
+
+    def submit_stop_order(
+        self,
+        symbol: str,
+        qty: float,
+        side: str,
+        stop_price: float,
+        *,
+        limit_price: float | None = None,
+        time_in_force: str = "day",
+        comment: str = "",
+    ) -> BrokerOrder:
+        raise NotImplementedError
+
     def get_order_status(self, order_id: str) -> BrokerOrder:
         raise NotImplementedError
 

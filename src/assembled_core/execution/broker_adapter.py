@@ -717,19 +717,29 @@ class AlpacaAdapter(BrokerAdapter):
         return normalized
 
     def cancel_all_orders(self) -> int:
-        """Cancel all open orders."""
+        """Cancel all open orders. Returns the count actually cancelled."""
         api = self._get_api()
         try:
             result = api.cancel_orders()
             count = len(result) if hasattr(result, "__len__") else 0
-        except Exception:
+        except Exception as bulk_exc:
+            logger.warning(
+                "[AlpacaAdapter] bulk cancel failed: %s — falling back to per-order",
+                bulk_exc,
+            )
             orders = self.get_open_orders()
+            count = 0
             for o in orders:
                 try:
                     api.cancel_order_by_id(o.order_id)
-                except Exception:
-                    pass
-            count = len(orders)
+                    count += 1
+                except Exception as per_exc:
+                    # Surface per-order failures so a kill-switch flatten
+                    # does not report a false-positive full-cancel count.
+                    logger.warning(
+                        "[AlpacaAdapter] cancel_order_by_id(%s) failed: %s",
+                        o.order_id, per_exc,
+                    )
         logger.info("[AlpacaAdapter] cancelled %d orders", count)
         return count
 
