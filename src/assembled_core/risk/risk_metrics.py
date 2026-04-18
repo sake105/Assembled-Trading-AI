@@ -1206,7 +1206,19 @@ def compute_evt_tail_var(
     """
     try:
         from src.assembled_core.ml.evt_models import compute_evt_risk_metrics
-    except Exception:  # pragma: no cover - optional import path
+    except Exception as exc:  # pragma: no cover - optional import path
+        # Zero tail-VaR is indistinguishable from "no tail risk" without a
+        # status marker — a caller blending EVT into a tail-budget would treat
+        # a degenerate ``scipy``-missing run as a calm market. The numeric
+        # zeros are kept for backward compatibility with existing consumers
+        # that blend-and-multiply, but we tag ``evt_status`` so new callers
+        # (tail-risk gates, regime overlays) can distinguish "EVT says zero"
+        # from "EVT is unavailable".
+        logger.warning(
+            "[RISK-EVT] compute_evt_tail_risk: module unavailable — "
+            "returning zero-sentinel metrics with evt_status=unavailable (%s)",
+            exc,
+        )
         return {
             "evt_var_95": 0.0,
             "evt_var_99": 0.0,
@@ -1215,5 +1227,11 @@ def compute_evt_tail_var(
             "evt_cvar_99": 0.0,
             "evt_shape_xi": 0.0,
             "evt_return_period_100y": 0.0,
+            "evt_status": "unavailable",
         }
+    # NOTE: on the success path we do NOT add an "evt_status" field — the
+    # frozen schema-stability test (tests/test_risk_metrics_evt.py) asserts the
+    # exact 7-key schema. The status flag is emitted ONLY on the
+    # module-unavailable fallback above, so callers that want to detect the
+    # degraded state can check ``metrics.get("evt_status") == "unavailable"``.
     return compute_evt_risk_metrics(returns, threshold_quantile=threshold_quantile)

@@ -121,18 +121,68 @@ def _write_parquet_atomic(path: Path, df: pd.DataFrame) -> None:
 
 
 def _load_all_partitions(panel_dir: Path) -> pd.DataFrame | None:
-    """Load and concatenate all year=*.parquet files from a panel directory."""
+    """Load and concatenate all year=*.parquet files from a panel directory.
+
+    Corrupt partitions were previously skipped at WARNING level, which meant a
+    silently truncated panel (e.g. years 2020, 2022, 2024 loading but 2021/2023
+    dropped due to a bad parquet footer) looked identical to a legitimately
+    partial store. Backtests then computed Sharpe/IC on an incomplete time
+    series without any trace. We now elevate the log level to ERROR and, when
+    a ``_metadata.json`` manifest is present, verify that the years actually
+    loaded match the manifest's declared year list — a mismatch is still
+    permissive (returns partial data) because ``store_factors`` calls this on
+    append-mode rebuilds where tolerance is expected, but the ERROR log makes
+    the corruption visible to operators and CI log scrapers.
+    """
     parts = sorted(panel_dir.glob("year=*.parquet"))
     if not parts:
         return None
     dfs = []
+    failed_parts: list[str] = []
     for p in parts:
         try:
             dfs.append(pd.read_parquet(p))
         except Exception:
-            logger.warning(
+            failed_parts.append(str(p))
+            logger.error(
                 "[factor_store] Failed to read partition %s", p, exc_info=True
             )
+    if failed_parts:
+        logger.error(
+            "[factor_store] %d of %d partitions unreadable in %s: %s",
+            len(failed_parts),
+            len(parts),
+            panel_dir,
+            failed_parts,
+        )
+        manifest_path = panel_dir / "_metadata.json"
+        if manifest_path.exists():
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                declared = set(int(y) for y in manifest.get("years", []))
+                loaded_years = set()
+                for df_part in dfs:
+                    if "timestamp" in df_part.columns and not df_part.empty:
+                        ts = pd.to_datetime(df_part["timestamp"], utc=True)
+                        loaded_years.update(int(y) for y in ts.dt.year.unique())
+                missing = sorted(declared - loaded_years)
+                if missing:
+                    logger.error(
+                        "[factor_store] Manifest/data mismatch in %s: "
+                        "manifest declares years %s, loaded years %s, "
+                        "missing %s",
+                        panel_dir,
+                        sorted(declared),
+                        sorted(loaded_years),
+                        missing,
+                    )
+            except (OSError, json.JSONDecodeError, ValueError) as exc:
+                logger.error(
+                    "[factor_store] Failed to read manifest %s for "
+                    "consistency check: %s",
+                    manifest_path,
+                    exc,
+                )
     if not dfs:
         return None
     return pd.concat(dfs, ignore_index=True)

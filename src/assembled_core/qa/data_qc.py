@@ -270,9 +270,23 @@ def _check_missing_sessions(
 
     try:
         from src.assembled_core.data.calendar import trading_sessions
-    except ImportError:
+    except ImportError as exc:
+        # Previously this path silently returned ``issues`` unchanged, so the
+        # QC report recorded no defect even though the missing-sessions check
+        # had been fully skipped. Downstream gates reading ``qc_passed``
+        # could not tell the difference between "no missing sessions" and
+        # "check never ran". Surface the skip as a WARN-level issue so the
+        # blind spot is visible to operators and candidate-gates.
         logger.warning(
             "exchange_calendars not installed - skipping missing_sessions check"
+        )
+        issues.append(
+            QcIssue(
+                check="missing_sessions",
+                severity="WARN",
+                message="missing_sessions check skipped: exchange_calendars not installed",
+                details={"reason": "import_error", "error": str(exc)},
+            )
         )
         return issues
 
@@ -288,6 +302,14 @@ def _check_missing_sessions(
         expected_sessions = trading_sessions(min_date, max_date)
     except Exception as e:
         logger.warning(f"Failed to get trading sessions: {e}")
+        issues.append(
+            QcIssue(
+                check="missing_sessions",
+                severity="WARN",
+                message=f"missing_sessions check skipped: trading_sessions raised ({type(e).__name__})",
+                details={"reason": "calendar_error", "error": str(e)},
+            )
+        )
         return issues
 
     if expected_sessions.empty:

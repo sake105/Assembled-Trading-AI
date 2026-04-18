@@ -162,13 +162,23 @@ def write_reconcile_report_csv(
         def _sort_key_func(row: pd.Series) -> tuple[int, float, str]:
             if row["type"] == "cash":
                 return (0, 0.0, "")  # Cash first
-            diff_abs = abs(row["diff"]) if pd.notna(row["diff"]) else 0.0
+            # NaN ``diff`` signals an undefined reconciliation state — e.g.
+            # broker snapshot missing the symbol or ledger value NaN. Previously
+            # NaN rows were sorted with ``diff_abs=0.0``, which pushed them to
+            # the bottom of the "worst breaks" report alongside perfectly
+            # matched positions. A reviewer scanning the top rows would miss
+            # the undefined ones entirely. Use ``-inf`` as the sort key so NaN
+            # rows bubble to the top of the position block, right after cash.
+            if pd.isna(row["diff"]):
+                diff_abs_key = -float("inf")
+            else:
+                diff_abs_key = -abs(row["diff"])
             symbol_str = str(row["symbol"]) if pd.notna(row["symbol"]) else ""
             return (
                 1,
-                -diff_abs,
+                diff_abs_key,
                 symbol_str,
-            )  # Position rows: by abs(diff) desc, then symbol asc
+            )  # Position rows: NaN diffs first, then by abs(diff) desc, symbol asc
 
         report_df["_sort_key"] = report_df.apply(_sort_key_func, axis=1)
         report_df = report_df.sort_values("_sort_key", kind="mergesort").reset_index(
