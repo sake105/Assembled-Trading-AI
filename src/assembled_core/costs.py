@@ -18,9 +18,12 @@ tests).
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -99,15 +102,35 @@ def _load_tier_config() -> dict[str, Any]:
 
     try:
         import yaml  # type: ignore
+    except ImportError:
+        logger.warning(
+            "[costs] PyYAML not installed — using hard-coded fallback tiers "
+            "(all symbols priced at mid_cap defaults)."
+        )
+        _TIER_CACHE = _FALLBACK_TIERS
+        return _TIER_CACHE
 
-        if _TIER_YAML_PATH.exists():
+    if _TIER_YAML_PATH.exists():
+        try:
             data = yaml.safe_load(_TIER_YAML_PATH.read_text(encoding="utf-8")) or {}
-            if isinstance(data, dict) and data.get("tiers"):
-                _TIER_CACHE = data
-                return _TIER_CACHE
-    except Exception:
-        # yaml missing or file malformed — fall back silently.
-        pass
+        except Exception as exc:
+            # A malformed cost-tiers YAML used to silently degrade to the
+            # hard-coded mid_cap defaults — masking a config bug that would
+            # mis-price every symbol. Warn loudly so ops can see the fallback.
+            logger.warning(
+                "[costs] cost_tiers.yaml parse failed (%s) — using fallback tiers; "
+                "costs will NOT reflect per-tier calibration.",
+                exc,
+            )
+            data = {}
+        if isinstance(data, dict) and data.get("tiers"):
+            _TIER_CACHE = data
+            return _TIER_CACHE
+        if data:
+            logger.warning(
+                "[costs] cost_tiers.yaml exists but has no 'tiers' key — "
+                "using fallback tiers."
+            )
 
     _TIER_CACHE = _FALLBACK_TIERS
     return _TIER_CACHE

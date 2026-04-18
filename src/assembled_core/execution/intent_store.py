@@ -233,7 +233,12 @@ def make_order_key(
         16-char hex idempotency key.
     """
     if nonce is None:
-        nonce = datetime.now(timezone.utc).isoformat()
+        # Same-microsecond submits (e.g. parallel workers, fast retries) used
+        # to collide on the ISO timestamp alone and produce duplicate
+        # idempotency keys — defeating the whole point. Append random bytes
+        # so collision probability is negligible regardless of clock
+        # resolution.
+        nonce = f"{datetime.now(timezone.utc).isoformat()}::{os.urandom(8).hex()}"
     return _sha256_prefix(f"ORDER::{symbol}::{side}::{qty}::{nonce}")
 
 

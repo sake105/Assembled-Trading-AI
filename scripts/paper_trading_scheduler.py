@@ -80,9 +80,28 @@ def _already_ran_today(dt: datetime) -> bool:
 
 
 def _mark_today_done(dt: datetime) -> None:
-    """Mark today as completed."""
+    """Mark today as completed (atomic tmp+replace).
+
+    Non-atomic write could produce an empty/truncated file on crash, which
+    would cause ``_already_ran_today`` to return False and re-trigger a
+    duplicate trading cycle — exactly the failure mode the marker exists to
+    prevent.
+    """
+    import os as _os
+
     LAST_RUN_PATH.parent.mkdir(parents=True, exist_ok=True)
-    LAST_RUN_PATH.write_text(dt.strftime("%Y-%m-%d"), encoding="utf-8")
+    tmp = LAST_RUN_PATH.with_suffix(LAST_RUN_PATH.suffix + ".tmp")
+    try:
+        tmp.write_text(dt.strftime("%Y-%m-%d"), encoding="utf-8")
+        _os.replace(tmp, LAST_RUN_PATH)
+    except Exception as exc:
+        logger.error("[Scheduler] last_run_date write failed: %s", exc)
+        try:
+            if tmp.exists():
+                tmp.unlink()
+        except Exception:
+            pass
+        raise
 
 
 def _write_heartbeat(status: str = "alive") -> None:

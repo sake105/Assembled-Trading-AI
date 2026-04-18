@@ -16,22 +16,29 @@ def load_policy(
 ) -> Dict[str, Any]:
     """Load policy configuration from YAML file.
 
-    Returns an empty dict if the file is missing or invalid.
+    Returns an empty dict only if the file is missing. Malformed YAML or a
+    non-mapping top-level document are treated as hard errors — collapsing
+    them to ``{}`` used to silently drop every policy-gated safeguard
+    (kill-switch halt thresholds, reconciliation gates, exposure caps),
+    which is a dangerous "all defaults" failure mode in this repo.
 
     Args:
         path:     Path to policy YAML file (default: configs/policy.yaml).
         validate: If True, run soft schema validation and log warnings (default: True).
+
+    Raises:
+        yaml.YAMLError: If the file exists but is not parseable YAML.
+        ValueError:     If the top-level YAML document is not a mapping.
     """
     p = Path(path)
     if not p.exists():
         return {}
-    try:
-        with p.open("r", encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
-    except Exception:
-        return {}
+    with p.open("r", encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
     if not isinstance(data, dict):
-        return {}
+        raise ValueError(
+            f"policy file {p} top-level must be a YAML mapping, got {type(data).__name__}"
+        )
 
     if validate:
         try:
