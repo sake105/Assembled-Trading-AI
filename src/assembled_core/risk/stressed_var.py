@@ -252,8 +252,13 @@ def compute_stressed_var(
         normal_var = compute_parametric_var(weights, normal_cov, confidence, 1, portfolio_value)
         stressed_var = compute_parametric_var(weights, stressed_cov, confidence, 1, portfolio_value)
     except ImportError:
-        # No scipy — use z=2.326 for 99%
-        z = 2.326 if confidence >= 0.99 else 1.645
+        # No scipy — use the local z-table (resolves the requested confidence
+        # level exactly for common alphas and interpolates otherwise). The
+        # prior binary fallback (2.326 for ≥0.99, else 1.645) silently
+        # upgraded a 0.975 request to 95% precision.
+        from src.assembled_core.risk.var_methods import _z_from_alpha
+
+        z = _z_from_alpha(confidence)
         normal_vol = np.sqrt(float(weights @ normal_cov @ weights))
         stressed_vol = np.sqrt(float(weights @ stressed_cov @ weights))
         normal_var = round(z * normal_vol * portfolio_value, 2)

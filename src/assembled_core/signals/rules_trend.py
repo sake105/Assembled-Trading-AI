@@ -472,9 +472,16 @@ def compute_multi_timeframe_signal(
         all_bullish, 1.0,
         np.where(all_bearish, -1.0, 0.0),
     )
-    # Normalized score: map sum of trends (-3..+3) to (0..1)
-    trend_sum = dt.fillna(0.0) + wt.fillna(0.0) + mt.fillna(0.0)
-    daily["mtf_score"] = ((trend_sum + 3.0) / 6.0).clip(0.0, 1.0)
+    # Normalized score: map sum of trends (-3..+3) to (0..1).
+    # Only defined when all three timeframes report — fillna(0.0) on a
+    # missing weekly/monthly value would silently lift an early-series
+    # daily-only observation from "no data" to "0.67 bullish-ish",
+    # producing phantom multi-timeframe agreement.
+    complete = dt.notna() & wt.notna() & mt.notna()
+    trend_sum = dt + wt + mt
+    daily["mtf_score"] = np.where(
+        complete, ((trend_sum + 3.0) / 6.0).clip(0.0, 1.0), np.nan
+    )
 
     # --- output columns ----------------------------------------------------
     out_cols = [

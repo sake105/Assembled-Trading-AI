@@ -142,9 +142,14 @@ def _optimize_cvxpy(
     objective = cp.Maximize(obj_expr)
 
     # Constraints
+    # Gross-exposure cap uses L1 norm (sum of absolute weights), not the
+    # signed sum. With long_only the two are equal, but for long/short
+    # portfolios cp.sum(w) is *net* exposure and completely fails to bound
+    # leverage — a $1 long + $1 short would show cp.sum(w)=0 while true
+    # gross is 2. norm1 is the institutional definition.
     constraints = [
         w <= config.max_weight,
-        cp.sum(w) <= config.max_gross_exposure,
+        cp.norm1(w) <= config.max_gross_exposure,
     ]
 
     if config.long_only:

@@ -220,6 +220,7 @@ class BlackLittermanOptimizer:
         constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1.0}]
         bounds = [(self.min_position, self.max_position)] * n
 
+        fallback_reason: str | None = None
         try:
             result = minimize(
                 neg_sharpe,
@@ -234,13 +235,23 @@ class BlackLittermanOptimizer:
                 w_opt = np.maximum(result.x, 0.0)
                 w_opt /= w_opt.sum() if w_opt.sum() > 1e-8 else 1.0
             else:
-                logger.warning("[BL] Optimization did not converge: %s", result.message)
+                fallback_reason = f"non_convergence:{result.message}"
+                logger.warning("[BL] Optimization did not converge: %s — returning equal weights (flagged)", result.message)
                 w_opt = w0
         except Exception as exc:
-            logger.warning("[BL] Optimization error: %s — returning equal weights", exc)
+            fallback_reason = f"exception:{exc}"
+            logger.warning("[BL] Optimization error: %s — returning equal weights (flagged)", exc)
             w_opt = w0
 
-        weights = pd.Series(w_opt, index=symbols, name="bl_weights")
+        name = "bl_weights_equal_fallback" if fallback_reason else "bl_weights"
+        weights = pd.Series(w_opt, index=symbols, name=name)
+        if fallback_reason is not None:
+            # Tag the diagnostic on .attrs so downstream callers can gate on it
+            # instead of treating an equal-weight fallback as an optimised result.
+            weights.attrs["bl_converged"] = False
+            weights.attrs["bl_fallback_reason"] = fallback_reason
+        else:
+            weights.attrs["bl_converged"] = True
         logger.info(
             "[BL] Optimized weights: top 3 = %s",
             weights.nlargest(3).to_dict(),
