@@ -566,7 +566,18 @@ def _vov_penalty(latest: pd.DataFrame) -> pd.Series:
 
 def _compute_breadth_score(df: pd.DataFrame) -> float:
     """Market breadth: what fraction of stocks are above their MA."""
-    latest = df.sort_values("timestamp").groupby("symbol", group_keys=False).tail(1)
+    # Callers may pass a per-bar slice without a timestamp column (e.g. the
+    # regime detector in check_exit_signals). Treat missing timestamp as
+    # "already latest", and missing symbol as "single symbol" so the sort
+    # is a no-op rather than a KeyError.
+    if "symbol" not in df.columns:
+        return 0.0
+    if "timestamp" in df.columns:
+        latest = df.sort_values("timestamp").groupby(
+            "symbol", group_keys=False
+        ).tail(1)
+    else:
+        latest = df.groupby("symbol", group_keys=False).tail(1)
     close = pd.to_numeric(latest.get("close", pd.Series(dtype=float)), errors="coerce")
 
     # Use MA50 if available, otherwise compute from close

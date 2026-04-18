@@ -789,15 +789,31 @@ def _apply_meta_model_filter(
     if missing:
         raise ValueError(f"meta_model: missing columns: {missing}")
 
-    X = signals[feature_cols].fillna(0.0).to_numpy()
-    proba = model.predict_proba(X)
-    if proba.ndim != 2 or proba.shape[1] < 2:
-        raise ValueError(f"meta_model: unexpected shape {proba.shape}")
-    confidence = proba[:, 1]
+    # Guard against silent feature poisoning: fillna(0.0) treats a data-feed
+    # gap as a real standardized value, drifting confidence without warning.
+    # Predict only on rows with complete features; rows with any NaN feature
+    # get meta_confidence=NaN and are filtered by the min_conf gate below.
+    feat_frame = signals[feature_cols]
+    complete_mask = feat_frame.notna().all(axis=1).to_numpy()
+    n_nan_rows = int((~complete_mask).sum())
+    if n_nan_rows > 0:
+        logger.warning(
+            "[multifactor_v2.meta_model] %d/%d rows skipped due to NaN features",
+            n_nan_rows,
+            len(signals),
+        )
+
+    confidence = np.full(len(signals), np.nan, dtype=float)
+    if complete_mask.any():
+        X = feat_frame.loc[complete_mask].to_numpy()
+        proba = model.predict_proba(X)
+        if proba.ndim != 2 or proba.shape[1] < 2:
+            raise ValueError(f"meta_model: unexpected shape {proba.shape}")
+        confidence[complete_mask] = proba[:, 1]
 
     out = signals.copy()
     out["meta_confidence"] = confidence
-    out = out.loc[confidence >= min_conf].copy()
+    out = out.loc[np.nan_to_num(confidence, nan=-1.0) >= min_conf].copy()
     if out.empty:
         return out
     if "score" in out.columns:
@@ -831,7 +847,15 @@ _TP_ATR_MULT = {"bull": 4.0, "sideways": 3.0, "bear": 2.0, "crisis": 1.5}
 
 def _compute_atr(df: pd.DataFrame, symbol: str, window: int = 14) -> float:
     """Compute Average True Range for a symbol."""
-    sym_df = df[df["symbol"] == symbol].sort_values("timestamp") if "symbol" in df.columns else df.sort_values("timestamp")
+    # Callers may pass frames without a timestamp column (e.g. already
+    # latest-per-symbol snapshots). Skip the sort when timestamp is absent
+    # so the function never raises KeyError on legitimate inputs.
+    if "symbol" in df.columns:
+        sym_df = df[df["symbol"] == symbol]
+    else:
+        sym_df = df
+    if "timestamp" in sym_df.columns:
+        sym_df = sym_df.sort_values("timestamp")
     if len(sym_df) < window + 1:
         return 0.0
 

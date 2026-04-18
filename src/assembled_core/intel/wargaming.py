@@ -39,6 +39,18 @@ def find_nash_2x2(
     actions_a = ["action_0", "action_1"]
     actions_b = ["action_0", "action_1"]
 
+    # NaN payoffs produce False on every `>=` comparison, silently skipping
+    # the pure-NE branch and then divide into NaN denominators below —
+    # emitting garbage with no warning. Refuse the input up front.
+    if not (np.isfinite(payoff_a).all() and np.isfinite(payoff_b).all()):
+        logger.warning("[wargaming] non-finite payoff matrix — returning degenerate")
+        return WargameResult(
+            actor_actions={"A": "action_0", "B": "action_0"},
+            equilibrium_type="degenerate",
+            confidence=0.0,
+            payoff_summary={"A": 0.0, "B": 0.0},
+        )
+
     # Check for pure strategy Nash equilibria
     pure_ne = []
     for i in range(2):
@@ -66,10 +78,17 @@ def find_nash_2x2(
     denom_b = (payoff_b[0, 0] - payoff_b[0, 1]) - (payoff_b[1, 0] - payoff_b[1, 1])
 
     if abs(denom_a) < 1e-10 or abs(denom_b) < 1e-10:
+        # Degenerate denominators mean no interior mixed NE — NOT a dominant
+        # strategy. Previous code mislabeled this as "dominant" with
+        # confidence=0.5, which is misleading for downstream gating.
+        logger.warning(
+            "[wargaming] degenerate denominators (a=%.3g, b=%.3g)",
+            denom_a, denom_b,
+        )
         return WargameResult(
             actor_actions={"A": "action_0", "B": "action_0"},
-            equilibrium_type="dominant",
-            confidence=0.5,
+            equilibrium_type="degenerate",
+            confidence=0.0,
             payoff_summary={"A": float(payoff_a[0, 0]), "B": float(payoff_b[0, 0])},
         )
 

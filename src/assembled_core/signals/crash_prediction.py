@@ -268,7 +268,12 @@ class CrashPredictionEngine:
         for key, val in mapping.items():
             if key in label:
                 return val
-        return 0.20
+        # Unknown/typo'd regime label used to silently contribute 0.20
+        # (a non-neutral "mild crash" reading) to the aggregate crash
+        # probability. Log and return 0.0 so a misconfigured regime does
+        # not artificially lift crash_probability.
+        logger.warning("[CrashPrediction] unknown regime label: %r", label)
+        return 0.0
 
     def _hmm_signal(self, market_data: pd.DataFrame | None, regime: Any) -> float:
         """HMM-derived crisis state probability."""

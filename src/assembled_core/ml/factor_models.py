@@ -935,8 +935,24 @@ def train_stacked_ensemble(
     if not pred_cols or "y_true" not in merged.columns:
         return {"base_results": base_results, "stacked_predictions": merged}
 
-    X_meta = merged[pred_cols].fillna(0.0).values
-    y_meta = merged["y_true"].fillna(0.0).values
+    # A missing forward-return label is not a neutral zero; fillna(0.0) on
+    # y_true biases the meta-learner toward predicting zero and silently
+    # contaminates the reported ensemble IC. Drop rows where any feature or
+    # the label is missing, and log how many rows were dropped.
+    n_before = len(merged)
+    fit_rows = merged.dropna(subset=pred_cols + ["y_true"])
+    n_dropped = n_before - len(fit_rows)
+    if n_dropped > 0:
+        logger.warning(
+            "[StackingEnsemble] dropped %d/%d rows with NaN features or labels",
+            n_dropped,
+            n_before,
+        )
+    if fit_rows.empty:
+        return {"base_results": base_results, "stacked_predictions": merged}
+
+    X_meta = fit_rows[pred_cols].values
+    y_meta = fit_rows["y_true"].values
 
     if meta_model_type == "ridge":
         from sklearn.linear_model import Ridge as _Ridge
@@ -946,7 +962,14 @@ def train_stacked_ensemble(
         meta = _LR()
 
     meta.fit(X_meta, y_meta)
-    merged["y_pred_ensemble"] = meta.predict(X_meta)
+    # Predict only on rows with complete features; leave others as NaN so
+    # downstream ranking treats them as "no prediction", not "zero".
+    predict_mask = merged[pred_cols].notna().all(axis=1)
+    merged["y_pred_ensemble"] = np.nan
+    if predict_mask.any():
+        merged.loc[predict_mask, "y_pred_ensemble"] = meta.predict(
+            merged.loc[predict_mask, pred_cols].values
+        )
 
     # Compute ensemble IC
     try:

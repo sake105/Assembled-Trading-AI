@@ -120,7 +120,7 @@ class TestWargaming:
         payoff_a = np.array([[3, 0], [5, 1]])
         payoff_b = np.array([[3, 5], [0, 1]])
         result = find_nash_2x2(payoff_a, payoff_b)
-        assert result.equilibrium_type in ("pure", "mixed", "dominant")
+        assert result.equilibrium_type in ("pure", "mixed", "dominant", "degenerate")
         assert result.confidence > 0
 
 
@@ -146,11 +146,16 @@ class TestRegimePortfolio:
 
 class TestSmartOrderRouter:
     def test_route_order(self):
-        from src.assembled_core.execution.smart_order_router import route_order
+        from src.assembled_core.execution.smart_order_router import (
+            RoutingResult,
+            route_order,
+        )
 
         result = route_order(100000, signal_urgency=0.9, seed=42)
-        assert "venue" in result
-        assert result["venue"] in ("primary", "dark_pool", "ats")
+        assert isinstance(result, RoutingResult)
+        assert result.allocations, "expected at least one venue allocation"
+        assert result.total_expected_cost_bps >= 0
+        assert result.total_expected_fill_pct > 0
 
 
 class TestSystemicRisk:
