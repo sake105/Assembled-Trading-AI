@@ -436,6 +436,15 @@ def get_regime_status(
 
         # Look for most recent regime state file
         out_path = _Path(output_dir)
+        if not out_path.exists():
+            # The output dir missing is not the same failure as "no regime
+            # data yet" — collapsing both to status=unavailable makes
+            # dashboards pin regime=unknown as steady state instead of
+            # alerting on a broken pipeline path.
+            raise HTTPException(
+                status_code=503,
+                detail=f"output_dir {out_path} does not exist — regime pipeline has not run",
+            )
         regime_files = sorted(out_path.glob("regime_state_*.json"), reverse=True)
         if regime_files:
             data = _json.loads(regime_files[0].read_text())
@@ -446,13 +455,15 @@ def get_regime_status(
                 "source_file": regime_files[0].name,
             }
 
-        # Try to load from risk module directly
-        try:
-            return {"status": "unavailable", "regime": "unknown", "message": "no regime data on disk"}
-        except ImportError as exc:
-            logger.warning("[Monitoring] regime module import failed: %s", exc)
-
-        return {"status": "unavailable", "regime": "unknown"}
+        # Output dir exists but no regime_state_* file — pipeline never ran
+        # or the retention policy cleaned old files. Surface as "stale" so
+        # callers can distinguish cold-start from I/O failure above.
+        return {
+            "status": "stale",
+            "regime": "unknown",
+            "message": "no regime_state_*.json files in output_dir",
+            "last_run": None,
+        }
     except Exception as exc:
         logger.error("Error fetching regime status: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc))

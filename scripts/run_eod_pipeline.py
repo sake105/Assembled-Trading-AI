@@ -266,9 +266,14 @@ def run_eod_from_args(args: argparse.Namespace) -> dict:
         logger.info(f"QA Report: {manifest['qa_report_path']}")
 
     if manifest.get("failure"):
-        logger.error("Some pipeline steps failed")
-        # Don't raise here - return manifest so caller can handle it
-        # raise RuntimeError("Pipeline steps failed")
+        # Previously this path only logged and returned the manifest; ``main()``
+        # relied on ``manifest['failure']`` being set correctly to exit non-zero.
+        # A step that swallowed its exception and forgot to flip the flag would
+        # produce a green EOD cron with silently broken accounting. Raising
+        # here makes the failure visible to every caller (CLI, CI, imports).
+        failed_steps = manifest.get("failed_steps") or manifest.get("failure_reason") or "unknown"
+        logger.error("Some pipeline steps failed: %s", failed_steps)
+        raise RuntimeError(f"EOD pipeline failed: {failed_steps}")
 
     return manifest
 

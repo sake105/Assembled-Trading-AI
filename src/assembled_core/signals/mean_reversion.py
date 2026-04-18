@@ -70,8 +70,16 @@ def compute_mean_reversion_signals(
             continue
 
         # RSI signal
+        # A NaN RSI (e.g. all-flat price series, where compute_rsi divides
+        # gain/loss by zero loss and propagates NaN) used to be silently
+        # imputed to 50.0 — a fabricated "neutral" that still enters the
+        # composite as weighted zero and pollutes portfolio aggregates when
+        # many symbols flatline. Abstain instead so the caller sees the
+        # symbol contribute nothing rather than a fake mid-reading.
         rsi = compute_rsi(close, rsi_period)
-        latest_rsi = float(rsi.iloc[-1]) if not rsi.empty and pd.notna(rsi.iloc[-1]) else 50.0
+        if rsi.empty or pd.isna(rsi.iloc[-1]):
+            continue
+        latest_rsi = float(rsi.iloc[-1])
 
         rsi_sig = 0.0
         if latest_rsi < rsi_long:

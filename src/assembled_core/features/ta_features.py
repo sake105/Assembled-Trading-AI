@@ -568,10 +568,15 @@ def add_obv(
     volume = result[volume_col].astype("float64")
 
     # Direction: +1 if up, -1 if down, 0 if unchanged
+    # First bar of each symbol has NaN prev_close; treating that as "unchanged"
+    # (direction=0) anchors OBV at 0 during warmup and silently bridges over
+    # internal price gaps (corp actions, missing bars). Keep NaN so the cumsum
+    # stays undefined until the symbol actually has a valid prior close, then
+    # fill warmup positions to 0 at output time.
     prev_close = close.groupby(result["symbol"]).shift(1)
-    direction = np.sign(close - prev_close).fillna(0)
+    direction = np.sign(close - prev_close)
 
-    signed_volume = direction * volume
+    signed_volume = (direction * volume).where(direction.notna(), np.nan)
 
     obv = signed_volume.groupby(result["symbol"]).cumsum()
 
