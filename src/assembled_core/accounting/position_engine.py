@@ -125,11 +125,24 @@ def build_positions_from_ledger(
         # Replace empty strings with None
         events_normalized["symbol"] = events_normalized["symbol"].replace("", None)
 
-    # Ensure cash_delta has no NaNs (fill with 0.0)
+    # A NaN cash_delta on a FILL event produced by an upstream schema drift
+    # or a corrupted parquet round-trip used to be silently coerced to 0.0 —
+    # the position leg updated but the cash leg evaporated, creating an
+    # untraceable reconciliation break. Refuse to silently zero; surface
+    # the ids so the operator can chase the source.
     if "cash_delta" in events_normalized.columns:
-        events_normalized["cash_delta"] = (
-            events_normalized["cash_delta"].fillna(0.0).astype(float)
-        )
+        nan_mask = events_normalized["cash_delta"].isna()
+        if bool(nan_mask.any()):
+            bad_ids = (
+                events_normalized.loc[nan_mask, "event_id"].astype(str).head(5).tolist()
+                if "event_id" in events_normalized.columns
+                else []
+            )
+            raise ValueError(
+                f"[POSITION] {int(nan_mask.sum())} event(s) have NaN cash_delta; "
+                f"refusing to silently zero. first event_ids={bad_ids}"
+            )
+        events_normalized["cash_delta"] = events_normalized["cash_delta"].astype(float)
 
     # Deterministic sort: event_ts, event_type, symbol, event_id
     events_normalized = events_normalized.sort_values(
@@ -437,12 +450,19 @@ def adjust_for_stock_split(
     Returns:
         Updated positions dict.
     """
+    if split_ratio <= 0:
+        # A 4:1 forward split has ratio 4.0; a 1:4 reverse has ratio 0.25.
+        # Zero/negative would silently multiply qty to 0 or flip its sign
+        # without any audit trail — always caller error.
+        raise ValueError(
+            f"split_ratio must be positive, got {split_ratio} for {symbol}"
+        )
+
     if symbol not in positions:
         return positions
 
     pos = positions[symbol]
     old_qty = pos["qty"]
-    _old_cost_basis = pos["cost_basis"]  # noqa: F841
 
     # qty × ratio, cost stays same (per-share cost / ratio)
     pos["qty"] = old_qty * split_ratio

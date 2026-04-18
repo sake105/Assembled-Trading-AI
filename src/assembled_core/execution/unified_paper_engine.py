@@ -776,8 +776,29 @@ class UnifiedPaperEngine:
                     self._state = json.load(fh)
                 logger.debug("[PAPER] State loaded from %s", state_path)
             except Exception as exc:
-                logger.error("[PAPER] Failed to load state from %s: %s", state_path, exc)
-                self._state = self._default_state()
+                # A corrupted state.json (power loss before fsync, partial
+                # write, tampered file) must NEVER silently revert to a
+                # fresh $10k seed — the very next _save_state would then
+                # overwrite the recoverable corrupt file with the default,
+                # permanently destroying the prior position book. Rename
+                # the bad file for forensic recovery and refuse to boot.
+                corrupt_suffix = datetime.now(timezone.utc).strftime(
+                    ".corrupt.%Y%m%dT%H%M%S"
+                )
+                corrupt_path = state_path.with_name(state_path.name + corrupt_suffix)
+                try:
+                    state_path.rename(corrupt_path)
+                except Exception:
+                    corrupt_path = state_path
+                logger.critical(
+                    "[PAPER] state load failed: %s — preserved at %s; refusing to boot",
+                    exc,
+                    corrupt_path,
+                )
+                raise RuntimeError(
+                    f"paper state unreadable: preserved at {corrupt_path}; "
+                    f"investigate before restart"
+                ) from exc
         else:
             self._state = self._default_state()
 

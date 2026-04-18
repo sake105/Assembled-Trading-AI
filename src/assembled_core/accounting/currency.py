@@ -42,8 +42,14 @@ class FXConverter:
         """
         rate = self.rates.get(currency.upper(), None)
         if rate is None:
-            logger.warning("[FX] Unknown currency %s, assuming 1:1 with USD", currency)
-            return amount
+            # Silently assuming 1:1 on a typo (e.g. "GBp" pence vs "GBP", "EU"
+            # vs "EUR") mis-states cross-currency exposure by 10-100×. The
+            # operator must explicitly register the currency before it can
+            # price through — fail closed.
+            raise ValueError(
+                f"[FX] Unknown currency {currency!r}; add an explicit rate "
+                f"to FXConverter.rates before calling to_usd()"
+            )
         return amount * rate
 
     def convert_positions_to_usd(
