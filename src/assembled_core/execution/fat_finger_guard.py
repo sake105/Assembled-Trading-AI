@@ -65,8 +65,19 @@ def apply_fat_finger_guard(
     if orders is None or orders.empty:
         return orders.copy() if orders is not None else pd.DataFrame(), []
 
-    if qty_col not in orders.columns or price_col not in orders.columns:
-        return orders.copy(), []
+    # Missing required columns used to silently return the orders unchanged
+    # with an empty reasons list — indistinguishable from "passed all checks".
+    # A refactor renaming ``price`` → ``limit_price`` (or an upstream stage
+    # dropping the column) would then disable the only notional fat-finger cap
+    # without any trace. Raise so the caller — which always wraps this call in
+    # a try/except at the paper-engine layer — logs a loud ERROR and the
+    # operator sees a schema drift instead of invisibly unbounded notional.
+    missing = [c for c in (qty_col, price_col) if c not in orders.columns]
+    if missing:
+        raise ValueError(
+            f"apply_fat_finger_guard: required column(s) {missing} missing "
+            f"from orders; available columns: {sorted(orders.columns)}"
+        )
 
     reasons: list[str] = []
     keep_mask = pd.Series(True, index=orders.index)

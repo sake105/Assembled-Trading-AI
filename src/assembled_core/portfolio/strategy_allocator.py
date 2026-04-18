@@ -120,6 +120,10 @@ class StrategyAllocator:
         """
         per_strategy: dict[str, pd.DataFrame] = {}
         active_weights: dict[str, float] = {}
+        # Fail-closed: track strategies that raised so downstream reporting /
+        # health checks can see silent degradation instead of it being buried
+        # in a log line that nobody reads.
+        failed_strategies: list[dict[str, str]] = []
 
         # Select weights based on method
         if self._config.method == "regime_conditional" and self._config.regime_weights:
@@ -146,6 +150,11 @@ class StrategyAllocator:
                 logger.warning(
                     "[Allocator] %s failed: %s", name, exc,
                 )
+                failed_strategies.append({
+                    "strategy": name,
+                    "error_type": type(exc).__name__,
+                    "error": str(exc),
+                })
 
         # Check minimum strategies
         if len(per_strategy) < self._config.min_strategies_required:
@@ -160,7 +169,11 @@ class StrategyAllocator:
                 ),
                 per_strategy_signals=per_strategy,
                 strategy_contributions=active_weights,
-                metadata={"error": "insufficient_strategies"},
+                metadata={
+                    "error": "insufficient_strategies",
+                    "failed_strategies": failed_strategies,
+                    "n_failed": len(failed_strategies),
+                },
             )
 
         # Normalize weights for active strategies
@@ -184,6 +197,8 @@ class StrategyAllocator:
                 "regime": regime,
                 "n_strategies_active": len(per_strategy),
                 "n_strategies_total": len(self._strategies),
+                "failed_strategies": failed_strategies,
+                "n_failed": len(failed_strategies),
             },
         )
 

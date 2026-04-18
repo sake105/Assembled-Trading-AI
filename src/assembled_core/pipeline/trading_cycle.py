@@ -2462,6 +2462,8 @@ def _run_trading_cycle_inner(
                 except Exception as e:
                     log.warning("Black-Litterman sizing failed, using default: %s", e)
                     result.target_positions = ctx.position_sizing_fn(result.signals, ctx.capital)
+                    result.meta["sizing_fallback"] = True
+                    result.meta["sizing_fallback_reason"] = str(e)
             elif sizing_method == "cost_aware":
                 # [RISK-WIRE] Cost-aware optimizer (turnover-penalized MVO)
                 try:
@@ -2609,6 +2611,8 @@ def _run_trading_cycle_inner(
                 except Exception as e:
                     log.warning("[RISK-WIRE] erc sizing failed, using default: %s", e)
                     result.target_positions = ctx.position_sizing_fn(result.signals, ctx.capital)
+                    result.meta["sizing_fallback"] = True
+                    result.meta["sizing_fallback_reason"] = str(e)
             elif sizing_method == "bl_blend":
                 # [RISK-WIRE] Black-Litterman score-blend wrapper (apply_bl_sizing).
                 # Distinct from existing "black_litterman" branch — this uses the
@@ -2666,6 +2670,8 @@ def _run_trading_cycle_inner(
                 except Exception as e:
                     log.warning("[RISK-WIRE] bl_blend sizing failed, using default: %s", e)
                     result.target_positions = ctx.position_sizing_fn(result.signals, ctx.capital)
+                    result.meta["sizing_fallback"] = True
+                    result.meta["sizing_fallback_reason"] = str(e)
             elif sizing_method == "hrp":
                 # [RISK-WIRE] Hierarchical Risk Parity blend on score-based sizing.
                 try:
@@ -2718,6 +2724,8 @@ def _run_trading_cycle_inner(
                 except Exception as e:
                     log.warning("[RISK-WIRE] hrp sizing failed, using default: %s", e)
                     result.target_positions = ctx.position_sizing_fn(result.signals, ctx.capital)
+                    result.meta["sizing_fallback"] = True
+                    result.meta["sizing_fallback_reason"] = str(e)
             elif sizing_method == "mvo":
                 # [RISK-WIRE] Markowitz MVO with cardinality constraint.
                 try:
@@ -2803,12 +2811,21 @@ def _run_trading_cycle_inner(
                 except Exception as e:
                     log.warning("[RISK-WIRE] mvo sizing failed, using default: %s", e)
                     result.target_positions = ctx.position_sizing_fn(result.signals, ctx.capital)
+                    result.meta["sizing_fallback"] = True
+                    result.meta["sizing_fallback_reason"] = str(e)
             else:
                 # Default: call position_sizing_fn (equal weight or score-based)
                 result.target_positions = ctx.position_sizing_fn(
                     result.signals, ctx.capital
                 )
-            result.meta["sizing_method"] = sizing_method
+            # Attribution truthfulness: if any sizing branch fell through to the default
+            # position_sizing_fn, label the method truthfully so downstream reports
+            # (tca/attribution) don't claim black_litterman/hrp/mvo when equal-weight ran.
+            if result.meta.get("sizing_fallback"):
+                result.meta["sizing_method_requested"] = sizing_method
+                result.meta["sizing_method"] = "default_fallback"
+            else:
+                result.meta["sizing_method"] = sizing_method
 
         # D2: Barra factor risk model — post-sizing vol check
         try:
@@ -3906,7 +3923,12 @@ def _run_trading_cycle_inner(
             # Block all orders for this cycle when breach is detected.
             result.orders_filtered = result.orders_filtered.iloc[0:0].copy()
     except Exception as e:
-        log.debug("var_gate skipped: %s", e)
+        # A risk-path gate silently skipping at DEBUG level is invisible at
+        # default log verbosity. Emit WARNING and stamp ``result.meta`` so the
+        # manifest / QA consumer can tell "gate ran clean" apart from "gate
+        # crashed and orders passed unfiltered".
+        log.warning("[RISK-WIRE] var_gate evaluation raised — gate no-op: %s", e)
+        result.meta["var_gate"] = {"status": "error", "error": str(e)}
 
     # Step 6.4: Sprint 1 / C7 — Auto-Drawdown Kill-Switch trigger
     try:
@@ -3933,7 +3955,11 @@ def _run_trading_cycle_inner(
             if dd_decision["level"] == "kill":
                 result.orders_filtered = result.orders_filtered.iloc[0:0].copy()
     except Exception as e:
-        log.debug("auto_dd_kill_switch skipped: %s", e)
+        log.warning(
+            "[RISK-WIRE] auto_dd_kill_switch evaluation raised — gate no-op: %s",
+            e,
+        )
+        result.meta["auto_dd_kill_switch"] = {"status": "error", "error": str(e)}
 
     # Step 6.45: Tier-1 — intraday circuit breaker (default OFF).
     try:
@@ -3948,7 +3974,10 @@ def _run_trading_cycle_inner(
             )
             result.orders_filtered = result.orders_filtered.iloc[0:0].copy()
     except Exception as e:
-        log.debug("circuit_breaker skipped: %s", e)
+        log.warning(
+            "[RISK-WIRE] circuit_breaker evaluation raised — gate no-op: %s", e
+        )
+        result.meta["circuit_breaker"] = {"status": "error", "error": str(e)}
 
     # Step 6.5: D12 — Scenario engine stress tests (post-orders, optional)
     try:
