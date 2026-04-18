@@ -1,0 +1,67 @@
+name: fail-drill
+
+# P1 A13 — Weekly synthetic alert-drill (Deep Run v2, 2026-04-18).
+#
+# Exercises the scheduler-health alert path end-to-end on a synthetic stale
+# heartbeat. Without this cron, a silent break in the Discord notification
+# channel (revoked webhook, archived channel, rotated token) would only be
+# discovered the next time a real outage fires — which is the exact scenario
+# this drill is meant to prevent.
+#
+# Drill semantics:
+#   exit 0 → drill PASSED: detector fired on synthetic stale heartbeat
+#   exit 1 → drill FAILED: detector did NOT fire → monitoring pipeline is broken
+#   exit 2 → drill could not run (environmental problem)
+#
+# See scripts/run_alert_drill.py for the runner and `docs/tech_debt/` for any
+# related follow-ups.
+
+on:
+  schedule:
+    # Weekly: Tuesday 14:00 UTC. Deliberately offset from the signal-decay
+    # slot (Sunday 02:45 UTC) so the two cron workflows cannot overlap or
+    # mask each other's failures.
+    - cron: "0 14 * * 2"
+  workflow_dispatch:
+    inputs:
+      stale_minutes:
+        description: "How stale the synthetic heartbeat should be"
+        required: false
+        default: "120"
+
+concurrency:
+  group: fail-drill
+  cancel-in-progress: false
+
+jobs:
+  run-drill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install minimal dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pandas
+
+      - name: Run synthetic alert-drill
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          python scripts/run_alert_drill.py \
+            --stale-minutes "${{ github.event.inputs.stale_minutes || '120' }}"
+
+      - name: Upload drill receipt
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: alert-drill-${{ github.run_id }}
+          path: output/ops/alert_drill_*.json
+          if-no-files-found: warn
+          retention-days: 90

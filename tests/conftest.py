@@ -8,6 +8,41 @@ import pytest
 from src.assembled_core.portfolio.position_sizing import compute_target_positions
 
 
+# ---------------------------------------------------------------------------
+# P0 A9 (Deep Run v2, 2026-04-18) — marker consolidation.
+#
+# Eight legacy phase-markers are aliased onto the four canonical markers
+# (fast / integration / regression / smoke) so old selections like
+# `-m phase12` keep working while the CI can already target `-m fast`.
+# Sunset schedule: docs/tech_debt/markers_migration.md (2026-07-01).
+# ---------------------------------------------------------------------------
+
+_LEGACY_MARKER_ALIASES: dict[str, str] = {
+    "phase4": "fast",
+    "phase6": "fast",
+    "phase7": "fast",
+    "phase8": "fast",
+    "phase9": "fast",
+    "phase10": "fast",
+    "phase11": "fast",
+    "phase12": "fast",
+    "phase13": "fast",
+    "phase_zero": "regression",
+    "phase_speed": "regression",
+    "phase_realism": "regression",
+    "phase_depth": "regression",
+}
+
+
+def pytest_collection_modifyitems(config, items) -> None:  # pragma: no cover - wiring
+    for item in items:
+        legacy_markers = [m.name for m in item.iter_markers() if m.name in _LEGACY_MARKER_ALIASES]
+        for legacy in legacy_markers:
+            canonical = _LEGACY_MARKER_ALIASES[legacy]
+            if canonical not in {m.name for m in item.iter_markers()}:
+                item.add_marker(canonical)
+
+
 @pytest.fixture
 def golden_mini_backtest_data():
     """Golden mini backtest fixture: 2-3 symbols, 5-10 days, deterministic signals.
