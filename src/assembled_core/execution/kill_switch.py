@@ -32,6 +32,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -315,7 +316,11 @@ def guard_orders_with_kill_switch(orders: pd.DataFrame) -> pd.DataFrame:
     )
     result = orders.copy()
     if "qty" in result.columns:
-        result["qty"] = result["qty"] * throttle
-        # Drop orders that became negligible
-        result = result[result["qty"].abs() >= 1e-10].copy()
+        # Throttle must preserve whole-share semantics: a fractional qty
+        # downstream is either silently rounded (bias) or rejected by the
+        # broker (order loss). Floor toward zero with sign preserved, then
+        # drop orders that floored to zero.
+        scaled = result["qty"].astype(float) * throttle
+        result["qty"] = np.sign(scaled) * np.floor(np.abs(scaled))
+        result = result[result["qty"].abs() >= 1].copy()
     return result

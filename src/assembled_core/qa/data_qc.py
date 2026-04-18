@@ -443,8 +443,12 @@ def _check_outlier_returns(
     if "close" not in prices.columns or "symbol" not in prices.columns:
         return issues
 
-    warn_threshold = thresholds.get("outlier_return_warn", 0.20)
-    fail_threshold = thresholds.get("outlier_return_fail", 0.30)
+    warn_threshold = thresholds.get(
+        "outlier_return_warn", DEFAULT_THRESHOLDS["outlier_return_warn"]
+    )
+    fail_threshold = thresholds.get(
+        "outlier_return_fail", DEFAULT_THRESHOLDS["outlier_return_fail"]
+    )
 
     # Check each symbol
     for symbol in prices["symbol"].unique():

@@ -1367,7 +1367,14 @@ def run_portfolio_backtest(
             )
         except Exception as e:
             logger.warning(f"Ledger integration failed: {e}", exc_info=True)
-            ledger_result = None
+            # Distinguish "ledger not attempted" (None) from "attempted but
+            # failed". A silent None after an exception has masked
+            # reconciliation gaps in prior incidents — keep the failure
+            # explicit so downstream meta consumers (QA, gating) see it.
+            ledger_result = {
+                "reconciliation_ok": False,
+                "ledger_error": str(e),
+            }
 
     # Step 7: Build result
     # Combine signals if collected from cycle_fn
@@ -1391,6 +1398,10 @@ def run_portfolio_backtest(
         meta_dict["reconcile_report_path"] = ledger_result.get("reconcile_report_path")
         meta_dict["reconciliation_ok"] = ledger_result.get("reconciliation_ok")
         meta_dict["broker_snapshot_path"] = ledger_result.get("broker_snapshot_path")
+        # Surface ledger failures so downstream gates can see them instead of
+        # misreading a missing key as "ledger not attempted".
+        if ledger_result.get("ledger_error"):
+            meta_dict["ledger_error"] = ledger_result.get("ledger_error")
         # Evidence pack fields (if written)
         meta_dict["evidence_index_path"] = ledger_result.get("evidence_index_path")
         meta_dict["evidence_pack_path"] = ledger_result.get("evidence_pack_path")

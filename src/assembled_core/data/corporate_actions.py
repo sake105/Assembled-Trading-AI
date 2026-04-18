@@ -6,13 +6,17 @@ import pandas as pd
 
 
 def load_corporate_actions(path: str | None = None) -> pd.DataFrame:
-    """Load corporate actions from CSV. Returns empty DataFrame if missing."""
+    """Load corporate actions from CSV.
+
+    Contract:
+    - ``path is None`` → return empty frame (explicit "no source configured").
+    - ``path`` provided but file missing → raise ``FileNotFoundError``.
+      Silently returning an empty frame for an explicit path has masked
+      missing corporate-actions files in prior incidents (D3 risk class).
+    """
     if path is None:
         return pd.DataFrame(columns=["symbol", "date", "action_type", "factor"])
-    try:
-        return pd.read_csv(path)
-    except FileNotFoundError:
-        return pd.DataFrame(columns=["symbol", "date", "action_type", "factor"])
+    return pd.read_csv(path)
 
 
 def apply_splits_for_research_prices(
