@@ -78,7 +78,7 @@ jobs:
       - name: Alpaca preflight (broker health_check)
         env:
           ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
-          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          ALPACA_API_SECRET: ${{ secrets.ALPACA_API_SECRET }}
           ALPACA_BASE_URL: https://paper-api.alpaca.markets
         run: |
           python - <<'PY'
@@ -95,7 +95,7 @@ jobs:
       - name: Run paper cycle
         env:
           ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
-          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          ALPACA_API_SECRET: ${{ secrets.ALPACA_API_SECRET }}
           ALPACA_BASE_URL: https://paper-api.alpaca.markets
         run: python scripts/run_live_paper.py once
 
@@ -103,7 +103,7 @@ jobs:
         if: always()
         env:
           ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
-          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          ALPACA_API_SECRET: ${{ secrets.ALPACA_API_SECRET }}
           ALPACA_BASE_URL: https://paper-api.alpaca.markets
         run: python scripts/snapshot_alpaca_balance.py || echo "snapshot failed (non-fatal)"
 
