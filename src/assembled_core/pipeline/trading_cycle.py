@@ -3599,6 +3599,39 @@ def _run_trading_cycle_inner(
     else:
         log.info("REBALANCE TRIGGERED: %s", rebal_reason)
 
+    # T4.1: Crisis-Alpha v1 shadow wiring (policy-gated, default off)
+    # Inserted after signal generation + rebalance decision, before order generation.
+    # shadow_only=True (default) means result is logged only — no order impact.
+    if (policy or {}).get("intel", {}).get("crisis_alpha", {}).get("enabled", False):
+        try:
+            from src.assembled_core.events.crisis_alpha.pipeline import (
+                run_crisis_alpha_pipeline,
+            )
+            from src.assembled_core.events.crisis_alpha.context import CrisisAlphaContext
+
+            # Build a neutral CrisisAlphaContext from available trading-cycle data.
+            # TradingContext and CrisisAlphaContext are separate types; we use
+            # CrisisAlphaContext.empty() so the pipeline has a valid input contract.
+            # Callers that want richer geo/stress inputs should provide a pre-built
+            # CrisisAlphaContext via ctx.meta["crisis_alpha_ctx"].
+            _ca_ctx = ctx.meta.get("crisis_alpha_ctx") if hasattr(ctx, "meta") else None
+            if _ca_ctx is None:
+                _as_of_dt = pd.to_datetime(ctx.as_of, utc=True).to_pydatetime() if getattr(ctx, "as_of", None) is not None else None
+                _ca_ctx = CrisisAlphaContext.empty(timestamp_utc=_as_of_dt)
+
+            ca_result = run_crisis_alpha_pipeline(_ca_ctx, policy=policy, dry_run=True)
+            shadow_only = (policy or {}).get("intel", {}).get("crisis_alpha", {}).get("shadow_only", True)
+            if shadow_only:
+                logger.info("[SHADOW-T4.1] crisis_alpha result: %s", ca_result)
+            else:
+                # Step 3 (not yet implemented): use result to influence orders
+                logger.info(
+                    "[T4.1] crisis_alpha result wired to orders (shadow_only=false): %s",
+                    ca_result,
+                )
+        except Exception as exc:
+            logger.warning("[WARN] T4.1 crisis_alpha_pipeline failed: %s", exc)
+
     # Step 5: Generate orders (hook point: generate_orders)
     try:
         if not do_rebal:
