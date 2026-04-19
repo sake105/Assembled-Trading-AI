@@ -26,6 +26,7 @@ Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
@@ -46,6 +47,93 @@ if TYPE_CHECKING:
     from src.assembled_core.qa.qa_gates import QAGatesSummary
 
 logger = setup_logging(level="INFO")
+
+# ---------------------------------------------------------------------------
+# Crisis-Alpha PAUSE Kill-Switch (T4.3)
+# ---------------------------------------------------------------------------
+
+_CRISIS_ALPHA_PASS_STATES = {"NORMAL", "WATCH", "ACTIVE", "COOLDOWN"}
+_CRISIS_ALPHA_BLOCK_STATE = "PAUSE"
+
+
+def check_crisis_alpha_kill_switch(ctx: Any) -> tuple[bool, str]:
+    """Return (allowed, reason) for the crisis-alpha PAUSE kill-switch.
+
+    Reads the current crisis-alpha state from *ctx* using three fallbacks:
+
+    1. ``ctx.crisis_alpha_state`` — direct attribute (string or CrisisStateRecord).
+    2. ``ctx.meta.get("crisis_alpha_state")`` — generic metadata dict.
+    3. File at ``output/ops/crisis_alpha_state.json`` (default state-file path).
+
+    Blocking rule:
+    - Returns ``(False, "BLOCKED: crisis_alpha state=PAUSE")`` only when state is
+      exactly "PAUSE".
+    - Returns ``(True, "OK")`` for NORMAL / WATCH / ACTIVE / COOLDOWN.
+    - Returns ``(True, "OK — no crisis state available")`` when state cannot be
+      read (fail-open — crisis_alpha is shadow-only by default).
+
+    Args:
+        ctx: Any object carrying trading context.  The function duck-types the
+             access — a missing attribute is caught, not raised.
+
+    Returns:
+        ``(True, reason)`` when orders are allowed, ``(False, reason)`` when
+        the PAUSE kill-switch is active.
+    """
+    state: str | None = None
+
+    # Fallback 1: direct attribute
+    raw = getattr(ctx, "crisis_alpha_state", None)
+    if raw is not None:
+        # Accept CrisisStateRecord (has .state) or plain string
+        if hasattr(raw, "state"):
+            state = str(raw.state)
+        else:
+            state = str(raw)
+
+    # Fallback 2: metadata dict
+    if state is None:
+        meta = getattr(ctx, "meta", None)
+        if isinstance(meta, dict):
+            val = meta.get("crisis_alpha_state")
+            if val is not None:
+                state = str(val)
+
+    # Fallback 3: default state file
+    if state is None:
+        _state_file = Path("output") / "ops" / "crisis_alpha_state.json"
+        policy_path: str | None = None
+        # Try to get path from ctx.policy if available
+        policy = getattr(ctx, "policy", None)
+        if isinstance(policy, dict):
+            try:
+                policy_path = (
+                    policy.get("intel", {})
+                    .get("crisis_alpha", {})
+                    .get("state_path")
+                )
+            except Exception:
+                pass
+        resolved_path = Path(policy_path) if policy_path else _state_file
+        if resolved_path.exists():
+            try:
+                import json
+                data = json.loads(resolved_path.read_text(encoding="utf-8"))
+                state = str(data.get("state", ""))
+            except Exception as exc:
+                logger.warning(
+                    "[crisis_alpha] Could not read state file %s: %s", resolved_path, exc
+                )
+
+    if state is None or state == "":
+        return True, "OK — no crisis state available"
+
+    state_upper = state.upper()
+    if state_upper == _CRISIS_ALPHA_BLOCK_STATE:
+        logger.warning("[WARN] crisis_alpha PAUSE — blocking order")
+        return False, "BLOCKED: crisis_alpha state=PAUSE"
+
+    return True, "OK"
 
 
 @dataclass
@@ -82,6 +170,8 @@ def filter_orders_with_risk_controls(
     current_equity: float | None = None,
     peak_equity: float | None = None,
     security_meta_df: pd.DataFrame | None = None,
+    policy: dict[str, Any] | None = None,
+    crisis_alpha_ctx: Any | None = None,
 ) -> tuple[pd.DataFrame, RiskControlResult]:
     """Apply all risk controls to orders and return filtered orders.
 
@@ -123,6 +213,36 @@ def filter_orders_with_risk_controls(
     filtered_orders = orders.copy()
     pre_trade_result: PreTradeCheckResult | None = None
     kill_switch_engaged = False
+
+    # Step -1: Crisis-Alpha PAUSE kill-switch (T4.3)
+    # Gated under policy.intel.crisis_alpha.enabled — skip entirely if disabled.
+    _crisis_alpha_enabled = False
+    if policy is not None:
+        try:
+            _crisis_alpha_enabled = bool(
+                policy.get("intel", {})
+                .get("crisis_alpha", {})
+                .get("enabled", False)
+            )
+        except Exception:
+            _crisis_alpha_enabled = False
+
+    if not _crisis_alpha_enabled:
+        logger.debug("[SKIP] crisis_alpha kill_switch disabled")
+    elif crisis_alpha_ctx is not None:
+        _ca_allowed, _ca_reason = check_crisis_alpha_kill_switch(crisis_alpha_ctx)
+        if not _ca_allowed:
+            # PAUSE state — block all orders immediately, do not proceed further.
+            logger.warning("[WARN] crisis_alpha PAUSE — blocking order")
+            empty_orders = pd.DataFrame(columns=list(orders.columns))
+            result = RiskControlResult(
+                filtered_orders=empty_orders,
+                pre_trade_result=None,
+                kill_switch_engaged=True,
+                total_orders_before=total_orders_before,
+                total_orders_after=0,
+            )
+            return empty_orders, result
 
     # Step 0: Graduated drawdown exposure caps (from risk state machine)
     # Applies BEFORE pre-trade checks so all downstream logic sees reduced orders.
