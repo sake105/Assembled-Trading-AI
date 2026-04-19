@@ -84,7 +84,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install numpy pandas scipy
+          pip install -r requirements.txt
 
       - name: Run walk-forward gate
         run: python scripts/release_gate_walk_forward.py --verbose --enforce

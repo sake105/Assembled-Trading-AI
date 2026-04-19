@@ -14,6 +14,8 @@ on:
 jobs:
   runall:
     runs-on: windows-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,7 +43,7 @@ jobs:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
           .\.venv\Scripts\Activate.ps1
-          pwsh -File .\scripts\run_all_sprint10.ps1 -Freq 5min -StartCapital 10000 -Exposure 1 -MaxLeverage 1 -CommissionBps 0.5 -SpreadW 1 -ImpactW 1 -Seed -Rehydrate -Features -Cost -Backtest -CostGrid -Portfolio -Sync
+          pwsh -File .\scripts\run_all_sprint10.ps1 -Freq 5min -StartCapital 10000 -CommissionBps 0.5 -SpreadW 1 -ImpactW 1
 
       - name: Commit summary & outputs
         if: always()
