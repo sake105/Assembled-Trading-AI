@@ -27,7 +27,7 @@ import argparse
 import json
 import logging
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -201,7 +201,7 @@ class FeedbackLoopController:
         -------
         FeedbackResult with full status of this check.
         """
-        now_str = datetime.utcnow().isoformat()
+        now_str = datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         logger.info("%s Starting feedback check at %s", _PREFIX, now_str)
 
         # --- Load records -------------------------------------------------
@@ -1053,7 +1053,7 @@ class FeedbackLoopController:
                 "beta": model.beta.tolist(),
                 "P": model.P.tolist(),
                 "n_updates": model.n_updates,
-                "last_update": datetime.utcnow().isoformat(),
+                "last_update": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
                 "forgetting_factor": forgetting_factor,
             }
             self._save_state(state)

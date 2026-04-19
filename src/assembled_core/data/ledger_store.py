@@ -25,7 +25,7 @@ import json
 import logging
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Generator, Optional
 
@@ -200,7 +200,7 @@ class LedgerStore:
         quantity = float(fill["quantity"])
         price = float(fill["price"])
         commission = float(fill.get("commission", 0.0))
-        filled_at = fill.get("filled_at", datetime.utcnow().isoformat())
+        filled_at = fill.get("filled_at", datetime.now(timezone.utc).replace(tzinfo=None).isoformat())
         fill_id = fill.get("fill_id", f"{symbol}_{filled_at}")
         order_id = fill.get("order_id")
         strategy = fill.get("strategy")
@@ -296,7 +296,7 @@ class LedgerStore:
         Returns:
             Total portfolio equity (cash + positions value).
         """
-        as_of = as_of or datetime.utcnow().strftime("%Y-%m-%d")
+        as_of = as_of or datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
         if isinstance(prices, pd.DataFrame):
             price_map = dict(zip(prices[symbol_col], prices[close_col]))

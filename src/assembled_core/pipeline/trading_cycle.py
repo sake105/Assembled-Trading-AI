@@ -3684,7 +3684,7 @@ def _run_trading_cycle_inner(
         exec_cfg = (policy.get("execution", {}) or {}).get("algo", {}) or {}
         algo_mode = str(exec_cfg.get("mode", "market")).lower()
         if algo_mode.startswith("twap") and not result.orders.empty:
-            from datetime import datetime, timedelta
+            from datetime import datetime, timedelta, timezone
 
             from src.assembled_core.execution.algo_execution import TWAPScheduler
 
@@ -3692,7 +3692,7 @@ def _run_trading_cycle_inner(
             window_minutes = int(exec_cfg.get("window_minutes", 60))
             scheduler = TWAPScheduler(n_slices=n_slices, randomize=True)
             sliced_orders = []
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
             for _, order in result.orders.iterrows():
                 slices = scheduler.schedule(
                     symbol=str(order.get("symbol", "")),
@@ -3994,7 +3994,7 @@ def _run_trading_cycle_inner(
             prices_for_scenario = result.prices_filtered if result.prices_filtered is not None else ctx.prices
             if prices_for_scenario is not None and not prices_for_scenario.empty:
                 crisis_type = scenario_cfg.get("crisis_type", "geopolitical_escalation")
-                shock_date = ctx.as_of.replace(tzinfo=None) if ctx.as_of else _dt.datetime.utcnow()
+                shock_date = ctx.as_of.replace(tzinfo=None) if ctx.as_of else _dt.datetime.now(_dt.timezone.utc).replace(tzinfo=None)
                 scenarios = run_crisis_scenarios(
                     prices=prices_for_scenario,
                     crisis_type=crisis_type,

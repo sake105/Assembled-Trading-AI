@@ -9,7 +9,12 @@ from __future__ import annotations
 import logging
 from collections import deque
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
+
+def _now_naive_utc() -> datetime:
+    """Naive-UTC datetime (preserves legacy behaviour of ``datetime.utcnow``)."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 from .escalation_model import ACTIVE_CONFLICTS, compute_market_impact_by_level
 
@@ -36,7 +41,7 @@ class ConflictTracker:
 
     conflict_id: str
     history: deque = field(default_factory=lambda: deque(maxlen=50))
-    last_updated: datetime = field(default_factory=datetime.utcnow)
+    last_updated: datetime = field(default_factory=_now_naive_utc)
 
     def record_event(self, event: EscalationEvent) -> None:
         self.history.append(event)
@@ -44,7 +49,7 @@ class ConflictTracker:
 
     def get_recent_delta(self, window_days: int = 7) -> float:
         """Return average level change per day over the window."""
-        now = datetime.utcnow()
+        now = _now_naive_utc()
         cutoff = now - timedelta(days=window_days)
         recent = [e for e in self.history if e.timestamp >= cutoff]
         if len(recent) < 2:
@@ -117,13 +122,14 @@ def update_conflict_level(
         new_level = max(0, min(10, current_level + effective_delta))
 
         if new_level != current_level:
+            _ts = _now_naive_utc()
             event = EscalationEvent(
-                event_id=f"{conflict_id}_{datetime.utcnow().timestamp():.0f}",
+                event_id=f"{conflict_id}_{_ts.timestamp():.0f}",
                 conflict_id=conflict_id,
                 trigger_type=trigger_type,
                 level_before=current_level,
                 level_after=new_level,
-                timestamp=datetime.utcnow(),
+                timestamp=_ts,
                 description=raw_event.get("description", ""),
                 source_tier=source_tier,
             )

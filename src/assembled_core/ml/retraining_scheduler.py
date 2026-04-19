@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -163,7 +163,7 @@ class RetrainingScheduler:
         All arguments are optional — missing data causes that signal to be skipped
         rather than raise an error.
         """
-        now_utc = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         details: list[RetainSignalDetail] = []
         notes: list[str] = []
 
