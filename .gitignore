@@ -8,8 +8,8 @@ __pycache__/
 /output/
 logs/
 
-# Archive & Legacy (nicht versionieren)
-archive/
+# Archive & Legacy
+# archive/ is now tracked — contains research code moved out of src/ (2026-04-19)
 legacy/
 backup/
 

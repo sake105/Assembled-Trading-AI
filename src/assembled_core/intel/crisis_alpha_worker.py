@@ -1,4 +1,11 @@
-"""Crisis Alpha Worker — state machine for crisis mode detection and risk posture."""
+"""Crisis Alpha Worker v0 — state machine for crisis mode detection and risk posture.
+
+DEPRECATED (2026-04-19, T3.6): This is the v0 implementation.
+Active v1 lives in `src/assembled_core/events/crisis_alpha/`.
+This module is kept only because `scripts/run_crisis_alpha_worker.py` imports it.
+New development should target `events/crisis_alpha/` (63 tests, pure functions).
+See `docs/crisis_alpha_scope.md` for scope and migration notes.
+"""
 
 from __future__ import annotations
 
