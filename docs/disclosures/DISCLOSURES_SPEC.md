@@ -68,3 +68,20 @@ All writes are atomic (tmp + rename).
 
 - **Fetch report**  
   Schema `disclosures.fetch_report.v1`: per-source stats (e.g. `source_id`, `ok`, `http_status`, `duration_ms`, `items`, `cached`). Totals and per_source array for operator inspection.
+
+
+## MNPI Policy (CLAUDE.md §7.3)
+
+Die Disclosures-Pipeline arbeitet ausschließlich mit **öffentlichen Pflichtmitteilungen**:
+
+- **SEC EDGAR Form 4:** Öffentliche Insider-Transaktionsmeldungen, T+2 Einreichungsfrist
+- **House PTR:** Öffentliche periodische Vermögensmitteilungen von Kongressmitgliedern
+
+**Zeitverzögerung ist Pflicht:**
+- Form 4-Daten dürfen im Backtest erst ab `filing_date + 2 Tage` genutzt werden (`ASSEMBLED_STRICT_PIT_CHECKS`)
+- Kein Look-Ahead auf Inhalte vor dem öffentlichen Einreichungszeitpunkt
+
+**Verbote:**
+- Keine Verarbeitung von Vorab-Informationen zu Transaktionen
+- Keine Auswertung von nicht-öffentlichen SEC-Einreichungsentwürfen
+- MNPI-Nutzung würde SEC Rule 10b-5 verletzen

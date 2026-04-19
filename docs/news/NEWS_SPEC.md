@@ -171,3 +171,20 @@ Bei Schema-Inkompatibilitäten:
 - Security/Secrets (API-Keys, OAuth, `.env`-Handling) sind **bewusst deferred** und in `KNOWN_ISSUES.md` dokumentiert.
 - NEWS v1 arbeitet ausschließlich mit Free/Unauthenticated Sources.
 
+
+
+## 8. MNPI Policy (CLAUDE.md §7.3)
+
+Diese Pipeline verarbeitet ausschließlich **öffentliche Informationen**:
+
+- GDELT: öffentliche Nachrichtenaggregation (keine privilegierten Quellen)
+- RSS-Feeds: öffentlich zugängliche Artikelfeeds
+- Keine Broker-Research, keine Earn-Calls-Inhalte vor Veröffentlichung
+- Keine Government-Insider-Signale
+
+**Verbote:**
+- Keine Signale aus material non-public information (MNPI)
+- Keine Verarbeitung von Inhalten, die nur durch privilegierten Zugang verfügbar sind
+- Misinfo-Score > 0.70 blockiert Grade-A-Vergabe (`evidence_engine.misinfo_risk_threshold`)
+
+Bei Zweifeln: konservativ verwerfen, nicht verarbeiten.

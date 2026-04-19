@@ -49,7 +49,8 @@ def load_news_triggers(path: str | Path) -> NewsTriggerSnapshot:
         return empty
     if data.get("schema_version") != REQUIRED_SCHEMA:
         return empty
-    items = data.get("items")
+    # Accept both "triggers" (artifact schema) and legacy "items" key
+    items = data.get("triggers") or data.get("items")
     if not isinstance(items, list):
         return empty
 
