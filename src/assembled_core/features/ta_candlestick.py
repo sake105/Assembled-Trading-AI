@@ -275,7 +275,7 @@ def build_candlestick_features(
         for col_fn, col_name in _PATTERN_FUNCTIONS:
             result[col_name] = (
                 result.groupby(symbol_col, group_keys=False)
-                .apply(lambda g: col_fn(g))
+                .apply(lambda g: col_fn(g), include_groups=False)
                 .reset_index(level=0, drop=True)
             )
     else:

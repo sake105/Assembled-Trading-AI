@@ -11,7 +11,7 @@ Covers:
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -32,7 +32,7 @@ def test_twap_scheduler_produces_correct_count() -> None:
     from src.assembled_core.execution.algo_execution import TWAPScheduler
 
     scheduler = TWAPScheduler(n_slices=5, randomize=False)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     slices = scheduler.schedule(
         symbol="AAPL",
         total_qty=500.0,
@@ -50,7 +50,7 @@ def test_twap_scheduler_quantity_sums_to_total() -> None:
     from src.assembled_core.execution.algo_execution import TWAPScheduler
 
     scheduler = TWAPScheduler(n_slices=10, randomize=True)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     slices = scheduler.schedule(
         symbol="MSFT",
         total_qty=1000.0,
@@ -67,7 +67,7 @@ def test_twap_scheduler_to_dict() -> None:
     from src.assembled_core.execution.algo_execution import TWAPScheduler
 
     scheduler = TWAPScheduler(n_slices=3, randomize=False)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     slices = scheduler.schedule(
         symbol="GOOGL",
         total_qty=300.0,
@@ -87,7 +87,7 @@ def test_twap_scheduler_rejects_zero_qty() -> None:
     from src.assembled_core.execution.algo_execution import TWAPScheduler
 
     scheduler = TWAPScheduler(n_slices=5)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     with pytest.raises(ValueError, match="positive"):
         scheduler.schedule("AAPL", 0.0, "BUY", now, now + timedelta(hours=1))
 
@@ -101,7 +101,7 @@ def test_vwap_scheduler_fallback_to_equal() -> None:
     from src.assembled_core.execution.algo_execution import VWAPScheduler
 
     scheduler = VWAPScheduler(n_slices=4)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     slices = scheduler.schedule(
         symbol="AAPL",
         total_qty=400.0,
