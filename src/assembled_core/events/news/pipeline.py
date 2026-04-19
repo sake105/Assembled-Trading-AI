@@ -201,8 +201,8 @@ def run_news_pipeline(
         window_days = int(dedupe_cfg.get("window_days", 14) or 14)
         try:
             dedupe_store.prune(window_days=window_days, now_utc=fetched_utc)
-        except Exception:
-            # Defensive: dedupe failure must not break pipeline
+        except Exception as exc:
+            logger.warning("[WARN] dedupe_store prune failed: %s", exc)
             dedupe_store = None
 
     raw_items, failures, per_source_stats = _collect_raw_items(
@@ -395,7 +395,8 @@ def run_news_pipeline(
                 now_utc=fetched_utc,
                 baseline_dir=baseline_dir,
             )
-        except Exception:
+        except Exception as exc:
+            logger.warning("[WARN] update_baseline failed: %s", exc)
             baseline_meta = {"version_hash": "", "days_covered": 0}
 
     # Burst detection (all cadences; baseline optional)
@@ -413,7 +414,8 @@ def run_news_pipeline(
                 baseline_latest_path.read_text(encoding="utf-8")
             )
             baseline_loaded = isinstance(baseline_latest, dict)
-        except Exception:
+        except Exception as exc:
+            logger.warning("[WARN] baseline_latest load failed: %s", exc)
             baseline_latest = None
             baseline_loaded = False
 
@@ -481,7 +483,8 @@ def run_news_pipeline(
                     source_id=ev.source_id,
                     ingested_utc=fetched_utc,
                 )
-            except Exception:
+            except Exception as exc:
+                logger.warning("[WARN] dedupe_store.add_event failed: %s", exc)
                 continue
 
     health: NewsHealth = compute_health(
