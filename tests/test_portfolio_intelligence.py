@@ -60,7 +60,7 @@ class TestRiskBudgeting:
         from src.assembled_core.portfolio.risk_budgeting import compute_erc_weights
         cov = _make_cov(4)
         result = compute_erc_weights(cov)
-        rc_vals = list(result.risk_contributions.values())
+        rc_vals = list(result.risk_contributions.values())  # noqa: F841
         # All risk contributions should be approximately equal
         assert result.max_rc_deviation < 0.05
 

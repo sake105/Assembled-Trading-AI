@@ -18,12 +18,11 @@ import logging
 from dataclasses import dataclass
 
 import numpy as np
-import pandas as pd
 
 logger = logging.getLogger(__name__)
 
 try:
-    from sklearn.calibration import CalibratedClassifierCV  # type: ignore
+    from sklearn.calibration import CalibratedClassifierCV  # type: ignore  # noqa: F401
     from sklearn.isotonic import IsotonicRegression  # type: ignore
     SKLEARN_AVAILABLE = True
 except ImportError:

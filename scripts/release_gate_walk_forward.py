@@ -24,7 +24,6 @@ import argparse
 import json
 import logging
 import sys
-from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -38,7 +37,6 @@ if str(ROOT) not in sys.path:
 
 from src.assembled_core.qa.deflated_sharpe import deflated_sharpe  # noqa: E402
 from src.assembled_core.qa.walk_forward import (  # noqa: E402
-    WalkForwardConfig,
     make_walk_forward_splits,
     run_walk_forward,
 )

@@ -23,7 +23,7 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 try:
-    import gym
+    import gym  # noqa: F401
     GYM_AVAILABLE = True
 except ImportError:
     GYM_AVAILABLE = False

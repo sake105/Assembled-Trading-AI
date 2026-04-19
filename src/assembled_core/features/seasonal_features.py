@@ -59,7 +59,7 @@ def _is_pre_holiday(dates: pd.DatetimeIndex) -> np.ndarray:
         # Day before holiday
         pre_holiday_dates = holidays - pd.Timedelta(days=1)
         # Adjust for weekends
-        pre_holiday_bdays = pd.bdate_range(start=dates.min(), end=dates.max())
+        pre_holiday_bdays = pd.bdate_range(start=dates.min(), end=dates.max())  # noqa: F841
         result = np.isin(dates.normalize(), pre_holiday_dates.normalize()).astype(float)
     except Exception:
         result = np.zeros(len(dates))

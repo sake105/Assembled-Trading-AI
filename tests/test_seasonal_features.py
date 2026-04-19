@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-import numpy as np
 import pandas as pd
 
 from src.assembled_core.features.seasonal_features import (

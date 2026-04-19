@@ -27,7 +27,6 @@ from src.assembled_core.ml.factor_models import (
     MLModelConfig,
     _create_model,
     prepare_ml_dataset,
-    _split_time_series,
     SKLEARN_AVAILABLE,
 )
 

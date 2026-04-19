@@ -179,7 +179,7 @@ def adjust_sizing_for_regime(
     Returns:
         Adjusted target weights (closer to current if costs high).
     """
-    cfg = regime_cost_config or RegimeCostConfig()
+    cfg = regime_cost_config or RegimeCostConfig()  # noqa: F841
 
     # Regime-specific turnover limits
     turnover_limits = {

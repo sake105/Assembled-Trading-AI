@@ -70,8 +70,8 @@ def test_no_concat_mutates_aggregator_inside_for_loop() -> None:
     visitor = ConcatInLoopVisitor()
     visitor.visit(tree)
     assert not visitor.offenders, (
-        f"B3 regression: pd.concat found mutating an all_* aggregator inside a "
-        f"for-loop. Convert to list-append + terminal concat:\n"
+        "B3 regression: pd.concat found mutating an all_* aggregator inside a "
+        "for-loop. Convert to list-append + terminal concat:\n"
         + "\n".join(f"  line {ln}: {src}" for ln, src in visitor.offenders)
     )
 

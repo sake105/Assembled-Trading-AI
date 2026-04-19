@@ -18,7 +18,7 @@ References:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -33,7 +33,7 @@ except ImportError:
     minimize = None  # type: ignore
 
 try:
-    import cvxpy as cp
+    import cvxpy as cp  # noqa: F401
     CVXPY_AVAILABLE = True
 except ImportError:
     CVXPY_AVAILABLE = False

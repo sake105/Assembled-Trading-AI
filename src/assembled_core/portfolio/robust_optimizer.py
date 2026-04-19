@@ -21,7 +21,7 @@ References:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -286,9 +286,9 @@ def _robust_fallback(
     risk_aversion: float,
 ) -> RobustOptResult:
     """Analytical fallback: shrink returns then use inverse-vol weights."""
-    n = len(symbols)
+    n = len(symbols)  # noqa: F841
     # Shrink returns by uncertainty
-    mu_shrunk = mu * max(0.0, 1.0 - epsilon / (np.linalg.norm(mu) + 1e-10))
+    mu_shrunk = mu * max(0.0, 1.0 - epsilon / (np.linalg.norm(mu) + 1e-10))  # noqa: F841
 
     vols = np.sqrt(np.maximum(np.diag(cov), 1e-10))
     w = (1.0 / vols)

@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pandas as pd
 
 from src.assembled_core.accounting.reconciliation import (
     ReconcileSLO,

@@ -20,7 +20,7 @@ References:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -106,7 +106,7 @@ def garleanu_pedersen_target(
         MultiPeriodResult with adjusted target weights.
     """
     symbols = sorted(set(aim_weights) | set(current_weights))
-    n = len(symbols)
+    n = len(symbols)  # noqa: F841
 
     if trade_speed is None:
         trade_speed = compute_trade_speed(risk_aversion, transaction_cost, autocorrelation)

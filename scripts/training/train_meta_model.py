@@ -412,7 +412,7 @@ def run_cpcv_check(
     Returns dict with prob_positive_sharpe, deflated_sharpe, is_likely_overfit.
     """
     try:
-        from src.assembled_core.ml.cpcv import generate_cpcv_splits, compute_cpcv_sharpe_distribution
+        from src.assembled_core.ml.cpcv import generate_cpcv_splits, compute_cpcv_sharpe_distribution  # noqa: F401
     except ImportError:
         log.warning("CPCV module not importable -- skipping overfitting check")
         return {"prob_positive_sharpe": None, "deflated_sharpe": None, "is_likely_overfit": None}

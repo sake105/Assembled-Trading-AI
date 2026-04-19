@@ -26,7 +26,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -215,7 +214,7 @@ def write_markdown(report: dict[str, Any], path: Path) -> None:
         "",
         "## Interpretation",
         "",
-        f"- Plan v3 E1 expects Sharpe delta in **[-0.8, -0.3]**.",
+        "- Plan v3 E1 expects Sharpe delta in **[-0.8, -0.3]**.",
         f"- Observed OOS Sharpe delta: **{sharpe_delta:+.4f}**",
         f"- In expected range: **{report['sharpe_drop_in_expected_range']}**",
         "",

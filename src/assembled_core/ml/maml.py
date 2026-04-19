@@ -83,7 +83,6 @@ class MAMLPredictor:
         regime_data: dict[str, tuple[np.ndarray, np.ndarray]],
     ) -> MAMLResult:
         """Fallback: train separate ridge regression per regime."""
-        from numpy.linalg import lstsq
 
         total_loss = 0.0
         for regime, (X, y) in regime_data.items():

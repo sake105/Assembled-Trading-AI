@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from datetime import time as dt_time
 
 import numpy as np
-import pandas as pd
 
 logger = logging.getLogger(__name__)
 

@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import logging
 
-import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -110,7 +109,7 @@ def build_index_rebal_features(
             # Predicted demand (simplified: assume equal weight)
             n_constituents = 500 if "500" in str(index_name) else 2000
             est_weight = 1.0 / n_constituents
-            est_demand = est_weight * aum  # demand in dollars
+            est_demand = est_weight * aum  # demand in dollars  # noqa: F841
 
             rows.append({
                 symbol_col: sym,

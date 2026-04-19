@@ -8,9 +8,6 @@ Covers:
 
 from __future__ import annotations
 
-import json
-import tempfile
-from pathlib import Path
 
 import pytest
 import numpy as np
@@ -20,7 +17,7 @@ from src.assembled_core.compliance.audit_log import (
     AuditLog, AuditEntry, AuditEventType,
 )
 from src.assembled_core.compliance.otr_monitor import (
-    OTRMonitor, OTRAlertLevel, OTRSnapshot,
+    OTRMonitor, OTRSnapshot,
 )
 from src.assembled_core.compliance.regulatory_reports import (
     generate_best_execution_report,

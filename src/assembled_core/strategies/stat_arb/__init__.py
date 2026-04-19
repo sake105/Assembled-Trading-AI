@@ -6,7 +6,7 @@ Re-exports the primary API expected by existing tests and callers.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any  # noqa: F401
 
 import numpy as np
 import pandas as pd

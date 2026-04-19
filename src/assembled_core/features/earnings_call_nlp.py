@@ -137,7 +137,7 @@ def analyze_earnings_text(text: str) -> EarningsNLPResult:
     uncertainty = unc_count / total
 
     # Forward guidance tone
-    fwd_words = [w for w in words if w in FORWARD_LOOKING]
+    fwd_words = [w for w in words if w in FORWARD_LOOKING]  # noqa: F841
     fwd_context_pos = 0
     fwd_context_neg = 0
     for i, w in enumerate(words):

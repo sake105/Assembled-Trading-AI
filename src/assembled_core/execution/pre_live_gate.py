@@ -14,7 +14,7 @@ No strategy goes live without passing all 8 checks:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 

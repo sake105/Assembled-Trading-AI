@@ -17,7 +17,6 @@ import logging
 from dataclasses import dataclass
 
 import numpy as np
-import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +129,7 @@ def compute_collar(
     net_premium_annual_bps = net_premium * (252 / cfg.rebalance_days) * 10000
 
     # Max loss: down to put strike
-    max_loss = cfg.put_otm_pct * cfg.hedge_ratio + (1 - cfg.hedge_ratio)  # Unhedged portion unlimited
+    max_loss = cfg.put_otm_pct * cfg.hedge_ratio + (1 - cfg.hedge_ratio)  # Unhedged portion unlimited  # noqa: F841
     max_loss_pct = cfg.put_otm_pct  # With 100% hedge ratio
 
     # Upside cap: call strike
@@ -196,7 +195,7 @@ def compute_put_spread(
     net_premium_annual_bps = net_premium * (252 / rebalance_days) * 10000
 
     # Max protection: between near and far strikes
-    max_protection = far_otm_pct - near_otm_pct
+    max_protection = far_otm_pct - near_otm_pct  # noqa: F841
 
     logger.info(
         "[TailHedge] Put spread: buy %.0f%% / sell %.0f%% OTM, cost=%.1f bps/yr, "

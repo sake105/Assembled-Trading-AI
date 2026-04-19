@@ -181,7 +181,7 @@ def discover_formulas_brute_force(
     results: list[DiscoveredFormula] = []
 
     try:
-        from scipy.stats import spearmanr  # noqa: F811
+        from scipy.stats import spearmanr  # noqa: F401, F811
     except ImportError:
         logger.warning("[SymbolicReg] scipy not available, skipping")
         return SymbolicSearchResult([], None, 0, "brute_force")

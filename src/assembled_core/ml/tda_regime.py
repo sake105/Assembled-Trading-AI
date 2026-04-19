@@ -142,7 +142,7 @@ def _compute_fallback(point_cloud: np.ndarray) -> tuple[list, dict]:
         n_components.append(components)
 
     # H0 persistence: spread of component counts across thresholds
-    h0_persist = float(np.std(n_components))
+    h0_persist = float(np.std(n_components))  # noqa: F841
 
     # H1 proxy: ratio of short to long distances (loops create intermediate distances)
     median_dist = np.median(dists)

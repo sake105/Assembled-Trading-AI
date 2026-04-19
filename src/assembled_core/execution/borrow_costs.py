@@ -19,6 +19,7 @@ realistic without pulling in an external borrow-rate feed.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 
 

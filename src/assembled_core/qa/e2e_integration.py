@@ -218,7 +218,7 @@ def test_risk_gate_enforcement() -> E2ETestResult:
         # Simulate position that breaches max concentration
         weights = np.array([0.5, 0.3, 0.2])  # 50% in single stock
         max_single = 0.15
-        max_sector = 0.40
+        max_sector = 0.40  # noqa: F841
 
         # Apply concentration limit
         capped = np.clip(weights, -max_single, max_single)

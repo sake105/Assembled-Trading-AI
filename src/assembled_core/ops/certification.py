@@ -150,8 +150,8 @@ def check_imports_ok() -> CheckResult:
 def check_numpy_scipy() -> CheckResult:
     """Verify numpy and scipy available."""
     try:
-        import numpy as np
-        from scipy.optimize import minimize
+        import numpy as np  # noqa: F401
+        from scipy.optimize import minimize  # noqa: F401
         return CheckResult(name="numpy_scipy", passed=True, message="OK")
     except ImportError as e:
         return CheckResult(name="numpy_scipy", passed=False, message=str(e))

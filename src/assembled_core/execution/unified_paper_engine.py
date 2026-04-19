@@ -46,7 +46,6 @@ import json
 import logging
 import math
 import os
-import traceback
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -94,11 +93,6 @@ except Exception:  # pragma: no cover
     logger.warning("[PAPER] symbol_kill_switch unavailable — per-symbol halt disabled")
 
 try:
-    from src.assembled_core.execution.fill_model import (
-        PartialFillModel,
-        apply_cash_gate,
-        ensure_fill_schema,
-    )
     _HAS_FILL_MODEL = True
 except Exception:  # pragma: no cover
     _HAS_FILL_MODEL = False
@@ -106,7 +100,6 @@ except Exception:  # pragma: no cover
 
 try:
     from src.assembled_core.accounting.ledger import (
-        generate_ledger_events,
         store_ledger_events_parquet,
     )
     _HAS_LEDGER = True
@@ -127,7 +120,6 @@ except Exception:  # pragma: no cover
     logger.warning("[PAPER] reconciliation unavailable — reconciliation disabled")
 
 try:
-    from src.assembled_core.execution.order_generation import generate_orders_from_targets
     _HAS_ORDER_GEN = True
 except Exception:  # pragma: no cover
     _HAS_ORDER_GEN = False
@@ -185,7 +177,6 @@ except Exception:  # pragma: no cover
 
 try:
     from src.assembled_core.execution.fill_model import (
-        CircuitBreakerConfig,
         apply_adversarial_fill_adjustment,
         check_circuit_breaker,
         compute_adversarial_fill_cost,
@@ -208,7 +199,6 @@ except Exception:  # pragma: no cover
 try:
     from src.assembled_core.data.corporate_actions import (
         adjust_prices_for_splits,
-        compute_dividend_cashflows,
     )
     _HAS_CORP_ACTIONS = True
 except Exception:  # pragma: no cover
@@ -1220,7 +1210,7 @@ class UnifiedPaperEngine:
         # keeps ``running_cash`` accumulation strictly sequential so the cash
         # gate decision stays deterministic.
         cash = float(self._state.get("cash", self.config.seed_capital))
-        buy_mask = fills["side"].str.upper() == "BUY"
+        buy_mask = fills["side"].str.upper() == "BUY"  # noqa: F841
         running_cash = cash
         _side_list = fills["side"].astype(str).str.upper().tolist()
         _notional_list = fills["notional"].astype(float).tolist()
@@ -1336,7 +1326,7 @@ class UnifiedPaperEngine:
         if self.config.enable_fat_finger and _HAS_FAT_FINGER:
             try:
                 # Build history from current positions for dynamic cap
-                cost_basis = self._state.get("cost_basis", {})
+                cost_basis = self._state.get("cost_basis", {})  # noqa: F841
                 history_qty = {
                     sym: abs(float(qty))
                     for sym, qty in self._state.get("positions", {}).items()

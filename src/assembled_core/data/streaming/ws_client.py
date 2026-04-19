@@ -94,7 +94,7 @@ class WebSocketClient:
     async def connect(self) -> None:
         """Connect to WebSocket and start streaming."""
         try:
-            import websockets  # type: ignore[import]
+            import websockets  # type: ignore[import]  # noqa: F401
             self._has_websockets = True
         except ImportError:
             self._has_websockets = False

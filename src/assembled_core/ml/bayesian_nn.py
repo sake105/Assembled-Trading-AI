@@ -14,11 +14,9 @@ Requires: torch (optional). Falls back to sklearn MLPRegressor if unavailable.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
 import numpy as np
-import pandas as pd
 
 logger = logging.getLogger(__name__)
 

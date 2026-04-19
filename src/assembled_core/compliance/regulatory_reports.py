@@ -12,7 +12,7 @@ Output: structured dicts suitable for JSON/PDF rendering.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from typing import Any
 

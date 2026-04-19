@@ -17,7 +17,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from src.assembled_core.execution.unified_paper_engine import (
     UnifiedPaperConfig,
