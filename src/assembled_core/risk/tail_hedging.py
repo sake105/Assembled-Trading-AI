@@ -135,11 +135,15 @@ def compute_put_cost_estimate(
     Returns:
         Estimated put premium cost in dollars.
     """
-    from scipy.stats import norm  # type: ignore[import]
-
     notional = portfolio_value * hedge_ratio
     if notional <= 0 or current_vol <= 0:
         return 0.0
+
+    # Standard-normal CDF via erf — avoids scipy dependency so this function
+    # works in the base (non-ml) install profile.
+    import math
+    def _ncdf(x: float) -> float:
+        return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
 
     sqrt_t = np.sqrt(time_to_expiry_years)
     d1 = (np.log(1.0 / (1.0 - otm_pct)) + (current_vol**2 / 2) * time_to_expiry_years) / (
@@ -147,7 +151,7 @@ def compute_put_cost_estimate(
     )
     d2 = d1 - current_vol * sqrt_t
 
-    put_pct = (1.0 - otm_pct) * norm.cdf(-d2) - norm.cdf(-d1)
+    put_pct = (1.0 - otm_pct) * _ncdf(-d2) - _ncdf(-d1)
     cost = notional * max(put_pct, 0.001)  # minimum 10 bps
 
     return round(float(cost), 2)
