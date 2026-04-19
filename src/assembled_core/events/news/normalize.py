@@ -87,7 +87,10 @@ def _parse_published(published: str | None, fetched_utc: str) -> str:
         dt = date_parser.parse(published)
         if not dt.tzinfo:
             dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc).isoformat()
+        effective_iso = dt.astimezone(timezone.utc).isoformat()
+        # Clamp: backdated RSS must not produce a timestamp after fetched_utc.
+        # min() on ISO-8601 strings is lexicographically correct for UTC timestamps.
+        return min(effective_iso, fetched_utc)
     except Exception:
         return fetched_utc
 
