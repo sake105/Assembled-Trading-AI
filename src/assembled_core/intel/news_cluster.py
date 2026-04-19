@@ -77,7 +77,11 @@ class ClusterManager:
             trigger_type = classify_trigger_type(event)
             if trigger_type is None:
                 continue
-            bucket = _floor_to_hour(now)
+            # Use event.published_at for PIT-safe bucket assignment.
+            # In live mode published_at ≈ now; in replay/backtest this prevents
+            # all events in a batch from collapsing into a single "now" bucket.
+            event_ts = getattr(event, "published_at", None) or now
+            bucket = _floor_to_hour(event_ts)
             key = (trigger_type, bucket)
             groups.setdefault(key, []).append(event)
 
@@ -142,8 +146,29 @@ class ClusterManager:
                 current_max = evt.source_tier
         cluster.max_tier = current_max
 
+        # Legacy confidence formula (production path until T2.8 flip approved)
         max_boost = _TIER_BOOST.get(current_max, 0.0)
         cluster.confidence = min(1.0, total_events * 0.15 + max_boost)
+
+        # Shadow-Mode T2.8: compute Bayesian confidence in parallel and log diff.
+        # Does NOT affect cluster.confidence until flip is reviewed and approved.
+        try:
+            from src.assembled_core.intel.bayesian_confidence import (
+                compute_cluster_confidence,
+            )
+            bayesian_conf = compute_cluster_confidence(
+                total_events=total_events,
+                max_tier=current_max,
+                tier_boost_map=_TIER_BOOST,
+            )
+            delta = abs(bayesian_conf - cluster.confidence)
+            if delta > 0.01:
+                logger.debug(
+                    "[SHADOW-T2.8] cluster=%s legacy=%.3f bayesian=%.3f delta=%.3f",
+                    cluster.cluster_id, cluster.confidence, bayesian_conf, delta,
+                )
+        except Exception:
+            pass
 
     def get_active_clusters(self) -> list[EvidenceCluster]:
         """Return all currently active (non-expired) clusters."""
