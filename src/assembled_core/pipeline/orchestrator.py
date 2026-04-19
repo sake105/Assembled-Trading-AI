@@ -384,6 +384,59 @@ def _enrich_signals_post_generation(
         logger.debug("[ORCHESTRATOR] signal_diagnostics skipped: %s", exc)
 
 
+def _normalize_signals_schema(
+    signals: pd.DataFrame, prices: pd.DataFrame
+) -> pd.DataFrame:
+    """Bridge multifactor_v2 `direction`/`score` schema to `sig`/`price`.
+
+    EMA signals already carry `sig` and `price`. Multifactor v2 emits
+    `direction ∈ {LONG, SHORT, FLAT, NEUTRAL}` and lacks `price`. Downstream
+    `signals_to_orders` requires `sig` (int in {-1,0,+1}) and `price` (close).
+    """
+    if signals is None or signals.empty:
+        return signals
+
+    df = signals.copy()
+
+    if "sig" not in df.columns:
+        if "direction" in df.columns:
+            mapping = {"LONG": 1, "BUY": 1, "SHORT": -1, "SELL": -1,
+                       "FLAT": 0, "NEUTRAL": 0, "HOLD": 0}
+            df["sig"] = (
+                df["direction"].astype(str).str.upper().map(mapping).fillna(0).astype(int)
+            )
+        else:
+            df["sig"] = 0
+
+    if "price" not in df.columns:
+        if prices is not None and not prices.empty and "close" in prices.columns:
+            price_lookup = prices[["timestamp", "symbol", "close"]].copy()
+            price_lookup["timestamp"] = pd.to_datetime(
+                price_lookup["timestamp"], utc=True
+            )
+            df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+            df = df.merge(
+                price_lookup.rename(columns={"close": "price"}),
+                on=["timestamp", "symbol"],
+                how="left",
+            )
+            # Fallback: for symbols with no exact ts match, use latest close ≤ ts.
+            missing = df["price"].isna()
+            if missing.any():
+                latest_close = (
+                    price_lookup.sort_values("timestamp")
+                    .groupby("symbol")["close"]
+                    .last()
+                )
+                df.loc[missing, "price"] = (
+                    df.loc[missing, "symbol"].map(latest_close)
+                )
+        else:
+            df["price"] = float("nan")
+
+    return df
+
+
 def run_execute_step(
     freq: str, output_dir: Path | None = None, price_file: str | None = None
 ) -> tuple[Path, pd.DataFrame]:
@@ -476,6 +529,11 @@ def run_execute_step(
         _enrich_signals_post_generation(signals, prices, _policy_for_enrichment)
     except Exception as exc:
         logger.debug("[ORCHESTRATOR] Post-signal enrichment skipped: %s", exc)
+
+    # Normalize signal schema: multifactor_v2 / ml_enhanced emit
+    # `direction`/`score` columns; signals_to_orders requires `sig`/`price`.
+    # Bridge the two so downstream order-gen logic stays schema-stable.
+    signals = _normalize_signals_schema(signals, prices)
 
     # Generate orders
     orders = signals_to_orders(signals)
