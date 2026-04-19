@@ -49,6 +49,13 @@ def _collect_raw_items(
     sanitize_cfg = fetch_cfg.get("sanitize") or {}
 
     if rss_sources and max_workers > 0:
+        # Pre-initialize per-source state dicts so concurrent fetch_rss_feed calls
+        # never race on fetch_state.setdefault("rss", {}) or setdefault(source_id, {}).
+        rss_root = fetch_state.setdefault("rss", {})
+        for _src in rss_sources:
+            if str(_src.config.get("url") or ""):
+                rss_root.setdefault(_src.source_id, {})
+
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_src = {
                 executor.submit(
