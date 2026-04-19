@@ -9,6 +9,8 @@ import pytest
 
 pytestmark = [pytest.mark.phase_realism]
 
+pytest.importorskip("scipy")
+
 from scripts.compute_signal_decay_profile import (  # noqa: E402
     DEFAULT_FACTOR_COLS,
     _synthetic_factor_panel,
