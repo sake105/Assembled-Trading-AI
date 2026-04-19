@@ -19,6 +19,7 @@ Usage examples:
 from __future__ import annotations
 
 import argparse
+import datetime
 import logging
 import os
 import sys
@@ -28,6 +29,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from src.assembled_core.events.news.dedupe_store import DedupeStoreSQLite
 from src.assembled_core.events.news.pipeline import run_news_pipeline
 
 logger = logging.getLogger("news_worker")
@@ -39,11 +41,48 @@ logger = logging.getLogger("news_worker")
 
 
 class _WorkerLock:
-    """Minimal file-based lock: exclusive O_CREAT|O_EXCL on the lockfile."""
+    """Minimal file-based lock: exclusive O_CREAT|O_EXCL on the lockfile.
 
-    def __init__(self, lock_path: Path) -> None:
+    Stale-lock detection: if mtime > TTL and the recorded PID is no longer alive,
+    the lock is auto-released with a [WARN] log.
+    """
+
+    DEFAULT_TTL_HOURS: float = 2.0
+
+    def __init__(self, lock_path: Path, ttl_hours: float = DEFAULT_TTL_HOURS) -> None:
         self._lock_path = lock_path
         self._fd: int | None = None
+        self._ttl_seconds = ttl_hours * 3600
+
+    def _is_pid_alive(self, pid: int) -> bool:
+        try:
+            os.kill(pid, 0)
+            return True
+        except OSError:
+            return False
+
+    def _try_release_stale(self) -> bool:
+        """Return True and remove lockfile if it is stale (old mtime + dead PID)."""
+        try:
+            mtime = self._lock_path.stat().st_mtime
+        except FileNotFoundError:
+            return True
+        if time.time() - mtime <= self._ttl_seconds:
+            return False
+        try:
+            pid = int(self._lock_path.read_bytes().strip())
+        except (OSError, ValueError):
+            pid = -1
+        if pid > 0 and self._is_pid_alive(pid):
+            return False
+        logger.warning(
+            "[WARN] stale lock released (mtime=%.0f, pid=%s)", mtime, pid
+        )
+        try:
+            self._lock_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        return True
 
     def acquire(self) -> bool:
         """Try to acquire the lock. Returns True on success, False if already held."""
@@ -56,6 +95,16 @@ class _WorkerLock:
             os.write(self._fd, str(os.getpid()).encode())
             return True
         except FileExistsError:
+            if self._try_release_stale():
+                try:
+                    self._fd = os.open(
+                        str(self._lock_path),
+                        os.O_CREAT | os.O_EXCL | os.O_WRONLY,
+                    )
+                    os.write(self._fd, str(os.getpid()).encode())
+                    return True
+                except FileExistsError:
+                    pass
             self._fd = None
             return False
 
@@ -76,6 +125,24 @@ class _WorkerLock:
 
     def __exit__(self, *_) -> None:
         self.release()
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _maybe_vacuum(store_path: Path, *, force: bool = False) -> None:
+    """Run VACUUM on the dedupe SQLite store on the 1st of each month."""
+    if not store_path.exists():
+        return
+    if not force and datetime.datetime.now().day != 1:
+        return
+    try:
+        DedupeStoreSQLite(store_path).vacuum()
+        logger.info("[OK] dedupe_store VACUUM complete: %s", store_path)
+    except Exception as exc:
+        logger.warning("[WARN] dedupe_store VACUUM failed: %s", exc)
 
 
 # ---------------------------------------------------------------------------
@@ -184,6 +251,10 @@ def main() -> int:
             logger.warning(
                 "[WARN] Health status is DEGRADED — trigger severity capped at 1."
             )
+
+        # Monthly housekeeping: VACUUM dedupe store (only on 1st of month)
+        store_path = output_dir / "cache" / "dedupe_store.sqlite"
+        _maybe_vacuum(store_path)
 
     except Exception as exc:
         elapsed = time.monotonic() - t0
