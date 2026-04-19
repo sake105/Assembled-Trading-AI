@@ -45,27 +45,30 @@ jobs:
         id: et_gate
         run: |
           python - <<'PY'
-          import sys
+          import os
           from datetime import datetime
           try:
               from zoneinfo import ZoneInfo
+              now_et = datetime.now(ZoneInfo("America/New_York"))
           except ImportError:
               import pytz
               now_et = datetime.now(pytz.timezone("America/New_York"))
-          else:
-              now_et = datetime.now(ZoneInfo("America/New_York"))
+          in_window = False
           if now_et.weekday() >= 5:
-              print(f"[ET-GATE] weekend ({now_et.isoformat()}) — skipping")
-              sys.exit(78)
-          t = now_et.time()
-          in_window = (t.hour == 15 and 20 <= t.minute <= 59)
-          if not in_window:
-              print(f"[ET-GATE] {t.isoformat()} ET outside [15:20, 15:59] — skipping")
-              sys.exit(78)
-          print(f"[ET-GATE] {t.isoformat()} ET inside window — proceeding")
+              print(f"[ET-GATE] weekend ({now_et.isoformat()}) — skipping (neutral)")
+          else:
+              t = now_et.time()
+              in_window = (t.hour == 15 and 20 <= t.minute <= 59)
+              if in_window:
+                  print(f"[ET-GATE] {t.isoformat()} ET inside window — proceeding")
+              else:
+                  print(f"[ET-GATE] {t.isoformat()} ET outside [15:20, 15:59] — skipping (neutral)")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
+              fh.write(f"in_window={'true' if in_window else 'false'}\n")
           PY
 
       - name: Halt-ack gate (pre-check)
+        if: steps.et_gate.outputs.in_window == 'true'
         run: |
           if [ -f output/ops/halt_ack_required.json ]; then
             echo "::error::Halt ack required — previous cycle flagged mismatch."
@@ -76,6 +79,7 @@ jobs:
           fi
 
       - name: Alpaca preflight (broker health_check)
+        if: steps.et_gate.outputs.in_window == 'true'
         env:
           ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
           ALPACA_API_SECRET: ${{ secrets.ALPACA_API_SECRET }}
@@ -93,11 +97,30 @@ jobs:
           PY
 
       - name: Run paper cycle
+        if: steps.et_gate.outputs.in_window == 'true'
         env:
           ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
           ALPACA_API_SECRET: ${{ secrets.ALPACA_API_SECRET }}
           ALPACA_BASE_URL: https://paper-api.alpaca.markets
         run: python scripts/run_live_paper.py once
+
+      - name: Manual-dispatch preflight (dispatch only, out-of-window)
+        if: github.event_name == 'workflow_dispatch' && steps.et_gate.outputs.in_window != 'true'
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_API_SECRET: ${{ secrets.ALPACA_API_SECRET }}
+          ALPACA_BASE_URL: https://paper-api.alpaca.markets
+        run: |
+          python - <<'PY'
+          import sys
+          from src.assembled_core.execution.broker_adapter import AlpacaAdapter
+          adapter = AlpacaAdapter()
+          health = adapter.health_check()
+          if not health.get("ok"):
+              print(f"[DISPATCH-PREFLIGHT] FAIL: {health}")
+              sys.exit(1)
+          print(f"[DISPATCH-PREFLIGHT] OK — equity={health.get('account_equity')} (market closed — no cycle)")
+          PY
 
       - name: Alpaca EOD balance snapshot
         if: always()
