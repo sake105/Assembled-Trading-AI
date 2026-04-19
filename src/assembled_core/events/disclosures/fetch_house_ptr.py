@@ -303,47 +303,56 @@ def fetch_house_ptr_filings(
         "error": None,
     }
 
-    # Cache hit (fresh)
+    # Extract cached state once for reuse in error-fallback paths
+    _cached_items: List[Dict[str, Any]] | None = None
+    _cached_utc: str | None = None
     if fetch_state and isinstance(fetch_state, dict):
-        cached_utc = fetch_state.get("cached_utc")
-        cached_items = fetch_state.get("cached_items")
-        if cached_items is not None and cached_utc:
-            try:
-                from datetime import datetime, timezone, timedelta
+        _cached_utc = fetch_state.get("cached_utc")
+        _cached_items = fetch_state.get("cached_items")
 
-                then = datetime.fromisoformat(cached_utc.replace("Z", "+00:00"))
-                now = datetime.now(timezone.utc)
-                if (now - then) <= timedelta(minutes=cache_minutes):
-                    stats["ok"] = True
-                    stats["items"] = len(cached_items)
-                    stats["cached"] = True
-                    stats["http_status"] = 200
-                    stats["duration_ms"] = 0
-                    return list(cached_items), None, stats
-            except Exception as exc:
-                logger.warning("[FetchHousePtr] failed to parse cached state for %s: %s", source_id, exc)
+    # Cache hit (fresh within TTL)
+    if _cached_items is not None and _cached_utc:
+        try:
+            from datetime import datetime, timezone, timedelta
+
+            then = datetime.fromisoformat(_cached_utc.replace("Z", "+00:00"))
+            now = datetime.now(timezone.utc)
+            if (now - then) <= timedelta(minutes=cache_minutes):
+                stats["ok"] = True
+                stats["items"] = len(_cached_items)
+                stats["cached"] = True
+                stats["is_stale"] = False
+                stats["cached_from_ts"] = _cached_utc
+                stats["http_status"] = 200
+                stats["duration_ms"] = 0
+                return list(_cached_items), None, stats
+        except Exception as exc:
+            logger.warning("[FetchHousePtr] failed to parse cached state for %s: %s", source_id, exc)
 
     if not index_url or index_url.startswith("https://<"):
         failure = {"source": source_id, "reason": "missing_index_url"}
         stats["error"] = "missing_index_url"
         # Stale-on-error: serve cached if within window
-        if fetch_state and isinstance(fetch_state, dict):
-            cached_items = fetch_state.get("cached_items")
-            cached_utc = fetch_state.get("cached_utc")
-            if cached_items is not None and cached_utc:
-                try:
-                    from datetime import datetime, timezone, timedelta
+        if _cached_items is not None and _cached_utc:
+            try:
+                from datetime import datetime, timezone, timedelta
 
-                    then = datetime.fromisoformat(cached_utc.replace("Z", "+00:00"))
-                    now = datetime.now(timezone.utc)
-                    if (now - then) <= timedelta(minutes=stale_on_error_minutes):
-                        failure["reason"] = "stale-on-error"
-                        stats["ok"] = True
-                        stats["items"] = len(cached_items)
-                        stats["cached"] = True
-                        return list(cached_items), failure, stats
-                except Exception as exc:
-                    logger.warning("[FetchHousePtr] stale-on-error cache parse failed for %s: %s", source_id, exc)
+                then = datetime.fromisoformat(_cached_utc.replace("Z", "+00:00"))
+                now = datetime.now(timezone.utc)
+                if (now - then) <= timedelta(minutes=stale_on_error_minutes):
+                    logger.warning(
+                        "[WARN] fetch_house_ptr using stale cache (from=%s) after missing_index_url",
+                        _cached_utc,
+                    )
+                    failure["reason"] = "stale-on-error"
+                    stats["ok"] = True
+                    stats["items"] = len(_cached_items)
+                    stats["cached"] = True
+                    stats["is_stale"] = True
+                    stats["cached_from_ts"] = _cached_utc
+                    return list(_cached_items), failure, stats
+            except Exception as exc:
+                logger.warning("[FetchHousePtr] stale-on-error cache parse failed for %s: %s", source_id, exc)
         return items, failure, stats
 
     start = time.perf_counter()
@@ -365,23 +374,26 @@ def fetch_house_ptr_filings(
             }
             stats["error"] = f"http_{resp.status_code}"
             # Stale-on-error
-            if fetch_state and isinstance(fetch_state, dict):
-                cached_items = fetch_state.get("cached_items")
-                cached_utc = fetch_state.get("cached_utc")
-                if cached_items is not None and cached_utc:
-                    try:
-                        from datetime import datetime, timezone, timedelta
+            if _cached_items is not None and _cached_utc:
+                try:
+                    from datetime import datetime, timezone, timedelta
 
-                        then = datetime.fromisoformat(cached_utc.replace("Z", "+00:00"))
-                        now = datetime.now(timezone.utc)
-                        if (now - then) <= timedelta(minutes=stale_on_error_minutes):
-                            failure["reason"] = "stale-on-error"
-                            stats["ok"] = True
-                            stats["items"] = len(cached_items)
-                            stats["cached"] = True
-                            return list(cached_items), failure, stats
-                    except Exception as exc:
-                        logger.warning("[FetchHousePtr] stale-on-error cache parse failed (http) for %s: %s", source_id, exc)
+                    then = datetime.fromisoformat(_cached_utc.replace("Z", "+00:00"))
+                    now = datetime.now(timezone.utc)
+                    if (now - then) <= timedelta(minutes=stale_on_error_minutes):
+                        logger.warning(
+                            "[WARN] fetch_house_ptr using stale cache (from=%s) after http_%s",
+                            _cached_utc, resp.status_code,
+                        )
+                        failure["reason"] = "stale-on-error"
+                        stats["ok"] = True
+                        stats["items"] = len(_cached_items)
+                        stats["cached"] = True
+                        stats["is_stale"] = True
+                        stats["cached_from_ts"] = _cached_utc
+                        return list(_cached_items), failure, stats
+                except Exception as exc:
+                    logger.warning("[FetchHousePtr] stale-on-error cache parse failed (http) for %s: %s", source_id, exc)
             return items, failure, stats
 
         content = resp.content

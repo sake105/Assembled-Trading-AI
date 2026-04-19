@@ -64,27 +64,35 @@ def fetch_edgar_form4(
         "http_status": None,
         "duration_ms": None,
         "cached": False,
+        "is_stale": False,
+        "cached_from_ts": None,
     }
 
-    # Optional cache hit
+    # Extract cached state once for reuse in error-fallback paths
+    _cached_entries: List[Dict[str, Any]] | None = None
+    _cached_utc: str | None = None
     if fetch_state and isinstance(fetch_state, dict):
-        cached_entries = fetch_state.get("cached_entries")
-        cached_utc = fetch_state.get("cached_utc")
-        if cached_entries is not None and cached_utc:
-            try:
-                from datetime import datetime, timezone, timedelta
+        _cached_entries = fetch_state.get("cached_entries")
+        _cached_utc = fetch_state.get("cached_utc")
 
-                then = datetime.fromisoformat(cached_utc.replace("Z", "+00:00"))
-                now = datetime.now(timezone.utc)
-                if (now - then) <= timedelta(minutes=cache_minutes):
-                    stats["ok"] = True
-                    stats["items"] = len(cached_entries)
-                    stats["cached"] = True
-                    stats["http_status"] = 200
-                    stats["duration_ms"] = 0
-                    return list(cached_entries), None, stats
-            except Exception as exc:
-                logger.warning("[FetchEdgar] failed to parse cached state for %s: %s", source_id, exc)
+    # Optional cache hit (fresh within TTL)
+    if _cached_entries is not None and _cached_utc:
+        try:
+            from datetime import datetime, timezone, timedelta
+
+            then = datetime.fromisoformat(_cached_utc.replace("Z", "+00:00"))
+            now = datetime.now(timezone.utc)
+            if (now - then) <= timedelta(minutes=cache_minutes):
+                stats["ok"] = True
+                stats["items"] = len(_cached_entries)
+                stats["cached"] = True
+                stats["is_stale"] = False
+                stats["cached_from_ts"] = _cached_utc
+                stats["http_status"] = 200
+                stats["duration_ms"] = 0
+                return list(_cached_entries), None, stats
+        except Exception as exc:
+            logger.warning("[FetchEdgar] failed to parse cached state for %s: %s", source_id, exc)
 
     if not feed_url:
         failure = {"source": source_id, "reason": "missing_feed_url"}
@@ -107,6 +115,17 @@ def fetch_edgar_form4(
                 "reason": "http_error",
                 "status": resp.status_code,
             }
+            if _cached_entries is not None and _cached_utc:
+                logger.warning(
+                    "[WARN] fetch_edgar using stale cache (from=%s) after http_%s",
+                    _cached_utc, resp.status_code,
+                )
+                stats["ok"] = True
+                stats["items"] = len(_cached_entries)
+                stats["cached"] = True
+                stats["is_stale"] = True
+                stats["cached_from_ts"] = _cached_utc
+                return list(_cached_entries), failure, stats
             return items, failure, stats
 
         root = ET.fromstring(resp.content)
@@ -177,6 +196,17 @@ def fetch_edgar_form4(
             getattr(e, "response", None), "status_code", None
         )
         failure = {"source": source_id, "reason": "request_error", "error": str(e)}
+        if _cached_entries is not None and _cached_utc:
+            logger.warning(
+                "[WARN] fetch_edgar using stale cache (from=%s) after request_error: %s",
+                _cached_utc, e,
+            )
+            stats["ok"] = True
+            stats["items"] = len(_cached_entries)
+            stats["cached"] = True
+            stats["is_stale"] = True
+            stats["cached_from_ts"] = _cached_utc
+            return list(_cached_entries), failure, stats
         return items, failure, stats
     except ET.ParseError as e:
         duration_ms = int((time.perf_counter() - start) * 1000)
