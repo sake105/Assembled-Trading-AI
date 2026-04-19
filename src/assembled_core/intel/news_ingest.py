@@ -158,19 +158,47 @@ def _row_is_relevant(themes: list[str], tone: float) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def fetch_gkg_batch(gkg_url: str, timeout: int = 30) -> list[GdeltBatchRecord]:
-    """
-    Download and parse a GDELT GKG zip batch.
+def fetch_gkg_batch(
+    gkg_url: str,
+    timeout: int = 30,
+    *,
+    retries: int = 3,
+    backoff_base: float = 2.0,
+) -> list[GdeltBatchRecord]:
+    """Download and parse a GDELT GKG zip batch (T5.2: retry + backoff).
 
     Returns up to _MAX_RECORDS_PER_BATCH relevant records.
-    Returns [] on any network or parse failure.
+    Returns [] on any network or parse failure after all retries.
     """
+    import time as _time
+
     batch_ts = datetime.now(tz=timezone.utc)
-    try:
-        resp = requests.get(gkg_url, timeout=timeout)
-        resp.raise_for_status()
-    except requests.RequestException as exc:
-        logger.warning("[WARN] fetch_gkg_batch: HTTP error for %s: %s", gkg_url, exc)
+    last_exc: Exception | None = None
+    for attempt in range(max(1, retries)):
+        try:
+            resp = requests.get(gkg_url, timeout=timeout)
+            if resp.status_code == 429:
+                wait = backoff_base ** attempt
+                logger.warning(
+                    "[WARN] fetch_gkg_batch: 429 rate-limited (attempt %d/%d), waiting %.1fs",
+                    attempt + 1, retries, wait,
+                )
+                _time.sleep(wait)
+                continue
+            resp.raise_for_status()
+            last_exc = None
+            break
+        except requests.RequestException as exc:
+            last_exc = exc
+            if attempt < retries - 1:
+                wait = backoff_base ** attempt
+                logger.warning(
+                    "[WARN] fetch_gkg_batch: attempt %d/%d failed (%s), retrying in %.1fs",
+                    attempt + 1, retries, exc, wait,
+                )
+                _time.sleep(wait)
+    else:
+        logger.warning("[WARN] fetch_gkg_batch: all %d attempts failed for %s: %s", retries, gkg_url, last_exc)
         return []
 
     try:

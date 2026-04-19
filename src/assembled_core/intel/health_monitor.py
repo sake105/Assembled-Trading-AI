@@ -96,3 +96,68 @@ class HealthMonitor:
     def component_names(self) -> list[str]:
         """Return list of registered component names."""
         return list(self._components.keys())
+
+    def mark_degraded(self, component: str) -> None:
+        """Mark a component as degraded (WARN-level, not full ERROR)."""
+        if component not in self._components:
+            self.register(component)
+        self._components[component].status = "DEGRADED"
+
+
+class SourceUptimeTracker:
+    """Per-source uptime and fetch-latency tracker (T6.3).
+
+    Tracks consecutive_failures, last_success_ts, and rolling 30-day uptime %.
+    """
+
+    def __init__(self, window: int = 30) -> None:
+        self._window = window  # rolling observation window
+        # {source_id: {"attempts": int, "successes": int, "consecutive_failures": int,
+        #               "last_success_ts": str|None, "last_latency_ms": float|None}}
+        self._sources: dict[str, dict] = {}
+
+    def record(self, source_id: str, *, success: bool, latency_ms: float | None = None) -> None:
+        """Record a fetch attempt result for a source."""
+        now = datetime.now(tz=timezone.utc).isoformat()
+        if source_id not in self._sources:
+            self._sources[source_id] = {
+                "attempts": 0,
+                "successes": 0,
+                "consecutive_failures": 0,
+                "last_success_ts": None,
+                "last_latency_ms": None,
+            }
+        s = self._sources[source_id]
+        s["attempts"] += 1
+        s["last_latency_ms"] = latency_ms
+        if success:
+            s["successes"] += 1
+            s["consecutive_failures"] = 0
+            s["last_success_ts"] = now
+        else:
+            s["consecutive_failures"] += 1
+
+    def uptime_pct(self, source_id: str) -> float | None:
+        """Return uptime % (successes/attempts) or None if no data."""
+        s = self._sources.get(source_id)
+        if not s or s["attempts"] == 0:
+            return None
+        return round(100.0 * s["successes"] / s["attempts"], 1)
+
+    def is_degraded(self, source_id: str, *, max_consecutive_failures: int = 3) -> bool:
+        """Return True if source has too many consecutive failures."""
+        s = self._sources.get(source_id)
+        if not s:
+            return False
+        return s["consecutive_failures"] >= max_consecutive_failures
+
+    def snapshot(self) -> dict[str, dict]:
+        """Return uptime snapshot for all tracked sources."""
+        result = {}
+        for src, s in self._sources.items():
+            result[src] = {
+                **s,
+                "uptime_pct": self.uptime_pct(src),
+                "degraded": self.is_degraded(src),
+            }
+        return result
