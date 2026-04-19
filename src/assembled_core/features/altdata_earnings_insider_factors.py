@@ -129,6 +129,14 @@ def build_earnings_surprise_factors(
                 timestamp_col
             ].dt.normalize()
         if "disclosure_date" not in events_earnings.columns:
+            # Shadow-Mode T2.3: earnings have no extra latency (T+0).
+            # Log if ASSEMBLED_STRICT_PIT_CHECKS is set for future flip awareness.
+            import os as _os
+            if _os.environ.get("ASSEMBLED_STRICT_PIT_CHECKS"):
+                logger.debug(
+                    "[SHADOW-T2.3] earnings: disclosure_date defaults to event_date "
+                    "(T+0 assumed; override disclosure_date_col to enforce real latency)"
+                )
             events_earnings["disclosure_date"] = events_earnings["event_date"]
 
         # If as_of is provided, drop events that were not yet disclosed.
@@ -458,7 +466,19 @@ def build_insider_activity_factors(
         if "event_date" not in events_insider.columns:
             events_insider["event_date"] = events_insider[timestamp_col].dt.normalize()
         if "disclosure_date" not in events_insider.columns:
-            events_insider["disclosure_date"] = events_insider["event_date"]
+            import os as _os
+            from pandas import Timedelta as _TD
+            if _os.environ.get("ASSEMBLED_STRICT_PIT_CHECKS"):
+                # Shadow-Mode T2.3 (Form 4): enforce minimum T+2 latency in strict mode.
+                events_insider["disclosure_date"] = (
+                    events_insider["event_date"] + _TD(days=2)
+                )
+                logger.debug(
+                    "[SHADOW-T2.3] insider: disclosure_date set to event_date+2d "
+                    "(Form-4 T+2 latency; shadow only until flip approved)"
+                )
+            else:
+                events_insider["disclosure_date"] = events_insider["event_date"]
 
         # If as_of is provided, discard events not yet disclosed.
         if as_of is not None:
