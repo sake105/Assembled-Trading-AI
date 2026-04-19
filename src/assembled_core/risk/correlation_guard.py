@@ -114,13 +114,30 @@ def detect_correlated_clusters(
     def union(a: str, b: str) -> None:
         parent[find(a)] = find(b)
 
+    # Track NaN-pair ratio so callers can detect a silently-degraded
+    # correlation matrix. Pairs with NaN correlation are necessarily
+    # excluded from clustering; a matrix that is mostly NaN (short
+    # history, new listings, missing bars) produces zero clusters and
+    # the guard trivially passes — that degradation used to be invisible.
+    n_total = 0
+    n_nan = 0
     for i, sym_i in enumerate(symbols):
         for sym_j in symbols[i + 1 :]:
+            n_total += 1
             val = corr_matrix.loc[sym_i, sym_j]
             if pd.isna(val):
+                n_nan += 1
                 continue
             if float(val) >= threshold:  # positive correlation only
                 union(sym_i, sym_j)
+
+    if n_total > 0 and n_nan / n_total > 0.25:
+        import logging
+        logging.getLogger(__name__).warning(
+            "[CorrGuard] degraded correlation matrix: %d/%d pairs NaN (%.1f%%) — "
+            "clustering may under-detect concentration",
+            n_nan, n_total, 100.0 * n_nan / n_total,
+        )
 
     groups: dict[str, list[str]] = {}
     for sym in symbols:

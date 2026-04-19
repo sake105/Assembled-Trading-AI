@@ -449,8 +449,26 @@ def _build_report_content(
 
                 lines.append("---")
                 lines.append("")
-        except Exception:
-            pass  # Silently skip if portfolio analysis fails
+        except Exception as exc:
+            # Do not swallow silently: readers of the QA report must be
+            # able to distinguish "Portfolio Analysis section deliberately
+            # omitted / not applicable" from "section failed to compute
+            # and was censored". Emit a WARNING log and append a visible
+            # marker line to the markdown so the section's absence is
+            # never mistaken for a clean pass.
+            logger.warning(
+                "[DailyQAReport] portfolio analysis section failed: %s",
+                exc,
+                exc_info=True,
+            )
+            lines.append(
+                "> **WARNING:** Portfolio Analysis section failed to "
+                f"compute ({type(exc).__name__}: {exc}). "
+                "See application log for full traceback."
+            )
+            lines.append("")
+            lines.append("---")
+            lines.append("")
 
     # Footer
     lines.append("---")

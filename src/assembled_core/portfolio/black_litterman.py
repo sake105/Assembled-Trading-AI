@@ -189,9 +189,19 @@ class BlackLittermanOptimizer:
         mu = mu_bl.values
 
         if not SCIPY_AVAILABLE:
-            logger.warning("[BL] scipy not available — returning equal weights")
+            # Parity with the SLSQP fallback path (lines 246-254): tag the
+            # Series so downstream callers can distinguish an equal-weight
+            # return due to missing-scipy from a genuinely converged BL
+            # solve. Previously this path returned an untagged Series and
+            # the caller had no way to detect the degraded result.
+            logger.warning("[BL] scipy not available — returning equal weights (flagged)")
             n = len(symbols)
-            return pd.Series(np.ones(n) / n, index=symbols)
+            weights = pd.Series(
+                np.ones(n) / n, index=symbols, name="bl_weights_equal_fallback"
+            )
+            weights.attrs["bl_converged"] = False
+            weights.attrs["bl_fallback_reason"] = "scipy_unavailable"
+            return weights
 
         n = len(symbols)
         w0 = np.ones(n) / n

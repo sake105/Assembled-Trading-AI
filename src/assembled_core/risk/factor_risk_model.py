@@ -177,7 +177,17 @@ class FactorRiskModel:
                     coef, _, _, _ = np.linalg.lstsq(X_aug, y, rcond=None)
                     f_t = coef[1:]  # skip intercept
                     _residuals = y - X_aug @ coef  # noqa: F841 — kept for future idio-vol
-            except Exception:
+            except Exception as exc:
+                # Audit-trail only (no behavior change): the existing
+                # logic continues past failed timestamps, but previously
+                # it did so silently. A single-date regression error
+                # (singular matrix, numerical blow-up, etc.) would be
+                # invisible in ops and could accumulate into material
+                # coverage gaps in _B before the final raise at line 189.
+                logger.warning(
+                    "[FactorRisk] skipped timestamp %s regression: %s: %s",
+                    ts, type(exc).__name__, exc,
+                )
                 continue
 
             row = {timestamp_col: ts}
