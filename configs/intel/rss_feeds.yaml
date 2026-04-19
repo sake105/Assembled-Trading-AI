@@ -1,14 +1,16 @@
 # RSS Feed Registry — Assembled-Trading-AI Intel Pipeline
 #
-# tier: T1 = established newswires, T2 = established outlets, T3 = alternative/aggregators
-# focus: what kind of signal this feed primarily provides
-# enabled: false = loaded but skipped unless explicitly activated
+# tier: T1 = established newswires, T2 = established outlets/think-tanks,
+#        T3 = alternative/aggregators/state-controlled
+# focus: primary signal type
+# enabled: false = registered but skipped unless explicitly activated
+# Note: Telegram sources listed at bottom — require telegram_fetcher.py
 
 feeds:
 
-  # ---------------------------------------------------------------------------
-  # Tier-1: Established newswires / high-trust sources
-  # ---------------------------------------------------------------------------
+  # ==========================================================================
+  # TIER-1: Major wire services & high-trust outlets
+  # ==========================================================================
 
   - id: reuters_world
     name: "Reuters World News"
@@ -24,11 +26,25 @@ feeds:
     focus: economic
     enabled: true
 
+  - id: reuters_politics
+    name: "Reuters Politics"
+    url: "https://feeds.reuters.com/Reuters/PoliticsNews"
+    tier: T1
+    focus: political
+    enabled: true
+
   - id: ap_world
     name: "AP News - Top Headlines"
     url: "https://feeds.apnews.com/apnews/topnews"
     tier: T1
     focus: geopolitical
+    enabled: true
+
+  - id: ap_politics
+    name: "AP News - Politics"
+    url: "https://feeds.apnews.com/apnews/politics"
+    tier: T1
+    focus: political
     enabled: true
 
   - id: bbc_world
@@ -59,9 +75,23 @@ feeds:
     focus: geopolitical
     enabled: true
 
-  # ---------------------------------------------------------------------------
-  # Tier-2: Established outlets (editorial slant, reliable reporting)
-  # ---------------------------------------------------------------------------
+  - id: guardian_business
+    name: "The Guardian - Business"
+    url: "https://www.theguardian.com/business/rss"
+    tier: T1
+    focus: economic
+    enabled: true
+
+  - id: rferl
+    name: "Radio Free Europe / Radio Liberty"
+    url: "https://www.rferl.org/api/epiqq"
+    tier: T1
+    focus: eastern_europe_geopolitical
+    enabled: true
+
+  # ==========================================================================
+  # TIER-2: Established outlets — geopolitical / conflict
+  # ==========================================================================
 
   - id: axios
     name: "Axios"
@@ -84,6 +114,73 @@ feeds:
     focus: middle_east_geopolitical
     enabled: true
 
+  - id: middle_east_eye
+    name: "Middle East Eye"
+    url: "https://www.middleeasteye.net/rss"
+    tier: T2
+    focus: middle_east_geopolitical
+    enabled: true
+
+  - id: times_of_israel
+    name: "Times of Israel"
+    url: "https://www.timesofisrael.com/feed/"
+    tier: T2
+    focus: middle_east_geopolitical
+    enabled: true
+
+  - id: jerusalem_post
+    name: "Jerusalem Post"
+    url: "https://www.jpost.com/Rss/RssFeedsHeadlines.aspx"
+    tier: T2
+    focus: middle_east_geopolitical
+    enabled: true
+
+  - id: arab_news
+    name: "Arab News"
+    url: "https://www.arabnews.com/rss.xml"
+    tier: T2
+    focus: middle_east_geopolitical
+    enabled: true
+
+  - id: gulf_news
+    name: "Gulf News"
+    url: "https://gulfnews.com/rss"
+    tier: T2
+    focus: middle_east_economic
+    enabled: true
+
+  - id: south_china_morning_post
+    name: "South China Morning Post - Asia"
+    url: "https://www.scmp.com/rss/91/feed"
+    tier: T2
+    focus: asia_geopolitical
+    enabled: true
+
+  - id: dawn_pakistan
+    name: "Dawn (Pakistan)"
+    url: "https://www.dawn.com/feeds/home"
+    tier: T2
+    focus: south_asia_geopolitical
+    enabled: true
+
+  - id: the_hindu
+    name: "The Hindu"
+    url: "https://www.thehindu.com/feeder/default.rss"
+    tier: T2
+    focus: south_asia_geopolitical
+    enabled: true
+
+  - id: jakarta_post
+    name: "The Jakarta Post"
+    url: "https://www.thejakartapost.com/feed/rss"
+    tier: T2
+    focus: southeast_asia
+    enabled: true
+
+  # ==========================================================================
+  # TIER-2: Defense / military / conflict tracking
+  # ==========================================================================
+
   - id: defense_news
     name: "Defense News"
     url: "https://www.defensenews.com/arc/outboundfeeds/rss/"
@@ -98,12 +195,245 @@ feeds:
     focus: defense_military
     enabled: true
 
+  - id: isw
+    name: "Institute for the Study of War"
+    url: "https://understandingwar.org/rss.xml"
+    tier: T2
+    focus: conflict_analysis
+    enabled: true
+
+  - id: bellingcat
+    name: "Bellingcat (OSINT)"
+    url: "https://www.bellingcat.com/feed/"
+    tier: T2
+    focus: conflict_osint
+    enabled: true
+
+  - id: war_on_the_rocks
+    name: "War on the Rocks"
+    url: "https://warontherocks.com/feed/"
+    tier: T2
+    focus: defense_strategy
+    enabled: true
+
+  - id: breaking_defense
+    name: "Breaking Defense"
+    url: "https://breakingdefense.com/feed/"
+    tier: T2
+    focus: defense_procurement
+    enabled: true
+
+  - id: antiwar
+    name: "Antiwar.com Blog"
+    url: "https://antiwar.com/blog/feed/"
+    tier: T2
+    focus: conflict_geopolitical
+    enabled: true
+
+  - id: lawfare
+    name: "Lawfare"
+    url: "https://www.lawfaremedia.org/feed"
+    tier: T2
+    focus: national_security_legal
+    enabled: true
+
+  - id: just_security
+    name: "Just Security"
+    url: "https://www.justsecurity.org/feed/"
+    tier: T2
+    focus: national_security_legal
+    enabled: true
+
+  # ==========================================================================
+  # TIER-2: Think tanks / policy research
+  # ==========================================================================
+
+  - id: foreign_policy
+    name: "Foreign Policy"
+    url: "https://foreignpolicy.com/feed/"
+    tier: T2
+    focus: geopolitical_analysis
+    enabled: true
+
+  - id: chatham_house
+    name: "Chatham House"
+    url: "https://www.chathamhouse.org/rss.xml"
+    tier: T2
+    focus: geopolitical_analysis
+    enabled: true
+
+  - id: rand_corp
+    name: "RAND Corporation"
+    url: "https://www.rand.org/news.rss"
+    tier: T2
+    focus: defense_policy_research
+    enabled: true
+
+  - id: csis
+    name: "CSIS (Center for Strategic & International Studies)"
+    url: "https://www.csis.org/analysis/rss"
+    tier: T2
+    focus: geopolitical_analysis
+    enabled: true
+
+  - id: carnegie_endowment
+    name: "Carnegie Endowment for International Peace"
+    url: "https://carnegieendowment.org/rss/solr.xml?q=*"
+    tier: T2
+    focus: geopolitical_analysis
+    enabled: true
+
+  - id: atlantic_council
+    name: "Atlantic Council"
+    url: "https://www.atlanticcouncil.org/feed/"
+    tier: T2
+    focus: transatlantic_geopolitical
+    enabled: true
+
+  - id: brookings
+    name: "Brookings Institution"
+    url: "https://www.brookings.edu/feed/"
+    tier: T2
+    focus: policy_economic
+    enabled: true
+
+  - id: wilson_center
+    name: "Wilson Center"
+    url: "https://www.wilsoncenter.org/rss.xml"
+    tier: T2
+    focus: geopolitical_analysis
+    enabled: true
+
+  - id: sipri
+    name: "SIPRI (Stockholm International Peace Research Institute)"
+    url: "https://www.sipri.org/rss"
+    tier: T2
+    focus: arms_conflict_research
+    enabled: true
+
+  - id: icg
+    name: "International Crisis Group"
+    url: "https://www.crisisgroup.org/rss.xml"
+    tier: T2
+    focus: conflict_prevention
+    enabled: true
+
+  - id: responsible_statecraft
+    name: "Responsible Statecraft (Quincy Institute)"
+    url: "https://responsiblestatecraft.org/feed/"
+    tier: T2
+    focus: foreign_policy_alternative
+    enabled: true
+
+  # ==========================================================================
+  # TIER-2: Energy / commodities / shipping
+  # ==========================================================================
+
   - id: oilprice
     name: "OilPrice.com"
     url: "https://oilprice.com/rss/main"
     tier: T2
     focus: energy_commodities
     enabled: true
+
+  - id: eia_news
+    name: "EIA (US Energy Information Administration)"
+    url: "https://www.eia.gov/rss/news.xml"
+    tier: T2
+    focus: energy_data
+    enabled: true
+
+  - id: rigzone
+    name: "Rigzone (Oil & Gas)"
+    url: "https://www.rigzone.com/news/rss/rigzone_latest.aspx"
+    tier: T2
+    focus: energy_oil_gas
+    enabled: true
+
+  - id: lng_world_news
+    name: "LNG World News"
+    url: "https://www.lngworldnews.com/feed/"
+    tier: T2
+    focus: energy_lng
+    enabled: true
+
+  - id: maritime_executive
+    name: "The Maritime Executive"
+    url: "https://maritime-executive.com/feed"
+    tier: T2
+    focus: shipping_maritime
+    enabled: true
+
+  - id: hellenic_shipping
+    name: "Hellenic Shipping News"
+    url: "https://www.hellenicshippingnews.com/feed/"
+    tier: T2
+    focus: shipping_maritime
+    enabled: true
+
+  - id: splash247
+    name: "Splash247 (Shipping)"
+    url: "https://splash247.com/feed/"
+    tier: T2
+    focus: shipping_maritime
+    enabled: true
+
+  # ==========================================================================
+  # TIER-2: Regulatory / official / sanctions
+  # ==========================================================================
+
+  - id: ofac_actions
+    name: "OFAC Recent Actions (US Treasury)"
+    url: "https://home.treasury.gov/system/files/126/ofac.xml"
+    tier: T2
+    focus: sanctions_regulatory
+    enabled: true
+
+  - id: state_dept_press
+    name: "US State Department Press Releases"
+    url: "https://www.state.gov/press-releases/feed/"
+    tier: T2
+    focus: sanctions_geopolitical
+    enabled: true
+
+  - id: pentagon_news
+    name: "Pentagon / DoD News"
+    url: "https://www.defense.gov/News/RSS/"
+    tier: T2
+    focus: defense_official
+    enabled: true
+
+  - id: nato_news
+    name: "NATO News"
+    url: "https://www.nato.int/cps/en/natohq/news.htm?selectedLocale=en&format=rss"
+    tier: T2
+    focus: nato_geopolitical
+    enabled: true
+
+  - id: un_news
+    name: "UN News (English)"
+    url: "https://news.un.org/feed/subscribe/en/news/all/rss.xml"
+    tier: T2
+    focus: international_geopolitical
+    enabled: true
+
+  - id: imf_news
+    name: "IMF News"
+    url: "https://www.imf.org/en/News/rss"
+    tier: T2
+    focus: economic_financial
+    enabled: true
+
+  - id: world_bank_news
+    name: "World Bank News"
+    url: "https://www.worldbank.org/en/news/all/rss"
+    tier: T2
+    focus: economic_development
+    enabled: true
+
+  # ==========================================================================
+  # TIER-2: Political / general
+  # ==========================================================================
 
   - id: politico
     name: "Politico"
@@ -119,41 +449,17 @@ feeds:
     focus: political
     enabled: true
 
-  - id: antiwar
-    name: "Antiwar.com Blog"
-    url: "https://antiwar.com/blog/feed/"
+  - id: the_intercept
+    name: "The Intercept"
+    url: "https://theintercept.com/feed/?rss=1"
     tier: T2
-    focus: conflict_geopolitical
+    focus: investigative_political
     enabled: true
 
-  - id: south_china_morning_post
-    name: "South China Morning Post - Asia"
-    url: "https://www.scmp.com/rss/91/feed"
-    tier: T2
-    focus: asia_geopolitical
-    enabled: true
-
-  # ---------------------------------------------------------------------------
-  # Tier-2: Regulatory / Sanctions (high-value for trading)
-  # ---------------------------------------------------------------------------
-
-  - id: ofac_actions
-    name: "OFAC Recent Actions"
-    url: "https://home.treasury.gov/system/files/126/ofac.xml"
-    tier: T2
-    focus: sanctions_regulatory
-    enabled: true
-
-  - id: state_dept_press
-    name: "US State Department Press Releases"
-    url: "https://www.state.gov/press-releases/feed/"
-    tier: T2
-    focus: sanctions_geopolitical
-    enabled: true
-
-  # ---------------------------------------------------------------------------
-  # Tier-3: Alternative media / aggregators (higher misinfo risk, lower weight)
-  # ---------------------------------------------------------------------------
+  # ==========================================================================
+  # TIER-3: Alternative / aggregators / state-controlled media
+  # Note: higher misinfo risk; keyword-filtered before entering pipeline
+  # ==========================================================================
 
   - id: zerohedge
     name: "ZeroHedge"
@@ -168,15 +474,7 @@ feeds:
     tier: T3
     focus: conflict_military
     enabled: true
-    note: "Primary source is Twitter/X — RSS may lag. Supplement with Telegram when available."
-
-  - id: global_research
-    name: "Global Research"
-    url: "https://www.globalresearch.ca/feed"
-    tier: T3
-    focus: geopolitical_alternative
-    enabled: false
-    note: "High misinfo risk — disabled by default, enable with caution"
+    note: "Primary source is Twitter/X — RSS may lag. Telegram channel available."
 
   - id: moon_of_alabama
     name: "Moon of Alabama"
@@ -184,6 +482,78 @@ feeds:
     tier: T3
     focus: geopolitical_alternative
     enabled: true
+
+  - id: grayzone
+    name: "The Grayzone"
+    url: "https://thegrayzone.com/feed/"
+    tier: T3
+    focus: geopolitical_alternative
+    enabled: true
+
+  - id: consortium_news
+    name: "Consortium News"
+    url: "https://consortiumnews.com/feed/"
+    tier: T3
+    focus: investigative_alternative
+    enabled: true
+
+  - id: scheerpost
+    name: "Scheerpost"
+    url: "https://scheerpost.com/feed/"
+    tier: T3
+    focus: geopolitical_alternative
+    enabled: true
+
+  - id: mint_press
+    name: "Mint Press News"
+    url: "https://www.mintpressnews.com/feed/"
+    tier: T3
+    focus: geopolitical_alternative
+    enabled: true
+
+  - id: xinhua_world
+    name: "Xinhua (China state media - World)"
+    url: "http://www.xinhuanet.com/english/rss/worldnews.xml"
+    tier: T3
+    focus: china_geopolitical
+    enabled: true
+    note: "State-controlled; high misinfo risk on China-related topics. Useful for Chinese govt signals."
+
+  - id: tass
+    name: "TASS (Russia state media)"
+    url: "https://tass.com/rss/v2.xml"
+    tier: T3
+    focus: russia_geopolitical
+    enabled: true
+    note: "State-controlled; high misinfo risk. Useful for Russian official position signals."
+
+  - id: cgtn
+    name: "CGTN (China Global TV)"
+    url: "https://www.cgtn.com/subscribe/rss/section/world.xml"
+    tier: T3
+    focus: china_geopolitical
+    enabled: true
+    note: "State-controlled; complement with Xinhua for redundancy."
+
+  - id: press_tv
+    name: "Press TV (Iran state media)"
+    url: "https://www.presstv.ir/rss.xml"
+    tier: T3
+    focus: iran_middle_east
+    enabled: true
+    note: "State-controlled; high misinfo risk. Useful for Iranian official position signals."
+
+  - id: global_research
+    name: "Global Research"
+    url: "https://www.globalresearch.ca/feed"
+    tier: T3
+    focus: geopolitical_alternative
+    enabled: false
+    note: "Very high misinfo risk — disabled by default"
+
+  # ==========================================================================
+  # NEEDS URL VERIFICATION (disabled)
+  # ==========================================================================
 
   - id: the_global_eye
     name: "The Global Eye"
@@ -201,16 +571,44 @@ feeds:
     enabled: false
     note: "RSS URL unknown — add when found"
 
-  # ---------------------------------------------------------------------------
-  # Telegram channels (requires Telethon + credentials — not RSS)
-  # ---------------------------------------------------------------------------
-  # These are listed here for documentation only.
-  # Implementation: src/assembled_core/intel/telegram_fetcher.py (future)
+  # ==========================================================================
+  # TELEGRAM CHANNELS (requires telegram_fetcher.py + API credentials)
+  # Documented here for future implementation
+  # ==========================================================================
   #
-  # - id: vellum_acta
+  # Channel list (all public, readable via Telethon without joining):
+  #
+  # - id: vellum_acta_tg
   #   channel: "@vellumacta"
   #   tier: T3
+  #   focus: geopolitical_analysis
   #
   # - id: clash_report_tg
   #   channel: "@clashreport"
   #   tier: T3
+  #   focus: conflict_military
+  #
+  # - id: intel_slava_tg
+  #   channel: "@intelslava"
+  #   tier: T3
+  #   focus: conflict_ukraine_russia
+  #
+  # - id: rybar_tg
+  #   channel: "@rybar"
+  #   tier: T3
+  #   focus: conflict_military_russian
+  #
+  # - id: military_summary_tg
+  #   channel: "@militarysummary"
+  #   tier: T3
+  #   focus: conflict_military
+  #
+  # - id: war_monitor_tg
+  #   channel: "@warmonitor1"
+  #   tier: T3
+  #   focus: conflict_military
+  #
+  # - id: legitimniy_tg
+  #   channel: "@legitimniy"
+  #   tier: T3
+  #   focus: ukraine_geopolitical
