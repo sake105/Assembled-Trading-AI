@@ -351,7 +351,17 @@ def apply_delisting_exits(
         return pd.DataFrame(columns=out_cols)
 
     required = {"symbol", "action_type", "effective_date"}
-    if required - set(actions.columns):
+    missing = required - set(actions.columns)
+    if missing:
+        # Silent no-op on schema drift would let delistings invisibly
+        # accumulate as stale positions forever. Warn so a rename like
+        # effective_date→eff_date becomes observable.
+        logger.warning(
+            "[CorpActions] apply_delisting_exits: actions missing columns %s "
+            "— skipped; open positions for delisted symbols will NOT be "
+            "forcibly exited",
+            missing,
+        )
         return pd.DataFrame(columns=out_cols)
 
     delistings = actions[actions["action_type"] == "DELISTING"].copy()
@@ -440,7 +450,16 @@ def apply_spinoff(
         return positions.copy()
 
     required = {"symbol", "action_type", "effective_date", "child_symbol", "spinoff_ratio"}
-    if required - set(actions.columns):
+    missing = required - set(actions.columns)
+    if missing:
+        # A spinoff with a renamed column (spinoff_ratio → ratio) previously
+        # returned positions unchanged — child position never created, qty
+        # accounting silently drifts. Warn so schema drift is observable.
+        logger.warning(
+            "[CorpActions] apply_spinoff: actions missing columns %s — "
+            "skipped; child positions will NOT be created",
+            missing,
+        )
         return positions.copy()
 
     spinoffs = actions[actions["action_type"] == "SPINOFF"].copy()

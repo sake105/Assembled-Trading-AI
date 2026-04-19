@@ -137,11 +137,33 @@ def compute_regime_attribution(
         return pd.DataFrame(columns=cols)
 
     regime_map: dict[str, str] = {}
+    n_skipped = 0
     for entry in regime_history:
         try:
             regime_map[str(entry["date"])] = str(entry["regime"])
         except Exception:
+            n_skipped += 1
             continue
+    if n_skipped > 0:
+        import logging
+        log = logging.getLogger(__name__)
+        if not regime_map:
+            # Every entry malformed → downstream maps every fill to
+            # regime="unknown" and the aggregate looks like one plausible
+            # "unknown" bucket. That biases regime-cost calibration and
+            # masks a schema drift. Warn loudly in this case.
+            log.warning(
+                "[Attribution] regime_history had %d entries but all failed "
+                "schema — every fill will attribute to regime='unknown'; "
+                "regime-cost calibration will be biased",
+                n_skipped,
+            )
+        else:
+            log.warning(
+                "[Attribution] %d regime_history entries dropped due to "
+                "schema errors (%d parsed cleanly)",
+                n_skipped, len(regime_map),
+            )
 
     frame = fills.copy()
     frame["regime"] = frame.get("date", pd.Series([""] * len(frame))).astype(str)

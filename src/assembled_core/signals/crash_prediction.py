@@ -282,7 +282,29 @@ class CrashPredictionEngine:
         # Try to get HMM crisis probability if available
         prob = getattr(regime, "crisis_probability", None)
         if prob is not None:
-            return float(prob)
+            # A broken HMM fit can produce NaN or out-of-range crisis_probability;
+            # passing NaN straight through then poisons _weighted_aggregate and
+            # `min(nan, 1.0) → nan`, which makes `crash_prob >= 0.60` evaluate
+            # to False — i.e. the crash alarm silently disarms on upstream
+            # breakage. Validate; on failure fall back to the regime-proxy
+            # path (same as "no crisis_probability attr") with a WARN.
+            try:
+                p = float(prob)
+            except (TypeError, ValueError):
+                logger.warning(
+                    "[CrashPrediction] hmm crisis_probability non-numeric: %r "
+                    "— falling back to regime proxy",
+                    prob,
+                )
+            else:
+                import math
+                if math.isfinite(p) and 0.0 <= p <= 1.0:
+                    return p
+                logger.warning(
+                    "[CrashPrediction] hmm crisis_probability out of "
+                    "[0,1] or non-finite: %r — falling back to regime proxy",
+                    p,
+                )
         # Fall back to regime-based estimate
         return self._regime_signal(regime) * 0.8
 
