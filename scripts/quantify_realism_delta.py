@@ -177,22 +177,60 @@ def write_markdown(report: dict[str, Any], path: Path) -> None:
     ]
     for k in pre:
         lines.append(f"| `{k}` | {pre[k]:+.4f} | {post[k]:+.4f} | {delta[k]:+.4f} |")
+
+    sharpe_delta = delta["oos_mean_sharpe"]
+    # Classify observed delta to make anomalies legible instead of hiding them
+    # behind a generic "negative is expected" note.
+    if -0.8 <= sharpe_delta <= -0.3:
+        classification = (
+            "Sharpe delta falls inside plan-expected range "
+            "[-0.8, -0.3]. This is the honesty-shock the plan "
+            "called out: realism ON reduces Sharpe as costs bite."
+        )
+    elif sharpe_delta < -0.8:
+        classification = (
+            f"Sharpe delta {sharpe_delta:+.4f} is **below** the plan-"
+            "expected floor of -0.8. Realism bites harder than the "
+            "plan estimate — investigate whether cost model is too "
+            "aggressive for this fixture, or whether the pre-E0 "
+            "baseline was artificially inflated."
+        )
+    elif sharpe_delta > -0.3 and sharpe_delta < 0:
+        classification = (
+            f"Sharpe delta {sharpe_delta:+.4f} is **above** the plan-"
+            "expected ceiling of -0.3 (i.e. less negative). Cost bite "
+            "is weaker than plan-estimated on this fixture."
+        )
+    else:
+        classification = (
+            f"Sharpe delta {sharpe_delta:+.4f} is **positive**. This "
+            "inverts plan expectation. On this synthetic fixture the "
+            "tier-aware cost model prunes losing trades more than "
+            "winning ones, so costs-ON improves Sharpe even though "
+            "total return falls. Treat this as a fixture artifact "
+            "until verified on real-price walk-forward data."
+        )
+
     lines += [
         "",
         "## Interpretation",
         "",
         f"- Plan v3 E1 expects Sharpe delta in **[-0.8, -0.3]**.",
-        f"- Observed OOS Sharpe delta: **{delta['oos_mean_sharpe']:+.4f}**",
+        f"- Observed OOS Sharpe delta: **{sharpe_delta:+.4f}**",
         f"- In expected range: **{report['sharpe_drop_in_expected_range']}**",
+        "",
+        f"**Classification:** {classification}",
         "",
         "## Notes",
         "",
-        "- This report now runs the real ``run_portfolio_backtest`` engine",
-        "  for both passes. Pre-E0 uses costs=OFF; Post-E0 uses the default",
-        "  tier-aware cost model (realism ON).",
-        "- A negative Sharpe delta is **expected and correct**. It is the",
-        "  honesty-shock called out in the v3 ultra-plan and must be",
-        "  archived before enabling D/F-phase gates.",
+        "- This report runs the real ``run_portfolio_backtest`` engine for",
+        "  both passes. Pre-E0 uses costs=OFF; Post-E0 uses the default",
+        "  tier-aware cost model (realism ON) plus borrow accrual.",
+        "- The fixture uses synthetic prices from ``release_gate_walk_forward``",
+        "  helpers; the absolute magnitude of Sharpe is less meaningful than",
+        "  the directional delta between the two realism modes.",
+        "- Pre-E0 aggregate is persisted separately to ``pre_realism_metrics.json``",
+        "  so the baseline survives subsequent runs of this script.",
     ]
     path.write_text("\n".join(lines), encoding="utf-8")
 
@@ -230,9 +268,30 @@ def main(argv: list[str] | None = None) -> int:
     write_markdown(report, md_path)
     json_path.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
 
+    # Plan v3 E0-exit-gate requires ``pre_realism_metrics.json`` as a
+    # standalone artifact so the pre-realism baseline is preserved even
+    # when the combined report is re-generated with different splits.
+    pre_only_path = out_dir / "pre_realism_metrics.json"
+    pre_only_path.write_text(
+        json.dumps(
+            {
+                "generated_at": report["generated_at"],
+                "n_splits": report["n_splits"],
+                "pre_e0": report["pre_e0"],
+                "notes": (
+                    "Costs=OFF, default_adv=1e6, borrow disabled — the "
+                    "pre-E0 regime captured for delta accounting."
+                ),
+            },
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+
     print(
         f"[REALISM] sharpe delta={report['delta_post_minus_pre']['oos_mean_sharpe']:+.4f} "
-        f"— md={md_path} json={json_path}"
+        f"— md={md_path} json={json_path} baseline={pre_only_path}"
     )
     return 0
 
