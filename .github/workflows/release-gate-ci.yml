@@ -87,7 +87,7 @@ jobs:
           pip install numpy pandas scipy
 
       - name: Run walk-forward gate
-        run: python scripts/release_gate_walk_forward.py --verbose
+        run: python scripts/release_gate_walk_forward.py --verbose --enforce
 
       - name: Upload walk-forward report
         if: always()
