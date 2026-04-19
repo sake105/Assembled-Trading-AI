@@ -421,7 +421,12 @@ def run_execute_step(
     except Exception as exc:
         logger.debug("Could not read signal_generation.mode from policy: %s", exc)
 
-    # Compute signals based on mode
+    # Compute signals based on mode. A multifactor config that silently
+    # downgrades to EMA on any exception is a structurally different
+    # strategy with a different risk profile — elevate the exception log
+    # level from WARNING to ERROR so the fallback is visible in ops feeds.
+    # Full silent-fallback attribution tracking requires the run_manifest
+    # path (see run_eod_pipeline) — noted as follow-up.
     if signal_mode == "multifactor":
         try:
             from src.assembled_core.strategies.multifactor_v2 import (
@@ -430,7 +435,10 @@ def run_execute_step(
             signals = mf_compute_signals(prices)
             logger.info("[ORCHESTRATOR] Signal mode: multifactor_v2 (%d signals)", len(signals))
         except Exception as exc:
-            logger.warning("[ORCHESTRATOR] multifactor_v2 failed, falling back to EMA: %s", exc)
+            logger.error(
+                "[ORCHESTRATOR] multifactor_v2 failed, falling back to EMA: %s",
+                exc, exc_info=True,
+            )
             ema_config = get_default_ema_config(freq)
             signals = compute_ema_signals(prices, ema_config.fast, ema_config.slow)
     elif signal_mode == "ml_enhanced":
@@ -442,7 +450,10 @@ def run_execute_step(
             )
             signals = mf_compute_signals(prices)
         except Exception as exc:
-            logger.warning("[ORCHESTRATOR] multifactor fallback failed: %s", exc)
+            logger.error(
+                "[ORCHESTRATOR] ml_enhanced -> multifactor fallback failed: %s",
+                exc, exc_info=True,
+            )
             ema_config = get_default_ema_config(freq)
             signals = compute_ema_signals(prices, ema_config.fast, ema_config.slow)
     else:
@@ -853,9 +864,14 @@ def run_eod_pipeline(
             # Important: do NOT swallow fail-fast policy errors (e.g. policy="require")
             raise
         except Exception as e:
-            logger.warning(f"Ledger/Accounting step failed: {e}", exc_info=True)
-            # Don't fail the pipeline if ledger fails - it's optional
+            logger.error(f"Ledger/Accounting step failed: {e}", exc_info=True)
+            # Ledger is labeled "optional" at the pipeline level, but a
+            # silent ledger failure produces downstream QA on inconsistent
+            # equity/trades and can surface as green overall status. Set
+            # failure_flag so the run manifest records the degradation,
+            # even though the pipeline does not abort.
             ledger_result = None
+            failure_flag = True
     else:
         logger.info("Step 4b: Ledger/Accounting (SKIPPED - no trades available)")
 

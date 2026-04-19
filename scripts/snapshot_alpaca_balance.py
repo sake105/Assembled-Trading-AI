@@ -28,8 +28,15 @@ from pathlib import Path
 logger = logging.getLogger("snapshot_alpaca_balance")
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 
-OUTPUT_DIR = Path("output/ops")
-LOCAL_STATE_PATH = Path("output/paper_state/paper_state.json")
+# Anchor output paths to the project root (two levels up from this file)
+# instead of using relative paths. With the previous CWD-relative paths,
+# launching the snapshot from an unexpected working directory (e.g., a
+# CI runner, a cron job with a different pwd, a systemd unit) would
+# silently write snapshots to a wrong directory where nothing reads them,
+# defeating the whole "second independent stall-detector" contract.
+_PROJECT_ROOT = Path(__file__).resolve().parents[1]
+OUTPUT_DIR = _PROJECT_ROOT / "output" / "ops"
+LOCAL_STATE_PATH = _PROJECT_ROOT / "output" / "paper_state" / "paper_state.json"
 CASH_DELTA_WARN_USD = 50.0
 
 
