@@ -97,8 +97,19 @@ def build_event_feature_panel(
     # Step 1: Normalize events to contract schema
     try:
         events = normalize_alt_events(events_df)
-    except ValueError:
-        # If normalization fails, return prices with zero features
+    except ValueError as exc:
+        # If normalization fails, return prices with zero features. Previously
+        # the zero-fallback was indistinguishable from a genuine quiet period
+        # (0 disclosures in window) — downstream event-density gates would
+        # treat broken ingestion as risk-off-safe data. Emit a WARN so the
+        # normalization failure is observable without changing the zero
+        # fallback semantics (callers already depend on numeric-filled cols).
+        import logging
+        logging.getLogger(__name__).warning(
+            "[event_features] normalize_alt_events failed for prefix=%s: %s "
+            "— emitting zero-fallback (may mask a broken events feed)",
+            feature_prefix, exc,
+        )
         result[f"{feature_prefix}_count_{lookback_days}d"] = 0
         result[f"{feature_prefix}_sum_{lookback_days}d"] = 0.0
         result[f"{feature_prefix}_mean_{lookback_days}d"] = pd.NA

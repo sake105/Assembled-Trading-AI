@@ -92,6 +92,18 @@ def get_universe_members(
             delisted symbols have no recorded end_date.
     """
     if as_of is None:
+        # A caller that forgets to pass `as_of` in a historical backtest path
+        # silently gets the *live* watchlist — classic survivorship bias
+        # (delisted symbols are invisible to the caller). The PIT-safe API is
+        # `get_universe_members_pit`; surface this fallback so the risk is
+        # observable in logs.
+        import logging
+        logging.getLogger(__name__).warning(
+            "[Universe] get_universe_members called with as_of=None — "
+            "falling back to watchlist.txt; this is NOT PIT-safe and hides "
+            "delistings in historical contexts. Use get_universe_members_pit "
+            "for point-in-time membership."
+        )
         wl = Path("watchlist.txt")
         if wl.exists():
             return sorted(

@@ -697,7 +697,24 @@ def _compute_regime_multiplier(df: pd.DataFrame, cfg: dict) -> float:
         regime_df = build_regime_state(df)
         if regime_df is not None and not regime_df.empty:
             latest_regime = regime_df.iloc[-1]
-            label = str(latest_regime.get("regime_label", "neutral")).lower()
+            raw_label = latest_regime.get("regime_label")
+            # A missing regime_label column (upstream schema drift) previously
+            # silently defaulted to "neutral" which then maps to 0.70 —
+            # indistinguishable from a correctly detected neutral regime. Log
+            # the fallback so the distinction is observable.
+            if raw_label is None or (isinstance(raw_label, float) and raw_label != raw_label):
+                logger.warning(
+                    "[MF-V1] regime_label missing/NaN in regime_df — using 'neutral' fallback"
+                )
+                label = "neutral"
+            else:
+                label = str(raw_label).lower()
+            if label not in REGIME_EXPOSURE:
+                logger.warning(
+                    "[MF-V1] regime_label=%r not in REGIME_EXPOSURE keys %s — "
+                    "using 0.70 fallback",
+                    label, list(REGIME_EXPOSURE.keys()),
+                )
             base_mult = REGIME_EXPOSURE.get(label, 0.70)
             logger.info("[MF-V1] Regime=%s -> exposure_mult=%.2f", label, base_mult)
         else:

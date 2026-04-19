@@ -157,6 +157,17 @@ def get_tier_for_symbol(symbol: str, adv_usd: float | None) -> str:
     default_tier = str(cfg.get("default_tier", "mid_cap"))
 
     if adv_usd is None or adv_usd <= 0:
+        # Silent default to mid_cap underestimates costs for a genuine
+        # micro-cap with missing ADV, and overstates them for a mega-cap
+        # whose ADV feed is temporarily broken. Either way, the caller is
+        # consuming a made-up tier. Log at debug-level per symbol to avoid
+        # a loud flood — callers who want a hard-fail should guard ADV
+        # upstream.
+        import logging
+        logging.getLogger(__name__).debug(
+            "[Costs] get_tier_for_symbol(%s): adv_usd=%s — using default_tier=%s",
+            symbol, adv_usd, default_tier,
+        )
         return default_tier
 
     best: tuple[float, str] | None = None
