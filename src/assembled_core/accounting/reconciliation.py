@@ -331,6 +331,13 @@ def reconcile_daily_pnl(
         ``break_pct``, ``position_contributions``.
     """
     contributions: dict[str, float] = {}
+    # A symbol with missing start/end price or p_start==0 silently booked
+    # contribution=0 before. For a held position that looks indistinguishable
+    # from a flat-price day, so a price-feed gap on a moving symbol becomes
+    # invisible "unexplained_return" that downstream attribution cannot
+    # separate from fees / timing. Track which symbols were skipped so the
+    # reason is surfaced and the break-analysis can be trusted.
+    skipped_symbols: list[str] = []
     explained = 0.0
 
     for sym, weight in positions.items():
@@ -339,6 +346,8 @@ def reconcile_daily_pnl(
 
         if p_start is None or p_end is None or p_start == 0:
             contributions[sym] = 0.0
+            if abs(float(weight)) > 0:
+                skipped_symbols.append(sym)
             continue
 
         sym_return = (p_end - p_start) / p_start
@@ -367,12 +376,20 @@ def reconcile_daily_pnl(
         "tolerance_pct": tolerance_pct,
         "break_reason": break_reason,
         "position_contributions": contributions,
+        "skipped_symbols": skipped_symbols,
     }
 
     if not ok:
         logger.warning(
             "[Reconcile] P&L break: explained=%.6f, portfolio=%.6f, break=%.6f%% (%s)",
             explained, portfolio_return, break_pct * 100, break_reason,
+        )
+    if skipped_symbols:
+        logger.warning(
+            "[Reconcile] %d held-position symbol(s) skipped due to missing "
+            "start/end price — attribution for these positions is missing "
+            "from explained_return: %s",
+            len(skipped_symbols), skipped_symbols,
         )
 
     return result

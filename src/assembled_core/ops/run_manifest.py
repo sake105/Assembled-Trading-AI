@@ -92,8 +92,16 @@ def compute_config_hash(config: Any) -> str:
             raw = {"repr": repr(config)}
         blob = json.dumps(raw, sort_keys=True, default=str).encode("utf-8")
         return hashlib.sha256(blob).hexdigest()[:16]
-    except Exception:
-        return ""
+    except Exception as exc:
+        # Previously returned "" on any failure. Two runs with different
+        # configs then both showed config_hash="" and looked reproducible to
+        # cross-run diff tooling — defeating the whole reproducibility
+        # contract. Emit a deterministic distinguishable marker based on the
+        # exception repr so the slot is non-empty and differs per failure
+        # class. Also WARN so the failure is visible.
+        logger.warning("[MANIFEST] config hash failed: %s", exc)
+        exc_digest = hashlib.sha256(repr(exc).encode("utf-8")).hexdigest()[:10]
+        return f"error:{exc_digest}"
 
 
 def _resolve_artifacts(candidate_paths: dict[str, Path]) -> dict[str, str]:

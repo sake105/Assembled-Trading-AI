@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import logging
+
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 def load_corporate_actions(path: str | None = None) -> pd.DataFrame:
@@ -232,21 +236,45 @@ def compute_total_return_index(
     result = prices.copy()
     result["close_total_return"] = result["close"].astype(float).copy()
 
+    # The sibling `adjust_prices_for_splits` raises on schema gaps; this path
+    # previously returned un-adjusted prices silently on any of four early
+    # exits. Downstream PnL then under-reports returns by ~div yield p.a.
+    # without any visible signal. Emit a WARN on each silent-no-op so a
+    # missing/misshaped dividend feed becomes observable instead of becoming
+    # a 2%-p.a. attribution blind spot.
     if dividend_actions.empty:
+        logger.warning(
+            "[CorpActions] compute_total_return_index: dividend_actions is "
+            "empty — returning close_total_return = close (no dividend adjustment)"
+        )
         return result
 
     required = {"symbol", "effective_date", "dividend_cash"}
-    if required - set(dividend_actions.columns):
+    missing = required - set(dividend_actions.columns)
+    if missing:
+        logger.warning(
+            "[CorpActions] compute_total_return_index: dividend_actions "
+            "missing columns %s — returning close_total_return = close",
+            missing,
+        )
         return result
 
     divs = dividend_actions.copy()
     if "action_type" in divs.columns:
         divs = divs[divs["action_type"] == "DIVIDEND"]
     if divs.empty:
+        logger.warning(
+            "[CorpActions] compute_total_return_index: no DIVIDEND rows after "
+            "action_type filter — returning close_total_return = close"
+        )
         return result
 
     ts_col = "timestamp" if "timestamp" in result.columns else "date"
     if ts_col not in result.columns:
+        logger.warning(
+            "[CorpActions] compute_total_return_index: prices frame has "
+            "neither 'timestamp' nor 'date' column — returning close_total_return = close"
+        )
         return result
 
     divs["effective_date"] = pd.to_datetime(divs["effective_date"], utc=True)

@@ -116,7 +116,17 @@ def compute_ic_half_life(ic_series: pd.Series) -> float | None:
 
         half_life = np.log(2) / decay_rate
         return float(np.clip(half_life, 0.5, 500))
-    except Exception:
+    except Exception as exc:
+        # Previously returned None silently on any fit failure. Downstream
+        # SignalDecayProfile then showed ic_half_life_days=None which is
+        # indistinguishable from "insufficient data" — a genuinely
+        # undecayed signal and a numpy fit bomb looked the same. Emit a
+        # WARN so the distinction is observable in logs.
+        import logging
+        logging.getLogger(__name__).warning(
+            "[SignalDecay] ic_half_life polyfit failed: %s — returning None",
+            exc,
+        )
         return None
 
 
