@@ -22,12 +22,19 @@ def _synthetic_ohlcv_3symbols_60days() -> pd.DataFrame:
     # Session close 21:00 UTC
     timestamps = dates + pd.Timedelta(hours=21)
     symbols = ["A", "B", "C"]
+    # Fixed per-symbol seeds + explicit linear drift. `hash(str) % 2**32`
+    # would be salted per-process (PYTHONHASHSEED), which caused
+    # intermittent CI no-fill outcomes; and pure noise around 100 rarely
+    # produced a sustained ma_fast > ma_slow window. Linear drift
+    # guarantees a crossover regime within 60 bars.
+    seeds = {"A": 1, "B": 2, "C": 3}
     rows = []
     for sym in symbols:
-        np.random.seed(hash(sym) % 2**32)
+        np.random.seed(seeds[sym])
         n = len(timestamps)
-        # Trend so that fast MA crosses slow MA (ma_fast=20, ma_slow=50)
-        close = 100.0 + np.cumsum(np.random.randn(n).cumsum() * 0.5)
+        drift = np.linspace(0.0, 40.0, n)
+        noise = np.random.randn(n).cumsum() * 0.3
+        close = 100.0 + drift + noise
         close = np.maximum(close, 1.0)
         for i, ts in enumerate(timestamps):
             c = close[i]
