@@ -113,10 +113,18 @@ class SourceUptimeTracker:
     def __init__(self, window: int = 30) -> None:
         self._window = window  # rolling observation window
         # {source_id: {"attempts": int, "successes": int, "consecutive_failures": int,
-        #               "last_success_ts": str|None, "last_latency_ms": float|None}}
+        #               "last_success_ts": str|None, "last_latency_ms": float|None,
+        #               "queue_depth": int, "latency_history": list[float]}}
         self._sources: dict[str, dict] = {}
 
-    def record(self, source_id: str, *, success: bool, latency_ms: float | None = None) -> None:
+    def record(
+        self,
+        source_id: str,
+        *,
+        success: bool,
+        latency_ms: float | None = None,
+        queue_depth: int | None = None,
+    ) -> None:
         """Record a fetch attempt result for a source."""
         now = datetime.now(tz=timezone.utc).isoformat()
         if source_id not in self._sources:
@@ -126,10 +134,18 @@ class SourceUptimeTracker:
                 "consecutive_failures": 0,
                 "last_success_ts": None,
                 "last_latency_ms": None,
+                "queue_depth": 0,
+                "latency_history": [],
             }
         s = self._sources[source_id]
         s["attempts"] += 1
         s["last_latency_ms"] = latency_ms
+        if latency_ms is not None:
+            s["latency_history"].append(latency_ms)
+            if len(s["latency_history"]) > self._window:
+                s["latency_history"] = s["latency_history"][-self._window:]
+        if queue_depth is not None:
+            s["queue_depth"] = queue_depth
         if success:
             s["successes"] += 1
             s["consecutive_failures"] = 0
@@ -151,6 +167,15 @@ class SourceUptimeTracker:
             return False
         return s["consecutive_failures"] >= max_consecutive_failures
 
+    def p95_latency_ms(self, source_id: str) -> float | None:
+        """Return p95 fetch latency in ms over the rolling window, or None if no data."""
+        s = self._sources.get(source_id)
+        if not s or not s["latency_history"]:
+            return None
+        hist = sorted(s["latency_history"])
+        idx = max(0, int(len(hist) * 0.95) - 1)
+        return hist[idx]
+
     def snapshot(self) -> dict[str, dict]:
         """Return uptime snapshot for all tracked sources."""
         result = {}
@@ -159,5 +184,6 @@ class SourceUptimeTracker:
                 **s,
                 "uptime_pct": self.uptime_pct(src),
                 "degraded": self.is_degraded(src),
+                "p95_latency_ms": self.p95_latency_ms(src),
             }
         return result

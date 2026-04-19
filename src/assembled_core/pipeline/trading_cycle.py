@@ -3599,9 +3599,11 @@ def _run_trading_cycle_inner(
     else:
         log.info("REBALANCE TRIGGERED: %s", rebal_reason)
 
-    # T4.1: Crisis-Alpha v1 shadow wiring (policy-gated, default off)
+    # T4.1: Crisis-Alpha v1 wiring (policy-gated, default shadow-only).
     # Inserted after signal generation + rebalance decision, before order generation.
-    # shadow_only=True (default) means result is logged only — no order impact.
+    # shadow_only=True (default): pipeline called dry_run=True, result logged only.
+    # shadow_only=False: pipeline called dry_run=False, target_weights capped
+    #   conservatively — crisis_alpha can only reduce weights, never increase them.
     if (policy or {}).get("intel", {}).get("crisis_alpha", {}).get("enabled", False):
         try:
             from src.assembled_core.events.crisis_alpha.pipeline import (
@@ -3619,18 +3621,47 @@ def _run_trading_cycle_inner(
                 _as_of_dt = pd.to_datetime(ctx.as_of, utc=True).to_pydatetime() if getattr(ctx, "as_of", None) is not None else None
                 _ca_ctx = CrisisAlphaContext.empty(timestamp_utc=_as_of_dt)
 
-            ca_result = run_crisis_alpha_pipeline(_ca_ctx, policy=policy, dry_run=True)
             shadow_only = (policy or {}).get("intel", {}).get("crisis_alpha", {}).get("shadow_only", True)
+
+            # dry_run=True when shadow — state is never persisted in shadow mode.
+            ca_result = run_crisis_alpha_pipeline(_ca_ctx, policy=policy, dry_run=shadow_only)
+
             if shadow_only:
-                logger.info("[SHADOW-T4.1] crisis_alpha result: %s", ca_result)
+                logger.info("[SHADOW-T4.1] crisis_alpha result (log-only): state=%s targets=%d",
+                            ca_result.get("state"), len(ca_result.get("target_weights") or {}))
             else:
-                # Step 3 (not yet implemented): use result to influence orders
-                logger.info(
-                    "[T4.1] crisis_alpha result wired to orders (shadow_only=false): %s",
-                    ca_result,
-                )
+                # Step 3: apply conservative weight cap from crisis_alpha target_weights.
+                # Invariant: never increase a weight via crisis_alpha — only reduce.
+                ca_weights: dict[str, float] = {
+                    k.upper(): v for k, v in (ca_result.get("target_weights") or {}).items()
+                }
+                if ca_weights and not result.target_positions.empty:
+                    n_adjusted = 0
+                    for idx, row in result.target_positions.iterrows():
+                        sym = str(row["symbol"]).upper()
+                        ca_cap = ca_weights.get(sym)
+                        if ca_cap is not None:
+                            old_w = float(row["target_weight"])
+                            new_w = min(old_w, float(ca_cap))
+                            if new_w < old_w:
+                                result.target_positions.at[idx, "target_weight"] = new_w
+                                n_adjusted += 1
+                    logger.info("[OK] T4.1 crisis_alpha weights applied: %d symbols adjusted", n_adjusted)
+                    result.meta["crisis_alpha_weight_cap"] = {
+                        "applied": True,
+                        "n_adjusted": n_adjusted,
+                        "ca_state": ca_result.get("state"),
+                    }
+                else:
+                    logger.info("[OK] T4.1 crisis_alpha: no target_weights to apply (state=%s)",
+                                ca_result.get("state"))
+                    result.meta["crisis_alpha_weight_cap"] = {
+                        "applied": False,
+                        "n_adjusted": 0,
+                        "ca_state": ca_result.get("state"),
+                    }
         except Exception as exc:
-            logger.warning("[WARN] T4.1 crisis_alpha_pipeline failed: %s", exc)
+            logger.warning("[WARN] T4.1 crisis_alpha_pipeline failed, continuing without cap: %s", exc)
 
     # Step 5: Generate orders (hook point: generate_orders)
     try:

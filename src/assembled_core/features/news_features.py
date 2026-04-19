@@ -67,18 +67,11 @@ def add_news_features(
     events = events.copy()
     events["timestamp"] = pd.to_datetime(events["timestamp"], utc=True)
 
-    # Shadow-Mode T2.1: if as_of provided, compute PIT-gated events in parallel
-    # and log diff — production path still uses all events until flip is approved.
+    # T2.1: PIT gate — when as_of provided, drop events not yet disclosed
     if as_of is not None:
         as_of_ts = pd.Timestamp(as_of).tz_localize("UTC") if getattr(as_of, "tzinfo", None) is None else pd.Timestamp(as_of)
         disclosure_col = "disclosure_date" if "disclosure_date" in events.columns else "timestamp"
-        pit_events = events[events[disclosure_col] <= as_of_ts]
-        n_gated = len(events) - len(pit_events)
-        if n_gated > 0:
-            _log.debug(
-                "[SHADOW-T2.1] as_of=%s gated %d future events (shadow only, not flipped)",
-                as_of_ts.isoformat(), n_gated,
-            )
+        events = events[events[disclosure_col] <= as_of_ts].copy()
 
     # --- FinBERT enrichment (optional) ---
     has_finbert = False
@@ -184,6 +177,54 @@ def add_news_features(
     return merged
 
 
+def update_news_features_incremental(
+    existing: pd.DataFrame,
+    new_prices: pd.DataFrame,
+    new_events: pd.DataFrame,
+    as_of: "str | pd.Timestamp | None" = None,
+) -> pd.DataFrame:
+    """T6.12: Incrementally update news features for new price rows only.
+
+    Appends `new_prices` rows to `existing`, runs `add_news_features` over the
+    combined frame, then returns only the rows whose timestamp is >= the earliest
+    new_prices timestamp. This avoids recomputing features for historical rows.
+
+    Args:
+        existing: Previously computed feature frame (from add_news_features).
+        new_prices: New price rows to add (must have same schema as existing).
+        new_events: New or all news events (passed to add_news_features).
+        as_of: PIT gate forwarded to add_news_features.
+
+    Returns:
+        Feature frame covering the new_prices rows (merged state, not just delta).
+    """
+    if new_prices.empty:
+        return existing
+
+    # Identify cutoff — earliest new timestamp
+    ts_col = "timestamp"
+    new_ts = pd.to_datetime(new_prices[ts_col], utc=True)
+    cutoff = new_ts.min()
+
+    # Combine: drop existing rows at/after cutoff, then append new rows
+    if not existing.empty:
+        existing_ts = pd.to_datetime(existing[ts_col], utc=True)
+        prior = existing[existing_ts < cutoff].copy()
+        # Strip news feature columns from prior so they don't conflict
+        feature_cols = [c for c in prior.columns if c.startswith(("news_", "nlp_"))]
+        prior_prices = prior.drop(columns=feature_cols, errors="ignore")
+    else:
+        prior_prices = pd.DataFrame(columns=new_prices.columns)
+
+    combined_prices = pd.concat([prior_prices, new_prices], ignore_index=True)
+    updated = add_news_features(combined_prices, new_events, as_of=as_of)
+
+    # Return only rows from cutoff onward
+    updated_ts = pd.to_datetime(updated[ts_col], utc=True)
+    return updated[updated_ts >= cutoff].reset_index(drop=True)
+
+
 __all__ = [
     "add_news_features",
+    "update_news_features_incremental",
 ]

@@ -216,8 +216,40 @@ def compute_factor_attribution(
     return agg.sort_values("factor", kind="mergesort").reset_index(drop=True)
 
 
+def compute_event_signal_attribution(
+    fills: pd.DataFrame,
+    bucket_column: str = "event_signal_bucket",
+) -> pd.DataFrame:
+    """Aggregate cost by event-signal bucket tag carried on each fill (T6.4).
+
+    Buckets are free-form strings like ``"news_geo_conflict"`` or ``"disclosure_form4"``.
+    Missing column → empty frame; callers should treat that as unavailable.
+    """
+    cols = ["event_signal_bucket", "notional", "n_fills", "total_cost_cash", "total_cost_bps"]
+    if fills is None or fills.empty or bucket_column not in fills.columns:
+        return pd.DataFrame(columns=cols)
+
+    frame = fills.copy()
+    frame["event_signal_bucket"] = frame[bucket_column].astype(str).fillna("unknown")
+    frame["notional"] = _per_fill_notional(frame)
+    frame["total_cost_cash"] = (
+        _safe_col(frame, "total_cost_bps") / 10_000.0 * frame["notional"]
+    )
+    agg = (
+        frame.groupby("event_signal_bucket", as_index=False)
+        .agg(notional=("notional", "sum"),
+             n_fills=("event_signal_bucket", "count"),
+             total_cost_cash=("total_cost_cash", "sum"))
+    )
+    agg["total_cost_bps"] = (
+        agg["total_cost_cash"] / agg["notional"].replace(0, pd.NA) * 10_000.0
+    ).fillna(0.0)
+    return agg.sort_values("event_signal_bucket", kind="mergesort").reset_index(drop=True)
+
+
 __all__ = [
     "compute_cost_attribution",
     "compute_regime_attribution",
     "compute_factor_attribution",
+    "compute_event_signal_attribution",
 ]

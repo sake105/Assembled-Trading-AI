@@ -596,3 +596,74 @@ def compute_tail_risk_parity_weights(
         w = 0.5 * w + 0.5 * w_new  # damped update
 
     return {assets[i]: float(w[i]) for i in range(n)}
+
+
+def apply_news_sentiment_weight_adjustment(
+    target_positions: pd.DataFrame,
+    news_events: "pd.DataFrame | None" = None,
+    *,
+    entity_linker: "object | None" = None,
+    sentiment_col: str = "sentiment_score",
+    max_adjustment: float = 0.10,
+    shadow_only: bool = True,
+) -> pd.DataFrame:
+    """Shadow-mode (T4.4): adjust target weights by news sentiment via EntityLinker.
+
+    When shadow_only=True (default), logs adjustments but returns positions unchanged.
+    When shadow_only=False, applies a capped weight bump/reduction based on sentiment.
+
+    Invariants:
+    - Never increases a weight by more than max_adjustment (10pp by default).
+    - Never pushes a weight below 0.
+    - Weights re-normalized after adjustment.
+    """
+    if news_events is None or news_events.empty or entity_linker is None:
+        return target_positions
+
+    result = target_positions.copy()
+
+    # Build per-symbol sentiment map via EntityLinker
+    sentiment_map: dict[str, float] = {}
+    for _, row in news_events.iterrows():
+        entity = str(row.get("entity") or row.get("symbol") or "")
+        score = float(row.get(sentiment_col, 0.0) or 0.0)
+        try:
+            sym = entity_linker.link(entity)
+        except Exception:
+            sym = None
+        if sym:
+            prev = sentiment_map.get(sym.upper(), 0.0)
+            sentiment_map[sym.upper()] = (prev + score) / 2.0  # rolling mean
+
+    if not sentiment_map:
+        return result
+
+    adjustments: list[dict] = []
+    for idx, row in result.iterrows():
+        sym = str(row["symbol"]).upper()
+        sent = sentiment_map.get(sym)
+        if sent is None:
+            continue
+        # Map sentiment [-1, 1] → weight delta [-max_adjustment, +max_adjustment]
+        delta = float(sent) * max_adjustment
+        old_w = float(row["target_weight"])
+        new_w = max(0.0, min(1.0, old_w + delta))
+        adjustments.append({"idx": idx, "symbol": sym, "old_w": old_w, "new_w": new_w, "delta": delta})
+        if not shadow_only:
+            result.at[idx, "target_weight"] = new_w
+
+    if adjustments:
+        logger.debug(
+            "[%s-T4.4] news_sentiment adjustments: %d symbols | samples: %s",
+            "SHADOW" if shadow_only else "OK",
+            len(adjustments),
+            [(a["symbol"], round(a["delta"], 3)) for a in adjustments[:5]],
+        )
+
+    if not shadow_only and adjustments:
+        total_w = result["target_weight"].sum()
+        if total_w > 1e-9:
+            result["target_weight"] = result["target_weight"] / total_w
+        result["target_qty"] = result["target_weight"] * result.get("target_qty", result["target_weight"])
+
+    return result
