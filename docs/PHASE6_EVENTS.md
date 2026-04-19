@@ -1,5 +1,9 @@
 # Phase 6: Event-basierte Features und Strategien
 
+> **SUPERSEDED (2026-04-19)** — superseded by the goofy-questing-crystal remediation plan.
+> Current intel/news architecture lives in `src/assembled_core/events/` and `src/assembled_core/intel/`.
+> This document is kept for historical reference only.
+
 **Letzte Aktualisierung:** 2025-01-15
 
 ## Überblick

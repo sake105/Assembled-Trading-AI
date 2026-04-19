@@ -26,6 +26,8 @@ import sys
 import time
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
@@ -33,6 +35,19 @@ from src.assembled_core.events.news.dedupe_store import DedupeStoreSQLite
 from src.assembled_core.events.news.pipeline import run_news_pipeline
 
 logger = logging.getLogger("news_worker")
+
+_POLICY_PATH = ROOT / "configs" / "policy.yaml"
+
+
+def _is_kill_switch_active(policy_path: Path = _POLICY_PATH) -> bool:
+    """Return True if intel.kill_switch.enabled is set in policy.yaml."""
+    try:
+        with open(policy_path, "r", encoding="utf-8") as fh:
+            policy = yaml.safe_load(fh)
+        return bool((policy or {}).get("intel", {}).get("kill_switch", {}).get("enabled", False))
+    except Exception as exc:
+        logger.warning("[WARN] Could not read kill_switch from policy: %s", exc)
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -193,6 +208,10 @@ def main() -> int:
     )
 
     args = _parse_args()
+
+    if _is_kill_switch_active():
+        logger.info("[SKIP] kill_switch_active — news_worker halted by policy.")
+        return 0
 
     output_dir = (
         Path(args.output_dir) if args.output_dir else Path("output") / "intel" / "news"

@@ -24,6 +24,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+import yaml
+
 # ---------------------------------------------------------------------------
 # Path setup — allow running as script from repo root
 # ---------------------------------------------------------------------------
@@ -48,6 +50,18 @@ from src.assembled_core.intel.news_ingest import GdeltFetcher  # noqa: E402
 logger = logging.getLogger(__name__)
 
 _DEFAULT_OUTPUT_DIR = "data/intel"
+_POLICY_PATH = _REPO_ROOT / "configs" / "policy.yaml"
+
+
+def _is_kill_switch_active(policy_path: Path = _POLICY_PATH) -> bool:
+    """Return True if intel.kill_switch.enabled is set in policy.yaml."""
+    try:
+        with open(policy_path, "r", encoding="utf-8") as fh:
+            policy = yaml.safe_load(fh)
+        return bool((policy or {}).get("intel", {}).get("kill_switch", {}).get("enabled", False))
+    except Exception as exc:
+        logger.warning("[WARN] Could not read kill_switch from policy: %s", exc)
+        return False
 _DEFAULT_STATE_DIR = "data/intel/state"
 _DEFAULT_GRAPH_PATH = "configs/dependency_graph.yaml"
 _DEFAULT_INTERVAL = 900  # 15 minutes
@@ -400,6 +414,10 @@ def main() -> None:
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%SZ",
     )
+
+    if _is_kill_switch_active():
+        logger.info("[SKIP] kill_switch_active — intel_cycle halted by policy.")
+        return
 
     config = _build_config(args)
 

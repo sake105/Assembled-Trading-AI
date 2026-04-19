@@ -1,5 +1,9 @@
 # Research Roadmap – Assembled Trading AI
 
+> **SUPERSEDED (2026-04-19)** — superseded by the goofy-questing-crystal remediation plan.
+> Active milestone tracking lives in `ROADMAP_STATE.md` and `memory/`.
+> This document is kept for historical reference only.
+
 **Letzte Aktualisierung:** 2025-01-15  
 **Status:** Phase 12.1 & 12.2 – Research-Prozess, Roadmap & Experiment-Tracking (fertig)
 
