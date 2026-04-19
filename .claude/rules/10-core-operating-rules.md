@@ -62,12 +62,30 @@ Wenn zwei Wege möglich sind, bevorzuge:
 - den besser rücknehmbaren Eingriff
 - den besser dokumentierbaren Eingriff
 
-## Dokumentationspflicht nach Änderungen
+## Dokumentationspflicht
 
-Nach jeder abgeschlossenen Roadmap-Aufgabe oder größeren Codeänderung sind folgende Dokumentationen zu aktualisieren:
+Dokumentationsaufwand soll dem Umfang der Änderung entsprechen.
+Nicht jede kleine Änderung braucht ROADMAP-/Memory-Updates.
 
-- `ROADMAP_STATE.md`: aktueller Task-Status, letzte Schritte, nächster sicherer Schritt.
-- `memory/MEMORY.md` + zugehörige Memory-Datei: Milestatus, abgeschlossene Tasks, Testergebnisse.
-- Wenn neue sensible Designentscheidungen getroffen wurden: kurze Ergänzung in passendem Bereich.
+**Pflicht bei:**
 
-Nicht dokumentieren = nicht abgeschlossen.
+- abgeschlossenen Roadmap-Aufgaben, Milestones oder Sprints
+- neuen sensiblen Designentscheidungen (Risk, Execution, Pipeline, Accounting)
+- neuen Invarianten, Verträgen oder Interface-Änderungen
+- Statuswechseln mit Wirkung auf Folgearbeiten
+
+**Nicht Pflicht bei:**
+
+- kleinen Bugfixes
+- Lint-/Format-/Test-Reparaturen
+- offensichtlichen Routine-Änderungen ohne neue Annahmen
+
+**Orte (wenn Pflicht greift):**
+
+- `ROADMAP_STATE.md`: Task-Status, letzte Schritte, nächster sicherer Schritt
+- `memory/MEMORY.md` + zugehörige Memory-Datei: nur bei Milestone-Abschluss oder echtem Statuswechsel
+- passende Spec- oder Designdatei bei sensiblen Architekturentscheidungen
+
+**Grundsatz:**
+Lieber knapp und ehrlich dokumentieren als ausführlich und veraltet.
+Wer veraltete Doku erzeugt, erzeugt ein späteres Debug-Problem.

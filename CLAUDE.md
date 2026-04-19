@@ -694,15 +694,19 @@ Sie soll dauerhaft gültige Regeln, Projektidentität und Sicherheitsprinzipien 
 Diese Datei darf ausführlich sein, aber sie soll **immer noch fokussiert** bleiben.
 Spezialregeln gehören später eher in separate Dateien, nicht dauerhaft in diese Basis.
 
-### 14.3 Spätere Claude-Code-Struktur
+### 14.3 Aktive Claude-Code-Struktur
 
-Sinnvolle spätere Ergänzungen:
+Bereits etabliert:
 
-* `.claude/settings.json`
-* `.claude/settings.local.json`
-* `.claude/agents/`
+* `.claude/settings.json` und `.claude/settings.local.json` (aktiv)
+* `.claude/agents/` (aktiv — Spezialist-Subagents)
+* `.claude/rules/` (aktiv — modulare Projektregeln, siehe Imports unten)
+* Memory-System via `memory/` + claude-mem (aktiv)
+
+Noch offen / optional:
+
 * projektbezogene Hook-Skripte
-* modulare Projektregeln in separaten Markdown-Dateien
+* weitergehende Automation (erst nach stabilem Basiskontext)
 
 ### 14.4 Reihenfolge der Einführung
 
@@ -745,30 +749,9 @@ Claude soll NICHT:
 
 ## 15.5 Subagent routing policy
 
-Subagents are the default execution model for specialized tasks. Do not wait for explicit user wording when the task clearly matches a specialist area.
+Die konkrete Routing-Policy für Subagents liegt in `@.claude/rules/90-subagents-hooks-and-automation.md` (Abschnitt „Konkrete Routing-Policy").
 
-Routing rules:
-
-* Use `ci-debugger` proactively for CI failures, workflow failures, platform-specific test divergence, dependency drift, collection failures, artifact upload conflicts, and local-vs-CI mismatches.
-* Use `test-runner` proactively for targeted test execution, marker handling, regression validation, failing test triage, and minimal repro verification.
-* Use `risk-execution-reviewer` proactively for any task touching `src/assembled_core/execution/`, `src/assembled_core/risk/`, `src/assembled_core/paper/`, `src/assembled_core/pipeline/`, portfolio constraints, order generation, pre-trade checks, kill-switch logic, or cost-aware execution paths.
-* Use `docs-governance-sync` proactively for changes to `CLAUDE.md`, `.claude/rules/`, `AGENTS.md`, `.cursor/rules/`, `docs/cursor/`, or any agent-governance / repo-instruction layer.
-* Use `memory-tracker` proactively when a session produced meaningful decisions, status changes, debugging conclusions, governance changes, or new risk assumptions that should remain stable across later sessions.
-
-Mandatory behavior:
-
-* Prefer specialist subagent delegation over keeping all specialist reasoning in the main thread.
-* If a task clearly matches a specialist area, delegate first and then integrate the result.
-* If multiple areas apply, delegate to the most risk-relevant specialist first and then to secondary specialists if needed.
-* Do not skip specialist delegation for sensitive zones unless there is a clear, explicit reason not to.
-
-Priority order when multiple areas conflict:
-
-1. `risk-execution-reviewer`
-2. `ci-debugger`
-3. `test-runner`
-4. `docs-governance-sync`
-5. `memory-tracker`
+Kernprinzip hier: Subagents sind Default-Ausführungsmodus für spezialisierte Arbeit. Nicht auf explizite User-Aufforderung warten.
 
 
 ---
@@ -790,16 +773,17 @@ Vor jeder echten Änderung intern prüfen:
 
 ## 17. Praktische Standard-Checkliste für Antworten
 
-Antworten sollen möglichst enthalten:
+Antworten sollen **in kompakter Form** enthalten:
 
 * betroffene Dateien
-* Art des Problems
 * Art der Änderung
-* ausgeführte Checks
+* ausgeführte Checks (oder Nicht-Geprüftes explizit benannt)
 * verbleibende Risiken
-* offener Rest / nächster sinnvoller Schritt
+* nächster sinnvoller Schritt, sofern offen
 
 Wenn etwas **nicht geprüft** wurde, das klar sagen.
+
+**Form:** Kompakte Einzeilen oder kurzer Block. Keine ausführliche Prosa, keine Recaps, keine Plan-Wiedergabe. Details siehe `@.claude/rules/85-response-style.md`.
 
 ---
 
@@ -847,6 +831,8 @@ Wenn später spezialisierte Projektdateien, Settings, Agents oder Hooks eingefü
 @.claude/rules/70-memory-context-and-token-discipline.md
 
 @.claude/rules/80-logging-and-output-standards.md
+
+@.claude/rules/85-response-style.md
 
 @.claude/rules/90-subagents-hooks-and-automation.md
 

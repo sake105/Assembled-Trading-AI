@@ -50,3 +50,15 @@ src/assembled_trading_core.egg-info/
 # System-Check Tournament runs (keep directory, ignore individual runs)
 system_check/runs/*/
 !system_check/runs/.gitkeep
+
+# Claude Code runtime artifacts
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
+.claude/worktrees/
+
+# CI / debugging investigation artifacts (root-level scratch)
+/ci_*.json
+/jobs_*.json
+
+# Model artifacts (not versioned — use Git LFS or external storage if needed)
+/models/

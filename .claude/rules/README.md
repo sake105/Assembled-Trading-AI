@@ -28,7 +28,9 @@ Füge in der Root-Datei `CLAUDE.md` diese Zeilen ein:
 @.claude/rules/60-git-and-change-management.md
 @.claude/rules/70-memory-context-and-token-discipline.md
 @.claude/rules/80-logging-and-output-standards.md
+@.claude/rules/85-response-style.md
 @.claude/rules/90-subagents-hooks-and-automation.md
+@.claude/rules/95-token-efficiency.md
 ```
 
 ## Ziel dieser Struktur
@@ -48,4 +50,6 @@ So bleibt der Hauptkontext klar, während Claude bei Bedarf die präzisen Regeln
 6. `60-git-and-change-management.md`
 7. `70-memory-context-and-token-discipline.md`
 8. `80-logging-and-output-standards.md`
-9. `90-subagents-hooks-and-automation.md`
+9. `85-response-style.md`
+10. `90-subagents-hooks-and-automation.md`
+11. `95-token-efficiency.md`

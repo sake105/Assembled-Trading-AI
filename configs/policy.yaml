@@ -86,6 +86,16 @@ intel:
     enabled: false
     path: "output/intel/disclosures/triggers_latest.json"
 
+  # T4.7: Master kill-switch — stops News + GDELT + Disclosures pipelines.
+  # Workers read this flag at startup and exit-early when enabled.
+  kill_switch:
+    enabled: false           # set true to halt all intel/news/disclosures workers
+
+  # T4.1: Crisis-Alpha v1 integration (default off; shadow-only until T4.1 flip)
+  crisis_alpha:
+    enabled: false           # wire run_crisis_alpha_pipeline() into trading_cycle
+    shadow_only: true        # when enabled=true: log result, do not affect orders
+
   # Phase 9: Intel alpha signal layer wired into signal pipeline
   signal_layer:
     enabled: false           # enable compute_symbol_intel_scores() in trading_cycle
@@ -388,3 +398,19 @@ signal_decay:
   shadow_only: true          # D5 — apply multipliers only when false
   enabled: false
   stale_multiplier: 0.0
+
+# ---------------------------------------------------------------------------
+# T4.6: Feature-Flag declarations (N1 — all 10 flags previously undefined).
+# Builders read these flags at runtime; missing flag → KeyError (not silent pass).
+# ---------------------------------------------------------------------------
+features:
+  news_count_7d: true
+  news_count_30d: true
+  news_sentiment_7d: true
+  news_sentiment_30d: true
+  news_sentiment_z: true
+  news_volume_spike: true
+  news_sentiment_shock: true
+  macro_growth_regime: true
+  macro_inflation_regime: true
+  macro_risk_aversion: true
