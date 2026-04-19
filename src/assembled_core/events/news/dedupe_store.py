@@ -27,7 +27,11 @@ class DedupeStoreSQLite:
         self._init_db()
 
     def _connect(self) -> sqlite3.Connection:
-        return sqlite3.connect(self.path)
+        conn = sqlite3.connect(self.path)
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
+        conn.execute("PRAGMA busy_timeout=5000;")
+        return conn
 
     def _ensure_schema(self, cur: sqlite3.Cursor) -> None:
         cur.execute(
@@ -77,16 +81,20 @@ class DedupeStoreSQLite:
         """Bucket from unsigned 64-bit: top 8 bits."""
         return (to_u64(fp64_u) >> 56) & 0xFF
 
-    def candidates_by_bucket(self, fp_bucket: int) -> list[tuple[str, int]]:
+    def candidates_by_bucket(
+        self, fp_bucket: int, limit: int = 200
+    ) -> list[tuple[str, int]]:
         """Return list of (event_id, fp64_u) for a given bucket. fp64 as unsigned."""
         with self._connect() as conn:
             cur = conn.cursor()
             cur.execute(
                 """
                 SELECT event_id, fp64 FROM seen_events
-                WHERE fp_bucket = ?;
+                WHERE fp_bucket = ?
+                ORDER BY ingested_utc DESC
+                LIMIT ?;
                 """,
-                (int(fp_bucket),),
+                (int(fp_bucket), int(limit)),
             )
             rows = cur.fetchall()
             result: list[tuple[str, int]] = []
@@ -170,6 +178,17 @@ class DedupeStoreSQLite:
                 ),
             )
             conn.commit()
+
+    def vacuum(self) -> None:
+        """Run VACUUM + PRAGMA optimize to reclaim space (call outside worker tick)."""
+        with self._connect() as conn:
+            conn.execute("PRAGMA optimize;")
+        # VACUUM requires exclusive access — open a fresh connection outside WAL mode
+        conn = sqlite3.connect(self.path)
+        try:
+            conn.execute("VACUUM;")
+        finally:
+            conn.close()
 
     def prune(self, window_days: int, now_utc: str) -> int:
         """Prune entries older than window_days based on published_utc or ingested_utc.
