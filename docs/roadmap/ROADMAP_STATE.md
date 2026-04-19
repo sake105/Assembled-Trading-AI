@@ -74,24 +74,26 @@ Do **not** leave a session after meaningful work without checking whether this f
 - Part D1–D5: modules wired (`correlation_guard`, `zombie_killer`, `crash_prediction`, `inverse_etf`, `signal_decay`); **flag-flip gated on User Go/No-Go** per D-Standard A/B methodology (5d shadow + 10d enabled).
 - Part E2: `config/htb_symbols.yaml` seed list + rates table.
 - Part E3 + E4: walk-forward + deflated-sharpe job wired into `release-gate-ci.yml` with 2-week grace-period (`continue-on-error: true`).
-- Part E1 (Sharpe-Drop Dokumentation): outstanding — needs reference-config rerun + delta report.
+- Part E1 (Sharpe-Drop Dokumentation): implemented — `scripts/quantify_realism_delta.py` emits `output/qa/realism_delta_report.md/.json` + `pre_realism_metrics.json`. Fresh 2026-04-19 rerun shows Sharpe delta **+0.3931** on synthetic fixture (outside plan-expected [-0.8, -0.3]); documented as fixture artifact pending real-price verification.
 - Part E5 (real-vs-synthetic p95 < 2 bps): outstanding — needs 30 Paper-Days of real Alpaca fills.
 - Part F1 (IC-Decay-Weighting), F2 (Regime-Posterior), F3 (Multi-Timeframe): wired with tests green.
 - Part F4 (XGBoost/SHAP/FinBERT): explicitly deferred per plan.
 
 ### Current objective
-- phase12 suite: 1402 passed (2026-04-19, +2 regression tests).
-- regression suite: 126 passed + 2 new MTM-equity tests; 1 xfail (full bt-vs-paper equality) unchanged.
-- CI hardening (2026-04-19): `.env` removed from index (commit `e64fa21`), paper-trading-ci env-var name fix (`4d3a419`), backend-ci phase12+regression gate added (`d5ab05f`), gross-exposure cap switched to MTM equity (`5aa32f4`), walk-forward gate `--enforce` flag added (`e144821`). All pushed to origin/main.
+- phase12 suite: **1266 passed**, 8 skipped, 0 failures (2026-04-19 fresh run, 168s wall-clock).
+- regression suite: **142 passed**, 0 failures (2026-04-19 fresh run, 8.5s wall-clock).
+- CI hardening (2026-04-19): `.env` removed from index (commit `e64fa21`), paper-trading-ci env-var name fix (`4d3a419`), backend-ci phase12+regression gate added (`d5ab05f`), gross-exposure cap switched to MTM equity (`5aa32f4`), walk-forward gate `--enforce` flag added (`e144821`), ROADMAP_STATE sync (`2ef3e24`), E1 realism delta classification + baseline artifact (`b868282`). All pushed to origin/main.
 - `.env` keys rotated 2026-04-19 at provider (Alpaca/Polygon/AlphaVantage/Finnhub/NewsAPI/FRED). History-rewrite declined (old keys revoked, cost > benefit).
+- E1 realism delta rerun 2026-04-19 on current code: Sharpe delta **+0.3931** (outside plan-expected [-0.8, -0.3]) — documented as synthetic-fixture artifact.
 - Open user-blocked: GitHub Secrets `ALPACA_API_KEY` + `ALPACA_API_SECRET` must be set at repo settings for paper-trading-ci to succeed.
 
 ### Next smallest safe step
-Ultra-Plan implementation is functionally complete at code/module/test level. Operational execution gated on user action:
+Ultra-Plan implementation is functionally complete at code/module/test level. Remaining items are either user-gated (secrets) or paper-days-gated:
 1. **User blocker**: set `ALPACA_API_KEY` + `ALPACA_API_SECRET` in GitHub repo secrets (optional `DISCORD_WEBHOOK`), then manually dispatch `paper-trading-ci` and verify green.
 2. Let GH-Actions `paper-trading-ci` run 5 consecutive weekdays and verify artifacts.
 3. After 5 clean paper-days: collect Delta-Report for first shadow-mode D module; bring to User for Go/No-Go on flag-flip.
-4. After 30 paper-days: run E5 `tests/regression/test_real_vs_synthetic_fills.py` calibration and write `realism_delta_report.md` (E1).
+4. After 30 paper-days: run E5 `scripts/compare_real_vs_synthetic_fills.py` calibration.
+5. Re-run E1 on real-price walk-forward fixture once available (current delta is synthetic-only).
 
 ### Previous milestone (superseded)
 - ID: M14 — Institutional Upgrade (ML + TA + Portfolio + Execution)
