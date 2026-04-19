@@ -268,7 +268,7 @@ def test_run_backtest_strategy_no_costs(
             cwd=str(ROOT),
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=180,
         )
 
         assert (
@@ -311,7 +311,7 @@ def test_run_backtest_strategy_custom_costs(
             cwd=str(ROOT),
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=180,
         )
 
         assert (

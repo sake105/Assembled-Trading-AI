@@ -28,4 +28,17 @@ paths = [
     '''docs/INTEGRATION_PLAN_ALTERNATIVE_APIS\.md$''',
     '''docs/WORKFLOWS_EVENT_STUDIES\.md$''',
     '''docs/backend_core\.md$''',
+    '''docs/SECURITY_SECRETS\.md$''',
+    '''^review_bundle\.txt$''',
+]
+
+# Historical commits containing dead keys (all providers revoked).
+# See memory/session-2026-04-19-hardening.md and
+# docs/incidents/2026-04-18_env_exposure.md — history-rewrite declined,
+# provider-side rotation complete. New `.env` commits (not listed here)
+# still fail the scanner by design.
+commits = [
+    "0ca19ef03a23dde5163c8b17a8a3dd0f328b45ad",
+    "d1e4b7f3f34ac0b8df0d3956ada5e42712c8bb1e",
+    "e3a7376547c679340e56015eb9160de1fbd3b538",
 ]
