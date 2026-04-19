@@ -137,28 +137,31 @@ def test_missing_sessions_warns_or_fails() -> None:
 
 
 def test_outlier_return_flagged() -> None:
-    """Test that outlier returns are flagged as WARN/FAIL."""
+    """Test that outlier returns are flagged as WARN/FAIL.
+
+    Thresholds (see data_qc.DEFAULT_THRESHOLDS):
+    - warn  = 0.25 (25%)
+    - fail  = 0.60 (60%) — intentionally high to avoid flagging stock splits
+    """
     prices = pd.DataFrame(
         {
             "timestamp": pd.date_range("2024-01-01", periods=5, freq="1d", tz="UTC"),
             "symbol": ["AAPL"] * 5,
-            "close": [150.0, 180.0, 152.0, 200.0, 154.0],  # 20% and 33% returns
+            "close": [100.0, 135.0, 100.0, 175.0, 100.0],  # +35% WARN, -26% WARN, +75% FAIL, -43% WARN
         }
     )
 
     report = run_price_panel_qc(prices, freq="1d")
 
-    # Should have outlier_return issues
     outlier_issues = [
         issue for issue in report.issues if issue.check == "outlier_return"
     ]
     assert len(outlier_issues) >= 2, "Should have at least 2 outlier_return issues"
 
-    # Verify severity (20% -> WARN, 33% -> FAIL)
     warn_issues = [issue for issue in outlier_issues if issue.severity == "WARN"]
     fail_issues = [issue for issue in outlier_issues if issue.severity == "FAIL"]
-    assert len(warn_issues) >= 1, "Should have at least 1 WARN issue (20% return)"
-    assert len(fail_issues) >= 1, "Should have at least 1 FAIL issue (33% return)"
+    assert len(warn_issues) >= 1, "Should have at least 1 WARN issue (25–60%)"
+    assert len(fail_issues) >= 1, "Should have at least 1 FAIL issue (>60%)"
 
 
 def test_stale_price_flagged() -> None:

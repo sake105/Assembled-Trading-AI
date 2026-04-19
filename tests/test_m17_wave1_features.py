@@ -148,7 +148,7 @@ class TestGPRFeatures:
     def test_gpr_from_fred(self):
         from src.assembled_core.features.geopolitical_features import compute_gpr_from_fred
 
-        dates = pd.date_range("2010-01-01", periods=500, freq="M")
+        dates = pd.date_range("2010-01-01", periods=500, freq="ME")
         gpr = pd.Series(100 + np.random.normal(0, 20, 500), index=dates)
 
         result = compute_gpr_from_fred(gpr)

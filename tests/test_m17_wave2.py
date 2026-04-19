@@ -60,6 +60,8 @@ class TestCrashPredictionThresholds:
 
 class TestFeatureDrift:
     def test_no_drift(self):
+        import pytest
+        pytest.importorskip("scipy")
         from src.assembled_core.ml.model_monitoring import detect_feature_drift
 
         np.random.seed(42)
