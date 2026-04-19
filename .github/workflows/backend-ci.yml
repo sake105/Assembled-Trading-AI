@@ -52,6 +52,11 @@ jobs:
           pytest -m "(phase4 or phase6 or phase7 or phase8 or phase9 or phase10 or phase11) and not slow" -q --maxfail=1 -W error \
             --cov=src/assembled_core --cov-report=term-missing --cov-report=xml:coverage.xml \
             --cov-fail-under=0 2>&1 | tee -a backend_ci_log.txt
+
+      - name: Run phase12 + regression gates
+        run: |
+          set -o pipefail
+          pytest -m "(phase12 or regression) and not slow" -q --maxfail=1 2>&1 | tee -a backend_ci_log.txt
       
       - name: Security scan — dependency vulnerabilities (pip-audit)
         run: |
