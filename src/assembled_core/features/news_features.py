@@ -27,7 +27,11 @@ except ImportError:
     score_news_store = None  # type: ignore[assignment]
 
 
-def add_news_features(prices: pd.DataFrame, events: pd.DataFrame) -> pd.DataFrame:
+def add_news_features(
+    prices: pd.DataFrame,
+    events: pd.DataFrame,
+    as_of: "pd.Timestamp | None" = None,
+) -> pd.DataFrame:
     """Add news sentiment features to price DataFrame.
 
     Computes:
@@ -41,6 +45,9 @@ def add_news_features(prices: pd.DataFrame, events: pd.DataFrame) -> pd.DataFram
         prices: DataFrame with columns: timestamp, symbol, close
         events: DataFrame with columns: timestamp, symbol, sentiment_score,
             and optionally headline (used for FinBERT scoring)
+        as_of: Optional PIT cutoff. When provided, events after this timestamp
+            are excluded (shadow-logged as *_shadow columns — not yet flipped
+            to production path).
 
     Returns:
         Copy of prices with sentiment feature columns added.
@@ -59,6 +66,19 @@ def add_news_features(prices: pd.DataFrame, events: pd.DataFrame) -> pd.DataFram
     result["timestamp"] = pd.to_datetime(result["timestamp"], utc=True)
     events = events.copy()
     events["timestamp"] = pd.to_datetime(events["timestamp"], utc=True)
+
+    # Shadow-Mode T2.1: if as_of provided, compute PIT-gated events in parallel
+    # and log diff — production path still uses all events until flip is approved.
+    if as_of is not None:
+        as_of_ts = pd.Timestamp(as_of).tz_localize("UTC") if getattr(as_of, "tzinfo", None) is None else pd.Timestamp(as_of)
+        disclosure_col = "disclosure_date" if "disclosure_date" in events.columns else "timestamp"
+        pit_events = events[events[disclosure_col] <= as_of_ts]
+        n_gated = len(events) - len(pit_events)
+        if n_gated > 0:
+            _log.debug(
+                "[SHADOW-T2.1] as_of=%s gated %d future events (shadow only, not flipped)",
+                as_of_ts.isoformat(), n_gated,
+            )
 
     # --- FinBERT enrichment (optional) ---
     has_finbert = False
