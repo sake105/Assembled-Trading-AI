@@ -140,12 +140,25 @@ def compute_borrow_cost_for_positions(
 ) -> dict[str, float]:
     """Return a ``{symbol: borrow_cost_usd}`` dict for all short positions.
 
-    Symbols with a non-negative quantity or missing price are skipped.
+    Symbols with a non-negative quantity or missing price are skipped. A
+    missing-price short is a silent attribution bug — the cost is reported
+    as 0 but financing drag is still economically real. We emit a WARN per
+    occurrence so a downstream attribution diff can be traced back to a
+    price-feed gap rather than look like a healthy zero-cost short.
     """
+    import logging
+    log = logging.getLogger(__name__)
     table = rate_table or BorrowRateTable()
     out: dict[str, float] = {}
     for sym, qty in positions.items():
         if qty >= 0:
+            continue
+        if sym not in prices or prices.get(sym) is None:
+            log.warning(
+                "[BORROW] missing price for short %s qty=%s — borrow cost "
+                "reported as 0 but financing drag is real",
+                sym, qty,
+            )
             continue
         price = float(prices.get(sym, 0.0))
         rate = table.rate_bps(sym)

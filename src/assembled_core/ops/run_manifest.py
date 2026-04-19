@@ -16,6 +16,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import subprocess
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -147,9 +148,19 @@ def write_run_manifest(
     latest = out_dir / "manifest.latest.json"
 
     payload = asdict(manifest)
-    per_day.write_text(json.dumps(payload, indent=2, default=str))
+    blob = json.dumps(payload, indent=2, default=str)
+    # Atomic write via tmp + os.replace — a crash mid-write previously left a
+    # truncated JSON that downstream tooling parsed as "the latest run's
+    # manifest," masking the failed run as in-progress. `manifest.latest.json`
+    # is the pointer file that cross-run tooling reads, so partial writes here
+    # poison every subsequent comparison until the next successful run.
+    per_day_tmp = per_day.with_suffix(per_day.suffix + ".tmp")
+    per_day_tmp.write_text(blob, encoding="utf-8")
+    os.replace(per_day_tmp, per_day)
     # Symlinks are unreliable on Windows — always write a regular file copy.
-    latest.write_text(json.dumps(payload, indent=2, default=str))
+    latest_tmp = latest.with_suffix(latest.suffix + ".tmp")
+    latest_tmp.write_text(blob, encoding="utf-8")
+    os.replace(latest_tmp, latest)
     logger.info("[MANIFEST] Wrote %s", per_day)
     return per_day
 

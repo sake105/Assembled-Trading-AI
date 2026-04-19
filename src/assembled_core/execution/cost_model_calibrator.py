@@ -140,17 +140,36 @@ def calibrate_cost_model(
     spreads: list[float] = []
     impacts: list[float] = []
     fill_rates: list[float] = []
+    n_unreadable = 0
+    n_coerce_failed = 0
     for p in files:
         payload = _load_tca(p)
         if payload is None:
+            n_unreadable += 1
             continue
         cost_avg = payload.get("cost_bps_avg", {}) or {}
         try:
             spreads.append(float(cost_avg.get("spread", float("nan"))))
             impacts.append(float(cost_avg.get("impact", float("nan"))))
             fill_rates.append(float(payload.get("fill_rate", float("nan"))))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError) as exc:
+            # Previously a single bad coerce silently dropped the whole file's
+            # three metrics with no log. That biased mean_realised downward
+            # invisibly. Keep the same "skip file" semantics but surface the
+            # drop so a malformed TCA writer can be traced.
+            n_coerce_failed += 1
+            logger.warning(
+                "[CALIBRATOR] malformed metric in %s: %s — run dropped from mean",
+                p, exc,
+            )
             continue
+    if n_unreadable or n_coerce_failed:
+        logger.warning(
+            "[CALIBRATOR] parse summary: %d unreadable, %d malformed, %d parsed cleanly (of %d files)",
+            n_unreadable, n_coerce_failed,
+            len(files) - n_unreadable - n_coerce_failed,
+            len(files),
+        )
 
     mean_spread = _mean(spreads)
     mean_impact = _mean(impacts)
@@ -171,6 +190,14 @@ def calibrate_cost_model(
             "spread_bps": mean_spread,
             "impact_bps": mean_impact,
             "fill_rate": mean_fr,
+            # Truth about how many files actually fed the mean. n_runs (above)
+            # is locked to file count by existing test contract; this is the
+            # separate "successfully parsed" count so a downstream consumer
+            # can distinguish a healthy N-file dataset from one where most
+            # files were corrupt / schema-drifted.
+            "n_parsed": len(files) - n_unreadable - n_coerce_failed,
+            "n_unreadable": n_unreadable,
+            "n_coerce_failed": n_coerce_failed,
         },
         shrinkage=shrinkage,
         prior=priors,

@@ -179,10 +179,17 @@ def record_intent(
         fh.flush()
         try:
             os.fsync(fh.fileno())
-        except OSError:
+        except OSError as exc:
             # Some environments (e.g. certain mocked/virtual filesystems) do not
-            # support fsync on text-mode handles — best-effort is acceptable.
-            logger.debug("[INTENT] fsync unsupported for %s", path)
+            # support fsync on text-mode handles — best-effort is acceptable
+            # there. But on a real production filesystem an fsync failure
+            # silently downgrades the K1 durability contract documented at the
+            # top of this module. Surface it at WARNING with the action and
+            # idempotency key so a post-mortem can identify the at-risk intent.
+            logger.warning(
+                "[INTENT] fsync failed for action=%s key=%s path=%s: %s",
+                action, idempotency_key, path, exc,
+            )
 
     logger.info(
         "[INTENT] recorded action=%s key=%s store=%s", action, idempotency_key, path
