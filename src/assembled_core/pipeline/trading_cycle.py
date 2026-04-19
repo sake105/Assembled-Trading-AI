@@ -1256,12 +1256,18 @@ def _apply_risk_controls_default(
                     ctx.prices.groupby("symbol")["price"].last().reset_index()
                 )
 
-        # Compute equity (cash + mark-to-market positions)
-        equity = ctx.capital  # Use capital as equity proxy (can be refined later)
-
         # Get current_equity and peak_equity if available (for drawdown de-risking)
         current_equity = getattr(ctx, "current_equity", None)
         peak_equity = getattr(ctx, "peak_equity", None)
+
+        # Prefer live MTM equity over initial capital so the gross-exposure cap
+        # shrinks under drawdown instead of staying constant at initial-capital
+        # notional. Fall back to ctx.capital on first bar / bootstrap when
+        # current_equity is not yet populated. (Follow-up to P0 A6.)
+        if current_equity is not None and current_equity > 0:
+            equity = float(current_equity)
+        else:
+            equity = ctx.capital
 
         # Get security_meta_df from context (for sector/region/FX limits)
         security_meta_df = ctx.security_meta_df

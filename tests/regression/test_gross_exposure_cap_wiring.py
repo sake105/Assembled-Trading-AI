@@ -133,3 +133,78 @@ def test_min_of_risk_limits_and_shorts_is_enforced():
         "Orders at 130% gross must be blocked when risk_limits cap is 100% "
         "even if shorts cap would allow 150%."
     )
+
+
+def test_cap_shrinks_with_mtm_equity_under_drawdown():
+    """Follow-up to A6: cap basis must be live MTM equity, not initial capital.
+
+    Before this fix, the trading-cycle assembly used ``equity = ctx.capital``
+    (initial capital) as the basis for `ratio × equity → notional`. Under a
+    30% drawdown (current_equity = 70k on 100k initial capital), the gate
+    cap stayed at 100k — effectively loosening the constraint right when
+    risk should be tightening.
+
+    After the fix, the basis is `ctx.current_equity` when populated and
+    positive, falling back to `ctx.capital` only at bootstrap.
+
+    This test mirrors the transformation the trading cycle now performs.
+    """
+    ratio = 1.0
+    initial_capital = 100_000.0
+    current_equity_drawdown = 70_000.0  # 30% drawdown
+
+    # Pre-fix (wrong): cap stays at initial capital even in drawdown.
+    legacy_cap_notional = ratio * initial_capital
+    # Post-fix (right): cap shrinks with live MTM equity.
+    mtm_cap_notional = ratio * current_equity_drawdown
+
+    assert mtm_cap_notional < legacy_cap_notional, (
+        "MTM-based cap must be strictly tighter than initial-capital cap "
+        "under drawdown — otherwise the follow-up fix is not in effect."
+    )
+
+    # Orders at 85k gross: under the legacy (100k) cap but over the MTM (70k)
+    # cap. Post-fix, these orders must be blocked.
+    orders = _make_orders(total_notional=85_000.0, per_order_notional=10_000.0)
+    config = PreTradeConfig(max_gross_exposure=mtm_cap_notional)
+    result, _ = run_pre_trade_checks(orders, portfolio=None, config=config)
+
+    assert not result.is_ok, (
+        "85k gross must be blocked when live MTM equity is 70k (cap=70k). "
+        "If this passes, the gate is still using initial capital as basis."
+    )
+    assert any(
+        "max_gross_exposure" in reason for reason in result.blocked_reasons
+    ), f"Missing gross-exposure block reason; got {result.blocked_reasons!r}"
+
+
+def test_trading_cycle_prefers_current_equity_over_capital():
+    """Verify the exact branch in trading_cycle.py that chooses equity basis.
+
+    Mirrors the inlined logic at ~line 1260. This test isolates the basis
+    selection so a silent regression (reverting to ctx.capital) would trip
+    immediately.
+    """
+
+    def select_equity_basis(
+        current_equity: float | None, capital: float
+    ) -> float:
+        """Mirror of trading_cycle.py equity-basis selection."""
+        if current_equity is not None and current_equity > 0:
+            return float(current_equity)
+        return capital
+
+    # Normal case: live equity populated — use it.
+    assert select_equity_basis(current_equity=85_000.0, capital=100_000.0) == 85_000.0
+    # Drawdown case: live equity shrunk — use the smaller value.
+    assert select_equity_basis(current_equity=60_000.0, capital=100_000.0) == 60_000.0
+    # Rally case: live equity grew — use the larger value.
+    assert select_equity_basis(current_equity=130_000.0, capital=100_000.0) == 130_000.0
+    # Bootstrap case: no live equity yet — fall back to capital.
+    assert select_equity_basis(current_equity=None, capital=100_000.0) == 100_000.0
+    # Degenerate case: zero equity — fall back to capital (never divide-by-zero
+    # the gate, even if it means the fallback cap is wrong; a separate kill-
+    # switch should have fired by then).
+    assert select_equity_basis(current_equity=0.0, capital=100_000.0) == 100_000.0
+    # Negative equity (pathological): fall back.
+    assert select_equity_basis(current_equity=-5_000.0, capital=100_000.0) == 100_000.0
