@@ -323,13 +323,21 @@ def run_paper_daily_one(
             "max_severity": news_snap.summary.get("max_severity", 0),
             "count_sev1plus": news_snap.summary.get("watch_count_sev1plus", 0),
             "count_sev2plus": news_snap.summary.get("active_count_sev2plus", 0),
+            "status": "ok",
         }
-    except Exception:
+    except Exception as exc:
+        # Additive "status" key so downstream gates can distinguish
+        # "quiet news day" (status=ok, count=0) from "pipeline error"
+        # (status=error). Without this, a parse/disk/upstream crash is
+        # indistinguishable from a genuinely empty triggers file.
+        log.warning("[PaperRunner] news triggers unavailable: %s", exc)
         result.meta["news_triggers_summary"] = {
             "count": 0,
             "max_severity": 0,
             "count_sev1plus": 0,
             "count_sev2plus": 0,
+            "status": "error",
+            "error": str(exc),
         }
     # NEWS-DEBUG-1/2: load debug funnel summary for run_kpis (counts + compact reason previews, no samples)
     try:
@@ -356,13 +364,17 @@ def run_paper_daily_one(
             "max_severity": discl_snap.summary.get("max_severity", 0),
             "count_sev1plus": discl_snap.summary.get("count_sev1plus", 0),
             "count_sev2plus": discl_snap.summary.get("count_sev2plus", 0),
+            "status": "ok",
         }
-    except Exception:
+    except Exception as exc:
+        log.warning("[PaperRunner] disclosures triggers unavailable: %s", exc)
         result.meta["disclosures_triggers_summary"] = {
             "count": 0,
             "max_severity": 0,
             "count_sev1plus": 0,
             "count_sev2plus": 0,
+            "status": "error",
+            "error": str(exc),
         }
 
     if mode == "paper" and ledger_state is not None and ledger_path is not None:

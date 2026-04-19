@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -66,7 +67,19 @@ def write_heartbeat(
         "timestamp": ts.isoformat(),
         "details": details or {},
     }
-    p.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    # Atomic write: a crash or SIGKILL mid-write would otherwise leave an
+    # empty / truncated heartbeat. read_heartbeat then returns None and
+    # check_liveness reports "missing_or_unreadable" — which is the exact
+    # canonical "never-started" signal. A live-but-interrupted process
+    # would thus masquerade as a never-started process and defeat the
+    # whole watchdog contract. tmp + os.replace is atomic on POSIX and
+    # Windows (Py 3.3+), and mirrors the pattern used by paper_ledger
+    # save_ledger_state and the scheduler's own _write_heartbeat.
+    tmp = p.with_suffix(p.suffix + ".tmp")
+    tmp.write_text(
+        json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
+    )
+    os.replace(tmp, p)
     return p
 
 

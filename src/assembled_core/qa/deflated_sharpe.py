@@ -179,7 +179,14 @@ def deflated_sharpe(
 
     mean, std, skew, ex_kurt = _moments(r)
     if std == 0.0:
-        sr = 0.0
+        # Zero-variance returns mean the strategy produced no measurable
+        # variation (stuck/no trades). The previous sr=0.0 collapse let
+        # callers log "DSR computed" for a non-strategy; propagate NaN so
+        # the downstream se<=0 / !isfinite guard (see below) routes the
+        # whole result to dsr_prob=NaN and passes_5pct=False via the
+        # explicit isfinite check in the return statement. Schema is
+        # preserved (sharpe_observed stays float).
+        sr = float("nan")
     else:
         sr = mean / std
 

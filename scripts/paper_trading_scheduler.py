@@ -196,14 +196,24 @@ def _execute_daily_cycle(now_et: datetime) -> None:
     # Step 2: Run trading cycle
     exit_code = _run_trading_cycle()
 
-    # Step 3: Mark done
-    _mark_today_done(now_et)
-    _write_heartbeat("cycle_complete")
-
+    # Step 3: Mark done — ONLY on success. Without this guard, a crashed
+    # trading cycle is indistinguishable from a successful one to
+    # _already_ran_today, so the scheduler would skip the retry window on
+    # the next polling pass. This is exactly the E3 (7-day stillstand)
+    # failure mode the ops audit flagged.
     if exit_code == 0:
+        _mark_today_done(now_et)
+        _write_heartbeat("cycle_complete")
         logger.info("[Scheduler] === Daily cycle COMPLETE (success) ===")
     else:
-        logger.warning("[Scheduler] === Daily cycle COMPLETE (exit=%d) ===", exit_code)
+        # Heartbeat still written so monitoring sees liveness, but with
+        # explicit failure state. last_run_date is NOT advanced so the
+        # scheduler will retry on its next poll.
+        _write_heartbeat("cycle_failed")
+        logger.warning(
+            "[Scheduler] === Daily cycle FAILED (exit=%d) — will retry ===",
+            exit_code,
+        )
 
 
 def main():
