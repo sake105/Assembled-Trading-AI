@@ -62,11 +62,12 @@ class TestEvidenceGradeGateFromCtx:
             ctx.evidence_grade = evidence_grade
         return ctx
 
-    def test_no_grade_passes(self):
+    def test_no_grade_denies(self):
+        # T2.5: missing evidence grade must deny, not pass (default-deny)
         ctx = self._make_ctx(evidence_grade=None)
         ok, reason = check_evidence_grade_gate_from_ctx(ctx)
-        assert ok is True
-        assert "defaulting to pass" in reason
+        assert ok is False
+        assert "DENIED" in reason
 
     def test_grade_a_passes(self):
         ctx = self._make_ctx(evidence_grade="A")
@@ -88,8 +89,9 @@ class TestEvidenceGradeGateFromCtx:
         ok, reason = check_evidence_grade_gate_from_ctx(ctx, require_for_active="B")
         assert ok is False
 
-    def test_unknown_grade_passes_gracefully(self):
+    def test_unknown_grade_denies(self):
+        # T2.5: unknown evidence grade must deny, not pass (default-deny)
         ctx = self._make_ctx(evidence_grade="X")
         ok, reason = check_evidence_grade_gate_from_ctx(ctx)
-        assert ok is True
-        assert "defaulting to pass" in reason
+        assert ok is False
+        assert "DENIED" in reason

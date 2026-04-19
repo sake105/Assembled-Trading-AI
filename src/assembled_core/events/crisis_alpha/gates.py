@@ -130,15 +130,14 @@ def check_evidence_grade_gate_from_ctx(
 
     grade_str = getattr(ctx, "evidence_grade", None)
     if grade_str is None:
-        # No evidence grade set -- default to permissive (grade B = OK)
-        return True, "evidence grade gate: OK (no grade set — defaulting to pass)"
+        return False, "evidence grade gate: DENIED (no grade set — default-deny)"
 
     try:
         grade = EvidenceGrade(grade_str)
     except ValueError:
         return (
-            True,
-            f"evidence grade gate: OK (unknown grade {grade_str!r} — defaulting to pass)",
+            False,
+            f"evidence grade gate: DENIED (unknown grade {grade_str!r} — default-deny)",
         )
 
     return check_evidence_grade_gate(grade, require_for_active=require_for_active)
