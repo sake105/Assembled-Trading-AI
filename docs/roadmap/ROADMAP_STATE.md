@@ -86,6 +86,7 @@ Do **not** leave a session after meaningful work without checking whether this f
 - `.env` keys rotated 2026-04-19 at provider (Alpaca/Polygon/AlphaVantage/Finnhub/NewsAPI/FRED). History-rewrite declined (old keys revoked, cost > benefit).
 - E1 realism delta rerun 2026-04-19 on current code: Sharpe delta **+0.3931** (outside plan-expected [-0.8, -0.3]) — documented as synthetic-fixture artifact.
 - Open user-blocked: GitHub Secrets `ALPACA_API_KEY` + `ALPACA_API_SECRET` must be set at repo settings for paper-trading-ci to succeed.
+- Walk-forward gate (release-gate-ci.yml): grace period RE-OPENED 2026-04-19 through 2026-07-01 (decision today). Rationale: synthetic random-walk fixture produces ~7 OOS windows, structurally insufficient to pass DSR ≥ 0.5. Gate still runs + uploads report but is non-blocking. Re-closes on 2026-07-01 or when E5 real-price walk-forward fixture is available.
 
 ### Next smallest safe step
 Ultra-Plan implementation is functionally complete at code/module/test level. Remaining items are either user-gated (secrets) or paper-days-gated:

@@ -5,7 +5,9 @@ from __future__ import annotations
 import pytest
 import numpy as np
 
-from src.assembled_core.ml.bayesian_nn import (
+pytest.importorskip("sklearn")
+
+from src.assembled_core.ml.bayesian_nn import (  # noqa: E402
     MCDropoutMLP,
     BNNPrediction,
 )

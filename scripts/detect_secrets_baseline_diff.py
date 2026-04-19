@@ -25,8 +25,15 @@ def main() -> int:
     ap.add_argument("--baseline", required=True, help=".secrets.baseline path")
     args = ap.parse_args()
 
-    current = json.loads(Path(args.current).read_text(encoding="utf-8")).get("results", {})
-    baseline = json.loads(Path(args.baseline).read_text(encoding="utf-8")).get("results", {})
+    def _norm(d: dict) -> dict:
+        return {k.replace("\\", "/"): v for k, v in d.items()}
+
+    current = _norm(
+        json.loads(Path(args.current).read_text(encoding="utf-8")).get("results", {})
+    )
+    baseline = _norm(
+        json.loads(Path(args.baseline).read_text(encoding="utf-8")).get("results", {})
+    )
 
     new_findings: dict[str, list[dict]] = {}
     for path, items in current.items():
