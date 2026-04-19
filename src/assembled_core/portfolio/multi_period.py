@@ -179,19 +179,34 @@ def multi_period_optimize(
     w_curr = np.array([current_weights.get(s, 0.0) for s in symbols])
 
     if not SCIPY_AVAILABLE:
-        # Fallback: just use period-1 returns with Garleanu-Pedersen
-        mu_1 = expected_returns_path[0].reindex(symbols).fillna(0).values
+        # Fallback without scipy: discounted-sum aim + Garleanu-Pedersen partial
+        # adjustment. We inline the math so that periods_ahead=K is preserved
+        # (the contract of this function is independent of solver availability).
+        gamma = 0.95
+        mu_combined = np.zeros(n)
+        for t, mu_t in enumerate(expected_returns_path):
+            mu_vals = mu_t.reindex(symbols).fillna(0).values.astype(float)
+            mu_combined += (gamma ** t) * mu_vals
         vols = np.sqrt(np.maximum(np.diag(cov), 1e-10))
-        aim = mu_1 / (risk_aversion * vols + 1e-10)
+        aim = mu_combined / (risk_aversion * vols + 1e-10)
         aim = np.maximum(aim, 0) if long_only else aim
         total = aim.sum()
         if total > 1e-8:
             aim /= total
-        aim_dict = {s: float(aim[i]) for i, s in enumerate(symbols)}
-        return garleanu_pedersen_target(
-            aim_dict, current_weights,
-            risk_aversion=risk_aversion,
-            transaction_cost=transaction_cost,
+        speed = compute_trade_speed(risk_aversion, transaction_cost)
+        w_final = w_curr + speed * (aim - w_curr)
+        w_final = np.maximum(w_final, 0) if long_only else w_final
+        tot = w_final.sum()
+        if tot > 1e-8:
+            w_final /= tot
+        turnover = float(np.sum(np.abs(w_final - w_curr)))
+        return MultiPeriodResult(
+            target_weights={s: round(float(w_final[i]), 6) for i, s in enumerate(symbols)},
+            aim_portfolio={s: round(float(aim[i]), 6) for i, s in enumerate(symbols)},
+            trade_speed=round(speed, 4),
+            expected_turnover=round(turnover, 6),
+            periods_ahead=K,
+            method="multi_period_fallback_no_scipy",
         )
 
     # Multi-period DP: backward induction
