@@ -56,6 +56,7 @@ from src.assembled_core.execution.risk_controls import filter_orders_with_risk_c
 from src.assembled_core.features.factor_store_integration import build_or_load_factors
 from src.assembled_core.features.ta_features import (
     add_all_features,
+    add_moving_averages,
 )
 from src.assembled_core.risk.correlation_guard import (
     apply_correlation_guard,
@@ -501,7 +502,7 @@ def _build_features_default(
             end_date=end_date,
             as_of=ctx.as_of,  # PIT-safe: use as_of as cutoff
             force_rebuild=False,
-            builder_fn=add_all_features if has_ohlc else None,
+            builder_fn=add_all_features if has_ohlc else add_moving_averages,
             builder_kwargs=(
                 {
                     "ma_windows": config.get("ma_windows", (20, 50, 200)),
@@ -541,10 +542,7 @@ def _build_features_default(
             )
         else:
             # If OHLC not available, only compute features that don't need them
-            from src.assembled_core.features.ta_features import (
-                add_log_returns,
-                add_moving_averages,
-            )
+            from src.assembled_core.features.ta_features import add_log_returns
 
             prices_with_features = add_log_returns(prices_filtered.copy())
             prices_with_features = add_moving_averages(
