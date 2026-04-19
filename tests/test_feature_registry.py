@@ -49,7 +49,7 @@ def test_feature_registry_unique_and_documented() -> None:
 
 def test_feature_names_are_namespaced() -> None:
     """Test that all feature names in registry follow namespace rules."""
-    valid_prefixes = {"ta_", "liq_", "vol_", "alt_", "macro_", "regime_", "ml_"}
+    valid_prefixes = {"ta_", "liq_", "vol_", "alt_", "macro_", "regime_", "ml_", "news_"}
 
     for name in FEATURE_REGISTRY.keys():
         # Check prefix

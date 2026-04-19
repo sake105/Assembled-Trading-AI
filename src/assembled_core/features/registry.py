@@ -199,6 +199,120 @@ FEATURE_REGISTRY: dict[str, dict[str, Any]] = {
         "layer": "regime",
         "namespace": "regime",
     },
+    # News Features (news_)
+    "news_count_7d_v1": {
+        "description": "Number of news events in the last 7 days",
+        "inputs": ["news_events"],
+        "version": 1,
+        "layer": "news",
+        "namespace": "news",
+    },
+    "news_count_30d_v1": {
+        "description": "Number of news events in the last 30 days",
+        "inputs": ["news_events"],
+        "version": 1,
+        "layer": "news",
+        "namespace": "news",
+    },
+    "news_sentiment_mean_7d_v1": {
+        "description": "Mean news sentiment over 7 days",
+        "inputs": ["news_events"],
+        "version": 1,
+        "layer": "news",
+        "namespace": "news",
+    },
+    "news_sentiment_mean_30d_v1": {
+        "description": "Mean news sentiment over 30 days",
+        "inputs": ["news_events"],
+        "version": 1,
+        "layer": "news",
+        "namespace": "news",
+    },
+    "news_sentiment_trend_7d_v1": {
+        "description": "News sentiment trend (slope) over 7 days",
+        "inputs": ["news_events"],
+        "version": 1,
+        "layer": "news",
+        "namespace": "news",
+    },
+    "news_sentiment_trend_30d_v1": {
+        "description": "News sentiment trend (slope) over 30 days",
+        "inputs": ["news_events"],
+        "version": 1,
+        "layer": "news",
+        "namespace": "news",
+    },
+    "news_sentiment_shock_flag_v1": {
+        "description": "Binary flag: news sentiment shock detected (>2σ move)",
+        "inputs": ["news_events"],
+        "version": 1,
+        "layer": "news",
+        "namespace": "news",
+    },
+    "news_sentiment_volume_7d_v1": {
+        "description": "Volume-weighted news sentiment over 7 days",
+        "inputs": ["news_events"],
+        "version": 1,
+        "layer": "news",
+        "namespace": "news",
+    },
+    "news_sentiment_volume_30d_v1": {
+        "description": "Volume-weighted news sentiment over 30 days",
+        "inputs": ["news_events"],
+        "version": 1,
+        "layer": "news",
+        "namespace": "news",
+    },
+    "news_sentiment_7d_z_v1": {
+        "description": "Z-score of 7-day news sentiment vs. 30-day baseline",
+        "inputs": ["news_events"],
+        "version": 1,
+        "layer": "news",
+        "namespace": "news",
+    },
+    "news_volume_spike_z_v1": {
+        "description": "Z-score of news volume (spike detection)",
+        "inputs": ["news_events"],
+        "version": 1,
+        "layer": "news",
+        "namespace": "news",
+    },
+    # Macro Features (macro_)
+    "macro_growth_regime_v1": {
+        "description": "Macro growth regime label (expansion/contraction/neutral)",
+        "inputs": ["macro_indicators"],
+        "version": 1,
+        "layer": "macro",
+        "namespace": "macro",
+    },
+    "macro_inflation_regime_v1": {
+        "description": "Macro inflation regime label (high/low/neutral)",
+        "inputs": ["macro_indicators"],
+        "version": 1,
+        "layer": "macro",
+        "namespace": "macro",
+    },
+    "macro_risk_aversion_proxy_v1": {
+        "description": "Macro risk-aversion proxy (credit spreads + vol composite)",
+        "inputs": ["macro_indicators"],
+        "version": 1,
+        "layer": "macro",
+        "namespace": "macro",
+    },
+    "macro_growth_momentum_z_v1": {
+        "description": "Z-score of macro growth momentum indicator",
+        "inputs": ["macro_indicators"],
+        "version": 1,
+        "layer": "macro",
+        "namespace": "macro",
+    },
+    "macro_inflation_surprise_z_v1": {
+        "description": "Z-score of macro inflation surprise vs. consensus",
+        "inputs": ["macro_indicators"],
+        "version": 1,
+        "layer": "macro",
+        "namespace": "macro",
+    },
 }
 
 
@@ -257,7 +371,7 @@ def validate_registry_namespaced() -> tuple[bool, list[str]]:
         - is_valid: True if all names follow namespace rules
         - invalid_names: List of feature names that violate rules (empty if valid)
     """
-    valid_prefixes = {"ta_", "liq_", "vol_", "alt_", "macro_", "regime_", "ml_"}
+    valid_prefixes = {"ta_", "liq_", "vol_", "alt_", "macro_", "regime_", "ml_", "news_"}
     invalid = []
 
     for name in FEATURE_REGISTRY.keys():
