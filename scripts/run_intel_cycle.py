@@ -201,6 +201,16 @@ def run_single_cycle(config: dict) -> dict:
 
     if not dry_run:
         dedupe.save()
+        # Archive new events for replay (Point 29)
+        if new_events:
+            try:
+                from src.assembled_core.intel.news_archiver import NewsArchiver
+                archiver: NewsArchiver = config.setdefault(
+                    "_archiver", NewsArchiver(base_dir=output_dir / "archive")
+                )
+                archiver.append(new_events, partition_date=now)
+            except Exception as _arc_exc:
+                logger.debug("[SKIP] NewsArchiver: %s", _arc_exc)
 
     gdelt_status = "OK" if is_new_batch or raw_count > 0 else "STALE"
     health.update("gdelt", gdelt_status, now=now)
