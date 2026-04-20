@@ -231,9 +231,12 @@ def _entry_to_news_event(
         is_noise=_is_noise(title, feed_cfg),
     )
 
-    # Step 6: Wire classifier
+    # Step 6: Wire classifier + source bias discount
     try:
-        from src.assembled_core.intel.news_classifier import classify_news_event as _classify
+        from src.assembled_core.intel.news_classifier import (
+            classify_news_event as _classify,
+            apply_source_bias_discount as _bias_discount,
+        )
         classification = _classify(title, geo_tags=geo_tags, source_tier=feed_cfg.tier.value, tickers=tickers)
         event.event_types = classification.event_types
         event.severity = classification.severity
@@ -241,7 +244,8 @@ def _entry_to_news_event(
         event.time_horizon = classification.time_horizon
         event.affected_sectors = classification.affected_sectors
         event.affected_assets = list({*classification.affected_assets, *tickers})
-        event.news_confidence = classification.confidence
+        # Apply source bias discount to confidence (Point 40)
+        event.news_confidence = _bias_discount(classification.confidence, feed_cfg.id)
     except Exception as _clf_exc:
         logger.debug("[SKIP] RSSFetcher: classifier error for %s: %s", event_id, _clf_exc)
 

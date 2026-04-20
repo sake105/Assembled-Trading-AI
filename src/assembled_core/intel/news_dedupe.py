@@ -108,6 +108,8 @@ class NewsDedupeIndex:
         self.seen_fingerprints: OrderedDict[str, float] = OrderedDict()
         # fingerprint → how many distinct sources reported the same story
         self.seen_counts: dict[str, int] = {}
+        # source-agnostic story fp → cross-source report count (for fatigue)
+        self._story_counts: dict[str, int] = {}
         # URL deduplication (canonical URLs)
         self.seen_urls: set[str] = set()
 
@@ -257,3 +259,120 @@ class NewsDedupeIndex:
             )
         except Exception as exc:
             logger.warning("[WARN] NewsDedupeIndex.load: %s", exc)
+
+    # ------------------------------------------------------------------
+    # News fatigue detection (Point 39)
+    # ------------------------------------------------------------------
+
+    def _story_fingerprint(self, event: NewsEvent) -> str:
+        """Source-agnostic story fingerprint for cross-source fatigue tracking."""
+        return content_fingerprint(event.title, "")
+
+    def record_story_count(self, event: NewsEvent) -> int:
+        """Increment cross-source story count. Returns new count."""
+        sfp = self._story_fingerprint(event)
+        self._story_counts[sfp] = self._story_counts.get(sfp, 0) + 1
+        return self._story_counts[sfp]
+
+    def get_fatigue_score(self, event: NewsEvent) -> float:
+        """Return a fatigue score [0, 1] for a story fingerprint.
+
+        High fatigue (→1.0) means the same story has been reported many times
+        by many sources and is no longer novel signal. Used to discount
+        confidence for repeated stories.
+
+        Uses a source-agnostic fingerprint so cross-source repetition is detected.
+        Score = min(1.0, (n_reports - 1) / fatigue_threshold)
+        """
+        sfp = self._story_fingerprint(event)
+        n = self._story_counts.get(sfp, 0)
+        fatigue_threshold = 8  # 8 independent reports → full fatigue
+        if n <= 1:
+            return 0.0
+        return min(1.0, (n - 1) / fatigue_threshold)
+
+    def is_fatigued(self, event: NewsEvent, threshold: float = 0.6) -> bool:
+        """Return True if the story has passed the fatigue threshold."""
+        return self.get_fatigue_score(event) >= threshold
+
+
+# ---------------------------------------------------------------------------
+# Contradiction detector (Point 38)
+# ---------------------------------------------------------------------------
+
+
+def detect_contradictions(
+    events: list[NewsEvent],
+    *,
+    window_hours: float = 6.0,
+    min_confidence: float = 0.3,
+) -> list[dict]:
+    """Detect events with contradictory market directions on the same topic.
+
+    Two events are considered contradictory if they share a content fingerprint
+    cluster (same keyword context) but have opposing market directions
+    (one bearish, one bullish) within the time window.
+
+    Args:
+        events: List of NewsEvent objects (must have .market_direction attribute).
+        window_hours: Time window in hours to consider for contradiction.
+        min_confidence: Minimum news_confidence for both events to flag contradiction.
+
+    Returns:
+        List of contradiction dicts with keys:
+            fingerprint, event_id_a, event_id_b, direction_a, direction_b,
+            source_a, source_b, time_delta_minutes.
+    """
+    from datetime import timezone as _tz
+
+    import time as _time
+
+    grouped: dict[str, list[NewsEvent]] = {}
+    for evt in events:
+        fp = content_fingerprint(evt.title, "")  # source-agnostic fingerprint
+        grouped.setdefault(fp, []).append(evt)
+
+    contradictions: list[dict] = []
+    window_sec = window_hours * 3600
+
+    for fp, group in grouped.items():
+        if len(group) < 2:
+            continue
+        for i in range(len(group)):
+            for j in range(i + 1, len(group)):
+                a, b = group[i], group[j]
+                dir_a = getattr(a, "market_direction", "neutral")
+                dir_b = getattr(b, "market_direction", "neutral")
+                conf_a = float(getattr(a, "news_confidence", 0.0))
+                conf_b = float(getattr(b, "news_confidence", 0.0))
+
+                if conf_a < min_confidence or conf_b < min_confidence:
+                    continue
+
+                opposing = (dir_a == "bearish" and dir_b == "bullish") or \
+                           (dir_a == "bullish" and dir_b == "bearish")
+                if not opposing:
+                    continue
+
+                ts_a = getattr(a, "published_at", None) or getattr(a, "ingested_at", None)
+                ts_b = getattr(b, "published_at", None) or getattr(b, "ingested_at", None)
+                if ts_a and ts_b:
+                    delta_sec = abs((ts_a - ts_b).total_seconds())
+                    if delta_sec > window_sec:
+                        continue
+                    time_delta_min = round(delta_sec / 60, 1)
+                else:
+                    time_delta_min = 0.0
+
+                contradictions.append({
+                    "fingerprint": fp,
+                    "event_id_a": a.event_id,
+                    "event_id_b": b.event_id,
+                    "direction_a": dir_a,
+                    "direction_b": dir_b,
+                    "source_a": a.source_id,
+                    "source_b": b.source_id,
+                    "time_delta_minutes": time_delta_min,
+                })
+
+    return contradictions

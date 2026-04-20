@@ -308,6 +308,18 @@ def run_single_cycle(config: dict) -> dict:
     health_artifact = health.snapshot(now=now)
     _write_artifact(output_dir / "intel_health.json", health_artifact, dry_run)
 
+    # Point 30: Feed health dashboard artifact
+    feed_stats = health.get_feed_stats()
+    silent_feeds = health.check_silent_feeds(now=now, threshold_hours=2.0)
+    feed_health_artifact = {
+        "generated_utc": now.isoformat(),
+        "feed_stats": feed_stats,
+        "silent_feeds": silent_feeds,
+        "total_sources_tracked": len(feed_stats),
+        "total_silent": len(silent_feeds),
+    }
+    _write_artifact(output_dir / "feed_health.json", feed_health_artifact, dry_run)
+
     if not dry_run:
         logger.info("[OK] Artifacts written to %s", output_dir)
 

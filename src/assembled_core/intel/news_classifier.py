@@ -428,10 +428,113 @@ def classify_batch(
     ]
 
 
+# ---------------------------------------------------------------------------
+# Source bias tagging (Point 40)
+# ---------------------------------------------------------------------------
+
+# Source ID → known bias attributes
+# Bias is not a judgement of quality — it reflects systematic slant that should
+# be accounted for when aggregating signals across sources.
+_SOURCE_BIAS: dict[str, dict[str, str]] = {
+    # State / government media
+    "xinhua": {"geo_bias": "CN", "editorial_bias": "pro_government"},
+    "cgtn": {"geo_bias": "CN", "editorial_bias": "pro_government"},
+    "rt": {"geo_bias": "RU", "editorial_bias": "pro_government"},
+    "tass": {"geo_bias": "RU", "editorial_bias": "pro_government"},
+    "sputnik": {"geo_bias": "RU", "editorial_bias": "pro_government"},
+    "press_tv": {"geo_bias": "IR", "editorial_bias": "pro_government"},
+    "al_jazeera": {"geo_bias": "QA", "editorial_bias": "neutral"},
+    "aljazeera": {"geo_bias": "QA", "editorial_bias": "neutral"},
+    "aljaz": {"geo_bias": "QA", "editorial_bias": "neutral"},
+    "presstv": {"geo_bias": "IR", "editorial_bias": "pro_government"},
+    # Western mainstream
+    "reuters": {"geo_bias": "GB", "editorial_bias": "neutral"},
+    "ap": {"geo_bias": "US", "editorial_bias": "neutral"},
+    "apnews": {"geo_bias": "US", "editorial_bias": "neutral"},
+    "bbc": {"geo_bias": "GB", "editorial_bias": "center"},
+    "bbc_world": {"geo_bias": "GB", "editorial_bias": "center"},
+    "cnn": {"geo_bias": "US", "editorial_bias": "center_left"},
+    "fox": {"geo_bias": "US", "editorial_bias": "right"},
+    "nyt": {"geo_bias": "US", "editorial_bias": "center_left"},
+    "wsj": {"geo_bias": "US", "editorial_bias": "center_right"},
+    "ft": {"geo_bias": "GB", "editorial_bias": "center"},
+    "guardian": {"geo_bias": "GB", "editorial_bias": "left"},
+    "axios": {"geo_bias": "US", "editorial_bias": "center"},
+    "politico": {"geo_bias": "US", "editorial_bias": "center"},
+    "bloomberg": {"geo_bias": "US", "editorial_bias": "center"},
+    "wapo": {"geo_bias": "US", "editorial_bias": "center_left"},
+    "npr": {"geo_bias": "US", "editorial_bias": "center_left"},
+    # Financial
+    "cnbc": {"geo_bias": "US", "editorial_bias": "center"},
+    "marketwatch": {"geo_bias": "US", "editorial_bias": "center"},
+    "seeking_alpha": {"geo_bias": "US", "editorial_bias": "crowdsourced"},
+    # Regional / specialty
+    "haaretz": {"geo_bias": "IL", "editorial_bias": "left"},
+    "kyiv_independent": {"geo_bias": "UA", "editorial_bias": "pro_ukrainian"},
+    "kyivindependent": {"geo_bias": "UA", "editorial_bias": "pro_ukrainian"},
+    "nikkei": {"geo_bias": "JP", "editorial_bias": "center"},
+    "nikkei_asia": {"geo_bias": "JP", "editorial_bias": "center"},
+    "spiegel": {"geo_bias": "DE", "editorial_bias": "center_left"},
+    "euractiv": {"geo_bias": "EU", "editorial_bias": "pro_eu"},
+    "dw": {"geo_bias": "DE", "editorial_bias": "center"},
+    "france24": {"geo_bias": "FR", "editorial_bias": "center"},
+    "rfi": {"geo_bias": "FR", "editorial_bias": "center"},
+    "voa": {"geo_bias": "US", "editorial_bias": "pro_western"},
+    "sky_news": {"geo_bias": "GB", "editorial_bias": "center_right"},
+}
+
+# T3 (state media) source IDs that carry discount warnings
+_STATE_MEDIA_SOURCE_IDS = frozenset({
+    "xinhua", "cgtn", "rt", "tass", "sputnik", "press_tv", "presstv",
+})
+
+
+def get_source_bias(source_id: str) -> dict[str, str]:
+    """Return known bias attributes for a source_id.
+
+    Args:
+        source_id: Feed/source identifier (matched case-insensitively).
+
+    Returns:
+        Dict with 'geo_bias' and 'editorial_bias' keys, or empty dict if unknown.
+    """
+    return _SOURCE_BIAS.get(source_id.lower().strip(), {})
+
+
+def is_state_media(source_id: str) -> bool:
+    """Return True if the source is known state-controlled media."""
+    return source_id.lower().strip() in _STATE_MEDIA_SOURCE_IDS
+
+
+def apply_source_bias_discount(confidence: float, source_id: str) -> float:
+    """Apply a confidence discount for known state media sources.
+
+    State media (RT, Xinhua, TASS, etc.) gets a 30% confidence penalty
+    because their editorial slant is systematic. Other biased sources
+    get a smaller 10% discount.
+
+    Args:
+        confidence: Base confidence score [0, 1].
+        source_id: Feed/source identifier.
+
+    Returns:
+        Adjusted confidence score [0, 1].
+    """
+    if is_state_media(source_id):
+        return round(confidence * 0.70, 4)
+    bias = get_source_bias(source_id)
+    if bias.get("editorial_bias") in ("pro_government", "pro_western", "pro_ukrainian"):
+        return round(confidence * 0.90, 4)
+    return confidence
+
+
 __all__ = [
     "NewsClassification",
     "SECTOR_TO_ETFS",
     "COUNTRY_TO_ASSETS",
     "classify_news_event",
     "classify_batch",
+    "get_source_bias",
+    "is_state_media",
+    "apply_source_bias_discount",
 ]
