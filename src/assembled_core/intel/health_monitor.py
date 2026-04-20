@@ -2,10 +2,35 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
 from .models import ComponentHealth
+
+
+# ---------------------------------------------------------------------------
+# Per-source event stats
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class SourceStats:
+    source_id: str
+    total_events: int = 0
+    events_last_24h: int = 0
+    last_event_time: datetime | None = None
+    error_count: int = 0
+    avg_severity: float = 0.0
+    last_fetch_time: datetime | None = None
+    _severity_sum: float = field(default=0.0, repr=False)
+    _severity_count: int = field(default=0, repr=False)
+
+    def update_avg_severity(self, severity: float) -> None:
+        """Update running average severity."""
+        self._severity_sum += severity
+        self._severity_count += 1
+        self.avg_severity = self._severity_sum / self._severity_count
 
 
 class HealthMonitor:
@@ -19,6 +44,7 @@ class HealthMonitor:
 
     def __init__(self) -> None:
         self._components: dict[str, ComponentHealth] = {}
+        self._source_stats: dict[str, SourceStats] = {}
 
     def register(
         self,
@@ -102,6 +128,75 @@ class HealthMonitor:
         if component not in self._components:
             self.register(component)
         self._components[component].status = "DEGRADED"
+
+    # ------------------------------------------------------------------
+    # Per-source event stats (Batch 5)
+    # ------------------------------------------------------------------
+
+    def record_events(
+        self,
+        source_id: str,
+        events: list[Any],
+        now: datetime | None = None,
+    ) -> None:
+        """Record events received from a source, updating per-source stats.
+
+        Args:
+            source_id: Feed/source identifier.
+            events: List of NewsEvent-like objects (must have .severity attr or not).
+            now: Reference timestamp; defaults to utcnow.
+        """
+        if now is None:
+            now = datetime.now(tz=timezone.utc)
+        if source_id not in self._source_stats:
+            self._source_stats[source_id] = SourceStats(source_id=source_id)
+        stats = self._source_stats[source_id]
+        stats.total_events += len(events)
+        stats.last_fetch_time = now
+        if events:
+            stats.last_event_time = now
+            stats.events_last_24h += len(events)
+            for evt in events:
+                sev = getattr(evt, "severity", 0.0) or 0.0
+                if sev:
+                    stats.update_avg_severity(float(sev))
+
+    def get_feed_stats(self) -> dict[str, dict[str, Any]]:
+        """Return a snapshot of per-source stats."""
+        result: dict[str, dict[str, Any]] = {}
+        for source_id, stats in self._source_stats.items():
+            result[source_id] = {
+                "source_id": stats.source_id,
+                "total_events": stats.total_events,
+                "events_last_24h": stats.events_last_24h,
+                "last_event_time": stats.last_event_time.isoformat() if stats.last_event_time else None,
+                "error_count": stats.error_count,
+                "avg_severity": round(stats.avg_severity, 3),
+                "last_fetch_time": stats.last_fetch_time.isoformat() if stats.last_fetch_time else None,
+            }
+        return result
+
+    def check_silent_feeds(
+        self,
+        now: datetime | None = None,
+        threshold_hours: float = 2.0,
+    ) -> list[str]:
+        """Return source_ids that have been silent (no events) for threshold_hours.
+
+        Only considers sources that have previously had at least one event.
+        Sources never seen are not considered silent.
+        """
+        if now is None:
+            now = datetime.now(tz=timezone.utc)
+        silent: list[str] = []
+        threshold_seconds = threshold_hours * 3600
+        for source_id, stats in self._source_stats.items():
+            if stats.last_event_time is None:
+                continue
+            elapsed = (now - stats.last_event_time).total_seconds()
+            if elapsed >= threshold_seconds:
+                silent.append(source_id)
+        return sorted(silent)
 
 
 class SourceUptimeTracker:

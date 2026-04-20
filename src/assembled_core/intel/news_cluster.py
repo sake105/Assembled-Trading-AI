@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import math
 from datetime import datetime, timedelta, timezone
 
 from src.assembled_core.intel.geo_trigger import classify_trigger_type
@@ -160,9 +161,23 @@ class ClusterManager:
         urgency_boost = max((getattr(evt, "urgency", 0.0) for evt in new_events), default=0.0) * 0.1
         if urgency_boost > 0:
             cluster.confidence = min(cluster.confidence + urgency_boost, 0.99)
+
+        # Step 4: State media discount — if all events are T3, cap confidence at 35%
+        all_t3 = all(getattr(evt, "source_tier", None) == SourceTier.T3 for evt in new_events)
+        if all_t3 and cluster.max_tier == SourceTier.T3:
+            cluster.confidence = min(cluster.confidence, 0.35)
+
+        # Step 5: Freshness decay — confidence decays for old clusters with no new events
+        try:
+            age_min = (datetime.now(tz=timezone.utc) - cluster.created_at).total_seconds() / 60
+        except Exception:
+            age_min = 0.0
+        decay = math.exp(-age_min / max(self._ttl_minutes * 0.5, 1.0))
+        cluster.confidence = cluster.confidence * (0.5 + 0.5 * decay)
+
         logger.debug(
-            "[OK] T2.8 Bayesian confidence: cluster=%s conf=%.3f (urgency_boost=%.3f)",
-            cluster.cluster_id, cluster.confidence, urgency_boost,
+            "[OK] T2.8 Bayesian confidence: cluster=%s conf=%.3f (urgency_boost=%.3f, decay=%.3f)",
+            cluster.cluster_id, cluster.confidence, urgency_boost, decay,
         )
 
     def get_active_clusters(self) -> list[EvidenceCluster]:

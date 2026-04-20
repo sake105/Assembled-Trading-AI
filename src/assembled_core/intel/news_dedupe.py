@@ -108,6 +108,8 @@ class NewsDedupeIndex:
         self.seen_fingerprints: OrderedDict[str, float] = OrderedDict()
         # fingerprint → how many distinct sources reported the same story
         self.seen_counts: dict[str, int] = {}
+        # URL deduplication (canonical URLs)
+        self.seen_urls: set[str] = set()
 
         if self._persist_path and self._persist_path.exists():
             self.load()
@@ -136,9 +138,13 @@ class NewsDedupeIndex:
         return count
 
     def is_duplicate(self, event: NewsEvent) -> bool:
-        """Return True if event_id OR content fingerprint was already seen."""
+        """Return True if event_id, URL, OR content fingerprint was already seen."""
         if event.event_id in self.seen_event_ids:
             return True
+        if event.url:
+            canon = canonical_url(event.url)
+            if canon in self.seen_urls:
+                return True
         fp = self._fingerprint(event)
         return fp in self.seen_fingerprints
 
@@ -163,6 +169,9 @@ class NewsDedupeIndex:
             self.seen_fingerprints.move_to_end(fp)
         else:
             self.seen_fingerprints[fp] = now
+
+        if event.url:
+            self.seen_urls.add(canonical_url(event.url))
 
     def filter_new(self, events: list[NewsEvent]) -> list[NewsEvent]:
         """Return only non-duplicate events and add them to the index."""

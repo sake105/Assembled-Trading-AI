@@ -228,6 +228,16 @@ class NewsEvent(BaseModel):
     urgency: float = 0.0  # 0-1; 1.0 = Breaking/Flash/Urgent
     tickers: list[str] = Field(default_factory=list)  # resolved equity tickers
     sentiment_score: float = 0.0  # -1.0 (very negative) to +1.0 (very positive)
+    # --- Classification fields (Batch 2) ---
+    event_types: list[str] = Field(default_factory=list)  # multi-label: ["sanctions", "military_strike"]
+    severity: float = 0.0  # 0-10 impact severity
+    market_direction: str = "neutral"  # "bearish"/"bullish"/"neutral"/"mixed"
+    time_horizon: str = "short"  # "intraday"/"short"/"medium"/"long"
+    affected_sectors: list[str] = Field(default_factory=list)
+    affected_assets: list[str] = Field(default_factory=list)  # ETFs/tickers derived from classification
+    news_confidence: float = 0.0  # overall classification confidence
+    language: str = "en"  # detected language code
+    is_noise: bool = False  # true if classified as non-relevant noise
 
     model_config = {"frozen": False}
 

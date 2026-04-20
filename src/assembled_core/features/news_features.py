@@ -11,6 +11,7 @@ are not installed — the basic sentiment_score features still work.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import pandas as pd
 
@@ -230,7 +231,187 @@ def update_news_features_incremental(
     return updated[updated_ts >= cutoff].reset_index(drop=True)
 
 
+def compute_news_momentum(
+    events_df: pd.DataFrame,
+    window_hours: float = 4.0,
+) -> pd.DataFrame:
+    """Compute rate-of-change in article volume per sector over the last window_hours.
+
+    Args:
+        events_df: DataFrame with columns: timestamp, affected_sectors (list or str),
+                   and optionally severity.
+        window_hours: Length of the current and previous window in hours.
+
+    Returns:
+        DataFrame with columns: sector, article_count, momentum, severity_weighted_count.
+    """
+    if events_df.empty:
+        return pd.DataFrame(columns=["sector", "article_count", "momentum", "severity_weighted_count"])
+
+    df = events_df.copy()
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+    now = df["timestamp"].max()
+    window_td = pd.Timedelta(hours=window_hours)
+
+    current_window = df[df["timestamp"] >= now - window_td]
+    previous_window = df[
+        (df["timestamp"] >= now - 2 * window_td) & (df["timestamp"] < now - window_td)
+    ]
+
+    def _explode_sectors(frame: pd.DataFrame) -> pd.DataFrame:
+        """Explode 'affected_sectors' column to one row per sector."""
+        if "affected_sectors" not in frame.columns:
+            return pd.DataFrame(columns=["affected_sectors", "severity"])
+        rows = []
+        for _, row in frame.iterrows():
+            sectors = row.get("affected_sectors", [])
+            if isinstance(sectors, str):
+                sectors = [sectors]
+            elif not isinstance(sectors, list):
+                sectors = []
+            severity = float(row.get("severity", 0.0) or 0.0)
+            for s in sectors:
+                rows.append({"affected_sectors": s, "severity": severity})
+        return pd.DataFrame(rows) if rows else pd.DataFrame(columns=["affected_sectors", "severity"])
+
+    curr_exploded = _explode_sectors(current_window)
+    prev_exploded = _explode_sectors(previous_window)
+
+    if curr_exploded.empty:
+        return pd.DataFrame(columns=["sector", "article_count", "momentum", "severity_weighted_count"])
+
+    curr_agg = curr_exploded.groupby("affected_sectors").agg(
+        article_count=("severity", "count"),
+        severity_weighted_count=("severity", "sum"),
+    ).reset_index().rename(columns={"affected_sectors": "sector"})
+
+    if not prev_exploded.empty:
+        prev_agg = prev_exploded.groupby("affected_sectors").agg(
+            prev_count=("severity", "count"),
+        ).reset_index().rename(columns={"affected_sectors": "sector"})
+        curr_agg = curr_agg.merge(prev_agg, on="sector", how="left")
+        curr_agg["prev_count"] = curr_agg["prev_count"].fillna(0).astype(int)
+    else:
+        curr_agg["prev_count"] = 0
+
+    curr_agg["momentum"] = curr_agg["article_count"] - curr_agg["prev_count"]
+    curr_agg = curr_agg.drop(columns=["prev_count"], errors="ignore")
+    return curr_agg.reset_index(drop=True)
+
+
+def compute_sentiment_trajectory(
+    events_df: pd.DataFrame,
+    symbol: str,
+    n_articles: int = 10,
+) -> str:
+    """Return trend direction of the last N articles for a symbol.
+
+    Uses linear regression slope of sentiment scores.
+
+    Returns:
+        "improving", "worsening", or "stable".
+    """
+    if events_df.empty:
+        return "stable"
+
+    df = events_df.copy()
+    if "symbol" in df.columns:
+        df = df[df["symbol"] == symbol]
+    elif "tickers" in df.columns:
+        df = df[df["tickers"].apply(lambda t: symbol in (t if isinstance(t, list) else []))]
+
+    if df.empty:
+        return "stable"
+
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+    df = df.sort_values("timestamp").tail(n_articles)
+
+    if len(df) < 2:
+        return "stable"
+
+    score_col = "sentiment_score" if "sentiment_score" in df.columns else None
+    if score_col is None:
+        return "stable"
+
+    scores = df[score_col].fillna(0.0).values
+    n = len(scores)
+    x = list(range(n))
+    x_mean = sum(x) / n
+    y_mean = sum(scores) / n
+
+    numerator = sum((xi - x_mean) * (yi - y_mean) for xi, yi in zip(x, scores))
+    denominator = sum((xi - x_mean) ** 2 for xi in x)
+
+    if denominator == 0:
+        return "stable"
+
+    slope = numerator / denominator
+    if slope > 0.02:
+        return "improving"
+    elif slope < -0.02:
+        return "worsening"
+    return "stable"
+
+
+def compute_sector_heatmap(
+    events_df: pd.DataFrame,
+    now: "pd.Timestamp | None" = None,
+) -> dict[str, dict[str, float]]:
+    """Return sector → last-24h event count + avg severity (the news heatmap).
+
+    Args:
+        events_df: DataFrame with columns: timestamp, affected_sectors (list or str),
+                   and optionally severity.
+        now: Reference time; defaults to max timestamp in events_df.
+
+    Returns:
+        Dict mapping sector → {"event_count": int, "avg_severity": float}.
+    """
+    if events_df.empty:
+        return {}
+
+    df = events_df.copy()
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+    if now is None:
+        ref_time = df["timestamp"].max()
+    else:
+        ref_time = pd.Timestamp(now).tz_localize("UTC") if getattr(now, "tzinfo", None) is None else pd.Timestamp(now)
+
+    cutoff = ref_time - pd.Timedelta(hours=24)
+    df = df[df["timestamp"] >= cutoff]
+
+    if df.empty:
+        return {}
+
+    heatmap: dict[str, dict[str, Any]] = {}
+
+    for _, row in df.iterrows():
+        sectors = row.get("affected_sectors", [])
+        if isinstance(sectors, str):
+            sectors = [sectors]
+        elif not isinstance(sectors, list):
+            sectors = []
+        severity = float(row.get("severity", 0.0) or 0.0)
+        for sector in sectors:
+            if sector not in heatmap:
+                heatmap[sector] = {"event_count": 0, "severity_sum": 0.0}
+            heatmap[sector]["event_count"] += 1
+            heatmap[sector]["severity_sum"] += severity
+
+    result: dict[str, dict[str, float]] = {}
+    for sector, data in heatmap.items():
+        count = data["event_count"]
+        result[sector] = {
+            "event_count": float(count),
+            "avg_severity": round(data["severity_sum"] / count, 3) if count > 0 else 0.0,
+        }
+    return result
+
+
 __all__ = [
     "add_news_features",
     "update_news_features_incremental",
+    "compute_news_momentum",
+    "compute_sentiment_trajectory",
+    "compute_sector_heatmap",
 ]

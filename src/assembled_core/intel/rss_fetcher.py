@@ -34,6 +34,39 @@ _CONFIG_PATH = Path(__file__).resolve().parents[4] / "configs" / "intel" / "rss_
 _URGENCY_HIGH = frozenset({"breaking", "flash", "urgent"})
 _URGENCY_MED = frozenset({"alert", "update"})
 
+# ---------------------------------------------------------------------------
+# Language detection (fast heuristic, no ML)
+# ---------------------------------------------------------------------------
+
+_ENGLISH_STOP_WORDS = frozenset({
+    "the", "and", "of", "in", "to", "a", "is", "for", "on", "at", "by",
+    "with", "as", "an", "it", "be", "this", "that", "from", "or", "are",
+    "was", "were", "has", "have", "had", "not", "its", "their", "will",
+})
+
+
+def _is_english(text: str) -> bool:
+    """Fast heuristic: check if >=10% of words are common English stop words."""
+    words = text.lower().split()
+    if len(words) < 3:
+        return True  # too short to determine, pass it
+    en_count = sum(1 for w in words if w in _ENGLISH_STOP_WORDS)
+    return en_count / len(words) >= 0.10
+
+
+# ---------------------------------------------------------------------------
+# Noise filter (block sports/entertainment on geopolitical feeds)
+# ---------------------------------------------------------------------------
+
+_NOISE_PATTERNS = frozenset({
+    "celebrity", "birthday", "wedding", "divorce", "oscar", "grammy",
+    "nfl", "nba", "nhl", "football", "soccer", "baseball", "basketball",
+    "tennis", "golf", "formula 1", "formula one", "f1 race",
+    "recipe", "cooking", "fashion week", "makeup", "beauty tip", "horoscope",
+    "zodiac", "movie review", "box office", "album release", "concert tour",
+    "reality tv", "instagram", "tiktok viral", "celebrity couple",
+})
+
 
 def _urgency_score(title: str) -> float:
     """Return 1.0 for Breaking/Flash/Urgent, 0.5 for Alert/Update, else 0.0."""
@@ -179,7 +212,8 @@ def _entry_to_news_event(
             except Exception:
                 pass
 
-    return NewsEvent(
+    # Step 5: Build base event
+    event = NewsEvent(
         event_id=event_id,
         source_id=feed_cfg.id,
         source_tier=feed_cfg.tier,
@@ -193,7 +227,33 @@ def _entry_to_news_event(
         content_hash=content_hash,
         urgency=urgency,
         tickers=tickers,
+        language="en" if _is_english(title) else "xx",
+        is_noise=_is_noise(title, feed_cfg),
     )
+
+    # Step 6: Wire classifier
+    try:
+        from src.assembled_core.intel.news_classifier import classify_news_event as _classify
+        classification = _classify(title, geo_tags=geo_tags, source_tier=feed_cfg.tier.value, tickers=tickers)
+        event.event_types = classification.event_types
+        event.severity = classification.severity
+        event.market_direction = classification.market_direction
+        event.time_horizon = classification.time_horizon
+        event.affected_sectors = classification.affected_sectors
+        event.affected_assets = list({*classification.affected_assets, *tickers})
+        event.news_confidence = classification.confidence
+    except Exception as _clf_exc:
+        logger.debug("[SKIP] RSSFetcher: classifier error for %s: %s", event_id, _clf_exc)
+
+    return event
+
+
+def _is_noise(title: str, cfg: FeedConfig) -> bool:
+    """Return True if article is clearly non-market-relevant noise."""
+    if cfg.tier == SourceTier.T1:
+        return False  # T1 is curated, trust it
+    lower = title.lower()
+    return any(pat in lower for pat in _NOISE_PATTERNS)
 
 
 def _is_relevant(event: NewsEvent, feed_cfg: FeedConfig) -> bool:
@@ -229,6 +289,7 @@ class RSSFetcher:
         self._entity_linker = entity_linker
         self._nlp_sentiment = nlp_sentiment
         self._seen: dict[str, set[str]] = {}  # feed_id → set of content_hash
+        self._seen_urls: set[str] = set()  # cross-feed URL deduplication
 
     @property
     def feed_ids(self) -> list[str]:
@@ -344,9 +405,18 @@ class RSSFetcher:
                     continue
                 if skip_seen and event.content_hash in seen:
                     continue
+                # Cross-feed URL deduplication
+                if skip_seen and event.url and event.url in self._seen_urls:
+                    continue
                 if not _is_relevant(event, cfg):
                     continue
+                # Skip noise events
+                if event.is_noise:
+                    logger.debug("[SKIP] RSSFetcher: noise event in %s: %s", cfg.id, event.title[:60])
+                    continue
                 seen.add(event.content_hash)
+                if event.url:
+                    self._seen_urls.add(event.url)
                 events.append(event)
             except Exception as exc:
                 logger.debug("[SKIP] RSSFetcher: entry parse error in %s: %s", cfg.id, exc)
