@@ -40,11 +40,14 @@ class NewsEventEnricher:
         event_store: object | None = None,
         velocity_tracker: object | None = None,
         dedupe_index: object | None = None,
+        corroboration_tracker: object | None = None,
     ) -> None:
         self._event_store = event_store
         self._velocity_tracker = velocity_tracker
         self._dedupe_index = dedupe_index
+        self._corroboration = corroboration_tracker
         self._impact_estimator = None
+        self.last_velocity = None  # exposes most recent VelocityResult for callers
 
     def enrich(
         self,
@@ -67,6 +70,9 @@ class NewsEventEnricher:
         if now is None:
             now = datetime.now(tz=timezone.utc)
 
+        # Step 0: Language detection (cheap, always on)
+        events = self._run_language_detection(events)
+
         # Step 1: Classify events that don't have event_types yet
         events = self._run_classification(events)
 
@@ -76,21 +82,40 @@ class NewsEventEnricher:
         # Step 3: Fatigue scoring
         events = self._run_fatigue_scoring(events)
 
+        # Step 3.5: Cross-source corroboration
+        events = self._run_corroboration(events)
+
         # Step 4: Velocity update
         if self._velocity_tracker is not None:
             try:
-                self._velocity_tracker.update(events, now=now)
+                self.last_velocity = self._velocity_tracker.update(events, now=now)
             except Exception as exc:
-                logger.debug("[SKIP] VelocityTracker: %s", exc)
+                logger.warning("[WARN] VelocityTracker update failed: %s", exc)
 
         # Step 5: EventStore indexing
         if self._event_store is not None:
             try:
                 self._event_store.add_many(events)
             except Exception as exc:
-                logger.debug("[SKIP] EventStore: %s", exc)
+                logger.warning("[WARN] EventStore add_many failed: %s", exc)
 
         logger.debug("[OK] NewsEventEnricher: enriched %d events", len(events))
+        return events
+
+    def _run_language_detection(self, events: list) -> list:
+        try:
+            from src.assembled_core.intel.news_language import detect_language
+        except ImportError:
+            return events
+        for evt in events:
+            try:
+                current = getattr(evt, "language", "") or ""
+                if current and current != "en":
+                    continue  # trust upstream detection
+                title = getattr(evt, "title", "") or ""
+                evt.language = detect_language(title)
+            except Exception as exc:
+                logger.debug("[SKIP] LangDetect %s: %s", getattr(evt, "event_id", "?"), exc)
         return events
 
     def _run_classification(self, events: list) -> list:
@@ -140,15 +165,39 @@ class NewsEventEnricher:
                 source_tier = getattr(evt, "source_tier", None)
                 tier_str = getattr(source_tier, "value", str(source_tier)) if source_tier else "T2"
                 impact = self._impact_estimator.estimate(evt, geo_tags=geo_tags, source_tier=tier_str)
-                # Attach impact as a metadata attribute (not a model field)
-                object.__setattr__(evt, "_impact", impact) if hasattr(evt, "__dict__") else None
+                # Persist impact on model fields so archive replay retains them
                 try:
-                    evt._impact = impact  # type: ignore[attr-defined]
-                except Exception:
-                    pass
+                    evt.impact_bps = float(impact.bps)
+                    evt.impact_horizon_days = int(impact.horizon_days)
+                    evt.impact_confidence = float(impact.confidence)
+                    evt.impact_geo_premium_bps = float(impact.geo_premium_bps)
+                    evt.impact_dominant_event_type = str(impact.dominant_event_type)
+                except Exception as exc:
+                    logger.debug("[SKIP] Impact assign %s: %s", getattr(evt, "event_id", "?"), exc)
             except Exception as exc:
                 logger.debug("[SKIP] Impact estimation %s: %s", getattr(evt, "event_id", "?"), exc)
 
+        return events
+
+    def _run_corroboration(self, events: list) -> list:
+        if self._corroboration is None:
+            try:
+                from src.assembled_core.intel.news_corroboration import CorroborationTracker
+                self._corroboration = CorroborationTracker()
+            except ImportError:
+                return events
+        try:
+            self._corroboration.ingest(events)
+        except Exception as exc:
+            logger.debug("[SKIP] Corroboration ingest: %s", exc)
+            return events
+        for evt in events:
+            try:
+                s = self._corroboration.corroboration_score(evt)
+                evt.corroboration_score = float(s.score)
+                evt.corroboration_n_sources = int(s.n_sources)
+            except Exception as exc:
+                logger.debug("[SKIP] Corroboration score %s: %s", getattr(evt, "event_id", "?"), exc)
         return events
 
     def _run_fatigue_scoring(self, events: list) -> list:

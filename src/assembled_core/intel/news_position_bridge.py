@@ -10,6 +10,7 @@ whether to act.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -82,7 +83,7 @@ def cluster_to_signal(cluster: object) -> PositionSignal | None:
     if confidence < _MIN_CONFIDENCE:
         return None
 
-    direction = _trigger_to_direction(trigger_type, confidence)
+    direction = _trigger_to_direction(trigger_type)
 
     return PositionSignal(
         signal_id=f"ps_{cluster_id}",
@@ -121,17 +122,10 @@ def classification_to_signal(
     # Derive direction from market_direction + event type hints
     direction = _derive_direction(market_direction, event_types, affected_sectors, confidence)
 
-    # Boost assets based on crisis sector logic
-    if direction == "short":
-        for sector in affected_sectors:
-            if sector in _CRISIS_SHORT_SECTORS:
-                pass  # already in affected_assets via classifier
-    elif direction == "long":
-        for sector in affected_sectors:
-            if sector in _CRISIS_LONG_SECTORS:
-                pass
-
-    signal_id = f"ps_{cluster_id or 'cls'}_{abs(hash(str(event_types)))%10000:04d}"
+    # Deterministic ID: stable across processes (hash() is salted per run)
+    _etype_key = ",".join(sorted(event_types)) or "none"
+    _etype_hash = hashlib.sha1(_etype_key.encode("utf-8")).hexdigest()[:4]
+    signal_id = f"ps_{cluster_id or 'cls'}_{_etype_hash}"
 
     return PositionSignal(
         signal_id=signal_id,
@@ -191,7 +185,7 @@ def signals_to_basket(
 # ------------------------------------------------------------------
 
 
-def _trigger_to_direction(trigger_type: str | None, confidence: float) -> str:
+def _trigger_to_direction(trigger_type: str | None) -> str:
     if trigger_type in _BEARISH_EVENT_TYPES:
         return "short"
     if trigger_type in _BULLISH_EVENT_TYPES:
@@ -227,9 +221,44 @@ def _derive_direction(
     return "flat"
 
 
+def require_corroboration(
+    signal: PositionSignal,
+    supporting_events: list,
+    *,
+    min_independent_high_tier: int = 2,
+) -> PositionSignal | None:
+    """Gate a signal on cross-source confirmation.
+
+    A signal survives the gate only if at least `min_independent_high_tier`
+    distinct T0/T1 sources are among `supporting_events`. If not, the signal
+    is dropped (returns None) and a debug log line is emitted.
+
+    Tier mapping uses whatever is set on the event's `source_tier`; events
+    with no tier are treated as T3 (not counted).
+    """
+    if signal is None:
+        return None
+    sources_high_tier: set[str] = set()
+    for evt in supporting_events or []:
+        tier = getattr(evt, "source_tier", None)
+        tier_val = getattr(tier, "value", str(tier) if tier is not None else "")
+        if tier_val in ("T0", "T1"):
+            src = (getattr(evt, "source_id", "") or "").lower().strip()
+            if src:
+                sources_high_tier.add(src)
+    if len(sources_high_tier) < min_independent_high_tier:
+        logger.debug(
+            "[SKIP] require_corroboration: signal=%s high_tier_sources=%d < %d",
+            signal.signal_id, len(sources_high_tier), min_independent_high_tier,
+        )
+        return None
+    return signal
+
+
 __all__ = [
     "PositionSignal",
     "cluster_to_signal",
     "classification_to_signal",
     "signals_to_basket",
+    "require_corroboration",
 ]

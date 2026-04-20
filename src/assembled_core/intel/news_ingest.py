@@ -46,6 +46,7 @@ _COL_SOURCE_NAME = 3
 _COL_DOC_IDENTIFIER = 4
 _COL_THEMES = 7
 _COL_LOCATIONS = 9
+_COL_PERSONS = 10
 _COL_ORGANIZATIONS = 11
 _COL_TONE = 12
 
@@ -66,6 +67,7 @@ class GdeltBatchRecord:
     themes: list[str] = field(default_factory=list)
     country_codes: list[str] = field(default_factory=list)
     organizations: list[str] = field(default_factory=list)
+    persons: list[str] = field(default_factory=list)
     tone: float = 0.0  # first tone field, -100 to +100; negative = bad news
     batch_ts: datetime = field(default_factory=lambda: datetime.now(tz=timezone.utc))
 
@@ -141,6 +143,13 @@ def _parse_organizations(raw: str) -> list[str]:
     if not raw:
         return []
     return [o.strip() for o in raw.split(";") if o.strip()]
+
+
+def _parse_persons(raw: str) -> list[str]:
+    """Parse semicolon-separated V2Persons."""
+    if not raw:
+        return []
+    return [p.strip() for p in raw.split(";") if p.strip()]
 
 
 def _row_is_relevant(themes: list[str], tone: float) -> bool:
@@ -230,6 +239,11 @@ def fetch_gkg_batch(
 
             country_codes = _parse_locations(row[_COL_LOCATIONS])
             organizations = _parse_organizations(row[_COL_ORGANIZATIONS])
+            persons = (
+                _parse_persons(row[_COL_PERSONS])
+                if len(row) > _COL_PERSONS
+                else []
+            )
 
             record = GdeltBatchRecord(
                 record_id=row[_COL_RECORDID],
@@ -239,6 +253,7 @@ def fetch_gkg_batch(
                 themes=themes,
                 country_codes=country_codes,
                 organizations=organizations,
+                persons=persons,
                 tone=tone,
                 batch_ts=batch_ts,
             )
@@ -285,6 +300,20 @@ def records_to_news_events(records: list[GdeltBatchRecord]) -> list[NewsEvent]:
         content_hash = hashlib.sha256(rec.url.encode("utf-8")).hexdigest()[:16]
         published_at = _parse_gdelt_datetime(rec.date_str)
 
+        # GDELT tone is -100..+100; clamp and normalise to sentiment [-1, +1].
+        sentiment = max(-1.0, min(1.0, rec.tone / 10.0))
+
+        # Merge orgs + persons into entities (deduped, order-preserving).
+        entities: list[str] = []
+        seen: set[str] = set()
+        for ent in list(rec.organizations) + list(rec.persons):
+            key = ent.lower()
+            if key and key not in seen:
+                seen.add(key)
+                entities.append(ent)
+                if len(entities) >= 10:
+                    break
+
         event = NewsEvent(
             event_id=event_id,
             source_id=GDELT_SOURCE_ID,
@@ -294,9 +323,10 @@ def records_to_news_events(records: list[GdeltBatchRecord]) -> list[NewsEvent]:
             published_at=published_at,
             ingested_at=now,
             geo_tags=rec.country_codes,
-            entities=rec.organizations[:5],
+            entities=entities,
             keywords=[t.lower() for t in rec.themes[:10]],
             content_hash=content_hash,
+            sentiment_score=sentiment,
         )
         events.append(event)
 

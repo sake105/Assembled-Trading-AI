@@ -8,6 +8,7 @@ Zero external dependencies — pure Python, deterministic, fast.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 # ---------------------------------------------------------------------------
@@ -244,6 +245,86 @@ _COMMODITY_KEYWORDS: dict[str, list[str]] = {
 
 
 # ---------------------------------------------------------------------------
+# Regex-based matching with word boundaries
+# ---------------------------------------------------------------------------
+#
+# Substring matching (kw in title_lower) produces false positives:
+#   "ai" → "main", "campaign", "pain"
+#   "oil" → "spoil", "toilet"
+#   "war" → "award", "wardrobe"
+#   "fed" → "federal" (OK), but also "offed"
+#   "resign" → "design", "consign"
+#
+# We use re.search with \b word boundaries. Stems that should match word-prefixes
+# (e.g. "sanction" → "sanctions", "sanctioned") are listed in _PREFIX_STEMS and
+# compiled as \bstem\w*. Everything else is compiled as \bword\b.
+
+_PREFIX_STEMS: frozenset[str] = frozenset({
+    # event-type stems
+    "sanction", "attack", "strike", "bomb", "airstrike",
+    "escalat", "invas", "explos",
+    "collaps", "crash", "plunge", "default", "downgrade",
+    "tariff", "protest", "impeach", "resign", "overthrow", "riot",
+    "acquir", "merge", "merger",
+    "regulator", "probe", "approve", "approv", "fine",
+    "cyber", "hack", "breach",
+    "surge", "rebound", "upgrade",
+    "negotiat",
+    "restrict", "bankrupt", "bankruptcy",
+    "disrupt", "storm",
+    "shortage", "shelling", "compromised",
+    # sector prefixes
+    "refin", "semiconductor",
+    # bullish/bearish and severity stems
+    "recession", "meltdown", "rally", "rout", "selloff",
+    "downfall", "spiral",
+    # earnings context
+    "beat", "miss",
+    # fed/federal context (narrow — only in title positions)
+    # "fed" intentionally NOT prefix (too ambiguous); add "federal" explicitly where needed
+})
+
+
+def _compile_keyword_pattern(keywords: frozenset[str] | set[str]) -> re.Pattern[str]:
+    """Compile a keyword set into a single regex with word-boundary matching.
+
+    Stems in _PREFIX_STEMS match as \\bstem\\w* (word-prefix).
+    Everything else matches as \\bword\\b (exact whole-word or exact phrase).
+    """
+    if not keywords:
+        return re.compile(r"(?!x)x")  # never matches
+    parts: list[str] = []
+    for kw in keywords:
+        esc = re.escape(kw)
+        if kw in _PREFIX_STEMS:
+            parts.append(rf"\b{esc}\w*")
+        else:
+            # phrases containing spaces still work with \b at both ends
+            parts.append(rf"\b{esc}\b")
+    return re.compile("|".join(parts), re.IGNORECASE)
+
+
+_EVENT_KEYWORD_PATTERNS: dict[str, re.Pattern[str]] = {
+    etype: _compile_keyword_pattern(kws) for etype, kws in _EVENT_KEYWORDS.items()
+}
+_SEVERITY_PATTERNS: list[tuple[re.Pattern[str], float]] = [
+    (_compile_keyword_pattern(kws), score) for kws, score in _SEVERITY_KEYWORDS
+]
+_BEARISH_PATTERN: re.Pattern[str] = _compile_keyword_pattern(_BEARISH_WORDS)
+_BULLISH_PATTERN: re.Pattern[str] = _compile_keyword_pattern(_BULLISH_WORDS)
+_INTRADAY_PATTERN: re.Pattern[str] = _compile_keyword_pattern(_INTRADAY_WORDS)
+_MEDIUM_PATTERN: re.Pattern[str] = _compile_keyword_pattern(_MEDIUM_WORDS)
+_LONG_PATTERN: re.Pattern[str] = _compile_keyword_pattern(_LONG_WORDS)
+_SECTOR_PATTERNS: dict[str, re.Pattern[str]] = {
+    sector: _compile_keyword_pattern(kws) for sector, kws in _SECTOR_KEYWORDS.items()
+}
+_COMMODITY_PATTERN_ASSETS: list[tuple[re.Pattern[str], list[str]]] = [
+    (re.compile(rf"\b{re.escape(k)}\b", re.IGNORECASE), assets)
+    for k, assets in _COMMODITY_KEYWORDS.items()
+]
+
+
+# ---------------------------------------------------------------------------
 # Main dataclass + classify function
 # ---------------------------------------------------------------------------
 
@@ -293,25 +374,21 @@ def classify_news_event(
 
     # --- Event types (multi-label) ---
     event_types: list[str] = []
-    for etype, keywords in _EVENT_KEYWORDS.items():
-        for kw in keywords:
-            if kw in title_lower:
-                event_types.append(etype)
-                break
+    for etype, pattern in _EVENT_KEYWORD_PATTERNS.items():
+        if pattern.search(title_lower):
+            event_types.append(etype)
 
     # --- Severity ---
     raw_severity = 1.0
-    for keywords, score in _SEVERITY_KEYWORDS:
-        for kw in keywords:
-            if kw in title_lower:
-                raw_severity = max(raw_severity, score)
-                break
+    for pattern, score in _SEVERITY_PATTERNS:
+        if pattern.search(title_lower):
+            raw_severity = max(raw_severity, score)
     tier_mult = _TIER_SEVERITY_MULTIPLIER.get(source_tier, 0.7)
     severity = round(min(raw_severity * tier_mult, 10.0), 2)
 
     # --- Market direction ---
-    has_bearish = any(w in title_lower for w in _BEARISH_WORDS)
-    has_bullish = any(w in title_lower for w in _BULLISH_WORDS)
+    has_bearish = bool(_BEARISH_PATTERN.search(title_lower))
+    has_bullish = bool(_BULLISH_PATTERN.search(title_lower))
     if has_bearish and has_bullish:
         market_direction = "mixed"
     elif has_bearish:
@@ -323,11 +400,11 @@ def classify_news_event(
 
     # --- Time horizon ---
     time_horizon = "short"  # default
-    if any(w in title_lower for w in _INTRADAY_WORDS):
+    if _INTRADAY_PATTERN.search(title_lower):
         time_horizon = "intraday"
-    elif any(w in title_lower for w in _LONG_WORDS):
+    elif _LONG_PATTERN.search(title_lower):
         time_horizon = "long"
-    elif any(w in title_lower for w in _MEDIUM_WORDS):
+    elif _MEDIUM_PATTERN.search(title_lower):
         time_horizon = "medium"
     # Intraday overrides if military event type present
     if "military_strike" in event_types or "war_escalation" in event_types:
@@ -336,11 +413,9 @@ def classify_news_event(
 
     # --- Affected sectors ---
     affected_sectors: list[str] = []
-    for sector, keywords in _SECTOR_KEYWORDS.items():
-        for kw in keywords:
-            if kw in title_lower:
-                affected_sectors.append(sector)
-                break
+    for sector, pattern in _SECTOR_PATTERNS.items():
+        if pattern.search(title_lower):
+            affected_sectors.append(sector)
     # Event-type → implicit sector hints
     _EVENT_SECTOR_HINTS: dict[str, list[str]] = {
         "sanctions": ["financials"],
@@ -390,16 +465,17 @@ def classify_news_event(
                 seen_assets.add(asset)
 
     # From commodity keywords
-    for commodity, assets in _COMMODITY_KEYWORDS.items():
-        if commodity in title_lower:
+    for pattern, assets in _COMMODITY_PATTERN_ASSETS:
+        if pattern.search(title_lower):
             for asset in assets:
                 if asset not in seen_assets:
                     affected_assets.append(asset)
                     seen_assets.add(asset)
 
     # --- Confidence (0-1) ---
-    # Based on: number of event types matched, severity, source tier
-    base_confidence = min(0.4 + 0.05 * len(event_types) + severity / 50.0, 0.95)
+    # Use raw_severity (not tier-adjusted) here; tier is applied once below
+    # as tier_conf_mult. Otherwise T3 gets penalised twice (severity AND tier).
+    base_confidence = min(0.4 + 0.05 * len(event_types) + raw_severity / 50.0, 0.95)
     tier_conf_mult = {"T0": 1.0, "T1": 0.95, "T2": 0.8, "T3": 0.6}.get(source_tier, 0.8)
     confidence = round(base_confidence * tier_conf_mult, 3)
 

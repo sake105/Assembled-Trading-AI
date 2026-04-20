@@ -172,9 +172,10 @@ def run_single_cycle(config: dict) -> dict:
 
     logger.info("[START] Intel cycle")
 
-    # Lazy-init EventStore and VelocityTracker (persisted across cycles via config)
+    # Lazy-init EventStore, VelocityTracker, and NewsEventEnricher (persisted across cycles)
     event_store = config.setdefault("_event_store", None)
     velocity_tracker = config.setdefault("_velocity_tracker", None)
+    enricher = config.setdefault("_enricher", None)
     if event_store is None:
         try:
             from src.assembled_core.intel.news_event_store import NewsEventStore
@@ -189,6 +190,17 @@ def run_single_cycle(config: dict) -> dict:
             config["_velocity_tracker"] = velocity_tracker
         except Exception:
             pass
+    if enricher is None:
+        try:
+            from src.assembled_core.intel.news_enricher import NewsEventEnricher
+            enricher = NewsEventEnricher(
+                event_store=event_store,
+                velocity_tracker=velocity_tracker,
+                dedupe_index=dedupe,
+            )
+            config["_enricher"] = enricher
+        except Exception as exc:
+            logger.debug("[SKIP] NewsEventEnricher init: %s", exc)
 
     # Step 1: Fetch — parallel GDELT + RSS if enabled
     rss_fetcher = config.get("rss_fetcher")
@@ -233,8 +245,20 @@ def run_single_cycle(config: dict) -> dict:
     gdelt_status = "OK" if is_new_batch or raw_count > 0 else "STALE"
     health.update("gdelt", gdelt_status, now=now)
 
-    # Update EventStore and VelocityTracker
-    if new_events:
+    # Step 2.5: Enrich events (classification + impact + fatigue + EventStore + Velocity)
+    if new_events and enricher is not None:
+        try:
+            new_events = enricher.enrich(new_events, now=now)
+        except Exception as exc:
+            logger.warning("[WARN] Enrichment failed: %s", exc)
+        vel = getattr(enricher, "last_velocity", None)
+        if vel is not None and getattr(vel, "is_surge", False):
+            logger.warning(
+                "[WARN] News velocity surge: %.1fx — sectors=%s count=%d",
+                vel.velocity, vel.surge_sectors, vel.short_count,
+            )
+    elif new_events:
+        # Fallback: no enricher available, keep prior behaviour
         if event_store is not None:
             event_store.add_many(new_events)
         if velocity_tracker is not None:

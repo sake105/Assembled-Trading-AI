@@ -147,7 +147,8 @@ class SectorNewsOverlay:
         sector_scores: dict[str, float] = {}
         try:
             recent_events = event_store.query_by_time(hours=hours)  # type: ignore[attr-defined]
-        except Exception:
+        except Exception as exc:
+            logger.warning("[WARN] SectorNewsOverlay: event_store.query_by_time failed: %s", exc)
             return {}
 
         for evt in recent_events:

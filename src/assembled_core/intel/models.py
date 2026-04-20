@@ -238,6 +238,15 @@ class NewsEvent(BaseModel):
     news_confidence: float = 0.0  # overall classification confidence
     language: str = "en"  # detected language code
     is_noise: bool = False  # true if classified as non-relevant noise
+    # --- Impact-estimator fields (persisted so archive replay retains them) ---
+    impact_bps: float = 0.0  # estimated return impact in basis points (neg=bearish)
+    impact_horizon_days: int = 0  # expected days to mean-reversion
+    impact_confidence: float = 0.0  # confidence of the BPS estimate [0,1]
+    impact_geo_premium_bps: float = 0.0  # additional geo-risk component
+    impact_dominant_event_type: str = ""  # most impactful event type
+    # --- Cross-source corroboration (higher = more independent confirmations) ---
+    corroboration_score: float = 0.0  # [0,1]; 1.0 = fully corroborated
+    corroboration_n_sources: int = 0  # number of distinct sources reporting this story
 
     model_config = {"frozen": False}
 

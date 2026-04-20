@@ -76,7 +76,7 @@ class NewsArchiver:
                     fh.write(json.dumps(record, default=str) + "\n")
                     written += 1
                 except Exception as exc:
-                    logger.debug("[SKIP] NewsArchiver.append: %s", exc)
+                    logger.warning("[WARN] NewsArchiver.append per-event: %s", exc)
 
         logger.debug("[OK] NewsArchiver: wrote %d events to %s", written, path)
         return written
