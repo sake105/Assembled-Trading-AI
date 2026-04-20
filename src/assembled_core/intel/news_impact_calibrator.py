@@ -23,6 +23,8 @@ from __future__ import annotations
 import json
 import logging
 import math
+import os
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -49,7 +51,8 @@ class _RunningStat:
         self.abs_err_sum += abs(pred - real)
 
     def variance(self) -> float:
-        return self.m2_real / self.n if self.n > 1 else 0.0
+        # Bessel-corrected sample variance (unbiased estimator).
+        return self.m2_real / (self.n - 1) if self.n > 1 else 0.0
 
     def stddev(self) -> float:
         return math.sqrt(self.variance())
@@ -113,25 +116,55 @@ class ImpactCalibrator:
         return max(-200.0, min(200.0, st.bias()))
 
     def save(self, path: str | Path) -> None:
+        # H4: atomic write via tmp + os.replace so a crash mid-write cannot
+        # produce a truncated calibration file.
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
         data = {
-            et: {
-                "n": st.n,
-                "mean_pred": st.mean_pred,
-                "mean_real": st.mean_real,
-                "m2_real": st.m2_real,
-                "abs_err_sum": st.abs_err_sum,
-            }
-            for et, st in self._stats.items()
+            "_schema_version": 1,
+            "stats": {
+                et: {
+                    "n": st.n,
+                    "mean_pred": st.mean_pred,
+                    "mean_real": st.mean_real,
+                    "m2_real": st.m2_real,
+                    "abs_err_sum": st.abs_err_sum,
+                }
+                for et, st in self._stats.items()
+            },
         }
-        Path(path).write_text(json.dumps(data, indent=2), encoding="utf-8")
+        payload = json.dumps(data, indent=2)
+        fd, tmp_name = tempfile.mkstemp(
+            prefix=path.name + ".", suffix=".tmp", dir=str(path.parent),
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(payload)
+                f.flush()
+                try:
+                    os.fsync(f.fileno())
+                except OSError:
+                    pass
+            os.replace(tmp_name, path)
+        except Exception:
+            try:
+                os.unlink(tmp_name)
+            except OSError:
+                pass
+            raise
 
     def load(self, path: str | Path) -> None:
         p = Path(path)
         if not p.exists():
             return
         try:
-            data = json.loads(p.read_text(encoding="utf-8"))
-            for et, raw in data.items():
+            raw_data = json.loads(p.read_text(encoding="utf-8"))
+            # H4: versioned schema; fall back to flat-dict legacy format.
+            if isinstance(raw_data, dict) and "stats" in raw_data:
+                stats = raw_data.get("stats", {})
+            else:
+                stats = raw_data
+            for et, raw in stats.items():
                 st = _RunningStat()
                 st.n = int(raw.get("n", 0))
                 st.mean_pred = float(raw.get("mean_pred", 0.0))

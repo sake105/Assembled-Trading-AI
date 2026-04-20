@@ -7,6 +7,8 @@ import hashlib
 import io
 import json
 import logging
+import os
+import tempfile
 import zipfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -367,20 +369,38 @@ class GdeltFetcher:
         return GdeltFetchState()
 
     def save_state(self, state: GdeltFetchState) -> None:
-        """Persist state to JSON file. Creates parent directories as needed."""
+        """Persist state to JSON file via atomic tmp+rename (H7)."""
         self._state_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = json.dumps(
+            {
+                "last_batch_url": state.last_batch_url,
+                "last_fetch_ts": state.last_fetch_ts,
+                "total_events_ingested": state.total_events_ingested,
+                "consecutive_failures": state.consecutive_failures,
+            },
+            indent=2,
+        )
         try:
-            with open(self._state_path, "w", encoding="utf-8") as fh:
-                json.dump(
-                    {
-                        "last_batch_url": state.last_batch_url,
-                        "last_fetch_ts": state.last_fetch_ts,
-                        "total_events_ingested": state.total_events_ingested,
-                        "consecutive_failures": state.consecutive_failures,
-                    },
-                    fh,
-                    indent=2,
-                )
+            fd, tmp = tempfile.mkstemp(
+                prefix=self._state_path.name + ".",
+                suffix=".tmp",
+                dir=str(self._state_path.parent),
+            )
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                    fh.write(payload)
+                    fh.flush()
+                    try:
+                        os.fsync(fh.fileno())
+                    except OSError:
+                        pass
+                os.replace(tmp, self._state_path)
+            except Exception:
+                try:
+                    os.unlink(tmp)
+                except OSError:
+                    pass
+                raise
         except Exception as exc:
             logger.warning("[WARN] GdeltFetcher.save_state: failed to save %s: %s", self._state_path, exc)
 

@@ -17,7 +17,11 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Iterator
+from typing import TYPE_CHECKING, Iterator
+
+if TYPE_CHECKING:
+    import pandas as pd
+    from src.assembled_core.intel.pit_store import PITStore
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +60,6 @@ class NewsReplayer:
         *,
         price_timestamp_col: str = "timestamp",
     ) -> None:
-        from src.assembled_core.intel.pit_store import PITStore  # noqa: F401
         self._store = pit_store
         self._prices = prices
         self._ts_col = price_timestamp_col

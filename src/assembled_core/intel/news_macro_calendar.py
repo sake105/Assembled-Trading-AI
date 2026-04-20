@@ -25,6 +25,19 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
+def _ensure_aware(dt: datetime | None) -> datetime:
+    """H9: coerce naive datetimes to UTC; never mix naive+aware arithmetic."""
+    if dt is None:
+        return datetime.now(tz=timezone.utc)
+    if dt.tzinfo is None:
+        logger.warning(
+            "[WARN] MacroCalendar: naive datetime received (%s); treating as UTC",
+            dt,
+        )
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 # Default pre/post windows (minutes) per event class.
 _DEFAULT_WINDOWS: dict[str, tuple[int, int]] = {
     "fomc": (60, 120),
@@ -107,8 +120,7 @@ class MacroCalendar:
         now: datetime | None = None,
         kind: str | None = None,
     ) -> MacroEvent | None:
-        if now is None:
-            now = datetime.now(tz=timezone.utc)
+        now = _ensure_aware(now)
         future = [e for e in self._events if e.ts >= now]
         if kind:
             kind = kind.lower()
@@ -126,8 +138,7 @@ class MacroCalendar:
         post_min: int | None = None,
     ) -> Proximity | None:
         """Return the nearest event of `kind` and its blackout state."""
-        if now is None:
-            now = datetime.now(tz=timezone.utc)
+        now = _ensure_aware(now)
         kind = (kind or "").lower()
         evts = [e for e in self._events if e.kind == kind]
         if not evts:
@@ -161,8 +172,7 @@ class MacroCalendar:
         horizon_hours: float = 24.0,
     ) -> list[MacroEvent]:
         """Events occurring within the next `horizon_hours`, sorted chronologically."""
-        if now is None:
-            now = datetime.now(tz=timezone.utc)
+        now = _ensure_aware(now)
         cutoff = now + timedelta(hours=horizon_hours)
         return sorted(
             (e for e in self._events if now <= e.ts <= cutoff),

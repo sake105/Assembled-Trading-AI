@@ -12,7 +12,6 @@ news-derived signals.
 from __future__ import annotations
 
 import logging
-import math
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -24,6 +23,18 @@ _RISK_THRESHOLDS = {
     "MODERATE": 0.35,
     "LOW": 0.0,
 }
+
+# Observability: how many signals were dropped by the corroboration gate in
+# the current process. Test-accessible via ``get_corroboration_drop_count``.
+_dropped_corroboration_counter: dict[str, int] = {"count": 0}
+
+
+def get_corroboration_drop_count() -> int:
+    return _dropped_corroboration_counter["count"]
+
+
+def reset_corroboration_drop_count() -> None:
+    _dropped_corroboration_counter["count"] = 0
 
 
 @dataclass
@@ -50,6 +61,8 @@ def aggregate_signals(
     position_signals: list | None = None,
     *,
     min_confidence: float = 0.3,
+    require_corroboration_gate: bool = True,
+    min_independent_high_tier: int = 2,
 ) -> IntelSignal:
     """Aggregate cluster and position signals into a single IntelSignal.
 
@@ -58,12 +71,19 @@ def aggregate_signals(
         position_signals: Optional list of PositionSignal objects. If None,
             clusters are converted to direction signals internally.
         min_confidence: Minimum cluster confidence to include.
+        require_corroboration_gate: When True, each signal must be
+            corroborated by ``min_independent_high_tier`` distinct T0/T1
+            sources among the cluster's supporting events. Signals failing
+            the gate are dropped silently (debug log only).
+        min_independent_high_tier: Minimum number of distinct high-tier
+            (T0/T1) sources required for a signal to survive the gate.
 
     Returns:
         IntelSignal with consolidated view.
     """
     from src.assembled_core.intel.news_position_bridge import (
         cluster_to_signal,
+        require_corroboration,
         signals_to_basket,
     )
 
@@ -71,8 +91,19 @@ def aggregate_signals(
         position_signals = []
         for cl in clusters:
             sig = cluster_to_signal(cl)
-            if sig is not None:
-                position_signals.append(sig)
+            if sig is None:
+                continue
+            if require_corroboration_gate:
+                events = list(getattr(cl, "supporting_events", []) or [])
+                gated = require_corroboration(
+                    sig, events,
+                    min_independent_high_tier=min_independent_high_tier,
+                )
+                if gated is None:
+                    _dropped_corroboration_counter["count"] += 1
+                    continue
+                sig = gated
+            position_signals.append(sig)
 
     # Filter by confidence
     active_signals = [s for s in position_signals if s.confidence >= min_confidence]
@@ -162,4 +193,9 @@ def _make_signal_id() -> str:
     return f"is_{now.strftime('%Y%m%dT%H%M%S')}"
 
 
-__all__ = ["IntelSignal", "aggregate_signals"]
+__all__ = [
+    "IntelSignal",
+    "aggregate_signals",
+    "get_corroboration_drop_count",
+    "reset_corroboration_drop_count",
+]

@@ -43,8 +43,11 @@ class TestNewsDecay:
 
     def test_unknown_event_uses_default(self):
         d = NewsDecay()
-        frac = d.impact_remaining("something_exotic", 120)
-        # default = 2h half-life → at 2h, fraction = 0.5
+        prof = d.profile("something_exotic")
+        # At one half-life the fraction must be exactly 0.5 — exercise the
+        # current default instead of a hard-coded number that drifts with
+        # decay-table tuning.
+        frac = d.impact_remaining("something_exotic", prof.parameter_min)
         assert frac == pytest.approx(0.5, abs=1e-6)
 
     def test_overrides(self):
@@ -61,5 +64,7 @@ class TestNewsDecay:
 
     def test_very_old_event_nearly_zero(self):
         d = NewsDecay()
-        frac = d.impact_remaining("sanctions", 10 * 24 * 60)  # 10 days
+        # Compute adaptively: 25 half-lives always lands at ~3e-8.
+        prof = d.profile("sanctions")
+        frac = d.impact_remaining("sanctions", prof.parameter_min * 25)
         assert frac < 1e-6

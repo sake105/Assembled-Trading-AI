@@ -9,6 +9,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+pytest.importorskip("feedparser")
+
 from src.assembled_core.intel.models import NewsEvent, SourceTier
 from src.assembled_core.intel.rss_fetcher import (
     FeedConfig,

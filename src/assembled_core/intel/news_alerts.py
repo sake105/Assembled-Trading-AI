@@ -20,8 +20,9 @@ explicit opt-in.
 from __future__ import annotations
 
 import logging
+from collections import deque
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Callable
 
 logger = logging.getLogger(__name__)
@@ -61,6 +62,8 @@ class AlertEngine:
         min_corroboration_score: float = 0.75,
         min_corroboration_sources: int = 3,
         include_default_log_handler: bool = True,
+        dedup_window_min: float = 30.0,
+        rate_limit_per_min: int = 20,
     ) -> None:
         self._min_sev = min_severity
         self._min_corr_score = min_corroboration_score
@@ -68,6 +71,15 @@ class AlertEngine:
         self._handlers: list[AlertHandler] = []
         if include_default_log_handler:
             self._handlers.append(_default_log_handler)
+        # H3: de-dup of (kind, event_id) within a sliding window.
+        self._dedup_window = timedelta(minutes=max(0.0, dedup_window_min))
+        self._recent_keys: dict[tuple[str, str], datetime] = {}
+        # Rate-limit: last N dispatch timestamps; drops if >= limit in last 60s.
+        self._rate_limit = max(0, int(rate_limit_per_min))
+        self._dispatch_times: deque[datetime] = deque(maxlen=max(1, self._rate_limit * 2))
+        # Observability counters.
+        self.dropped_dedup = 0
+        self.dropped_rate = 0
 
     def add_handler(self, handler: AlertHandler) -> None:
         self._handlers.append(handler)
@@ -78,15 +90,44 @@ class AlertEngine:
     # ----- evaluation -------------------------------------------------
 
     def evaluate(self, events: list) -> list[NewsAlert]:
-        alerts: list[NewsAlert] = []
+        candidate: list[NewsAlert] = []
         for evt in events or []:
             try:
-                alerts.extend(self._alerts_for(evt))
+                candidate.extend(self._alerts_for(evt))
             except Exception as exc:
                 logger.debug("[SKIP] AlertEngine.evaluate: %s", exc)
-        for a in alerts:
+        # H3: filter dedup + rate limit before dispatch
+        emitted: list[NewsAlert] = []
+        for a in candidate:
+            if self._should_suppress(a):
+                continue
             self._dispatch(a)
-        return alerts
+            emitted.append(a)
+        return emitted
+
+    def _should_suppress(self, alert: NewsAlert) -> bool:
+        now = alert.timestamp or datetime.now(tz=timezone.utc)
+        key = (alert.kind, alert.event_id)
+        # prune stale dedup entries
+        if self._dedup_window.total_seconds() > 0:
+            cutoff = now - self._dedup_window
+            self._recent_keys = {
+                k: t for k, t in self._recent_keys.items() if t >= cutoff
+            }
+            if key in self._recent_keys:
+                self.dropped_dedup += 1
+                return True
+            self._recent_keys[key] = now
+        # rate limit
+        if self._rate_limit > 0:
+            minute_ago = now - timedelta(seconds=60)
+            while self._dispatch_times and self._dispatch_times[0] < minute_ago:
+                self._dispatch_times.popleft()
+            if len(self._dispatch_times) >= self._rate_limit:
+                self.dropped_rate += 1
+                return True
+            self._dispatch_times.append(now)
+        return False
 
     def _alerts_for(self, evt) -> list[NewsAlert]:
         out: list[NewsAlert] = []

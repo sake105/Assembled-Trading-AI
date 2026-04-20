@@ -244,6 +244,9 @@ class NewsEvent(BaseModel):
     impact_confidence: float = 0.0  # confidence of the BPS estimate [0,1]
     impact_geo_premium_bps: float = 0.0  # additional geo-risk component
     impact_dominant_event_type: str = ""  # most impactful event type
+    # Decay bookkeeping (K3): fraction of original impact still active at enrich time
+    impact_decay_fraction: float = 1.0  # 1.0 = fresh; 0.0 = fully decayed
+    impact_decay_minutes: float = 0.0  # minutes between publish and enrichment
     # --- Cross-source corroboration (higher = more independent confirmations) ---
     corroboration_score: float = 0.0  # [0,1]; 1.0 = fully corroborated
     corroboration_n_sources: int = 0  # number of distinct sources reporting this story

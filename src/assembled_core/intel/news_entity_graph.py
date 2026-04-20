@@ -57,6 +57,9 @@ class EntityCoGraph:
         # adjacency: entity -> {neighbour: _Edge}
         self._adj: dict[str, dict[str, _Edge]] = defaultdict(dict)
         # event-by-event ledger for pruning
+        # Each ledger entry carries the entity list at the time of ingest so
+        # prune() can decrement the exact weights that entry contributed when
+        # it falls off the retention window.
         # deque[(ts, [entities])]
         self._ledger: deque[tuple[datetime, list[str]]] = deque()
         # event count per entity
@@ -119,7 +122,10 @@ class EntityCoGraph:
             now = datetime.now(tz=timezone.utc)
         cutoff = now - self._retention
         dropped = 0
-        # decrement counters for stale events
+        # Decrement counters AND edge weights for events falling out of the
+        # retention window. Each stale event subtracts exactly the weight it
+        # originally contributed (one per co-occurring pair). This stops the
+        # "old-strong-pairs-stay-strong-forever" bug identified in K4.
         while self._ledger and self._ledger[0][0] < cutoff:
             _, ents = self._ledger.popleft()
             for e in ents:
@@ -127,15 +133,31 @@ class EntityCoGraph:
                     self._counts[e] -= 1
                     if self._counts[e] == 0:
                         self._counts.pop(e, None)
+            for i in range(len(ents)):
+                for j in range(i + 1, len(ents)):
+                    a, b = ents[i], ents[j]
+                    self._decrement_edge(a, b)
+                    self._decrement_edge(b, a)
             dropped += 1
-        # drop stale edges
+        # Drop stale / zero-weight edges and empty adjacency buckets.
         for a, edges in list(self._adj.items()):
             for b, edge in list(edges.items()):
-                if edge.last_seen < cutoff:
+                if edge.weight <= 0 or edge.last_seen < cutoff:
                     del edges[b]
             if not edges:
                 del self._adj[a]
         return dropped
+
+    def _decrement_edge(self, a: str, b: str) -> None:
+        edges = self._adj.get(a)
+        if edges is None:
+            return
+        edge = edges.get(b)
+        if edge is None:
+            return
+        edge.weight -= 1
+        if edge.weight <= 0:
+            edges.pop(b, None)
 
     # ----- queries ----------------------------------------------------
 

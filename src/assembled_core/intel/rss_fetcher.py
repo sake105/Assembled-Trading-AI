@@ -21,7 +21,6 @@ from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
 
-import feedparser
 import requests
 
 from src.assembled_core.intel.models import NewsEvent, SourceTier
@@ -374,6 +373,7 @@ class RSSFetcher:
                     _time.sleep(wait)
                     continue
                 resp.raise_for_status()
+                import feedparser  # optional dep — lazy import
                 feed_data = feedparser.parse(resp.content)
                 last_exc = None
                 break

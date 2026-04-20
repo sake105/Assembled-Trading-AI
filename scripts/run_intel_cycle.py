@@ -47,6 +47,7 @@ from src.assembled_core.intel.models import CrisisMode, CrisisState  # noqa: E40
 from src.assembled_core.intel.news_cluster import ClusterManager  # noqa: E402
 from src.assembled_core.intel.news_dedupe import NewsDedupeIndex  # noqa: E402
 from src.assembled_core.intel.news_ingest import GdeltFetcher  # noqa: E402
+from src.assembled_core.intel.news_signal_aggregator import aggregate_signals  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -321,6 +322,26 @@ def run_single_cycle(config: dict) -> dict:
     agg = geo_trigger.aggregate_triggers(geo_triggers)
     geo_score: int = agg["geo_score"]
 
+    # Step 5.5: Intel signal aggregation (news-driven position signals).
+    # Runs the corroboration gate so low-tier-only clusters do not leak
+    # through to downstream consumers.
+    intel_signal = None
+    try:
+        intel_signal = aggregate_signals(
+            active_clusters,
+            require_corroboration_gate=True,
+            min_independent_high_tier=2,
+        )
+        logger.info(
+            "[OK] IntelSignal: direction=%s risk=%s conf=%.2f n_signals=%d",
+            intel_signal.net_direction,
+            intel_signal.risk_level,
+            intel_signal.aggregate_confidence,
+            intel_signal.n_signals,
+        )
+    except Exception as exc:
+        logger.warning("[WARN] aggregate_signals failed: %s", exc)
+
     logger.info(
         "[OK] Triggers: geo_score=%d, %s mode",
         geo_score,
@@ -375,6 +396,23 @@ def run_single_cycle(config: dict) -> dict:
     if dep_signal is not None:
         dep_artifact = json.loads(dep_signal.model_dump_json())
         _write_artifact(output_dir / "dependency_signal.json", dep_artifact, dry_run)
+
+    # intel_signal.json artifact (downstream portfolio consumer)
+    if intel_signal is not None:
+        intel_artifact = {
+            "signal_id": intel_signal.signal_id,
+            "generated_utc": intel_signal.generated_at.isoformat(),
+            "net_direction": intel_signal.net_direction,
+            "aggregate_confidence": intel_signal.aggregate_confidence,
+            "risk_level": intel_signal.risk_level,
+            "asset_basket": intel_signal.asset_basket,
+            "sector_exposure": intel_signal.sector_exposure,
+            "top_event_types": intel_signal.top_event_types,
+            "n_clusters": intel_signal.n_clusters,
+            "n_signals": intel_signal.n_signals,
+            "max_severity": intel_signal.max_severity,
+        }
+        _write_artifact(output_dir / "intel_signal.json", intel_artifact, dry_run)
 
     health_artifact = health.snapshot(now=now)
     _write_artifact(output_dir / "intel_health.json", health_artifact, dry_run)

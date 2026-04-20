@@ -323,9 +323,7 @@ def detect_contradictions(
             fingerprint, event_id_a, event_id_b, direction_a, direction_b,
             source_a, source_b, time_delta_minutes.
     """
-    from datetime import timezone as _tz
 
-    import time as _time
 
     grouped: dict[str, list[NewsEvent]] = {}
     for evt in events:

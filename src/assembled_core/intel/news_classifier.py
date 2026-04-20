@@ -34,9 +34,10 @@ _EVENT_KEYWORDS: dict[str, frozenset[str]] = {
         "refinery attack", "oil field",
     }),
     "central_bank": frozenset({
-        "fed", "ecb", "boe", "boj", "rate hike", "rate cut",
+        "fed", "federal reserve", "ecb", "boe", "boj", "rate hike", "rate cut",
         "interest rate", "monetary policy", "inflation", "fomc",
         "central bank", "quantitative easing", "tapering", "basis points",
+        "pboc", "rba", "snb", "riksbank",
     }),
     "trade_policy": frozenset({
         "tariff", "trade war", "import ban", "export ban", "wto",
@@ -82,6 +83,26 @@ _EVENT_KEYWORDS: dict[str, frozenset[str]] = {
         "crash", "rout", "plunge", "sell-off", "circuit breaker",
         "default", "downgrade", "bankruptcy", "selloff", "meltdown",
         "market rout", "capitulation", "bear market", "collapse",
+    }),
+    # Gap fill: previously silent capital-structure / labour / sell-side events.
+    "buyback": frozenset({
+        "buyback", "share repurchase", "stock repurchase", "repurchase program",
+        "return of capital", "accelerated repurchase",
+    }),
+    "ipo": frozenset({
+        "ipo", "initial public offering", "public listing", "direct listing",
+        "spac", "going public", "listing debut", "trading debut",
+    }),
+    "layoffs": frozenset({
+        "layoff", "job cut", "headcount reduction", "restructuring plan",
+        "workforce reduction", "redundanc", "staff cut", "mass firing",
+        "reduce workforce", "reduction in force",
+    }),
+    "analyst_rating": frozenset({
+        "upgrade", "downgrade", "price target", "outperform", "underperform",
+        "buy rating", "sell rating", "hold rating", "initiated coverage",
+        "reiterated", "overweight", "underweight", "neutral rating",
+        "raised estimate", "lowered estimate",
     }),
 }
 

@@ -69,11 +69,12 @@ class TestTickerVelocityTracker:
     def test_surging_tickers_sorted(self):
         now = datetime.now(tz=timezone.utc)
         vt = TickerVelocityTracker(surge_threshold=2.0, min_short_events=2)
-        # Feed AAPL harder than MSFT
-        for _ in range(6):
-            vt.update([_evt("x", ["AAPL"], now)], now=now)
-        for _ in range(2):
-            vt.update([_evt("y", ["MSFT"], now)], now=now)
+        # H10: distinct event ids per update so content-hash dedup does not
+        # collapse the burst into one event. Feed AAPL harder than MSFT.
+        for i in range(6):
+            vt.update([_evt(f"aapl_{i}", ["AAPL"], now)], now=now)
+        for i in range(2):
+            vt.update([_evt(f"msft_{i}", ["MSFT"], now)], now=now)
         surging = vt.surging_tickers(now=now)
         tickers = [t for t, _ in surging]
         # AAPL should be at least ranked if surging

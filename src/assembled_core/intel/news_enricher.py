@@ -41,12 +41,16 @@ class NewsEventEnricher:
         velocity_tracker: object | None = None,
         dedupe_index: object | None = None,
         corroboration_tracker: object | None = None,
+        decay: object | None = None,
+        apply_decay: bool = True,
     ) -> None:
         self._event_store = event_store
         self._velocity_tracker = velocity_tracker
         self._dedupe_index = dedupe_index
         self._corroboration = corroboration_tracker
         self._impact_estimator = None
+        self._decay = decay
+        self._apply_decay = apply_decay
         self.last_velocity = None  # exposes most recent VelocityResult for callers
 
     def enrich(
@@ -78,6 +82,11 @@ class NewsEventEnricher:
 
         # Step 2: Impact estimation (attaches to event as metadata attribute)
         events = self._run_impact_estimation(events)
+
+        # Step 2.5: Decay discount on impact_bps so stale events don't inflate
+        # downstream position sizing.
+        if self._apply_decay:
+            events = self._run_decay(events, now=now)
 
         # Step 3: Fatigue scoring
         events = self._run_fatigue_scoring(events)
@@ -127,6 +136,15 @@ class NewsEventEnricher:
         for evt in events:
             try:
                 if getattr(evt, "event_types", None):
+                    # H1: already-classified path still needs downstream-safe
+                    # defaults for fields the upstream producer may not have
+                    # populated (confidence, direction, horizon).
+                    if getattr(evt, "news_confidence", None) in (None, 0.0):
+                        evt.news_confidence = 0.0
+                    if not getattr(evt, "market_direction", None):
+                        evt.market_direction = "neutral"
+                    if not getattr(evt, "time_horizon", None):
+                        evt.time_horizon = "short"
                     continue  # already classified
                 geo_tags = list(getattr(evt, "geo_tags", []) or [])
                 tickers = list(getattr(evt, "tickers", []) or [])
@@ -198,6 +216,34 @@ class NewsEventEnricher:
                 evt.corroboration_n_sources = int(s.n_sources)
             except Exception as exc:
                 logger.debug("[SKIP] Corroboration score %s: %s", getattr(evt, "event_id", "?"), exc)
+        return events
+
+    def _run_decay(self, events: list, now: datetime) -> list:
+        if self._decay is None:
+            try:
+                from src.assembled_core.intel.news_decay import NewsDecay
+                self._decay = NewsDecay()
+            except ImportError:
+                return events
+        for evt in events:
+            try:
+                bps = getattr(evt, "impact_bps", None)
+                if bps is None or bps == 0:
+                    continue
+                dominant = getattr(evt, "impact_dominant_event_type", None)
+                if not dominant:
+                    etypes = getattr(evt, "event_types", []) or []
+                    dominant = etypes[0] if etypes else "default"
+                ts = getattr(evt, "published_at", None) or getattr(evt, "ingested_at", None) or now
+                if ts.tzinfo is None:
+                    ts = ts.replace(tzinfo=timezone.utc)
+                minutes_since = max(0.0, (now - ts).total_seconds() / 60.0)
+                frac = float(self._decay.impact_remaining(str(dominant), minutes_since))
+                evt.impact_bps = round(float(bps) * frac, 4)
+                evt.impact_decay_fraction = round(frac, 6)
+                evt.impact_decay_minutes = round(minutes_since, 2)
+            except Exception as exc:
+                logger.debug("[SKIP] Decay %s: %s", getattr(evt, "event_id", "?"), exc)
         return events
 
     def _run_fatigue_scoring(self, events: list) -> list:

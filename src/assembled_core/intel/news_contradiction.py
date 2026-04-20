@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 
 from src.assembled_core.intel.news_dedupe import content_fingerprint
 from src.assembled_core.intel.news_classifier import is_state_media, get_source_bias
@@ -36,11 +35,18 @@ class ContradictionEntry:
     sources: list[str] = field(default_factory=list)
 
 
-# Source camps — informational labels, not value judgements
+# Source camps — informational labels, not value judgements.
+# H11: add European, Japanese, Arab, Asian non-state outlets that
+# previously fell through to "other" and silenced contradiction signals.
 _WESTERN_MAINSTREAM = frozenset({
     "reuters", "ap", "apnews", "bbc", "bbc_world", "cnn", "nyt", "wsj",
     "ft", "guardian", "bloomberg", "wapo", "npr", "axios", "politico",
     "sky_news", "cnbc", "marketwatch", "dw", "france24",
+    # H11 additions (non-state European / Asian / global outlets)
+    "handelsblatt", "le_monde", "lemonde", "nikkei", "scmp",
+    "spiegel", "faz", "zeit", "tagesschau", "reuters_de",
+    "el_pais", "elpais", "corriere", "repubblica",
+    "economist", "forbes", "barrons", "yahoo_finance",
 })
 
 

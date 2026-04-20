@@ -161,10 +161,12 @@ class TestFullNewsPipeline:
         assert len(alerts) >= 1
         assert captured  # handler was called
 
-        # 11) decay: sanctions (default 3h half-life) at 90 min ≈ 0.71
+        # 11) decay: compute at one half-life to assert the curve shape
+        # rather than pinning a specific table value (tuning drifts).
         d = NewsDecay()
-        frac = d.impact_remaining("sanctions", 90)
-        assert 0.6 < frac < 0.85
+        prof = d.profile("sanctions")
+        frac = d.impact_remaining("sanctions", prof.parameter_min)
+        assert 0.49 < frac < 0.51
 
         # 12) archive roundtrip
         path = tmp_path / "events.jsonl"

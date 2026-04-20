@@ -20,7 +20,10 @@ logger = logging.getLogger(__name__)
 # Minimum confidence to emit a non-neutral signal
 _MIN_CONFIDENCE = 0.3
 
-# Event types that produce short (bearish) signals by default
+# Event types that produce short (bearish) signals by default.
+# Must stay in sync with news_classifier._EVENT_KEYWORDS. When the classifier
+# gains a new bearish event type, add it here AND update
+# tests/test_news_position_bridge.py.
 _BEARISH_EVENT_TYPES = frozenset({
     "war_escalation",
     "military_strike",
@@ -30,6 +33,11 @@ _BEARISH_EVENT_TYPES = frozenset({
     "market_stress",
     "cyber_attack",
     "natural_disaster",
+    # K7: previously silent (fell through to "flat") — now wired.
+    "trade_policy",     # tariffs / trade war typically bearish for risk
+    "regulatory",       # investigations / fines are bearish on average
+    # Gap fill: capital-structure / labour signals
+    "layoffs",          # mass job cuts usually bearish (demand signal)
 })
 
 # Event types that produce long (bullish) signals by default
@@ -37,6 +45,18 @@ _BULLISH_EVENT_TYPES = frozenset({
     "diplomatic",   # peace talks / ceasefire
     "ma_activity",  # M&A premium
     "earnings",     # positive earnings surprise context
+    # Gap fill: capital-return signals
+    "buyback",      # share repurchase programs lift per-share value
+})
+
+# Event types whose direction depends on market_direction label (classifier
+# already decides based on keyword context — central_bank can be either).
+# Listed here so reviewers know they were considered but intentionally
+# excluded from the static bearish/bullish sets.
+_CONTEXT_SENSITIVE_EVENT_TYPES = frozenset({
+    "central_bank",      # rate cut = bullish, rate hike = bearish
+    "analyst_rating",    # upgrade = bullish, downgrade = bearish
+    "ipo",               # IPO can pop or flop; resolved via market_direction
 })
 
 # Sectors with known inverse reaction to geo events
@@ -119,13 +139,19 @@ def classification_to_signal(
     time_horizon: str = getattr(classification, "time_horizon", "short")
     severity: float = float(getattr(classification, "severity", 0.0))
 
-    # Derive direction from market_direction + event type hints
-    direction = _derive_direction(market_direction, event_types, affected_sectors, confidence)
+    # Derive direction from market_direction + event type hints.
+    # H12: severity now feeds the "mixed" resolution path.
+    direction = _derive_direction(
+        market_direction, event_types, affected_sectors, confidence, severity,
+    )
 
-    # Deterministic ID: stable across processes (hash() is salted per run)
+    # Deterministic ID: stable across processes (hash() is salted per run).
+    # 12 hex chars ≈ 48 bits → ~281T possible values, enough to make
+    # collisions negligible across distinct event_type combinations.
     _etype_key = ",".join(sorted(event_types)) or "none"
-    _etype_hash = hashlib.sha1(_etype_key.encode("utf-8")).hexdigest()[:4]
-    signal_id = f"ps_{cluster_id or 'cls'}_{_etype_hash}"
+    _etype_hash = hashlib.sha1(_etype_key.encode("utf-8")).hexdigest()[:12]
+    _safe_cluster = (cluster_id or "cls").replace("/", "_").replace(" ", "_")
+    signal_id = f"ps_{_safe_cluster}_{_etype_hash}"
 
     return PositionSignal(
         signal_id=signal_id,
@@ -198,18 +224,28 @@ def _derive_direction(
     event_types: list[str],
     affected_sectors: list[str],
     confidence: float,
+    severity: float = 0.0,
 ) -> str:
     if market_direction == "bearish":
         return "short"
     if market_direction == "bullish":
         return "long"
     if market_direction == "mixed":
-        # Mixed: check event type weights
-        bearish_count = sum(1 for et in event_types if et in _BEARISH_EVENT_TYPES)
-        bullish_count = sum(1 for et in event_types if et in _BULLISH_EVENT_TYPES)
-        if bearish_count > bullish_count:
+        # H12: severity-weighted resolution — high-severity bearish event types
+        # dominate over low-severity bullish event types (e.g. "military strike"
+        # + "ma_activity" should not net to flat).
+        bearish_weight = 0.0
+        bullish_weight = 0.0
+        # Base severity per event type; scaled by headline severity when > 0.
+        for et in event_types:
+            w = max(0.5, severity / 5.0) if severity > 0 else 1.0
+            if et in _BEARISH_EVENT_TYPES:
+                bearish_weight += w
+            elif et in _BULLISH_EVENT_TYPES:
+                bullish_weight += w
+        if bearish_weight > bullish_weight * 1.2:
             return "short"
-        if bullish_count > bearish_count:
+        if bullish_weight > bearish_weight * 1.2:
             return "long"
         return "flat"
     # neutral: check event type hints

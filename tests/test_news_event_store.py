@@ -232,7 +232,9 @@ class TestIntelSignalAggregator:
             self._make_cluster("cl1", "war_escalation", 0.75),
             self._make_cluster("cl2", "sanctions", 0.65),
         ]
-        sig = aggregate_signals(clusters)
+        # Legacy FakeCluster has no supporting_events; disable the
+        # corroboration gate for direction-only assertions.
+        sig = aggregate_signals(clusters, require_corroboration_gate=False)
         assert sig.net_direction == "bearish"
         assert sig.aggregate_confidence > 0
         assert sig.n_clusters == 2
@@ -249,7 +251,7 @@ class TestIntelSignalAggregator:
         from src.assembled_core.intel.news_signal_aggregator import aggregate_signals
 
         clusters = [self._make_cluster("cl1", "war_escalation", 0.90)]
-        sig = aggregate_signals(clusters)
+        sig = aggregate_signals(clusters, require_corroboration_gate=False)
         assert sig.risk_level in ("HIGH", "CRITICAL")
 
     def test_risk_level_low_for_weak_signal(self):
@@ -265,7 +267,7 @@ class TestIntelSignalAggregator:
         from src.assembled_core.intel.news_signal_aggregator import aggregate_signals
 
         clusters = [self._make_cluster("cl1", "military_strike", 0.85)]
-        sig = aggregate_signals(clusters)
+        sig = aggregate_signals(clusters, require_corroboration_gate=False)
         assert sig.is_actionable()
 
     def test_asset_basket_populated(self):
@@ -283,9 +285,57 @@ class TestIntelSignalAggregator:
                 event_types=["energy_disruption"],
             )
         ]
+        # pre-built PositionSignals skip the gate (it only runs when
+        # position_signals is None)
         sig = aggregate_signals([], position_signals=pos_signals)
         assert "XLE" in sig.asset_basket
         assert sig.asset_basket["XLE"] < 0  # short position
+
+    def test_corroboration_gate_drops_uncorroborated_signal(self):
+        """K1: signals without ≥2 distinct T0/T1 sources must be dropped."""
+        from src.assembled_core.intel.models import NewsEvent, SourceTier
+        from src.assembled_core.intel.news_signal_aggregator import (
+            aggregate_signals,
+            get_corroboration_drop_count,
+            reset_corroboration_drop_count,
+        )
+        from datetime import datetime, timezone
+
+        reset_corroboration_drop_count()
+        drop_before = get_corroboration_drop_count()
+
+        # Single T3 source → gate should drop it.
+        cl = self._make_cluster("cl_uncorr", "war_escalation", 0.80)
+        cl.supporting_events = [NewsEvent(
+            event_id="e1",
+            source_id="rt",
+            source_tier=SourceTier.T3,
+            title="something",
+            url="https://x/e1",
+            published_at=datetime.now(tz=timezone.utc),
+            ingested_at=datetime.now(tz=timezone.utc),
+            content_hash="h1",
+        )]
+        sig = aggregate_signals([cl], require_corroboration_gate=True)
+        assert sig.net_direction == "neutral"
+        assert get_corroboration_drop_count() > drop_before
+
+    def test_corroboration_gate_passes_multi_tier1(self):
+        """K1: gate must pass when ≥2 distinct T0/T1 sources corroborate."""
+        from src.assembled_core.intel.models import NewsEvent, SourceTier
+        from src.assembled_core.intel.news_signal_aggregator import aggregate_signals
+        from datetime import datetime, timezone
+
+        cl = self._make_cluster("cl_corr", "war_escalation", 0.80)
+        now = datetime.now(tz=timezone.utc)
+        cl.supporting_events = [
+            NewsEvent(event_id=f"e{i}", source_id=src, source_tier=SourceTier.T1,
+                      title="t", url=f"https://x/e{i}", published_at=now,
+                      ingested_at=now, content_hash=f"h{i}")
+            for i, src in enumerate(["reuters", "ap", "bbc"])
+        ]
+        sig = aggregate_signals([cl], require_corroboration_gate=True)
+        assert sig.net_direction == "bearish"
 
     def test_sector_exposure_populated(self):
         from src.assembled_core.intel.news_signal_aggregator import aggregate_signals

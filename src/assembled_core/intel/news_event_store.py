@@ -164,6 +164,44 @@ class NewsEventStore:
         self._idx_source.clear()
 
     # ------------------------------------------------------------------
+    # H6: archive-based warm-start
+    # ------------------------------------------------------------------
+
+    def restore_from_archive(
+        self,
+        path,
+        *,
+        hours: float | None = 24.0,
+        max_events: int | None = None,
+    ) -> int:
+        """Rebuild the store from a NewsArchive JSONL file.
+
+        Only events newer than `hours` (relative to now) are restored. If
+        `max_events` is given, restoration stops at that count. Returns the
+        number of events added.
+
+        Designed for worker restarts: fresh process -> warm store in one call.
+        """
+        from datetime import datetime, timedelta, timezone
+        from src.assembled_core.intel.news_archive import NewsArchiveReader
+
+        reader = NewsArchiveReader(path)
+        if not reader:
+            return 0
+        cutoff = None
+        if hours is not None:
+            cutoff = datetime.now(tz=timezone.utc) - timedelta(hours=hours)
+        added = 0
+        cap = max_events if max_events is not None else self._max_events
+        for evt in reader.iter_events(since=cutoff):
+            if added >= cap:
+                break
+            self.add(evt)
+            added += 1
+        logger.info("[OK] NewsEventStore.restore_from_archive: loaded %d events", added)
+        return added
+
+    # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
 

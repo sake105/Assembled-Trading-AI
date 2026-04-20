@@ -3,7 +3,8 @@
 Uses character- and word-level heuristics to detect the dominant language
 of a headline. No external dependency.
 
-Supported: en, de, fr, es, it, ru, zh, ja, ar, uk, pt, nl, sv, pl, tr.
+Supported: en, de, fr, es, it, ru, zh, ja, ar, uk, pt, nl, sv, pl, tr,
+he (Hebrew), el (Greek), vi (Vietnamese).
 Anything unrecognised → "en" (fallback).
 
 Design: rule-based, deterministic, O(n) in headline length. Intentionally
@@ -22,6 +23,8 @@ _KATAKANA_RE = re.compile(r"[\u30a0-\u30ff]")     # Japanese katakana
 _HANGUL_RE = re.compile(r"[\uac00-\ud7af]")       # Korean
 _ARABIC_RE = re.compile(r"[\u0600-\u06ff]")       # Arabic
 _CYRILLIC_RE = re.compile(r"[\u0400-\u04ff]")     # Russian / Ukrainian / Bulgarian
+_HEBREW_RE = re.compile(r"[\u0590-\u05ff]")       # Hebrew
+_GREEK_RE = re.compile(r"[\u0370-\u03ff]")        # Greek
 
 # Small stopword lists per latin-script language (high signal, low overlap)
 _STOPWORDS: dict[str, frozenset[str]] = {
@@ -35,6 +38,8 @@ _STOPWORDS: dict[str, frozenset[str]] = {
     "sv": frozenset({"och", "att", "det", "som", "på", "inte", "med", "för", "av"}),
     "pl": frozenset({"i", "w", "na", "nie", "z", "jest", "się", "do", "że"}),
     "tr": frozenset({"ve", "bir", "bu", "için", "ile", "de", "da", "olan"}),
+    # H8: Vietnamese uses Latin script with diacritics; stopwords disambiguate.
+    "vi": frozenset({"và", "của", "là", "trong", "với", "không", "được", "đã", "có", "tại", "theo"}),
 }
 
 # Ukrainian vs Russian discriminator (Cyrillic charset alone is ambiguous)
@@ -59,6 +64,10 @@ def detect_language(text: str) -> str:
         return "zh"
     if _ARABIC_RE.search(text):
         return "ar"
+    if _HEBREW_RE.search(text):
+        return "he"
+    if _GREEK_RE.search(text):
+        return "el"
     if _CYRILLIC_RE.search(text):
         low = text.lower()
         uk_hits = sum(1 for c in low if c in _UK_CHARS)
@@ -67,8 +76,12 @@ def detect_language(text: str) -> str:
             return "uk"
         return "ru"
 
-    # Latin-script: stopword voting
-    tokens = re.findall(r"[a-zA-ZäöüÄÖÜßàâçéèêëîïôùûüÿñáíóúÿœæ]+", text.lower())
+    # Latin-script: stopword voting. Include Vietnamese diacritics so
+    # vi headlines tokenise correctly.
+    tokens = re.findall(
+        r"[a-zA-ZäöüÄÖÜßàâçéèêëîïôùûüÿñáíóúÿœæãõâêôơưăđáàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]+",
+        text.lower(),
+    )
     if not tokens:
         return "en"
 
@@ -80,10 +93,9 @@ def detect_language(text: str) -> str:
 
     if not scores:
         return "en"
-    best, best_count = scores.most_common(1)[0]
-    # Require at least 1 distinctive hit; otherwise fall back to English
-    if best_count < 1:
-        return "en"
+    # H8: previously had a dead `best_count < 1` branch here — Counter only
+    # tracks non-zero entries, so the check could never fire. Removed.
+    best, _ = scores.most_common(1)[0]
     return best
 
 
