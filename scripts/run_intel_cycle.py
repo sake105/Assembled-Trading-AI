@@ -172,6 +172,24 @@ def run_single_cycle(config: dict) -> dict:
 
     logger.info("[START] Intel cycle")
 
+    # Lazy-init EventStore and VelocityTracker (persisted across cycles via config)
+    event_store = config.setdefault("_event_store", None)
+    velocity_tracker = config.setdefault("_velocity_tracker", None)
+    if event_store is None:
+        try:
+            from src.assembled_core.intel.news_event_store import NewsEventStore
+            event_store = NewsEventStore(max_events=5_000)
+            config["_event_store"] = event_store
+        except Exception:
+            pass
+    if velocity_tracker is None:
+        try:
+            from src.assembled_core.intel.news_velocity import VelocityTracker
+            velocity_tracker = VelocityTracker(short_window_min=15, long_window_min=60, surge_threshold=2.5)
+            config["_velocity_tracker"] = velocity_tracker
+        except Exception:
+            pass
+
     # Step 1: Fetch — parallel GDELT + RSS if enabled
     rss_fetcher = config.get("rss_fetcher")
     rss_enabled = config.get("rss_enabled", False)
@@ -214,6 +232,25 @@ def run_single_cycle(config: dict) -> dict:
 
     gdelt_status = "OK" if is_new_batch or raw_count > 0 else "STALE"
     health.update("gdelt", gdelt_status, now=now)
+
+    # Update EventStore and VelocityTracker
+    if new_events:
+        if event_store is not None:
+            event_store.add_many(new_events)
+        if velocity_tracker is not None:
+            vel = velocity_tracker.update(new_events, now=now)
+            if vel.is_surge:
+                logger.warning(
+                    "[WARN] News velocity surge: %.1fx — sectors=%s count=%d",
+                    vel.velocity, vel.surge_sectors, vel.short_count,
+                )
+
+    # Record health stats per source
+    if new_events:
+        for evt in new_events:
+            src = getattr(evt, "source_id", None)
+            if src:
+                health.record_events(src, [evt], now=now)
 
     logger.info(
         "[OK] GDELT+RSS: fetched %d events (%d new after dedupe)",
