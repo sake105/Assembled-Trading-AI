@@ -16,7 +16,7 @@ import hashlib
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
@@ -31,6 +31,22 @@ logger = logging.getLogger(__name__)
 _CONFIG_PATH = Path(__file__).resolve().parents[4] / "configs" / "intel" / "rss_feeds.yaml"
 
 # Geopolitical keywords for relevance filtering (T2/T3 sources)
+_URGENCY_HIGH = frozenset({"breaking", "flash", "urgent"})
+_URGENCY_MED = frozenset({"alert", "update"})
+
+
+def _urgency_score(title: str) -> float:
+    """Return 1.0 for Breaking/Flash/Urgent, 0.5 for Alert/Update, else 0.0."""
+    lower = title.lower()
+    for kw in _URGENCY_HIGH:
+        if kw in lower:
+            return 1.0
+    for kw in _URGENCY_MED:
+        if kw in lower:
+            return 0.5
+    return 0.0
+
+
 _GEO_KEYWORDS = {
     "war", "conflict", "sanctions", "military", "strike", "attack",
     "troops", "missile", "nato", "coup", "crisis", "escalation",
@@ -51,6 +67,7 @@ class FeedConfig:
     focus: str
     enabled: bool = True
     note: str = ""
+    max_age_hours: int = 0  # 0 = no age filter; >0 skips entries older than N hours
 
 
 @dataclass
@@ -79,6 +96,7 @@ def _load_feed_configs(config_path: Path = _CONFIG_PATH) -> list[FeedConfig]:
                 focus=entry.get("focus", "general"),
                 enabled=entry.get("enabled", True),
                 note=entry.get("note", ""),
+                max_age_hours=int(entry.get("max_age_hours", 0)),
             ))
         return configs
     except Exception as exc:
@@ -111,8 +129,15 @@ def _parse_entry_date(entry: Any) -> datetime:
     return datetime.now(tz=timezone.utc)
 
 
-def _entry_to_news_event(entry: Any, feed_cfg: FeedConfig, now: datetime) -> NewsEvent | None:
+def _entry_to_news_event(
+    entry: Any,
+    feed_cfg: FeedConfig,
+    now: datetime,
+    entity_linker: Any | None = None,
+) -> NewsEvent | None:
     """Convert a feedparser entry to a NewsEvent."""
+    from src.assembled_core.events.news.entities import extract_countries
+
     title = getattr(entry, "title", "").strip()
     url = getattr(entry, "link", "").strip()
     if not title or not url:
@@ -129,18 +154,30 @@ def _entry_to_news_event(entry: Any, feed_cfg: FeedConfig, now: datetime) -> New
     title_lower = title.lower()
     keywords = [kw for kw in _GEO_KEYWORDS if kw in title_lower]
 
-    # Extract geo tags from tags field if present
-    geo_tags: list[str] = []
-    if hasattr(entry, "tags") and entry.tags:
-        for tag in entry.tags:
-            term = getattr(tag, "term", "") or ""
-            if len(term) == 2 and term.isalpha():
-                geo_tags.append(term.upper())
+    # Step 1: Geo-tags from title using entity alias lookup (much richer than feedparser tags)
+    geo_tags: list[str] = extract_countries(title)
 
     # Entities from author or source
     entities: list[str] = []
     if hasattr(entry, "author") and entry.author:
         entities = [entry.author[:80]]
+
+    # Step 3: Urgency score
+    urgency = _urgency_score(title)
+
+    # Step 4: Ticker extraction — title-based (fast, no I/O) + EntityLinker
+    from src.assembled_core.intel.news_entity_mapper import extract_tickers_from_title
+    tickers: list[str] = extract_tickers_from_title(title)
+    seen_tickers: set[str] = set(tickers)
+    if entity_linker is not None:
+        for entity in entities:
+            try:
+                ticker = entity_linker.link(entity)
+                if ticker and ticker not in seen_tickers:
+                    tickers.append(ticker)
+                    seen_tickers.add(ticker)
+            except Exception:
+                pass
 
     return NewsEvent(
         event_id=event_id,
@@ -154,6 +191,8 @@ def _entry_to_news_event(entry: Any, feed_cfg: FeedConfig, now: datetime) -> New
         entities=entities,
         keywords=keywords[:10],
         content_hash=content_hash,
+        urgency=urgency,
+        tickers=tickers,
     )
 
 
@@ -179,12 +218,16 @@ class RSSFetcher:
         retries: int = 2,
         backoff_base: float = 2.0,
         max_entries_per_feed: int = 50,
+        entity_linker: Any | None = None,
+        nlp_sentiment: bool = False,
     ) -> None:
         self._configs = {cfg.id: cfg for cfg in _load_feed_configs(config_path)}
         self._timeout = timeout
         self._retries = retries
         self._backoff_base = backoff_base
         self._max_entries = max_entries_per_feed
+        self._entity_linker = entity_linker
+        self._nlp_sentiment = nlp_sentiment
         self._seen: dict[str, set[str]] = {}  # feed_id → set of content_hash
 
     @property
@@ -289,10 +332,15 @@ class RSSFetcher:
         seen = self._seen.setdefault(cfg.id, set())
         events: list[NewsEvent] = []
 
+        age_cutoff = now - timedelta(hours=cfg.max_age_hours) if cfg.max_age_hours > 0 else None
+
         for entry in feed_data.entries[: self._max_entries]:
             try:
-                event = _entry_to_news_event(entry, cfg, now)
+                event = _entry_to_news_event(entry, cfg, now, entity_linker=self._entity_linker)
                 if event is None:
+                    continue
+                # Step 2: age filter
+                if age_cutoff is not None and event.published_at < age_cutoff:
                     continue
                 if skip_seen and event.content_hash in seen:
                     continue
@@ -304,5 +352,22 @@ class RSSFetcher:
                 logger.debug("[SKIP] RSSFetcher: entry parse error in %s: %s", cfg.id, exc)
                 continue
 
+        # Optional NLP sentiment scoring (FinBERT)
+        if self._nlp_sentiment and events:
+            self._score_sentiment_batch(events)
+
         logger.info("[OK] RSSFetcher: feed=%s tier=%s events=%d", cfg.id, cfg.tier.value, len(events))
         return events
+
+    def _score_sentiment_batch(self, events: list[NewsEvent]) -> None:
+        """Attempt FinBERT sentiment scoring; gracefully skips if unavailable."""
+        try:
+            from src.assembled_core.ml.nlp_sentiment import score_texts_finbert
+            titles = [e.title for e in events]
+            scores = score_texts_finbert(titles)
+            for event, score_dict in zip(events, scores):
+                label = score_dict.get("label", "neutral")
+                raw = float(score_dict.get("score", 0.0))
+                event.sentiment_score = raw if label == "positive" else (-raw if label == "negative" else 0.0)
+        except Exception as exc:
+            logger.debug("[SKIP] RSSFetcher: NLP sentiment unavailable: %s", exc)

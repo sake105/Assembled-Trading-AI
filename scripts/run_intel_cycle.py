@@ -21,6 +21,7 @@ import json
 import logging
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -171,8 +172,27 @@ def run_single_cycle(config: dict) -> dict:
 
     logger.info("[START] Intel cycle")
 
-    # Step 1: Fetch
-    events, is_new_batch = fetcher.fetch_new_events()
+    # Step 1: Fetch — parallel GDELT + RSS if enabled
+    rss_fetcher = config.get("rss_fetcher")
+    rss_enabled = config.get("rss_enabled", False)
+
+    if rss_enabled and rss_fetcher is not None:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            gdelt_fut = pool.submit(fetcher.fetch_new_events)
+            rss_fut = pool.submit(rss_fetcher.fetch_all, skip_seen=True)
+            events, is_new_batch = gdelt_fut.result()
+            try:
+                rss_events = rss_fut.result(timeout=30)
+            except Exception as exc:
+                logger.warning("[WARN] RSS fetch failed: %s", exc)
+                rss_events = []
+        events = list(events) + rss_events
+        rss_status = "OK" if rss_events else "STALE"
+        health.update("rss", rss_status, now=now)
+        logger.info("[OK] RSS: fetched %d events", len(rss_events))
+    else:
+        events, is_new_batch = fetcher.fetch_new_events()
+
     raw_count = len(events)
 
     # Step 2: Deduplicate
@@ -186,7 +206,7 @@ def run_single_cycle(config: dict) -> dict:
     health.update("gdelt", gdelt_status, now=now)
 
     logger.info(
-        "[OK] GDELT: fetched %d events (%d new after dedupe)",
+        "[OK] GDELT+RSS: fetched %d events (%d new after dedupe)",
         raw_count,
         new_count,
     )
@@ -350,6 +370,32 @@ def _build_config(args: argparse.Namespace) -> dict:
     health = HealthMonitor()
     health.register("gdelt", stale_threshold_minutes=30)
 
+    # RSS + NLP integration — gated on policy.intel.rss.enabled / nlp.enabled
+    rss_enabled = False
+    nlp_enabled = False
+    rss_fetcher = None
+    _intel_policy: dict = {}
+    try:
+        with open(_POLICY_PATH, "r", encoding="utf-8") as fh:
+            _pol = yaml.safe_load(fh)
+        _intel_policy = (_pol or {}).get("intel", {})
+        rss_enabled = bool(_intel_policy.get("rss", {}).get("enabled", False))
+        nlp_enabled = bool(_intel_policy.get("nlp", {}).get("enabled", False))
+    except Exception as exc:
+        logger.debug("[SKIP] RSS/NLP policy check failed: %s", exc)
+
+    if rss_enabled:
+        from src.assembled_core.intel.rss_fetcher import RSSFetcher  # noqa: PLC0415
+        from src.assembled_core.intel.news_entity_mapper import SimpleEntityLinker  # noqa: PLC0415
+        rss_fetcher = RSSFetcher(
+            timeout=10,
+            retries=1,
+            nlp_sentiment=nlp_enabled,
+            entity_linker=SimpleEntityLinker(),
+        )
+        health.register("rss", stale_threshold_minutes=30)
+        logger.info("[OK] RSS fetcher enabled: %d feeds (nlp=%s)", len(rss_fetcher.feed_ids), nlp_enabled)
+
     prev_state = _load_or_init_crisis_state(output_dir)
 
     return {
@@ -362,6 +408,8 @@ def _build_config(args: argparse.Namespace) -> dict:
         "health": health,
         "dep_graph": dep_graph,
         "crisis_state": prev_state,
+        "rss_fetcher": rss_fetcher,
+        "rss_enabled": rss_enabled,
     }
 
 

@@ -456,6 +456,223 @@ feeds:
     focus: investigative_political
     enabled: true
 
+  # --- T1 additions ---
+
+  - id: npr_world
+    name: "NPR World News"
+    url: "https://feeds.npr.org/1004/rss.xml"
+    tier: T1
+    focus: geopolitical
+    enabled: true
+
+  - id: france24_world
+    name: "France 24 - World"
+    url: "https://www.france24.com/en/rss"
+    tier: T1
+    focus: geopolitical
+    enabled: true
+
+  - id: dw_world
+    name: "Deutsche Welle - World"
+    url: "https://rss.dw.com/rdf/rss-en-world"
+    tier: T1
+    focus: geopolitical
+    enabled: true
+
+  - id: sky_news_world
+    name: "Sky News - World"
+    url: "https://feeds.skynews.com/feeds/rss/world.xml"
+    tier: T1
+    focus: geopolitical
+    enabled: true
+
+  - id: voa_news
+    name: "Voice of America"
+    url: "https://www.voanews.com/api/epiqq"
+    tier: T1
+    focus: geopolitical
+    enabled: true
+
+  - id: rfi_english
+    name: "RFI English"
+    url: "https://www.rfi.fr/en/rss"
+    tier: T1
+    focus: geopolitical
+    enabled: true
+
+  # --- T2: Eastern Europe / Ukraine ---
+
+  - id: kyiv_independent
+    name: "Kyiv Independent"
+    url: "https://kyivindependent.com/feed/"
+    tier: T2
+    focus: ukraine_russia_conflict
+    enabled: true
+
+  - id: ukraine_pravda_en
+    name: "Ukrayinska Pravda (English)"
+    url: "https://www.pravda.com.ua/eng/rss/"
+    tier: T2
+    focus: ukraine_russia_conflict
+    enabled: true
+
+  - id: euromaidan_press
+    name: "Euromaidan Press"
+    url: "https://euromaidanpress.com/feed/"
+    tier: T2
+    focus: ukraine_russia_conflict
+    enabled: true
+
+  - id: radio_free_asia
+    name: "Radio Free Asia"
+    url: "https://www.rfa.org/english/feeds/rss.xml"
+    tier: T2
+    focus: asia_geopolitical
+    enabled: true
+
+  # --- T2: Asia-Pacific ---
+
+  - id: nikkei_asia
+    name: "Nikkei Asia"
+    url: "https://asia.nikkei.com/rss/feed/nar"
+    tier: T2
+    focus: asia_economic_geopolitical
+    enabled: true
+
+  - id: korea_herald
+    name: "Korea Herald"
+    url: "https://www.koreaherald.com/common/rss.php"
+    tier: T2
+    focus: northeast_asia
+    enabled: true
+
+  - id: taipei_times
+    name: "Taipei Times"
+    url: "https://www.taipeitimes.com/rss"
+    tier: T2
+    focus: taiwan_china_geopolitical
+    enabled: true
+
+  - id: straitstimes_world
+    name: "Straits Times - World"
+    url: "https://www.straitstimes.com/global/rss.xml"
+    tier: T2
+    focus: asia_geopolitical
+    enabled: true
+
+  # --- T2: European policy ---
+
+  - id: euractiv
+    name: "EurActiv"
+    url: "https://www.euractiv.com/sections/all-news/feed/"
+    tier: T2
+    focus: eu_political_economic
+    enabled: true
+
+  - id: spiegel_international
+    name: "Der Spiegel International"
+    url: "https://www.spiegel.de/international/index.rss"
+    tier: T2
+    focus: european_geopolitical
+    enabled: true
+
+  - id: ecfr
+    name: "European Council on Foreign Relations"
+    url: "https://ecfr.eu/rss/"
+    tier: T2
+    focus: european_geopolitical_analysis
+    enabled: true
+
+  # --- T2: Latin America / Africa ---
+
+  - id: mercopress
+    name: "MercoPress (South America)"
+    url: "https://en.mercopress.com/rss"
+    tier: T2
+    focus: latin_america_geopolitical
+    enabled: true
+
+  - id: africa_confidential
+    name: "Africa Confidential (public RSS)"
+    url: "https://www.africa-confidential.com/rss"
+    tier: T2
+    focus: africa_geopolitical
+    enabled: true
+
+  - id: allafrica
+    name: "AllAfrica Headlines"
+    url: "https://allafrica.com/tools/headlines/rdf/Africa/headlines.rdf"
+    tier: T2
+    focus: africa_geopolitical
+    enabled: true
+
+  # --- T2: Financial / macro ---
+
+  - id: marketwatch_top
+    name: "MarketWatch Top Stories"
+    url: "https://feeds.marketwatch.com/marketwatch/topstories/"
+    tier: T2
+    focus: financial_economic
+    enabled: true
+
+  - id: cnbc_world
+    name: "CNBC World News"
+    url: "https://www.cnbc.com/id/100003114/device/rss/rss.html"
+    tier: T2
+    focus: financial_economic
+    enabled: true
+
+  - id: federal_reserve_press
+    name: "Federal Reserve Press Releases"
+    url: "https://www.federalreserve.gov/feeds/press_all.xml"
+    tier: T2
+    focus: central_bank_policy
+    enabled: true
+
+  - id: ecb_press
+    name: "European Central Bank Press"
+    url: "https://www.ecb.europa.eu/rss/press.html"
+    tier: T2
+    focus: central_bank_policy
+    enabled: true
+
+  - id: bis_research
+    name: "Bank for International Settlements"
+    url: "https://www.bis.org/rss/bis_research.xml"
+    tier: T2
+    focus: financial_regulatory
+    enabled: true
+
+  # --- T2: Defense supplements ---
+
+  - id: defense_one
+    name: "Defense One"
+    url: "https://www.defenseone.com/rss/all/"
+    tier: T2
+    focus: defense_military
+    enabled: true
+
+  - id: politico_defense
+    name: "Politico - Defense & National Security"
+    url: "https://www.politico.com/rss/defense.xml"
+    tier: T2
+    focus: defense_policy
+    enabled: true
+
+  - id: energy_monitor
+    name: "Energy Monitor"
+    url: "https://www.energymonitor.ai/feed/"
+    tier: T2
+    focus: energy_transition
+    enabled: true
+
+  - id: sp_global_commodity
+    name: "S&P Global Commodity (free)"
+    url: "https://www.spglobal.com/commodityinsights/en/feeds/rss.xml"
+    tier: T2
+    focus: commodity_pricing
+    enabled: true
+
   # ==========================================================================
   # TIER-3: Alternative / aggregators / state-controlled media
   # Note: higher misinfo risk; keyword-filtered before entering pipeline

@@ -86,6 +86,14 @@ intel:
     enabled: false
     path: "output/intel/disclosures/triggers_latest.json"
 
+  # RSS feed integration — 71+ feeds wired via rss_fetcher.py
+  rss:
+    enabled: true  # Wire RSSFetcher into intel cycle (parallel with GDELT)
+
+  # NLP sentiment scoring via FinBERT (optional, requires transformers)
+  nlp:
+    enabled: false  # set true to activate FinBERT sentiment on RSS events
+
   # T4.7: Master kill-switch — stops News + GDELT + Disclosures pipelines.
   # Workers read this flag at startup and exit-early when enabled.
   kill_switch:

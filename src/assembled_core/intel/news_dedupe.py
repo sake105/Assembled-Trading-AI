@@ -106,6 +106,8 @@ class NewsDedupeIndex:
         # key -> monotonic timestamp of first insertion
         self.seen_event_ids: OrderedDict[str, float] = OrderedDict()
         self.seen_fingerprints: OrderedDict[str, float] = OrderedDict()
+        # fingerprint → how many distinct sources reported the same story
+        self.seen_counts: dict[str, int] = {}
 
         if self._persist_path and self._persist_path.exists():
             self.load()
@@ -170,6 +172,23 @@ class NewsDedupeIndex:
                 new_events.append(event)
                 self.add(event)
         return new_events
+
+    def filter_new_with_counts(
+        self, events: list[NewsEvent]
+    ) -> list[tuple[NewsEvent, int]]:
+        """Return (event, n_sources) for new events; track cross-source counts.
+
+        Even duplicate events increment seen_counts so the caller can detect
+        how many independent sources reported the same story.
+        """
+        result: list[tuple[NewsEvent, int]] = []
+        for event in events:
+            fp = self._fingerprint(event)
+            self.seen_counts[fp] = self.seen_counts.get(fp, 0) + 1
+            if not self.is_duplicate(event):
+                self.add(event)
+                result.append((event, self.seen_counts[fp]))
+        return result
 
     def save(self) -> None:
         """Persist index to JSON if a persist_path was configured."""

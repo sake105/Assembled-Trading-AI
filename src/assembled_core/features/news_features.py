@@ -91,6 +91,12 @@ def add_news_features(
     # Score column: prefer FinBERT if available, else raw sentiment_score
     score_col = "finbert_score" if has_finbert else "sentiment_score"
 
+    # Urgency amplification: Breaking/Flash events get a 2× weight boost
+    if "urgency" in events.columns:
+        events["_urgency_factor"] = 1.0 + events["urgency"].fillna(0.0)
+        events[score_col] = events[score_col] * events["_urgency_factor"]
+        events.drop(columns=["_urgency_factor"], inplace=True)
+
     # --- Build daily per-symbol sentiment aggregates ---
     events["_date"] = events["timestamp"].dt.normalize()
     daily = (

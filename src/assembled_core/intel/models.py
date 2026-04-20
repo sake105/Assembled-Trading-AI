@@ -225,6 +225,9 @@ class NewsEvent(BaseModel):
     entities: list[str] = Field(default_factory=list)  # named entities
     keywords: list[str] = Field(default_factory=list)  # extracted keywords
     content_hash: str  # for deduplication
+    urgency: float = 0.0  # 0-1; 1.0 = Breaking/Flash/Urgent
+    tickers: list[str] = Field(default_factory=list)  # resolved equity tickers
+    sentiment_score: float = 0.0  # -1.0 (very negative) to +1.0 (very positive)
 
     model_config = {"frozen": False}
 

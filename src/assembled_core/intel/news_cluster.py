@@ -148,14 +148,21 @@ class ClusterManager:
 
         # T2.8: Bayesian confidence (flipped from shadow to production)
         from src.assembled_core.intel.bayesian_confidence import compute_cluster_confidence
+        source_tiers = [evt.source_tier.value for evt in new_events]
+        n_independent = max(1, len(set(evt.source_id for evt in new_events)))
         cluster.confidence = compute_cluster_confidence(
-            total_events=total_events,
-            max_tier=current_max,
-            tier_boost_map=_TIER_BOOST,
+            trigger_type=cluster.trigger_type.value,
+            source_tiers=source_tiers if source_tiers else [current_max.value] * total_events,
+            n_independent_sources=n_independent,
+            keyword_match_strength=0.7,
         )
+        # Step 3: urgency boost — Breaking/Flash events raise confidence up to +0.1
+        urgency_boost = max((getattr(evt, "urgency", 0.0) for evt in new_events), default=0.0) * 0.1
+        if urgency_boost > 0:
+            cluster.confidence = min(cluster.confidence + urgency_boost, 0.99)
         logger.debug(
-            "[OK] T2.8 Bayesian confidence: cluster=%s conf=%.3f",
-            cluster.cluster_id, cluster.confidence,
+            "[OK] T2.8 Bayesian confidence: cluster=%s conf=%.3f (urgency_boost=%.3f)",
+            cluster.cluster_id, cluster.confidence, urgency_boost,
         )
 
     def get_active_clusters(self) -> list[EvidenceCluster]:
