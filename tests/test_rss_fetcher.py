@@ -179,7 +179,7 @@ class TestRSSFetcher:
         assert fetcher.fetch_feed("nonexistent_feed_xyz") == []
 
     @patch("src.assembled_core.intel.rss_fetcher.requests.get")
-    @patch("src.assembled_core.intel.rss_fetcher.feedparser.parse")
+    @patch("feedparser.parse")
     def test_fetch_feed_returns_events(self, mock_fp, mock_get):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
@@ -196,7 +196,7 @@ class TestRSSFetcher:
         assert events[0].source_tier == SourceTier.T1
 
     @patch("src.assembled_core.intel.rss_fetcher.requests.get")
-    @patch("src.assembled_core.intel.rss_fetcher.feedparser.parse")
+    @patch("feedparser.parse")
     def test_deduplication_skip_seen(self, mock_fp, mock_get):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
@@ -221,7 +221,7 @@ class TestRSSFetcher:
         assert events == []
 
     @patch("src.assembled_core.intel.rss_fetcher.requests.get")
-    @patch("src.assembled_core.intel.rss_fetcher.feedparser.parse")
+    @patch("feedparser.parse")
     def test_t3_filtered_by_keywords(self, mock_fp, mock_get):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
@@ -350,7 +350,7 @@ class TestUrgencyInEvent:
 @pytest.mark.phase12
 class TestAgeFilter:
     @patch("src.assembled_core.intel.rss_fetcher.requests.get")
-    @patch("src.assembled_core.intel.rss_fetcher.feedparser.parse")
+    @patch("feedparser.parse")
     def test_old_entry_filtered_when_max_age_set(self, mock_fp, mock_get):
         import time as _time
         mock_resp = MagicMock()
@@ -373,7 +373,7 @@ class TestAgeFilter:
         assert events == [], "Entries older than max_age_hours should be filtered"
 
     @patch("src.assembled_core.intel.rss_fetcher.requests.get")
-    @patch("src.assembled_core.intel.rss_fetcher.feedparser.parse")
+    @patch("feedparser.parse")
     def test_recent_entry_passes_age_filter(self, mock_fp, mock_get):
         import time as _time
         mock_resp = MagicMock()

@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SystemMap",
+  "type": "object",
+  "required": ["meta", "nodes", "edges"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["generated_at", "generator_version", "source_commit", "node_count", "edge_count"],
+      "properties": {
+        "generated_at":          { "type": "string", "format": "date-time" },
+        "generator_version":     { "type": "string" },
+        "source_commit":         { "type": "string" },
+        "node_count":            { "type": "integer", "minimum": 0 },
+        "edge_count":            { "type": "integer", "minimum": 0 },
+        "circular_import_count": { "type": "integer", "minimum": 0 },
+        "honest_status_summary": {
+          "type": "object",
+          "properties": {
+            "green":  { "type": "integer" }, "yellow": { "type": "integer" },
+            "orange": { "type": "integer" }, "red":    { "type": "integer" },
+            "gray":   { "type": "integer" }
+          }
+        }
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "label", "status"],
+        "properties": {
+          "id":                    { "type": "string" },
+          "type":                  { "type": "string", "enum": ["domain","module","external_api","script","workflow","entry_point"] },
+          "label":                 { "type": "string" },
+          "parent":                { "type": ["string", "null"] },
+          "purpose":               { "type": "string" },
+          "status":                { "type": "string", "enum": ["green","yellow","orange","red","gray"] },
+          "tests_count":           { "type": "integer", "minimum": 0 },
+          "loc":                   { "type": "integer", "minimum": 0 },
+          "fan_in":                { "type": "integer", "minimum": 0 },
+          "fan_out":               { "type": "integer", "minimum": 0 },
+          "complexity_score":      { "type": "integer", "minimum": 1, "maximum": 5 },
+          "type_annotation_ratio": { "type": "number",  "minimum": 0, "maximum": 1 },
+          "functions":             { "type": "array", "items": { "type": "string" } },
+          "orphan":                { "type": "boolean" },
+          "in_cycle":              { "type": "boolean" },
+          "duplicate_group":       { "type": ["string", "null"] },
+          "path":                  { "type": "string" }
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "source", "target", "kind"],
+        "properties": {
+          "id":       { "type": "string" },
+          "source":   { "type": "string" },
+          "target":   { "type": "string" },
+          "kind":     { "type": "string", "enum": ["import","api_call","data_flow","trigger"] },
+          "weight":   { "type": "integer", "minimum": 1 },
+          "circular": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

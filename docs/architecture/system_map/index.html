@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Assembled-Trading-AI — System Map</title>
+  <link rel="stylesheet" href="assets/tokens.css">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+  <!-- Stale Banner -->
+  <div id="stale-banner" class="stale-banner hidden" role="alert">
+    <span class="stale-banner__icon">⚠</span>
+    <span>Karte <span id="stale-days"></span> Tage alt — bitte regenerieren:
+      <code>python scripts/architecture/generate_system_map.py</code></span>
+    <button id="stale-banner__close" aria-label="Schließen">×</button>
+  </div>
+
+  <!-- App Shell -->
+  <div id="app" class="app-shell">
+
+    <!-- Filter Sidebar -->
+    <aside id="filter-sidebar" class="sidebar" aria-label="Filter">
+      <div class="sidebar__header">
+        <span class="sidebar__title">Filter</span>
+        <button id="sidebar-toggle" class="icon-btn" aria-label="Sidebar schließen" title="S">‹</button>
+      </div>
+
+      <section class="filter-group" aria-labelledby="lbl-status">
+        <p id="lbl-status" class="filter-group__label">Status</p>
+        <label class="filter-check"><input type="checkbox" name="status" value="green"  checked>
+          <span class="status-dot status-dot--green"></span> green</label>
+        <label class="filter-check"><input type="checkbox" name="status" value="yellow" checked>
+          <span class="status-dot status-dot--yellow"></span> yellow</label>
+        <label class="filter-check"><input type="checkbox" name="status" value="orange" checked>
+          <span class="status-dot status-dot--orange"></span> orange</label>
+        <label class="filter-check"><input type="checkbox" name="status" value="red"    checked>
+          <span class="status-dot status-dot--red"></span> red</label>
+        <label class="filter-check"><input type="checkbox" name="status" value="gray"   checked>
+          <span class="status-dot status-dot--gray"></span> gray</label>
+      </section>
+
+      <section class="filter-group" aria-labelledby="lbl-type">
+        <p id="lbl-type" class="filter-group__label">Typ</p>
+        <label class="filter-check"><input type="checkbox" name="type" value="domain"       checked> Domäne</label>
+        <label class="filter-check"><input type="checkbox" name="type" value="module"       checked> Modul</label>
+        <label class="filter-check"><input type="checkbox" name="type" value="external_api" checked> Ext. API</label>
+        <label class="filter-check"><input type="checkbox" name="type" value="script"       checked> Script</label>
+        <label class="filter-check"><input type="checkbox" name="type" value="workflow"     checked> Workflow</label>
+      </section>
+
+      <section class="filter-group" aria-labelledby="lbl-special">
+        <p id="lbl-special" class="filter-group__label">Spezial</p>
+        <label class="filter-toggle"><input type="checkbox" id="filter-has-tests"> Nur mit Tests</label>
+        <label class="filter-toggle"><input type="checkbox" id="filter-orphan">    Nur Orphans</label>
+        <label class="filter-toggle"><input type="checkbox" id="filter-duplicate"> Nur Duplikate</label>
+        <label class="filter-toggle"><input type="checkbox" id="filter-circular">  Nur Zirkulär</label>
+      </section>
+
+      <div class="sidebar__footer">
+        <button id="filter-reset" class="btn btn--ghost btn--sm">Alle zurücksetzen</button>
+      </div>
+    </aside>
+
+    <!-- Canvas Area -->
+    <main id="canvas-wrap" class="canvas-wrap">
+
+      <header class="topbar" role="banner">
+        <div class="topbar__search">
+          <label for="search-input" class="sr-only">Suche</label>
+          <input id="search-input" type="search" class="search-input"
+                 placeholder="/ Suche…" autocomplete="off"
+                 aria-label="Modul oder Domäne suchen"
+                 aria-autocomplete="list" aria-controls="search-dropdown">
+          <ul id="search-dropdown" class="search-dropdown" role="listbox" hidden></ul>
+        </div>
+
+        <div id="filter-chips" class="filter-chips" aria-live="polite"></div>
+
+        <nav class="toolbar" aria-label="Werkzeuge">
+          <button id="tb-sidebar"  class="icon-btn" title="Sidebar (S)"           aria-label="Sidebar toggle">☰</button>
+          <button id="tb-fit"      class="icon-btn" title="Fit (F)"               aria-label="Fit to screen">⊞</button>
+          <button id="tb-reset"    class="icon-btn" title="Reset Zoom (R)"        aria-label="Reset zoom">⊙</button>
+          <button id="tb-minimap"  class="icon-btn" title="Mini-Map (M)"          aria-label="Mini-Map toggle">⬚</button>
+          <button id="tb-heatmap"  class="icon-btn" title="Heat-Map (H)"          aria-label="Heat-Map toggle">▦</button>
+          <button id="tb-path"     class="icon-btn" title="Import-Kette (2 Klicks)" aria-label="Import chain mode">⇢</button>
+          <button id="tb-export"   class="icon-btn" title="Export PNG"            aria-label="Export PNG">↓</button>
+          <button id="tb-print"    class="icon-btn" title="Print (P)"             aria-label="Print mode">⎙</button>
+          <button id="tb-theme"    class="icon-btn" title="Dark/Light (D)"        aria-label="Dark/Light toggle">◑</button>
+          <button id="tb-about"    class="icon-btn" title="Shortcuts (?)"         aria-label="Keyboard shortcuts">?</button>
+        </nav>
+      </header>
+
+      <div class="cy-canvas">
+        <div id="cy" aria-label="Systemkarte Assembled-Trading-AI" role="img"></div>
+
+        <!-- Loading Skeleton -->
+        <div id="loading-skeleton" class="loading-skeleton" aria-busy="true">
+          <div class="skel-node skel-node--lg"></div>
+          <div class="skel-node skel-node--md"></div>
+          <div class="skel-node skel-node--sm"></div>
+        </div>
+
+        <!-- Empty/Error State -->
+        <div id="empty-state" class="empty-state hidden">
+          <pre class="empty-state__pre">
+[ ⚠ ]  system_map.json nicht gefunden.
+
+Bitte ausführen:
+  python scripts/architecture/generate_system_map.py
+
+Dann F5 drücken.
+          </pre>
+        </div>
+
+        <!-- Mini-Map -->
+        <div id="minimap" class="cy-navigator hidden" aria-hidden="true"></div>
+
+        <!-- Legend -->
+        <div id="legend-container"></div>
+      </div>
+
+    </main>
+
+    <!-- Detail Panel -->
+    <aside id="detail-panel" class="detail-panel detail-panel--closed" aria-label="Modul-Details">
+      <div class="detail-panel__header">
+        <h2 id="detail-title" class="detail-panel__title">—</h2>
+        <span id="detail-status" class="status-badge" aria-label="Status"></span>
+        <button id="detail-close" class="icon-btn" aria-label="Panel schließen">×</button>
+      </div>
+      <div id="detail-domain-stripe" class="detail-domain-stripe"></div>
+
+      <nav class="detail-tabs" role="tablist" aria-label="Modul-Informationen">
+        <button role="tab" class="detail-tab detail-tab--active" data-tab="meta"        aria-selected="true"  id="tab-meta">Meta</button>
+        <button role="tab" class="detail-tab"                    data-tab="imports-out"  aria-selected="false" id="tab-out">↗ Out</button>
+        <button role="tab" class="detail-tab"                    data-tab="imports-in"   aria-selected="false" id="tab-in">↙ In</button>
+        <button role="tab" class="detail-tab"                    data-tab="apis"         aria-selected="false" id="tab-apis">APIs</button>
+        <button role="tab" class="detail-tab"                    data-tab="duplicates"   aria-selected="false" id="tab-dups">Dups</button>
+      </nav>
+
+      <div id="tab-content-meta"        class="detail-tab-content"             role="tabpanel" aria-labelledby="tab-meta"></div>
+      <div id="tab-content-imports-out" class="detail-tab-content detail-tab-content--hidden" role="tabpanel" aria-labelledby="tab-out"></div>
+      <div id="tab-content-imports-in"  class="detail-tab-content detail-tab-content--hidden" role="tabpanel" aria-labelledby="tab-in"></div>
+      <div id="tab-content-apis"        class="detail-tab-content detail-tab-content--hidden" role="tabpanel" aria-labelledby="tab-apis"></div>
+      <div id="tab-content-duplicates"  class="detail-tab-content detail-tab-content--hidden" role="tabpanel" aria-labelledby="tab-dups"></div>
+    </aside>
+
+  </div><!-- /#app -->
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="false"></div>
+
+  <!-- Keyboard Shortcuts Modal -->
+  <div id="shortcut-modal" class="modal-overlay modal-overlay--hidden"
+       role="dialog" aria-modal="true" aria-labelledby="shortcut-modal-title">
+    <div class="modal">
+      <h3 id="shortcut-modal-title" class="modal__title">Keyboard-Shortcuts</h3>
+      <table class="shortcut-table" id="shortcut-table"></table>
+      <button id="shortcut-modal-close" class="btn btn--primary btn--sm">Schließen (Esc)</button>
+    </div>
+  </div>
+
+  <!-- Vendor Libraries (lokal) -->
+  <!-- Vendor Libraries (lokal, offline) -->
+  <script src="assets/vendor/cytoscape.min.js"></script>
+  <script src="assets/vendor/cytoscape-fcose.js"></script>
+  <script src="assets/vendor/cytoscape-expand-collapse.js"></script>
+  <script src="assets/vendor/cytoscape-navigator.js"></script>
+  <script src="assets/vendor/popper.min.js"></script>
+  <script src="assets/vendor/cytoscape-popper.js"></script>
+  <script src="assets/vendor/tippy.umd.min.js"></script>
+  <script src="assets/vendor/fuse.min.js"></script>
+
+  <!-- Eingebettete Kartendaten (Fallback für file://-Protokoll) -->
+  <script src="data/system_map_data.js" onerror="console.info('[SystemMap] data.js not found, using fetch')"></script>
+
+  <!-- App Scripts -->
+  <script src="assets/deeplink.js"></script>
+  <script src="assets/minimap.js"></script>
+  <script src="assets/legend.js"></script>
+  <script src="assets/app.js"></script>
+
+</body>
+</html>

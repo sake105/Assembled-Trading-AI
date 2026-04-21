@@ -787,6 +787,36 @@ Wenn etwas **nicht geprüft** wurde, das klar sagen.
 
 ---
 
+## 19. Architektur-Systemkarte
+
+Die interaktive Systemkarte visualisiert alle Module, Domains und Abhängigkeiten des Repos.
+
+### 19.1 Dateien
+
+* Viewer: `docs/architecture/system_map/index.html` (offline-fähig, kein Server nötig)
+* Generator: `scripts/architecture/generate_system_map.py`
+* Validator: `scripts/architecture/validate_system_map.py`
+* Diff: `scripts/architecture/diff_system_map.py`
+* Overrides: `docs/architecture/system_map/data/system_map_overrides.yaml`
+
+### 19.2 Regeneration
+
+```
+python scripts/architecture/generate_system_map.py
+python scripts/architecture/validate_system_map.py
+```
+
+Dann `docs/architecture/system_map/index.html` im Browser öffnen.
+
+### 19.3 Regeln
+
+* Karte ist ein Read-Only-Artefakt — nie manuell `system_map.json` oder `system_map_data.js` editieren.
+* Statuskorrekturen gehören in `system_map_overrides.yaml`, nicht in den Generator.
+* Karte gilt als veraltet nach 30 Tagen — Banner erscheint automatisch.
+* Vendor-Libs liegen lokal in `assets/vendor/` (einmalig via `download_vendors.py` laden).
+
+---
+
 ## 18. Schlussstatus dieser Datei
 
 Diese `CLAUDE.md` ist die aktuelle zentrale Arbeitsgrundlage für Claude Code in Assembled-Trading-AI.

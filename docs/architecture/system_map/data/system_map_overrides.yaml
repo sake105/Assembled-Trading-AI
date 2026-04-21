@@ -1,0 +1,54 @@
+# system_map_overrides.yaml
+# Manuelle Korrekturen haben Priorität über Auto-Status des Generators.
+# Format: status_overrides, duplicate_groups, orphan_overrides
+
+status_overrides:
+  - id: "module:ml.__init__"
+    status: "red"
+    reason: "raises NotImplementedError — kein echter Einstiegspunkt, Blocker für ml-Domäne"
+
+  - id: "module:accounting.ledger"
+    status: "yellow"
+    reason: "0 Unit-Tests, aber produktiv via Evidence-Pack verdrahtet"
+
+  - id: "module:paper.paper_broker"
+    status: "orange"
+    reason: "verdrahtet, aber 0 dedizierte Tests — Behaviour nur via Integration sichtbar"
+
+duplicate_groups:
+  - id: "dup:backtest_engines"
+    label: "4 Backtest-Engines"
+    reason: "Historische Parallelentwicklung — konsolidieren auf pipeline.backtest oder qa.backtest_engine"
+    members:
+      - "module:qa.backtest_engine"
+      - "module:qa.backtest_engine_numba"
+      - "module:pipeline.backtest"
+      - "module:pipeline.backtest_legacy"
+
+  - id: "dup:paper_engines"
+    label: "2 Paper-Engines"
+    reason: "execution/paper_trading_engine (alt) vs. execution/unified_paper_engine (neu) — Migration abschließen"
+    members:
+      - "module:execution.paper_trading_engine"
+      - "module:execution.unified_paper_engine"
+
+  - id: "dup:news_paths"
+    label: "3 News-Pfade"
+    reason: "Drei parallele News-Ingestion-Routen — events/news/, intel/news_*.py, data/news_ingest.py"
+    members:
+      - "module:events.news_enricher"
+      - "module:intel.news_classifier"
+      - "module:data.news_ingest"
+
+  - id: "dup:regime_modules"
+    label: "6 Regime-Module"
+    reason: "Regime-Logik über 4 Domänen verteilt — zentralisieren in risk oder ml"
+    members:
+      - "module:ml.regime_hmm"
+      - "module:ml.tda_regime"
+      - "module:risk.regime_analysis"
+      - "module:risk.regime_costs"
+      - "module:risk.regime_models"
+      - "module:portfolio.regime_portfolio"
+
+orphan_overrides: []
