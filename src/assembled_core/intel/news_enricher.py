@@ -83,6 +83,20 @@ class NewsEventEnricher:
         # Step 2: Impact estimation (attaches to event as metadata attribute)
         events = self._run_impact_estimation(events)
 
+        # Step 2.1: IC-basierte Severity-Gewichtung (aus ic_loop.json)
+        try:
+            from src.assembled_core.ml.news_ml_bridge import get_event_type_ic_weights
+            _ic_weights = get_event_type_ic_weights()
+            if _ic_weights:
+                for _evt in events:
+                    for _etype in getattr(_evt, "event_types", []):
+                        _w = _ic_weights.get(str(_etype), 1.0)
+                        if hasattr(_evt, "severity") and _evt.severity is not None:
+                            _evt.severity = round(min(10.0, max(0.0, float(_evt.severity) * _w)), 4)
+                logger.debug("[OK] IC-Gewichte auf %d Events angewendet", len(events))
+        except Exception:
+            pass  # Nie die Enrichment-Pipeline unterbrechen
+
         # Step 2.5: Decay discount on impact_bps so stale events don't inflate
         # downstream position sizing.
         if self._apply_decay:

@@ -11,6 +11,7 @@ Usage:
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pandas as pd
@@ -253,3 +254,47 @@ def build_finbert_sentiment_factors(
 
     drop_cols = ["finbert_score"] if "finbert_score" in merged.columns else []
     return merged.drop(columns=drop_cols)
+
+
+def score_news_store_with_embeddings(
+    news_df: pd.DataFrame,
+    text_col: str = "headline",
+    pca_path: Path | str | None = None,
+    n_pca_components: int = 32,
+) -> pd.DataFrame:
+    """score_news_store() + PCA-komprimierte FinBERT-Embedding-Features.
+
+    Calls score_news_store() unverändert, then appends finbert_emb_pc_0 …
+    finbert_emb_pc_{n-1}.  Falls transformers nicht installiert oder PCA
+    fehlt → graceful degradation (Spalten fehlen einfach).
+    """
+    result = score_news_store(news_df, text_col=text_col)
+
+    if not TRANSFORMERS_AVAILABLE or text_col not in news_df.columns:
+        return result
+
+    try:
+        from src.assembled_core.ml.news_ml_bridge import (
+            extract_finbert_embeddings,
+            load_pca,
+            transform_embeddings_pca,
+        )
+
+        texts = news_df[text_col].fillna("").tolist()
+        embeddings = extract_finbert_embeddings(texts)
+
+        if pca_path and Path(pca_path).exists():
+            pca = load_pca(Path(pca_path))
+            compressed = transform_embeddings_pca(embeddings, pca)
+        else:
+            compressed = embeddings[:, :n_pca_components]
+
+        n_comp = compressed.shape[1]
+        for i in range(n_comp):
+            result[f"finbert_emb_pc_{i}"] = compressed[:, i]
+
+        logger.info("[NLP] %d finbert_emb_pc_* Spalten hinzugefügt", n_comp)
+    except Exception as exc:
+        logger.debug("[NLP] Embedding-Features übersprungen: %s", exc)
+
+    return result

@@ -357,6 +357,10 @@ def _add_forward_returns(panel: pd.DataFrame, horizons: list[int]) -> pd.DataFra
             col_name = f"fwd_return_{h}d"
             fwd_price = result.groupby("symbol", group_keys=False)["close"].shift(-h)
             result[col_name] = fwd_price / result["close"] - 1.0
+            # PIT guard: last h rows per symbol must be NaN (no future data)
+            result[col_name] = result.groupby("symbol", group_keys=False)[col_name].transform(
+                lambda s: s.where(pd.Series(range(len(s)), index=s.index) < len(s) - h)
+            )
             _log("info", f"[OK] Forward return added (fallback): {col_name}")
         return result
 
@@ -367,7 +371,7 @@ def _add_forward_returns(panel: pd.DataFrame, horizons: list[int]) -> pd.DataFra
 
 def build_full_factor_panel(
     price_dir: Path = Path("data/raw/equities_eod/yfinance"),
-    horizons: list[int] = [5, 10, 20],
+    horizons: list[int] = [1, 5, 10, 20],
     output_path: Path = Path("output/factor_panels/full_panel_7y.parquet"),
     use_registry: bool = True,
 ) -> pd.DataFrame:
@@ -556,9 +560,14 @@ def _parse_args() -> argparse.Namespace:
         "--horizons",
         type=int,
         nargs="+",
-        default=[5, 10, 20],
+        default=[1, 5, 10, 20],
         metavar="N",
-        help="Forward return horizons in trading days.",
+        help="Forward return horizons in trading days (default: 1 5 10 20).",
+    )
+    parser.add_argument(
+        "--fast",
+        action="store_true",
+        help="Nur 5d-Horizon für schnelle Iteration (überschreibt --horizons).",
     )
     parser.add_argument(
         "--output",
@@ -584,6 +593,10 @@ def _parse_args() -> argparse.Namespace:
 if __name__ == "__main__":
     args = _parse_args()
     logging.getLogger().setLevel(getattr(logging, args.log_level))
+
+    if args.fast:
+        args.horizons = [5]
+        logging.getLogger().info("[Panel] --fast Mode: nur 5d Horizon")
 
     # Resolve relative paths relative to repo root (two levels up from this file)
     _repo_root = Path(__file__).resolve().parents[2]

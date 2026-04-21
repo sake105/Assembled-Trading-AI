@@ -1241,4 +1241,25 @@ def run_eod_pipeline(
 
     logger.info(f"Manifest written: {manifest_path}")
 
+    # ═══════════════════════════════════════════════════════════════════
+    # Self-Learning Feedback Check (non-blocking, letzte Stufe EOD)
+    # ═══════════════════════════════════════════════════════════════════
+    try:
+        from src.assembled_core.ml.feedback_loop import FeedbackLoopController  # type: ignore
+
+        _fl = FeedbackLoopController()
+        _fl_result = _fl.run_feedback_check(
+            learning_store_path=base / "ops" / "learning_store.jsonl",
+            current_model_path=base / "models" / "meta_model_current.joblib",
+            panel_df=pd.DataFrame(),  # Phase 3 füllt echten panel_df
+        )
+        logger.info(
+            "[EOD][Feedback] signals=%d retrain_triggered=%s blocked=%s",
+            _fl_result.active_signal_count,
+            _fl_result.retrain_triggered,
+            bool(_fl_result.blocked_reason),
+        )
+    except Exception as _fl_exc:
+        logger.warning("[EOD][Feedback] Non-blocking Fehler (ignoriert): %s", _fl_exc)
+
     return manifest

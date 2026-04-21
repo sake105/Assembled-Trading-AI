@@ -148,6 +148,45 @@ class RetrainingScheduler:
     # Public API
     # ------------------------------------------------------------------
 
+    def _load_ic_series_from_tracker(
+        self,
+        ic_loop_path: Path | None = None,
+    ) -> "pd.Series | None":
+        """Synthetische IC-Series aus ic_loop.json für Signal 2 laden.
+
+        Bildet gewichteten IC-Mittelwert (gewichtet nach n_obs) über alle
+        Trigger-Types mit >= 10 Beobachtungen. Gibt None zurück wenn keine
+        validen Daten vorliegen.
+        """
+        path = ic_loop_path or Path("output/intel/ic_loop.json")
+        if not path.exists():
+            return None
+        try:
+            from src.assembled_core.intel.ic_loop import ICTracker  # type: ignore
+
+            tracker = ICTracker(state_path=path)
+            report = tracker.compute_report()
+            results = report.get("results", {})
+
+            weighted_sum = 0.0
+            total_weight = 0.0
+            for _ttype, info in results.items():
+                ic = info.get("ic")
+                n = info.get("n_obs", 0)
+                if ic is not None and n >= 10:
+                    weighted_sum += float(ic) * n
+                    total_weight += n
+
+            if total_weight < 10:
+                return None
+
+            mean_ic = weighted_sum / total_weight
+            window = int(self._cfg.get("ic_bad_day_window", 5))
+            return pd.Series([mean_ic] * (window + 1))
+        except Exception as exc:
+            logger.debug("%s IC-Loop Lade-Fehler: %s", _PREFIX, exc)
+            return None
+
     def evaluate(
         self,
         model_last_trained_date: date | None = None,
@@ -170,7 +209,15 @@ class RetrainingScheduler:
         # Signal 1: Calendar age
         details.append(self._check_calendar(model_last_trained_date))
 
-        # Signal 2: IC degradation
+        # Signal 2: IC degradation — auto-load aus ic_loop.json wenn kein ic_series übergeben
+        if ic_series is None:
+            ic_series = self._load_ic_series_from_tracker()
+            if ic_series is not None:
+                logger.debug(
+                    "%s Signal 2: IC-Series aus ic_loop.json geladen (mean_ic=%.4f)",
+                    _PREFIX,
+                    float(ic_series.mean()),
+                )
         details.append(self._check_ic_degradation(ic_series))
 
         # Signal 3: Feature drift (KS / PSI)

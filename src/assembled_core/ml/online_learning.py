@@ -199,8 +199,50 @@ def compute_model_age_confidence(
     return float(np.exp(-np.log(2) * days_since_refit / half_life_days))
 
 
+class ADWINDriftDetector:
+    """River ADWIN wrapper für Konzeptdrift-Erkennung.
+
+    Graceful degradation: No-op wenn river nicht installiert.
+    State wird nicht persistiert — nach Neustart re-initialisiert.
+    (ADWIN braucht ~100 Beobachtungen um zuverlässig zu werden.)
+    """
+
+    def __init__(self, delta: float = 0.002) -> None:
+        self._delta = delta
+        self._detector: object | None = None
+        self._available = False
+        try:
+            from river.drift import ADWIN  # type: ignore
+            self._detector = ADWIN(delta=delta)
+            self._available = True
+            logger.debug("[ADWIN] river.drift.ADWIN initialisiert (delta=%.4f)", delta)
+        except ImportError:
+            logger.debug("[ADWIN] river nicht installiert — Drift-Erkennung deaktiviert")
+
+    def update(self, value: float) -> bool:
+        """Neuen Wert einspeisen. Gibt True zurück wenn Drift erkannt."""
+        if not self._available or self._detector is None:
+            return False
+        self._detector.update(value)  # type: ignore[attr-defined]
+        return bool(self._detector.drift_detected)  # type: ignore[attr-defined]
+
+    @property
+    def available(self) -> bool:
+        return self._available
+
+    def reset(self) -> None:
+        """State zurücksetzen (z.B. nach Retrain)."""
+        if self._available:
+            try:
+                from river.drift import ADWIN  # type: ignore
+                self._detector = ADWIN(delta=self._delta)
+            except Exception:
+                pass
+
+
 __all__ = [
     "EWRLSModel",
     "RetrainingTrigger",
     "compute_model_age_confidence",
+    "ADWINDriftDetector",
 ]

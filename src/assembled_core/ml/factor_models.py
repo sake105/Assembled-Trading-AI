@@ -7,7 +7,7 @@ It implements Phase E1 (ML Validation & Model Comparison) from the Advanced Anal
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 import numpy as np
@@ -1099,3 +1099,165 @@ def impute_features_smart(
             df[col] = df[col].fillna(df[col].median()).fillna(0.0)
 
     return df
+
+
+# ---------------------------------------------------------------------------
+# Multi-Horizon Prediction (Plan Phase 6)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class MLMultiHorizonConfig:
+    """Konfiguration für simultanes Multi-Horizon-Training.
+
+    Trainiert je ein Modell pro Horizon auf identischen Purged-CV-Splits.
+    Ensemble via IC-gewichteter Kombination.
+    """
+
+    horizons: list[int] = field(default_factory=lambda: [1, 5, 20])
+    horizon_weights: list[float] | None = None
+    base_model_config: MLModelConfig | None = None
+    feature_cols: list[str] | None = None
+    min_ic_for_weight: float = 0.0
+
+
+@dataclass
+class MultiHorizonResult:
+    """Ergebnis eines Multi-Horizon Training-Runs."""
+
+    horizon_models: dict
+    horizon_ic: dict
+    weights: dict
+    feature_cols: list[str]
+
+    def predict(self, X: pd.DataFrame) -> pd.Series:
+        """Gewichtetes Ensemble über alle Horizonte."""
+        preds = np.zeros(len(X))
+        for h, model in self.horizon_models.items():
+            w = self.weights.get(h, 0.0)
+            if w <= 0:
+                continue
+            try:
+                preds += w * model.predict(X[self.feature_cols].values)
+            except Exception:
+                pass
+        return pd.Series(preds, index=X.index, name="multi_horizon_score")
+
+    def summary(self) -> dict:
+        return {
+            "horizons": list(self.horizon_models.keys()),
+            "ic_per_horizon": {h: round(ic, 4) for h, ic in self.horizon_ic.items()},
+            "weights": {h: round(w, 4) for h, w in self.weights.items()},
+            "n_features": len(self.feature_cols),
+        }
+
+
+def run_multi_horizon_cv(
+    factor_panel_df: pd.DataFrame,
+    config: MLMultiHorizonConfig,
+    timestamp_col: str = "timestamp",
+) -> MultiHorizonResult:
+    """Multi-Horizon Training via separate Modelle + IC-gewichtetes Ensemble.
+
+    Trainiert für jeden Horizon in config.horizons ein separates Modell.
+    Nutzt identische CV-Splits pro Horizon.
+
+    PIT-Invariante:
+        fwd_return_{h}d Spalten müssen im panel_df vorhanden sein.
+        Letzte h Zeilen haben NaN als fwd_return → werden automatisch gefiltert.
+
+    Args:
+        factor_panel_df: Panel mit Feature-Spalten und fwd_return_{h}d Spalten
+        config: MLMultiHorizonConfig
+        timestamp_col: Timestamp-Spalte
+
+    Returns:
+        MultiHorizonResult mit Modellen, IC-Werten und Ensemble-Gewichten
+
+    Raises:
+        ValueError wenn keine fwd_return_*d Spalten gefunden oder kein Modell trainiert
+    """
+    missing = [
+        h for h in config.horizons
+        if f"fwd_return_{h}d" not in factor_panel_df.columns
+    ]
+    if missing:
+        raise ValueError(
+            f"run_multi_horizon_cv: fehlende Label-Spalten für Horizonte {missing}. "
+            f"build_factor_panel.py mit --horizons {' '.join(str(h) for h in missing)} ausführen."
+        )
+
+    feature_cols = config.feature_cols or detect_feature_cols(
+        factor_panel_df,
+        label_col=f"fwd_return_{config.horizons[0]}d",
+        timestamp_col=timestamp_col,
+    )
+    if not feature_cols:
+        raise ValueError("Keine Feature-Spalten erkannt. feature_cols in config setzen.")
+
+    base_cfg = config.base_model_config or MLModelConfig(
+        name="lightgbm_multi",
+        model_type="lightgbm" if LIGHTGBM_AVAILABLE else "ridge",
+        params={"n_estimators": 200, "learning_rate": 0.05},
+    )
+
+    horizon_models: dict[int, object] = {}
+    horizon_ic: dict[int, float] = {}
+
+    for h in config.horizons:
+        label_col = f"fwd_return_{h}d"
+        panel_h = factor_panel_df.dropna(subset=[label_col])
+
+        experiment = MLExperimentConfig(
+            label_col=label_col,
+            feature_cols=feature_cols,
+            n_splits=5,
+        )
+
+        try:
+            result_h = run_time_series_cv(
+                factor_panel_df=panel_h,
+                experiment=experiment,
+                model_cfg=base_cfg,
+                timestamp_col=timestamp_col,
+            )
+            # run_time_series_cv returns a dict; extract best model and IC
+            model_h = result_h.get("best_model") or result_h.get("model")
+            global_metrics = result_h.get("global_metrics", {})
+            ic_h = float(
+                global_metrics.get("mean_ic")
+                or global_metrics.get("ic")
+                or result_h.get("mean_ic", 0.0)
+            )
+            horizon_models[h] = model_h
+            horizon_ic[h] = ic_h
+            logger.info("[MultiHorizon] Horizon=%dd: IC=%.4f", h, ic_h)
+        except Exception as exc:
+            logger.warning("[MultiHorizon] Horizon=%dd fehlgeschlagen: %s — übersprungen", h, exc)
+
+    if not horizon_models:
+        raise ValueError("Kein Horizont-Modell erfolgreich trainiert.")
+
+    if config.horizon_weights is not None:
+        raw_w: dict[int, float] = dict(zip(config.horizons, config.horizon_weights))
+    else:
+        raw_w = {
+            h: max(0.0, horizon_ic.get(h, 0.0) - config.min_ic_for_weight)
+            for h in horizon_models
+        }
+
+    total_w = sum(raw_w.values())
+    if total_w < 1e-9:
+        weights: dict[int, float] = {h: 1.0 / len(horizon_models) for h in horizon_models}
+        logger.warning("[MultiHorizon] Alle IC-Gewichte ≤ 0 — Gleichgewichtung")
+    else:
+        weights = {h: w / total_w for h, w in raw_w.items() if h in horizon_models}
+
+    result = MultiHorizonResult(
+        horizon_models=horizon_models,
+        horizon_ic=horizon_ic,
+        weights=weights,
+        feature_cols=feature_cols,
+    )
+    logger.info("[MultiHorizon] Ensemble: %s", result.summary())
+    return result

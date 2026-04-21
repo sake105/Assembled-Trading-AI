@@ -115,6 +115,37 @@ class MetaModel:
 
         return confidence_scores
 
+    def predict_proba_with_meta(
+        self,
+        X: pd.DataFrame,
+        meta_labeler: object | None = None,
+    ) -> pd.Series:
+        """Konfidenz-Scores mit optionalem Meta-Labeling.
+
+        Wenn meta_labeler=None → identisch zu predict_proba (keine Änderung).
+        Wenn meta_labeler gesetzt → output = primary_score × meta_confidence.
+        Bestehende Aufrufer von predict_proba() bleiben unverändert.
+        """
+        primary_scores = self.predict_proba(X)
+
+        if meta_labeler is None:
+            return primary_scores
+
+        try:
+            meta_conf = meta_labeler.predict_confidence(X)  # type: ignore[union-attr]
+            scaled = primary_scores * meta_conf
+            logger.debug(
+                "[MetaModel] Meta-Scaling: mean_primary=%.3f → mean_scaled=%.3f",
+                float(primary_scores.mean()),
+                float(scaled.mean()),
+            )
+            return scaled
+        except Exception as exc:
+            logger.warning(
+                "[MetaModel] Meta-Labeling fehlgeschlagen: %s — Primary-Scores unverändert", exc
+            )
+            return primary_scores
+
 
 def train_meta_model(
     df: pd.DataFrame,

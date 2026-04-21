@@ -90,6 +90,15 @@ class FeedbackLoopConfig:
     model_age_confidence_threshold: float = 0.5
     """Model confidence below which signal 5 (age) fires. 2^(-age/30)."""
 
+    shap_drift_enabled: bool = True
+    """Signal 6: SHAP feature importance drift (monatlich, idempotent)."""
+
+    shap_news_feature_prefix: str = "news_"
+    """Features mit diesem Prefix werden als News-Freshness separat geloggt."""
+
+    shap_drift_threshold: float = 0.5
+    """50% relative Änderung in mean_abs_SHAP → drift erkannt."""
+
 
 @dataclass
 class FeedbackResult:
@@ -142,6 +151,12 @@ class FeedbackResult:
 
     blocked_reason: str = ""
     """If retraining was blocked, the reason (cooldown / max_retrain_reached)."""
+
+    shap_drift_detected: bool = False
+    """True wenn SHAP-Importance-Drift (Signal 6) aktiv ist."""
+
+    shap_drifted_features: list[str] = field(default_factory=list)
+    """Features mit detektiertem SHAP-Drift."""
 
 
 # ---------------------------------------------------------------------------
@@ -272,9 +287,39 @@ class FeedbackLoopController:
                 2 ** (-model_age_days / 30.0),
             )
 
+        # ADWIN Drift aus persistiertem EWRLS-State (Bonus-Signal)
+        try:
+            _ewrls_state = self._load_state().get("ewrls_model", {})
+            if _ewrls_state.get("adwin_drift_detected", False):
+                active_signals.append("adwin_drift")
+                logger.info("%s [SIGNAL-ADWIN] Konzeptdrift (River ADWIN) AKTIV", _PREFIX)
+        except Exception:
+            pass
+
+        # Signal 6: SHAP Feature Importance Drift (optional, monthly, idempotent)
+        sig6 = False
+        shap_drifted: list[str] = []
+        if (
+            self.config.shap_drift_enabled
+            and not panel_df.empty
+            and current_model_path.exists()
+        ):
+            sig6, shap_drifted = self._check_shap_drift(
+                current_model_path, panel_df, skipped_signals
+            )
+            if sig6:
+                active_signals.append("shap_drift")
+                logger.info(
+                    "%s [SIGNAL-6] SHAP-Drift AKTIV — betroffene Features: %s",
+                    _PREFIX,
+                    shap_drifted[:5],
+                )
+            else:
+                logger.debug("%s [SIGNAL-6] SHAP-Drift: OK", _PREFIX)
+
         n_active = len(active_signals)
         logger.info(
-            "%s Active signals: %d/5 — %s",
+            "%s Active signals: %d — %s",
             _PREFIX,
             n_active,
             ", ".join(active_signals) if active_signals else "none",
@@ -339,6 +384,8 @@ class FeedbackLoopController:
             report_path=report_path,
             skipped_signals=skipped_signals,
             blocked_reason=blocked_reason,
+            shap_drift_detected=sig6,
+            shap_drifted_features=shap_drifted,
         )
 
         self._write_report(result)
@@ -459,7 +506,144 @@ class FeedbackLoopController:
             train_result["deploy_recommendation"] = False
 
         self._record_retrain_attempt(success=True)
+        self._write_shadow_model_report(train_result, current_model_path)
         return deployed, train_result
+
+    def _write_shadow_model_report(
+        self,
+        train_result: dict,
+        current_model_path: Path,
+    ) -> None:
+        """Shadow Model Report für menschliche Review schreiben.
+
+        Erstellt state_dir/shadow_model_report.json.
+        Alten Report archivieren mit Timestamp-Suffix.
+        auto_deploy ist IMMER False in diesem Report.
+        """
+        report_base = self.state_dir / "shadow_model_report.json"
+        if report_base.exists():
+            try:
+                import time
+                old_ts = int(report_base.stat().st_mtime)
+                from datetime import datetime as _dt
+                old_date = _dt.fromtimestamp(old_ts).strftime("%Y%m%d_%H%M%S")
+                report_base.rename(self.state_dir / f"shadow_model_report_{old_date}.json")
+            except Exception:
+                pass
+
+        new_auc = train_result.get("new_auc")
+        cur_auc = train_result.get("current_auc")
+        auc_delta: float | None = None
+        if new_auc is not None and cur_auc is not None:
+            try:
+                auc_delta = round(float(new_auc) - float(cur_auc), 4)
+            except Exception:
+                pass
+
+        report = {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "validation_passed": train_result.get("validation_passed", False),
+            "new_model_auc": new_auc,
+            "current_model_auc": cur_auc,
+            "auc_delta": auc_delta,
+            "deploy_recommendation": train_result.get("deploy_recommendation", False),
+            "cpcv_passed": train_result.get("cpcv_passed"),
+            "new_model_path": str(train_result.get("model_path", "")),
+            "current_model_path": str(current_model_path),
+            "auto_deploy": False,
+            "human_action_required": bool(train_result.get("validation_passed", False)),
+            "action_hint": (
+                "DEPLOY: Copy new_model_path → current_model_path after human review"
+                if train_result.get("deploy_recommendation")
+                else "NO ACTION: New model did not pass validation"
+            ),
+        }
+        try:
+            report_base.write_text(
+                json.dumps(report, indent=2, default=str), encoding="utf-8"
+            )
+            logger.info("%s Shadow-Model-Report geschrieben: %s", _PREFIX, report_base)
+        except Exception as exc:
+            logger.warning("%s Shadow-Model-Report fehlgeschlagen: %s", _PREFIX, exc)
+
+    # ------------------------------------------------------------------
+    # SHAP Drift Check (Signal 6)
+    # ------------------------------------------------------------------
+
+    def _check_shap_drift(
+        self,
+        current_model_path: "Path",
+        panel_df: "pd.DataFrame",
+        skipped: list,
+    ) -> "tuple[bool, list[str]]":
+        """Signal 6: SHAP Feature-Importance-Drift prüfen (monatlich, idempotent).
+
+        Lädt check_shap_drift_monthly() aus model_monitoring.
+        Modell wird gecacht via mtime (kein wiederholtes Laden am selben Tag).
+        News-Features mit stark gefallener Importance werden separat gewarnt.
+        """
+        try:
+            import joblib  # type: ignore
+            from src.assembled_core.ml.model_monitoring import check_shap_drift_monthly  # type: ignore
+
+            # Modell-Cache via mtime
+            model_mtime = current_model_path.stat().st_mtime
+            cache = getattr(self, "_shap_model_cache", {})
+            if cache.get("mtime") != model_mtime:
+                cache["model"] = joblib.load(current_model_path)
+                cache["mtime"] = model_mtime
+                self._shap_model_cache = cache
+            model = cache["model"]
+
+            # Nur numerische Feature-Spalten, keine Labels/Timestamps
+            feature_cols = [
+                c for c in panel_df.select_dtypes(include="number").columns
+                if c != "timestamp" and not c.startswith("fwd_return")
+            ]
+            if not feature_cols:
+                skipped.append("shap_drift")
+                return False, []
+
+            # PIT-Guard: kein Zukunftsdaten im Panel
+            if "timestamp" in panel_df.columns:
+                try:
+                    import pandas as _pd
+                    today = _pd.Timestamp.now().floor("D")
+                    ts_col = _pd.to_datetime(panel_df["timestamp"])
+                    panel_df = panel_df[ts_col <= today]
+                except Exception:
+                    pass
+
+            result = check_shap_drift_monthly(
+                model=model,
+                panel_df=panel_df,
+                feature_cols=feature_cols,
+                drift_threshold=self.config.shap_drift_threshold,
+            )
+
+            drifted = result.get("drifted_features", [])
+            alert = result.get("alert_level", "skipped")
+
+            # News-Feature-Freshness separat warnen
+            news_drifted = [
+                f for f in drifted
+                if f.startswith(self.config.shap_news_feature_prefix)
+            ]
+            if news_drifted:
+                logger.warning(
+                    "%s [SIGNAL-6] News-Feature-Wichtigkeit gefallen: %s"
+                    " — News-Engine oder Datenpfad prüfen",
+                    _PREFIX,
+                    news_drifted,
+                )
+
+            fired = alert in ("WARNING", "CRITICAL")
+            return fired, drifted
+
+        except Exception as exc:
+            logger.debug("%s [SIGNAL-6] SHAP-Drift Fehler (übersprungen): %s", _PREFIX, exc)
+            skipped.append("shap_drift")
+            return False, []
 
     # ------------------------------------------------------------------
     # CPCV Overfitting Gate (M16)
@@ -975,17 +1159,28 @@ class FeedbackLoopController:
             return
 
         # Build feature/target pairs from records.
-        # Each record may contain: score (float), direction (+1/-1), pnl (float).
-        # We use [score] as x and direction as y (simple 1-feature linear model).
-        xs: list[float] = []
+        # Multi-Feature: nutze 'features'-Dict wenn vorhanden, sonst Fallback auf [score].
+        xs: list = []   # list[list[float]]
         ys: list[float] = []
         for rec in records[-max_updates:]:
             try:
+                features = rec.get("features")
                 score = rec.get("score")
                 direction = rec.get("direction") or rec.get("label")
-                if score is None or direction is None:
+                if direction is None:
                     continue
-                xs.append(float(score))
+                if features is not None and score is not None:
+                    if isinstance(features, dict):
+                        feat_vec = [float(v) for v in features.values()]
+                    elif isinstance(features, (list, tuple)):
+                        feat_vec = [float(v) for v in features]
+                    else:
+                        feat_vec = [float(score)]
+                    xs.append(feat_vec)
+                elif score is not None:
+                    xs.append([float(score)])
+                else:
+                    continue
                 ys.append(float(direction))
             except Exception:
                 continue
@@ -1002,8 +1197,18 @@ class FeedbackLoopController:
         state = self._load_state()
         ks_model_state = state.get("ewrls_model", {})
         try:
+            # n_features aus Daten ableiten (selbst-konfigurierend)
+            n_features = len(xs[0]) if xs and isinstance(xs[0], list) else 1
+            # Dimension-Mismatch-Guard: gespeicherter State hat andere Dimension
+            stored_beta = ks_model_state.get("beta")
+            if stored_beta is not None and len(stored_beta) != n_features:
+                logger.info(
+                    "%s [EWRLS] Feature-Dimension geändert (%d→%d) — State verworfen",
+                    _PREFIX, len(stored_beta), n_features,
+                )
+                ks_model_state = {}
             model = EWRLSModel(
-                n_features=1,
+                n_features=n_features,
                 forgetting_factor=forgetting_factor,
             )
             # Restore beta/P if previously persisted
@@ -1016,24 +1221,49 @@ class FeedbackLoopController:
             logger.debug("%s [EWRLS] model init failed: %s", _PREFIX, exc)
             return
 
-        # Compute IC before update (baseline)
+        # Compute IC before update (baseline; 1-feature IC für score-vs-direction)
         try:
-            ic_before = float(np.corrcoef(xs, ys)[0, 1]) if len(xs) >= 2 else 0.0
+            xs_scores = [v[0] if isinstance(v, list) else v for v in xs]
+            ic_before = float(np.corrcoef(xs_scores, ys)[0, 1]) if len(xs_scores) >= 2 else 0.0
         except Exception:
             ic_before = 0.0
 
-        # Run incremental updates
+        # Run incremental updates (Multi-Feature Support)
+        adwin_drift = False
         try:
-            X = np.array(xs, dtype=float).reshape(-1, 1)
+            X = np.array(xs, dtype=float)
+            if X.ndim == 1:
+                X = X.reshape(-1, 1)
             Y = np.array(ys, dtype=float)
-            model.batch_update(X.reshape(len(xs), 1)[:, 0], Y)
+            errors = model.batch_update(X, Y)
         except Exception as exc:
             logger.warning("%s [EWRLS] batch_update failed: %s", _PREFIX, exc)
             return
 
+        # ADWIN Drift-Erkennung auf Fehler-Stream
+        try:
+            from src.assembled_core.ml.online_learning import ADWINDriftDetector
+            adwin_cfg_enabled = ol_cfg.get("adwin_enabled", True)
+            if adwin_cfg_enabled:
+                adwin = ADWINDriftDetector(
+                    delta=float(ol_cfg.get("river_adwin_delta", 0.002))
+                )
+                for err in errors:
+                    if adwin.update(abs(float(err))):
+                        adwin_drift = True
+                        break
+                if adwin_drift:
+                    logger.warning(
+                        "%s [EWRLS][ADWIN] Konzeptdrift erkannt — Retrain empfohlen",
+                        _PREFIX,
+                    )
+        except Exception as adwin_exc:
+            logger.debug("%s [EWRLS] ADWIN Fehler (ignoriert): %s", _PREFIX, adwin_exc)
+
         # Performance guard: check IC after update
         try:
-            ic_after = float(np.corrcoef(xs[-20:], ys[-20:])[0, 1]) if len(xs) >= 2 else 0.0
+            xs_scores_tail = [v[0] if isinstance(v, list) else v for v in xs[-20:]]
+            ic_after = float(np.corrcoef(xs_scores_tail, ys[-20:])[0, 1]) if len(xs_scores_tail) >= 2 else 0.0
             ic_delta = ic_after - ic_before
             if ic_delta < performance_guard:
                 logger.warning(
@@ -1053,8 +1283,10 @@ class FeedbackLoopController:
                 "beta": model.beta.tolist(),
                 "P": model.P.tolist(),
                 "n_updates": model.n_updates,
+                "n_features": n_features,
                 "last_update": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
                 "forgetting_factor": forgetting_factor,
+                "adwin_drift_detected": adwin_drift,
             }
             self._save_state(state)
             logger.info(
