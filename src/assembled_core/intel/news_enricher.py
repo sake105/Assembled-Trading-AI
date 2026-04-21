@@ -94,6 +94,9 @@ class NewsEventEnricher:
         # Step 3.5: Cross-source corroboration
         events = self._run_corroboration(events)
 
+        # Step 3.6: Source vote consensus check (warn when sources disagree on direction)
+        events = self._run_source_vote(events)
+
         # Step 4: Velocity update
         if self._velocity_tracker is not None:
             try:
@@ -214,8 +217,55 @@ class NewsEventEnricher:
                 s = self._corroboration.corroboration_score(evt)
                 evt.corroboration_score = float(s.score)
                 evt.corroboration_n_sources = int(s.n_sources)
+                # Boost confidence for well-corroborated stories (complement to fatigue discount)
+                if s.score > 0.5 and hasattr(evt, "news_confidence"):
+                    boost = 1.0 + 0.2 * s.score  # up to +20% at score=1.0
+                    evt.news_confidence = round(min(1.0, evt.news_confidence * boost), 4)
             except Exception as exc:
                 logger.debug("[SKIP] Corroboration score %s: %s", getattr(evt, "event_id", "?"), exc)
+        return events
+
+    def _run_source_vote(self, events: list) -> list:
+        """Group events by story fingerprint and check for source direction divergence.
+
+        When the weighted source vote disagrees with an event's market_direction,
+        apply a confidence discount proportional to the vote margin difference.
+        Low-margin votes (contested stories) get a stronger discount.
+        """
+        try:
+            from src.assembled_core.intel.news_source_voting import vote_direction
+            from src.assembled_core.intel.news_dedupe import content_fingerprint
+        except ImportError:
+            return events
+
+        # Group events by source-agnostic story fingerprint
+        groups: dict[str, list] = {}
+        for evt in events:
+            title = getattr(evt, "title", "") or ""
+            fp = content_fingerprint(title, "")
+            groups.setdefault(fp, []).append(evt)
+
+        for fp, group in groups.items():
+            if len(group) < 2:
+                continue
+            try:
+                vote = vote_direction(group)
+                for evt in group:
+                    evt_dir = getattr(evt, "market_direction", "neutral") or "neutral"
+                    if evt_dir == "neutral" or vote.winner == "neutral":
+                        continue
+                    if vote.winner != evt_dir and vote.total_weight > 0:
+                        # Source vote disagrees — discount confidence by margin
+                        discount = max(0.5, 1.0 - vote.margin * 0.3)
+                        if hasattr(evt, "news_confidence"):
+                            evt.news_confidence = round(evt.news_confidence * discount, 4)
+                        logger.debug(
+                            "[OK] SourceVote divergence: event=%s dir=%s vote=%s margin=%.2f",
+                            getattr(evt, "event_id", "?"), evt_dir, vote.winner, vote.margin,
+                        )
+            except Exception as exc:
+                logger.debug("[SKIP] SourceVote group %s: %s", fp, exc)
+
         return events
 
     def _run_decay(self, events: list, now: datetime) -> list:
