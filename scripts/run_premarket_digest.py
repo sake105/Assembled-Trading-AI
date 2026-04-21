@@ -56,12 +56,15 @@ def generate_premarket_digest(
         active_clusters, feed_health.
     """
     now = datetime.now(tz=timezone.utc)
-    cutoff = now - timedelta(hours=lookback_hours)
+    cutoff = now - timedelta(hours=lookback_hours)  # noqa: F841 — kept for future time filters
 
     triggers = _load_json(intel_dir / "triggers_latest.json")
     crisis_state = _load_json(intel_dir / "crisis_state.json")
     dep_signal = _load_json(intel_dir / "dependency_signal.json")
     feed_health = _load_json(intel_dir / "feed_health.json")
+    intel_signal = _load_json(intel_dir / "intel_signal.json")
+    intel_alerts = _load_json(intel_dir / "intel_alerts.json")
+    intel_sentiment = _load_json(intel_dir / "intel_sentiment.json")
 
     # --- Top risks from triggers ---
     trigger_list: list[dict] = triggers.get("triggers", [])
@@ -101,6 +104,24 @@ def generate_premarket_digest(
         "silent_count": len(silent_feeds),
     }
 
+    # --- Intel signal summary ---
+    intel_direction = intel_signal.get("net_direction", "neutral")
+    intel_risk = intel_signal.get("risk_level", "LOW")
+    intel_conf = float(intel_signal.get("aggregate_confidence", 0.0))
+    sector_overlay = intel_signal.get("sector_overlay", {})
+    macro_info = intel_signal.get("macro", {})
+    ticker_surges = intel_signal.get("ticker_surges", [])
+
+    # --- Alerts ---
+    recent_alerts = intel_alerts.get("alerts", [])
+
+    # --- Sentiment drift: deteriorating names ---
+    deteriorating = [
+        e for e in intel_sentiment.get("entries", [])
+        if e.get("drift_direction") == "deteriorating"
+    ]
+    deteriorating.sort(key=lambda e: e.get("slope", 0.0))  # most negative slope first
+
     # --- Build digest ---
     summary_lines = []
     if crisis_mode in ("CRISIS", "ACTIVE"):
@@ -110,11 +131,25 @@ def generate_premarket_digest(
     else:
         summary_lines.append(f"NORMAL: geo_score={geo_score}, {len(top_risks)} signals above threshold")
 
+    if intel_risk in ("HIGH", "CRITICAL"):
+        summary_lines.append(f"INTEL: {intel_direction.upper()} risk={intel_risk} conf={intel_conf:.2f}")
+
+    if macro_info.get("blackout_active"):
+        kinds = macro_info.get("blackout_kinds", [])
+        summary_lines.append(f"MACRO BLACKOUT: {', '.join(kinds)} — reduce position sizing")
+
+    if ticker_surges:
+        names = [t["ticker"] for t in ticker_surges[:3]]
+        summary_lines.append(f"TICKER SURGE: {', '.join(names)}")
+
+    if recent_alerts:
+        summary_lines.append(f"ALERTS: {len(recent_alerts)} active (top: {recent_alerts[0]['kind']})")
+
     if silent_feeds:
         summary_lines.append(f"WARNING: {len(silent_feeds)} feeds silent >2h: {', '.join(silent_feeds[:3])}")
 
     digest = {
-        "schema_version": "premarket.digest.v1",
+        "schema_version": "premarket.digest.v2",
         "generated_utc": now.isoformat(),
         "lookback_hours": lookback_hours,
         "min_confidence": min_confidence,
@@ -122,8 +157,18 @@ def generate_premarket_digest(
         "crisis_mode": crisis_mode,
         "geo_score": geo_score,
         "risk_posture": risk_posture,
+        "intel": {
+            "direction": intel_direction,
+            "risk_level": intel_risk,
+            "confidence": intel_conf,
+        },
         "top_risks": top_risks[:10],
         "sector_exposure": sector_exposure,
+        "sector_overlay": sector_overlay,
+        "macro": macro_info,
+        "ticker_surges": ticker_surges,
+        "alerts": recent_alerts,
+        "sentiment_deteriorating": deteriorating[:10],
         "feed_health": feed_summary,
         "active_trigger_count": len(trigger_list),
         "high_confidence_count": len(top_risks),

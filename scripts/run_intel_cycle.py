@@ -264,6 +264,15 @@ def run_single_cycle(config: dict) -> dict:
         except Exception as exc:
             logger.debug("[SKIP] SemanticDedup init: %s", exc)
 
+    entity_graph = config.setdefault("_entity_graph", None)
+    if entity_graph is None:
+        try:
+            from src.assembled_core.intel.news_entity_graph import EntityCoGraph
+            entity_graph = EntityCoGraph(retention_hours=48.0)
+            config["_entity_graph"] = entity_graph
+        except Exception as exc:
+            logger.debug("[SKIP] EntityCoGraph init: %s", exc)
+
     # Step 1: Fetch — parallel GDELT + RSS if enabled
     rss_fetcher = config.get("rss_fetcher")
     rss_enabled = config.get("rss_enabled", False)
@@ -345,9 +354,10 @@ def run_single_cycle(config: dict) -> dict:
                     vel.velocity, vel.surge_sectors, vel.short_count,
                 )
 
-    # Step 2.6: Alert evaluation + sentiment drift tracking + ticker velocity
+    # Step 2.6: Alert evaluation + sentiment drift + ticker velocity + contradiction + entity graph
     cycle_alerts: list = []
     ticker_surges: list[dict] = []
+    contradiction_count: int = 0
     if new_events:
         if alert_engine is not None:
             try:
@@ -374,6 +384,27 @@ def run_single_cycle(config: dict) -> dict:
                     logger.info("[OK] TickerVelocity: surging=%s", [t["ticker"] for t in ticker_surges[:5]])
             except Exception as exc:
                 logger.debug("[SKIP] TickerVelocityTracker.update: %s", exc)
+
+        # Contradiction detection (stateless per cycle)
+        try:
+            from src.assembled_core.intel.news_contradiction import ContradictionDetector
+            _contra_report = ContradictionDetector().analyse(new_events)
+            _contra_hits = [v for v in _contra_report.values() if v.contradicts]
+            contradiction_count = len(_contra_hits)
+            if _contra_hits:
+                logger.warning(
+                    "[WARN] Contradictions: %d story conflicts detected", contradiction_count
+                )
+        except Exception as exc:
+            logger.debug("[SKIP] ContradictionDetector: %s", exc)
+
+        # Entity graph: accumulate co-occurrences
+        if entity_graph is not None:
+            try:
+                entity_graph.ingest(new_events, now=now)
+                entity_graph.prune(now=now)
+            except Exception as exc:
+                logger.debug("[SKIP] EntityCoGraph.ingest: %s", exc)
 
     # Record health stats per source
     if new_events:
@@ -555,7 +586,18 @@ def run_single_cycle(config: dict) -> dict:
             "max_severity": intel_signal.max_severity,
             "macro": macro_meta,
             "ticker_surges": ticker_surges,
+            "contradiction_count": contradiction_count,
         }
+        # Entity graph top entities
+        if entity_graph is not None:
+            try:
+                top_ents = entity_graph.top_entities(n=10)
+                intel_artifact["top_entities"] = [
+                    {"entity": e.entity, "degree": e.degree, "strength": e.strength}
+                    for e in top_ents
+                ]
+            except Exception as exc:
+                logger.debug("[SKIP] entity_graph.top_entities: %s", exc)
         _write_artifact(output_dir / "intel_signal.json", intel_artifact, dry_run)
 
     # intel_alerts.json — per-cycle alert log
