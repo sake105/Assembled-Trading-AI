@@ -115,7 +115,9 @@ def _fetch_pct_change(
         closes = data["Close"].dropna()
         if len(closes) < 2:
             return None
-        pct = float((closes.iloc[-1] - closes.iloc[0]) / closes.iloc[0] * 100)
+        _last = float(closes.iloc[-1].iloc[0]) if hasattr(closes.iloc[-1], "iloc") else float(closes.iloc[-1])
+        _first = float(closes.iloc[0].iloc[0]) if hasattr(closes.iloc[0], "iloc") else float(closes.iloc[0])
+        pct = (_last - _first) / _first * 100
         cache[cache_key] = pct
         return pct
     except Exception as exc:
@@ -141,8 +143,10 @@ def _fetch_vix(
         closes = data["Close"].dropna()
         if len(closes) < 2:
             return None
-        level = float(closes.iloc[-1])
-        change_1d = float((closes.iloc[-1] - closes.iloc[-2]) / closes.iloc[-2] * 100)
+        _v_last = float(closes.iloc[-1].iloc[0]) if hasattr(closes.iloc[-1], "iloc") else float(closes.iloc[-1])
+        _v_prev = float(closes.iloc[-2].iloc[0]) if hasattr(closes.iloc[-2], "iloc") else float(closes.iloc[-2])
+        level = _v_last
+        change_1d = (_v_last - _v_prev) / _v_prev * 100
         result = (level, change_1d)
         cache[cache_key] = result
         return result

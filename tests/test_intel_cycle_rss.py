@@ -111,3 +111,95 @@ class TestIntelCycleRSSWiring:
         config["dedupe"].add(event)
         result = run_single_cycle(config)
         assert result["new_events"] == 0  # duplicate filtered
+
+    def test_sector_overlay_lazy_init(self):
+        """SectorNewsOverlay is lazy-init'd into config on first cycle run."""
+        from scripts.run_intel_cycle import run_single_cycle
+
+        config = self._build_config([])
+        run_single_cycle(config)
+        assert "_sector_overlay" in config
+        assert config["_sector_overlay"] is not None
+
+    def test_alert_engine_lazy_init(self):
+        """AlertEngine is lazy-init'd into config on first cycle run."""
+        from scripts.run_intel_cycle import run_single_cycle
+
+        config = self._build_config([])
+        run_single_cycle(config)
+        assert "_alert_engine" in config
+        assert config["_alert_engine"] is not None
+
+    def test_macro_calendar_lazy_init(self):
+        """MacroCalendar is lazy-init'd into config on first cycle run."""
+        from scripts.run_intel_cycle import run_single_cycle
+
+        config = self._build_config([])
+        run_single_cycle(config)
+        assert "_macro_cal" in config
+        assert config["_macro_cal"] is not None
+
+    def test_sentiment_tracker_lazy_init(self):
+        """SentimentDriftTracker is lazy-init'd into config on first cycle run."""
+        from scripts.run_intel_cycle import run_single_cycle
+
+        config = self._build_config([])
+        run_single_cycle(config)
+        assert "_sentiment_tracker" in config
+        assert config["_sentiment_tracker"] is not None
+
+    def test_ticker_velocity_lazy_init(self):
+        """TickerVelocityTracker is lazy-init'd into config on first cycle run."""
+        from scripts.run_intel_cycle import run_single_cycle
+
+        config = self._build_config([])
+        run_single_cycle(config)
+        assert "_ticker_velocity" in config
+        assert config["_ticker_velocity"] is not None
+
+    def test_semantic_dedup_lazy_init(self):
+        """SemanticDedup is lazy-init'd into config on first cycle run."""
+        from scripts.run_intel_cycle import run_single_cycle
+
+        config = self._build_config([])
+        run_single_cycle(config)
+        assert "_semantic_dedup" in config
+        assert config["_semantic_dedup"] is not None
+
+    def test_intel_signal_contains_sector_overlay_key(self):
+        """intel_signal.json artifact written with sector_overlay key."""
+        from scripts.run_intel_cycle import run_single_cycle
+        import json
+        from pathlib import Path
+        import tempfile
+
+        tmp = Path(tempfile.mkdtemp())
+        config = self._build_config(
+            [_make_news_event("War escalation in Ukraine", n=0)], dry_run=False
+        )
+        config["output_dir"] = tmp
+        config["state_dir"] = tmp
+        run_single_cycle(config)
+        artifact_path = tmp / "intel_signal.json"
+        assert artifact_path.exists(), "intel_signal.json not written"
+        data = json.loads(artifact_path.read_text())
+        assert "sector_overlay" in data
+        assert "macro" in data
+        assert "ticker_surges" in data
+
+    def test_semantic_dedup_catches_near_duplicates(self):
+        """SemanticDedup removes near-identical events that hash-dedup misses."""
+        from scripts.run_intel_cycle import run_single_cycle
+        from src.assembled_core.intel.news_semantic_dedup import SemanticDedup
+
+        # Two events with slightly different titles but same core story
+        e1 = _make_news_event("Russia escalates sanctions pressure on Ukraine", n=10)
+        e2 = _make_news_event("Russia escalates sanctions pressure on Ukraine today", n=11)
+        config = self._build_config([e1, e2])
+        # Pre-seed semantic dedup with e1
+        sem = SemanticDedup(enabled=False, retention_hours=1.0)
+        sem.is_duplicate(e1)  # records e1
+        config["_semantic_dedup"] = sem
+        result = run_single_cycle(config)
+        # e2 is a near-duplicate of e1 and should be filtered
+        assert result["new_events"] <= 1

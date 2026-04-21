@@ -203,6 +203,67 @@ def run_single_cycle(config: dict) -> dict:
         except Exception as exc:
             logger.debug("[SKIP] NewsEventEnricher init: %s", exc)
 
+    # Lazy-init: SectorNewsOverlay, AlertEngine, MacroCalendar, SentimentDriftTracker
+    sector_overlay = config.setdefault("_sector_overlay", None)
+    if sector_overlay is None:
+        try:
+            from src.assembled_core.intel.sector_news_overlay import SectorNewsOverlay
+            sector_overlay = SectorNewsOverlay(decay_hours=12.0)
+            config["_sector_overlay"] = sector_overlay
+        except Exception as exc:
+            logger.debug("[SKIP] SectorNewsOverlay init: %s", exc)
+
+    alert_engine = config.setdefault("_alert_engine", None)
+    if alert_engine is None:
+        try:
+            from src.assembled_core.intel.news_alerts import AlertEngine
+            alert_engine = AlertEngine(min_severity=8.0, include_default_log_handler=False)
+            config["_alert_engine"] = alert_engine
+        except Exception as exc:
+            logger.debug("[SKIP] AlertEngine init: %s", exc)
+
+    macro_cal = config.setdefault("_macro_cal", None)
+    if macro_cal is None:
+        try:
+            from src.assembled_core.intel.news_macro_calendar import MacroCalendar
+            macro_cal = MacroCalendar()
+            _cal_path = _REPO_ROOT / "configs" / "macro_calendar.json"
+            if _cal_path.exists():
+                n = macro_cal.load_json(_cal_path)
+                logger.debug("[OK] MacroCalendar: loaded %d events from %s", n, _cal_path)
+            config["_macro_cal"] = macro_cal
+        except Exception as exc:
+            logger.debug("[SKIP] MacroCalendar init: %s", exc)
+
+    sentiment_tracker = config.setdefault("_sentiment_tracker", None)
+    if sentiment_tracker is None:
+        try:
+            from src.assembled_core.intel.news_sentiment_drift import SentimentDriftTracker
+            sentiment_tracker = SentimentDriftTracker(window_min=60, min_events=3)
+            config["_sentiment_tracker"] = sentiment_tracker
+        except Exception as exc:
+            logger.debug("[SKIP] SentimentDriftTracker init: %s", exc)
+
+    ticker_velocity = config.setdefault("_ticker_velocity", None)
+    if ticker_velocity is None:
+        try:
+            from src.assembled_core.intel.news_ticker_velocity import TickerVelocityTracker
+            ticker_velocity = TickerVelocityTracker(
+                short_window_min=15, long_window_min=60, surge_threshold=3.0
+            )
+            config["_ticker_velocity"] = ticker_velocity
+        except Exception as exc:
+            logger.debug("[SKIP] TickerVelocityTracker init: %s", exc)
+
+    semantic_dedup = config.setdefault("_semantic_dedup", None)
+    if semantic_dedup is None:
+        try:
+            from src.assembled_core.intel.news_semantic_dedup import SemanticDedup
+            semantic_dedup = SemanticDedup(enabled=False, retention_hours=6.0)
+            config["_semantic_dedup"] = semantic_dedup
+        except Exception as exc:
+            logger.debug("[SKIP] SemanticDedup init: %s", exc)
+
     # Step 1: Fetch — parallel GDELT + RSS if enabled
     rss_fetcher = config.get("rss_fetcher")
     rss_enabled = config.get("rss_enabled", False)
@@ -229,6 +290,20 @@ def run_single_cycle(config: dict) -> dict:
     # Step 2: Deduplicate
     new_events = dedupe.filter_new(events)
     new_count = len(new_events)
+
+    # Step 2.1: Semantic second-pass dedup (lexical Jaccard by default)
+    if new_events and semantic_dedup is not None:
+        semantic_filtered = []
+        semantic_dropped = 0
+        for evt in new_events:
+            if semantic_dedup.is_duplicate(evt):
+                semantic_dropped += 1
+            else:
+                semantic_filtered.append(evt)
+        if semantic_dropped:
+            logger.info("[OK] SemanticDedup: dropped %d near-duplicate events", semantic_dropped)
+        new_events = semantic_filtered
+        new_count = len(new_events)
 
     if not dry_run:
         dedupe.save()
@@ -269,6 +344,36 @@ def run_single_cycle(config: dict) -> dict:
                     "[WARN] News velocity surge: %.1fx — sectors=%s count=%d",
                     vel.velocity, vel.surge_sectors, vel.short_count,
                 )
+
+    # Step 2.6: Alert evaluation + sentiment drift tracking + ticker velocity
+    cycle_alerts: list = []
+    ticker_surges: list[dict] = []
+    if new_events:
+        if alert_engine is not None:
+            try:
+                cycle_alerts = alert_engine.evaluate(new_events)
+                if cycle_alerts:
+                    logger.info("[OK] AlertEngine: %d alert(s) emitted", len(cycle_alerts))
+            except Exception as exc:
+                logger.warning("[WARN] AlertEngine.evaluate: %s", exc)
+
+        if sentiment_tracker is not None:
+            try:
+                sentiment_tracker.update(new_events, now=now)
+            except Exception as exc:
+                logger.debug("[SKIP] SentimentDriftTracker.update: %s", exc)
+
+        if ticker_velocity is not None:
+            try:
+                _ticker_signals = ticker_velocity.update(new_events, now=now)
+                ticker_surges = [
+                    {"ticker": s.ticker, "velocity": s.velocity, "short_count": s.short_count}
+                    for s in _ticker_signals if s.is_surge
+                ]
+                if ticker_surges:
+                    logger.info("[OK] TickerVelocity: surging=%s", [t["ticker"] for t in ticker_surges[:5]])
+            except Exception as exc:
+                logger.debug("[SKIP] TickerVelocityTracker.update: %s", exc)
 
     # Record health stats per source
     if new_events:
@@ -348,6 +453,42 @@ def run_single_cycle(config: dict) -> dict:
         _score_to_label(geo_score),
     )
 
+    # Step 5.6: Sector overlay + macro calendar metadata
+    sector_overlay_scores: dict = {}
+    if sector_overlay is not None:
+        try:
+            sector_overlay_scores = sector_overlay.compute(
+                clusters=active_clusters,
+                event_store=event_store,
+                now=now,
+                store_lookback_hours=24.0,
+            )
+            if sector_overlay_scores:
+                logger.info(
+                    "[OK] SectorOverlay: %d sectors — top=%s",
+                    len(sector_overlay_scores),
+                    sorted(sector_overlay_scores, key=lambda k: -abs(sector_overlay_scores[k]))[:3],
+                )
+        except Exception as exc:
+            logger.warning("[WARN] SectorNewsOverlay.compute: %s", exc)
+
+    macro_meta: dict = {}
+    if macro_cal is not None:
+        try:
+            upcoming = macro_cal.upcoming(now=now, horizon_hours=24.0)
+            blackout_kinds = [k for k in ["fomc", "cpi", "nfp", "ecb"] if macro_cal.is_blackout(k, now=now)]
+            macro_meta = {
+                "upcoming_24h": [
+                    {"event_id": e.event_id, "kind": e.kind,
+                     "ts": e.ts.isoformat(), "importance": e.importance}
+                    for e in upcoming
+                ],
+                "blackout_active": bool(blackout_kinds),
+                "blackout_kinds": blackout_kinds,
+            }
+        except Exception as exc:
+            logger.debug("[SKIP] MacroCalendar query: %s", exc)
+
     # Step 6: Shock propagation (only if geo_score >= 1 and we have triggers)
     dep_signal = None
     if geo_score >= 1 and geo_triggers:
@@ -407,12 +548,57 @@ def run_single_cycle(config: dict) -> dict:
             "risk_level": intel_signal.risk_level,
             "asset_basket": intel_signal.asset_basket,
             "sector_exposure": intel_signal.sector_exposure,
+            "sector_overlay": sector_overlay_scores,
             "top_event_types": intel_signal.top_event_types,
             "n_clusters": intel_signal.n_clusters,
             "n_signals": intel_signal.n_signals,
             "max_severity": intel_signal.max_severity,
+            "macro": macro_meta,
+            "ticker_surges": ticker_surges,
         }
         _write_artifact(output_dir / "intel_signal.json", intel_artifact, dry_run)
+
+    # intel_alerts.json — per-cycle alert log
+    if cycle_alerts:
+        alerts_artifact = {
+            "generated_utc": now.isoformat(),
+            "count": len(cycle_alerts),
+            "alerts": [
+                {
+                    "kind": a.kind,
+                    "event_id": a.event_id,
+                    "source_id": a.source_id,
+                    "severity": a.severity,
+                    "message": a.message,
+                    "timestamp": a.timestamp.isoformat(),
+                }
+                for a in cycle_alerts
+            ],
+        }
+        _write_artifact(output_dir / "intel_alerts.json", alerts_artifact, dry_run)
+
+    # intel_sentiment.json — per-ticker/sector drift report
+    if sentiment_tracker is not None:
+        try:
+            drift_report = sentiment_tracker.report(now=now)
+            if drift_report:
+                drift_artifact = {
+                    "generated_utc": now.isoformat(),
+                    "entries": [
+                        {
+                            "key": d.key,
+                            "n_events": d.n_events,
+                            "mean_sentiment": round(d.mean_sentiment, 4),
+                            "slope": round(d.slope, 6),
+                            "drift_direction": d.drift_direction,
+                            "latest_sentiment": round(d.latest_sentiment, 4),
+                        }
+                        for d in drift_report
+                    ],
+                }
+                _write_artifact(output_dir / "intel_sentiment.json", drift_artifact, dry_run)
+        except Exception as exc:
+            logger.debug("[SKIP] SentimentDriftTracker.report: %s", exc)
 
     health_artifact = health.snapshot(now=now)
     _write_artifact(output_dir / "intel_health.json", health_artifact, dry_run)
