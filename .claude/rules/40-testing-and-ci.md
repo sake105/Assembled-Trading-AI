@@ -88,8 +88,10 @@ und dürfen nicht vermischt werden:
   führt zu unterschiedlichem Verhalten bei gleichen Tests in unterschiedlichen Environments.
 - **Optionale Dependencies:** Pakete wie `scipy` oder `scikit-learn` sind nicht in allen Environments
   installiert — führt zu erwarteten Skips (`requires_scipy`, `requires_sklearn`), nicht zu Drift.
-- **Collection-Probleme:** ~19 bekannte Testdateien schlagen bei der Collection fehl wegen unfertiger
-  Stubs — kein Drift-Signal, keine Reparatur durch Versionsänderung möglich.
+- **Collection-Probleme:** Historisch gab es Phasen mit ungefähr 19 Testdateien, die bei der
+  Collection fehlschlugen (unfertige Stubs). Dieser Stand ist seit April 2026 aufgeräumt —
+  Stand 2026-04-22: 5417 Tests werden ohne Collection-Errors gesammelt. Der Zahlwert „19" gilt
+  daher als veraltet; bei aktuellem Verdacht immer frisch via `pytest --collect-only` prüfen.
 
 ### Aussagenpflicht bei Drift-Verdacht
 
