@@ -1808,6 +1808,53 @@ def _run_trading_cycle_inner(
         result.error_message = f"Error in load_prices: {e}"
         return result
 
+    # Step 1.8: Data versioning — hash prices_filtered for lineage + reproducibility
+    try:
+        from src.assembled_core.data.data_versioning import (
+            compute_data_hash,
+            create_lineage_record,
+        )
+        _price_hash = compute_data_hash(
+            result.prices_filtered,
+            columns=["symbol", "timestamp", "close"],
+        )
+        result.meta["data_lineage"] = create_lineage_record(
+            data_hash=_price_hash,
+            source=getattr(ctx, "data_source", "unknown"),
+            n_rows=len(result.prices_filtered),
+            n_symbols=int(result.prices_filtered["symbol"].nunique()) if "symbol" in result.prices_filtered.columns else 0,
+            date_range=(
+                f"{result.prices_filtered['timestamp'].min()} – {result.prices_filtered['timestamp'].max()}"
+                if "timestamp" in result.prices_filtered.columns and not result.prices_filtered.empty
+                else ""
+            ),
+        )
+        log.debug("[DATA_LINEAGE] hash=%s rows=%d", _price_hash[:12], len(result.prices_filtered))
+    except Exception as _dv_exc:
+        log.debug("[DATA_LINEAGE] data_versioning skipped: %s", _dv_exc)
+
+    # Step 1.9: Price quality check (data_quality)
+    try:
+        dq_cfg = policy.get("freshness_monitor") or {}
+        if dq_cfg.get("enabled", False) and not result.prices_filtered.empty:
+            from src.assembled_core.data.quality_checks import check_panel_quality
+            _qc_results = check_panel_quality(result.prices_filtered)
+            _qc_failed = [r for r in _qc_results if not r.passed]
+            result.meta["price_quality_check"] = {
+                "symbols_checked": len(_qc_results),
+                "symbols_failed": len(_qc_failed),
+                "failed_symbols": [r.symbol for r in _qc_failed[:10]],
+            }
+            if _qc_failed:
+                log.warning(
+                    "[DATA_QUALITY] %d/%d symbols failed price quality checks: %s",
+                    len(_qc_failed),
+                    len(_qc_results),
+                    [r.symbol for r in _qc_failed[:5]],
+                )
+    except Exception as _dq_exc:
+        log.debug("[DATA_QUALITY] price quality check skipped: %s", _dq_exc)
+
     # Step 2: Build features (hook point: build_features)
     try:
         if "build_features" in hooks:
@@ -2010,6 +2057,34 @@ def _run_trading_cycle_inner(
                     log.info("REGIME_HMM: detected regime='%s'", ctx.regime_state)
     except Exception as e:
         log.debug("HMM regime detection skipped: %s", e)
+
+    # Step 2.3: Stale-feature detection — flag features constant for N days (data-feed outage proxy)
+    try:
+        fm_cfg = policy.get("freshness_monitor") or {}
+        if fm_cfg.get("enabled", False) and not result.prices_with_features.empty:
+            from src.assembled_core.data.freshness_monitor import detect_stale_features
+            _feat_cols = [
+                c for c in result.prices_with_features.columns
+                if c not in {"timestamp", "symbol", "open", "high", "low", "close", "volume"}
+                and result.prices_with_features[c].dtype in ("float64", "float32")
+            ][:30]  # cap columns to keep it fast
+            if _feat_cols:
+                _stale = detect_stale_features(
+                    result.prices_with_features,
+                    _feat_cols,
+                    stale_days=int(fm_cfg.get("stale_feature_days", 5)),
+                )
+                result.meta["freshness_check"] = {
+                    "stale_count": len(_stale),
+                    "stale_items": _stale[:10],
+                }
+                if _stale:
+                    log.warning(
+                        "[FRESHNESS] %d stale feature/symbol pairs detected",
+                        len(_stale),
+                    )
+    except Exception as _fm_exc:
+        log.debug("[FRESHNESS] freshness_monitor skipped: %s", _fm_exc)
 
     # Step 3: Generate signals (hook point: generate_signals)
     try:
@@ -4289,6 +4364,31 @@ def _run_trading_cycle_inner(
                     )
     except Exception as _ac_exc:
         log.debug("[ANTI-CHURN] order filters skipped: %s", _ac_exc)
+
+    # Step 6.7: Fat-finger guard — hard notional + qty-multiple cap (pre-submission)
+    try:
+        ffg_cfg = policy.get("fat_finger_guard") or {}
+        if ffg_cfg.get("enabled", False) and not result.orders_filtered.empty:
+            from src.assembled_core.execution.fat_finger_guard import (
+                apply_fat_finger_guard_from_policy,
+            )
+            _ffg_orders, _ffg_reasons = apply_fat_finger_guard_from_policy(
+                result.orders_filtered, policy
+            )
+            n_rejected = len(result.orders_filtered) - len(_ffg_orders)
+            result.orders_filtered = _ffg_orders
+            result.meta["fat_finger_guard"] = {
+                "n_rejected": n_rejected,
+                "reasons": _ffg_reasons,
+            }
+            if n_rejected:
+                log.warning(
+                    "[FAT-FINGER] Rejected %d orders: %s",
+                    n_rejected,
+                    _ffg_reasons[:3],
+                )
+    except Exception as _ffg_exc:
+        log.debug("[FAT-FINGER] fat_finger_guard skipped: %s", _ffg_exc)
 
     # Step 7: Write outputs (hook point: write_outputs)
     try:

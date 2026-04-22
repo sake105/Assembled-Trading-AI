@@ -386,6 +386,21 @@ paper_trading:
   enable_fat_finger: true
 
 # ---------------------------------------------------------------------------
+# Fat-finger guard (pre-trade order size cap)
+# ---------------------------------------------------------------------------
+fat_finger_guard:
+  enabled: true
+  max_notional_usd: 500000.0      # reject any single order > $500k notional
+  max_qty_multiple: 5.0           # reject if qty > 5× symbol's recent max qty
+
+# ---------------------------------------------------------------------------
+# Data freshness / stale-feature monitoring
+# ---------------------------------------------------------------------------
+freshness_monitor:
+  enabled: true
+  stale_feature_days: 5           # flag features constant for > 5 days
+
+# ---------------------------------------------------------------------------
 # Phase 10: Monte Carlo robustness (bootstrap after each cycle / backtest)
 # ---------------------------------------------------------------------------
 monte_carlo:
