@@ -733,10 +733,9 @@ def compute_target_positions_with_smoothing(
     result = result.copy()
     result["target_weight"] = result[sym_col].map(smoothed).fillna(0.0).values
     if "target_qty" in result.columns:
-        # Re-scale qty proportional to new weight
-        total_w = result["target_weight"].abs().sum()
-        if total_w > 1e-9:
-            result["target_qty"] = result["target_weight"]
+        # Re-scale qty proportional to new weight, preserving capital scaling.
+        # Base function: target_qty = target_weight * total_capital (line 103).
+        result["target_qty"] = result["target_weight"] * total_capital
 
     return result
 

@@ -48,17 +48,22 @@ def compute_kelly_with_uncertainty(
     Returns:
         Position-Fraction in [0, max_fraction].
     """
+    if not np.isfinite(edge) or not np.isfinite(variance):
+        return 0.0
     if variance <= 1e-12:
         return 0.0
 
     kelly = edge / variance
 
     # Uncertainty scale: 1.0 = volle Sicherheit, 0.0 = maximale Unsicherheit
+    # Formel: scale = 1 - clip(cw / ref_cw, 0, 1) gemäß Docstring
     if conformal_half_width is None or reference_half_width is None or reference_half_width <= 1e-12:
         uncertainty_scale = 1.0
+    elif not np.isfinite(conformal_half_width):
+        uncertainty_scale = 0.0
     else:
-        relative_uncertainty = conformal_half_width / reference_half_width
-        uncertainty_scale = float(max(0.0, 1.0 - min(1.0, relative_uncertainty - 1.0 if relative_uncertainty > 1.0 else 0.0)))
+        relative_uncertainty = float(conformal_half_width) / float(reference_half_width)
+        uncertainty_scale = float(1.0 - min(1.0, max(0.0, relative_uncertainty)))
 
     final = kelly * uncertainty_scale * fractional_kelly
     final = float(np.clip(final, -max_fraction, max_fraction))

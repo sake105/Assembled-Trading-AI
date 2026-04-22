@@ -131,6 +131,31 @@ def test_turnover_wiring_position_sizing():
     assert "target_weight" in result.columns
 
 
+def test_smoothing_preserves_capital_scaling():
+    """Regression: target_qty muss total_capital-Skalierung behalten, auch nach Smoothing."""
+    from src.assembled_core.portfolio.position_sizing import compute_target_positions_with_smoothing
+
+    sig_df = pd.DataFrame({
+        "symbol": ["A", "B", "C"],
+        "score": [0.8, 0.5, 0.3],
+        "direction": ["LONG", "LONG", "LONG"],
+    })
+    previous = pd.Series({"A": 0.2, "B": 0.3, "C": 0.1})
+    total_capital = 100000.0
+    result = compute_target_positions_with_smoothing(
+        sig_df,
+        previous_positions=previous,
+        total_capital=total_capital,
+        smoothing_alpha=0.5,
+    )
+    # Nach Smoothing muss target_qty ≈ target_weight * total_capital sein.
+    assert not result.empty
+    assert "target_qty" in result.columns
+    expected = result["target_weight"] * total_capital
+    diff = (result["target_qty"] - expected).abs().max()
+    assert diff < 1e-6, f"target_qty lost capital scaling after smoothing (max diff {diff})"
+
+
 # ---------------------------------------------------------------------------
 # C: Online-HPO
 # ---------------------------------------------------------------------------
@@ -466,17 +491,66 @@ def test_kelly_uncertainty_discount():
     """Hohes Conformal-Intervall → niedriger Kelly."""
     from src.assembled_core.portfolio.kelly_uncertainty import compute_kelly_with_uncertainty
 
+    # cw << ref_cw (relative ≈ 0.1) → scale ≈ 0.9 → fast volle Position
     w_low_uncertainty = compute_kelly_with_uncertainty(
         edge=0.05, variance=0.04,
-        conformal_half_width=0.01, reference_half_width=0.01,
+        conformal_half_width=0.001, reference_half_width=0.01,
         fractional_kelly=1.0, max_fraction=10.0,
     )
+    # cw >> ref_cw → relative clipped to 1 → scale = 0 → keine Position
     w_high_uncertainty = compute_kelly_with_uncertainty(
         edge=0.05, variance=0.04,
         conformal_half_width=0.05, reference_half_width=0.01,
         fractional_kelly=1.0, max_fraction=10.0,
     )
     assert w_high_uncertainty < w_low_uncertainty
+    assert w_low_uncertainty > 0.0, "Low uncertainty must produce non-zero position"
+
+
+def test_kelly_uncertainty_semantics():
+    """Formel-Verifikation: scale = 1 - clip(cw/ref_cw, 0, 1)."""
+    from src.assembled_core.portfolio.kelly_uncertainty import compute_kelly_with_uncertainty
+
+    # cw == 0 → scale = 1 (volle Sicherheit)
+    w_zero_cw = compute_kelly_with_uncertainty(
+        edge=0.05, variance=0.04,
+        conformal_half_width=0.0, reference_half_width=0.01,
+        fractional_kelly=1.0, max_fraction=10.0,
+    )
+    # Expected: kelly (1.25) × 1.0 × 1.0 = 1.25
+    assert w_zero_cw == pytest.approx(1.25, rel=1e-6)
+
+    # cw == ref_cw → scale = 0 (vollständige Unsicherheit → keine Position)
+    w_equal_cw = compute_kelly_with_uncertainty(
+        edge=0.05, variance=0.04,
+        conformal_half_width=0.01, reference_half_width=0.01,
+        fractional_kelly=1.0, max_fraction=10.0,
+    )
+    assert w_equal_cw == pytest.approx(0.0, abs=1e-9)
+
+    # cw >> ref_cw → scale geclippt auf 0
+    w_huge_cw = compute_kelly_with_uncertainty(
+        edge=0.05, variance=0.04,
+        conformal_half_width=10.0, reference_half_width=0.01,
+        fractional_kelly=1.0, max_fraction=10.0,
+    )
+    assert w_huge_cw == pytest.approx(0.0, abs=1e-9)
+
+
+def test_kelly_uncertainty_nan_guard():
+    """NaN / Inf in edge oder variance → 0-Position."""
+    from src.assembled_core.portfolio.kelly_uncertainty import compute_kelly_with_uncertainty
+
+    assert compute_kelly_with_uncertainty(edge=float("nan"), variance=0.04) == 0.0
+    assert compute_kelly_with_uncertainty(edge=0.05, variance=float("nan")) == 0.0
+    assert compute_kelly_with_uncertainty(edge=float("inf"), variance=0.04) == 0.0
+    # NaN conformal_half_width → volle Abwertung (scale = 0)
+    w = compute_kelly_with_uncertainty(
+        edge=0.05, variance=0.04,
+        conformal_half_width=float("nan"), reference_half_width=0.01,
+        fractional_kelly=1.0, max_fraction=10.0,
+    )
+    assert w == pytest.approx(0.0, abs=1e-9)
 
 
 def test_kelly_wiring_position_sizing():
