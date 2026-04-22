@@ -80,6 +80,17 @@ from src.assembled_core.config.models import (  # noqa: F401
     ensure_signal_config,
 )
 
+# Wired 2026-04-22: previously orphan secrets_loader
+from src.assembled_core.config.secrets_loader import (  # noqa: F401
+    get_secret,
+    is_secret_set,
+    load_env_file,
+)
+from src.assembled_core.config.logging_config import (  # noqa: F401
+    JSONFormatter,
+    configure_json_logging,
+)
+
 __all__.extend(
     [
         # Config models
@@ -93,5 +104,9 @@ __all__.extend(
         "ensure_signal_config",
         "ensure_risk_config",
         "ensure_gate_config",
+        # Secrets loader
+        "load_env_file",
+        "get_secret",
+        "is_secret_set",
     ]
 )

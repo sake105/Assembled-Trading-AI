@@ -1,12 +1,17 @@
 """FastAPI backend modules.
 
 This package provides:
-- FastAPI application factory
-- API models (Pydantic)
+- FastAPI application factory (``create_app``)
+- Pydantic request/response models
 - API routers (signals, orders, portfolio, performance, risk, qa)
-
-Current modules:
-- app: create_app() - FastAPI application factory
-- models: Pydantic models for API requests/responses
-- routers: API endpoint implementations
 """
+
+from __future__ import annotations
+
+from src.assembled_core.api.app import create_app
+from src.assembled_core.api import models  # noqa: F401 - registers the models module
+
+__all__ = [
+    "create_app",
+    "models",
+]

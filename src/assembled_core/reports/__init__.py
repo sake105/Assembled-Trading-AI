@@ -5,8 +5,18 @@ This package handles:
 - Performance reports
 - Risk reports
 - Portfolio reports
-
-Note: Current report generation is in pipeline.backtest.write_backtest_report
-and pipeline.portfolio.write_portfolio_report.
-This package will provide more comprehensive reporting functionality.
 """
+
+from __future__ import annotations
+
+from src.assembled_core.reports.daily_qa_report import (
+    generate_qa_report,
+    generate_qa_report_from_files,
+)
+from src.assembled_core.reports.metrics_export import export_metrics_json
+
+__all__ = [
+    "generate_qa_report",
+    "generate_qa_report_from_files",
+    "export_metrics_json",
+]

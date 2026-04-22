@@ -113,6 +113,32 @@ def domain_id(domain_name: str) -> str:
     return f"domain:{domain_name}"
 
 
+def build_galaxy_map(overrides: dict) -> tuple[list[dict], dict[str, str]]:
+    """Return (galaxy_nodes, domain_name → galaxy_id). Empty if no galaxies defined."""
+    galaxies = overrides.get("galaxies", []) if overrides else []
+    if not galaxies:
+        return [], {}
+    nodes: list[dict] = []
+    domain_to_galaxy: dict[str, str] = {}
+    for g in galaxies:
+        nodes.append({
+            "id": g["id"],
+            "type": "galaxy",
+            "label": g.get("label", g["id"]),
+            "parent": None,
+            "purpose": g.get("purpose", ""),
+            "status": "gray",
+            "tests_count": 0,
+            "loc": 0,
+            "orphan": False,
+            "in_cycle": False,
+            "duplicate_group": None,
+        })
+        for d in g.get("domains", []):
+            domain_to_galaxy[d] = g["id"]
+    return nodes, domain_to_galaxy
+
+
 def parse_module(path: Path) -> dict[str, Any]:
     """AST-scan a Python file, return node data dict."""
     try:
@@ -139,6 +165,20 @@ def parse_module(path: Path) -> dict[str, Any]:
     if docstring:
         node_data["purpose"] = " ".join(docstring.split()[:30])
 
+    # Determine this module's package path so that relative imports
+    # (from .baseline import ...) can be resolved to absolute ones.
+    self_pkg_parts: list[str] = []
+    try:
+        rel = path.relative_to(REPO_ROOT / "src" / "assembled_core")
+        parts = [p.replace(".py", "") for p in rel.parts]
+        if parts and parts[-1] == "__init__":
+            parts = parts[:-1]
+        elif parts:
+            parts = parts[:-1]
+        self_pkg_parts = ["assembled_core"] + parts
+    except ValueError:
+        self_pkg_parts = []
+
     # Walk AST
     annotated_args = 0
     total_args = 0
@@ -154,9 +194,38 @@ def parse_module(path: Path) -> dict[str, Any]:
 
         # Imports
         elif isinstance(node, (ast.Import, ast.ImportFrom)):
-            names = []
+            names: list[str] = []
             if isinstance(node, ast.ImportFrom):
-                names = [node.module or ""]
+                level = getattr(node, "level", 0) or 0
+                base = node.module or ""
+                if level and self_pkg_parts:
+                    # Resolve relative import to absolute dotted path.
+                    if level > len(self_pkg_parts):
+                        anchor: list[str] = []
+                    else:
+                        anchor = self_pkg_parts[: len(self_pkg_parts) - level + 1]
+                    resolved = ".".join([p for p in anchor if p] + ([base] if base else []))
+                    if resolved:
+                        # Emit one import per imported symbol so we can resolve
+                        # either to a sub-module (.models → events.news.models)
+                        # or fall back to the package.
+                        for alias in node.names:
+                            sym = alias.name
+                            if sym and sym != "*":
+                                names.append(f"{resolved}.{sym}")
+                        if not names:
+                            names = [resolved]
+                    else:
+                        names = [base] if base else []
+                else:
+                    # Absolute import: "from assembled_core.pipeline import backtest_legacy"
+                    # → emit both the base and base.alias so deeper modules get resolved.
+                    if base:
+                        names.append(base)
+                        for alias in node.names:
+                            sym = alias.name
+                            if sym and sym != "*":
+                                names.append(f"{base}.{sym}")
             else:
                 names = [alias.name for alias in node.names]
             for name in names:
@@ -191,14 +260,37 @@ def parse_module(path: Path) -> dict[str, Any]:
 
 
 def resolve_import_to_id(import_name: str) -> str | None:
-    """assembled_core.features.momentum → module:features.momentum"""
+    """Resolve an import like assembled_core.events.news.pipeline to a module id.
+
+    Walks from longest-prefix to shortest and returns the first prefix that
+    points to a real .py file or package __init__.py under src/assembled_core/.
+    This keeps sub-package modules reachable instead of collapsing every
+    deep import onto the 2-level domain node.
+    """
     parts = import_name.replace("assembled_core.", "").replace("src.", "").split(".")
     parts = [p for p in parts if p]
+    if not parts:
+        return None
+    core_root = REPO_ROOT / "src" / "assembled_core"
+
+    def id_for(prefix: list[str]) -> str:
+        domain = prefix[0]
+        if len(prefix) == 1:
+            return f"module:{domain}.__init__"
+        return f"module:{domain}.{'.'.join(prefix[1:])}"
+
+    # Walk from longest prefix down: prefer deepest real match.
+    for depth in range(len(parts), 0, -1):
+        prefix = parts[:depth]
+        candidate_file = core_root.joinpath(*prefix[:-1], prefix[-1] + ".py")
+        candidate_pkg = core_root.joinpath(*prefix, "__init__.py")
+        if candidate_file.exists() or candidate_pkg.exists():
+            return id_for(prefix)
+
+    # Fallback: 2-level domain grouping, matches historic behaviour.
     if len(parts) >= 2:
         return f"module:{parts[0]}.{parts[1]}"
-    if len(parts) == 1:
-        return f"module:{parts[0]}.__init__"
-    return None
+    return f"module:{parts[0]}.__init__"
 
 
 def count_tests(py_path: Path, tests_root: Path) -> int:
@@ -362,16 +454,28 @@ def generate(args: argparse.Namespace) -> int:
     api_nodes_seen: set[str] = set()
     edge_counter = 0
 
+    # Load overrides up-front so galaxy mapping can set domain.parent from the start.
+    override_path = Path(args.overrides) if args.overrides else DEFAULT_OVERRIDES
+    overrides = load_overrides(override_path)
+
+    # ── 0. Emit galaxy compound nodes (if defined in overrides) ──
+    galaxy_nodes, domain_to_galaxy = build_galaxy_map(overrides)
+    nodes.extend(galaxy_nodes)
+
     # ── 1. Discover domains ──────────────────────────────────
     domains: list[str] = []
+    unmapped_domains: list[str] = []
     for item in sorted(core_root.iterdir()):
         if item.is_dir() and not item.name.startswith("_"):
             domains.append(item.name)
+            parent = domain_to_galaxy.get(item.name)
+            if domain_to_galaxy and parent is None:
+                unmapped_domains.append(item.name)
             nodes.append({
                 "id": domain_id(item.name),
                 "type": "domain",
                 "label": item.name,
-                "parent": None,
+                "parent": parent,
                 "status": "gray",
                 "tests_count": 0,
                 "loc": 0,
@@ -379,6 +483,9 @@ def generate(args: argparse.Namespace) -> int:
                 "in_cycle": False,
                 "duplicate_group": None,
             })
+    if unmapped_domains:
+        print(f"[WARN] {len(unmapped_domains)} domain(s) not mapped to a galaxy: "
+              f"{', '.join(unmapped_domains)}", file=sys.stderr)
 
     # ── 2. Scan Python modules ───────────────────────────────
     py_files = sorted(core_root.rglob("*.py"))
@@ -486,6 +593,20 @@ def generate(args: argparse.Namespace) -> int:
             "duplicate_group": None,
             "path": rel,
         })
+        # Scan entry-point imports so connected modules are not orphaned.
+        parsed_ep = parse_module(py_path)
+        for imp in parsed_ep.get("imports", []):
+            target_id = resolve_import_to_id(imp)
+            if target_id and target_id != eid:
+                edge_counter += 1
+                edges.append({
+                    "id": f"e{edge_counter}:{eid}→{target_id}",
+                    "source": eid,
+                    "target": target_id,
+                    "kind": "import",
+                    "weight": 1,
+                    "circular": False,
+                })
 
     # ── 4. Workflows ─────────────────────────────────────────
     if wf_dir.exists():
@@ -532,9 +653,7 @@ def generate(args: argparse.Namespace) -> int:
         if n["id"] in cyclic:
             n["in_cycle"] = True
 
-    # ── 8. Overrides ──────────────────────────────────────────
-    override_path = Path(args.overrides) if args.overrides else DEFAULT_OVERRIDES
-    overrides = load_overrides(override_path)
+    # ── 8. Overrides (loaded earlier for galaxy map, apply now) ──
     apply_overrides(nodes, overrides)
 
     # ── 9. Domain status rollup ───────────────────────────────
@@ -553,6 +672,21 @@ def generate(args: argparse.Namespace) -> int:
                 for n in nodes if n.get("parent") == did and n["type"] == "module"
             )
 
+    # ── 9a. Galaxy status rollup (worst-of-domains) ──────────
+    galaxy_statuses: dict[str, list[str]] = {}
+    for n in nodes:
+        if n["type"] == "domain" and n.get("parent"):
+            galaxy_statuses.setdefault(n["parent"], []).append(n.get("status", "gray"))
+    for gid, statuses in galaxy_statuses.items():
+        if gid in node_map:
+            worst = min(statuses, key=lambda s: STATUS_RANK.get(s, 4))
+            node_map[gid]["status"] = worst
+            node_map[gid]["tests_count"] = sum(
+                node_map[n["id"]]["tests_count"]
+                for n in nodes
+                if n.get("parent") == gid and n["type"] == "domain" and n["id"] in node_map
+            )
+
     # ── 9b. Deduplicate nodes (keep first occurrence) ────────
     seen_ids: set[str] = set()
     deduped_nodes: list[dict] = []
@@ -562,6 +696,29 @@ def generate(args: argparse.Namespace) -> int:
             deduped_nodes.append(n)
     nodes = deduped_nodes
     node_map = {n["id"]: n for n in nodes}
+
+    # ── 9c. Referential cleanup (must run before JSON is written) ─
+    # Cytoscape throws on edges pointing to missing nodes and on
+    # parent references to non-existent compounds. Filter those out.
+    dropped_edges = 0
+    cleaned_edges: list[dict] = []
+    for e in edges:
+        if e.get("source") in node_map and e.get("target") in node_map:
+            cleaned_edges.append(e)
+        else:
+            dropped_edges += 1
+    edges = cleaned_edges
+
+    reparented = 0
+    for n in nodes:
+        p = n.get("parent")
+        if p and p not in node_map:
+            n["parent"] = None
+            reparented += 1
+
+    if dropped_edges or reparented:
+        print(f"[CLEAN] Dropped {dropped_edges} dangling edges, "
+              f"reparented {reparented} nodes with missing parent")
 
     # ── 10. Meta ──────────────────────────────────────────────
     status_summary: dict[str, int] = {"green": 0, "yellow": 0, "orange": 0, "red": 0, "gray": 0}

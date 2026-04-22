@@ -29,6 +29,16 @@ from src.assembled_core.accounting.reconciliation_report import (
     write_reconcile_report_md,
 )
 from src.assembled_core.accounting.ledger_integration import build_ledger_from_trades
+from src.assembled_core.accounting.decision_audit import (  # noqa: F401
+    DecisionAuditTrail,
+    DecisionRecord,
+)
+from src.assembled_core.accounting.round_trips import (  # noqa: F401
+    RoundTrip,
+    compute_round_trips,
+    round_trip_summary,
+)
+from src.assembled_core.accounting.tax_lots import TaxLot, TaxLotTracker  # noqa: F401
 
 __all__ = [
     # Contract

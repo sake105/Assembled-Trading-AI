@@ -3,10 +3,6 @@
 # Format: status_overrides, duplicate_groups, orphan_overrides
 
 status_overrides:
-  - id: "module:ml.__init__"
-    status: "red"
-    reason: "raises NotImplementedError — kein echter Einstiegspunkt, Blocker für ml-Domäne"
-
   - id: "module:accounting.ledger"
     status: "yellow"
     reason: "0 Unit-Tests, aber produktiv via Evidence-Pack verdrahtet"
@@ -52,3 +48,34 @@ duplicate_groups:
       - "module:portfolio.regime_portfolio"
 
 orphan_overrides: []
+
+# ── Meta-Galaxien (5 super-cluster über den 22 Domänen) ──────────────
+# Bei Galaxy-Zoom erscheinen nur diese 5 Rechtecke. Zoom-in offenbart Domänen.
+# Jede Domäne gehört zu höchstens einer Galaxie. Nicht-gemappte Domänen
+# landen in "UNMAPPED" und erscheinen hart separiert — sichtbares Signal,
+# dass die Taxonomie unvollständig ist.
+galaxies:
+  - id: "galaxy:market"
+    label: "MARKET"
+    purpose: "Rohdaten, Features, Signale, News, Intel — alles was vor der Entscheidung passiert."
+    domains: [data, features, signals, events, intel]
+
+  - id: "galaxy:alpha"
+    label: "ALPHA"
+    purpose: "Strategie-Konstruktion, Portfolio-Aggregation, ML-Modelle."
+    domains: [strategies, portfolio, ml]
+
+  - id: "galaxy:execution"
+    label: "EXECUTION"
+    purpose: "Order-Generierung, Paper/Live-Engines, Pipeline, Risk, Accounting."
+    domains: [execution, paper, pipeline, risk, accounting]
+
+  - id: "galaxy:assurance"
+    label: "ASSURANCE"
+    purpose: "QA, Compliance, Reports, Experiments — alles was prüft und dokumentiert."
+    domains: [qa, compliance, reports, experiments]
+
+  - id: "galaxy:infra"
+    label: "INFRA"
+    purpose: "API, Ops, Config, Utils — Laufzeit-Substrat."
+    domains: [api, ops, config, utils]

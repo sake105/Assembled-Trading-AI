@@ -36,6 +36,48 @@ from src.assembled_core.risk.factor_exposures import (
     summarize_factor_exposures,
 )
 
+# Wired 2026-04-22: previously orphan risk modules
+from src.assembled_core.risk.intraday_monitor import (
+    IntradayRiskConfig,
+    PositionSnapshot,
+)
+from src.assembled_core.risk.param_stability import (
+    check_drawdown_stability,
+    check_turnover_stability,
+    check_vol_stability,
+    compute_rolling_max_drawdown,
+    compute_rolling_vol_estimates,
+)
+from src.assembled_core.risk.regime_costs import (
+    RegimeCostConfig,
+    RegimeCostEstimate,
+    estimate_regime_costs,
+)
+from src.assembled_core.risk.antifragility import (  # noqa: F401
+    compute_antifragility_score,
+    compute_portfolio_antifragility,
+)
+from src.assembled_core.risk.profit_targets import (  # noqa: F401
+    PositionRecord,
+    ProfitTargetConfig,
+    build_position_records,
+    check_profit_targets,
+)
+from src.assembled_core.risk.systemic_risk import compute_return_network_centrality  # noqa: F401
+from src.assembled_core.risk.tail_dependence import (  # noqa: F401
+    classify_tail_regime,
+    compute_empirical_tail_dependence,
+    compute_portfolio_tail_dependence_score,
+)
+from src.assembled_core.risk.tail_hedge import (  # noqa: F401
+    CollarConfig,
+    TailHedgeResult,
+    compute_collar,
+    compute_put_spread,
+    dynamic_hedge_ratio,
+    estimate_option_premium,
+)
+
 __all__ = [
     # Regime Models (D1)
     "RegimeStateConfig",
@@ -62,4 +104,17 @@ __all__ = [
     "FactorExposureConfig",
     "compute_factor_exposures",
     "summarize_factor_exposures",
+    # Intraday monitor
+    "IntradayRiskConfig",
+    "PositionSnapshot",
+    # Parameter stability
+    "check_drawdown_stability",
+    "check_turnover_stability",
+    "check_vol_stability",
+    "compute_rolling_max_drawdown",
+    "compute_rolling_vol_estimates",
+    # Regime costs
+    "RegimeCostConfig",
+    "RegimeCostEstimate",
+    "estimate_regime_costs",
 ]
