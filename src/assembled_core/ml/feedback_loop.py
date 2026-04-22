@@ -158,6 +158,12 @@ class FeedbackResult:
     shap_drifted_features: list[str] = field(default_factory=list)
     """Features mit detektiertem SHAP-Drift."""
 
+    distribution_shift_detected: bool = False
+    """True wenn Adversarial Validation (Signal 7) distribution-shift detektiert."""
+
+    distribution_shift_auc: float = 0.0
+    """AUC des Train-vs-Current Classifiers."""
+
 
 # ---------------------------------------------------------------------------
 # Controller
@@ -317,6 +323,21 @@ class FeedbackLoopController:
             else:
                 logger.debug("%s [SIGNAL-6] SHAP-Drift: OK", _PREFIX)
 
+        # Signal 7: Adversarial Validation (distribution shift)
+        sig7 = False
+        sig7_auc = 0.0
+        try:
+            sig7, sig7_auc = self._check_distribution_shift(panel_df, skipped_signals)
+            if sig7:
+                active_signals.append("distribution_shift")
+                logger.info(
+                    "%s [SIGNAL-7] Distribution-Shift AKTIV (AUC=%.3f)",
+                    _PREFIX, sig7_auc,
+                )
+        except Exception as exc:
+            logger.debug("%s [SIGNAL-7] Distribution-Shift Fehler: %s", _PREFIX, exc)
+            skipped_signals.append("distribution_shift")
+
         n_active = len(active_signals)
         logger.info(
             "%s Active signals: %d — %s",
@@ -386,6 +407,8 @@ class FeedbackLoopController:
             blocked_reason=blocked_reason,
             shap_drift_detected=sig6,
             shap_drifted_features=shap_drifted,
+            distribution_shift_detected=sig7,
+            distribution_shift_auc=sig7_auc,
         )
 
         self._write_report(result)
@@ -644,6 +667,65 @@ class FeedbackLoopController:
             logger.debug("%s [SIGNAL-6] SHAP-Drift Fehler (übersprungen): %s", _PREFIX, exc)
             skipped.append("shap_drift")
             return False, []
+
+    def _check_distribution_shift(
+        self,
+        panel_df,
+        skipped: list[str],
+        shift_auc_threshold: float = 0.65,
+        train_fraction: float = 0.7,
+    ) -> tuple[bool, float]:
+        """Signal 7: Adversarial Validation auf Panel prüfen.
+
+        Teilt Panel chronologisch in Train/Recent und prüft ob Classifier
+        Train von Recent unterscheiden kann (AUC > threshold → shift).
+        """
+        import pandas as _pd
+
+        if panel_df is None or panel_df.empty or len(panel_df) < 200:
+            skipped.append("distribution_shift")
+            return False, 0.0
+
+        try:
+            from src.assembled_core.ml.adversarial_validation import run_adversarial_validation
+        except Exception:
+            skipped.append("distribution_shift")
+            return False, 0.0
+
+        try:
+            if "timestamp" in panel_df.columns:
+                sorted_df = panel_df.sort_values("timestamp").reset_index(drop=True)
+            else:
+                sorted_df = panel_df.reset_index(drop=True)
+
+            n = len(sorted_df)
+            n_train = int(n * train_fraction)
+            if n_train < 50 or (n - n_train) < 50:
+                skipped.append("distribution_shift")
+                return False, 0.0
+
+            train = sorted_df.iloc[:n_train]
+            recent = sorted_df.iloc[n_train:]
+
+            num_train = set(train.select_dtypes(include="number").columns)
+            num_recent = set(recent.select_dtypes(include="number").columns)
+            feat_cols = sorted(
+                (num_train & num_recent) - {"timestamp"}
+                - {c for c in num_train if c.startswith("fwd_return") or c.startswith("tb_")}
+            )[:30]
+
+            if not feat_cols:
+                skipped.append("distribution_shift")
+                return False, 0.0
+
+            result = run_adversarial_validation(train, recent, feature_cols=feat_cols)
+            fired = result.auc > shift_auc_threshold
+            return fired, result.auc
+
+        except Exception as exc:
+            logger.debug("%s [SIGNAL-7] Error: %s", _PREFIX, exc)
+            skipped.append("distribution_shift")
+            return False, 0.0
 
     # ------------------------------------------------------------------
     # CPCV Overfitting Gate (M16)
