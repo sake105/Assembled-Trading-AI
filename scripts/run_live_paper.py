@@ -146,26 +146,46 @@ def _load_prices(app_cfg: dict):
 
     logger.info("[run_live_paper] loading prices for %d US symbols", len(symbols))
 
-    # --- Try 1: local parquet cache (fast) ---
+    # --- Try 1: local parquet cache, but only if fresh ---
+    # For live paper trading a cache more than ~3 calendar days old is stale
+    # (weekend + one holiday = 3d). If stale, skip to yfinance so decisions
+    # use the latest close. Cache still serves as a final fallback below.
+    cache_prices = None
+    cache_stale_reason: str | None = None
     try:
         from src.assembled_core.data.prices_ingest import load_eod_prices
 
-        prices = load_eod_prices(symbols=symbols)
-        if not prices.empty:
-            latest = prices["timestamp"].max()
-            n_syms = prices["symbol"].nunique()
-            logger.info(
-                "[run_live_paper] loaded %d rows for %d symbols from cache "
-                "(latest: %s)",
-                len(prices),
-                n_syms,
-                latest.date() if hasattr(latest, "date") else latest,
+        cache_prices = load_eod_prices(symbols=symbols)
+        if not cache_prices.empty:
+            cache_latest_ts = pd.Timestamp(cache_prices["timestamp"].max())
+            if cache_latest_ts.tzinfo is None:
+                cache_latest = cache_latest_ts.tz_localize("UTC")
+            else:
+                cache_latest = cache_latest_ts.tz_convert("UTC")
+            today_utc = pd.Timestamp.now("UTC")
+            age_days = (today_utc.normalize() - cache_latest.normalize()).days
+            if age_days <= 3:
+                n_syms = cache_prices["symbol"].nunique()
+                logger.info(
+                    "[run_live_paper] using cache — %d rows, %d symbols, "
+                    "latest=%s, age=%dd",
+                    len(cache_prices),
+                    n_syms,
+                    cache_latest.date(),
+                    age_days,
+                )
+                return cache_prices
+            cache_stale_reason = (
+                f"cache latest={cache_latest.date()} age={age_days}d"
             )
-            return prices
+            logger.warning(
+                "[run_live_paper] cache is stale (%s) — fetching fresh from yfinance",
+                cache_stale_reason,
+            )
     except Exception as exc:
         logger.info("[run_live_paper] local cache unavailable: %s", exc)
 
-    # --- Try 2: yfinance batch (slower, free) ---
+    # --- Try 2: yfinance batch (authoritative when cache is stale) ---
     try:
         from src.assembled_core.data.sources.yfinance_source import (
             fetch_prices_yfinance,
@@ -186,12 +206,24 @@ def _load_prices(app_cfg: dict):
         )
         prices = fetch_prices_yfinance(symbols, start_date, end_date)
         if not prices.empty:
+            fresh_latest = pd.Timestamp(prices["timestamp"].max())
             logger.info(
-                "[run_live_paper] fetched %d rows via yfinance", len(prices)
+                "[run_live_paper] fetched %d rows via yfinance — latest=%s",
+                len(prices),
+                fresh_latest.date() if hasattr(fresh_latest, "date") else fresh_latest,
             )
             return prices
     except Exception as exc:
         logger.warning("[run_live_paper] yfinance fetch failed: %s", exc)
+
+    # --- Final fallback: stale cache if we have nothing else ---
+    if cache_prices is not None and not cache_prices.empty:
+        logger.warning(
+            "[run_live_paper] yfinance unavailable — falling back to STALE cache (%s). "
+            "Signals will be computed on out-of-date prices.",
+            cache_stale_reason or "unknown age",
+        )
+        return cache_prices
 
     logger.error("[run_live_paper] no price data available from any source")
     return pd.DataFrame()
