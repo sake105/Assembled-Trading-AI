@@ -5,6 +5,22 @@ This package provides:
 - Position engine with average cost basis tracking
 - Ledger storage (parquet-based, deterministic)
 - Reconciliation engine (ledger vs broker snapshots)
+
+Realized-P&L / FIFO authority
+-----------------------------
+Three modules implement FIFO-style lot matching; their roles are:
+
+- ``position_engine.py`` — **canonical source of realized P&L** for the
+  live/paper paper-trading ledger (``build_positions_from_ledger``).
+  Any consumer that needs authoritative realized-P&L for downstream
+  reporting, execution, or risk must call this module.
+- ``round_trips.py`` — derived/aggregated round-trip view for post-trade
+  reporting. Not authoritative for realized P&L; consumes ledger events.
+- ``tax_lots.py`` — tax-lot bookkeeping for later tax reporting.
+  Parallel FIFO impl focused on lot-level accounting (holding period,
+  cost basis per lot). Not consumed by the paper-trading hot path.
+
+If FIFO behaviour diverges between these three, ``position_engine`` wins.
 """
 
 from src.assembled_core.accounting.ledger import (
