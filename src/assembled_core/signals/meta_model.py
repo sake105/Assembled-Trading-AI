@@ -179,34 +179,24 @@ class MetaModel:
             }
 
         try:
-            from src.assembled_core.ml.conformal import SplitConformalPredictor
+            from src.assembled_core.ml.conformal import ConformalResult
 
-            class _WrappedModel:
-                """Wrapper damit das trainierte Modell als sklearn-kompatibel wirkt."""
-                def __init__(self, mm, feat_names):
-                    self.mm = mm
-                    self.feat_names = feat_names
-
-                def fit(self, X, y):
-                    # Kein Re-Fit — Modell ist bereits trainiert
-                    pass
-
-                def predict(self, X):
-                    df = pd.DataFrame(X, columns=self.feat_names)
-                    return self.mm.predict_proba(df).values
-
-            wrapped = _WrappedModel(self, self.feature_names)
-            cp = SplitConformalPredictor(wrapped, alpha=alpha)
-            # Fit: no-op. Calibrate mit (X_calib, y_calib)
-            cp._residual_quantile = None
-            wrapped.fit(None, None)
+            # Direkt residuals auf Calib-Set rechnen — MetaModel ist bereits
+            # trainiert, daher kein Wrapper/Re-Fit nötig.
             calib_preds = self.predict_proba(X_calib).values
             residuals = np.abs(y_calib.values - calib_preds)
             n = len(residuals)
             q_level = min(1.0, np.ceil((n + 1) * (1 - alpha)) / n)
-            cp._residual_quantile = float(np.quantile(residuals, q_level))
+            q = float(np.quantile(residuals, q_level))
 
-            result = cp.predict(X, return_index=X.index)
+            preds_vals = primary.values
+            result = ConformalResult(
+                point_predictions=pd.Series(preds_vals, index=X.index, name="prediction"),
+                lower_bounds=pd.Series(preds_vals - q, index=X.index, name="lower"),
+                upper_bounds=pd.Series(preds_vals + q, index=X.index, name="upper"),
+                half_width=q,
+                alpha=alpha,
+            )
             return {
                 "predictions": result.point_predictions,
                 "lower": result.lower_bounds,

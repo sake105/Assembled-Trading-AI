@@ -217,7 +217,64 @@ class NestedMetaLabeler:
         return joblib.load(path)
 
 
+def build_nested_labels_from_trades(
+    trades_df: pd.DataFrame,
+    return_col: str = "closed_return",
+    direction_col: str = "primary_direction",
+    signal_col: str = "primary_signal",
+    success_col: str = "success_label",
+    magnitude_col: str = "magnitude_label",
+) -> pd.DataFrame:
+    """Leitet ``success_label`` + ``magnitude_label`` aus geschlossenen Trades ab.
+
+    Ohne diesen Helper erwartet ``NestedMetaLabeler.fit`` zwei Spalten, die der
+    learning_store normalerweise nicht schreibt. Hier wird aus realisiertem
+    Return + Richtung:
+
+    - ``success_label``: 1 wenn ``sign(return) == sign(direction)``, sonst 0.
+      Return = 0 → 0 (kein Erfolg, kein Fehlschlag zählt als miss).
+    - ``magnitude_label``: ``abs(return)``.
+
+    Richtung wird aus ``direction_col`` bevorzugt; fehlt sie, wird
+    ``sign(signal_col)`` genutzt. Existiert keines von beiden, wird eine
+    leere Spalte zurückgegeben (success_label=0 überall).
+
+    Args:
+        trades_df: DataFrame mit geschlossenen Trades (closed_at vorhanden).
+        return_col: Spalte mit realisiertem Return (z.B. closed_return oder pnl).
+        direction_col: Spalte mit Richtung (−1/0/+1), optional.
+        signal_col: Fallback-Spalte, wenn direction_col fehlt.
+        success_col: Name der zu erzeugenden Success-Spalte.
+        magnitude_col: Name der zu erzeugenden Magnitude-Spalte.
+
+    Returns:
+        Kopie von ``trades_df`` mit zusätzlichen Spalten ``success_col`` und
+        ``magnitude_col``. Bereits vorhandene Spalten werden überschrieben.
+    """
+    df = trades_df.copy()
+    if return_col not in df.columns:
+        df[success_col] = 0
+        df[magnitude_col] = 0.0
+        return df
+
+    rets = pd.to_numeric(df[return_col], errors="coerce").fillna(0.0)
+    if direction_col in df.columns:
+        direction = pd.to_numeric(df[direction_col], errors="coerce").fillna(0.0)
+    elif signal_col in df.columns:
+        direction = np.sign(pd.to_numeric(df[signal_col], errors="coerce").fillna(0.0))
+    else:
+        direction = pd.Series(np.zeros(len(df)), index=df.index)
+
+    ret_sign = np.sign(rets)
+    # success: direction and return both non-zero and same sign
+    same_sign = (ret_sign == np.sign(direction)) & (ret_sign != 0) & (np.sign(direction) != 0)
+    df[success_col] = same_sign.astype(int).values
+    df[magnitude_col] = np.abs(rets.values)
+    return df
+
+
 __all__ = [
     "NestedPrediction",
     "NestedMetaLabeler",
+    "build_nested_labels_from_trades",
 ]

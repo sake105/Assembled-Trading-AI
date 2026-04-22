@@ -29,11 +29,16 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ArmStats:
-    """Statistik für ein Arm (Param-Kombi)."""
+    """Statistik für ein Arm (Param-Kombi).
+
+    n_pulls ist `float`, damit OnlineHyperparamAdapter optional einen
+    exponentiellen Discount anwenden kann (effektive Sample-Size für
+    regime-adaptive Bandits). Bei discount_factor=1 bleibt n_pulls ganzzahlig.
+    """
 
     arm_id: str
     params: dict
-    n_pulls: int = 0
+    n_pulls: float = 0.0
     sum_reward: float = 0.0
     sum_reward_sq: float = 0.0
 
@@ -48,7 +53,7 @@ class ArmStats:
         mean = self.mean_reward
         return max(
             1e-4,
-            (self.sum_reward_sq - self.n_pulls * mean ** 2) / max(1, self.n_pulls - 1),
+            (self.sum_reward_sq - self.n_pulls * mean ** 2) / max(1.0, self.n_pulls - 1),
         )
 
 
@@ -77,6 +82,20 @@ class OnlineHyperparamAdapter:
         {"n_estimators": 100, "learning_rate": 0.1, "max_depth": 3},
     ]
 
+    DEFAULT_SKLEARN_GB_ARMS = [
+        {"n_estimators": 100, "learning_rate": 0.05, "max_depth": 3},
+        {"n_estimators": 200, "learning_rate": 0.05, "max_depth": 3},
+        {"n_estimators": 300, "learning_rate": 0.03, "max_depth": 4},
+        {"n_estimators": 150, "learning_rate": 0.1, "max_depth": 2},
+    ]
+
+    DEFAULT_RIDGE_ARMS = [
+        {"alpha": 0.01},
+        {"alpha": 0.1},
+        {"alpha": 1.0},
+        {"alpha": 10.0},
+    ]
+
     def __init__(
         self,
         arms: list[dict] | None = None,
@@ -84,15 +103,21 @@ class OnlineHyperparamAdapter:
         prior_mean: float = 0.0,
         prior_std: float = 1.0,
         seed: int = 42,
+        discount_factor: float = 1.0,
     ) -> None:
         """Args:
             arms: Liste von Param-Dicts. Default: 6 LGBM-Arme.
             state_path: Pfad für Persistenz.
             prior_mean, prior_std: Prior für Bayesian-Updates.
             seed: RNG-Seed.
+            discount_factor: In (0, 1]. < 1 bedeutet, dass alte Beobachtungen
+                bei jedem neuen Reward exponentiell abklingen. Default 1.0 (kein
+                Discount; klassisches Thompson Sampling). Typisch für regime-
+                adaptive Bandits: 0.95–0.99.
         """
         self.arms: dict[str, ArmStats] = {}
-        arms = arms or self.DEFAULT_LGBM_ARMS
+        if arms is None:
+            arms = self.DEFAULT_LGBM_ARMS
         for i, params in enumerate(arms):
             aid = f"arm_{i}"
             self.arms[aid] = ArmStats(arm_id=aid, params=dict(params))
@@ -101,11 +126,48 @@ class OnlineHyperparamAdapter:
         self.prior_mean = prior_mean
         self.prior_std = prior_std
         self._rng = np.random.default_rng(seed)
+        if not (0.0 < discount_factor <= 1.0):
+            raise ValueError("discount_factor must be in (0, 1]")
+        self.discount_factor = discount_factor
         self._load()
 
     @classmethod
     def with_default_arms(cls, state_path: Path | None = None) -> "OnlineHyperparamAdapter":
         return cls(state_path=state_path)
+
+    @classmethod
+    def with_sklearn_gb_arms(cls, state_path: Path | None = None) -> "OnlineHyperparamAdapter":
+        """Preset für sklearn GradientBoosting (kein LightGBM nötig)."""
+        return cls(arms=cls.DEFAULT_SKLEARN_GB_ARMS, state_path=state_path)
+
+    @classmethod
+    def with_ridge_arms(cls, state_path: Path | None = None) -> "OnlineHyperparamAdapter":
+        """Preset für Ridge/Linear-Modelle (nur alpha)."""
+        return cls(arms=cls.DEFAULT_RIDGE_ARMS, state_path=state_path)
+
+    @classmethod
+    def from_param_grid(
+        cls,
+        param_grid: dict[str, list],
+        state_path: Path | None = None,
+        seed: int = 42,
+    ) -> "OnlineHyperparamAdapter":
+        """Baut Arme als kartesisches Produkt aus einem Param-Grid.
+
+        Beispiel:
+            param_grid = {"alpha": [0.1, 1.0], "l1_ratio": [0.0, 0.5]}
+            → 4 Arme mit allen Kombinationen.
+
+        Für Modelle mit vielen Parametern sollte der Grid klein bleiben
+        (≤ 8 Arme ist typisch), damit Thompson Sampling schnell konvergiert.
+        """
+        from itertools import product
+        keys = list(param_grid.keys())
+        if not keys:
+            return cls(arms=[], state_path=state_path, seed=seed)
+        value_lists = [param_grid[k] for k in keys]
+        arms = [dict(zip(keys, combo)) for combo in product(*value_lists)]
+        return cls(arms=arms, state_path=state_path, seed=seed)
 
     def _load(self) -> None:
         if not self.state_path.exists():
@@ -115,7 +177,7 @@ class OnlineHyperparamAdapter:
             for arm_dict in data.get("arms", []):
                 aid = arm_dict["arm_id"]
                 if aid in self.arms:
-                    self.arms[aid].n_pulls = int(arm_dict.get("n_pulls", 0))
+                    self.arms[aid].n_pulls = float(arm_dict.get("n_pulls", 0.0))
                     self.arms[aid].sum_reward = float(arm_dict.get("sum_reward", 0.0))
                     self.arms[aid].sum_reward_sq = float(arm_dict.get("sum_reward_sq", 0.0))
         except Exception as exc:
@@ -164,11 +226,19 @@ class OnlineHyperparamAdapter:
             logger.warning("[OnlineHPO] Unknown arm %s — reward ignored", arm_id)
             return
         arm = self.arms[arm_id]
-        arm.n_pulls += 1
-        arm.sum_reward += float(reward)
-        arm.sum_reward_sq += float(reward) ** 2
+        df = self.discount_factor
+        if df < 1.0:
+            # Exponential discount: jeder neue Reward gewichtet alten Ballast um df ab.
+            # Das hält effektive Sample-Size endlich und erlaubt Regime-Adaption.
+            arm.n_pulls = df * arm.n_pulls + 1
+            arm.sum_reward = df * arm.sum_reward + float(reward)
+            arm.sum_reward_sq = df * arm.sum_reward_sq + float(reward) ** 2
+        else:
+            arm.n_pulls += 1
+            arm.sum_reward += float(reward)
+            arm.sum_reward_sq += float(reward) ** 2
         logger.info(
-            "[OnlineHPO] %s reward=%.4f → n=%d mean=%.4f",
+            "[OnlineHPO] %s reward=%.4f → n=%.2f mean=%.4f",
             arm_id, reward, arm.n_pulls, arm.mean_reward,
         )
 

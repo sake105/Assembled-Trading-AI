@@ -172,14 +172,26 @@ class NewsTradeAttributor:
         learning_store_path: Path,
         news_events_path: Path,
         output_path: Path | None = None,
+        reenrich: bool = False,
     ) -> int:
         """Reichert learning_store.jsonl mit news_links Feld an.
 
         Liest alle Records, verknüpft mit News-Events, schreibt entweder
         in-place (output_path=None) oder zu neuem File.
 
+        Idempotent: Records mit bestehendem ``news_links`` werden übersprungen,
+        es sei denn ``reenrich=True``. Writes erfolgen via tmp-file + rename,
+        damit der Store bei Abbruch nicht korrupt zurückbleibt.
+
+        Args:
+            learning_store_path: JSONL-Pfad mit Trade-Records.
+            news_events_path: Pfad zu News-Events (JSONL/JSON/Parquet).
+            output_path: Ziel-Pfad. None = in-place.
+            reenrich: True überschreibt vorhandene news_links. Default False.
+
         Returns:
-            Anzahl enriched Records.
+            Anzahl neu enriched Records (ohne bereits-enriched, wenn
+            ``reenrich=False``).
         """
         if not learning_store_path.exists() or not news_events_path.exists():
             return 0
@@ -198,6 +210,7 @@ class NewsTradeAttributor:
 
         enriched_lines: list[str] = []
         n_enriched = 0
+        n_skipped = 0
 
         with learning_store_path.open("r", encoding="utf-8") as fh:
             for line in fh:
@@ -207,29 +220,44 @@ class NewsTradeAttributor:
                 try:
                     rec = json.loads(line)
                     if rec.get("closed_at"):
-                        links = self.link_trade_to_events(rec, news_df)
-                        if links:
-                            rec["news_links"] = [
-                                {
-                                    "event_id": l.event_id,
-                                    "distance_hours": l.distance_hours,
-                                    "weight": l.weight,
-                                    "estimated_contribution": l.estimated_contribution,
-                                    "impact_bps": l.impact_bps,
-                                }
-                                for l in links
-                            ]
-                            n_enriched += 1
+                        if rec.get("news_links") and not reenrich:
+                            n_skipped += 1
+                        else:
+                            links = self.link_trade_to_events(rec, news_df)
+                            if links:
+                                rec["news_links"] = [
+                                    {
+                                        "event_id": l.event_id,
+                                        "distance_hours": l.distance_hours,
+                                        "weight": l.weight,
+                                        "estimated_contribution": l.estimated_contribution,
+                                        "impact_bps": l.impact_bps,
+                                    }
+                                    for l in links
+                                ]
+                                n_enriched += 1
                     enriched_lines.append(json.dumps(rec))
                 except Exception:
                     enriched_lines.append(line)
 
         target = output_path or learning_store_path
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text("\n".join(enriched_lines) + "\n", encoding="utf-8")
+        # Atomic write: tmp + rename
+        tmp = target.with_suffix(target.suffix + ".tmp")
+        try:
+            tmp.write_text("\n".join(enriched_lines) + "\n", encoding="utf-8")
+            tmp.replace(target)
+        except Exception as exc:
+            logger.warning("[NewsTradeAttr] atomic write failed: %s", exc)
+            try:
+                if tmp.exists():
+                    tmp.unlink()
+            except Exception:
+                pass
+            return 0
         logger.info(
-            "[NewsTradeAttr] enriched %d Records in %s",
-            n_enriched, target,
+            "[NewsTradeAttr] enriched %d neu, %d bereits-enriched übersprungen → %s",
+            n_enriched, n_skipped, target,
         )
         return n_enriched
 

@@ -13,6 +13,11 @@ Alle Komponenten sind OPTIONAL — pipeline fällt auf einfacheres Verhalten zur
 wenn einzelne Bausteine fehlen.
 
 PIT-Invariante: Inference-Zeit, keine Retrain-Logik hier.
+
+STATUS (2026-04-22): Research-/Komposition-Layer, noch NICHT in `pipeline/orchestrator.py`
+verdrahtet. Nutzung nur explizit aus eigenen Scripts oder Tests. Vor Produktiveinsatz
+muss der Aufrufer klären, wie primary_signal, regime und meta_labeler konsistent
+mit der bestehenden Signal-Pipeline gespeist werden (PIT, Features, Retraining-Quelle).
 """
 
 from __future__ import annotations

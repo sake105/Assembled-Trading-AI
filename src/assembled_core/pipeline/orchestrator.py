@@ -1296,6 +1296,11 @@ def run_eod_pipeline(
                     _tca_result.get("n_trades", 0),
                     _tca_result.get("mean_impact_bps", 0.0),
                 )
+            try:
+                from src.assembled_core.ops.report_retention import purge_old_dated_reports
+                purge_old_dated_reports(_tca_out.parent, "tca_report_", ".json", keep_last_n=60)
+            except Exception:
+                pass
     except Exception as _tca_exc:
         logger.warning("[EOD][TCA] Non-blocking Fehler: %s", _tca_exc)
 

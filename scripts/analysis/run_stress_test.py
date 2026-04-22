@@ -98,6 +98,11 @@ def main() -> int:
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report_dict, indent=2, default=str), encoding="utf-8")
     logger.info("[OK] Saved: %s", args.out)
+    try:
+        from src.assembled_core.ops.report_retention import purge_old_dated_reports
+        purge_old_dated_reports(args.out.parent, "stress_test_", ".json", keep_last_n=60)
+    except Exception:
+        pass
     return 0
 
 

@@ -599,6 +599,11 @@ class FeedbackLoopController:
             logger.info("%s Shadow-Model-Report geschrieben: %s", _PREFIX, report_base)
         except Exception as exc:
             logger.warning("%s Shadow-Model-Report fehlgeschlagen: %s", _PREFIX, exc)
+        try:
+            from src.assembled_core.ops.report_retention import purge_old_dated_reports
+            purge_old_dated_reports(self.state_dir, "shadow_model_report_", ".json", keep_last_n=60)
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # SHAP Drift Check (Signal 6)
@@ -795,6 +800,11 @@ class FeedbackLoopController:
                 "snapshot_summary": tracker.summary(),
                 "degraded_signals": degraded,
             }, indent=2, default=str), encoding="utf-8")
+            try:
+                from src.assembled_core.ops.report_retention import purge_old_dated_reports
+                purge_old_dated_reports(self.state_dir, "signal_decay_", ".json", keep_last_n=60)
+            except Exception:
+                pass
         except Exception as exc:
             logger.debug("%s [DIAG-Decay] error: %s", _PREFIX, exc)
 
@@ -830,6 +840,11 @@ class FeedbackLoopController:
                 "redundant_clusters": report.redundant_clusters,
                 "mean_abs_corr": report.mean_abs_corr,
             }, indent=2, default=str), encoding="utf-8")
+            try:
+                from src.assembled_core.ops.report_retention import purge_old_dated_reports
+                purge_old_dated_reports(self.state_dir, "signal_correlation_", ".json", keep_last_n=60)
+            except Exception:
+                pass
         except Exception as exc:
             logger.debug("%s [DIAG-Corr] error: %s", _PREFIX, exc)
 

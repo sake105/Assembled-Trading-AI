@@ -126,6 +126,78 @@ def test_nested_meta_threshold_gates():
     assert n_zero > n // 2
 
 
+def test_build_nested_labels_from_trades_uses_direction_col():
+    """Helper leitet success_label aus sign(return) == sign(direction) ab."""
+    from src.assembled_core.ml.nested_meta_labeling import build_nested_labels_from_trades
+
+    trades = pd.DataFrame({
+        "closed_return": [0.02, -0.01, 0.015, -0.03, 0.0],
+        "primary_direction": [1, -1, -1, -1, 1],  # 3 hits, 1 miss, 1 zero-return
+    })
+    out = build_nested_labels_from_trades(trades)
+    assert list(out["success_label"].values) == [1, 1, 0, 1, 0]
+    # magnitude = abs(return)
+    assert out["magnitude_label"].tolist() == [0.02, 0.01, 0.015, 0.03, 0.0]
+
+
+def test_build_nested_labels_from_trades_falls_back_to_signal():
+    """Ohne direction_col nutzt der Helper sign(primary_signal)."""
+    from src.assembled_core.ml.nested_meta_labeling import build_nested_labels_from_trades
+
+    trades = pd.DataFrame({
+        "closed_return": [0.05, -0.02],
+        "primary_signal": [0.4, -0.3],
+    })
+    out = build_nested_labels_from_trades(trades)
+    assert list(out["success_label"].values) == [1, 1]
+
+
+def test_build_nested_labels_empty_direction_safe():
+    """Ohne beide Direction-Spalten → success=0 überall."""
+    from src.assembled_core.ml.nested_meta_labeling import build_nested_labels_from_trades
+
+    trades = pd.DataFrame({"closed_return": [0.01, -0.02]})
+    out = build_nested_labels_from_trades(trades)
+    assert list(out["success_label"].values) == [0, 0]
+    assert out["magnitude_label"].tolist() == [0.01, 0.02]
+
+
+def test_build_nested_labels_then_fit_e2e():
+    """E2E: Helper liefert Labels, NestedMetaLabeler.fit akzeptiert sie."""
+    pytest.importorskip("sklearn")
+    from src.assembled_core.ml.nested_meta_labeling import (
+        NestedMetaLabeler,
+        build_nested_labels_from_trades,
+    )
+
+    rng = np.random.default_rng(19)
+    n = 150
+    direction = rng.choice([-1, 1], n)
+    # Mache Returns korrelierbar zur Richtung für lernbares Signal
+    rets = direction * rng.normal(0.005, 0.02, n)
+
+    df = pd.DataFrame({
+        "closed_return": rets,
+        "primary_signal": direction * rng.uniform(0.3, 1.0, n),
+        "primary_direction": direction,
+        "news_sentiment_mean": rng.uniform(-0.5, 0.5, n),
+        "news_velocity": rng.uniform(0.5, 2.0, n),
+        "regime_state": rng.integers(0, 3, n),
+        "vix_proxy": rng.uniform(10, 40, n),
+    })
+
+    labeled = build_nested_labels_from_trades(df)
+    assert "success_label" in labeled.columns
+    assert "magnitude_label" in labeled.columns
+
+    labeler = NestedMetaLabeler(confidence_threshold=0.5)
+    labeler.fit(labeled)
+
+    # Beide Stufen müssen trainiert sein
+    assert labeler._confidence_model is not None
+    assert labeler._size_model is not None
+
+
 # ---------------------------------------------------------------------------
 # meta_model.py → predict_with_intervals
 # ---------------------------------------------------------------------------
