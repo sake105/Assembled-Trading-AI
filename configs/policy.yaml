@@ -334,6 +334,17 @@ position_sizing:
     max_weight: 0.15
     min_history_days: 60       # fallback to vol_scaled if insufficient data
   fallback_method: "vol_scaled"  # used when BL fails to converge
+  # Part B deeper wiring (2026-04-22): compute half-Kelly weights with
+  # conformal-uncertainty discount IN PARALLEL to the active method.
+  # Purely observational — written to result.meta.kelly_uncertainty_shadow
+  # for ML training-data collection. Does NOT change result.target_positions.
+  kelly_uncertainty_shadow:
+    enabled: true
+    fractional_kelly: 0.5
+    max_fraction: 0.25
+    vol_lookback_days: 60
+    reference_half_width: null   # null → no uncertainty discount until calibrated
+    normalize: true
 
 # ---------------------------------------------------------------------------
 # Anti-churn / hysteresis (Phase 0D)

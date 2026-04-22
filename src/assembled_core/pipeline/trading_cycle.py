@@ -2856,6 +2856,52 @@ def _run_trading_cycle_inner(
             else:
                 result.meta["sizing_method"] = sizing_method
 
+        # Part B deeper wiring (2026-04-22): kelly_uncertainty shadow
+        # Computes half-Kelly weights with conformal-uncertainty discount IN
+        # PARALLEL to the active sizing method. Purely observational — written
+        # to result.meta.kelly_uncertainty_shadow for ML training data only.
+        # No change to result.target_positions.
+        try:
+            ku_cfg = (policy.get("position_sizing") or {}).get("kelly_uncertainty_shadow") or {}
+            if ku_cfg.get("enabled", False) and not result.signals.empty and "score" in result.signals.columns:
+                from src.assembled_core.portfolio.position_sizing import (
+                    compute_kelly_weights_with_uncertainty,
+                )
+                edges = result.signals.set_index("symbol")["score"].dropna().astype(float)
+                if not edges.empty:
+                    vol_lookback = int(ku_cfg.get("vol_lookback_days", 60))
+                    vols_map = _estimate_symbol_volatilities(
+                        result.prices_filtered if result.prices_filtered is not None else ctx.prices,
+                        lookback=vol_lookback,
+                    )
+                    variances = pd.Series(
+                        {s: max((vols_map.get(s, 0.20)) ** 2, 1e-6) for s in edges.index},
+                        name="variance",
+                    )
+                    conf_widths = getattr(ctx, "conformal_half_widths", None)
+                    ref_width = ku_cfg.get("reference_half_width")
+                    shadow_weights = compute_kelly_weights_with_uncertainty(
+                        edges=edges,
+                        variances=variances,
+                        conformal_half_widths=conf_widths,
+                        reference_half_width=float(ref_width) if ref_width is not None else None,
+                        fractional_kelly=float(ku_cfg.get("fractional_kelly", 0.5)),
+                        max_fraction=float(ku_cfg.get("max_fraction", 0.25)),
+                        normalize=bool(ku_cfg.get("normalize", True)),
+                    )
+                    result.meta["kelly_uncertainty_shadow"] = {
+                        "n_symbols": int(len(shadow_weights)),
+                        "mean_abs_weight": float(shadow_weights.abs().mean()),
+                        "max_abs_weight": float(shadow_weights.abs().max()) if len(shadow_weights) else 0.0,
+                        "weights": {k: round(float(v), 6) for k, v in shadow_weights.items()},
+                    }
+                    log.info(
+                        "[SIZING-SHADOW] kelly_uncertainty: %d symbols, mean|w|=%.4f",
+                        len(shadow_weights), float(shadow_weights.abs().mean()),
+                    )
+        except Exception as _ku_exc:
+            log.debug("[SIZING-SHADOW] kelly_uncertainty_shadow skipped: %s", _ku_exc)
+
         # D2: Barra factor risk model — post-sizing vol check
         try:
             factor_risk_cfg = policy.get("factor_risk", {})

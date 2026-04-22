@@ -1,0 +1,94 @@
+name: earnings-calendar-refresh
+
+# Part B deeper wiring (2026-04-22) — weekly offline earnings calendar refresh.
+#
+# The signal_generation.earnings_guard gate in trading_cycle.py reads
+# `output/intel/earnings/calendar_latest.parquet` via paper/intel_context.py.
+# Without this cron the file ages out and the guard silently treats every
+# symbol as "no earnings ahead" — both suppression and PEAD boosts go dark.
+
+on:
+  schedule:
+    # Weekly: Sunday 03:00 UTC — after signal-decay (02:45) and before the
+    # factor-store prewarm (03:15). Fresh calendar ready for Monday open.
+    - cron: "0 3 * * 0"
+  workflow_dispatch:
+    inputs:
+      symbols:
+        description: "Comma-separated symbols to refresh"
+        required: false
+        default: "SPY,QQQ,IWM,AAPL,MSFT,NVDA,GOOGL,AMZN,META,TSLA,AMD,AVGO,NFLX,JPM,BAC,XOM,CVX,UNH,V,MA,HD,COST,WMT,DIS,CRM,ORCL,ADBE,CSCO,INTC,MU"
+      days_ahead:
+        description: "Lookahead window in days"
+        required: false
+        default: "90"
+
+concurrency:
+  group: earnings-calendar-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh-earnings-calendar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Refresh earnings calendar cache
+        run: |
+          python scripts/fetch_earnings_calendar.py \
+            --symbols "${{ github.event.inputs.symbols || 'SPY,QQQ,IWM,AAPL,MSFT,NVDA,GOOGL,AMZN,META,TSLA,AMD,AVGO,NFLX,JPM,BAC,XOM,CVX,UNH,V,MA,HD,COST,WMT,DIS,CRM,ORCL,ADBE,CSCO,INTC,MU' }}" \
+            --days-ahead "${{ github.event.inputs.days_ahead || '90' }}" \
+            --output output/intel/earnings/calendar_latest.parquet
+
+      - name: Inspect cache
+        if: always()
+        run: |
+          python -c "
+          import pandas as pd, pathlib
+          p = pathlib.Path('output/intel/earnings/calendar_latest.parquet')
+          if not p.exists():
+              print('[WARN] no cache written')
+              raise SystemExit(0)
+          df = pd.read_parquet(p)
+          print(f'[OK] rows={len(df)} symbols={df[\"symbol\"].nunique() if \"symbol\" in df.columns else 0}')
+          print(df.head(5).to_string())
+          "
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: earnings-calendar-${{ github.run_id }}
+          path: output/intel/earnings/calendar_latest.parquet
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Commit refreshed calendar
+        if: github.event_name == 'schedule'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ ! -f output/intel/earnings/calendar_latest.parquet ]; then
+            echo "No calendar parquet — nothing to commit"
+            exit 0
+          fi
+          git add output/intel/earnings/calendar_latest.parquet
+          if git diff --cached --quiet; then
+            echo "No changes in calendar_latest.parquet"
+          else
+            git commit -m "chore(earnings): weekly calendar refresh $(date -u +%Y-%m-%d) [skip ci]"
+            git push
+          fi
