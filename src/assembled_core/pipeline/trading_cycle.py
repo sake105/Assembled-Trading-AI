@@ -2373,6 +2373,34 @@ def _run_trading_cycle_inner(
     except Exception as e:
         log.debug("crash_prediction step skipped: %s", e)
 
+    # Step 3.6: Ranking hysteresis (anti-churn) — reduces symbol rotation noise
+    try:
+        anti_churn_cfg = policy.get("anti_churn") or {}
+        if anti_churn_cfg.get("ranking_hysteresis_enabled", False) and not result.signals.empty:
+            from src.assembled_core.paper.ranking_hysteresis import apply_ranking_hysteresis
+            held_symbols: set[str] = set()
+            if (
+                ctx.current_positions is not None
+                and not ctx.current_positions.empty
+                and "symbol" in ctx.current_positions.columns
+            ):
+                held_symbols = set(ctx.current_positions["symbol"].tolist())
+            result.signals, _rh_meta = apply_ranking_hysteresis(
+                result.signals,
+                held_symbols,
+                entry_n=int(anti_churn_cfg.get("entry_n", 5)),
+                hold_n=int(anti_churn_cfg.get("hold_n", 7)),
+            )
+            result.meta["ranking_hysteresis"] = _rh_meta
+            log.info(
+                "[ANTI-CHURN] ranking_hysteresis: kept=%d blocked_entry=%d held=%d",
+                _rh_meta.get("kept_by_hysteresis", 0),
+                _rh_meta.get("blocked_entry", 0),
+                len(held_symbols),
+            )
+    except Exception as _rh_exc:
+        log.debug("[ANTI-CHURN] ranking_hysteresis skipped: %s", _rh_exc)
+
     # Step 4: Size positions (hook point: size_positions)
     try:
         if "size_positions" in hooks:
@@ -4141,6 +4169,50 @@ def _run_trading_cycle_inner(
                 log.info("SCENARIO_ENGINE: %d scenarios for crisis_type=%s", len(scenarios), crisis_type)
     except Exception as e:
         log.debug("scenario_engine skipped: %s", e)
+
+    # Step 6.6: Anti-churn order filters (deadzone + min-notional)
+    try:
+        anti_churn_cfg = policy.get("anti_churn") or {}
+        if not result.orders_filtered.empty:
+            if anti_churn_cfg.get("deadzone_enabled", False):
+                from src.assembled_core.paper.deadzone_rebalance import filter_deadzone_orders
+                _dz_positions = (
+                    ctx.current_positions[["symbol", "qty"]].copy()
+                    if ctx.current_positions is not None
+                    and not ctx.current_positions.empty
+                    and "qty" in ctx.current_positions.columns
+                    else None
+                )
+                result.orders_filtered, _dz_meta = filter_deadzone_orders(
+                    result.orders_filtered,
+                    _dz_positions,
+                    deadzone_pct=float(anti_churn_cfg.get("deadzone_pct", 0.05)),
+                )
+                result.meta["deadzone_rebalance"] = _dz_meta
+                if _dz_meta.get("orders_dropped", 0):
+                    log.info(
+                        "[ANTI-CHURN] deadzone_rebalance: dropped=%d kept=%d",
+                        _dz_meta["orders_dropped"],
+                        _dz_meta["orders_after"],
+                    )
+            if anti_churn_cfg.get("rebalance_filter_enabled", False) and not result.orders_filtered.empty:
+                from src.assembled_core.paper.rebalance_filter import filter_small_rebalances
+                _prices_for_filter = result.prices_filtered if result.prices_filtered is not None else ctx.prices
+                result.orders_filtered, _rf_meta = filter_small_rebalances(
+                    result.orders_filtered,
+                    min_notional=float(anti_churn_cfg.get("min_notional", 500.0)),
+                    prices=_prices_for_filter,
+                )
+                result.meta["rebalance_filter"] = _rf_meta
+                if _rf_meta.get("orders_dropped", 0):
+                    log.info(
+                        "[ANTI-CHURN] rebalance_filter: dropped=%d kept=%d min_notional=%.0f",
+                        _rf_meta["orders_dropped"],
+                        _rf_meta["orders_after"],
+                        _rf_meta["min_notional"],
+                    )
+    except Exception as _ac_exc:
+        log.debug("[ANTI-CHURN] order filters skipped: %s", _ac_exc)
 
     # Step 7: Write outputs (hook point: write_outputs)
     try:

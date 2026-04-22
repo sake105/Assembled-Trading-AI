@@ -355,6 +355,8 @@ anti_churn:
   hold_n: 7                    # existing positions stay if top-7
   deadzone_enabled: true
   deadzone_pct: 0.02           # rebalance only if weight diff > 2%
+  rebalance_filter_enabled: true
+  min_notional: 500.0          # drop orders below $500 notional value
   # NOTE: sector_rotation / earnings_guard / bayesian_confidence / signal_diagnostics
   # were moved to top-level `signal_generation:` (that is where trading_cycle.py
   # reads them). Leaving them under `anti_churn:` was a silent no-op.
