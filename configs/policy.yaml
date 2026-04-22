@@ -401,6 +401,22 @@ freshness_monitor:
   stale_feature_days: 5           # flag features constant for > 5 days
 
 # ---------------------------------------------------------------------------
+# ML drift detection (Step 2.4 — KS-test on feature distributions)
+# ---------------------------------------------------------------------------
+ml:
+  drift_detection:
+    enabled: true
+    p_value_threshold: 0.01       # KS p-value < this → feature drifted
+
+# ---------------------------------------------------------------------------
+# Signal meta-model confidence scoring (Step 3.7 — shadow only)
+# ---------------------------------------------------------------------------
+signals:
+  meta_model_scoring:
+    enabled: false                 # disabled until model file exists at model_path
+    model_path: "output/models/meta/meta_model.joblib"
+
+# ---------------------------------------------------------------------------
 # Phase 10: Monte Carlo robustness (bootstrap after each cycle / backtest)
 # ---------------------------------------------------------------------------
 monte_carlo:

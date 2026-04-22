@@ -2086,6 +2086,38 @@ def _run_trading_cycle_inner(
     except Exception as _fm_exc:
         log.debug("[FRESHNESS] freshness_monitor skipped: %s", _fm_exc)
 
+    # Step 2.4: Feature drift detection (KS-test, shadow observability)
+    try:
+        drift_cfg = (policy.get("ml") or {}).get("drift_detection") or {}
+        if drift_cfg.get("enabled", False) and not result.prices_with_features.empty:
+            from src.assembled_core.ml.model_monitoring import detect_feature_drift
+            _feat_cols_drift = [
+                c for c in result.prices_with_features.columns
+                if c not in {"timestamp", "symbol", "open", "high", "low", "close", "volume"}
+                and result.prices_with_features[c].dtype in ("float64", "float32")
+            ][:20]
+            if _feat_cols_drift and len(result.prices_with_features) >= 40:
+                _n_recent = min(30, len(result.prices_with_features) // 5)
+                _train_df = result.prices_with_features.iloc[:-_n_recent]
+                _recent_df = result.prices_with_features.iloc[-_n_recent:]
+                _drift_result = detect_feature_drift(
+                    _train_df,
+                    _recent_df,
+                    _feat_cols_drift,
+                    p_value_threshold=float(drift_cfg.get("p_value_threshold", 0.01)),
+                )
+                result.meta["feature_drift"] = _drift_result
+                if _drift_result.get("alert_level") in ("CRITICAL", "WARNING"):
+                    log.warning(
+                        "[DRIFT] %s — %.0f%% features drifted (%d/%d)",
+                        _drift_result["alert_level"],
+                        _drift_result.get("drift_score", 0) * 100,
+                        len(_drift_result.get("drifted_features", [])),
+                        _drift_result.get("n_tested", 0),
+                    )
+    except Exception as _dr_exc:
+        log.debug("[DRIFT] feature_drift detection skipped: %s", _dr_exc)
+
     # Step 3: Generate signals (hook point: generate_signals)
     try:
         if "generate_signals" in hooks:
@@ -2516,6 +2548,37 @@ def _run_trading_cycle_inner(
             )
     except Exception as _rh_exc:
         log.debug("[ANTI-CHURN] ranking_hysteresis skipped: %s", _rh_exc)
+
+    # Step 3.7: Meta-model confidence scoring (shadow — needs pre-trained model)
+    try:
+        mm_cfg = (policy.get("signals") or {}).get("meta_model_scoring") or {}
+        if mm_cfg.get("enabled", False) and not result.signals.empty:
+            from src.assembled_core.signals.meta_model import load_meta_model
+            import pathlib as _pathlib
+            _mm_path = _pathlib.Path(mm_cfg.get("model_path", "output/models/meta/meta_model.joblib"))
+            if _mm_path.exists():
+                _meta_model = load_meta_model(_mm_path)
+                _score_cols = [c for c in _meta_model.feature_names if c in result.signals.columns]
+                if _score_cols:
+                    _X_mm = result.signals[_score_cols].fillna(0.0)
+                    _conf_scores = _meta_model.predict_proba(_X_mm)
+                    result.signals = result.signals.copy()
+                    result.signals["meta_confidence"] = _conf_scores.values
+                    result.meta["meta_model_scores"] = {
+                        "model_path": str(_mm_path),
+                        "n_scored": int(len(_conf_scores)),
+                        "mean_confidence": round(float(_conf_scores.mean()), 4),
+                        "shadow_only": True,
+                    }
+                    log.info(
+                        "[META-MODEL] scored %d signals, mean_confidence=%.4f",
+                        len(_conf_scores),
+                        float(_conf_scores.mean()),
+                    )
+            else:
+                log.debug("[META-MODEL] model not found at %s — skipping", _mm_path)
+    except Exception as _mm_exc:
+        log.debug("[META-MODEL] meta_model scoring skipped: %s", _mm_exc)
 
     # Step 4: Size positions (hook point: size_positions)
     try:
