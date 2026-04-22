@@ -187,6 +187,48 @@ class RetrainingScheduler:
             logger.debug("%s IC-Loop Lade-Fehler: %s", _PREFIX, exc)
             return None
 
+    def adapt_hyperparameters_via_bandit(
+        self,
+        last_reward: float | None = None,
+        last_arm_id: str | None = None,
+        state_path: Path | None = None,
+    ) -> dict | None:
+        """Online-HPO via Thompson-Sampling Bandit (Round 7C).
+
+        NICHT auto-aktiviert. Aufrufer nutzt dies explizit um Retrain-Params zu bekommen.
+
+        Args:
+            last_reward: Falls vorheriger Retrain bekannt ist, dessen IC als Reward.
+            last_arm_id: Arm-ID aus letzter Auswahl (zum Reward-Update).
+            state_path: Override für State-Pfad.
+
+        Returns:
+            dict mit {"arm_id", "params"} oder None wenn Modul fehlt.
+        """
+        if not self._cfg.get("online_hpo_enabled", False):
+            logger.debug("%s online_hpo_enabled=False — skip", _PREFIX)
+            return None
+        try:
+            from src.assembled_core.ml.online_hpo import OnlineHyperparamAdapter  # type: ignore
+        except ImportError:
+            logger.debug("%s online_hpo import failed", _PREFIX)
+            return None
+
+        try:
+            adapter = OnlineHyperparamAdapter(state_path=state_path)
+            if last_reward is not None and last_arm_id is not None:
+                adapter.observe_reward(last_arm_id, last_reward)
+            chosen = adapter.select_arm()
+            adapter.save()
+            logger.info(
+                "%s [OnlineHPO] chose %s — params=%s",
+                _PREFIX, chosen.arm_id, chosen.params,
+            )
+            return {"arm_id": chosen.arm_id, "params": chosen.params}
+        except Exception as exc:
+            logger.warning("%s [OnlineHPO] error: %s", _PREFIX, exc)
+            return None
+
     def evaluate(
         self,
         model_last_trained_date: date | None = None,

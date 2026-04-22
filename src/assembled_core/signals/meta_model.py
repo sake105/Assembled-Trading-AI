@@ -224,6 +224,44 @@ class MetaModel:
                 "half_width": 0.0,
             }
 
+    def explain_prediction_lime(
+        self,
+        X_row: pd.Series | dict,
+        training_data: pd.DataFrame | None = None,
+        num_features: int = 10,
+    ) -> dict:
+        """LIME Local-Explanation für eine einzelne Prediction (Round 7K).
+
+        Args:
+            X_row: Feature-Werte der zu erklärenden Instance
+            training_data: Baseline-Distribution (für LIME-Init).
+                           Falls None → Permutation-Fallback.
+            num_features: Top-N Features im Output
+
+        Returns:
+            dict mit top_features + prediction_value + source.
+        """
+        try:
+            from src.assembled_core.ml.lime_explainer import LIMEExplainerWrapper
+        except ImportError:
+            return {"error": "lime_explainer module fehlt"}
+        try:
+            wrapper = LIMEExplainerWrapper(
+                model=self.model,
+                feature_names=list(self.feature_names),
+                training_data=training_data,
+                mode="classification" if hasattr(self.model, "predict_proba") else "regression",
+            )
+            expl = wrapper.explain(X_row, num_features=num_features)
+            return {
+                "top_features": expl.top_features(num_features),
+                "predicted_value": expl.predicted_value,
+                "source": expl.source,
+            }
+        except Exception as exc:
+            logger.warning("[MetaModel] LIME failed: %s", exc)
+            return {"error": str(exc)}
+
 
 def train_meta_model(
     df: pd.DataFrame,

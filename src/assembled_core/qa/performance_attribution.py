@@ -243,9 +243,30 @@ def sector_attribution(
     return out
 
 
+def attribution_during_worst_drawdown(
+    portfolio_returns: pd.Series,
+    factor_returns: pd.DataFrame,
+) -> dict:
+    """Wrapper (Round 7H): führt compute_attribution nur auf DD-Periode aus.
+
+    Verwendet `drawdown_decomposition.decompose_drawdown()` für konsistente Logik.
+    """
+    try:
+        from src.assembled_core.qa.drawdown_decomposition import decompose_drawdown
+    except ImportError:
+        return {"error": "drawdown_decomposition module fehlt"}
+    try:
+        report = decompose_drawdown(portfolio_returns, factor_returns)
+        return report.summary()
+    except Exception as exc:
+        logger.warning("[AttrDD] error: %s", exc)
+        return {"error": str(exc)}
+
+
 __all__ = [
     "AttributionResult",
     "compute_attribution",
     "rolling_attribution",
     "sector_attribution",
+    "attribution_during_worst_drawdown",
 ]

@@ -667,3 +667,115 @@ def apply_news_sentiment_weight_adjustment(
         result["target_qty"] = result["target_weight"] * result.get("target_qty", result["target_weight"])
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Round 7 additive: Turnover-aware position sizing (optional wrapper)
+# ---------------------------------------------------------------------------
+
+
+def compute_target_positions_with_smoothing(
+    signals: pd.DataFrame,
+    previous_positions: pd.Series | dict | None = None,
+    total_capital: float = 1.0,
+    top_n: int | None = None,
+    equal_weight: bool = True,
+    smoothing_alpha: float = 0.3,
+    max_turnover: float | None = None,
+) -> pd.DataFrame:
+    """compute_target_positions + Turnover-Smoothing + optional Budget-Cap.
+
+    Wrappt compute_target_positions (unverändert) und wendet EMA-Smoothing +
+    optional Turnover-Budget an.
+
+    Args:
+        signals, total_capital, top_n, equal_weight: siehe compute_target_positions
+        previous_positions: pd.Series oder dict mit letzten Weights (symbol -> weight).
+                            None → identisch zu compute_target_positions.
+        smoothing_alpha: EMA-Koeffizient in [0, 1]. 1.0 = kein Smoothing.
+        max_turnover: Optional Turnover-Budget in [0, 1].
+
+    Returns:
+        DataFrame mit denselben Spalten wie compute_target_positions, Weights
+        sind geglättet.
+    """
+    result = compute_target_positions(
+        signals=signals,
+        total_capital=total_capital,
+        top_n=top_n,
+        equal_weight=equal_weight,
+    )
+
+    if previous_positions is None or result.empty:
+        return result
+
+    try:
+        from src.assembled_core.portfolio.turnover_penalty import (
+            apply_turnover_smoothing,
+            enforce_turnover_budget,
+        )
+    except ImportError:
+        return result
+
+    # Extract current target as Series(symbol → weight)
+    sym_col = "symbol" if "symbol" in result.columns else result.columns[0]
+    target = pd.Series(
+        result["target_weight"].values,
+        index=result[sym_col].values,
+        name="target_weight",
+    )
+
+    smoothed = apply_turnover_smoothing(target, previous_positions, alpha=smoothing_alpha)
+    if max_turnover is not None:
+        smoothed = enforce_turnover_budget(smoothed, previous_positions, max_turnover=max_turnover)
+
+    # Re-apply smoothed weights back to result
+    result = result.copy()
+    result["target_weight"] = result[sym_col].map(smoothed).fillna(0.0).values
+    if "target_qty" in result.columns:
+        # Re-scale qty proportional to new weight
+        total_w = result["target_weight"].abs().sum()
+        if total_w > 1e-9:
+            result["target_qty"] = result["target_weight"]
+
+    return result
+
+
+def compute_kelly_weights_with_uncertainty(
+    edges: pd.Series,
+    variances: pd.Series,
+    conformal_half_widths: pd.Series | None = None,
+    reference_half_width: float | None = None,
+    fractional_kelly: float = 0.5,
+    max_fraction: float = 0.25,
+    normalize: bool = True,
+) -> pd.Series:
+    """Kelly-Weights mit Conformal-Uncertainty-Discount (Round 7F).
+
+    Additive Wrapper-Funktion — ruft kelly_uncertainty.compute_kelly_weights_with_uncertainty
+    auf. Bestehendes `compute_kelly_weights` bleibt UNVERÄNDERT.
+
+    Args:
+        edges: Erwartete Returns pro Symbol
+        variances: Return-Varianzen
+        conformal_half_widths: Optional Prediction-Intervall pro Symbol
+        reference_half_width: Referenz-Intervall für Uncertainty-Scaling
+        fractional_kelly: 0.5 = half-Kelly konservativ
+        max_fraction: Max-Position pro Symbol
+        normalize: sum(|weights|)=1
+
+    Returns:
+        pd.Series der Weights.
+    """
+    from src.assembled_core.portfolio.kelly_uncertainty import (
+        compute_kelly_weights_with_uncertainty as _compute,
+    )
+    return _compute(
+        edges=edges,
+        variances=variances,
+        conformal_half_widths=conformal_half_widths,
+        reference_half_width=reference_half_width,
+        fractional_kelly=fractional_kelly,
+        max_fraction=max_fraction,
+        normalize=normalize,
+    )

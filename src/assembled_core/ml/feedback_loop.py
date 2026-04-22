@@ -338,6 +338,17 @@ class FeedbackLoopController:
             logger.debug("%s [SIGNAL-7] Distribution-Shift Fehler: %s", _PREFIX, exc)
             skipped_signals.append("distribution_shift")
 
+        # Diagnose (kein Signal): Signal-Decay-Tracking + Signal-Correlation
+        try:
+            self._record_signal_decay(panel_df)
+        except Exception as exc:
+            logger.debug("%s [DIAG] signal_decay error: %s", _PREFIX, exc)
+
+        try:
+            self._record_signal_correlation(panel_df)
+        except Exception as exc:
+            logger.debug("%s [DIAG] signal_correlation error: %s", _PREFIX, exc)
+
         n_active = len(active_signals)
         logger.info(
             "%s Active signals: %d — %s",
@@ -726,6 +737,101 @@ class FeedbackLoopController:
             logger.debug("%s [SIGNAL-7] Error: %s", _PREFIX, exc)
             skipped.append("distribution_shift")
             return False, 0.0
+
+    # ------------------------------------------------------------------
+    # Diagnostics (no retrain signal, just reports)
+    # ------------------------------------------------------------------
+
+    def _record_signal_decay(self, panel_df) -> None:
+        """Snapshot Signal-IC-Decay — Diagnose, kein Retrain-Trigger."""
+        if panel_df is None or panel_df.empty:
+            return
+
+        fwd_cols = [c for c in panel_df.columns if c.startswith("fwd_return_")]
+        if not fwd_cols:
+            return
+        try:
+            horizons = sorted({int(c.replace("fwd_return_", "").rstrip("d"))
+                               for c in fwd_cols if c.replace("fwd_return_", "").rstrip("d").isdigit()})
+        except Exception:
+            return
+        if not horizons:
+            return
+
+        signal_cols = [
+            c for c in panel_df.select_dtypes(include="number").columns
+            if not c.startswith("fwd_return_") and not c.startswith("tb_") and c != "timestamp"
+        ][:15]
+        if not signal_cols:
+            return
+
+        try:
+            from src.assembled_core.ml.signal_decay_tracker import SignalDecayTracker
+        except ImportError:
+            return
+
+        try:
+            preds = {c: panel_df[c].dropna() for c in signal_cols if panel_df[c].notna().sum() > 20}
+            rets = {h: panel_df[f"fwd_return_{h}d"].dropna() for h in horizons
+                    if f"fwd_return_{h}d" in panel_df.columns}
+            if not preds or not rets:
+                return
+            tracker = SignalDecayTracker(horizons=horizons)
+            tracker.record_snapshot(preds, rets)
+
+            degraded = tracker.degraded_signals(decay_threshold_pct=50.0)
+            if degraded:
+                logger.warning(
+                    "%s [DIAG-Decay] %d Signale mit >50%% IC-Verlust: %s",
+                    _PREFIX, len(degraded), degraded[:5],
+                )
+
+            # Write snapshot report
+            from datetime import datetime as _dt
+            report_path = self.state_dir / f"signal_decay_{_dt.now().strftime('%Y%m%d')}.json"
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            import json as _json
+            report_path.write_text(_json.dumps({
+                "snapshot_summary": tracker.summary(),
+                "degraded_signals": degraded,
+            }, indent=2, default=str), encoding="utf-8")
+        except Exception as exc:
+            logger.debug("%s [DIAG-Decay] error: %s", _PREFIX, exc)
+
+    def _record_signal_correlation(self, panel_df) -> None:
+        """Signal-Correlation-Diagnose — stub, echte Logik in Round 7G."""
+        try:
+            from src.assembled_core.ml.signal_correlation import SignalCorrelationAnalyzer
+        except ImportError:
+            return
+        if panel_df is None or panel_df.empty:
+            return
+
+        try:
+            signal_cols = [
+                c for c in panel_df.select_dtypes(include="number").columns
+                if not c.startswith("fwd_return_") and not c.startswith("tb_") and c != "timestamp"
+            ][:15]
+            if len(signal_cols) < 2:
+                return
+            analyzer = SignalCorrelationAnalyzer()
+            report = analyzer.analyze(panel_df[signal_cols])
+            if report.redundant_clusters:
+                logger.info(
+                    "%s [DIAG-Corr] %d redundante Signal-Cluster erkannt",
+                    _PREFIX, len(report.redundant_clusters),
+                )
+            from datetime import datetime as _dt
+            report_path = self.state_dir / f"signal_correlation_{_dt.now().strftime('%Y%m%d')}.json"
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            import json as _json
+            report_path.write_text(_json.dumps({
+                "n_signals": len(signal_cols),
+                "redundant_clusters": report.redundant_clusters,
+                "mean_abs_corr": report.mean_abs_corr,
+            }, indent=2, default=str), encoding="utf-8")
+        except Exception as exc:
+            logger.debug("%s [DIAG-Corr] error: %s", _PREFIX, exc)
 
     # ------------------------------------------------------------------
     # CPCV Overfitting Gate (M16)

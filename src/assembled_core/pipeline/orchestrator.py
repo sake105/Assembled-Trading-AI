@@ -1262,4 +1262,41 @@ def run_eod_pipeline(
     except Exception as _fl_exc:
         logger.warning("[EOD][Feedback] Non-blocking Fehler (ignoriert): %s", _fl_exc)
 
+    # ═══════════════════════════════════════════════════════════════════
+    # News-zu-Trade-Attribution (Round 7E, non-blocking)
+    # ═══════════════════════════════════════════════════════════════════
+    try:
+        from src.assembled_core.intel.news_trade_attribution import NewsTradeAttributor  # type: ignore
+
+        _ls_path = base / "ops" / "learning_store.jsonl"
+        _news_path = base / "intel" / "news_event_store.jsonl"
+        if _ls_path.exists() and _news_path.exists():
+            _attributor = NewsTradeAttributor()
+            _n_enriched = _attributor.enrich_learning_store(
+                learning_store_path=_ls_path,
+                news_events_path=_news_path,
+            )
+            logger.info("[EOD][NewsAttr] enriched %d Trade-Records mit news_links", _n_enriched)
+    except Exception as _na_exc:
+        logger.warning("[EOD][NewsAttr] Non-blocking Fehler: %s", _na_exc)
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Trade-Level TCA (Round 7I, non-blocking)
+    # ═══════════════════════════════════════════════════════════════════
+    try:
+        from src.assembled_core.qa.trade_tca import run_tca_from_learning_store  # type: ignore
+
+        _ls_path = base / "ops" / "learning_store.jsonl"
+        _tca_out = base / "ops" / f"tca_report_{pd.Timestamp.now().strftime('%Y%m%d')}.json"
+        if _ls_path.exists():
+            _tca_result = run_tca_from_learning_store(_ls_path, _tca_out)
+            if _tca_result:
+                logger.info(
+                    "[EOD][TCA] %d Trades analysiert, mean_impact_bps=%.2f",
+                    _tca_result.get("n_trades", 0),
+                    _tca_result.get("mean_impact_bps", 0.0),
+                )
+    except Exception as _tca_exc:
+        logger.warning("[EOD][TCA] Non-blocking Fehler: %s", _tca_exc)
+
     return manifest

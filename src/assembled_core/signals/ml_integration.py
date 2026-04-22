@@ -65,21 +65,25 @@ class MLSignalPipeline:
         nested_meta: object | None = None,
         risk_combiner: object | None = None,
         regime_classifier: object | None = None,
+        combined_regime_classifier: object | None = None,
         feature_cols: list[str] | None = None,
     ) -> None:
         """Args:
-            primary_model: sklearn-kompatibles Modell ODER None (dann muss Aufrufer primary_signal liefern)
+            primary_model: sklearn-kompatibles Modell ODER None
             regime_router: RegimeModelRouter-Instanz ODER None
             nested_meta: NestedMetaLabeler-Instanz ODER None
             risk_combiner: RiskAwareSignalCombiner-Instanz ODER None
-            regime_classifier: NewsRegimeClassifier-Instanz ODER None
-            feature_cols: Feature-Spalten für primary_model (falls relevant)
+            regime_classifier: NewsRegimeClassifier-Instanz ODER None (legacy)
+            combined_regime_classifier: CombinedRegimeClassifier (Round 7J). Falls
+                gesetzt, überschreibt regime_classifier für Regime-Detection.
+            feature_cols: Feature-Spalten für primary_model
         """
         self.primary_model = primary_model
         self.regime_router = regime_router
         self.nested_meta = nested_meta
         self.risk_combiner = risk_combiner
         self.regime_classifier = regime_classifier
+        self.combined_regime_classifier = combined_regime_classifier
         self.feature_cols = feature_cols or []
 
     def run(
@@ -88,6 +92,7 @@ class MLSignalPipeline:
         sentiment_window: pd.DataFrame | None = None,
         primary_signal: pd.Series | None = None,
         context_features: pd.DataFrame | None = None,
+        market_returns: pd.Series | None = None,
     ) -> MLPipelineOutput:
         """Führt vollständige ML-Signal-Pipeline aus.
 
@@ -129,7 +134,21 @@ class MLSignalPipeline:
 
         # ---------- 2. Regime Detection ----------
         regime = "NEUTRAL"
-        if self.regime_classifier is not None and sentiment_window is not None and not sentiment_window.empty:
+        if self.combined_regime_classifier is not None:
+            try:
+                combined_out = self.combined_regime_classifier.predict(
+                    sentiment_window=sentiment_window,
+                    returns=market_returns,
+                )
+                regime = combined_out.combined_regime
+                logger.debug(
+                    "[MLPipeline] Combined regime: %s (news=%s, hmm=%s, agreement=%s)",
+                    regime, combined_out.news_regime, combined_out.hmm_regime, combined_out.agreement,
+                )
+            except Exception as exc:
+                logger.debug("[MLPipeline] combined_regime failed: %s", exc)
+                regime = "NEUTRAL"
+        elif self.regime_classifier is not None and sentiment_window is not None and not sentiment_window.empty:
             try:
                 regime = self.regime_classifier.predict(sentiment_window)
             except Exception as exc:
