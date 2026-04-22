@@ -3976,6 +3976,58 @@ def _run_trading_cycle_inner(
     except Exception as _ms_exc:
         log.debug("[ML-SNAP] ml_training_snapshot skipped: %s", _ms_exc)
 
+    # Step 4.85: Cost-aware weight shrinkage (reduces oversizing on expensive trades)
+    try:
+        caw_cfg = policy.get("cost_aware_wrapper") or {}
+        if caw_cfg.get("enabled", False) and not result.target_positions.empty:
+            from src.assembled_core.portfolio.cost_aware_wrapper import (
+                apply_cost_aware_from_policy,
+            )
+            w_col = next(
+                (c for c in ("target_weight", "weight", "target_pct") if c in result.target_positions.columns),
+                None,
+            )
+            if w_col and "symbol" in result.target_positions.columns:
+                _target_w = {
+                    str(r["symbol"]): float(r[w_col])
+                    for _, r in result.target_positions.iterrows()
+                    if pd.notna(r.get(w_col))
+                }
+                _curr_w: dict[str, float] = {}
+                if ctx.current_positions is not None and not ctx.current_positions.empty:
+                    if "symbol" in ctx.current_positions.columns and w_col in ctx.current_positions.columns:
+                        _curr_w = {
+                            str(r["symbol"]): float(r[w_col])
+                            for _, r in ctx.current_positions.iterrows()
+                            if pd.notna(r.get(w_col))
+                        }
+                    elif "symbol" in ctx.current_positions.columns and "weight" in ctx.current_positions.columns:
+                        _curr_w = {
+                            str(r["symbol"]): float(r["weight"])
+                            for _, r in ctx.current_positions.iterrows()
+                            if pd.notna(r.get("weight"))
+                        }
+                _adj_w, _caw_reasons = apply_cost_aware_from_policy(
+                    _target_w, _curr_w, policy,
+                    current_invested_pct=float(sum(abs(v) for v in _target_w.values())),
+                )
+                if _caw_reasons:
+                    # Apply shrunken weights back to target_positions
+                    result.target_positions = result.target_positions.copy()
+                    result.target_positions[w_col] = result.target_positions["symbol"].map(
+                        lambda s: _adj_w.get(str(s), _target_w.get(str(s), 0.0))
+                    )
+                    result.meta["cost_aware_wrapper"] = {
+                        "n_shrunken": len(_caw_reasons),
+                        "reasons": _caw_reasons[:5],
+                    }
+                    log.info(
+                        "[COST-AWARE] shrinkage applied to %d positions",
+                        len(_caw_reasons),
+                    )
+    except Exception as _caw_exc:
+        log.debug("[COST-AWARE] cost_aware_wrapper skipped: %s", _caw_exc)
+
     # Step 5: Generate orders (hook point: generate_orders)
     try:
         if not do_rebal:
@@ -4452,6 +4504,68 @@ def _run_trading_cycle_inner(
                 )
     except Exception as _ffg_exc:
         log.debug("[FAT-FINGER] fat_finger_guard skipped: %s", _ffg_exc)
+
+    # Step 6.8: Borrow cost estimate for short positions (observability + accounting)
+    try:
+        bc_cfg = policy.get("borrow_costs") or {}
+        if bc_cfg.get("enabled", True) and not result.orders_filtered.empty:
+            from src.assembled_core.execution.borrow_costs import (
+                BorrowRateTable,
+                compute_borrow_cost,
+            )
+            _brt = BorrowRateTable(
+                default_rate_bps=float(bc_cfg.get("default_rate_bps", 50.0)),
+                htb_rate_bps=float(bc_cfg.get("htb_rate_bps", 500.0)),
+            )
+            _total_borrow_usd = 0.0
+            _short_count = 0
+            for _, _ord_row in result.orders_filtered.iterrows():
+                _qty = float(_ord_row.get("qty", 0))
+                _px = float(_ord_row.get("price", 0))
+                if _qty < 0 and _px > 0:
+                    _sym = str(_ord_row.get("symbol", ""))
+                    _cost = compute_borrow_cost(_qty, _px, _brt.rate_bps(_sym))
+                    _total_borrow_usd += _cost
+                    _short_count += 1
+            if _short_count > 0:
+                result.meta["borrow_costs"] = {
+                    "n_short_orders": _short_count,
+                    "estimated_daily_borrow_usd": round(_total_borrow_usd, 4),
+                }
+                log.info(
+                    "[BORROW] %d short orders, estimated daily borrow cost: $%.4f",
+                    _short_count, _total_borrow_usd,
+                )
+    except Exception as _bc_exc:
+        log.debug("[BORROW] borrow_costs skipped: %s", _bc_exc)
+
+    # Step 6.9: Order lifecycle tracking (audit trail for submitted orders)
+    try:
+        if not result.orders_filtered.empty:
+            from src.assembled_core.execution.order_lifecycle import (
+                OrderLifecycleTracker,
+                OrderState,
+            )
+            _olt = OrderLifecycleTracker()
+            _olt_ids = []
+            for _, _ord_row in result.orders_filtered.iterrows():
+                _oid = _olt.create(
+                    symbol=str(_ord_row.get("symbol", "")),
+                    side=str(_ord_row.get("side", "buy")),
+                    quantity=float(_ord_row.get("qty", 0)),
+                    price=float(_ord_row.get("price", 0)) or None,
+                    source="trading_cycle",
+                )
+                _olt.transition(_oid, OrderState.VALIDATED)
+                _olt.transition(_oid, OrderState.SUBMITTED)
+                _olt_ids.append(_oid)
+            result.meta["order_lifecycle"] = {
+                "n_orders_tracked": len(_olt_ids),
+                "state": "SUBMITTED",
+            }
+            log.debug("[ORDER_LIFECYCLE] tracked %d orders", len(_olt_ids))
+    except Exception as _ol_exc:
+        log.debug("[ORDER_LIFECYCLE] order_lifecycle tracking skipped: %s", _ol_exc)
 
     # Step 7: Write outputs (hook point: write_outputs)
     try:

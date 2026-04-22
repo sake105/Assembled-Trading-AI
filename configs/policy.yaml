@@ -401,6 +401,22 @@ freshness_monitor:
   stale_feature_days: 5           # flag features constant for > 5 days
 
 # ---------------------------------------------------------------------------
+# Cost-aware weight shrinkage (Step 4.85 — reduces oversizing on expensive trades)
+# ---------------------------------------------------------------------------
+cost_aware_wrapper:
+  enabled: false                  # start disabled — behavior change on target_weights
+  penalty_factor: null            # null = auto (0.5 * invested_pct)
+  min_shrink: 0.0
+
+# ---------------------------------------------------------------------------
+# Borrow cost estimation for short positions (Step 6.8)
+# ---------------------------------------------------------------------------
+borrow_costs:
+  enabled: true
+  default_rate_bps: 50.0          # easy-to-borrow annualised bps
+  htb_rate_bps: 500.0             # hard-to-borrow annualised bps
+
+# ---------------------------------------------------------------------------
 # ML drift detection (Step 2.4 — KS-test on feature distributions)
 # ---------------------------------------------------------------------------
 ml:
