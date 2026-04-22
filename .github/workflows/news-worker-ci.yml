@@ -1,0 +1,111 @@
+name: news-worker-ci
+
+# Part B deeper wiring wave 3 (2026-04-22) — hourly news refresh producer.
+#
+# The paper cycle consumes `output/intel/news/triggers_latest.json` via
+# paper/intel_context.py (_populate_active_shocks → ctx.intel_active_shocks),
+# which feeds intel_signal_layer's SHOCK_BENEFICIARY_MAP.
+#
+# Without this cron the file ages out and the news→signal path goes dark.
+
+on:
+  schedule:
+    # Hourly on weekdays during US market hours (plus margin for DST + pre/post).
+    # 13:00–21:00 UTC = 8am–4pm ET (DST) / 9am–5pm ET (standard).
+    - cron: "0 13-21 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      cadence:
+        description: "Pipeline cadence (hourly / daily)"
+        required: false
+        default: "hourly"
+
+concurrency:
+  group: news-worker-ci
+  cancel-in-progress: false
+
+jobs:
+  run-news-worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run news worker
+        run: |
+          python scripts/run_news_worker.py \
+            --cadence "${{ github.event.inputs.cadence || 'hourly' }}" \
+            --output-dir output/intel/news
+
+      - name: Inspect output
+        if: always()
+        run: |
+          python -c "
+          import json, pathlib
+          base = pathlib.Path('output/intel/news')
+          for name in ('triggers_latest.json', 'events_latest.json', 'health_latest.json'):
+              p = base / name
+              if not p.exists():
+                  print(f'[WARN] missing {name}')
+                  continue
+              try:
+                  data = json.loads(p.read_text(encoding='utf-8'))
+                  if isinstance(data, list):
+                      print(f'[OK] {name}: list len={len(data)}')
+                  elif isinstance(data, dict):
+                      print(f'[OK] {name}: dict keys={list(data.keys())[:6]}')
+                  else:
+                      print(f'[OK] {name}: type={type(data).__name__}')
+              except Exception as exc:
+                  print(f'[WARN] {name}: parse error {exc}')
+          "
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: news-triggers-${{ github.run_id }}
+          path: |
+            output/intel/news/triggers_latest.json
+            output/intel/news/events_latest.json
+            output/intel/news/health_latest.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Commit refreshed news artifacts
+        if: github.event_name == 'schedule'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          changed=0
+          for f in \
+              output/intel/news/triggers_latest.json \
+              output/intel/news/events_latest.json \
+              output/intel/news/health_latest.json; do
+            if [ -f "$f" ]; then
+              git add "$f" || true
+              changed=1
+            fi
+          done
+          if [ "$changed" = "0" ]; then
+            echo "No news artifacts produced — nothing to commit"
+            exit 0
+          fi
+          if git diff --cached --quiet; then
+            echo "No changes in news artifacts"
+          else
+            git commit -m "chore(news): hourly refresh $(date -u +%Y-%m-%dT%H:%MZ) [skip ci]"
+            git push
+          fi

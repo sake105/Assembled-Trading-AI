@@ -1,0 +1,109 @@
+name: disclosures-worker-ci
+
+# Part B deeper wiring wave 3 (2026-04-22) — daily disclosures refresh producer.
+#
+# The paper cycle consumes `output/intel/disclosures/triggers_latest.json` via
+# paper/intel_context.py alongside news triggers. Disclosures are slower-moving
+# than news (SEC filings, insider trades, regulatory actions), so a daily
+# cadence is sufficient.
+
+on:
+  schedule:
+    # Daily at 10:30 UTC = 05:30 ET (standard) / 06:30 ET (DST) — before US open.
+    - cron: "30 10 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      cadence:
+        description: "Pipeline cadence (hourly / daily)"
+        required: false
+        default: "daily"
+
+concurrency:
+  group: disclosures-worker-ci
+  cancel-in-progress: false
+
+jobs:
+  run-disclosures-worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run disclosures worker
+        run: |
+          python scripts/run_disclosures_worker.py \
+            --cadence "${{ github.event.inputs.cadence || 'daily' }}" \
+            --output-dir output/intel/disclosures
+
+      - name: Inspect output
+        if: always()
+        run: |
+          python -c "
+          import json, pathlib
+          base = pathlib.Path('output/intel/disclosures')
+          for name in ('triggers_latest.json', 'events_latest.json', 'health_latest.json'):
+              p = base / name
+              if not p.exists():
+                  print(f'[WARN] missing {name}')
+                  continue
+              try:
+                  data = json.loads(p.read_text(encoding='utf-8'))
+                  if isinstance(data, list):
+                      print(f'[OK] {name}: list len={len(data)}')
+                  elif isinstance(data, dict):
+                      print(f'[OK] {name}: dict keys={list(data.keys())[:6]}')
+                  else:
+                      print(f'[OK] {name}: type={type(data).__name__}')
+              except Exception as exc:
+                  print(f'[WARN] {name}: parse error {exc}')
+          "
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: disclosures-triggers-${{ github.run_id }}
+          path: |
+            output/intel/disclosures/triggers_latest.json
+            output/intel/disclosures/events_latest.json
+            output/intel/disclosures/health_latest.json
+          if-no-files-found: warn
+          retention-days: 60
+
+      - name: Commit refreshed disclosures artifacts
+        if: github.event_name == 'schedule'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          changed=0
+          for f in \
+              output/intel/disclosures/triggers_latest.json \
+              output/intel/disclosures/events_latest.json \
+              output/intel/disclosures/health_latest.json; do
+            if [ -f "$f" ]; then
+              git add "$f" || true
+              changed=1
+            fi
+          done
+          if [ "$changed" = "0" ]; then
+            echo "No disclosures artifacts produced — nothing to commit"
+            exit 0
+          fi
+          if git diff --cached --quiet; then
+            echo "No changes in disclosures artifacts"
+          else
+            git commit -m "chore(disclosures): daily refresh $(date -u +%Y-%m-%d) [skip ci]"
+            git push
+          fi
