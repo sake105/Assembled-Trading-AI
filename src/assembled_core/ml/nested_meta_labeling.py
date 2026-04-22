@@ -87,6 +87,7 @@ class NestedMetaLabeler:
         self.min_size = min_size
         self._confidence_model: object | None = None
         self._size_model: object | None = None
+        self._size_scale_max: float | None = None
 
     def fit(
         self,
@@ -135,7 +136,13 @@ class NestedMetaLabeler:
                     n_estimators=100, max_depth=3, learning_rate=0.05, random_state=42,
                 )
                 self._size_model.fit(X_size, y_size)
-                logger.info("%s Stufe 3 (Size) trainiert: n=%d", _PREFIX, len(y_size))
+                # Persist training-time scale so predict() is invariant to inference batch composition.
+                train_preds = self._size_model.predict(X_size)
+                self._size_scale_max = float(max(np.abs(train_preds).max(), 1e-9))
+                logger.info(
+                    "%s Stufe 3 (Size) trainiert: n=%d scale_max=%.4f",
+                    _PREFIX, len(y_size), self._size_scale_max,
+                )
             else:
                 logger.warning(
                     "%s Nur %d erfolgreiche Trades — Stufe 3 nicht trainierbar",
@@ -182,8 +189,11 @@ class NestedMetaLabeler:
         if self._size_model is not None:
             try:
                 size_raw = self._size_model.predict(X)  # type: ignore[attr-defined]
-                # Normalize: map to [0, 1]
-                max_abs = max(np.abs(size_raw).max(), 1e-9)
+                # Use training-time scale if available; fall back to batch max only if scale missing.
+                if self._size_scale_max is not None and self._size_scale_max > 0:
+                    max_abs = self._size_scale_max
+                else:
+                    max_abs = float(max(np.abs(size_raw).max(), 1e-9))
                 size_norm = np.clip(np.abs(size_raw) / max_abs, self.min_size, 1.0)
             except Exception as exc:
                 logger.warning("%s Stufe 3 predict failed: %s — size=0.5", _PREFIX, exc)

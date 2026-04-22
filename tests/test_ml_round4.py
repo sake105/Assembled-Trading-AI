@@ -96,6 +96,46 @@ def test_nested_meta_fit_predict():
     assert (pred.size_scale <= 1 + 1e-9).all()
 
 
+def test_nested_meta_size_scale_batch_invariant():
+    """Regression P0.3: size_scale must be deterministic across inference batches.
+
+    Prior bug: predict() normalized by batch max → same observation got different
+    size_scale depending on which other rows were in the batch. Fix persists the
+    training-time max as self._size_scale_max.
+    """
+    pytest.importorskip("sklearn")
+    from src.assembled_core.ml.nested_meta_labeling import NestedMetaLabeler
+
+    rng = np.random.default_rng(7)
+    n = 200
+    df = pd.DataFrame({
+        "primary_signal": rng.uniform(-1, 1, n),
+        "primary_direction": rng.choice([-1, 1], n),
+        "news_sentiment_mean": rng.uniform(-0.5, 0.5, n),
+        "news_velocity": rng.uniform(0.5, 2.0, n),
+        "regime_state": rng.integers(0, 3, n),
+        "vix_proxy": rng.uniform(10, 40, n),
+        "success_label": rng.integers(0, 2, n),
+        "magnitude_label": rng.normal(0, 0.02, n),
+    })
+
+    labeler = NestedMetaLabeler(confidence_threshold=0.5)
+    labeler.fit(df)
+    assert labeler._size_scale_max is not None
+    assert labeler._size_scale_max > 0
+
+    features = df.drop(columns=["success_label", "magnitude_label"])
+    # Same observation (row 0), two different batch contexts.
+    small = features.iloc[[0, 1, 2]].copy()
+    large = features.iloc[[0] + list(range(10, 100))].copy()
+
+    pred_small = labeler.predict(small)
+    pred_large = labeler.predict(large)
+
+    # Row 0 must get the same size_scale regardless of batch.
+    assert pred_small.size_scale.iloc[0] == pytest.approx(pred_large.size_scale.iloc[0], abs=1e-12)
+
+
 def test_nested_meta_threshold_gates():
     """Confidence unter Threshold → final_position = 0."""
     pytest.importorskip("sklearn")
