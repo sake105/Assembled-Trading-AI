@@ -59,18 +59,23 @@ Do **not** leave a session after meaningful work without checking whether this f
 ### Current milestone
 - ID: System-Check Remediation — `SYSTEM_CHECK_REMEDIATION_2026-04-22`
 - Name: Post-audit P0–P4 remediation on HEAD 8ad5990 (ML Rounds 4-7 + orphan-wiring + galaxy + news engines + paper-engine-upgrade)
-- Overall milestone status: P0 (4 bugs) implemented + locally tested; P1 governance sync + P2 architecture + P3 CI in progress
-- Last key commit: `8a5e685` (plan doc) — predecessors 337c5d9 (P0.1+P0.2), eb3c752 (P0.3), 956dea7 (P0.4)
+- Overall milestone status: P0 + P1 + P2 + P3 all implemented + locally verified (phase12 1862/0); P4 opportunistic cleanup open
+- Last key commit: `ed09cc4` (system_map regen) — P0.1+P0.2 337c5d9, P0.3 eb3c752, P0.4 956dea7, P1 f2a57a7+420257f, P2 a13ed1b+036ee17+c32867f, P3 7bb3894+d171962+7fd2cb0
 
 ### Current task (System-Check Remediation)
 - P0.1 kelly_uncertainty formula inversion → FIXED (`337c5d9`); scale = 1 - clip(cw/ref, 0, 1).
 - P0.2 position_sizing capital regression → FIXED (`337c5d9`); smoothing branch now applies total_capital.
 - P0.3 nested_meta batch-relative size → FIXED (`eb3c752`); training-time `_size_scale_max` persisted.
 - P0.4 config/__init__ conditional `__all__` → FIXED (`956dea7`); `__all__` built after successful optional imports.
-- P1 governance sync (ROADMAP_STATE, MEMORY.md, CLAUDE.md §14.3, CONTEXT_PACK legacy header) — in progress.
-- P2 architecture consolidation (TCA deprecation, FIFO authority, orchestrator filename, bare-except) — pending.
-- P3 CI/dependency hygiene (newsapi-python pin, Windows pip cache paths, collection-error claim) — pending.
-- P4 concern cleanup — opportunistic.
+- P1.1 ROADMAP_STATE sync → DONE (`f2a57a7`). P1.2 MEMORY index → DONE (in `f2a57a7`). P1.3 CLAUDE.md §14.3 + P1.4 CONTEXT_PACK legacy header → DONE (`420257f`).
+- P2.1 trade_tca docstring truth + architecture note → DONE (`a13ed1b`).
+- P2.2 accounting FIFO authority docstring → DONE (`036ee17`).
+- P2.3 orchestrator TCA filename deterministic (derived from learning_store max timestamp) + P2.4 narrow bare-excepts → DONE (`c32867f`).
+- P3.1 newsapi-python sync into requirements.txt → DONE (`7bb3894`).
+- P3.2 Windows pip cache paths (3 workflows) → DONE (`d171962`).
+- P3.4 stale "19 collection-fail files" rule update → DONE (`7fd2cb0`).
+- System map regenerated at remediation HEAD → `ed09cc4`.
+- P4 concern cleanup — opportunistic (deferred).
 
 ### Predecessor milestone (superseded)
 - ID: Ultra-Plan — `also-erstens-wir-haben-polished-koala`
@@ -103,11 +108,10 @@ Do **not** leave a session after meaningful work without checking whether this f
 - Walk-forward gate (release-gate-ci.yml): grace period open through 2026-07-01. Non-blocking until E5 real-price walk-forward fixture is available.
 
 ### Next smallest safe step
-System-Check remediation (P0 complete). Continue with P1–P3:
-1. Finish P1 governance sync: MEMORY.md Active Milestone, CLAUDE.md §14.3, CONTEXT_PACK legacy header.
-2. P2 architecture: TCA consolidation (trade_tca/tca_arrival), FIFO authority note, orchestrator TCA filename deterministic, narrow bare-except.
-3. P3 CI/deps: `newsapi-python` in requirements.txt, Windows pip cache paths, stale collection-error claim in rules.
-4. Verify phase12 fresh after all P0–P3 commits.
+System-Check remediation P0 + P1 + P2 + P3 fully landed, phase12 green (1862/0). Remaining:
+1. Push 13 unpushed commits (`337c5d9` … `ed09cc4`) to origin/main and verify GH Actions run.
+2. Decide on P2.1 hard TCA consolidation (trade_tca vs tca_arrival) after ownership/call-site analysis.
+3. P4 opportunistic cleanup (no hard blocker).
 
 ### Previous milestone (superseded)
 - ID: M14 — Institutional Upgrade (ML + TA + Portfolio + Execution)
@@ -701,7 +705,7 @@ Completed (see `memory/MEMORY.md` for per-milestone detail):
 - ML Rounds 4-7 + orphan-wiring 160 modules (2026-04-22)
 
 Active:
-- System-Check Remediation 2026-04-22 — P0 done, P1-P3 in progress.
+- System-Check Remediation 2026-04-22 — P0 + P1 + P2 + P3 all done, 1862/0 phase12, 13 commits unpushed.
 
 ---
 
