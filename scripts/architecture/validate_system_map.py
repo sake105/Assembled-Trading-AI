@@ -18,7 +18,7 @@ DEFAULT_MAP = REPO_ROOT / "docs/architecture/system_map/data/system_map.json"
 STALE_DAYS  = 30
 
 VALID_STATUSES = {"green", "yellow", "orange", "red", "gray"}
-VALID_TYPES    = {"domain", "module", "external_api", "script", "workflow", "entry_point"}
+VALID_TYPES    = {"galaxy", "domain", "module", "external_api", "script", "workflow", "entry_point"}
 VALID_KINDS    = {"import", "api_call", "data_flow", "trigger"}
 
 

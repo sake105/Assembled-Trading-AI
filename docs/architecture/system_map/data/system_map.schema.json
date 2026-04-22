@@ -31,7 +31,7 @@
         "required": ["id", "type", "label", "status"],
         "properties": {
           "id":                    { "type": "string" },
-          "type":                  { "type": "string", "enum": ["domain","module","external_api","script","workflow","entry_point"] },
+          "type":                  { "type": "string", "enum": ["galaxy","domain","module","external_api","script","workflow","entry_point"] },
           "label":                 { "type": "string" },
           "parent":                { "type": ["string", "null"] },
           "purpose":               { "type": "string" },

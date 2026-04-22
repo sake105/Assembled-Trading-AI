@@ -6,8 +6,9 @@
 
   // ── Constants ───────────────────────────────────────────
   const DATA_URL = 'data/system_map.json';
-  const ZOOM_GALAXY = 0.4;
-  const ZOOM_SYSTEM = 1.2;
+  // Three-tier semantic zoom: galaxy (5 super-clusters), system (22 domains), detail (modules).
+  const ZOOM_GALAXY = 0.30;   // below: only the 5 galaxies are shown
+  const ZOOM_SYSTEM = 1.00;   // below: galaxies fade, domains visible, modules unlabeled
   const STALE_DAYS  = 30;
 
   const DOMAIN_HUES = {
@@ -48,86 +49,342 @@
   let cy;
   const $ = id => document.getElementById(id);
 
-  // ── Cytoscape Stylesheet ─────────────────────────────────
+  // ── Cytoscape Stylesheet — Astronomical Cartography ──────
+  // Cytoscape cannot read CSS custom properties, so the palette
+  // is duplicated here. Keep in lockstep with tokens.css.
+  const PAL = {
+    void:       '#07080c',
+    voidRaised: '#0b0d13',
+    ink:        '#e8e4d9',
+    inkMuted:   '#7a7668',
+    hairline:   'rgba(232,228,217,0.14)',
+    hairlineHot:'rgba(232,228,217,0.38)',
+    gold:       '#d4a857',
+    goldHot:    '#e8bf6b',
+    ember:      '#c6743b',
+    ok:         '#8db77a',
+    warn:       '#d4a857',
+    caution:    '#c6743b',
+    block:      '#b84040',
+    unknown:    '#6e6a5d',
+    duplicate:  '#a98bd4',
+    orphan:     '#e8bf6b',
+    circular:   '#d46b7a',
+  };
+
   const CY_STYLE = [
+    // Base node — a celestial body: dark core, faint warm ring.
     { selector: 'node', style: {
-      'background-color': '#1f2937', 'border-width': 1.5, 'border-color': '#374151',
-      'label': 'data(label)', 'font-family': 'JetBrains Mono, ui-monospace, monospace',
-      'font-size': 11, 'color': '#9ca3af', 'text-valign': 'center', 'text-halign': 'center',
-      'text-max-width': 120, 'text-overflow-wrap': 'whitespace',
-      'transition-property': 'opacity, border-color', 'transition-duration': 200,
+      'background-color': '#15171f',
+      'background-opacity': 1,
+      'border-width': 1,
+      'border-color': PAL.hairline,
+      'label': 'data(label)',
+      'font-family': 'JetBrains Mono, IBM Plex Mono, ui-monospace, monospace',
+      'font-size': 10,
+      'font-weight': 500,
+      'color': PAL.inkMuted,
+      'text-valign': 'bottom',
+      'text-halign': 'center',
+      'text-margin-y': 6,
+      'text-max-width': 140,
+      'text-overflow-wrap': 'whitespace',
+      'text-outline-color': PAL.void,
+      'text-outline-width': 2,
+      'transition-property': 'opacity, border-color, background-color, border-width',
+      'transition-duration': 220,
     }},
+
+    // Galaxy compound — the outermost celestial body. Large, distinctive Fraunces serif,
+    // heavier gold hairline. This is what you see at the furthest zoom level.
+    { selector: 'node[type="galaxy"]', style: {
+      'shape': 'round-rectangle',
+      'background-opacity': 0,
+      'border-color': PAL.gold,
+      'border-width': 1.5,
+      'border-opacity': 0.75,
+      'border-style': 'solid',
+      'font-family': 'Fraunces, Iowan Old Style, Georgia, serif',
+      'font-size': 24,
+      'font-weight': 400,
+      'color': PAL.goldHot,
+      'text-valign': 'top',
+      'text-halign': 'left',
+      'text-margin-x': 16,
+      'text-margin-y': -22,
+      'text-transform': 'uppercase',
+      'text-opacity': 0.95,
+      'padding': 64,
+      'min-width': 420, 'min-height': 280,
+      'corner-radius': 3,
+    }},
+
+    // Domain compound — truly no fill, hairline gold rectangle like a constellation boundary.
     { selector: 'node[type="domain"]', style: {
-      'shape': 'round-rectangle', 'background-color': '#1e2d4a', 'border-color': '#3b82f6',
-      'border-width': 2, 'font-size': 13, 'font-weight': 600,
-      'font-family': 'Inter, system-ui, sans-serif', 'color': '#f9fafb',
-      'text-valign': 'top', 'padding': 20, 'min-width': 180, 'min-height': 100,
+      'shape': 'round-rectangle',
+      'background-opacity': 0,
+      'border-color': PAL.gold,
+      'border-width': 1,
+      'border-opacity': 0.45,
+      'border-style': 'solid',
+      'font-family': 'Fraunces, Iowan Old Style, Georgia, serif',
+      'font-size': 15,
+      'font-weight': 400,
+      'color': PAL.gold,
+      'text-valign': 'top',
+      'text-halign': 'left',
+      'text-margin-x': 10,
+      'text-margin-y': -12,
+      'text-transform': 'uppercase',
+      'text-opacity': 0.85,
+      'padding': 34,
+      'min-width': 220, 'min-height': 140,
+      'corner-radius': 2,
     }},
+
+    // Module — a star. Scales softly with LOC. Kept small so dense domains stay readable.
     { selector: 'node[type="module"]', style: {
       'shape': 'ellipse',
-      'width': 'mapData(loc, 0, 800, 28, 60)', 'height': 'mapData(loc, 0, 800, 28, 60)',
+      'width':  'mapData(loc, 0, 800, 5, 20)',
+      'height': 'mapData(loc, 0, 800, 5, 20)',
+      'background-color': PAL.ink,
+      'background-opacity': 0.9,
+      'border-width': 0,
+      'shadow-blur': 10,
+      'shadow-color': PAL.ink,
+      'shadow-opacity': 0.14,
+      'shadow-offset-x': 0,
+      'shadow-offset-y': 0,
     }},
-    { selector: 'node[type="external_api"]', style: {
-      'shape': 'diamond', 'width': 40, 'height': 40,
-      'background-color': '#1a1a2e', 'border-color': '#3b82f6', 'border-width': 2,
-    }},
-    { selector: 'node[type="script"]', style: {
-      'shape': 'round-rectangle', 'width': 80, 'height': 30,
-      'background-color': '#1e3a2f', 'border-color': '#22c55e',
-    }},
-    { selector: 'node[type="workflow"]', style: {
-      'shape': 'hexagon', 'width': 45, 'height': 45,
-      'background-color': '#2d1a3e', 'border-color': '#a855f7',
-    }},
-    { selector: 'node[type="entry_point"]', style: {
-      'shape': 'round-rectangle', 'width': 80, 'height': 30,
-      'background-color': '#1e3a2f', 'border-color': '#22c55e', 'border-width': 3,
-    }},
-    { selector: 'node[status="green"]',  style: { 'border-color': '#22c55e' } },
-    { selector: 'node[status="yellow"]', style: { 'border-color': '#eab308' } },
-    { selector: 'node[status="orange"]', style: { 'border-color': '#f97316' } },
-    { selector: 'node[status="red"]',    style: { 'border-color': '#ef4444', 'border-width': 2.5 } },
-    { selector: 'node[status="gray"]',   style: { 'border-color': '#6b7280', 'border-style': 'dashed' } },
-    { selector: 'node[?orphan]',         style: { 'border-style': 'double', 'border-width': 4, 'border-color': '#f59e0b' } },
-    { selector: 'node[duplicate_group]', style: { 'border-color': '#a855f7', 'border-style': 'dashed', 'border-width': 2 } },
-    { selector: 'node[?in_cycle]',       style: { 'border-color': '#ec4899', 'border-width': 2.5 } },
-    { selector: 'node:selected',         style: { 'overlay-color': '#3b82f6', 'overlay-opacity': 0.15, 'overlay-padding': 6 } },
-    { selector: '.faded',     style: { 'opacity': 0.08 } },
-    { selector: '.highlighted', style: { 'opacity': 1, 'z-index': 10 } },
-    { selector: '.zoom-galaxy node:not([type="domain"])', style: { 'label': '' } },
 
-    { selector: 'edge', style: {
-      'curve-style': 'bezier', 'target-arrow-shape': 'triangle',
-      'target-arrow-color': '#64748b', 'line-color': '#64748b',
-      'width': 1.5, 'opacity': 0.6,
-      'transition-property': 'opacity, line-color', 'transition-duration': 200,
+    // External API — a diamond in ember, like a distant nebula marker.
+    { selector: 'node[type="external_api"]', style: {
+      'shape': 'diamond',
+      'width': 30, 'height': 30,
+      'background-color': PAL.void,
+      'border-color': PAL.ember,
+      'border-width': 1,
+      'color': PAL.ember,
     }},
-    { selector: 'edge[kind="import"]',    style: { 'line-color': '#64748b', 'line-style': 'solid', 'width': 1.5 } },
-    { selector: 'edge[kind="api_call"]',  style: { 'line-color': '#3b82f6', 'line-style': 'dashed', 'line-dash-pattern': [6, 3], 'width': 2, 'target-arrow-color': '#3b82f6' } },
-    { selector: 'edge[kind="data_flow"]', style: { 'line-color': '#14b8a6', 'line-style': 'solid', 'width': 3, 'target-arrow-color': '#14b8a6' } },
-    { selector: 'edge[kind="trigger"]',   style: { 'line-color': '#a855f7', 'line-style': 'dotted', 'width': 2, 'target-arrow-color': '#a855f7' } },
-    { selector: 'edge[?circular]',        style: { 'line-color': '#ec4899', 'line-style': 'dashed', 'line-dash-pattern': [4, 4], 'width': 2 } },
-    { selector: 'edge.path-highlight',    style: { 'line-color': '#f59e0b', 'width': 3, 'opacity': 1 } },
-    { selector: 'edge:selected',          style: { 'line-color': '#3b82f6', 'width': 2.5 } },
+
+    // Script — a vertical bar, small and warm.
+    { selector: 'node[type="script"]', style: {
+      'shape': 'round-rectangle',
+      'width': 72, 'height': 22,
+      'background-color': PAL.void,
+      'border-color': PAL.gold,
+      'border-width': 1,
+      'color': PAL.gold,
+      'font-size': 9,
+      'corner-radius': 1,
+    }},
+
+    // Workflow — a hexagon (automation ring).
+    { selector: 'node[type="workflow"]', style: {
+      'shape': 'hexagon',
+      'width': 34, 'height': 34,
+      'background-color': PAL.void,
+      'border-color': PAL.duplicate,
+      'border-width': 1,
+      'color': PAL.duplicate,
+    }},
+
+    { selector: 'node[type="entry_point"]', style: {
+      'shape': 'round-rectangle',
+      'width': 78, 'height': 26,
+      'background-color': PAL.void,
+      'border-color': PAL.goldHot,
+      'border-width': 2,
+      'color': PAL.goldHot,
+      'font-size': 9,
+    }},
+
+    // ── Status → luminous color of the stellar body ─────────
+    { selector: 'node[type="module"][status="green"]',  style: { 'background-color': PAL.ok,      'shadow-color': PAL.ok } },
+    { selector: 'node[type="module"][status="yellow"]', style: { 'background-color': PAL.warn,    'shadow-color': PAL.warn } },
+    { selector: 'node[type="module"][status="orange"]', style: { 'background-color': PAL.caution, 'shadow-color': PAL.caution } },
+    { selector: 'node[type="module"][status="red"]',    style: { 'background-color': PAL.block,   'shadow-color': PAL.block, 'shadow-opacity': 0.35 } },
+    { selector: 'node[type="module"][status="gray"]',   style: { 'background-color': PAL.unknown, 'background-opacity': 0.55, 'shadow-opacity': 0 } },
+
+    // Border status tint for non-module types
+    { selector: 'node[type!="module"][status="green"]',  style: { 'border-color': PAL.ok } },
+    { selector: 'node[type!="module"][status="yellow"]', style: { 'border-color': PAL.warn } },
+    { selector: 'node[type!="module"][status="orange"]', style: { 'border-color': PAL.caution } },
+    { selector: 'node[type!="module"][status="red"]',    style: { 'border-color': PAL.block, 'border-width': 2 } },
+    { selector: 'node[type!="module"][status="gray"]',   style: { 'border-color': PAL.unknown, 'border-style': 'dashed' } },
+
+    // ── Special markers — overlayed rings ───────────────────
+    { selector: 'node[?orphan]', style: {
+      'border-style': 'dashed',
+      'border-width': 1.5,
+      'border-color': PAL.orphan,
+    }},
+    { selector: 'node[duplicate_group]', style: {
+      'border-color': PAL.duplicate,
+      'border-style': 'dashed',
+      'border-width': 1.5,
+    }},
+    { selector: 'node[?in_cycle]', style: {
+      'border-color': PAL.circular,
+      'border-width': 2,
+    }},
+
+    // Selected — a soft gold halo.
+    { selector: 'node:selected', style: {
+      'overlay-color': PAL.gold,
+      'overlay-opacity': 0.18,
+      'overlay-padding': 8,
+      'border-color': PAL.gold,
+      'border-width': 1.5,
+    }},
+
+    // ── States ──────────────────────────────────────────────
+    { selector: '.faded',       style: { 'opacity': 0.06 } },
+    { selector: '.highlighted', style: { 'opacity': 1, 'z-index': 10 } },
+
+    // ── Galaxy zoom (z < 0.30) — ONLY the 5 galaxy rectangles visible.
+    //    Domains, modules, APIs, scripts, workflows, edges — all hidden.
+    //    This is the "five constellations" view.
+    { selector: '.zoom-galaxy node[type="domain"]',       style: { 'display': 'none' } },
+    { selector: '.zoom-galaxy node[type="module"]',       style: { 'display': 'none' } },
+    { selector: '.zoom-galaxy node[type="external_api"]', style: { 'display': 'none' } },
+    { selector: '.zoom-galaxy node[type="script"]',       style: { 'display': 'none' } },
+    { selector: '.zoom-galaxy node[type="workflow"]',     style: { 'display': 'none' } },
+    { selector: '.zoom-galaxy node[type="entry_point"]',  style: { 'display': 'none' } },
+    { selector: '.zoom-galaxy edge',                      style: { 'display': 'none' } },
+    { selector: '.zoom-galaxy node[type="galaxy"]',       style: {
+        'font-size': 28, 'border-opacity': 0.9, 'text-opacity': 1,
+    }},
+
+    // ── System zoom (0.30 – 1.00) — galaxies recede, domains come forward,
+    //    modules visible as small dots without labels.
+    { selector: '.zoom-system node[type="galaxy"]',       style: {
+        'font-size': 18, 'border-opacity': 0.25, 'text-opacity': 0.5,
+    }},
+    { selector: '.zoom-system node[type="domain"]',       style: {
+        'font-size': 14, 'border-opacity': 0.6, 'text-opacity': 0.9,
+    }},
+    { selector: '.zoom-system node[type="module"]',       style: { 'label': '', 'text-opacity': 0 } },
+    { selector: '.zoom-system node[type="external_api"]', style: { 'label': '', 'text-opacity': 0 } },
+    { selector: '.zoom-system node[type="script"]',       style: { 'label': '', 'text-opacity': 0 } },
+    { selector: '.zoom-system node[type="workflow"]',     style: { 'label': '', 'text-opacity': 0 } },
+    { selector: '.zoom-system edge',                      style: { 'opacity': 0.3 } },
+
+    // ── Detail zoom (z >= 1.00) — galaxies nearly invisible, domains faded,
+    //    module labels and edges fully visible.
+    { selector: '.zoom-detail node[type="galaxy"]',       style: {
+        'font-size': 14, 'border-opacity': 0.1, 'text-opacity': 0.25,
+    }},
+    { selector: '.zoom-detail node[type="domain"]',       style: {
+        'font-size': 12, 'border-opacity': 0.3, 'text-opacity': 0.55,
+    }},
+
+    // ── Edges ───────────────────────────────────────────────
+    // Default: a faint ecliptic line.
+    { selector: 'edge', style: {
+      'curve-style': 'bezier',
+      'target-arrow-shape': 'triangle-backcurve',
+      'arrow-scale': 0.75,
+      'target-arrow-color': PAL.hairline,
+      'line-color': PAL.hairline,
+      'width': 0.8,
+      'opacity': 0.9,
+      'transition-property': 'opacity, line-color, width',
+      'transition-duration': 220,
+    }},
+    { selector: 'edge[kind="import"]', style: {
+      'line-color': PAL.hairline,
+      'target-arrow-color': PAL.hairline,
+      'line-style': 'solid',
+      'width': 0.8,
+    }},
+    { selector: 'edge[kind="api_call"]', style: {
+      'line-color': PAL.ember,
+      'target-arrow-color': PAL.ember,
+      'line-style': 'dashed',
+      'line-dash-pattern': [4, 3],
+      'width': 1,
+      'opacity': 0.75,
+    }},
+    { selector: 'edge[kind="data_flow"]', style: {
+      'line-color': PAL.gold,
+      'target-arrow-color': PAL.gold,
+      'line-style': 'solid',
+      'width': 1.5,
+      'opacity': 0.8,
+    }},
+    { selector: 'edge[kind="trigger"]', style: {
+      'line-color': PAL.duplicate,
+      'target-arrow-color': PAL.duplicate,
+      'line-style': 'dotted',
+      'width': 1,
+      'opacity': 0.7,
+    }},
+    { selector: 'edge[?circular]', style: {
+      'line-color': PAL.circular,
+      'target-arrow-color': PAL.circular,
+      'line-style': 'dashed',
+      'line-dash-pattern': [3, 3],
+      'width': 1.25,
+      'opacity': 0.85,
+    }},
+    { selector: 'edge.path-highlight', style: {
+      'line-color': PAL.goldHot,
+      'target-arrow-color': PAL.goldHot,
+      'width': 2,
+      'opacity': 1,
+    }},
+    { selector: 'edge:selected', style: {
+      'line-color': PAL.gold,
+      'target-arrow-color': PAL.gold,
+      'width': 1.5,
+      'opacity': 1,
+    }},
   ];
 
   const FCOSE_CONFIG = {
     name: 'fcose', quality: 'default', animate: true,
-    animationDuration: 500, fit: true, padding: 40,
+    animationDuration: 500, fit: true, padding: 80,
     nodeDimensionsIncludeLabels: true, uniformNodeDimensions: false,
     packComponents: true,
-    nodeRepulsion: () => 6500,
-    idealEdgeLength: () => 80,
-    edgeElasticity: () => 0.45,
-    nestingFactor: 0.1, numIter: 2500,
-    tile: true, tilingPaddingVertical: 20, tilingPaddingHorizontal: 20,
-    gravity: 0.25, gravityRange: 3.8, gravityCompound: 1.0, gravityRangeCompound: 1.5,
+    // Three-tier repulsion: galaxies spread widely, domains separate cleanly,
+    // modules can pack within their domain.
+    nodeRepulsion: node => {
+      const t = node.data('type');
+      if (t === 'galaxy') return 180000;
+      if (t === 'domain') return 40000;
+      return 7000;
+    },
+    idealEdgeLength: edge => {
+      const sp = edge.source().data('parent');
+      const tp = edge.target().data('parent');
+      if (sp && sp === tp) return 50;          // same domain
+      // Same galaxy? Walk one level up.
+      const s = edge.cy().getElementById(sp || '');
+      const t = edge.cy().getElementById(tp || '');
+      if (s && t && s.data && s.data('parent') && s.data('parent') === t.data('parent')) return 140;
+      return 260;                              // cross-galaxy
+    },
+    edgeElasticity: () => 0.25,
+    nestingFactor: 0.08,
+    numIter: 4000,
+    tile: true, tilingPaddingVertical: 40, tilingPaddingHorizontal: 40,
+    gravity: 0.1, gravityRange: 6.0, gravityCompound: 0.6, gravityRangeCompound: 3.0,
   };
 
   // ── Cytoscape Init ───────────────────────────────────────
   function initCy() {
-    if (typeof cytoscape === 'undefined') return;
+    if (typeof cytoscape === 'undefined') {
+      console.error('[SystemMap] cytoscape.min.js failed to load');
+      hideSkeleton();
+      const es = $('empty-state');
+      if (es) es.classList.remove('hidden');
+      return;
+    }
+    // Register extensions BEFORE creating the instance.
     if (typeof cytoscapeFcose !== 'undefined') cytoscape.use(cytoscapeFcose);
+    if (typeof cytoscapePopper !== 'undefined') cytoscape.use(cytoscapePopper);
+
     cy = cytoscape({
       container: $('cy'),
       style: CY_STYLE,
@@ -137,10 +394,11 @@
     window.cy = cy;
 
     if (typeof cytoscapeExpandCollapse !== 'undefined') {
-      cy.expandCollapse({ layoutBy: FCOSE_CONFIG, animate: true, animationDuration: 250 });
-    }
-    if (typeof cytoscapePopper !== 'undefined') {
-      cytoscape.use(cytoscapePopper);
+      try {
+        cy.expandCollapse({ layoutBy: FCOSE_CONFIG, animate: true, animationDuration: 250 });
+      } catch (err) {
+        console.warn('[SystemMap] expand-collapse init failed:', err);
+      }
     }
   }
 
@@ -173,20 +431,70 @@
 
   function buildElements(data) {
     if (!cy) return;
-    const elements = [
-      ...data.nodes.map(n => ({ data: n })),
-      ...data.edges.map(e => ({ data: e })),
-    ];
-    cy.add(elements);
 
-    const layout = cy.layout({ ...FCOSE_CONFIG, quality: 'draft', numIter: 800, animationDuration: 200 });
-    layout.on('layoutstop', () => {
+    // Defensive cleanup: Cytoscape throws on dangling edges / missing parents.
+    const nodeIds = new Set(data.nodes.map(n => n.id));
+    let droppedEdges = 0;
+    let reparented = 0;
+    const cleanNodes = data.nodes.map(n => {
+      if (n.parent && !nodeIds.has(n.parent)) {
+        reparented++;
+        const { parent, ...rest } = n;
+        return rest;
+      }
+      return n;
+    });
+    const cleanEdges = data.edges.filter(e => {
+      const ok = nodeIds.has(e.source) && nodeIds.has(e.target);
+      if (!ok) droppedEdges++;
+      return ok;
+    });
+    if (droppedEdges || reparented) {
+      console.warn(`[SystemMap] self-heal: dropped ${droppedEdges} dangling edges, reparented ${reparented} nodes`);
+    }
+
+    const elements = [
+      ...cleanNodes.map(n => ({ data: n })),
+      ...cleanEdges.map(e => ({ data: e })),
+    ];
+    try {
+      cy.add(elements);
+    } catch (err) {
+      console.error('[SystemMap] cy.add failed:', err);
+      hideSkeleton();
+      const es = $('empty-state');
+      if (es) {
+        es.classList.remove('hidden');
+        const pre = es.querySelector('.empty-state__pre');
+        if (pre) pre.textContent = `[ ⚠ ]  Karte konnte nicht gerendert werden.\n\n${err.message || err}`;
+      }
+      return;
+    }
+
+    const onDone = () => {
       hideSkeleton();
       initFuse(data.nodes);
       initZoom();
       DeepLink.init();
       MiniMap.init();
-    });
+    };
+
+    let layoutCfg;
+    try {
+      cy.layout({ name: 'fcose', numIter: 1 }).destroy();
+      layoutCfg = { ...FCOSE_CONFIG, quality: 'draft', numIter: 800, animationDuration: 200 };
+    } catch (_) {
+      console.warn('[SystemMap] fcose not available, falling back to cose');
+      showToast('warning', 'fcose nicht verfügbar — cose-Fallback wird verwendet');
+      layoutCfg = {
+        name: 'cose', animate: true, animationDuration: 600,
+        fit: true, padding: 40, nodeRepulsion: 400000,
+        idealEdgeLength: 80, gravity: 1, numIter: 1000,
+      };
+    }
+
+    const layout = cy.layout(layoutCfg);
+    layout.on('layoutstop', onDone);
     layout.run();
   }
 
@@ -284,6 +592,14 @@
   // ── Node Events ──────────────────────────────────────────
   function initNodeEvents() {
     if (!cy) return;
+
+    // Click a galaxy → zoom into it so all its domains fill the viewport.
+    cy.on('tap', 'node[type="galaxy"]', e => {
+      const node = e.target;
+      const descendants = node.descendants();
+      const target = descendants.length ? descendants.union(node) : node;
+      cy.animate({ fit: { eles: target, padding: 80 } }, { duration: 400, easing: 'ease-out-cubic' });
+    });
 
     cy.on('tap', 'node[type="domain"]', e => {
       const node = e.target;
@@ -754,9 +1070,12 @@
   // ── Bootstrap ────────────────────────────────────────────
   function restorePrefs() {
     try {
-      const theme = localStorage.getItem('sysmap_theme');
-      if (theme) { state.theme = theme; document.documentElement.setAttribute('data-theme', theme); }
-    } catch(_) {}
+      const theme = localStorage.getItem('sysmap_theme') || 'dark';
+      state.theme = theme;
+      document.documentElement.setAttribute('data-theme', theme);
+    } catch(_) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
   }
 
   window.addEventListener('DOMContentLoaded', () => {

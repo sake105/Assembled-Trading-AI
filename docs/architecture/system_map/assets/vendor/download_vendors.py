@@ -14,6 +14,8 @@ VENDOR_DIR = Path(__file__).parent
 
 LIBS = [
     ("cytoscape.min.js",              "https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"),
+    ("layout-base.js",                 "https://unpkg.com/layout-base@2.0.1/layout-base.js"),
+    ("cose-base.js",                   "https://unpkg.com/cose-base@2.2.0/cose-base.js"),
     ("cytoscape-fcose.js",            "https://unpkg.com/cytoscape-fcose@2.2.0/cytoscape-fcose.js"),
     ("cytoscape-expand-collapse.js",  "https://unpkg.com/cytoscape-expand-collapse@4.1.0/cytoscape-expand-collapse.js"),
     # cytoscape-navigator: download from https://github.com/cytoscape/cytoscape.js-navigator/releases
