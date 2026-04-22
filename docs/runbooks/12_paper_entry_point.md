@@ -49,7 +49,8 @@ Supporting subcommands of the same script:
 Secrets required (set via `gh secret set`):
 
 - `ALPACA_API_KEY`
-- `ALPACA_SECRET_KEY`
+- `ALPACA_API_SECRET` (matches the env var read by `AlpacaAdapter` and
+  the workflow YAML — NOT `ALPACA_SECRET_KEY`)
 - `DISCORD_WEBHOOK` (optional; for failure alerts)
 
 ### Manual trigger
