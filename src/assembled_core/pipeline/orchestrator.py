@@ -82,8 +82,8 @@ def _write_manifest_json(manifest_path: Path, manifest: dict[str, Any]) -> None:
             try:
                 if tmp_path != manifest_path:
                     tmp_path.unlink(missing_ok=True)
-            except Exception:
-                pass
+            except OSError as _unlink_exc:
+                logger.debug("[_write_manifest_json] tmp cleanup failed: %s", _unlink_exc)
 
 
 def _backfill_evidence_index_manifest_path(
@@ -154,9 +154,11 @@ def _backfill_evidence_index_manifest_path(
                     # If replace failed and temp file is still there, best-effort cleanup
                     if tmp_path != evidence_index_path:
                         tmp_path.unlink(missing_ok=True)
-                except Exception:
-                    # Ignore cleanup errors
-                    pass
+                except OSError as _unlink_exc:
+                    logger.debug(
+                        "[evidence_backfill.manifest] tmp cleanup failed: %s",
+                        _unlink_exc,
+                    )
 
         logger.info(
             "Backfilled manifest_path into evidence index: %s -> %s",
@@ -240,8 +242,11 @@ def _backfill_evidence_index_accounting_path(
                 try:
                     if tmp_path != evidence_index_path:
                         tmp_path.unlink(missing_ok=True)
-                except Exception:
-                    pass
+                except OSError as _unlink_exc:
+                    logger.debug(
+                        "[evidence_backfill.accounting] tmp cleanup failed: %s",
+                        _unlink_exc,
+                    )
 
         logger.info(
             "Backfilled accounting_report_path into evidence index: %s -> %s",
@@ -1287,7 +1292,46 @@ def run_eod_pipeline(
         from src.assembled_core.qa.trade_tca import run_tca_from_learning_store  # type: ignore
 
         _ls_path = base / "ops" / "learning_store.jsonl"
-        _tca_out = base / "ops" / f"tca_report_{pd.Timestamp.now().strftime('%Y%m%d')}.json"
+
+        # Deterministic report date. Prefer the last trade timestamp in the
+        # learning_store so two replays on the same as_of produce the same
+        # filename (backtest/paper parity). Fall back to wall-clock only if
+        # the store is unreadable or empty.
+        _tca_date_str: str | None = None
+        try:
+            if _ls_path.exists():
+                import json as _json
+                _max_ts = None
+                with _ls_path.open("r", encoding="utf-8") as _fh:
+                    for _line in _fh:
+                        _line = _line.strip()
+                        if not _line:
+                            continue
+                        try:
+                            _rec = _json.loads(_line)
+                        except Exception:
+                            continue
+                        _t = _rec.get("timestamp") or _rec.get("execution_time") or _rec.get("closed_at")
+                        if _t is None:
+                            continue
+                        _ts = pd.to_datetime(_t, utc=True, errors="coerce")
+                        if pd.isna(_ts):
+                            continue
+                        if _max_ts is None or _ts > _max_ts:
+                            _max_ts = _ts
+                if _max_ts is not None:
+                    _tca_date_str = _max_ts.strftime("%Y%m%d")
+        except Exception:
+            _tca_date_str = None
+
+        if _tca_date_str is None:
+            _tca_date_str = pd.Timestamp.now("UTC").strftime("%Y%m%d")
+            logger.warning(
+                "[EOD][TCA] Kein Trade-Timestamp im learning_store — fallback auf wall-clock-Datum %s",
+                _tca_date_str,
+            )
+
+        _tca_out = base / "ops" / f"tca_report_{_tca_date_str}.json"
         if _ls_path.exists():
             _tca_result = run_tca_from_learning_store(_ls_path, _tca_out)
             if _tca_result:
@@ -1299,8 +1343,8 @@ def run_eod_pipeline(
             try:
                 from src.assembled_core.ops.report_retention import purge_old_dated_reports
                 purge_old_dated_reports(_tca_out.parent, "tca_report_", ".json", keep_last_n=60)
-            except Exception:
-                pass
+            except OSError as _ret_exc:
+                logger.debug("[EOD][TCA] Retention-Purge IO-Fehler: %s", _ret_exc)
     except Exception as _tca_exc:
         logger.warning("[EOD][TCA] Non-blocking Fehler: %s", _tca_exc)
 
