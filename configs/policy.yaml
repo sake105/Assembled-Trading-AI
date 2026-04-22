@@ -101,14 +101,14 @@ intel:
 
   # T4.1: Crisis-Alpha v1 integration (default off; shadow-only until T4.1 flip)
   crisis_alpha:
-    enabled: false           # wire run_crisis_alpha_pipeline() into trading_cycle
+    enabled: true            # wire run_crisis_alpha_pipeline() into trading_cycle
     shadow_only: true        # when enabled=true: log result, do not affect orders
 
   # Phase 9: Intel alpha signal layer wired into signal pipeline
   signal_layer:
-    enabled: false           # enable compute_symbol_intel_scores() in trading_cycle
+    enabled: true            # enable compute_symbol_intel_scores() in trading_cycle
     weight: 0.15             # additive weight of intel score on signal score
-    allow_short: false       # allow short signals from intel losers
+    allow_short: false       # allow short signals from intel losers (inverse-ETF blacklist enforced in intel_signal_adapter.py)
     min_confidence: 0.50     # minimum intel signal confidence
     shock_confidence: 0.60   # base confidence for shock beneficiary signals
 
@@ -303,14 +303,14 @@ anti_churn:
 
   # Phase 9: Bayesian signal confidence scoring (gate: signal_generation.bayesian_confidence.enabled)
   bayesian_confidence:
-    enabled: false           # enable Bayesian CI scoring for position scaling
+    enabled: true            # Bayesian CI scoring for position scaling; BL max_weight=0.15 caps inflation
     ci_level: 0.90           # credible interval level (90%)
     max_scale: 1.50          # maximum position scale factor from confidence
     min_scale: 0.50          # minimum position scale factor from confidence
 
   # Phase 9: Signal health diagnostics at end of each cycle
   signal_diagnostics:
-    enabled: false           # enable compute_signal_health() + JSON artifact
+    enabled: true            # emit compute_signal_health() JSON artifact (no behavior side-effects)
     forward_returns_col: "return_1d"
     ic_alert_threshold: 0.0  # rolling IC below this triggers WARNING
     output_dir: "output/diagnostics"

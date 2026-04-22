@@ -73,6 +73,21 @@ SHOCK_BENEFICIARY_MAP: dict[str, list[str]] = {
     "nuclear_escalation_risk": ["GLD", "ITA"],
 }
 
+# Inverse / short-exposure ETFs. A LONG signal on any of these is semantically
+# equivalent to a short position — filtered out when allow_short=False so the
+# intel layer cannot bypass the shorts-disabled regime via a long inverse trade.
+INVERSE_ETF_BLACKLIST: frozenset[str] = frozenset({
+    "SH", "SDS", "SPXU",        # S&P 500 inverse (-1x/-2x/-3x)
+    "PSQ", "QID", "SQQQ",        # Nasdaq-100 inverse
+    "RWM", "TWM", "TZA",         # Russell 2000 inverse
+    "DOG", "DXD", "SDOW",        # Dow inverse
+    "SEF",                        # Financials inverse
+    "SOXS", "REW",               # Semis inverse
+    "TBT", "TBF", "TTT",         # Long-Treasury inverse
+    "DUG", "SCO",                # Oil/Energy inverse (DUG=XLE inverse, SCO=crude -2x)
+    "DRV",                        # Real-estate inverse
+})
+
 
 @dataclass
 class IntelTradingSignal:
@@ -289,6 +304,8 @@ class IntelSignalAdapter:
             shock_lower = shock.lower()
             beneficiaries = SHOCK_BENEFICIARY_MAP.get(shock_lower, [])
             for sym in beneficiaries:
+                if not self.allow_short and sym in INVERSE_ETF_BLACKLIST:
+                    continue
                 signals.append({
                     "symbol": sym,
                     "direction": "LONG",
