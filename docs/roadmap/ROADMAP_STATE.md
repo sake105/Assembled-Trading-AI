@@ -57,11 +57,27 @@ Do **not** leave a session after meaningful work without checking whether this f
 ## 4. Current execution position
 
 ### Current milestone
+- ID: System-Check Remediation — `SYSTEM_CHECK_REMEDIATION_2026-04-22`
+- Name: Post-audit P0–P4 remediation on HEAD 8ad5990 (ML Rounds 4-7 + orphan-wiring + galaxy + news engines + paper-engine-upgrade)
+- Overall milestone status: P0 (4 bugs) implemented + locally tested; P1 governance sync + P2 architecture + P3 CI in progress
+- Last key commit: `8a5e685` (plan doc) — predecessors 337c5d9 (P0.1+P0.2), eb3c752 (P0.3), 956dea7 (P0.4)
+
+### Current task (System-Check Remediation)
+- P0.1 kelly_uncertainty formula inversion → FIXED (`337c5d9`); scale = 1 - clip(cw/ref, 0, 1).
+- P0.2 position_sizing capital regression → FIXED (`337c5d9`); smoothing branch now applies total_capital.
+- P0.3 nested_meta batch-relative size → FIXED (`eb3c752`); training-time `_size_scale_max` persisted.
+- P0.4 config/__init__ conditional `__all__` → FIXED (`956dea7`); `__all__` built after successful optional imports.
+- P1 governance sync (ROADMAP_STATE, MEMORY.md, CLAUDE.md §14.3, CONTEXT_PACK legacy header) — in progress.
+- P2 architecture consolidation (TCA deprecation, FIFO authority, orchestrator filename, bare-except) — pending.
+- P3 CI/dependency hygiene (newsapi-python pin, Windows pip cache paths, collection-error claim) — pending.
+- P4 concern cleanup — opportunistic.
+
+### Predecessor milestone (superseded)
 - ID: Ultra-Plan — `also-erstens-wir-haben-polished-koala`
 - Name: Alpaca-Revive + Backtest-Speed + Tiefe (v3 — Multi-Agent-Diskurs)
 - Overall milestone status: Phase 0 (E0.1–E0.4) implemented, locally tested (2026-04-18); Tier-2 Module Activation complete (shadow-mode)
 
-### Current task (Ultra-Plan)
+### Predecessor task (Ultra-Plan)
 - Phase 0 / E0.1 — Backtest-Paper-Parity Plumbing: `enable_risk_controls=True` default + `kill_switch_persist=True` default + `run_paper_replay` helper + determinism test green; full bit-identical bt-vs-paper kept as non-strict xfail (needs position-evolution threading).
 - Phase 0 / E0.2 — Cost-Model-Aktivierung: `cost_tiers.yaml` wired, `default_adv=100_000`, `enable_borrow_costs=True` default.
 - Phase 0 / E0.3 — Atomic State-Save: `_atomic_write_json` (tmp+fsync+os.replace).
@@ -80,21 +96,18 @@ Do **not** leave a session after meaningful work without checking whether this f
 - Part F4 (XGBoost/SHAP/FinBERT): explicitly deferred per plan.
 
 ### Current objective
-- phase12 suite: **1266 passed**, 8 skipped, 0 failures (2026-04-19 fresh run, 168s wall-clock).
-- regression suite: **142 passed**, 0 failures (2026-04-19 fresh run, 8.5s wall-clock).
-- CI hardening (2026-04-19): `.env` removed from index (commit `e64fa21`), paper-trading-ci env-var name fix (`4d3a419`), backend-ci phase12+regression gate added (`d5ab05f`), gross-exposure cap switched to MTM equity (`5aa32f4`), walk-forward gate `--enforce` flag added (`e144821`), ROADMAP_STATE sync (`2ef3e24`), E1 realism delta classification + baseline artifact (`b868282`). All pushed to origin/main.
-- `.env` keys rotated 2026-04-19 at provider (Alpaca/Polygon/AlphaVantage/Finnhub/NewsAPI/FRED). History-rewrite declined (old keys revoked, cost > benefit).
-- E1 realism delta rerun 2026-04-19 on current code: Sharpe delta **+0.3931** (outside plan-expected [-0.8, -0.3]) — documented as synthetic-fixture artifact.
+- phase12 suite: **1810+ passed**, 10 skipped, 0 failures (2026-04-22 local after ML-Rounds 4-7 + orphan-wiring); new P0 regression tests added in `test_ml_round4.py`, `test_ml_round7.py`, `test_portfolio_position_sizing.py`, `test_config_factor_bundles.py`.
+- Between 2026-04-19 and 2026-04-22: paper-engine-upgrade (phases 0-11, TCA/manifest/attribution/calibrator/regime pack), news engine gleaming-bubbling-crescent, news engine 40-point upgrade, news engine P1-P8 + F1-F18, ML Rounds 4-7, orphan-wiring of 160 modules across 18 domains, system-map galaxy-type, frontend-design plugin.
+- `.env` keys rotated 2026-04-19 at provider; history-rewrite declined (old keys revoked at provider, cost > benefit).
 - Open user-blocked: GitHub Secrets `ALPACA_API_KEY` + `ALPACA_API_SECRET` must be set at repo settings for paper-trading-ci to succeed.
-- Walk-forward gate (release-gate-ci.yml): grace period RE-OPENED 2026-04-19 through 2026-07-01 (decision today). Rationale: synthetic random-walk fixture produces ~7 OOS windows, structurally insufficient to pass DSR ≥ 0.5. Gate still runs + uploads report but is non-blocking. Re-closes on 2026-07-01 or when E5 real-price walk-forward fixture is available.
+- Walk-forward gate (release-gate-ci.yml): grace period open through 2026-07-01. Non-blocking until E5 real-price walk-forward fixture is available.
 
 ### Next smallest safe step
-Ultra-Plan implementation is functionally complete at code/module/test level. Remaining items are either user-gated (secrets) or paper-days-gated:
-1. **User blocker**: set `ALPACA_API_KEY` + `ALPACA_API_SECRET` in GitHub repo secrets (optional `DISCORD_WEBHOOK`), then manually dispatch `paper-trading-ci` and verify green.
-2. Let GH-Actions `paper-trading-ci` run 5 consecutive weekdays and verify artifacts.
-3. After 5 clean paper-days: collect Delta-Report for first shadow-mode D module; bring to User for Go/No-Go on flag-flip.
-4. After 30 paper-days: run E5 `scripts/compare_real_vs_synthetic_fills.py` calibration.
-5. Re-run E1 on real-price walk-forward fixture once available (current delta is synthetic-only).
+System-Check remediation (P0 complete). Continue with P1–P3:
+1. Finish P1 governance sync: MEMORY.md Active Milestone, CLAUDE.md §14.3, CONTEXT_PACK legacy header.
+2. P2 architecture: TCA consolidation (trade_tca/tca_arrival), FIFO authority note, orchestrator TCA filename deterministic, narrow bare-except.
+3. P3 CI/deps: `newsapi-python` in requirements.txt, Windows pip cache paths, stale collection-error claim in rules.
+4. Verify phase12 fresh after all P0–P3 commits.
 
 ### Previous milestone (superseded)
 - ID: M14 — Institutional Upgrade (ML + TA + Portfolio + Execution)
@@ -132,6 +145,41 @@ Ultra-Plan implementation is functionally complete at code/module/test level. Re
 ---
 
 ## 5. Last completed step
+
+**Session 2026-04-22 — System-Check Remediation P0 (4 commits) — IMPLEMENTED (locally tested)**
+
+- 30-agent audit on HEAD `8ad5990` surfaced 4 ISSUE-level code bugs and several governance drifts.
+- Plan written: `docs/roadmap/SYSTEM_CHECK_REMEDIATION_2026-04-22.md` (commit `8a5e685`).
+- P0.1 + P0.2 commit `337c5d9` — portfolio sizing correctness:
+  - `kelly_uncertainty.py`: formula inverted vs docstring (line 61). Fix: `uncertainty_scale = 1 - clip(cw/ref_cw, 0, 1)`, plus NaN/Inf guards.
+  - `position_sizing.py` (line 735-739): smoothing branch dropped `total_capital` from `target_qty`. Fix: `target_qty = target_weight * total_capital`.
+  - `test_ml_round7.py`: updated + added kelly semantics/NaN-guard tests; added `test_smoothing_preserves_capital_scaling`.
+- P0.3 commit `eb3c752` — `ml/nested_meta_labeling.py`:
+  - `predict()` used batch max for size normalization (line 186) → non-deterministic across inference batch composition.
+  - Fix: `fit()` persists `self._size_scale_max`; `predict()` uses stored scale.
+  - `test_ml_round4.test_nested_meta_size_scale_batch_invariant` added.
+- P0.4 commit `956dea7` — `config/__init__.py`:
+  - `__all__` listed optional-import names unconditionally → `from config import *` would crash if pydantic_settings or factor_bundles missing.
+  - Fix: build `__all__` incrementally inside each successful try-block.
+  - `test_config_factor_bundles.test_config_package_all_is_consistent` added.
+- Shadow modules only; no consumer in execution/pipeline/risk.
+- Truth status: implemented, locally tested; CI not confirmed.
+
+---
+
+**Sessions 2026-04-20 / 2026-04-22 — News engines + ML Rounds + Orphan Wiring — IMPLEMENTED (locally tested)**
+
+- Paper-engine-upgrade phases 0-11 (TCA, manifest, attribution, calibrator, regime pack) — see memory `paper-engine-upgrade-2026-04-17.md`.
+- News engine gleaming-bubbling-crescent: geo-tags, urgency, 35+ feeds, RSS wired (`17d261c`).
+- News engine 40-point upgrade: 14 event types, 200+ entity map, 35+ new tests (`65e07ed`).
+- News engine P1-P8 + F1-F18: 16 new modules, 94 new tests (`9460e7e`).
+- ML Rounds 4-7: nested_meta, BMA, risk-aware combiner, regime-router (R4); online HMM, online HPO, LIME (R5); signal-decay, feedback loop, portfolio analyzer (R6); 12 modules full pipeline wiring (`02120fc`), hardening (`cffa1bd`).
+- Orphan-wiring: 160 modules across 18 domains re-exported via package `__init__.py` (`daf222f`).
+- System map galaxy-type support + layout-base/cose-base vendor libs (`ceca8c4`).
+- Frontend-design plugin enabled (`8ad5990`).
+- Truth status: locally tested; CI not confirmed.
+
+---
 
 **Session 2026-04-18 — Ultra-Plan Phase 0 + Tier-2 Shadow Wiring — IMPLEMENTED (locally tested)**
 
@@ -591,16 +639,15 @@ Truth status:
 ## 6. Active blockers
 
 ### Technical blockers
-- Startup hook error: previously observed, current status unknown — investigate before relying on automated hook runs.
 - Claude-Mem integration: not yet validated as fully operational.
-- CI confirmation pending: data stub module tests pass locally (94 tests, branch `cursor/development-environment-setup-8e96`), CI run not yet confirmed.
+- CI confirmation pending: current `main` HEAD has 4 P0 commits + multiple feature commits unverified in CI.
 
 ### Documentation / control blockers
-- `docs/cursor/` may still contain stale context — audit if it is still loaded as active guidance.
-- `docs/roadmap/ROADMAP_LOG.md` was created 2026-03-29 (first entry = M0 close).
+- `docs/cursor/CONTEXT_PACK.md`: describes pre-assembled_core era (2025-11-28) — pending legacy-header marker (P1.4).
+- `docs/roadmap/ROADMAP_LOG.md` was created 2026-03-29.
 
 ### Repo blockers
-- Historical `.env` / secret exposure risk: still a real security concern. Key must be treated as potentially compromised until rotated. `.gitignore` alone does not protect the history.
+- Historical `.env` / secret exposure: keys **rotated 2026-04-19** at provider; history-rewrite declined (cost > benefit, keys revoked). `.gitignore` blocks future leaks. History risk accepted.
 
 ---
 
@@ -628,9 +675,9 @@ Truth status:
 ## 8. Stop-condition snapshot
 
 Check these before continuing into feature work:
-- [~] Governance layer still contradicts real repo state — largely resolved; `docs/cursor/` audit still pending
-- [~] Startup hooks still error in a way that affects automation — status unknown, investigate before heavy automated runs
-- [x] Secret handling is still operationally unresolved — `.env` key must be rotated; history not yet cleaned
+- [~] Governance layer partially resynced 2026-04-22 (P1 in progress); `docs/cursor/CONTEXT_PACK.md` legacy-header pending
+- [ ] Startup hooks — no known error as of 2026-04-22
+- [~] Secret handling — keys rotated at provider 2026-04-19; history-rewrite declined (risk accepted)
 - [ ] Active task is too large / not smallest safe step
 - [ ] Validation plan for the next step is unclear
 
@@ -642,15 +689,19 @@ If any box becomes effectively true, pause feature expansion and stabilize first
 
 ## 9. Milestone queue
 
-Use this as the default sequence unless a documented blocker or dependency requires adjustment:
-- M0 — Repo Governance & Policy Baseline
-- M1 — NEWS v1 MVP
-- M2 — DISCLOSURES v1 MVP
-- M3 — Risk / State Machine v1
-- M4 — Execution Workers (Ops v1)
-- M5 — Crisis-Alpha v1
-- M6 — Risk v1.1 Upgrades
-- M7 — Realism Upgrades v2
+Completed (see `memory/MEMORY.md` for per-milestone detail):
+- M0–M14 — governance, NEWS/DISCLOSURES v1, risk state machine, execution workers, crisis alpha, realism v2, evidence engine, policy calibration, ETF universe, learning loop, broker adapter, autonomous ops, institutional upgrade
+- M15–M16 — geo-short engine, factor expansion (30 factors)
+- M17/M19/M20/M21 — overfitting gates, regime costs, execution edge (order types, Almgren-Chriss, SOR)
+- M25–M32, M36, M39 — critical-path batches 2+3
+- Paper Engine Upgrade phases 0-11 (2026-04-17)
+- Ultra-Plan polished-koala (2026-04-18)
+- goofy-questing-crystal remediation (2026-04-20)
+- News engines: gleaming-bubbling-crescent + 40-point + P1-P8 + F1-F18 (2026-04-20)
+- ML Rounds 4-7 + orphan-wiring 160 modules (2026-04-22)
+
+Active:
+- System-Check Remediation 2026-04-22 — P0 done, P1-P3 in progress.
 
 ---
 
