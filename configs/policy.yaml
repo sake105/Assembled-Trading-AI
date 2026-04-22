@@ -266,6 +266,33 @@ signal_generation:
     use_stacking: true
     use_quantile_sizing: false
 
+  # Phase 9: Sector rotation overlay (read by trading_cycle at signal_generation.sector_rotation)
+  sector_rotation:
+    enabled: false           # enable to wire generate_sector_rotation_signals() as additional source
+    long_weight: 0.12        # per-sector long ETF weight
+    short_weight: 0.08       # per-sector short ETF weight (absolute)
+
+  # Phase 9: Pre-earnings signal suppression + PEAD (read by trading_cycle at signal_generation.earnings_guard)
+  earnings_guard:
+    enabled: false           # enable to suppress signals 3d before earnings + PEAD drift
+    suppress_window: 3       # days before earnings to zero out mean-reversion signals
+    pead_window_days: 60     # PEAD drift window (days after earnings)
+    pead_weight: 0.15        # weight added to score from PEAD signal
+
+  # Phase 9: Bayesian signal confidence scoring (read by trading_cycle at signal_generation.bayesian_confidence)
+  bayesian_confidence:
+    enabled: true            # Bayesian CI scoring for position scaling; BL max_weight=0.15 caps inflation
+    ci_level: 0.90           # credible interval level (90%)
+    max_scale: 1.50          # maximum position scale factor from confidence
+    min_scale: 0.50          # minimum position scale factor from confidence
+
+  # Phase 9: Signal health diagnostics at end of each cycle (read by trading_cycle at signal_generation.signal_diagnostics)
+  signal_diagnostics:
+    enabled: true            # emit compute_signal_health() JSON artifact (no behavior side-effects)
+    forward_returns_col: "return_1d"
+    ic_alert_threshold: 0.0  # rolling IC below this triggers WARNING
+    output_dir: "output/diagnostics"
+
 # ---------------------------------------------------------------------------
 # Position sizing (Phase 0C)
 # ---------------------------------------------------------------------------
@@ -287,33 +314,9 @@ anti_churn:
   hold_n: 7                    # existing positions stay if top-7
   deadzone_enabled: true
   deadzone_pct: 0.02           # rebalance only if weight diff > 2%
-
-  # Phase 9: Sector rotation overlay (gate: signal_generation.sector_rotation.enabled)
-  sector_rotation:
-    enabled: false           # enable to wire generate_sector_rotation_signals() as additional source
-    long_weight: 0.12        # per-sector long ETF weight
-    short_weight: 0.08       # per-sector short ETF weight (absolute)
-
-  # Phase 9: Pre-earnings signal suppression + PEAD (gate: signal_generation.earnings_guard.enabled)
-  earnings_guard:
-    enabled: false           # enable to suppress signals 3d before earnings + PEAD drift
-    suppress_window: 3       # days before earnings to zero out mean-reversion signals
-    pead_window_days: 60     # PEAD drift window (days after earnings)
-    pead_weight: 0.15        # weight added to score from PEAD signal
-
-  # Phase 9: Bayesian signal confidence scoring (gate: signal_generation.bayesian_confidence.enabled)
-  bayesian_confidence:
-    enabled: true            # Bayesian CI scoring for position scaling; BL max_weight=0.15 caps inflation
-    ci_level: 0.90           # credible interval level (90%)
-    max_scale: 1.50          # maximum position scale factor from confidence
-    min_scale: 0.50          # minimum position scale factor from confidence
-
-  # Phase 9: Signal health diagnostics at end of each cycle
-  signal_diagnostics:
-    enabled: true            # emit compute_signal_health() JSON artifact (no behavior side-effects)
-    forward_returns_col: "return_1d"
-    ic_alert_threshold: 0.0  # rolling IC below this triggers WARNING
-    output_dir: "output/diagnostics"
+  # NOTE: sector_rotation / earnings_guard / bayesian_confidence / signal_diagnostics
+  # were moved to top-level `signal_generation:` (that is where trading_cycle.py
+  # reads them). Leaving them under `anti_churn:` was a silent no-op.
 
 evidence_engine:
   enabled: true

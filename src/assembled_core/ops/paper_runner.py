@@ -291,6 +291,17 @@ def run_paper_daily_one(
 
         apply_intel_sim(ctx, day_index, intel_sim_cfg)
 
+    # Part B wiring: populate ctx.intel_active_shocks from news triggers so
+    # policy.intel.signal_layer.enabled actually drives the shock beneficiary
+    # path (protected by INVERSE_ETF_BLACKLIST when allow_short=false).
+    # Safe no-op when artifact is missing or empty.
+    try:
+        from src.assembled_core.paper.intel_context import populate_ctx_from_artifacts
+
+        populate_ctx_from_artifacts(ctx, root)
+    except Exception as _ctx_exc:  # defensive; never block the cycle on this
+        log.debug("[INTEL-CTX] populate_ctx_from_artifacts failed: %s", _ctx_exc)
+
     result = run_trading_cycle(ctx)
     if result.status != "success":
         log.error("Trading cycle failed: %s", result.error_message)
