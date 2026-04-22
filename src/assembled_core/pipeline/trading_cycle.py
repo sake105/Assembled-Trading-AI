@@ -1947,6 +1947,47 @@ def _run_trading_cycle_inner(
         result.error_message = f"Error in build_features: {e}"
         return result
 
+    # Step 2.2: Enhanced feature enrichment (ta_factors_core + cross-sectional normalization)
+    try:
+        enh_cfg = (policy.get("features") or {}).get("enhanced_factors") or {}
+        if enh_cfg.get("enabled", False) and not result.prices_with_features.empty:
+            # ta_factors_core: multi-horizon returns, trend strength, short-term reversal
+            if enh_cfg.get("ta_factors_core", True):
+                from src.assembled_core.features.ta_factors_core import build_core_ta_factors
+                n_before = len(result.prices_with_features.columns)
+                result.prices_with_features = build_core_ta_factors(
+                    result.prices_with_features,
+                    price_col="close",
+                    group_col="symbol",
+                    timestamp_col="timestamp",
+                )
+                n_added = len(result.prices_with_features.columns) - n_before
+                log.info("[FEATURE-ENH] ta_factors_core: +%d columns", n_added)
+            # cross_sectional: rank-normalize key signal features across symbols per day
+            if enh_cfg.get("cross_sectional_rank", True):
+                from src.assembled_core.features.cross_sectional import rank_cross_sectional
+                rank_cols = [
+                    c for c in enh_cfg.get("rank_cols", [
+                        "trend_ema_spread", "mom_rsi_centered", "mom_12_1",
+                        "low_vol_rank", "quality_score",
+                        "trend_strength_20", "trend_strength_50", "momentum_12m_excl_1m",
+                    ])
+                    if c in result.prices_with_features.columns
+                ]
+                if rank_cols:
+                    result.prices_with_features = rank_cross_sectional(
+                        result.prices_with_features,
+                        feature_cols=rank_cols,
+                        timestamp_col="timestamp",
+                        normalize_to=enh_cfg.get("rank_normalize_to", "symmetric"),
+                    )
+                    log.info(
+                        "[FEATURE-ENH] cross_sectional_rank: %d features → _xrank columns",
+                        len(rank_cols),
+                    )
+    except Exception as _enh_exc:
+        log.debug("[FEATURE-ENH] enhanced feature enrichment skipped: %s", _enh_exc)
+
     # Step 2.5: D3 — Optional HMM regime detection (replaces/supplements ctx.regime_state)
     try:
         regime_detection_cfg = policy.get("regime_detection", {})
@@ -3761,6 +3802,41 @@ def _run_trading_cycle_inner(
                     }
         except Exception as exc:
             logger.warning("[WARN] T4.1 crisis_alpha_pipeline failed, continuing without cap: %s", exc)
+
+    # Step 4.9: ML training snapshot — per-symbol signals + target weights
+    try:
+        ml_snap: dict = {}
+        if not result.signals.empty and "symbol" in result.signals.columns:
+            sig_cols = [c for c in ("symbol", "direction", "score") if c in result.signals.columns]
+            sig_snap = (
+                result.signals[sig_cols]
+                .dropna(subset=["symbol"])
+                .sort_values("score", ascending=False)
+                if "score" in result.signals.columns
+                else result.signals[sig_cols].dropna(subset=["symbol"])
+            )
+            ml_snap["signal_snapshot"] = sig_snap.to_dict(orient="records")
+        if not result.target_positions.empty and "symbol" in result.target_positions.columns:
+            w_col = next(
+                (c for c in ("target_weight", "weight", "target_pct") if c in result.target_positions.columns),
+                None,
+            )
+            if w_col:
+                ml_snap["target_weights"] = (
+                    result.target_positions[["symbol", w_col]]
+                    .rename(columns={w_col: "weight"})
+                    .dropna()
+                    .to_dict(orient="records")
+                )
+        if ml_snap:
+            result.meta["ml_training_snapshot"] = ml_snap
+            log.debug(
+                "[ML-SNAP] captured %d signal rows, %d target rows",
+                len(ml_snap.get("signal_snapshot", [])),
+                len(ml_snap.get("target_weights", [])),
+            )
+    except Exception as _ms_exc:
+        log.debug("[ML-SNAP] ml_training_snapshot skipped: %s", _ms_exc)
 
     # Step 5: Generate orders (hook point: generate_orders)
     try:

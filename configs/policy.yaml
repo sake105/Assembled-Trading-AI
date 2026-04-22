@@ -468,3 +468,17 @@ features:
   macro_growth_regime: true
   macro_inflation_regime: true
   macro_risk_aversion: true
+  enhanced_factors:
+    enabled: true
+    ta_factors_core: true           # add multi-horizon returns, trend strength, reversal
+    cross_sectional_rank: true      # rank-normalize key features across symbols per day
+    rank_normalize_to: "symmetric"  # -1..+1 symmetric percentile rank
+    rank_cols:
+      - trend_ema_spread
+      - mom_rsi_centered
+      - mom_12_1
+      - low_vol_rank
+      - quality_score
+      - trend_strength_20
+      - trend_strength_50
+      - momentum_12m_excl_1m
