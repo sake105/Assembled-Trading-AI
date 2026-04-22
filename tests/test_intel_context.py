@@ -8,10 +8,13 @@ from types import SimpleNamespace
 
 import pytest
 
+import pandas as pd
+
 from src.assembled_core.paper.intel_context import (
     MIN_SHOCK_SEVERITY,
     TOPIC_TO_SHOCKS,
     active_shocks_from_triggers,
+    persist_historical_scores,
     populate_ctx_from_artifacts,
 )
 
@@ -147,3 +150,111 @@ def test_populate_ctx_explicit_path(tmp_path: Path):
 
 def test_min_shock_severity_constant():
     assert MIN_SHOCK_SEVERITY == 2
+
+
+def _make_prices_with_sector_etfs(rows_per_symbol: int = 130) -> pd.DataFrame:
+    """Build a long-format price panel with SPY + 4 sector ETFs over enough history."""
+    import numpy as np
+
+    symbols = ["SPY", "XLK", "XLF", "XLE", "XLV"]
+    dates = pd.date_range("2025-10-01", periods=rows_per_symbol, freq="B", tz="UTC")
+    rows = []
+    rng = np.random.default_rng(42)
+    for sym in symbols:
+        base = 100.0 + rng.uniform(-5, 5)
+        walk = base + rng.normal(0, 1.0, rows_per_symbol).cumsum()
+        for ts, px in zip(dates, walk):
+            rows.append({"timestamp": ts, "symbol": sym, "close": float(max(px, 1.0))})
+    return pd.DataFrame(rows)
+
+
+def test_populate_sector_scores_requires_history():
+    """Too little history → silent no-op, attribute not set."""
+    ctx = SimpleNamespace(
+        prices=_make_prices_with_sector_etfs(rows_per_symbol=20),
+        as_of=pd.Timestamp("2025-11-01", tz="UTC"),
+    )
+    populate_ctx_from_artifacts(ctx, Path("."))
+    assert not hasattr(ctx, "sector_rotation_scores")
+
+
+def test_populate_sector_scores_sets_attribute_when_sufficient_history(tmp_path: Path):
+    ctx = SimpleNamespace(
+        prices=_make_prices_with_sector_etfs(rows_per_symbol=140),
+        as_of=pd.Timestamp("2026-04-01", tz="UTC"),
+    )
+    populate_ctx_from_artifacts(ctx, tmp_path)
+    assert hasattr(ctx, "sector_rotation_scores")
+    scores = ctx.sector_rotation_scores
+    score_keys = [k for k in scores.index if k.endswith("_score")]
+    assert len(score_keys) >= 3
+
+
+def test_populate_sector_scores_requires_spy():
+    """No SPY in universe → no-op."""
+    df = _make_prices_with_sector_etfs(rows_per_symbol=140)
+    df = df[df["symbol"] != "SPY"]
+    ctx = SimpleNamespace(prices=df, as_of=pd.Timestamp("2026-04-01", tz="UTC"))
+    populate_ctx_from_artifacts(ctx, Path("."))
+    assert not hasattr(ctx, "sector_rotation_scores")
+
+
+def test_populate_earnings_calendar_cache_missing(tmp_path: Path):
+    ctx = SimpleNamespace()
+    populate_ctx_from_artifacts(ctx, tmp_path)
+    assert not hasattr(ctx, "earnings_calendar")
+
+
+def test_populate_earnings_calendar_from_cache(tmp_path: Path):
+    cache_dir = tmp_path / "output" / "intel" / "earnings"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    cal = pd.DataFrame({
+        "symbol": ["AAPL", "MSFT"],
+        "earnings_date": pd.to_datetime(["2026-05-01", "2026-05-03"]),
+        "eps_estimate": [2.10, 3.00],
+        "eps_actual": [float("nan"), float("nan")],
+        "surprise_pct": [float("nan"), float("nan")],
+    })
+    try:
+        cal.to_parquet(cache_dir / "calendar_latest.parquet", index=False)
+    except Exception:
+        pytest.skip("pyarrow/fastparquet not available")
+
+    ctx = SimpleNamespace()
+    populate_ctx_from_artifacts(ctx, tmp_path)
+    assert hasattr(ctx, "earnings_calendar")
+    assert len(ctx.earnings_calendar) == 2
+
+
+def test_persist_and_load_historical_scores(tmp_path: Path):
+    scores1 = pd.Series([0.1, 0.2, 0.3, 0.4], index=list("ABCD"))
+    scores2 = pd.Series([0.5, 0.6, 0.7], index=list("EFG"))
+
+    persist_historical_scores(scores1, tmp_path)
+    persist_historical_scores(scores2, tmp_path)
+
+    cache = tmp_path / "output" / "intel" / "signals" / "historical_scores.jsonl"
+    assert cache.exists()
+    assert cache.read_text(encoding="utf-8").count("\n") >= 2
+
+    ctx = SimpleNamespace()
+    populate_ctx_from_artifacts(ctx, tmp_path)
+    assert hasattr(ctx, "signal_historical_scores")
+    assert len(ctx.signal_historical_scores) >= 2
+
+
+def test_persist_historical_scores_trims_old_entries(tmp_path: Path, monkeypatch):
+    """Old entries past window_days should be dropped on write."""
+    cache = tmp_path / "output" / "intel" / "signals" / "historical_scores.jsonl"
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    # Pre-seed with an ancient entry
+    old_ts = (pd.Timestamp.now("UTC") - pd.Timedelta(days=400)).isoformat()
+    cache.write_text(
+        json.dumps({"ts": old_ts, "mean": 99.0, "n": 5}) + "\n",
+        encoding="utf-8",
+    )
+
+    persist_historical_scores(pd.Series([1.0, 2.0]), tmp_path, window_days=90)
+    body = cache.read_text(encoding="utf-8")
+    assert "99.0" not in body  # old entry trimmed
+    assert body.strip().count("\n") == 0  # exactly one new entry

@@ -112,6 +112,16 @@ intel:
     min_confidence: 0.50     # minimum intel signal confidence
     shock_confidence: 0.60   # base confidence for shock beneficiary signals
 
+  # Part B deeper wiring (2026-04-22): News→Signal bridge. Reads
+  # output/intel/news/triggers_latest.json and applies per-ticker score deltas
+  # based on severity * urgency * sentiment_sign. allow_short=false keeps the
+  # bridge long-only (matches signal_layer + sector_rotation defaults).
+  news_signal_bridge:
+    enabled: true
+    weight: 0.10             # max scaled score delta contribution per ticker
+    min_severity: 1          # 1 = WATCH, 2+ = ACTIVE
+    allow_short: false
+
 # Disclosures confirmation boost for NEWS geo_confidence (DISCL-4.2).
 disclosures_confirm:
   enabled: true
@@ -127,6 +137,23 @@ execution_policy:
   mode_default: "paper"          # v1.x: Paper-Track als Default; Live kommt später
   idempotency_required: true     # kritische Worker müssen idempotent sein
   reconcile_as_truth: true       # Reconcile-Ergebnis gilt als „source of truth“ für Zustand
+
+# Part B deeper wiring (2026-04-22): pre-trade execution cost layer.
+# Activated via paper_runner → annotate_execution_cost, which writes per-order
+# Almgren-Chriss impact estimates + SOR venue allocation into result.meta.
+# enforce=false means high-impact orders are flagged but NOT dropped (shadow).
+execution:
+  cost_meta:
+    enabled: true            # annotate result.meta.execution_cost with per-order estimates
+    impact_limit_bps: 50.0   # orders beyond this are tagged high_impact=true
+    enforce: false           # when true, high-impact orders are filtered out pre-fill
+    default_adv: 1000000.0   # ADV fallback when volume data unavailable
+    default_sigma: 0.02      # daily vol fallback for Almgren-Chriss
+  smart_order_router:
+    enabled: true            # compute venue allocation for each order
+    urgency: 0.5             # 0=patient, 1=urgent
+    allow_dark_pools: true
+    max_venues: 3
 
 # Logging / audit requirements for policy-relevant actions.
 logging_policy:
@@ -267,14 +294,17 @@ signal_generation:
     use_quantile_sizing: false
 
   # Phase 9: Sector rotation overlay (read by trading_cycle at signal_generation.sector_rotation)
+  # Activated 2026-04-22 — ctx.sector_rotation_scores now populated by paper/intel_context.py
   sector_rotation:
-    enabled: false           # enable to wire generate_sector_rotation_signals() as additional source
+    enabled: true            # wired to generate_sector_rotation_signals() via ctx population
     long_weight: 0.12        # per-sector long ETF weight
     short_weight: 0.08       # per-sector short ETF weight (absolute)
 
   # Phase 9: Pre-earnings signal suppression + PEAD (read by trading_cycle at signal_generation.earnings_guard)
+  # Activated 2026-04-22 — ctx.earnings_calendar loaded from cache by paper/intel_context.py
+  # Cache refreshed via scripts/fetch_earnings_calendar.py; safe no-op if cache missing
   earnings_guard:
-    enabled: false           # enable to suppress signals 3d before earnings + PEAD drift
+    enabled: true            # suppress signals 3d before earnings + PEAD drift when cache present
     suppress_window: 3       # days before earnings to zero out mean-reversion signals
     pead_window_days: 60     # PEAD drift window (days after earnings)
     pead_weight: 0.15        # weight added to score from PEAD signal

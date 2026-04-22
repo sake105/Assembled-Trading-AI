@@ -2227,6 +2227,31 @@ def _run_trading_cycle_inner(
     except Exception as _e:
         log.debug("[SIGNAL-DIAG] earnings_guard skipped: %s", _e)
 
+    # Step 3.35: News→Signal bridge (Part B deeper wiring)
+    # Gated by policy intel.news_signal_bridge.enabled
+    try:
+        from src.assembled_core.signals.news_signal_bridge import (
+            load_and_apply_news_signals,
+        )
+        root_for_news = Path(ctx.data_root) if getattr(ctx, "data_root", None) else Path.cwd()
+        result.signals, news_bridge_meta = load_and_apply_news_signals(
+            result.signals,
+            root=root_for_news,
+            policy=policy,
+            as_of=ctx.as_of,
+        )
+        if news_bridge_meta.get("enabled"):
+            result.meta["news_signal_bridge"] = news_bridge_meta
+            if news_bridge_meta.get("applied", 0) or news_bridge_meta.get("added", 0):
+                log.info(
+                    "[SIGNAL-DIAG] news_signal_bridge: applied=%d added=%d |Δ|=%.2f",
+                    news_bridge_meta.get("applied", 0),
+                    news_bridge_meta.get("added", 0),
+                    news_bridge_meta.get("total_delta_abs", 0.0),
+                )
+    except Exception as _e:
+        log.debug("[SIGNAL-DIAG] news_signal_bridge skipped: %s", _e)
+
     # Step 3.4: Bayesian signal confidence scoring (Phase 9 / Plan 1.9)
     # Applied when policy signal_generation.bayesian_confidence.enabled is true
     try:

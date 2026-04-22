@@ -307,6 +307,20 @@ def run_paper_daily_one(
         log.error("Trading cycle failed: %s", result.error_message)
         return 1, None
 
+    # Part B wiring: persist cross-sectional signal mean so next cycle's
+    # Bayesian confidence can use real history instead of current-cross-section.
+    try:
+        if (
+            result.signals is not None
+            and not result.signals.empty
+            and "score" in result.signals.columns
+        ):
+            from src.assembled_core.paper.intel_context import persist_historical_scores
+
+            persist_historical_scores(result.signals["score"], root)
+    except Exception as _hs_exc:
+        log.debug("[INTEL-CTX] persist_historical_scores failed: %s", _hs_exc)
+
     result.meta["intel_orchestration"] = intel_orchestration
 
     # OPS-14: Per-run intel trigger summaries for run_kpis (enables experiment-level activity without global artifacts)
@@ -413,6 +427,23 @@ def run_paper_daily_one(
             prices_for_fills = result.prices_with_features
         cost_cfg = (app_cfg.get("paper_runner") or {}).get("cost_model") or {}
         ledger_before = copy.deepcopy(ledger_state)
+
+        # Part B deeper wiring: annotate orders with Almgren-Chriss impact
+        # cost + Smart-Order-Router venue allocation. Defensive no-op when
+        # policy.execution.cost_meta.enabled or policy.execution.smart_order_router.enabled
+        # are both false. Populates result.meta["execution_cost"].
+        try:
+            from src.assembled_core.ops.execution_cost_meta import (
+                annotate_execution_cost,
+            )
+
+            regime = getattr(ctx, "regime", None) or "bull"
+            orders_for_fills, exec_meta = annotate_execution_cost(
+                orders_for_fills, prices_for_fills, policy=load_policy(), regime=regime,
+            )
+            result.meta["execution_cost"] = exec_meta
+        except Exception as _exec_exc:
+            log.debug("[EXEC-COST] annotate_execution_cost skipped: %s", _exec_exc)
 
         # --- Execution mode validation & branch ---
         _VALID_EXEC_MODES = ("sim", "broker", "dry_run")
