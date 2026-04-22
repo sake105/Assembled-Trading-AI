@@ -1,5 +1,13 @@
 # Assembled Trading AI – Context Pack (for Cursor)
 
+> ⚠️ **LEGACY / DEPRECATED — pre-`assembled_core` era (Stand 2025-11-28).**
+>
+> Dieses Dokument beschreibt die sprint9/sprint10-Welt und ist **nicht mehr
+> aktuelle Implementierungsrealität**. Seit M0–M14 (2026-03-29 ff.) liegt
+> der Kern in `src/assembled_core/`; `ROADMAP_STATE.md` + `MEMORY.md`
+> sind die verbindlichen Quellen für den aktuellen Zustand. Der Inhalt
+> unten bleibt als historischer Kontext erhalten.
+
 ## Mission & Prinzipien
 Robustes, transparentes, risikoorientiertes E2E-System (Daten→Features→Signale→Portfolio→orders.csv),
 Human-in-the-Loop via SAFE-Bridge, realistische Ziele, strenge QA-Gates. Quellen: interne Analysen. [Siehe Unternehmensanalyse.] 

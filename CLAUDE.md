@@ -701,7 +701,10 @@ Bereits etabliert:
 * `.claude/settings.json` und `.claude/settings.local.json` (aktiv)
 * `.claude/agents/` (aktiv — Spezialist-Subagents)
 * `.claude/rules/` (aktiv — modulare Projektregeln, siehe Imports unten)
-* Memory-System via `memory/` + claude-mem (aktiv)
+* Memory-System via `claude-mem` (aktiv). **Memory liegt user-level**, nicht im Repo:
+  `%USERPROFILE%\.claude\projects\F--Python-Projekt-Aktienger-st\memory\`
+  (konkret: `C:\Users\hanso\.claude\projects\F--Python-Projekt-Aktienger-st\memory\`).
+  Zentrale Indexdatei: `MEMORY.md`. Ein Repo-lokales `memory/`-Verzeichnis gibt es **nicht**.
 
 Noch offen / optional:
 
