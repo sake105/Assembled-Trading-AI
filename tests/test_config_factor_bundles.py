@@ -23,6 +23,19 @@ from src.assembled_core.config.factor_bundles import (
 pytestmark = pytest.mark.advanced
 
 
+def test_config_package_all_is_consistent():
+    """Regression P0.4: every name in config.__all__ must resolve to a real attribute.
+
+    Prior bug: __all__ unconditionally listed FactorBundleConfig/FactorConfig even when
+    the factor_bundles module failed to import — `from config import *` would crash.
+    Fix builds __all__ conditionally in the import try/except.
+    """
+    import src.assembled_core.config as cfg
+
+    missing = [name for name in cfg.__all__ if not hasattr(cfg, name)]
+    assert missing == [], f"__all__ lists names not present in module: {missing}"
+
+
 @pytest.mark.advanced
 def test_load_factor_bundle_core():
     """Test loading existing core bundle."""
