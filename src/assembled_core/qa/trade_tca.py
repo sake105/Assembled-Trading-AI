@@ -1,14 +1,30 @@
 """Trade-Level Transaction Cost Analysis (TCA).
 
 Pro Trade Analyse von:
-- Implementation Shortfall (Arrival Price vs Execution Price)
-- VWAP-Slippage (Execution vs VWAP)
-- Effective Spread (pos × bid-ask mid)
-- Timing-Cost (delay vs decision-time)
+- Implementation Shortfall (Arrival Price vs Execution Price) — implementiert
+- VWAP-Slippage (Execution vs VWAP) — implementiert
 
 Aggregation pro Symbol/Broker/Strategy liefert Cost-Patterns.
 
 PIT-Invariante: Benchmarks aus historischen Prices zur Execution-Zeit.
+
+Architecture note (2026-04-22)
+------------------------------
+Related modules with overlapping responsibilities:
+
+- ``qa/tca.py``: cost_bps breakdown from ``trades_df`` (aggregate, not per-fill).
+- ``qa/tca_arrival.py``: Sprint C11 arrival-IS sidecar. Same IS formula as
+  the ``compute_trade_tca()`` function below (`(fill - arrival)/arrival * 10000
+  * sign`).
+
+Consolidation direction is pending Ownership/Call-Site-Analyse (see
+`docs/roadmap/SYSTEM_CHECK_REMEDIATION_2026-04-22.md`, P2.1).
+Until then: this module stays additive (per-trade, per-symbol aggregation),
+``tca_arrival`` stays the canonical per-fill IS sidecar, ``tca.py`` stays
+the cost_bps aggregator.
+
+Previous docstring listed "Effective Spread" and "Timing-Cost"; neither is
+implemented here — removed from the description to match reality.
 """
 
 from __future__ import annotations
