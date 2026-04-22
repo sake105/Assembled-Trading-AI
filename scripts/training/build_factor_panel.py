@@ -374,6 +374,9 @@ def build_full_factor_panel(
     horizons: list[int] = [1, 5, 10, 20],
     output_path: Path = Path("output/factor_panels/full_panel_7y.parquet"),
     use_registry: bool = True,
+    triple_barrier: bool = False,
+    tb_upper_mult: float = 2.0,
+    tb_lower_mult: float = 2.0,
 ) -> pd.DataFrame:
     """Build a complete factor panel with all available features and forward returns.
 
@@ -485,6 +488,25 @@ def build_full_factor_panel(
     fwd_cols = [f"fwd_return_{h}d" for h in horizons]
 
     # ------------------------------------------------------------------
+    # 3.5. Triple-Barrier Labels (optional)
+    # ------------------------------------------------------------------
+    if triple_barrier:
+        try:
+            from src.assembled_core.ml.triple_barrier import build_triple_barrier_labels
+            _log("info", f"[START] Adding triple-barrier labels (upper={tb_upper_mult}, lower={tb_lower_mult})...")
+            for h in horizons:
+                panel = build_triple_barrier_labels(
+                    panel,
+                    price_col="close",
+                    horizon_days=h,
+                    upper_mult=tb_upper_mult,
+                    lower_mult=tb_lower_mult,
+                )
+            _log("info", "[OK] Triple-barrier labels added")
+        except Exception as exc:
+            _log("warning", f"[WARN] Triple-barrier failed: {exc}")
+
+    # ------------------------------------------------------------------
     # 4. Final column ordering:
     #    date | symbol | <factors> | fwd_return_5d | fwd_return_10d | fwd_return_20d
     # ------------------------------------------------------------------
@@ -570,6 +592,23 @@ def _parse_args() -> argparse.Namespace:
         help="Nur 5d-Horizon für schnelle Iteration (überschreibt --horizons).",
     )
     parser.add_argument(
+        "--triple-barrier",
+        action="store_true",
+        help="Fügt tb_label_Nd / tb_ret_Nd / tb_barrier_Nd Spalten hinzu (Lopez de Prado).",
+    )
+    parser.add_argument(
+        "--tb-upper-mult",
+        type=float,
+        default=2.0,
+        help="Triple-Barrier Upper-Multiplikator × σ (default: 2.0).",
+    )
+    parser.add_argument(
+        "--tb-lower-mult",
+        type=float,
+        default=2.0,
+        help="Triple-Barrier Lower-Multiplikator × σ (default: 2.0).",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path("output/factor_panels/full_panel_7y.parquet"),
@@ -612,6 +651,9 @@ if __name__ == "__main__":
         horizons=args.horizons,
         output_path=output_path,
         use_registry=not args.no_registry,
+        triple_barrier=args.triple_barrier,
+        tb_upper_mult=args.tb_upper_mult,
+        tb_lower_mult=args.tb_lower_mult,
     )
 
     print(f"\nFactor panel shape: {panel.shape}")

@@ -146,6 +146,84 @@ class MetaModel:
             )
             return primary_scores
 
+    def predict_with_intervals(
+        self,
+        X: pd.DataFrame,
+        X_calib: pd.DataFrame | None = None,
+        y_calib: pd.Series | None = None,
+        alpha: float = 0.1,
+    ) -> dict:
+        """Predictions mit Conformal-Intervallen.
+
+        Args:
+            X: Inference-Features
+            X_calib: Kalibrierungs-Features (zeitlich vor X)
+            y_calib: Kalibrierungs-Labels
+            alpha: Miscoverage-Level (0.1 = 90%-Intervall)
+
+        Returns:
+            dict mit 'predictions', 'lower', 'upper', 'confidence', 'half_width'.
+            Ohne X_calib: nur 'predictions' + 'confidence'=1.0.
+        """
+        primary = self.predict_proba(X)
+
+        if X_calib is None or y_calib is None:
+            return {
+                "predictions": primary,
+                "lower": primary.copy(),
+                "upper": primary.copy(),
+                "confidence": pd.Series(
+                    np.ones(len(primary)), index=primary.index, name="confidence"
+                ),
+                "half_width": 0.0,
+            }
+
+        try:
+            from src.assembled_core.ml.conformal import SplitConformalPredictor
+
+            class _WrappedModel:
+                """Wrapper damit das trainierte Modell als sklearn-kompatibel wirkt."""
+                def __init__(self, mm, feat_names):
+                    self.mm = mm
+                    self.feat_names = feat_names
+
+                def fit(self, X, y):
+                    # Kein Re-Fit — Modell ist bereits trainiert
+                    pass
+
+                def predict(self, X):
+                    df = pd.DataFrame(X, columns=self.feat_names)
+                    return self.mm.predict_proba(df).values
+
+            wrapped = _WrappedModel(self, self.feature_names)
+            cp = SplitConformalPredictor(wrapped, alpha=alpha)
+            # Fit: no-op. Calibrate mit (X_calib, y_calib)
+            cp._residual_quantile = None
+            wrapped.fit(None, None)
+            calib_preds = self.predict_proba(X_calib).values
+            residuals = np.abs(y_calib.values - calib_preds)
+            n = len(residuals)
+            q_level = min(1.0, np.ceil((n + 1) * (1 - alpha)) / n)
+            cp._residual_quantile = float(np.quantile(residuals, q_level))
+
+            result = cp.predict(X, return_index=X.index)
+            return {
+                "predictions": result.point_predictions,
+                "lower": result.lower_bounds,
+                "upper": result.upper_bounds,
+                "confidence": result.confidence(),
+                "half_width": result.half_width,
+            }
+        except Exception as exc:
+            logger.warning("[MetaModel] Conformal failed: %s — returning point predictions", exc)
+            return {
+                "predictions": primary,
+                "lower": primary.copy(),
+                "upper": primary.copy(),
+                "confidence": pd.Series(np.ones(len(primary)), index=primary.index),
+                "half_width": 0.0,
+            }
+
 
 def train_meta_model(
     df: pd.DataFrame,
