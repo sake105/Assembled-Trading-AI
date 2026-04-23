@@ -7024,6 +7024,59 @@ def _run_trading_cycle_inner(
     except Exception as _oal_exc:
         log.debug("[OAL] online_gradient_boosting skipped: %s", _oal_exc)
 
+    # Step 7.71: Paper ledger snapshot (mark-to-market equity + state — observability)
+    try:
+        from src.assembled_core.ops.paper_ledger import (
+            load_ledger_state,
+            mark_to_market_equity,
+        )
+        _pl_path = ctx.output_dir / "state" / "ledger_state.json"
+        _pl_state = load_ledger_state(_pl_path, start_capital=ctx.capital)
+        _pl_prices = result.prices_with_features if not result.prices_with_features.empty else pd.DataFrame()
+        _pl_mtm = mark_to_market_equity(_pl_state, _pl_prices)
+        result.meta["paper_ledger"] = {
+            "cash": round(float(_pl_state.get("cash", ctx.capital)), 2),
+            "n_positions": len(_pl_state.get("positions") or {}),
+            "mtm_equity": round(float(_pl_mtm), 2),
+        }
+        log.debug("[PAPER-LEDGER] cash=%.2f mtm=%.2f", _pl_state.get("cash", 0), _pl_mtm)
+    except Exception as _pl_exc:
+        log.debug("[PAPER-LEDGER] paper_ledger skipped: %s", _pl_exc)
+
+    # Step 8.38: Factor ranking (IC-based factor score table — observability, skips if no files)
+    try:
+        from src.assembled_core.qa.factor_ranking import build_factor_ranking
+        _fr_dir = ctx.output_dir / "factor_analysis"
+        if _fr_dir.exists():
+            _fr_ic_paths = list(_fr_dir.glob("*ic_summary*.csv"))
+            _fr_rank_paths = list(_fr_dir.glob("*rank_ic*.csv"))
+            if _fr_ic_paths and _fr_rank_paths:
+                _fr_df = build_factor_ranking(_fr_ic_paths, _fr_rank_paths)
+                result.meta["factor_ranking"] = {
+                    "n_factors": len(_fr_df),
+                    "top_factor": str(_fr_df.iloc[0]["factor_name"]) if len(_fr_df) > 0 else None,
+                }
+            else:
+                result.meta["factor_ranking"] = {"status": "no_ic_files"}
+        else:
+            result.meta["factor_ranking"] = {"status": "no_factor_analysis_dir"}
+        log.debug("[FACTOR-RANK] status=%s", result.meta.get("factor_ranking", {}).get("status", "ok"))
+    except Exception as _fr_exc:
+        log.debug("[FACTOR-RANK] factor_ranking skipped: %s", _fr_exc)
+
+    # Step 8.39: Meta labeler state (sklearn secondary classifier — observability init)
+    try:
+        from src.assembled_core.ml.meta_labeling import MetaLabeler
+        _ml_meta = MetaLabeler()
+        result.meta["meta_labeler"] = {
+            "model_type": _ml_meta.model_type,
+            "threshold": float(_ml_meta.confidence_threshold),
+            "fitted": _ml_meta._model is not None,
+        }
+        log.debug("[META-LABEL] model_type=%s threshold=%.2f", _ml_meta.model_type, _ml_meta.confidence_threshold)
+    except Exception as _ml_meta_exc:
+        log.debug("[META-LABEL] meta_labeling skipped: %s", _ml_meta_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
