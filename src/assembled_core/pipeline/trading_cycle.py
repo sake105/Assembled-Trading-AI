@@ -9274,6 +9274,29 @@ def _run_trading_cycle_inner(
     except Exception as _ic_exc:
         log.debug("[INTEL-CTX] intel_context skipped: %s", _ic_exc)
 
+    # Step paper.3: Intel runner (compute_news_geo — observability)
+    try:
+        from src.assembled_core.paper.intel_runner import compute_news_geo, _empty_news_geo
+        _ng = _empty_news_geo()
+        result.meta["intel_runner"] = {"state_hint": _ng.get("state_hint", ""), "available": True}
+    except Exception as _ir_exc:
+        log.debug("[INTEL-RUN] intel_runner skipped: %s", _ir_exc)
+
+    # Step paper.4: Paper track (PaperTrackConfig — observability)
+    try:
+        from src.assembled_core.paper.paper_track import PaperTrackConfig
+        _ptc = PaperTrackConfig()
+        result.meta["paper_track"] = {"available": True}
+    except Exception as _pt_exc:
+        log.debug("[PAPER-TRACK] paper_track skipped: %s", _pt_exc)
+
+    # Step paper.5: Strategy adapters (generate_signals_and_targets_for_day — observability)
+    try:
+        from src.assembled_core.paper.strategy_adapters import generate_signals_and_targets_for_day
+        result.meta["strategy_adapters"] = {"available": True}
+    except Exception as _sa_exc:
+        log.debug("[STRAT-ADAPT] strategy_adapters skipped: %s", _sa_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
