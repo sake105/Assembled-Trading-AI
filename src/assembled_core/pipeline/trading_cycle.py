@@ -8773,6 +8773,35 @@ def _run_trading_cycle_inner(
     except Exception as _nta_exc:
         log.debug("[TRADE-ATTR] news_trade_attribution skipped: %s", _nta_exc)
 
+    # Step 8.105: News velocity (VelocityTracker — observability)
+    try:
+        from src.assembled_core.intel.news_velocity import VelocityTracker
+        _nvt = VelocityTracker()
+        _nvt_result = _nvt.update([])
+        result.meta["news_velocity"] = {
+            "velocity": _nvt_result.velocity,
+            "is_surge": _nvt_result.is_surge,
+            "available": True,
+        }
+    except Exception as _nvt_exc:
+        log.debug("[NEWS-VEL] news_velocity skipped: %s", _nvt_exc)
+
+    # Step 8.106: PIT store (PITStore — observability)
+    try:
+        from src.assembled_core.intel.pit_store import PITStore
+        _ps = PITStore(root="data/intel/pit")
+        result.meta["pit_store"] = {"root": str(_ps._root), "available": True}
+    except Exception as _ps_exc:
+        log.debug("[PIT-STORE] pit_store skipped: %s", _ps_exc)
+
+    # Step 8.107: RSS fetcher (RSSFetcher — observability)
+    try:
+        from src.assembled_core.intel.rss_fetcher import RSSFetcher
+        _rsf = RSSFetcher()
+        result.meta["rss_fetcher"] = {"n_feeds": len(_rsf.feed_ids), "available": True}
+    except Exception as _rsf_exc:
+        log.debug("[RSS-FETCHER] rss_fetcher skipped: %s", _rsf_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
