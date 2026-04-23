@@ -10521,6 +10521,23 @@ def _run_trading_cycle_inner(
     except Exception as _brun_exc:
         log.debug("[EXP-BATCH-RUNNER] experiments.batch_runner skipped: %s", _brun_exc)
 
+    # Step feat.r: Feature registry (FEATURE_REGISTRY / list_all_feature_names — observability)
+    try:
+        from src.assembled_core.features.registry import FEATURE_REGISTRY, list_all_feature_names
+        result.meta["features_registry"] = {
+            "n_features": len(FEATURE_REGISTRY),
+            "available": True,
+        }
+    except Exception as _freg_exc:
+        log.debug("[FEATURES-REGISTRY] features.registry skipped: %s", _freg_exc)
+
+    # Step core.4: Root logging_config (setup_logging / generate_run_id — observability)
+    try:
+        from src.assembled_core.logging_config import setup_logging, generate_run_id
+        result.meta["logging_config"] = {"available": True}
+    except Exception as _lc_exc:
+        log.debug("[LOGGING-CONFIG] logging_config skipped: %s", _lc_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
