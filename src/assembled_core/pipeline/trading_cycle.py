@@ -9439,6 +9439,42 @@ def _run_trading_cycle_inner(
     except Exception as _fhc_exc:
         log.debug("[FINNHUB-COMMON] data.altdata.finnhub_common skipped: %s", _fhc_exc)
 
+    # Step 2.76: Finnhub events (fetch_earnings_events / fetch_insider_events — observability)
+    try:
+        from src.assembled_core.data.altdata.finnhub_events import (
+            fetch_earnings_events,
+            fetch_insider_events,
+        )
+        result.meta["finnhub_events"] = {"available": True}
+    except Exception as _fhe_exc:
+        log.debug("[FINNHUB-EVENTS] data.altdata.finnhub_events skipped: %s", _fhe_exc)
+
+    # Step 2.77: Finnhub news/macro stubs (fetch_finnhub_news / fetch_finnhub_macro — observability)
+    try:
+        from src.assembled_core.data.altdata.finnhub_news_macro import (
+            fetch_finnhub_news,
+            fetch_finnhub_macro,
+        )
+        _fhn = fetch_finnhub_news()
+        _fhm = fetch_finnhub_macro()
+        result.meta["finnhub_news_macro"] = {
+            "news_cols": list(_fhn.columns),
+            "macro_cols": list(_fhm.columns),
+            "available": True,
+        }
+    except Exception as _fhnm_exc:
+        log.debug("[FINNHUB-NEWS-MACRO] data.altdata.finnhub_news_macro skipped: %s", _fhnm_exc)
+
+    # Step 2.78: House PTR parser (HousePTRTransaction / parse_house_ptr_csv — observability)
+    try:
+        from src.assembled_core.data.altdata.house_ptr_parser import (
+            HousePTRTransaction,
+            parse_house_ptr_csv,
+        )
+        result.meta["house_ptr_parser"] = {"available": True}
+    except Exception as _hptr_exc:
+        log.debug("[HOUSE-PTR] data.altdata.house_ptr_parser skipped: %s", _hptr_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
