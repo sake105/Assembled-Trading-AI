@@ -8918,6 +8918,38 @@ def _run_trading_cycle_inner(
     except Exception as _naf_exc:
         log.debug("[NEWSAPI] news_newsapi_fetcher skipped: %s", _naf_exc)
 
+    # Step 8.120: News position bridge (cluster_to_signal — observability)
+    try:
+        from src.assembled_core.intel.news_position_bridge import cluster_to_signal, PositionSignal
+        _npb_signal = cluster_to_signal(None)
+        result.meta["news_position_bridge"] = {
+            "signal_is_none": _npb_signal is None,
+            "available": True,
+        }
+    except Exception as _npb_exc:
+        log.debug("[POS-BRIDGE] news_position_bridge skipped: %s", _npb_exc)
+
+    # Step 8.121: News replay (NewsReplayer — observability)
+    try:
+        from src.assembled_core.intel.news_replay import NewsReplayer, ReplayStep
+        from src.assembled_core.intel.pit_store import PITStore as _PITStore
+        _nr = NewsReplayer(pit_store=_PITStore(root="data/intel/pit"))
+        result.meta["news_replay"] = {"available": True}
+    except Exception as _nr_exc:
+        log.debug("[NEWS-REPLAY] news_replay skipped: %s", _nr_exc)
+
+    # Step 5.55: Adaptive execution algo (AdaptiveExecutionAlgo — observability)
+    try:
+        from src.assembled_core.execution.adaptive_algo import AdaptiveExecutionAlgo
+        _aae = AdaptiveExecutionAlgo()
+        result.meta["adaptive_algo"] = {
+            "total_shares": _aae.state.total_shares,
+            "filled_shares": _aae.state.filled_shares,
+            "available": True,
+        }
+    except Exception as _aae_exc:
+        log.debug("[ADAPTIVE-ALGO] adaptive_algo skipped: %s", _aae_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
