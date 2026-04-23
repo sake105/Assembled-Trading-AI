@@ -2582,6 +2582,46 @@ def _run_trading_cycle_inner(
     except Exception as e:
         log.debug("crash_prediction step skipped: %s", e)
 
+    # Step 3.55: Multi-factor composite signal (shadow — enriches signals with mf_score)
+    try:
+        mf_cfg = policy.get("multifactor_signal") or {}
+        if mf_cfg.get("enabled", False) and not result.prices_with_features.empty and not result.signals.empty:
+            from src.assembled_core.signals.multifactor_signal import build_multifactor_signal
+            from src.assembled_core.config.factor_bundles import load_factor_bundle
+            import pathlib as _pathlib
+            _mf_bundle_path = _pathlib.Path(
+                mf_cfg.get("bundle_path", "config/factor_bundles/macro_world_etfs_core_bundle.yaml")
+            )
+            if _mf_bundle_path.exists():
+                _mf_bundle = load_factor_bundle(_mf_bundle_path)
+                _mf_result = build_multifactor_signal(result.prices_with_features, _mf_bundle)
+                if not _mf_result.df.empty and "mf_score" in _mf_result.df.columns:
+                    # Extract latest mf_score per symbol and join to signals
+                    _mf_latest = (
+                        _mf_result.df.sort_values("timestamp").groupby("symbol")["mf_score"].last()
+                        if "timestamp" in _mf_result.df.columns
+                        else _mf_result.df.groupby("symbol")["mf_score"].last()
+                    )
+                    result.signals = result.signals.copy()
+                    result.signals["mf_score"] = result.signals["symbol"].map(_mf_latest)
+                    result.meta["multifactor_signal"] = {
+                        "bundle": str(_mf_bundle_path.name),
+                        "used_factors": _mf_result.meta.get("used_factors", []),
+                        "missing_factors": _mf_result.meta.get("missing_factors", []),
+                        "n_symbols_scored": int(_mf_latest.notna().sum()),
+                        "shadow_only": True,
+                    }
+                    log.info(
+                        "[MULTIFACTOR] scored %d symbols, factors_used=%d missing=%d",
+                        int(_mf_latest.notna().sum()),
+                        len(_mf_result.meta.get("used_factors", [])),
+                        len(_mf_result.meta.get("missing_factors", [])),
+                    )
+            else:
+                log.debug("[MULTIFACTOR] bundle not found at %s — skipping", _mf_bundle_path)
+    except Exception as _mf_exc:
+        log.debug("[MULTIFACTOR] multifactor_signal skipped: %s", _mf_exc)
+
     # Step 3.6: Ranking hysteresis (anti-churn) — reduces symbol rotation noise
     try:
         anti_churn_cfg = policy.get("anti_churn") or {}

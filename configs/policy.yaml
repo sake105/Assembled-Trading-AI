@@ -433,6 +433,13 @@ signals:
     model_path: "output/models/meta/meta_model.joblib"
 
 # ---------------------------------------------------------------------------
+# Multi-factor composite signal (Step 3.55 — shadow mf_score on signals)
+# ---------------------------------------------------------------------------
+multifactor_signal:
+  enabled: true
+  bundle_path: "config/factor_bundles/macro_world_etfs_core_bundle.yaml"
+
+# ---------------------------------------------------------------------------
 # Phase 10: Monte Carlo robustness (bootstrap after each cycle / backtest)
 # ---------------------------------------------------------------------------
 monte_carlo:
