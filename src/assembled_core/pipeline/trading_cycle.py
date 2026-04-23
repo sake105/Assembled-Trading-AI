@@ -10368,6 +10368,31 @@ def _run_trading_cycle_inner(
     except Exception as _udf_exc:
         log.debug("[UTILS-DATAFRAME] utils.dataframe skipped: %s", _udf_exc)
 
+    # Step util.2: Path utils (get_default_price_path — observability)
+    try:
+        from src.assembled_core.utils.paths import get_default_price_path
+        _dpp = get_default_price_path("1d")
+        result.meta["utils_paths"] = {
+            "default_1d_path": str(_dpp),
+            "available": True,
+        }
+    except Exception as _up_exc:
+        log.debug("[UTILS-PATHS] utils.paths skipped: %s", _up_exc)
+
+    # Step util.3: Random state (set_global_seed — observability)
+    try:
+        from src.assembled_core.utils.random_state import set_global_seed, seed_context
+        result.meta["utils_random_state"] = {"available": True}
+    except Exception as _rs_exc:
+        log.debug("[UTILS-RANDOM-STATE] utils.random_state skipped: %s", _rs_exc)
+
+    # Step util.4: Timing (timed_step — observability)
+    try:
+        from src.assembled_core.utils.timing import timed_step
+        result.meta["utils_timing"] = {"available": True}
+    except Exception as _ut_exc:
+        log.debug("[UTILS-TIMING] utils.timing skipped: %s", _ut_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
