@@ -49,7 +49,7 @@ def run_experiment(
     - app_snapshot at experiment_root / "app_snapshot.yaml"
     Returns experiment_root.
     """
-    from src.assembled_core.config.config import get_base_dir
+    from src.assembled_core.config import get_base_dir
     from src.assembled_core.config import policy_loader as pl
     from src.assembled_core.config.policy_loader import load_policy
 
