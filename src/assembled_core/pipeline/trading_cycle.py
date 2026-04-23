@@ -9633,6 +9633,27 @@ def _run_trading_cycle_inner(
     except Exception as _edgar_exc:
         log.debug("[EDGAR] data.sources.edgar_source skipped: %s", _edgar_exc)
 
+    # Step 2.97: FRED source (fetch_fred_series — observability)
+    try:
+        from src.assembled_core.data.sources.fred_source import fetch_fred_series
+        result.meta["fred_source"] = {"available": True}
+    except Exception as _fred_exc:
+        log.debug("[FRED] data.sources.fred_source skipped: %s", _fred_exc)
+
+    # Step 2.98: NewsAPI source (fetch_news_headlines — observability)
+    try:
+        from src.assembled_core.data.sources.newsapi_source import fetch_news_headlines
+        result.meta["newsapi_source"] = {"available": True}
+    except Exception as _napi_exc:
+        log.debug("[NEWSAPI] data.sources.newsapi_source skipped: %s", _napi_exc)
+
+    # Step 2.99: Polygon source (fetch_prices_polygon — observability)
+    try:
+        from src.assembled_core.data.sources.polygon_source import fetch_prices_polygon
+        result.meta["polygon_source"] = {"available": True}
+    except Exception as _poly_exc:
+        log.debug("[POLYGON] data.sources.polygon_source skipped: %s", _poly_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
