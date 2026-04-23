@@ -7778,6 +7778,47 @@ def _run_trading_cycle_inner(
     except Exception as _efv_exc:
         log.debug("[EVF-VECT] event_features_vectorized skipped: %s", _efv_exc)
 
+    # Step 2.39: Satellite proxy features (compute_copper_gold_ratio — observability)
+    try:
+        from src.assembled_core.features.satellite_proxy_features import (
+            compute_copper_gold_ratio, compute_bdi_features,
+        )
+        result.meta["satellite_proxy_features"] = {
+            "available": True,
+            "fns": ["compute_copper_gold_ratio", "compute_oil_gold_ratio", "compute_bdi_features"],
+        }
+    except Exception as _spf_exc:
+        log.debug("[SATELLITE] satellite_proxy_features skipped: %s", _spf_exc)
+
+    # Step 2.40: Supply chain features (build_supply_chain_features — observability)
+    try:
+        from src.assembled_core.features.supply_chain_features import (
+            build_supply_chain_features,
+        )
+        _sc_symbols = list(result.weights.keys())[:5] if result.weights else []
+        if _sc_symbols:
+            _sc_result = build_supply_chain_features(_sc_symbols)
+            result.meta["supply_chain_features"] = {
+                "n_symbols": len(_sc_symbols),
+                "n_features": len(_sc_result.columns) if hasattr(_sc_result, "columns") else 0,
+            }
+        else:
+            result.meta["supply_chain_features"] = {"status": "no_symbols"}
+    except Exception as _scf_exc:
+        log.debug("[SUPPLY-CHAIN] supply_chain_features skipped: %s", _scf_exc)
+
+    # Step 3.94: Signal decay gate (compute_multipliers — observability)
+    try:
+        from src.assembled_core.strategies.signal_decay_gate import compute_multipliers
+        _sd_factor_names = list(result.weights.keys()) if result.weights else []
+        _sd_mults = compute_multipliers(_sd_factor_names)
+        result.meta["signal_decay_gate"] = {
+            "n_factors": len(_sd_mults),
+            "any_stale": any(v < 1.0 for v in _sd_mults.values()),
+        }
+    except Exception as _sdg_exc:
+        log.debug("[DECAY-GATE] signal_decay_gate skipped: %s", _sdg_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
