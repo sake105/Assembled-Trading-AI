@@ -9732,6 +9732,35 @@ def _run_trading_cycle_inner(
     except Exception as _cag_exc:
         log.debug("[CA-GATES] events.crisis_alpha.gates skipped: %s", _cag_exc)
 
+    # Step 8.54: Crisis alpha risk budget (apply_risk_budget — observability)
+    try:
+        from src.assembled_core.events.crisis_alpha.risk_budget import apply_risk_budget
+        result.meta["crisis_alpha_risk_budget"] = {"available": True}
+    except Exception as _carb_exc:
+        log.debug("[CA-RISK-BUDGET] events.crisis_alpha.risk_budget skipped: %s", _carb_exc)
+
+    # Step 8.55: Crisis alpha state machine (CrisisStateRecord / compute_next_crisis_state — observability)
+    try:
+        from src.assembled_core.events.crisis_alpha.state_machine import CrisisStateRecord
+        _csr = CrisisStateRecord.default()
+        result.meta["crisis_alpha_state_machine"] = {
+            "default_state": _csr.state,
+            "available": True,
+        }
+    except Exception as _casm_exc:
+        log.debug("[CA-STATE-MACHINE] events.crisis_alpha.state_machine skipped: %s", _casm_exc)
+
+    # Step 8.56: Disclosures dedupe (dedupe_events — observability)
+    try:
+        from src.assembled_core.events.disclosures.dedupe import dedupe_events
+        _dd = dedupe_events([])
+        result.meta["disclosures_dedupe"] = {
+            "n_deduped": len(_dd),
+            "available": True,
+        }
+    except Exception as _dd_exc:
+        log.debug("[DISC-DEDUPE] events.disclosures.dedupe skipped: %s", _dd_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
