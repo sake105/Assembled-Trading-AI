@@ -7526,6 +7526,45 @@ def _run_trading_cycle_inner(
     except Exception as _ci_exc:
         log.debug("[CAUSAL] causal_inference skipped: %s", _ci_exc)
 
+    # Step 8.52: Bayesian NN uncertainty state (MCDropoutMLP init — observability)
+    try:
+        from src.assembled_core.ml.bayesian_nn import MCDropoutMLP, TORCH_AVAILABLE as _bnn_torch
+        _bnn = MCDropoutMLP()
+        result.meta["bayesian_nn"] = {
+            "torch_available": bool(_bnn_torch),
+            "dropout_rate": _bnn.dropout_rate,
+            "n_mc_samples": _bnn.n_mc_samples,
+            "fitted": bool(getattr(_bnn, "_fitted", False)),
+        }
+    except Exception as _bnn_exc:
+        log.debug("[BNN] bayesian_nn skipped: %s", _bnn_exc)
+
+    # Step 8.53: Hyperopt state (optuna availability — observability)
+    try:
+        from src.assembled_core.ml.hyperopt import OPTUNA_AVAILABLE
+        result.meta["hyperopt"] = {
+            "optuna_available": bool(OPTUNA_AVAILABLE),
+            "status": "ready" if OPTUNA_AVAILABLE else "no_optuna",
+        }
+    except Exception as _ho_exc:
+        log.debug("[HYPEROPT] hyperopt skipped: %s", _ho_exc)
+
+    # Step 8.54: Temporal attention model state (TemporalAttentionModel init — observability)
+    try:
+        from src.assembled_core.ml.temporal_attention import (
+            TemporalAttentionModel, TemporalAttentionConfig, TORCH_AVAILABLE as _ta_torch,
+        )
+        _ta_cfg = TemporalAttentionConfig()
+        _ta = TemporalAttentionModel(config=_ta_cfg)
+        result.meta["temporal_attention"] = {
+            "torch_available": bool(_ta_torch),
+            "seq_len": _ta_cfg.seq_len,
+            "d_model": _ta_cfg.d_model,
+            "n_heads": _ta_cfg.n_heads,
+        }
+    except Exception as _ta_exc:
+        log.debug("[TEMPORAL-ATTN] temporal_attention skipped: %s", _ta_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
