@@ -3312,6 +3312,28 @@ def _run_trading_cycle_inner(
     except Exception as _cpcv_exc:
         log.debug("[CPCV] cpcv skipped: %s", _cpcv_exc)
 
+    # Step 3.91: Signal normalization (cross-sectional z-score via signal_api — observability)
+    try:
+        if not result.signals.empty:
+            from src.assembled_core.signals.signal_api import normalize_signals
+            _sna_num = result.signals.select_dtypes("number")
+            if not _sna_num.empty:
+                # Build minimal signal frame: one row per symbol, single signal_value col
+                _sna_first_col = _sna_num.columns[0]
+                _sna_df = pd.DataFrame({
+                    "signal_value": _sna_num[_sna_first_col].fillna(0.0).values,
+                }, index=pd.DatetimeIndex([ctx.as_of] * len(_sna_num)))
+                _sna_normalized = normalize_signals(_sna_df, value_col="signal_value", method="zscore")
+                result.meta["signal_normalized"] = {
+                    "method": "zscore",
+                    "n_symbols": len(_sna_normalized),
+                    "signal_col": _sna_first_col,
+                    "mean": round(float(_sna_normalized["signal_value"].mean()), 4),
+                }
+                log.debug("[SIGNAL-NORM] zscore %d symbols, mean=%.4f", len(_sna_normalized), _sna_normalized["signal_value"].mean())
+    except Exception as _sna_exc:
+        log.debug("[SIGNAL-NORM] signal_api normalize skipped: %s", _sna_exc)
+
     # Step 4: Size positions (hook point: size_positions)
     try:
         if "size_positions" in hooks:
@@ -5835,6 +5857,21 @@ def _run_trading_cycle_inner(
     except Exception as _ls_exc:
         log.debug("[LEARNING-STORE] learning_store skipped: %s", _ls_exc)
 
+    # Step 7.68: Heartbeat — write cycle completion heartbeat (observability)
+    try:
+        from src.assembled_core.ops.heartbeat import write_heartbeat
+        _hb_details = {
+            "cycle_date": str(ctx.as_of.date()),
+            "n_orders": len(result.orders_filtered),
+            "execution_mode": str(ctx.execution_mode),
+        }
+        _hb_path = ctx.output_dir / "state" / "heartbeat.json"
+        write_heartbeat(path=_hb_path, status="ok", details=_hb_details)
+        result.meta["heartbeat"] = {"status": "ok", "path": str(_hb_path)}
+        log.debug("[HEARTBEAT] written to %s", _hb_path)
+    except Exception as _hb_exc:
+        log.debug("[HEARTBEAT] heartbeat skipped: %s", _hb_exc)
+
     # Phase 9: Signal diagnostics (end of cycle) — write signal_health.json
     try:
         sd_cfg = (policy.get("signal_generation") or {}).get("signal_diagnostics") or {}
@@ -6753,6 +6790,23 @@ def _run_trading_cycle_inner(
             log.debug("[FACTOR-COLS] %d feature cols detected", len(_fdc_cols))
     except Exception as _fdc_exc:
         log.debug("[FACTOR-COLS] factor_models detect_feature_cols skipped: %s", _fdc_exc)
+
+    # Step 8.29: Candidate gate check (robustness + reconciliation gates — observability)
+    try:
+        from src.assembled_core.qa.candidate_gate import check_candidate_allowed
+        _cg_robustness_ok = result.meta.get("qa_gates", {}).get("overall") in {"PASS", "pass"}
+        _cg_reconcile_ok = result.meta.get("reconciliation", {}).get("ok")
+        _cg_allowed, _cg_msg = check_candidate_allowed(
+            robustness_ok=_cg_robustness_ok if _cg_robustness_ok else None,
+            reconciliation_ok=_cg_reconcile_ok,
+        )
+        result.meta["candidate_gate"] = {
+            "candidate_allowed": _cg_allowed,
+            "message": _cg_msg[:120] if _cg_msg else "",
+        }
+        log.debug("[CANDIDATE-GATE] allowed=%s", _cg_allowed)
+    except Exception as _cg_exc:
+        log.debug("[CANDIDATE-GATE] candidate_gate skipped: %s", _cg_exc)
 
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
