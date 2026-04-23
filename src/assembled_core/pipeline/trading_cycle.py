@@ -9561,6 +9561,35 @@ def _run_trading_cycle_inner(
     except Exception as _nc_exc:
         log.debug("[NEWS-CONTRACT] data.news.contract skipped: %s", _nc_exc)
 
+    # Step 2.88: News entity linking (link_news_to_symbols — observability)
+    try:
+        from src.assembled_core.data.news.entity_linking import link_news_to_symbols
+        result.meta["news_entity_linking"] = {"available": True}
+    except Exception as _nel_exc:
+        log.debug("[NEWS-ENTITY-LINK] data.news.entity_linking skipped: %s", _nel_exc)
+
+    # Step 2.89: News store (load_news / store_news_parquet — observability)
+    try:
+        from src.assembled_core.data.news.store import load_news
+        _ns_df = load_news()
+        result.meta["news_store"] = {
+            "n_articles": len(_ns_df),
+            "available": True,
+        }
+    except Exception as _nst_exc:
+        log.debug("[NEWS-STORE] data.news.store skipped: %s", _nst_exc)
+
+    # Step 2.90: News ingest (load_news_sample / normalize_news — observability)
+    try:
+        from src.assembled_core.data.news_ingest import load_news_sample, normalize_news
+        _ni_df = load_news_sample()
+        result.meta["news_ingest"] = {
+            "n_sample_rows": len(_ni_df),
+            "available": True,
+        }
+    except Exception as _ni_exc:
+        log.debug("[NEWS-INGEST] data.news_ingest skipped: %s", _ni_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
