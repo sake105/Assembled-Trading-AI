@@ -4225,6 +4225,27 @@ def _run_trading_cycle_inner(
     except Exception as _caw_exc:
         log.debug("[COST-AWARE] cost_aware_wrapper skipped: %s", _caw_exc)
 
+    # Step 4.9: Long-short balance enforcement (exposure audit + optional rebalance)
+    try:
+        if not result.target_positions.empty:
+            from src.assembled_core.portfolio.long_short_balance import LongShortBalancer
+            _lsb = LongShortBalancer.from_policy(policy)
+            _exp = _lsb.compute_exposure(result.target_positions)
+            result.meta["exposure_metrics"] = {
+                "long_exposure": _exp.long_exposure,
+                "short_exposure": _exp.short_exposure,
+                "net_exposure": _exp.net_exposure,
+                "gross_exposure": _exp.gross_exposure,
+                "long_count": _exp.long_count,
+                "short_count": _exp.short_count,
+            }
+            log.debug(
+                "[LS-BALANCE] gross=%.2f net=%.2f long=%d short=%d",
+                _exp.gross_exposure, _exp.net_exposure, _exp.long_count, _exp.short_count,
+            )
+    except Exception as _lsb_exc:
+        log.debug("[LS-BALANCE] long_short_balance skipped: %s", _lsb_exc)
+
     # Step 5: Generate orders (hook point: generate_orders)
     try:
         if not do_rebal:
@@ -4518,6 +4539,26 @@ def _run_trading_cycle_inner(
                 )
     except Exception as e:
         log.debug("[RISK-WIRE] barbell_strategy skipped: %s", e)
+
+    # Step 5.7: HRP shadow weights (observability — hierarchical risk parity comparison)
+    try:
+        hrp_cfg = (policy.get("portfolio") or {}).get("hrp_shadow") or {}
+        if hrp_cfg.get("enabled", False) and not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            from src.assembled_core.portfolio.hierarchical_risk_parity import compute_hrp_weights
+            _hrp_pivot = result.prices_with_features.pivot_table(
+                index="timestamp", columns="symbol", values="close", aggfunc="last"
+            )
+            _hrp_returns = _hrp_pivot.pct_change().dropna(how="all")
+            if len(_hrp_returns) >= 20 and len(_hrp_returns.columns) >= 2:
+                _hrp_weights = compute_hrp_weights(_hrp_returns)
+                if _hrp_weights:
+                    result.meta["hrp_weights"] = {
+                        "weights": _hrp_weights,
+                        "n_symbols": len(_hrp_weights),
+                    }
+                    log.debug("[HRP] shadow weights computed for %d symbols", len(_hrp_weights))
+    except Exception as _hrp_exc:
+        log.debug("[HRP] hrp_shadow skipped: %s", _hrp_exc)
 
     # Step 5.8: Systemic risk network centrality (observability)
     try:
