@@ -4378,6 +4378,47 @@ def _run_trading_cycle_inner(
     except Exception as _st_exc:
         log.debug("[STRESS] stress_test_constraints skipped: %s", _st_exc)
 
+    # Step 4.88: Regime-conditional asset class template blend (observability)
+    try:
+        from src.assembled_core.portfolio.regime_portfolio import blend_regime_templates
+        _rp_regime = str(result.meta.get("regime", {}).get("regime", "sideways"))
+        _rp_probs = {_rp_regime: 1.0}
+        _rp_blend = blend_regime_templates(_rp_probs)
+        result.meta["regime_portfolio_template"] = {
+            "regime": _rp_regime,
+            "n_asset_classes": len(_rp_blend),
+            "weights": _rp_blend,
+        }
+        log.debug("[REGIME-PORTFOLIO] regime=%s n_ac=%d", _rp_regime, len(_rp_blend))
+    except Exception as _rp_exc:
+        log.debug("[REGIME-PORTFOLIO] regime_portfolio skipped: %s", _rp_exc)
+
+    # Step 4.94: Reverse stress test (minimum shock to cause target loss — observability)
+    try:
+        if not result.target_positions.empty and "weight" in result.target_positions.columns:
+            if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+                from src.assembled_core.qa.reverse_stress import reverse_stress_test
+                _rst_syms = list(result.target_positions["symbol"].astype(str))
+                _rst_w = result.target_positions["weight"].astype(float).values
+                _rst_pivot = result.prices_with_features.pivot_table(
+                    index="timestamp", columns="symbol", values="close", aggfunc="last"
+                )
+                _rst_rets = _rst_pivot.reindex(columns=_rst_syms).pct_change().dropna(how="all")
+                if len(_rst_rets) >= 10 and len(_rst_syms) >= 2:
+                    _rst_cov = _rst_rets.cov().values
+                    _rst_result = reverse_stress_test(
+                        _rst_w, _rst_cov, target_loss=-0.20, n_restarts=3
+                    )
+                    result.meta["reverse_stress"] = {
+                        "target_loss": _rst_result.target_loss,
+                        "achieved_loss": round(float(_rst_result.achieved_loss), 4),
+                        "converged": bool(_rst_result.converged),
+                        "shock_norm": round(float(_rst_result.shock_norm), 4),
+                    }
+                    log.debug("[REV-STRESS] converged=%s achieved=%.3f", _rst_result.converged, _rst_result.achieved_loss)
+    except Exception as _rst_exc:
+        log.debug("[REV-STRESS] reverse_stress skipped: %s", _rst_exc)
+
     # Step 4.93: Robust portfolio weights (shadow comparison — uncertainty-aware optimization)
     try:
         if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
@@ -5704,6 +5745,31 @@ def _run_trading_cycle_inner(
                     log.debug("[FACTOR-EXP] n=%d mkt_beta=%.3f r2=%.3f", len(_fe_exposures), _fe_mkt_beta, _fe_r2)
     except Exception as _fe_exc:
         log.debug("[FACTOR-EXP] factor_exposures skipped: %s", _fe_exc)
+
+    # Step 8.7: Scenario simulator (vol-spike + crash scenarios from price proxy, observability)
+    try:
+        if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            from src.assembled_core.qa.scenario_simulator import run_stress_test
+            _ss_pivot = result.prices_with_features.pivot_table(
+                index="timestamp", columns="symbol", values="close", aggfunc="last"
+            )
+            _ss_rets = _ss_pivot.pct_change().dropna(how="all")
+            if len(_ss_rets) >= 20:
+                _ss_baseline = _ss_rets.median(axis=1)
+                _ss_report = run_stress_test(
+                    _ss_baseline,
+                    portfolio_returns=_ss_rets if _ss_rets.shape[1] >= 2 else None,
+                    include_correlation=(_ss_rets.shape[1] >= 2),
+                )
+                result.meta["scenario_stress"] = {
+                    "worst_scenario": _ss_report.worst_scenario,
+                    "worst_cvar": round(float(_ss_report.worst_cvar), 4),
+                    "n_scenarios": len(_ss_report.scenarios),
+                    "baseline_var_95": round(float(_ss_report.baseline_metrics.get("var_95", 0.0)), 4),
+                }
+                log.debug("[SCENARIO] worst=%s cvar=%.4f", _ss_report.worst_scenario, _ss_report.worst_cvar)
+    except Exception as _ss_exc:
+        log.debug("[SCENARIO] scenario_simulator skipped: %s", _ss_exc)
 
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
