@@ -1855,6 +1855,26 @@ def _run_trading_cycle_inner(
     except Exception as _dq_exc:
         log.debug("[DATA_QUALITY] price quality check skipped: %s", _dq_exc)
 
+    # Step 1.95: Comprehensive price panel QC (qa.data_qc — observability)
+    try:
+        if not result.prices_filtered.empty and "timestamp" in result.prices_filtered.columns:
+            from src.assembled_core.qa.data_qc import run_price_panel_qc
+            _pqc_report = run_price_panel_qc(
+                result.prices_filtered, freq="1d", as_of=ctx.as_of
+            )
+            result.meta["price_panel_qc"] = {
+                "ok": bool(_pqc_report.ok),
+                "n_issues": len(_pqc_report.issues),
+                "n_fail": sum(1 for i in _pqc_report.issues if i.severity == "FAIL"),
+                "n_warn": sum(1 for i in _pqc_report.issues if i.severity == "WARN"),
+            }
+            if not _pqc_report.ok:
+                log.warning("[PRICE-QC] price panel QC failed: %d issues", len(_pqc_report.issues))
+            else:
+                log.debug("[PRICE-QC] ok — %d issues (WARN only)", len(_pqc_report.issues))
+    except Exception as _pqc_exc:
+        log.debug("[PRICE-QC] price_panel_qc skipped: %s", _pqc_exc)
+
     # Step 2: Build features (hook point: build_features)
     try:
         if "build_features" in hooks:
@@ -2847,6 +2867,32 @@ def _run_trading_cycle_inner(
     except Exception as _rh_exc:
         log.debug("[ANTI-CHURN] ranking_hysteresis skipped: %s", _rh_exc)
 
+    # Step 3.62: MA-crossover trend signals (rules_trend — additional signal enrichment)
+    try:
+        if not result.prices_with_features.empty and not result.signals.empty:
+            _req_ts_cols = {"timestamp", "symbol", "close"}
+            if _req_ts_cols.issubset(set(result.prices_with_features.columns)):
+                from src.assembled_core.signals.rules_trend import generate_trend_signals
+                _ts_signals = generate_trend_signals(
+                    result.prices_with_features, ma_fast=20, ma_slow=50
+                )
+                if not _ts_signals.empty and "symbol" in _ts_signals.columns:
+                    _ts_latest = (
+                        _ts_signals.sort_values("timestamp")
+                        .groupby("symbol")
+                        .last()
+                        .reset_index()[["symbol", "score"]]
+                        .rename(columns={"score": "trend_ma_score"})
+                    )
+                    result.signals = result.signals.merge(_ts_latest, on="symbol", how="left")
+                    result.meta["trend_signals_ma"] = {
+                        "n_long": int((_ts_signals["direction"] == "LONG").sum()),
+                        "n_flat": int((_ts_signals["direction"] == "FLAT").sum()),
+                    }
+                    log.debug("[TREND-MA] long=%d flat=%d", result.meta["trend_signals_ma"]["n_long"], result.meta["trend_signals_ma"]["n_flat"])
+    except Exception as _ts_exc:
+        log.debug("[TREND-MA] rules_trend skipped: %s", _ts_exc)
+
     # Step 3.7: Meta-model confidence scoring (shadow — needs pre-trained model)
     try:
         mm_cfg = (policy.get("signals") or {}).get("meta_model_scoring") or {}
@@ -2877,6 +2923,31 @@ def _run_trading_cycle_inner(
                 log.debug("[META-MODEL] model not found at %s — skipping", _mm_path)
     except Exception as _mm_exc:
         log.debug("[META-MODEL] meta_model scoring skipped: %s", _mm_exc)
+
+    # Step 3.75: Signal FDR screening — BH correction on signal score z-values (observability)
+    try:
+        if not result.signals.empty:
+            from src.assembled_core.qa.multiple_testing import benjamini_hochberg_fdr
+            import scipy.stats as _sp_stats  # noqa: F401 — optional; if missing, block catches it
+            _fdr_score_cols = [
+                c for c in result.signals.select_dtypes("number").columns
+                if c not in ("symbol",) and result.signals[c].std() > 1e-10
+            ]
+            if len(_fdr_score_cols) >= 2:
+                _fdr_pvals = []
+                for _fc in _fdr_score_cols:
+                    _z = (result.signals[_fc] - result.signals[_fc].mean()) / result.signals[_fc].std()
+                    _p = float(2 * (1 - _sp_stats.norm.cdf(abs(_z.mean()))))
+                    _fdr_pvals.append(max(1e-10, min(1.0, _p)))
+                _fdr_result = benjamini_hochberg_fdr(_fdr_pvals, alpha=0.10)
+                result.meta["signal_fdr"] = {
+                    "n_signals": _fdr_result.n_tests,
+                    "n_significant": _fdr_result.n_rejected,
+                    "adjusted_threshold": _fdr_result.adjusted_threshold,
+                }
+                log.debug("[SIG-FDR] %d/%d signals significant (BH-FDR)", _fdr_result.n_rejected, _fdr_result.n_tests)
+    except Exception as _fdr_exc:
+        log.debug("[SIG-FDR] multiple_testing FDR skipped: %s", _fdr_exc)
 
     # Step 4: Size positions (hook point: size_positions)
     try:
