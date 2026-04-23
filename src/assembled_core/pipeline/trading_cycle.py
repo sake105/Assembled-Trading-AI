@@ -2179,6 +2179,43 @@ def _run_trading_cycle_inner(
     except Exception as _beh_exc:
         log.debug("[BEHAVIORAL] behavioral_features skipped: %s", _beh_exc)
 
+    # Step 2.6: Seasonal features (calendar-based, zero look-ahead)
+    try:
+        seas_cfg = (policy.get("features") or {}).get("seasonal_features") or {}
+        if seas_cfg.get("enabled", False) and not result.prices_with_features.empty:
+            from src.assembled_core.features.seasonal_features import build_seasonal_features
+            if "timestamp" in result.prices_with_features.columns:
+                _seas_ts = pd.DatetimeIndex(result.prices_with_features["timestamp"])
+                _seas_df = build_seasonal_features(_seas_ts)
+                _seas_cols = _seas_df.columns.tolist()
+                result.prices_with_features = result.prices_with_features.copy()
+                result.prices_with_features = result.prices_with_features.reset_index(drop=True)
+                for _sc in _seas_cols:
+                    result.prices_with_features[_sc] = _seas_df[_sc].values
+                result.meta["seasonal_features"] = {"n_features": len(_seas_cols)}
+                log.debug("[SEASONAL] added %d seasonal features", len(_seas_cols))
+    except Exception as _seas_exc:
+        log.debug("[SEASONAL] seasonal_features skipped: %s", _seas_exc)
+
+    # Step 2.7: Correlation regime features (market-wide diversification / herding metrics)
+    try:
+        corr_cfg = (policy.get("features") or {}).get("correlation_regime") or {}
+        if corr_cfg.get("enabled", False) and not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            from src.assembled_core.features.correlation_features import compute_correlation_regime_features
+            _cr_pivot = result.prices_with_features.pivot_table(
+                index="timestamp", columns="symbol", values="close", aggfunc="last"
+            )
+            _cr_returns = _cr_pivot.pct_change().dropna(how="all")
+            if len(_cr_returns) >= 25 and len(_cr_returns.columns) >= 2:
+                _cr_feats = compute_correlation_regime_features(_cr_returns)
+                _cr_latest = _cr_feats.iloc[-1].to_dict()
+                result.meta["correlation_regime"] = {
+                    k: round(float(v), 4) for k, v in _cr_latest.items() if pd.notna(v)
+                }
+                log.debug("[CORR-REGIME] avg_corr_short=%.3f", _cr_latest.get("avg_corr_short", float("nan")))
+    except Exception as _cr_exc:
+        log.debug("[CORR-REGIME] correlation_regime skipped: %s", _cr_exc)
+
     # Step 3: Generate signals (hook point: generate_signals)
     try:
         if "generate_signals" in hooks:
@@ -4463,6 +4500,28 @@ def _run_trading_cycle_inner(
                 log.debug("[SYSTEMIC] centrality computed for %d symbols", len(_centrality))
     except Exception as _sr_exc:
         log.debug("[SYSTEMIC] systemic_risk skipped: %s", _sr_exc)
+
+    # Step 5.9: Parameter stability check (vol/drawdown consistency across windows)
+    try:
+        if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            from src.assembled_core.risk.param_stability import compute_stability_report
+            # Approximate equity curve from median close across symbols
+            _ps_pivot = result.prices_with_features.pivot_table(
+                index="timestamp", columns="symbol", values="close", aggfunc="last"
+            )
+            _ps_equity = _ps_pivot.median(axis=1).dropna()
+            if len(_ps_equity) >= 20:
+                _ps_report = compute_stability_report(_ps_equity, policy=policy)
+                result.meta["param_stability"] = {
+                    "all_stable": _ps_report.get("all_stable", True),
+                    "checks_passed": _ps_report.get("checks_passed", 0),
+                    "checks_total": _ps_report.get("checks_total", 0),
+                }
+                if not _ps_report.get("all_stable", True):
+                    log.warning("[PARAM-STABILITY] instability detected: %d/%d checks passed",
+                                _ps_report.get("checks_passed", 0), _ps_report.get("checks_total", 0))
+    except Exception as _ps_exc:
+        log.debug("[PARAM-STABILITY] param_stability skipped: %s", _ps_exc)
 
     # Step 6: Apply risk controls (hook point: risk_controls)
     try:
