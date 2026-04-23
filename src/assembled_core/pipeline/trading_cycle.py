@@ -9862,6 +9862,31 @@ def _run_trading_cycle_inner(
     except Exception as _nc2_exc:
         log.debug("[NEWS-CLUSTERING] events.news.clustering skipped: %s", _nc2_exc)
 
+    # Step 8.69: News dedupe (dedupe_events — observability)
+    try:
+        from src.assembled_core.events.news.dedupe import dedupe_events as _news_dedupe_events
+        _nd = _news_dedupe_events([])
+        result.meta["news_dedupe"] = {
+            "n_deduped": len(_nd),
+            "available": True,
+        }
+    except Exception as _nd_exc:
+        log.debug("[NEWS-DEDUPE] events.news.dedupe skipped: %s", _nd_exc)
+
+    # Step 8.70: News dedupe store (DedupeStoreSQLite — observability)
+    try:
+        from src.assembled_core.events.news.dedupe_store import DedupeStoreSQLite
+        result.meta["news_dedupe_store"] = {"available": True}
+    except Exception as _nds_exc:
+        log.debug("[NEWS-DEDUPE-STORE] events.news.dedupe_store skipped: %s", _nds_exc)
+
+    # Step 8.71: News emit (emit_json_artifact — observability)
+    try:
+        from src.assembled_core.events.news.emit import emit_json_artifact as _news_emit
+        result.meta["news_emit"] = {"available": True}
+    except Exception as _ne2_exc:
+        log.debug("[NEWS-EMIT] events.news.emit skipped: %s", _ne2_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
