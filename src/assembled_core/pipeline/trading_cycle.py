@@ -7426,6 +7426,52 @@ def _run_trading_cycle_inner(
     except Exception as _tda_exc:
         log.debug("[TDA] tda_regime skipped: %s", _tda_exc)
 
+    # Step 3.92: ML signal pipeline state (full pipeline init — observability)
+    try:
+        from src.assembled_core.signals.ml_integration import MLSignalPipeline
+        _mlsp = MLSignalPipeline()
+        result.meta["ml_signal_pipeline"] = {
+            "has_primary_model": _mlsp.primary_model is not None,
+            "has_regime_router": _mlsp.regime_router is not None,
+            "has_risk_combiner": _mlsp.risk_combiner is not None,
+        }
+        log.debug("[ML-PIPELINE] state captured")
+    except Exception as _mlsp_exc:
+        log.debug("[ML-PIPELINE] ml_integration skipped: %s", _mlsp_exc)
+
+    # Step 3.93: Event signals (insider + shipping combined signals — observability)
+    try:
+        if not result.prices_with_features.empty:
+            from src.assembled_core.signals.rules_event_insider_shipping import generate_event_signals
+            _evs_prices = result.prices_with_features[
+                [c for c in ["timestamp", "symbol", "close"] if c in result.prices_with_features.columns]
+            ].copy()
+            if {"timestamp", "symbol", "close"}.issubset(_evs_prices.columns):
+                _evs_prices["insider_net_buy_20d"] = 0.0
+                _evs_prices["shipping_congestion_score_7d"] = 50.0
+                _evs_signals = generate_event_signals(_evs_prices)
+                result.meta["event_signals"] = {
+                    "n_signals": len(_evs_signals),
+                    "long_count": int((_evs_signals["direction"] == "LONG").sum()) if not _evs_signals.empty else 0,
+                    "short_count": int((_evs_signals["direction"] == "SHORT").sum()) if not _evs_signals.empty else 0,
+                }
+                log.debug("[EVENT-SIG] %d event signals", len(_evs_signals))
+    except Exception as _evs_exc:
+        log.debug("[EVENT-SIG] rules_event_insider_shipping skipped: %s", _evs_exc)
+
+    # Step 7.72: Paper summary (aggregate metrics from run artifacts — observability)
+    try:
+        from src.assembled_core.ops.paper_summary import build_paper_summary
+        _ps_summary = build_paper_summary(ctx.output_dir, dates=[])
+        result.meta["paper_summary"] = {
+            "schema_version": _ps_summary.get("schema_version"),
+            "total_return": _ps_summary.get("total_return"),
+            "n_dates": _ps_summary.get("n_dates", 0),
+        }
+        log.debug("[PAPER-SUMMARY] schema=%s", _ps_summary.get("schema_version"))
+    except Exception as _ps_exc:
+        log.debug("[PAPER-SUMMARY] paper_summary skipped: %s", _ps_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
