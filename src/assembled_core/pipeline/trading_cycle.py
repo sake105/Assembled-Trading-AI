@@ -9412,6 +9412,33 @@ def _run_trading_cycle_inner(
     except Exception as _led_exc:
         log.debug("[ACCT-LEDGER] accounting.ledger skipped: %s", _led_exc)
 
+    # Step 7.53: Accounting reconciliation (ReconcileSLO — observability)
+    try:
+        from src.assembled_core.accounting.reconciliation import ReconcileSLO
+        _rslo = ReconcileSLO()
+        result.meta["accounting_reconciliation"] = {
+            "cash_diff_bps_warn": _rslo.cash_diff_bps_warn,
+            "cash_diff_bps_fail": _rslo.cash_diff_bps_fail,
+            "fill_rate_min_warn": _rslo.fill_rate_min_warn,
+            "available": True,
+        }
+    except Exception as _rslo_exc:
+        log.debug("[ACCT-RECON] accounting.reconciliation skipped: %s", _rslo_exc)
+
+    # Step 2.74: AltData contract (normalize_alt_events — observability)
+    try:
+        from src.assembled_core.data.altdata.contract import normalize_alt_events
+        result.meta["altdata_contract"] = {"available": True}
+    except Exception as _altc_exc:
+        log.debug("[ALTDATA-CONTRACT] data.altdata.contract skipped: %s", _altc_exc)
+
+    # Step 2.75: Finnhub common session (get_finnhub_session — observability)
+    try:
+        from src.assembled_core.data.altdata.finnhub_common import get_finnhub_session
+        result.meta["finnhub_common"] = {"available": True}
+    except Exception as _fhc_exc:
+        log.debug("[FINNHUB-COMMON] data.altdata.finnhub_common skipped: %s", _fhc_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
