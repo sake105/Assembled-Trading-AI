@@ -6978,6 +6978,52 @@ def _run_trading_cycle_inner(
     except Exception as _ed_exc:
         log.debug("[ENSEMBLE] stacking ensemble_diversity skipped: %s", _ed_exc)
 
+    # Step 8.36: Certification runner (import + dependency health checks — observability)
+    try:
+        from src.assembled_core.ops.certification import build_default_runner
+        _cert_runner = build_default_runner()
+        _cert_report = _cert_runner.run()
+        result.meta["certification"] = {
+            "all_passed": _cert_report.all_passed,
+            "passed_count": _cert_report.passed_count,
+            "total_checks": _cert_report.total_checks,
+            "pass_rate": round(_cert_report.pass_rate, 3),
+        }
+        log.debug("[CERT] passed=%d/%d", _cert_report.passed_count, _cert_report.total_checks)
+    except Exception as _cert_exc:
+        log.debug("[CERT] certification skipped: %s", _cert_exc)
+
+    # Step 7.70: Alert sinks dispatch (flush pending alerts through registered sinks — observability)
+    try:
+        from src.assembled_core.ops.alert_manager import AlertManager
+        from src.assembled_core.ops.alert_sinks import dispatch_alerts
+        _as_am = AlertManager(rate_limit_seconds=0)
+        _as_pending = result.meta.get("alerts_pending", [])
+        if _as_pending:
+            _as_results = dispatch_alerts(_as_pending, sinks=[])
+            result.meta["alert_dispatch"] = {
+                "n_alerts": len(_as_pending),
+                "n_results": len(_as_results),
+            }
+        else:
+            result.meta["alert_dispatch"] = {"n_alerts": 0, "n_results": 0}
+        log.debug("[ALERT-SINK] dispatched %d alerts", len(_as_pending))
+    except Exception as _as_exc:
+        log.debug("[ALERT-SINK] alert_sinks dispatch skipped: %s", _as_exc)
+
+    # Step 8.37: Online adaptive learner state (river-gated nichtlinear online — observability)
+    try:
+        from src.assembled_core.ml.online_gradient_boosting import OnlineAdaptiveLearner
+        _oal = OnlineAdaptiveLearner(model_type="adaptive_tree")
+        result.meta["online_adaptive_learner"] = {
+            "available": bool(_oal.available),
+            "model_type": _oal.model_type,
+            "buffer_size": len(_oal._buffer),
+        }
+        log.debug("[OAL] available=%s model_type=%s", _oal.available, _oal.model_type)
+    except Exception as _oal_exc:
+        log.debug("[OAL] online_gradient_boosting skipped: %s", _oal_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
