@@ -2253,6 +2253,29 @@ def _run_trading_cycle_inner(
     except Exception as _ix_exc:
         log.debug("[IX-FEATURES] interaction_features skipped: %s", _ix_exc)
 
+    # Step 2.12: Weekly alignment filter (daily trend vs weekly EMA slope)
+    try:
+        wa_cfg = (policy.get("features") or {}).get("weekly_alignment") or {}
+        if wa_cfg.get("enabled", False) and not result.prices_with_features.empty:
+            _wa_req = {"close", "symbol", "timestamp"}
+            if _wa_req.issubset(result.prices_with_features.columns):
+                from src.assembled_core.features.weekly_alignment import add_weekly_alignment
+                # Use any existing trend column as daily_trend proxy
+                _wa_trend_col = next(
+                    (c for c in ("trend_strength_50", "momentum_12m_excl_1m", "trend_strength_200")
+                     if c in result.prices_with_features.columns), None
+                )
+                if _wa_trend_col:
+                    _wa_df = result.prices_with_features.copy()
+                    _wa_df = _wa_df.set_index("timestamp")
+                    _wa_df = add_weekly_alignment(_wa_df, daily_trend_col=_wa_trend_col)
+                    _wa_df = _wa_df.reset_index()
+                    result.prices_with_features = _wa_df
+                    result.meta["weekly_alignment"] = {"trend_col_used": _wa_trend_col}
+                    log.debug("[WEEKLY-ALIGN] added weekly alignment filter using %s", _wa_trend_col)
+    except Exception as _wa_exc:
+        log.debug("[WEEKLY-ALIGN] weekly_alignment skipped: %s", _wa_exc)
+
     # Step 2.10: Realized volatility features (rv_20, rv_60 per symbol)
     try:
         rv_cfg = (policy.get("features") or {}).get("realized_volatility") or {}
@@ -4617,6 +4640,33 @@ def _run_trading_cycle_inner(
                 )
     except Exception as e:
         log.debug("[RISK-WIRE] barbell_strategy skipped: %s", e)
+
+    # Step 5.6: Tail dependence diagnostic (crash synchronization risk, observability)
+    try:
+        if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            from src.assembled_core.risk.tail_dependence import (
+                compute_empirical_tail_dependence,
+                compute_portfolio_tail_dependence_score,
+                classify_tail_regime,
+            )
+            _td_pivot = result.prices_with_features.pivot_table(
+                index="timestamp", columns="symbol", values="close", aggfunc="last"
+            )
+            _td_returns = _td_pivot.pct_change().dropna(how="all")
+            if len(_td_returns) >= 30 and len(_td_returns.columns) >= 2:
+                _td_matrix = compute_empirical_tail_dependence(_td_returns)
+                _td_score = compute_portfolio_tail_dependence_score(_td_matrix)
+                _td_regime = classify_tail_regime(_td_score)
+                result.meta["tail_dependence"] = {
+                    "score": round(_td_score, 4),
+                    "regime": _td_regime,
+                }
+                if _td_regime == "high":
+                    log.warning("[TAIL-DEP] high tail dependence score=%.3f — crash sync risk elevated", _td_score)
+                else:
+                    log.debug("[TAIL-DEP] tail regime=%s score=%.3f", _td_regime, _td_score)
+    except Exception as _td_exc:
+        log.debug("[TAIL-DEP] tail_dependence skipped: %s", _td_exc)
 
     # Step 5.7: HRP shadow weights (observability — hierarchical risk parity comparison)
     try:
