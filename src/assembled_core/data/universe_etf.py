@@ -18,6 +18,8 @@ _DEFAULT_UNIVERSE_PATH = (
     Path(__file__).resolve().parents[3] / "configs" / "universe_etf_v1.yaml"
 )
 
+_ETF_UNIVERSE_CACHE: dict[str, dict[str, Any]] = {}
+
 
 def load_etf_universe(path: str | Path | None = None) -> dict[str, Any]:
     """Load the ETF universe config.
@@ -31,12 +33,16 @@ def load_etf_universe(path: str | Path | None = None) -> dict[str, Any]:
     import yaml
 
     resolved = Path(path) if path else _DEFAULT_UNIVERSE_PATH
+    cache_key = str(resolved.resolve())
+    if cache_key in _ETF_UNIVERSE_CACHE:
+        return _ETF_UNIVERSE_CACHE[cache_key]
     if not resolved.exists():
         raise FileNotFoundError(f"ETF universe config not found: {resolved}")
 
     with resolved.open("r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
+    _ETF_UNIVERSE_CACHE[cache_key] = data
     return data
 
 

@@ -30,7 +30,7 @@ source .venv/bin/activate
 ### 3. Dependencies installieren
 
 ```bash
-pip install -e ".[dev,ml,ml-boost,ml-tune,ml-explain,ml-nlp,ml-hmm,scipy,intermarket,all]"
+pip install -e ".[dev,ml,ml-boost,ml-tune,ml-explain,ml-nlp,ml-hmm,ml-online,scipy,intermarket,historical-data,system_check,all]"
 ```
 
 Dies installiert:

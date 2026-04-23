@@ -117,6 +117,9 @@ class FactorBundleConfig:
                 )
 
 
+_BUNDLE_CACHE: dict[str, FactorBundleConfig] = {}
+
+
 def load_factor_bundle(path: str | Path) -> FactorBundleConfig:
     """Load a factor bundle configuration from a YAML file.
 
@@ -145,6 +148,10 @@ def load_factor_bundle(path: str | Path) -> FactorBundleConfig:
 
     if not path.exists():
         raise FileNotFoundError(f"Factor bundle file not found: {path}")
+
+    cache_key = str(path.resolve())
+    if cache_key in _BUNDLE_CACHE:
+        return _BUNDLE_CACHE[cache_key]
 
     # Load YAML
     try:
@@ -202,6 +209,7 @@ def load_factor_bundle(path: str | Path) -> FactorBundleConfig:
         options=options,
     )
 
+    _BUNDLE_CACHE[cache_key] = bundle
     return bundle
 
 

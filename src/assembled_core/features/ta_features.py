@@ -580,7 +580,8 @@ def add_obv(
 
     obv = signed_volume.groupby(result["symbol"]).cumsum()
 
-    result["ta_obv_v1"] = obv.astype("float64")
+    # Fill warmup NaNs (first bar per symbol) to 0 per the OBV convention
+    result["ta_obv_v1"] = obv.fillna(0.0).astype("float64")
 
     return result
 

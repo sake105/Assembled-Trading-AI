@@ -344,7 +344,7 @@ def generate_multifactor_long_short_signals(
             if not regime_for_ts.empty:
                 regime_label = regime_for_ts["regime_label"].iloc[0]
                 # Extract continuous HMM posteriors for smooth blending
-                from assembled_core.signals.multifactor_signal import extract_regime_posteriors
+                from src.assembled_core.signals.multifactor_signal import extract_regime_posteriors
                 regime_posteriors = extract_regime_posteriors(regime_state_df, timestamp)
 
         # Long signals (top quantile)

@@ -17,6 +17,8 @@ DEFAULT_PROFILES_PATH = (
     Path(__file__).resolve().parents[3] / "configs" / "nation_profiles.yaml"
 )
 
+_NATION_PROFILES_CACHE: dict[str, dict[str, NationProfile]] = {}
+
 
 # ---------------------------------------------------------------------------
 # Loading
@@ -40,6 +42,9 @@ def load_nation_profiles(
         Mapping *nation_id* -> populated :class:`NationProfile`.
     """
     path = Path(path) if path else DEFAULT_PROFILES_PATH
+    cache_key = str(path.resolve())
+    if cache_key in _NATION_PROFILES_CACHE:
+        return _NATION_PROFILES_CACHE[cache_key]
     with open(path, "r", encoding="utf-8") as fh:
         data: dict[str, Any] = yaml.safe_load(fh) or {}
 
@@ -57,6 +62,7 @@ def load_nation_profiles(
             vulnerabilities=raw.get("vulnerabilities", {}),
         )
     logger.info("[NationProfiles] Loaded %d profiles", len(profiles))
+    _NATION_PROFILES_CACHE[cache_key] = profiles
     return profiles
 
 

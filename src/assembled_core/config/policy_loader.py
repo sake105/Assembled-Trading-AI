@@ -8,6 +8,8 @@ import yaml  # type: ignore[import]
 
 logger = logging.getLogger(__name__)
 
+_POLICY_CACHE: dict[str, Dict[str, Any]] = {}
+
 
 def load_policy(
     path: str | Path = "configs/policy.yaml",
@@ -31,6 +33,9 @@ def load_policy(
         ValueError:     If the top-level YAML document is not a mapping.
     """
     p = Path(path)
+    cache_key = str(p.resolve())
+    if cache_key in _POLICY_CACHE:
+        return _POLICY_CACHE[cache_key]
     if not p.exists():
         return {}
     with p.open("r", encoding="utf-8") as f:
@@ -50,6 +55,7 @@ def load_policy(
         except Exception as e:
             logger.debug("policy schema validation skipped: %s", e)
 
+    _POLICY_CACHE[cache_key] = data
     return data
 
 

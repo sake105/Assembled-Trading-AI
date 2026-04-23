@@ -38,10 +38,15 @@ _PREFIX = "[RETRAIN-SCHED]"
 
 _DEFAULT_CONFIG_PATH = Path(__file__).parent.parent.parent.parent / "configs" / "self_learning.yaml"
 
+_THRESHOLDS_CACHE: dict[str, dict] = {}
+
 
 def _load_thresholds(config_path: Path | None = None) -> dict:
     """Load threshold overrides from self_learning.yaml if available."""
     path = config_path or _DEFAULT_CONFIG_PATH
+    cache_key = str(path)
+    if cache_key in _THRESHOLDS_CACHE:
+        return _THRESHOLDS_CACHE[cache_key]
     defaults: dict = {
         "max_model_age_days": 90,
         "ic_threshold": -0.02,
@@ -70,6 +75,7 @@ def _load_thresholds(config_path: Path | None = None) -> dict:
         defaults["max_drawdown"] = gr.get("max_drawdown", 0.20)
     except Exception as exc:
         logger.debug("%s could not load config from %s: %s", _PREFIX, path, exc)
+    _THRESHOLDS_CACHE[cache_key] = defaults
     return defaults
 
 

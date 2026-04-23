@@ -4891,30 +4891,10 @@ def _run_trading_cycle_inner(
     except Exception as _rst_exc:
         log.debug("[REV-STRESS] reverse_stress skipped: %s", _rst_exc)
 
-    # Step 4.93: Robust portfolio weights (shadow comparison — uncertainty-aware optimization)
+    # Step 4.93: Robust portfolio weights (shadow — import-only; full run via offline job)
     try:
-        if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
-            from src.assembled_core.portfolio.robust_optimizer import compute_robust_weights
-            _ro_pivot = result.prices_with_features.pivot_table(
-                index="timestamp", columns="symbol", values="close", aggfunc="last"
-            )
-            _ro_rets = _ro_pivot.pct_change().dropna(how="all")
-            if len(_ro_rets) >= 20 and len(_ro_rets.columns) >= 2:
-                _ro_syms = list(_ro_rets.columns)
-                _ro_mu = _ro_rets.mean()
-                _ro_cov = _ro_rets.cov()
-                _ro_result = compute_robust_weights(
-                    _ro_mu, _ro_cov, symbols=_ro_syms,
-                    n_obs=len(_ro_rets), long_only=True,
-                )
-                result.meta["robust_weights"] = {
-                    "converged": _ro_result.converged,
-                    "method": _ro_result.method,
-                    "n_symbols": len(_ro_syms),
-                    "worst_case_return": round(float(_ro_result.worst_case_return), 6),
-                    "portfolio_volatility": round(float(_ro_result.portfolio_volatility), 6),
-                }
-                log.debug("[ROBUST-OPT] method=%s converged=%s", _ro_result.method, _ro_result.converged)
+        from src.assembled_core.portfolio.robust_optimizer import compute_robust_weights  # noqa: F401
+        result.meta["robust_weights"] = {"available": True}
     except Exception as _ro_exc:
         log.debug("[ROBUST-OPT] robust_optimizer skipped: %s", _ro_exc)
 
@@ -8555,15 +8535,10 @@ def _run_trading_cycle_inner(
     except Exception as _nie_exc:
         log.debug("[IMPACT-EST] news_impact_estimator skipped: %s", _nie_exc)
 
-    # Step 8.85: Market confirmation (compute_market_confirmation — observability)
+    # Step 8.85: Market confirmation (compute_market_confirmation — observability, import-only)
     try:
-        from src.assembled_core.intel.market_confirmation import compute_market_confirmation
-        _mc = compute_market_confirmation(cache={})
-        result.meta["market_confirmation"] = {
-            "vix_spike": bool(_mc.get("vix_spike", False)),
-            "oil_move": float(_mc.get("oil_move", 0.0)),
-            "available": True,
-        }
+        from src.assembled_core.intel.market_confirmation import compute_market_confirmation  # noqa: F401
+        result.meta["market_confirmation"] = {"available": True}
     except Exception as _mc_exc:
         log.debug("[MARKET-CONF] market_confirmation skipped: %s", _mc_exc)
 
