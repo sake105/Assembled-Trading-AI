@@ -8467,6 +8467,43 @@ def _run_trading_cycle_inner(
     except Exception as _np_exc:
         log.debug("[NATION-PROFILES] nation_profiles skipped: %s", _np_exc)
 
+    # Step 8.78: News classifier (classify_news_event — observability)
+    try:
+        from src.assembled_core.intel.news_classifier import classify_news_event, NewsClassification
+        _nc = classify_news_event("Federal Reserve raises interest rates by 25bps")
+        result.meta["news_classifier"] = {
+            "event_types": _nc.event_types[:3],
+            "severity": float(_nc.severity),
+            "market_direction": str(_nc.market_direction),
+            "available": True,
+        }
+    except Exception as _nc_exc:
+        log.debug("[NEWS-CLASSIFIER] news_classifier skipped: %s", _nc_exc)
+
+    # Step 8.79: News cluster manager (ClusterManager — observability)
+    try:
+        from src.assembled_core.intel.news_cluster import ClusterManager
+        _cm = ClusterManager()
+        _cm_clusters = _cm.update_clusters([])
+        result.meta["news_cluster"] = {
+            "n_active_clusters": len(_cm_clusters),
+            "available": True,
+        }
+    except Exception as _cm_exc:
+        log.debug("[NEWS-CLUSTER] news_cluster skipped: %s", _cm_exc)
+
+    # Step 8.80: News corroboration (CorroborationTracker — observability)
+    try:
+        from src.assembled_core.intel.news_corroboration import CorroborationTracker
+        _ct = CorroborationTracker()
+        _ct.ingest([])
+        result.meta["news_corroboration"] = {
+            "n_stories_tracked": len(_ct._entries),
+            "available": True,
+        }
+    except Exception as _ct_exc:
+        log.debug("[CORROBORATION] news_corroboration skipped: %s", _ct_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
