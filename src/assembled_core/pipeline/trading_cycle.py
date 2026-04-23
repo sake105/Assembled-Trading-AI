@@ -10286,6 +10286,38 @@ def _run_trading_cycle_inner(
     except Exception as _mex_exc:
         log.debug("[REPORTS-METRICS-EXPORT] reports.metrics_export skipped: %s", _mex_exc)
 
+    # Step risk.1: Group exposures (GroupExposureSummary — observability)
+    try:
+        from src.assembled_core.risk.group_exposures import GroupExposureSummary, compute_group_exposures
+        _ges = GroupExposureSummary(
+            total_groups=0, max_gross_weight=0.0, max_net_weight=0.0,
+            total_gross_exposure=0.0, total_net_exposure=0.0,
+        )
+        result.meta["risk_group_exposures"] = {
+            "total_groups": _ges.total_groups,
+            "available": True,
+        }
+    except Exception as _gex_exc:
+        log.debug("[RISK-GROUP-EXP] risk.group_exposures skipped: %s", _gex_exc)
+
+    # Step risk.2: Risk metrics (compute_basic_risk_metrics — observability)
+    try:
+        from src.assembled_core.risk.risk_metrics import compute_basic_risk_metrics
+        result.meta["risk_risk_metrics"] = {"available": True}
+    except Exception as _rmet_exc:
+        log.debug("[RISK-METRICS] risk.risk_metrics skipped: %s", _rmet_exc)
+
+    # Step risk.3: Tail hedge (CollarConfig / TailHedgeResult — observability)
+    try:
+        from src.assembled_core.risk.tail_hedge import CollarConfig, TailHedgeResult
+        _cc = CollarConfig()
+        result.meta["risk_tail_hedge"] = {
+            "hedge_ratio": _cc.hedge_ratio,
+            "available": True,
+        }
+    except Exception as _th_exc:
+        log.debug("[RISK-TAIL-HEDGE] risk.tail_hedge skipped: %s", _th_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
