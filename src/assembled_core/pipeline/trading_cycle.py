@@ -7077,6 +7077,57 @@ def _run_trading_cycle_inner(
     except Exception as _ml_meta_exc:
         log.debug("[META-LABEL] meta_labeling skipped: %s", _ml_meta_exc)
 
+    # Step 8.40: Paper summary compare (A/B experiment diff — observability, skips if no files)
+    try:
+        from src.assembled_core.ops.compare import compare_summaries
+        _cmp_exp_root = ctx.output_dir / "_experiments"
+        _cmp_dirs = sorted(_cmp_exp_root.glob("*/summary.json")) if _cmp_exp_root.exists() else []
+        if len(_cmp_dirs) >= 2:
+            _cmp_result = compare_summaries(_cmp_dirs[-2], _cmp_dirs[-1])
+            result.meta["experiment_compare"] = {
+                "experiment_a": str(_cmp_dirs[-2].parent.name),
+                "experiment_b": str(_cmp_dirs[-1].parent.name),
+                "schema_version": _cmp_result.get("schema_version"),
+            }
+        else:
+            result.meta["experiment_compare"] = {"status": "insufficient_experiments"}
+        log.debug("[COMPARE] %s", result.meta.get("experiment_compare", {}).get("status", "ok"))
+    except Exception as _cmp_exc:
+        log.debug("[COMPARE] compare skipped: %s", _cmp_exc)
+
+    # Step 8.41: Experiment policy merge (deep_merge_policy state — observability)
+    try:
+        from src.assembled_core.ops.experiment_runner import deep_merge_policy
+        _em_base = result.meta.get("policy_overrides") or {}
+        _em_cycle = {"cycle_date": str(ctx.as_of.date()), "execution_mode": str(ctx.execution_mode)}
+        _em_merged = deep_merge_policy(_em_base, _em_cycle)
+        result.meta["experiment_policy_merge"] = {
+            "n_keys": len(_em_merged),
+            "has_cycle_date": "cycle_date" in _em_merged,
+        }
+        log.debug("[EXP-MERGE] n_keys=%d", len(_em_merged))
+    except Exception as _em_exc:
+        log.debug("[EXP-MERGE] experiment_runner merge skipped: %s", _em_exc)
+
+    # Step 8.42: Feature importance (sklearn model coef — observability, sklearn-gated)
+    try:
+        from src.assembled_core.ml.explainability import compute_model_feature_importance
+        import numpy as _expl_np
+        from sklearn.linear_model import Ridge as _Ridge  # type: ignore
+        _expl_signals = result.signals.select_dtypes("number").fillna(0.0) if not result.signals.empty else None
+        if _expl_signals is not None and len(_expl_signals) >= 10 and len(_expl_signals.columns) >= 1:
+            _expl_X = _expl_signals.values
+            _expl_y = _expl_X[:, 0]  # proxy target: first signal column
+            _expl_model = _Ridge(alpha=1.0).fit(_expl_X, _expl_y)
+            _expl_imp = compute_model_feature_importance(_expl_model, list(_expl_signals.columns))
+            result.meta["feature_importance"] = {
+                "n_features": len(_expl_imp),
+                "top_feature": str(_expl_imp.iloc[0]["feature"]) if len(_expl_imp) > 0 else None,
+            }
+            log.debug("[EXPL] top_feature=%s", result.meta["feature_importance"]["top_feature"])
+    except Exception as _expl_exc:
+        log.debug("[EXPL] explainability skipped: %s", _expl_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
