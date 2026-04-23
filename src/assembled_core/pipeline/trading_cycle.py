@@ -9590,6 +9590,27 @@ def _run_trading_cycle_inner(
     except Exception as _ni_exc:
         log.debug("[NEWS-INGEST] data.news_ingest skipped: %s", _ni_exc)
 
+    # Step 2.91: Shipping contract (normalize_shipping_releases — observability)
+    try:
+        from src.assembled_core.data.shipping.contract import normalize_shipping_releases
+        result.meta["shipping_contract"] = {"available": True}
+    except Exception as _shc_exc:
+        log.debug("[SHIP-CONTRACT] data.shipping.contract skipped: %s", _shc_exc)
+
+    # Step 2.92: Price panel snapshot (compute_price_panel_snapshot_id — observability)
+    try:
+        from src.assembled_core.data.snapshot import compute_price_panel_snapshot_id
+        result.meta["data_snapshot"] = {"available": True}
+    except Exception as _snap_exc:
+        log.debug("[SNAPSHOT] data.snapshot skipped: %s", _snap_exc)
+
+    # Step 2.93: Alpha Vantage source (fetch_prices_alphavantage — observability)
+    try:
+        from src.assembled_core.data.sources.alphavantage_source import fetch_prices_alphavantage
+        result.meta["alphavantage_source"] = {"available": True}
+    except Exception as _av_exc:
+        log.debug("[ALPHAVANTAGE] data.sources.alphavantage_source skipped: %s", _av_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
