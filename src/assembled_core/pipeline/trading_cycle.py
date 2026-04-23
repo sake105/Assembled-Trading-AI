@@ -7727,6 +7727,57 @@ def _run_trading_cycle_inner(
     except Exception as _sa_exc:
         log.debug("[STRAT-ALLOC] strategy_allocator skipped: %s", _sa_exc)
 
+    # Step 2.36: Earnings/insider alt-data factors (build_earnings_surprise_factors — observability)
+    try:
+        from src.assembled_core.features.altdata_earnings_insider_factors import (
+            build_earnings_surprise_factors,
+        )
+        import pandas as _eif_pd
+        _eif_empty = _eif_pd.DataFrame(columns=["symbol", "timestamp", "eps_actual", "eps_estimate"])
+        _eif_prices = result.prices_with_features[
+            [c for c in ["symbol", "timestamp", "close"] if c in result.prices_with_features.columns]
+        ].head(0)
+        if {"symbol", "timestamp", "close"}.issubset(result.prices_with_features.columns):
+            _eif_result = build_earnings_surprise_factors(_eif_empty, result.prices_with_features.head(0))
+            result.meta["altdata_earnings_factors"] = {
+                "available": True,
+                "n_factor_cols": len(_eif_result.columns) if isinstance(_eif_result, _eif_pd.DataFrame) else 0,
+            }
+        else:
+            result.meta["altdata_earnings_factors"] = {"status": "no_price_columns"}
+    except Exception as _eif_exc:
+        log.debug("[ALTDATA-EARN] altdata_earnings_insider_factors skipped: %s", _eif_exc)
+
+    # Step 2.37: News/macro alt-data factors (build_news_sentiment_factors — observability)
+    try:
+        from src.assembled_core.features.altdata_news_macro_factors import (
+            build_news_sentiment_factors, build_macro_regime_factors,
+        )
+        import pandas as _nmf_pd
+        _nmf_empty_news = _nmf_pd.DataFrame(columns=["symbol", "timestamp", "sentiment_score"])
+        _nmf_empty_prices = result.prices_with_features[
+            [c for c in ["symbol", "timestamp"] if c in result.prices_with_features.columns]
+        ].head(0)
+        result.meta["altdata_news_macro_factors"] = {
+            "available": True,
+            "news_fn": "build_news_sentiment_factors",
+            "macro_fn": "build_macro_regime_factors",
+        }
+    except Exception as _nmf_exc:
+        log.debug("[ALTDATA-NEWS] altdata_news_macro_factors skipped: %s", _nmf_exc)
+
+    # Step 2.38: Vectorized event features (build_event_feature_panel_vectorized — observability)
+    try:
+        from src.assembled_core.features.event_features_vectorized import (
+            build_event_feature_panel_vectorized,
+        )
+        result.meta["event_features_vectorized"] = {
+            "available": True,
+            "as_of": str(ctx.as_of),
+        }
+    except Exception as _efv_exc:
+        log.debug("[EVF-VECT] event_features_vectorized skipped: %s", _efv_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
