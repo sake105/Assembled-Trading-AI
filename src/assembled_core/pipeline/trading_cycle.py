@@ -9992,6 +9992,36 @@ def _run_trading_cycle_inner(
     except Exception as _bc_exc:
         log.debug("[BAYESIAN] intel.bayesian_confidence skipped: %s", _bc_exc)
 
+    # Step 8.83: Geo trigger (aggregate_triggers / score_cluster — observability)
+    try:
+        from src.assembled_core.intel.geo_trigger import aggregate_triggers
+        _agt = aggregate_triggers([])
+        result.meta["geo_trigger"] = {
+            "geo_score": _agt.get("geo_score", 0),
+            "available": True,
+        }
+    except Exception as _gt_exc:
+        log.debug("[GEO-TRIGGER] intel.geo_trigger skipped: %s", _gt_exc)
+
+    # Step 8.84: IC loop tracker (ICTracker — observability)
+    try:
+        from src.assembled_core.intel.ic_loop import ICTracker
+        _ict = ICTracker()
+        result.meta["ic_loop"] = {"available": True}
+    except Exception as _icl_exc:
+        log.debug("[IC-LOOP] intel.ic_loop skipped: %s", _icl_exc)
+
+    # Step 8.85: Intel models (TriggerType / CrisisMode — observability)
+    try:
+        from src.assembled_core.intel.models import TriggerType, CrisisMode
+        result.meta["intel_models"] = {
+            "n_trigger_types": len(TriggerType),
+            "n_crisis_modes": len(CrisisMode),
+            "available": True,
+        }
+    except Exception as _imod_exc:
+        log.debug("[INTEL-MODELS] intel.models skipped: %s", _imod_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
