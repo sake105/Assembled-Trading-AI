@@ -2419,6 +2419,25 @@ def _run_trading_cycle_inner(
     except Exception as _hmm_exc:
         log.debug("[HMM-REGIME] online_hmm_regime skipped: %s", _hmm_exc)
 
+    # Step 2.17: EVT tail risk from price returns (scipy-gated, observability)
+    try:
+        if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            from src.assembled_core.ml.evt_models import compute_evt_risk_metrics
+            _evt_pivot = result.prices_with_features.pivot_table(
+                index="timestamp", columns="symbol", values="close", aggfunc="last"
+            )
+            _evt_rets = _evt_pivot.median(axis=1).pct_change().dropna()
+            if len(_evt_rets) >= 100:
+                _evt_metrics = compute_evt_risk_metrics(_evt_rets, threshold_quantile=0.95)
+                result.meta["evt_tail_risk"] = {
+                    "var_99": round(float(_evt_metrics.get("evt_var_99", 0.0)), 6),
+                    "cvar_99": round(float(_evt_metrics.get("evt_cvar_99", 0.0)), 6),
+                    "shape_xi": round(float(_evt_metrics.get("evt_shape_xi", 0.0)), 6),
+                }
+                log.debug("[EVT] VaR99=%.4f CVaR99=%.4f", _evt_metrics.get("evt_var_99", 0), _evt_metrics.get("evt_cvar_99", 0))
+    except Exception as _evt_exc:
+        log.debug("[EVT] evt_models skipped: %s", _evt_exc)
+
     # Step 3: Generate signals (hook point: generate_signals)
     try:
         if "generate_signals" in hooks:
@@ -3060,6 +3079,33 @@ def _run_trading_cycle_inner(
                 log.debug("[SIG-FDR] %d/%d signals significant (BH-FDR)", _fdr_result.n_rejected, _fdr_result.n_tests)
     except Exception as _fdr_exc:
         log.debug("[SIG-FDR] multiple_testing FDR skipped: %s", _fdr_exc)
+
+    # Step 3.8: Conformal prediction intervals on signal scores (coverage guarantee, observability)
+    try:
+        if not result.signals.empty and "score" in result.signals.columns:
+            from src.assembled_core.ml.conformal_prediction import SplitConformal
+            import numpy as _np_cp
+            _cp_scores = result.signals["score"].dropna().values.astype(float)
+            if len(_cp_scores) >= 20:
+                # Use first half as calibration, second half as test
+                _cp_mid = len(_cp_scores) // 2
+                _cp_cal = _cp_scores[:_cp_mid]
+                _cp_test = _cp_scores[_cp_mid:]
+                # Predictor: median of calibration set as a constant baseline
+                _cp_cal_median = float(_np_cp.median(_cp_cal))
+                _cp_predictor = lambda x: _np_cp.full(len(x) if hasattr(x, '__len__') else 1, _cp_cal_median)
+                _cp = SplitConformal(alpha=0.10)
+                _cp.calibrate(_cp_predictor, _cp_cal.reshape(-1, 1), _cp_cal)
+                _cp_result = _cp.predict(_cp_test.reshape(-1, 1))
+                result.meta["conformal_signal"] = {
+                    "alpha": 0.10,
+                    "quantile": round(float(_cp._quantile), 6),
+                    "n_cal": _cp_mid,
+                    "n_test": len(_cp_test),
+                }
+                log.debug("[CONFORMAL] quantile=%.4f alpha=0.10", _cp._quantile)
+    except Exception as _cp_exc:
+        log.debug("[CONFORMAL] conformal_prediction skipped: %s", _cp_exc)
 
     # Step 4: Size positions (hook point: size_positions)
     try:
@@ -5461,6 +5507,19 @@ def _run_trading_cycle_inner(
             log.debug("[RUN-INDEX] run index updated for %s", ctx.as_of.date())
     except Exception as _ri_exc:
         log.debug("[RUN-INDEX] run_index skipped: %s", _ri_exc)
+
+    # Step 7.64: Model registry stats (observability — how many models are registered)
+    try:
+        from src.assembled_core.ml.model_registry import ModelRegistry
+        _mr = ModelRegistry(base_dir=ctx.output_dir / "models")
+        _mr_models = list(_mr._records.keys())
+        result.meta["model_registry"] = {
+            "n_registered_models": len(_mr_models),
+            "model_ids": _mr_models[:10],
+        }
+        log.debug("[MODEL-REGISTRY] %d models registered", len(_mr_models))
+    except Exception as _mr_exc:
+        log.debug("[MODEL-REGISTRY] model_registry skipped: %s", _mr_exc)
 
     # Phase 9: Signal diagnostics (end of cycle) — write signal_health.json
     try:
