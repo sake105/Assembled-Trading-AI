@@ -9833,6 +9833,35 @@ def _run_trading_cycle_inner(
     except Exception as _dsrc_exc:
         log.debug("[DISC-SOURCES] events.disclosures.sources skipped: %s", _dsrc_exc)
 
+    # Step 8.66: Disclosures triggers (score_disclosure_triggers — observability)
+    try:
+        from src.assembled_core.events.disclosures.triggers import score_disclosure_triggers
+        result.meta["disclosures_triggers"] = {"available": True}
+    except Exception as _dt_exc:
+        log.debug("[DISC-TRIGGERS] events.disclosures.triggers skipped: %s", _dt_exc)
+
+    # Step 8.67: News baseline (compute_version_hash — observability)
+    try:
+        from src.assembled_core.events.news.baseline import compute_version_hash
+        _vh = compute_version_hash({})
+        result.meta["news_baseline"] = {
+            "version_hash": _vh[:12],
+            "available": True,
+        }
+    except Exception as _nb_exc:
+        log.debug("[NEWS-BASELINE] events.news.baseline skipped: %s", _nb_exc)
+
+    # Step 8.68: News clustering (build_clusters — observability)
+    try:
+        from src.assembled_core.events.news.clustering import build_clusters
+        _cl = build_clusters([], cfg={})
+        result.meta["news_clustering"] = {
+            "n_clusters": len(_cl),
+            "available": True,
+        }
+    except Exception as _nc2_exc:
+        log.debug("[NEWS-CLUSTERING] events.news.clustering skipped: %s", _nc2_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
