@@ -10474,6 +10474,27 @@ def _run_trading_cycle_inner(
     except Exception as _lu_exc:
         log.debug("[LOGGING-UTILS] logging_utils skipped: %s", _lu_exc)
 
+    # Step api.3: API router monitoring (router — observability)
+    try:
+        from src.assembled_core.api.routers.monitoring import router as _mon_router
+        result.meta["api_routers_monitoring"] = {"available": True}
+    except Exception as _mon_exc:
+        log.debug("[API-ROUTER-MONITORING] api.routers.monitoring skipped: %s", _mon_exc)
+
+    # Step api.4: API router oms (router — observability)
+    try:
+        from src.assembled_core.api.routers.oms import router as _oms_router
+        result.meta["api_routers_oms"] = {"available": True}
+    except Exception as _oms_exc:
+        log.debug("[API-ROUTER-OMS] api.routers.oms skipped: %s", _oms_exc)
+
+    # Step api.5: API router orders (router — observability)
+    try:
+        from src.assembled_core.api.routers.orders import router as _ord_router
+        result.meta["api_routers_orders"] = {"available": True}
+    except Exception as _ord_exc:
+        log.debug("[API-ROUTER-ORDERS] api.routers.orders skipped: %s", _ord_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
