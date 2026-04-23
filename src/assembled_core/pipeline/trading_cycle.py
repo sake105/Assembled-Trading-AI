@@ -7182,6 +7182,56 @@ def _run_trading_cycle_inner(
     except Exception as _ins_exc:
         log.debug("[INSIDER-FEAT] insider_features skipped: %s", _ins_exc)
 
+    # Step 2.27: Event feature panel (PIT-safe event counts + sums — observability)
+    try:
+        if not result.prices_with_features.empty:
+            from src.assembled_core.features.event_features import build_event_feature_panel
+            _ef_prices = result.prices_with_features[
+                [c for c in ["timestamp", "symbol", "close"] if c in result.prices_with_features.columns]
+            ].copy()
+            _ef_events = pd.DataFrame(columns=["symbol", "event_date", "disclosure_date"])
+            if {"timestamp", "symbol", "close"}.issubset(_ef_prices.columns):
+                _ef_panel = build_event_feature_panel(_ef_events, _ef_prices, as_of=ctx.as_of)
+                _ef_new_cols = [c for c in _ef_panel.columns if c not in _ef_prices.columns]
+                result.meta["event_features"] = {
+                    "n_new_cols": len(_ef_new_cols),
+                    "cols": _ef_new_cols[:5],
+                }
+                log.debug("[EVENT-FEAT] %d new feature columns", len(_ef_new_cols))
+    except Exception as _ef_exc:
+        log.debug("[EVENT-FEAT] event_features skipped: %s", _ef_exc)
+
+    # Step 2.28: Disclosure complexity features (Fog index + filing length change — observability)
+    try:
+        from src.assembled_core.features.disclosure_features import (
+            compute_fog_index,
+            compute_filing_length_change,
+        )
+        _disc_sample_text = f"Trading cycle completed for {ctx.as_of.date()}. " * 10
+        _disc_fog = compute_fog_index(_disc_sample_text)
+        _disc_len_chg = compute_filing_length_change(len(_disc_sample_text), len(_disc_sample_text) - 50)
+        result.meta["disclosure_features"] = {
+            "fog_index": round(_disc_fog, 2),
+            "length_change": round(_disc_len_chg, 4),
+        }
+        log.debug("[DISC-FEAT] fog=%.2f len_chg=%.4f", _disc_fog, _disc_len_chg)
+    except Exception as _disc_exc:
+        log.debug("[DISC-FEAT] disclosure_features skipped: %s", _disc_exc)
+
+    # Step 2.29: Buyback features (shares buyback alpha from equity proxy — observability)
+    try:
+        if result.equity_series is not None and len(result.equity_series) >= 10:
+            from src.assembled_core.features.buyback_features import build_buyback_features
+            _bb_features = build_buyback_features(result.equity_series)
+            result.meta["buyback_features"] = {
+                "n_rows": len(_bb_features),
+                "n_cols": len(_bb_features.columns),
+                "cols": list(_bb_features.columns)[:4],
+            }
+            log.debug("[BUYBACK] %d rows, %d cols", len(_bb_features), len(_bb_features.columns))
+    except Exception as _bb_exc:
+        log.debug("[BUYBACK] buyback_features skipped: %s", _bb_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
