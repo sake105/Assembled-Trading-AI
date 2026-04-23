@@ -9012,6 +9012,37 @@ def _run_trading_cycle_inner(
     except Exception as _pte_exc:
         log.debug("[PAPER-ENGINE] paper_trading_engine skipped: %s", _pte_exc)
 
+    # Step 5.62: Position sync (SyncResult — observability)
+    try:
+        from src.assembled_core.execution.position_sync import SyncResult
+        result.meta["position_sync"] = {"available": True}
+    except Exception as _psync_exc:
+        log.debug("[POS-SYNC] position_sync skipped: %s", _psync_exc)
+
+    # Step 5.63: Pre-live gate (PreLiveGate — observability)
+    try:
+        from src.assembled_core.execution.pre_live_gate import PreLiveGate
+        _plg = PreLiveGate()
+        _plg_result = _plg.evaluate()
+        result.meta["pre_live_gate"] = {
+            "all_passed": _plg_result.all_passed,
+            "n_checks": len(_plg_result.checks),
+            "pass_rate": _plg_result.pass_rate,
+            "available": True,
+        }
+    except Exception as _plg_exc:
+        log.debug("[PRE-LIVE-GATE] pre_live_gate skipped: %s", _plg_exc)
+
+    # Step 5.64: Smart order router (route_order — observability)
+    try:
+        from src.assembled_core.execution.smart_order_router import route_order, DEFAULT_VENUES
+        result.meta["smart_order_router"] = {
+            "n_venues": len(DEFAULT_VENUES),
+            "available": True,
+        }
+    except Exception as _sor_exc:
+        log.debug("[SOR] smart_order_router skipped: %s", _sor_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
