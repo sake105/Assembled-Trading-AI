@@ -9887,6 +9887,31 @@ def _run_trading_cycle_inner(
     except Exception as _ne2_exc:
         log.debug("[NEWS-EMIT] events.news.emit skipped: %s", _ne2_exc)
 
+    # Step 8.72: News entities (extract_entities / extract_countries — observability)
+    try:
+        from src.assembled_core.events.news.entities import extract_entities, extract_countries
+        _ext = extract_entities("Russia Ukraine conflict")
+        result.meta["news_entities"] = {
+            "n_extracted": len(_ext),
+            "available": True,
+        }
+    except Exception as _nent_exc:
+        log.debug("[NEWS-ENTITIES] events.news.entities skipped: %s", _nent_exc)
+
+    # Step 8.73: News evidence (summarize_cluster_evidence — observability)
+    try:
+        from src.assembled_core.events.news.evidence import summarize_cluster_evidence
+        result.meta["news_evidence"] = {"available": True}
+    except Exception as _nev_exc:
+        log.debug("[NEWS-EVIDENCE] events.news.evidence skipped: %s", _nev_exc)
+
+    # Step 8.74: GDELT fetch (fetch_gdelt_events — observability)
+    try:
+        from src.assembled_core.events.news.fetch_gdelt import fetch_gdelt_events
+        result.meta["news_fetch_gdelt"] = {"available": True}
+    except Exception as _ngdelt_exc:
+        log.debug("[NEWS-GDELT] events.news.fetch_gdelt skipped: %s", _ngdelt_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
