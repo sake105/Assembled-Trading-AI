@@ -9297,6 +9297,27 @@ def _run_trading_cycle_inner(
     except Exception as _sa_exc:
         log.debug("[STRAT-ADAPT] strategy_adapters skipped: %s", _sa_exc)
 
+    # Step rpt.1: Daily QA report (generate_qa_report — observability)
+    try:
+        from src.assembled_core.reports.daily_qa_report import generate_qa_report
+        result.meta["daily_qa_report"] = {"available": True}
+    except Exception as _qar_exc:
+        log.debug("[QA-REPORT] daily_qa_report skipped: %s", _qar_exc)
+
+    # Step 3.90: EMA trend strategy (compute_signals — observability)
+    try:
+        from src.assembled_core.strategies.ema_trend_v0 import compute_signals as _ema_signals
+        result.meta["ema_trend_v0"] = {"available": True}
+    except Exception as _ema_exc:
+        log.debug("[EMA-TREND] ema_trend_v0 skipped: %s", _ema_exc)
+
+    # Step 3.91: IC decay weights (compute_ic_decay_weights — observability)
+    try:
+        from src.assembled_core.strategies.ic_decay_weights import compute_ic_decay_weights
+        result.meta["ic_decay_weights"] = {"available": True}
+    except Exception as _icd_exc:
+        log.debug("[IC-DECAY] ic_decay_weights skipped: %s", _icd_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
