@@ -2482,6 +2482,21 @@ def _run_trading_cycle_inner(
     except Exception as _cr_exc:
         log.debug("[COMBINED-REGIME] combined_regime skipped: %s", _cr_exc)
 
+    # Step 2.20: GARCH features snapshot per symbol (arch-gated, observability)
+    try:
+        if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            from src.assembled_core.features.volatility_features import compute_garch_features_snapshot
+            _gfs = compute_garch_features_snapshot(result.prices_with_features, lookback_days=252)
+            if _gfs:
+                _gfs_vols = [v.get("garch_vol_1d", 0.0) for v in _gfs.values() if v]
+                result.meta["garch_features_snapshot"] = {
+                    "n_symbols": len(_gfs),
+                    "mean_vol_1d": round(float(sum(_gfs_vols) / len(_gfs_vols)), 6) if _gfs_vols else 0.0,
+                }
+                log.debug("[GARCH-SNAPSHOT] %d symbols, mean_vol=%.4f", len(_gfs), result.meta["garch_features_snapshot"]["mean_vol_1d"])
+    except Exception as _gfs_exc:
+        log.debug("[GARCH-SNAPSHOT] volatility_features snapshot skipped: %s", _gfs_exc)
+
     # Step 3: Generate signals (hook point: generate_signals)
     try:
         if "generate_signals" in hooks:
@@ -5184,6 +5199,33 @@ def _run_trading_cycle_inner(
     except Exception as _ecm_exc:
         log.debug("[EXEC-COST-META] execution_cost_meta skipped: %s", _ecm_exc)
 
+    # Step 5.13: TCA arrival — implementation shortfall on orders (observability)
+    try:
+        if not result.orders.empty and "price" in result.orders.columns and not result.prices_with_features.empty:
+            from src.assembled_core.qa.tca_arrival import compute_implementation_shortfall
+            # Build arrival_prices from the latest price per symbol
+            _tca_ts = result.prices_with_features.groupby("symbol")["timestamp"].max().reset_index()
+            _tca_ts.columns = ["symbol", "timestamp"]
+            _tca_close = result.prices_with_features.sort_values("timestamp").groupby("symbol")["close"].last().reset_index()
+            _tca_arrival = _tca_ts.merge(_tca_close, on="symbol")
+            _tca_arrival.rename(columns={"close": "arrival_price"}, inplace=True)
+            # Build fills from orders
+            _tca_fills = result.orders.rename(columns={"quantity": "qty", "price": "fill_price"}).copy()
+            if "timestamp" not in _tca_fills.columns:
+                _tca_fills["timestamp"] = ctx.as_of
+            if "qty" not in _tca_fills.columns and "quantity" in result.orders.columns:
+                _tca_fills["qty"] = result.orders["quantity"]
+            _tca_result = compute_implementation_shortfall(_tca_fills, _tca_arrival)
+            if not _tca_result.empty and "is_bps" in _tca_result.columns:
+                _tca_mean = float(_tca_result["is_bps"].dropna().mean()) if _tca_result["is_bps"].notna().any() else 0.0
+                result.meta["tca_arrival"] = {
+                    "n_fills": len(_tca_result),
+                    "mean_is_bps": round(_tca_mean, 4),
+                }
+                log.debug("[TCA-ARRIVAL] %d fills, mean IS=%.2f bps", len(_tca_result), _tca_mean)
+    except Exception as _tca_exc:
+        log.debug("[TCA-ARRIVAL] tca_arrival skipped: %s", _tca_exc)
+
     # Step 6: Apply risk controls (hook point: risk_controls)
     try:
         if "risk_controls" in hooks:
@@ -6329,6 +6371,25 @@ def _run_trading_cycle_inner(
         log.debug("[SIGNAL-DECAY] %d historical snapshots loaded", len(_sdt._snapshots))
     except Exception as _sdt_exc:
         log.debug("[SIGNAL-DECAY] signal_decay_tracker skipped: %s", _sdt_exc)
+
+    # Step 8.18: Post-trade forward returns (observability — ML training data for post-trade analysis)
+    try:
+        if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            from src.assembled_core.qa.post_trade_analyzer import compute_forward_returns
+            _pta_cols = [c for c in ["timestamp", "symbol", "close"] if c in result.prices_with_features.columns]
+            if len(_pta_cols) == 3:
+                _pta_prices = result.prices_with_features[_pta_cols].copy()
+                if "timestamp" in _pta_prices.columns:
+                    _pta_fwd = compute_forward_returns(_pta_prices, horizon_days=5)
+                    _pta_valid = _pta_fwd["forward_return"].notna().sum()
+                    result.meta["post_trade_fwd_returns"] = {
+                        "n_rows": len(_pta_fwd),
+                        "n_with_fwd": int(_pta_valid),
+                        "horizon_days": 5,
+                    }
+                    log.debug("[POST-TRADE] %d/%d rows with 5d forward returns", _pta_valid, len(_pta_fwd))
+    except Exception as _pta_exc:
+        log.debug("[POST-TRADE] post_trade_analyzer skipped: %s", _pta_exc)
 
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
