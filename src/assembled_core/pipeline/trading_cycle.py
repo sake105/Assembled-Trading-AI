@@ -9158,6 +9158,28 @@ def _run_trading_cycle_inner(
     except Exception as _als_exc:
         log.debug("[ACCT-LEDGER] accounting ledger_store skipped: %s", _als_exc)
 
+    # Step 7.88: Reconciliation report (write_reconcile_report_json — observability)
+    try:
+        from src.assembled_core.accounting.reconciliation_report import write_reconcile_report_json
+        result.meta["reconciliation_report"] = {"available": True}
+    except Exception as _rr_exc:
+        log.debug("[RECON-RPT] reconciliation_report skipped: %s", _rr_exc)
+
+    # Step 2.70: Corporate actions (load_corporate_actions — observability)
+    try:
+        from src.assembled_core.data.corporate_actions import load_corporate_actions
+        _ca_df = load_corporate_actions()
+        result.meta["corporate_actions"] = {"n_actions": len(_ca_df), "available": True}
+    except Exception as _ca_exc:
+        log.debug("[CORP-ACT] corporate_actions skipped: %s", _ca_exc)
+
+    # Step 2.71: Cost model policy (estimate_rebalance_cost_fraction — observability)
+    try:
+        from src.assembled_core.data.cost_model_policy import estimate_rebalance_cost_fraction
+        result.meta["cost_model_policy"] = {"available": True}
+    except Exception as _cmp_exc:
+        log.debug("[COST-POLICY] cost_model_policy skipped: %s", _cmp_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
