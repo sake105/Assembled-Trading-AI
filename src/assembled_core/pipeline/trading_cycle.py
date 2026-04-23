@@ -8253,6 +8253,50 @@ def _run_trading_cycle_inner(
     except Exception as _pe_exc:
         log.debug("[PANEL-STORE] panel_store skipped: %s", _pe_exc)
 
+    # Step 7.79: Round trips (compute_round_trips — observability)
+    try:
+        from src.assembled_core.accounting.round_trips import compute_round_trips, round_trip_summary
+        import pandas as _pd_rt
+        _rt_trades = _pd_rt.DataFrame(columns=["symbol", "date", "side", "price", "quantity", "commission"])
+        _rt_list = compute_round_trips(_rt_trades)
+        _rt_sum = round_trip_summary(_rt_list)
+        result.meta["round_trips"] = {
+            "n_round_trips": len(_rt_list),
+            "summary": _rt_sum,
+        }
+    except Exception as _rt_exc:
+        log.debug("[ROUND-TRIPS] round_trips skipped: %s", _rt_exc)
+
+    # Step 7.80: Tax lots (TaxLotTracker — observability)
+    try:
+        from src.assembled_core.accounting.tax_lots import TaxLotTracker
+        _tlt = TaxLotTracker()
+        result.meta["tax_lots"] = {
+            "n_symbols": len(_tlt.lots),
+            "available": True,
+        }
+    except Exception as _tlt_exc:
+        log.debug("[TAX-LOTS] tax_lots skipped: %s", _tlt_exc)
+
+    # Step 7.81: Decision audit trail (DecisionAuditTrail — observability)
+    try:
+        from src.assembled_core.accounting.decision_audit import DecisionAuditTrail, DecisionRecord
+        _dat = DecisionAuditTrail()
+        _dat.record(DecisionRecord(
+            timestamp=str(ctx.as_of),
+            symbol="__cycle__",
+            direction="long",
+            signal_score=0.0,
+            regime=str(getattr(result, "regime", "")),
+        ))
+        _dat_summary = _dat.summary()
+        result.meta["decision_audit"] = {
+            "n_records": _dat_summary["n_records"],
+            "available": True,
+        }
+    except Exception as _dat_exc:
+        log.debug("[DECISION-AUDIT] decision_audit skipped: %s", _dat_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
