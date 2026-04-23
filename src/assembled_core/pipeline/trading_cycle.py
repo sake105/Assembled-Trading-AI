@@ -9962,6 +9962,36 @@ def _run_trading_cycle_inner(
     except Exception as _nsrc_exc:
         log.debug("[NEWS-SOURCES] events.news.sources skipped: %s", _nsrc_exc)
 
+    # Step 8.81: News fetch state (load_fetch_state — observability)
+    try:
+        from src.assembled_core.events.news.state import load_fetch_state
+        result.meta["news_state"] = {"available": True}
+    except Exception as _nst2_exc:
+        log.debug("[NEWS-STATE] events.news.state skipped: %s", _nst2_exc)
+
+    # Step 5.62: Transaction costs (CommissionModel — observability)
+    try:
+        from src.assembled_core.execution.transaction_costs import CommissionModel
+        _cm = CommissionModel()
+        result.meta["transaction_costs"] = {
+            "mode": _cm.mode,
+            "commission_bps": _cm.commission_bps,
+            "available": True,
+        }
+    except Exception as _txc_exc:
+        log.debug("[TXN-COSTS] execution.transaction_costs skipped: %s", _txc_exc)
+
+    # Step 8.82: Bayesian confidence (bayesian_update — observability)
+    try:
+        from src.assembled_core.intel.bayesian_confidence import bayesian_update
+        _bu = bayesian_update(0.5, 0.7, 0.9)
+        result.meta["bayesian_confidence"] = {
+            "test_posterior": round(_bu, 4),
+            "available": True,
+        }
+    except Exception as _bc_exc:
+        log.debug("[BAYESIAN] intel.bayesian_confidence skipped: %s", _bc_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
