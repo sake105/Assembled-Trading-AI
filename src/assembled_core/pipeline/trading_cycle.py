@@ -2517,6 +2517,25 @@ def _run_trading_cycle_inner(
     except Exception as _gfs_exc:
         log.debug("[GARCH-SNAPSHOT] volatility_features snapshot skipped: %s", _gfs_exc)
 
+    # Step 2.21: VPIN (Volume-Synchronized Probability of Informed Trading — observability)
+    try:
+        if result.equity_series is not None and len(result.equity_series) >= 20:
+            from src.assembled_core.features.vpin import compute_vpin
+            _vpin_prices = pd.Series(result.equity_series.values, dtype=float)
+            _vpin_volumes = pd.Series(
+                np.ones(len(_vpin_prices)) * float(_vpin_prices.mean()), dtype=float
+            )
+            _vpin_result = compute_vpin(_vpin_prices, _vpin_volumes, n_buckets_window=10)
+            result.meta["vpin"] = {
+                "current_vpin": round(float(_vpin_result.current_vpin), 4),
+                "avg_vpin": round(float(_vpin_result.avg_vpin), 4),
+                "is_toxic": bool(_vpin_result.is_toxic),
+                "n_buckets": int(_vpin_result.n_buckets),
+            }
+            log.debug("[VPIN] current=%.4f avg=%.4f toxic=%s", _vpin_result.current_vpin, _vpin_result.avg_vpin, _vpin_result.is_toxic)
+    except Exception as _vpin_exc:
+        log.debug("[VPIN] vpin skipped: %s", _vpin_exc)
+
     # Step 3: Generate signals (hook point: generate_signals)
     try:
         if "generate_signals" in hooks:
@@ -6649,6 +6668,33 @@ def _run_trading_cycle_inner(
                       _ds_deflated if _ds_deflated is not None else 0.0, _ds_n_obs)
     except Exception as _ds_exc:
         log.debug("[DSR] deflated_sharpe skipped: %s", _ds_exc)
+
+    # Step 8.26: Feedback loop controller (persistent state — observability)
+    try:
+        from src.assembled_core.ml.feedback_loop import FeedbackLoopController
+        _fbl = FeedbackLoopController(
+            state_dir=ctx.output_dir / "feedback_state",
+        )
+        _fbl_state_file = _fbl.state_dir / _fbl._STATE_FILE
+        result.meta["feedback_loop"] = {
+            "state_dir": str(_fbl.state_dir),
+            "state_file_exists": _fbl_state_file.exists(),
+        }
+        log.debug("[FEEDBACK] state_dir=%s file_exists=%s", _fbl.state_dir, _fbl_state_file.exists())
+    except Exception as _fbl_exc:
+        log.debug("[FEEDBACK] feedback_loop skipped: %s", _fbl_exc)
+
+    # Step 8.27: Regime model router (persistent state count — observability)
+    try:
+        from src.assembled_core.ml.regime_model_router import RegimeModelRouter
+        _rmr = RegimeModelRouter()
+        result.meta["regime_model_router"] = {
+            "has_state": _rmr._state is not None,
+            "n_regimes_configured": len(["RISK_ON", "NEUTRAL", "RISK_OFF", "CRISIS"]),
+        }
+        log.debug("[REGIME-ROUTER] has_state=%s", _rmr._state is not None)
+    except Exception as _rmr_exc:
+        log.debug("[REGIME-ROUTER] regime_model_router skipped: %s", _rmr_exc)
 
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
