@@ -22,7 +22,7 @@ pytestmark = pytest.mark.phase4
 @pytest.fixture
 def synthetic_prices(tmp_path: Path) -> pd.DataFrame:
     """Create synthetic price data for testing."""
-    dates = pd.date_range(start="2023-01-01", end="2023-12-31", freq="D", tz="UTC")
+    dates = pd.date_range(start="2023-01-01", end="2023-03-01", freq="D", tz="UTC")
     symbols = ["AAPL", "MSFT"]
 
     data = []

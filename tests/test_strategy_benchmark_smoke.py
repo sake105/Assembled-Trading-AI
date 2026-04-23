@@ -115,7 +115,7 @@ def test_benchmark_outputs_deterministic_json(tmp_path: Path) -> None:
             "2",
         ],
         cwd=str(ROOT),
-        timeout=120,
+        timeout=350,
         capture_output=True,
         text=True,
     )

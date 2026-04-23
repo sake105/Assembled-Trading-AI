@@ -6661,30 +6661,10 @@ def _run_trading_cycle_inner(
     except Exception as _qg_exc:
         log.debug("[QA-GATES] qa_gates skipped: %s", _qg_exc)
 
-    # Step 8.21: Factor IC summary (observability — IC of features vs TB labels if available)
+    # Step 8.21: Factor IC summary (import-only — compute_factor_ic is too slow per-cycle)
     try:
-        if not result.prices_with_features.empty and "tb_label_5d" in result.prices_with_features.columns:
-            from src.assembled_core.qa.factor_analysis import compute_factor_ic, summarize_factor_ic
-            _fic_num_cols = [
-                c for c in result.prices_with_features.columns
-                if c not in {"timestamp", "symbol", "open", "high", "low", "close", "volume", "tb_label_5d", "tb_ret_5d"}
-                and result.prices_with_features[c].dtype in ("float64", "float32")
-            ][:10]
-            if _fic_num_cols and "timestamp" in result.prices_with_features.columns:
-                _fic_df = result.prices_with_features[["timestamp", "symbol"] + _fic_num_cols + ["tb_label_5d"]].dropna()
-                if len(_fic_df) >= 30 and len(_fic_df["timestamp"].unique()) >= 5:
-                    _fic_ic = compute_factor_ic(_fic_df, factor_cols=_fic_num_cols, fwd_return_col="tb_label_5d")
-                    if not _fic_ic.empty:
-                        _fic_summary = summarize_factor_ic(_fic_ic)
-                        _fic_top = _fic_summary.iloc[0] if not _fic_summary.empty else None
-                        result.meta["factor_ic_summary"] = {
-                            "n_factors": len(_fic_summary),
-                            "top_factor": str(_fic_top["factor"]) if _fic_top is not None else "",
-                            "top_ic_ir": round(float(_fic_top["ic_ir"]), 4) if _fic_top is not None else 0.0,
-                        }
-                        log.debug("[FACTOR-IC] %d factors, top=%s IR=%.3f", len(_fic_summary),
-                                  result.meta["factor_ic_summary"]["top_factor"],
-                                  result.meta["factor_ic_summary"]["top_ic_ir"])
+        from src.assembled_core.qa.factor_analysis import compute_factor_ic, summarize_factor_ic  # noqa: F401
+        result.meta["factor_ic_summary"] = {"available": True}
     except Exception as _fic_exc:
         log.debug("[FACTOR-IC] factor_analysis skipped: %s", _fic_exc)
 

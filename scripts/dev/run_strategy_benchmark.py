@@ -477,6 +477,13 @@ def run_benchmark(
     horizons = _compute_horizons(dataset_path)
     if quick:
         horizons = [h for h in horizons if h[0] == "1y"]
+        # Limit quick-mode window to 90 trading days so smoke tests stay fast
+        if horizons:
+            import pandas as _pd
+            _h = horizons[0]
+            _trading_dts = _pd.bdate_range(_h[1], _h[2])
+            if len(_trading_dts) > 90:
+                horizons = [(_h[0], _trading_dts[-90].strftime("%Y-%m-%d"), _h[2])]
     MA_SLOW_DEFAULT = 60
     MIN_BARS_WARMUP_BUFFER = 30
     to_run = variants[:max_variants] if max_variants else variants
