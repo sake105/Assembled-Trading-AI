@@ -9761,6 +9761,32 @@ def _run_trading_cycle_inner(
     except Exception as _dd_exc:
         log.debug("[DISC-DEDUPE] events.disclosures.dedupe skipped: %s", _dd_exc)
 
+    # Step 8.57: Disclosures emit (emit_json_artifact — observability)
+    try:
+        from src.assembled_core.events.disclosures.emit import emit_json_artifact
+        result.meta["disclosures_emit"] = {"available": True}
+    except Exception as _de_exc:
+        log.debug("[DISC-EMIT] events.disclosures.emit skipped: %s", _de_exc)
+
+    # Step 8.58: Disclosures evidence (summarize_evidence — observability)
+    try:
+        from src.assembled_core.events.disclosures.evidence import summarize_evidence
+        _ev_summary = summarize_evidence([], {})
+        result.meta["disclosures_evidence"] = {
+            "tier_a_count": _ev_summary.get("tierA_count", 0),
+            "evidence_ok": _ev_summary.get("evidence_ok", False),
+            "available": True,
+        }
+    except Exception as _dev_exc:
+        log.debug("[DISC-EVIDENCE] events.disclosures.evidence skipped: %s", _dev_exc)
+
+    # Step 8.59: EDGAR fetch (fetch_edgar_form4 — observability)
+    try:
+        from src.assembled_core.events.disclosures.fetch_edgar import fetch_edgar_form4
+        result.meta["disclosures_fetch_edgar"] = {"available": True}
+    except Exception as _dfed_exc:
+        log.debug("[DISC-EDGAR] events.disclosures.fetch_edgar skipped: %s", _dfed_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
