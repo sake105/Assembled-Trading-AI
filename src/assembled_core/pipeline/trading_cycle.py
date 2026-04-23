@@ -7565,6 +7565,45 @@ def _run_trading_cycle_inner(
     except Exception as _ta_exc:
         log.debug("[TEMPORAL-ATTN] temporal_attention skipped: %s", _ta_exc)
 
+    # Step 8.55: RL portfolio optimizer state (RLPortfolioConfig init — observability)
+    try:
+        from src.assembled_core.ml.rl_portfolio import (
+            RLPortfolioConfig, GYM_AVAILABLE, SB3_AVAILABLE,
+        )
+        _rl_cfg = RLPortfolioConfig()
+        result.meta["rl_portfolio"] = {
+            "gym_available": bool(GYM_AVAILABLE),
+            "sb3_available": bool(SB3_AVAILABLE),
+            "max_position": _rl_cfg.max_position,
+            "risk_aversion": _rl_cfg.risk_aversion,
+        }
+    except Exception as _rlp_exc:
+        log.debug("[RL-PORT] rl_portfolio skipped: %s", _rlp_exc)
+
+    # Step 5.96: RL execution agent state (QLearningExecutionAgent init — observability)
+    try:
+        from src.assembled_core.ml.rl_execution import QLearningExecutionAgent, N_ACTIONS
+        _rl_exec = QLearningExecutionAgent()
+        result.meta["rl_execution"] = {
+            "n_actions": N_ACTIONS,
+            "alpha": _rl_exec.alpha,
+            "epsilon": _rl_exec.epsilon,
+        }
+    except Exception as _rle_exc:
+        log.debug("[RL-EXEC] rl_execution skipped: %s", _rle_exc)
+
+    # Step 8.56: Symbolic regression formula discovery state (discover_formulas — observability)
+    try:
+        from src.assembled_core.ml.symbolic_regression import (
+            SymbolicSearchResult, GPLEARN_AVAILABLE,
+        )
+        result.meta["symbolic_regression"] = {
+            "gplearn_available": bool(GPLEARN_AVAILABLE),
+            "status": "ready",
+        }
+    except Exception as _sr_exc:
+        log.debug("[SYMBOLIC] symbolic_regression skipped: %s", _sr_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
