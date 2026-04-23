@@ -9112,6 +9112,30 @@ def _run_trading_cycle_inner(
     except Exception as _rawf_exc:
         log.debug("[REGIME-WF] regime_aware_wf skipped: %s", _rawf_exc)
 
+    # Step 7.82: Broker snapshot importer (import_broker_snapshot — observability)
+    try:
+        from src.assembled_core.accounting.broker_snapshot_importer import import_broker_snapshot
+        result.meta["broker_snapshot_importer"] = {"available": True}
+    except Exception as _bsi_exc:
+        log.debug("[SNAP-IMPORT] broker_snapshot_importer skipped: %s", _bsi_exc)
+
+    # Step 7.83: Broker snapshot store (store_broker_snapshot_json — observability)
+    try:
+        from src.assembled_core.accounting.broker_snapshot_store import (
+            broker_snapshot_base_path,
+            store_broker_snapshot_json,
+        )
+        result.meta["broker_snapshot_store"] = {"available": True}
+    except Exception as _bss_exc:
+        log.debug("[SNAP-STORE] broker_snapshot_store skipped: %s", _bss_exc)
+
+    # Step 7.84: Evidence index (write_evidence_index_json — observability)
+    try:
+        from src.assembled_core.accounting.evidence_index import write_evidence_index_json
+        result.meta["evidence_index"] = {"available": True}
+    except Exception as _eix_exc:
+        log.debug("[EVIDENCE-IDX] evidence_index skipped: %s", _eix_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
