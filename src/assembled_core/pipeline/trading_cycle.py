@@ -8950,6 +8950,36 @@ def _run_trading_cycle_inner(
     except Exception as _aae_exc:
         log.debug("[ADAPTIVE-ALGO] adaptive_algo skipped: %s", _aae_exc)
 
+    # Step 5.56: API resilience (RetryPolicy / RateLimiter — observability)
+    try:
+        from src.assembled_core.execution.api_resilience import RetryPolicy, DEFAULT_RETRY_POLICY
+        result.meta["api_resilience"] = {
+            "max_retries": DEFAULT_RETRY_POLICY.max_retries,
+            "base_delay_s": DEFAULT_RETRY_POLICY.base_delay_s,
+            "available": True,
+        }
+    except Exception as _arx_exc:
+        log.debug("[API-RESIL] api_resilience skipped: %s", _arx_exc)
+
+    # Step 5.57: Broker adapter (BrokerOrder / BrokerPosition — observability)
+    try:
+        from src.assembled_core.execution.broker_adapter import BrokerOrder, BrokerPosition
+        result.meta["broker_adapter"] = {"available": True}
+    except Exception as _bad_exc:
+        log.debug("[BROKER-ADAPTER] broker_adapter skipped: %s", _bad_exc)
+
+    # Step 5.58: Broker execution (BrokerExecutionResult — observability)
+    try:
+        from src.assembled_core.execution.broker_execution import BrokerExecutionResult
+        _ber = BrokerExecutionResult()
+        result.meta["broker_execution"] = {
+            "n_submitted": len(_ber.submitted),
+            "dry_run": _ber.dry_run,
+            "available": True,
+        }
+    except Exception as _bex_exc:
+        log.debug("[BROKER-EXEC] broker_execution skipped: %s", _bex_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
