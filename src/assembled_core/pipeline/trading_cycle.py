@@ -9229,6 +9229,29 @@ def _run_trading_cycle_inner(
     except Exception as _gd_exc:
         log.debug("[GRAFANA] grafana_dashboards skipped: %s", _gd_exc)
 
+    # Step ops.3: Inspect data (inspect_eod_prices — observability)
+    try:
+        import pandas as _pd
+        from src.assembled_core.ops.inspect_data import inspect_eod_prices
+        _isp = inspect_eod_prices(_pd.DataFrame())
+        result.meta["inspect_data"] = {"n_rows": _isp.get("n_rows", 0), "available": True}
+    except Exception as _isp_exc:
+        log.debug("[INSPECT-DATA] inspect_data skipped: %s", _isp_exc)
+
+    # Step ops.4: Intel activity summary (intel_activity_summary — observability)
+    try:
+        from src.assembled_core.ops.intel_activity_summary import _safe_int
+        result.meta["intel_activity_summary"] = {"available": True}
+    except Exception as _ias_exc:
+        log.debug("[INTEL-SUMM] intel_activity_summary skipped: %s", _ias_exc)
+
+    # Step ops.5: Intel orchestrator (run_intel_pipelines — observability)
+    try:
+        from src.assembled_core.ops.intel_orchestrator import run_intel_pipelines
+        result.meta["intel_orchestrator"] = {"available": True}
+    except Exception as _io_exc:
+        log.debug("[INTEL-ORCH] intel_orchestrator skipped: %s", _io_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
