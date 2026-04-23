@@ -3239,6 +3239,19 @@ def _run_trading_cycle_inner(
     except Exception as _rac_exc:
         log.debug("[RAC] risk_aware_combiner skipped: %s", _rac_exc)
 
+    # Step 3.89: Signal plugin discovery (auto-discover external signal plugins — observability)
+    try:
+        from src.assembled_core.signals.plugin_loader import discover_signal_plugins
+        _pl_root = Path(ctx.data_root) if getattr(ctx, "data_root", None) else Path.cwd()
+        _pl_plugins = discover_signal_plugins(str(_pl_root / "plugins" / "signals"))
+        result.meta["signal_plugins"] = {
+            "n_plugins": len(_pl_plugins),
+            "plugin_names": list(_pl_plugins.keys())[:10],
+        }
+        log.debug("[PLUGIN] %d signal plugins discovered", len(_pl_plugins))
+    except Exception as _pl_exc:
+        log.debug("[PLUGIN] plugin_loader skipped: %s", _pl_exc)
+
     # Step 4: Size positions (hook point: size_positions)
     try:
         if "size_positions" in hooks:
@@ -6579,6 +6592,63 @@ def _run_trading_cycle_inner(
         log.debug("[FI-TRACKER] n_snapshots=%d", len(_fit._snapshots))
     except Exception as _fit_exc:
         log.debug("[FI-TRACKER] feature_importance_tracker skipped: %s", _fit_exc)
+
+    # Step 8.24: Cycle health check summary (structured HealthCheckResult — observability)
+    try:
+        from src.assembled_core.ops.health_check import (
+            HealthCheck, HealthCheckResult, aggregate_overall_status,
+        )
+        _hc_checks: list[HealthCheck] = []
+        # Check: equity series available
+        _hc_eq_ok = result.equity_series is not None and len(result.equity_series) >= 2
+        _hc_checks.append(HealthCheck(
+            name="equity_series_present",
+            status="OK" if _hc_eq_ok else "WARN",
+            value=int(len(result.equity_series)) if result.equity_series is not None else 0,
+        ))
+        # Check: orders generated
+        _hc_orders_ok = len(result.orders_filtered) >= 0
+        _hc_checks.append(HealthCheck(
+            name="orders_generated",
+            status="OK",
+            value=len(result.orders_filtered),
+        ))
+        # Check: signals non-empty
+        _hc_sigs_ok = not result.signals.empty
+        _hc_checks.append(HealthCheck(
+            name="signals_non_empty",
+            status="OK" if _hc_sigs_ok else "WARN",
+            value=int(len(result.signals)),
+        ))
+        _hc_overall = aggregate_overall_status(_hc_checks)
+        result.meta["cycle_health_check"] = {
+            "overall_status": _hc_overall,
+            "n_checks": len(_hc_checks),
+            "ok_count": sum(1 for c in _hc_checks if c.status == "OK"),
+        }
+        log.debug("[HEALTH] overall=%s n_checks=%d", _hc_overall, len(_hc_checks))
+    except Exception as _hc_exc:
+        log.debug("[HEALTH] health_check skipped: %s", _hc_exc)
+
+    # Step 8.25: Deflated Sharpe ratio (multiple-testing-corrected Sharpe — observability)
+    try:
+        from src.assembled_core.qa.robustness import compute_deflated_sharpe
+        _ds_metrics = result.meta.get("qa_metrics") or result.meta.get("equity_metrics") or {}
+        _ds_sharpe = float(_ds_metrics.get("sharpe_ratio") or _ds_metrics.get("sharpe") or 0.0)
+        if result.equity_series is not None and len(result.equity_series) >= 20:
+            _ds_n_obs = len(result.equity_series)
+            _ds_deflated = compute_deflated_sharpe(
+                sharpe=_ds_sharpe, n_obs=_ds_n_obs, n_trials=1,
+            )
+            result.meta["deflated_sharpe"] = {
+                "sharpe": round(_ds_sharpe, 4),
+                "deflated_sharpe": round(float(_ds_deflated), 4) if _ds_deflated is not None else None,
+                "n_obs": _ds_n_obs,
+            }
+            log.debug("[DSR] sharpe=%.3f deflated=%.3f n_obs=%d", _ds_sharpe,
+                      _ds_deflated if _ds_deflated is not None else 0.0, _ds_n_obs)
+    except Exception as _ds_exc:
+        log.debug("[DSR] deflated_sharpe skipped: %s", _ds_exc)
 
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
