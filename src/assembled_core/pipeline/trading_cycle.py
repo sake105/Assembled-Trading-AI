@@ -4378,6 +4378,33 @@ def _run_trading_cycle_inner(
     except Exception as _st_exc:
         log.debug("[STRESS] stress_test_constraints skipped: %s", _st_exc)
 
+    # Step 4.93: Robust portfolio weights (shadow comparison — uncertainty-aware optimization)
+    try:
+        if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            from src.assembled_core.portfolio.robust_optimizer import compute_robust_weights
+            _ro_pivot = result.prices_with_features.pivot_table(
+                index="timestamp", columns="symbol", values="close", aggfunc="last"
+            )
+            _ro_rets = _ro_pivot.pct_change().dropna(how="all")
+            if len(_ro_rets) >= 20 and len(_ro_rets.columns) >= 2:
+                _ro_syms = list(_ro_rets.columns)
+                _ro_mu = _ro_rets.mean()
+                _ro_cov = _ro_rets.cov()
+                _ro_result = compute_robust_weights(
+                    _ro_mu, _ro_cov, symbols=_ro_syms,
+                    n_obs=len(_ro_rets), long_only=True,
+                )
+                result.meta["robust_weights"] = {
+                    "converged": _ro_result.converged,
+                    "method": _ro_result.method,
+                    "n_symbols": len(_ro_syms),
+                    "worst_case_return": round(float(_ro_result.worst_case_return), 6),
+                    "portfolio_volatility": round(float(_ro_result.portfolio_volatility), 6),
+                }
+                log.debug("[ROBUST-OPT] method=%s converged=%s", _ro_result.method, _ro_result.converged)
+    except Exception as _ro_exc:
+        log.debug("[ROBUST-OPT] robust_optimizer skipped: %s", _ro_exc)
+
     # Step 4.9: Long-short balance enforcement (exposure audit + optional rebalance)
     try:
         if not result.target_positions.empty:
@@ -5624,6 +5651,59 @@ def _run_trading_cycle_inner(
                 log.debug("[BM-METRICS] alpha=%.4f IR=%.4f", _bm.alpha or 0.0, _bm.information_ratio or 0.0)
     except Exception as _bm_exc:
         log.debug("[BM-METRICS] benchmark_metrics skipped: %s", _bm_exc)
+
+    # Step 8.5: Deflated Sharpe Ratio (overfitting-adjusted SR — observability)
+    try:
+        if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            from src.assembled_core.qa.deflated_sharpe import deflated_sharpe
+            _dsr_pivot = result.prices_with_features.pivot_table(
+                index="timestamp", columns="symbol", values="close", aggfunc="last"
+            )
+            _dsr_proxy = _dsr_pivot.median(axis=1).pct_change().dropna()
+            if len(_dsr_proxy) >= 10:
+                _dsr = deflated_sharpe(_dsr_proxy, n_trials=1)
+                result.meta["deflated_sharpe"] = {
+                    "sharpe_observed": round(float(_dsr.sharpe_observed), 4),
+                    "sharpe_threshold": round(float(_dsr.sharpe_threshold), 4),
+                    "deflated_sharpe_probability": round(float(_dsr.deflated_sharpe_probability), 4),
+                    "passes_5pct": bool(_dsr.passes_5pct),
+                }
+                log.debug("[DSR] SR_obs=%.3f threshold=%.3f p=%.3f", _dsr.sharpe_observed, _dsr.sharpe_threshold, _dsr.deflated_sharpe_probability)
+    except Exception as _dsr_exc:
+        log.debug("[DSR] deflated_sharpe skipped: %s", _dsr_exc)
+
+    # Step 8.6: Factor exposure betas (rolling OLS vs market factor — sklearn-gated)
+    try:
+        if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            from src.assembled_core.risk.factor_exposures import (
+                compute_factor_exposures, summarize_factor_exposures
+            )
+            import pandas as _fe_pd
+            _fe_pivot = result.prices_with_features.pivot_table(
+                index="timestamp", columns="symbol", values="close", aggfunc="last"
+            )
+            _fe_rets = _fe_pivot.pct_change().dropna(how="all")
+            if len(_fe_rets) >= 30 and len(_fe_rets.columns) >= 2:
+                _fe_strategy = _fe_rets.median(axis=1)
+                _fe_strategy.name = "strategy"
+                _fe_factors = _fe_pd.DataFrame({"market": _fe_rets.mean(axis=1)})
+                _fe_exposures = compute_factor_exposures(_fe_strategy, _fe_factors)
+                if not _fe_exposures.empty:
+                    _fe_summary_df = summarize_factor_exposures(_fe_exposures)
+                    _fe_mkt_beta, _fe_r2 = 0.0, 0.0
+                    if not _fe_summary_df.empty and "factor" in _fe_summary_df.columns:
+                        _fe_mkt_row = _fe_summary_df[_fe_summary_df["factor"] == "market"]
+                        if len(_fe_mkt_row) > 0:
+                            _fe_mkt_beta = float(_fe_mkt_row["mean_beta"].iloc[0])
+                            _fe_r2 = float(_fe_mkt_row["mean_r2"].iloc[0]) if "mean_r2" in _fe_mkt_row.columns else 0.0
+                    result.meta["factor_exposures"] = {
+                        "n_windows": len(_fe_exposures),
+                        "mean_market_beta": round(_fe_mkt_beta, 4),
+                        "r2_mean": round(_fe_r2, 4),
+                    }
+                    log.debug("[FACTOR-EXP] n=%d mkt_beta=%.3f r2=%.3f", len(_fe_exposures), _fe_mkt_beta, _fe_r2)
+    except Exception as _fe_exc:
+        log.debug("[FACTOR-EXP] factor_exposures skipped: %s", _fe_exc)
 
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
