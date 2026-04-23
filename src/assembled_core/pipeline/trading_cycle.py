@@ -7472,6 +7472,60 @@ def _run_trading_cycle_inner(
     except Exception as _ps_exc:
         log.debug("[PAPER-SUMMARY] paper_summary skipped: %s", _ps_exc)
 
+    # Step 8.49: Gaussian Process Regression state (FactorGPR init — observability)
+    try:
+        from src.assembled_core.ml.gaussian_process import FactorGPR, SKLEARN_GP_AVAILABLE
+        _gpr = FactorGPR()
+        result.meta["gaussian_process_regression"] = {
+            "sklearn_gp_available": bool(SKLEARN_GP_AVAILABLE),
+            "length_scale": _gpr.length_scale,
+            "noise_level": _gpr.noise_level,
+            "fitted": bool(_gpr._fitted),
+        }
+    except Exception as _gpr_exc:
+        log.debug("[GPR] gaussian_process skipped: %s", _gpr_exc)
+
+    # Step 8.50: AutoML model selection state (run_automl stub — observability)
+    try:
+        from src.assembled_core.ml.automl import AutoMLResult, SKLEARN_AVAILABLE as _automl_sklearn
+        result.meta["automl"] = {
+            "sklearn_available": bool(_automl_sklearn),
+            "status": "ready" if _automl_sklearn else "no_sklearn",
+        }
+    except Exception as _automl_exc:
+        log.debug("[AutoML] automl skipped: %s", _automl_exc)
+
+    # Step 8.51: Causal inference factor screening (screen_factors_causal — observability)
+    try:
+        from src.assembled_core.ml.causal_inference import screen_factors_causal, CausalEffectResult
+        if not result.prices_with_features.empty:
+            _ci_num_cols = [
+                c for c in result.prices_with_features.select_dtypes(include="number").columns
+                if c not in ("close", "volume") and not c.startswith("_")
+            ][:3]
+            if _ci_num_cols and "close" in result.prices_with_features.columns:
+                _ci_factor_df = result.prices_with_features[_ci_num_cols].dropna()
+                _ci_ret = result.prices_with_features["close"].pct_change().dropna()
+                _ci_common = _ci_factor_df.index.intersection(_ci_ret.index)
+                if len(_ci_common) >= 20:
+                    _ci_results = screen_factors_causal(
+                        _ci_factor_df.loc[_ci_common],
+                        _ci_ret.loc[_ci_common],
+                    )
+                    result.meta["causal_inference"] = {
+                        "n_factors_screened": len(_ci_results),
+                        "n_significant": sum(1 for r in _ci_results if r.is_significant),
+                        "factors": _ci_num_cols,
+                    }
+                else:
+                    result.meta["causal_inference"] = {"status": "insufficient_data"}
+            else:
+                result.meta["causal_inference"] = {"status": "no_numeric_features"}
+        else:
+            result.meta["causal_inference"] = {"status": "no_prices"}
+    except Exception as _ci_exc:
+        log.debug("[CAUSAL] causal_inference skipped: %s", _ci_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
