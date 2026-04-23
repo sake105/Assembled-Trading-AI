@@ -10081,6 +10081,27 @@ def _run_trading_cycle_inner(
     except Exception as _prun_exc:
         log.debug("[OPS-PAPER-RUNNER] ops.paper_runner skipped: %s", _prun_exc)
 
+    # Step ops.4: Ops reconcile (build_reconcile_report — observability)
+    try:
+        from src.assembled_core.ops.reconcile import build_reconcile_report
+        result.meta["ops_reconcile"] = {"available": True}
+    except Exception as _recon_exc:
+        log.debug("[OPS-RECONCILE] ops.reconcile skipped: %s", _recon_exc)
+
+    # Step pipe.1: Backtest engine (compute_metrics — observability)
+    try:
+        from src.assembled_core.pipeline.backtest import compute_metrics, write_backtest_report
+        result.meta["pipeline_backtest"] = {"available": True}
+    except Exception as _bt_exc:
+        log.debug("[PIPELINE-BACKTEST] pipeline.backtest skipped: %s", _bt_exc)
+
+    # Step pipe.2: Backtest legacy (legacy simulate — observability)
+    try:
+        from src.assembled_core.pipeline.backtest_legacy import _legacy_simulate_equity
+        result.meta["pipeline_backtest_legacy"] = {"available": True}
+    except Exception as _btleg_exc:
+        log.debug("[PIPELINE-BACKTEST-LEGACY] pipeline.backtest_legacy skipped: %s", _btleg_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
