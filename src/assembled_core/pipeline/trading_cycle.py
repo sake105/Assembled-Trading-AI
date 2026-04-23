@@ -10183,6 +10183,38 @@ def _run_trading_cycle_inner(
     except Exception as _psig_exc:
         log.debug("[PIPELINE-SIGNALS] pipeline.signals skipped: %s", _psig_exc)
 
+    # Step port.1: Kelly uncertainty (compute_kelly_with_uncertainty — observability)
+    try:
+        from src.assembled_core.portfolio.kelly_uncertainty import compute_kelly_with_uncertainty
+        _kw = compute_kelly_with_uncertainty(edge=0.01, variance=0.0004)
+        result.meta["portfolio_kelly_uncertainty"] = {
+            "kelly_fraction": float(_kw),
+            "available": True,
+        }
+    except Exception as _kunc_exc:
+        log.debug("[PORTFOLIO-KELLY-UNC] portfolio.kelly_uncertainty skipped: %s", _kunc_exc)
+
+    # Step port.2: Turnover penalty (TurnoverConstrainedSizer — observability)
+    try:
+        from src.assembled_core.portfolio.turnover_penalty import TurnoverConstrainedSizer
+        _tcs = TurnoverConstrainedSizer()
+        result.meta["portfolio_turnover_penalty"] = {
+            "enabled": _tcs.config.enabled,
+            "available": True,
+        }
+    except Exception as _tp_exc:
+        log.debug("[PORTFOLIO-TURNOVER] portfolio.turnover_penalty skipped: %s", _tp_exc)
+
+    # Step qa.1: Backtest engine numba (NUMBA_AVAILABLE — observability)
+    try:
+        from src.assembled_core.qa.backtest_engine_numba import NUMBA_AVAILABLE
+        result.meta["qa_backtest_engine_numba"] = {
+            "numba_available": NUMBA_AVAILABLE,
+            "available": True,
+        }
+    except Exception as _bnum_exc:
+        log.debug("[QA-BACKTEST-NUMBA] qa.backtest_engine_numba skipped: %s", _bnum_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
