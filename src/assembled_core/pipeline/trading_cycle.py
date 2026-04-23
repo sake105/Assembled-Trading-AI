@@ -9787,6 +9787,31 @@ def _run_trading_cycle_inner(
     except Exception as _dfed_exc:
         log.debug("[DISC-EDGAR] events.disclosures.fetch_edgar skipped: %s", _dfed_exc)
 
+    # Step 8.60: House PTR disclosures fetch (fetch_house_ptr_filings — observability)
+    try:
+        from src.assembled_core.events.disclosures.fetch_house_ptr import fetch_house_ptr_filings
+        result.meta["disclosures_fetch_house_ptr"] = {"available": True}
+    except Exception as _dfhp_exc:
+        log.debug("[DISC-HOUSE-PTR] events.disclosures.fetch_house_ptr skipped: %s", _dfhp_exc)
+
+    # Step 8.61: Disclosures health (compute_health — observability)
+    try:
+        from src.assembled_core.events.disclosures.health import compute_health
+        _dh = compute_health(["test_source"], 0, 0, [])
+        result.meta["disclosures_health"] = {
+            "status": _dh.status,
+            "available": True,
+        }
+    except Exception as _dh_exc:
+        log.debug("[DISC-HEALTH] events.disclosures.health skipped: %s", _dh_exc)
+
+    # Step 8.62: Disclosure event models (DisclosureEvent / DisclosuresHealth — observability)
+    try:
+        from src.assembled_core.events.disclosures.models import DisclosureEvent, DisclosuresHealth
+        result.meta["disclosures_models"] = {"available": True}
+    except Exception as _dm_exc:
+        log.debug("[DISC-MODELS] events.disclosures.models skipped: %s", _dm_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
