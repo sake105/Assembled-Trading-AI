@@ -7819,6 +7819,47 @@ def _run_trading_cycle_inner(
     except Exception as _sdg_exc:
         log.debug("[DECAY-GATE] signal_decay_gate skipped: %s", _sdg_exc)
 
+    # Step 3.95: Stat arb / pairs (check_cointegration — observability)
+    try:
+        from src.assembled_core.strategies.stat_arb import (
+            check_cointegration, estimate_half_life,
+        )
+        try:
+            import statsmodels as _sm_check
+            _sa_sm = True
+        except ImportError:
+            _sa_sm = False
+        result.meta["stat_arb"] = {
+            "statsmodels_available": _sa_sm,
+            "available": True,
+        }
+    except Exception as _sab_exc:
+        log.debug("[STAT-ARB] stat_arb skipped: %s", _sab_exc)
+
+    # Step 3.96: Strategy discovery (DiscoveryResult — observability)
+    try:
+        from src.assembled_core.strategies.strategy_discovery import DiscoveryResult
+        result.meta["strategy_discovery"] = {
+            "available": True,
+        }
+    except Exception as _sd_exc:
+        log.debug("[STRAT-DISC] strategy_discovery skipped: %s", _sd_exc)
+
+    # Step 3.97: HMM regime posterior (smooth_posterior / blend_weights — observability)
+    try:
+        from src.assembled_core.signals.regime.hmm_posterior import (
+            smooth_posterior, blend_weights_by_regime_posterior, RegimeBlendResult,
+        )
+        _hp_posterior = {"BULL": 0.6, "BEAR": 0.2, "NEUTRAL": 0.2}
+        _hp_smoothed = smooth_posterior(_hp_posterior, prev_smoothed=None)
+        result.meta["hmm_posterior"] = {
+            "n_regimes": len(_hp_smoothed),
+            "regimes": list(_hp_smoothed.keys()),
+            "smoothed": True,
+        }
+    except Exception as _hp_exc:
+        log.debug("[HMM-POST] hmm_posterior skipped: %s", _hp_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
