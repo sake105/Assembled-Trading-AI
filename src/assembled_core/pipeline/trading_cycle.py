@@ -2398,6 +2398,27 @@ def _run_trading_cycle_inner(
     except Exception as _tb_exc:
         log.debug("[TRIPLE-BARRIER] triple_barrier skipped: %s", _tb_exc)
 
+    # Step 2.16: Online HMM regime detection from price returns (observability)
+    try:
+        if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            from src.assembled_core.ml.online_hmm_regime import OnlineHMMRegimeDetector
+            _hmm_pivot = result.prices_with_features.pivot_table(
+                index="timestamp", columns="symbol", values="close", aggfunc="last"
+            )
+            _hmm_rets = _hmm_pivot.median(axis=1).pct_change().dropna()
+            if len(_hmm_rets) >= 20:
+                _hmm_detector = OnlineHMMRegimeDetector(n_states=3, lookback=252)
+                _hmm_state = _hmm_detector.predict_current_regime(_hmm_rets)
+                result.meta["hmm_regime"] = {
+                    "regime_label": _hmm_state.regime_label,
+                    "regime_id": _hmm_state.regime_id,
+                    "probability": round(float(_hmm_state.probability), 4),
+                    "volatility": round(float(_hmm_state.volatility), 6),
+                }
+                log.debug("[HMM-REGIME] %s (p=%.3f)", _hmm_state.regime_label, _hmm_state.probability)
+    except Exception as _hmm_exc:
+        log.debug("[HMM-REGIME] online_hmm_regime skipped: %s", _hmm_exc)
+
     # Step 3: Generate signals (hook point: generate_signals)
     try:
         if "generate_signals" in hooks:
@@ -5417,6 +5438,30 @@ def _run_trading_cycle_inner(
     except Exception as _rm_exc:
         log.debug("[MANIFEST] run_manifest skipped: %s", _rm_exc)
 
+    # Step 7.63: Append run index CSV (lineage + searchability, policy-gated)
+    try:
+        if ctx.write_outputs:
+            from src.assembled_core.ops.run_index import append_run_index
+            from src.assembled_core.ops.run_manifest import compute_config_hash
+            _ri_hash = compute_config_hash(policy) if policy else ""
+            _ri_metrics = {
+                "final_equity": float(getattr(ctx, "current_equity", ctx.equity)),
+                "n_fills": len(result.orders_filtered),
+            }
+            append_run_index(
+                run_id=str(ctx.as_of.date()),
+                date=str(ctx.as_of.date()),
+                status="success",
+                metrics=_ri_metrics,
+                git_sha=result.meta.get("git_sha", ""),
+                config_hash=_ri_hash,
+                manifest_path=ctx.output_dir / "manifests" / str(ctx.as_of.date()) / "manifest.latest.json",
+                index_path=ctx.output_dir / "manifests" / "index.csv",
+            )
+            log.debug("[RUN-INDEX] run index updated for %s", ctx.as_of.date())
+    except Exception as _ri_exc:
+        log.debug("[RUN-INDEX] run_index skipped: %s", _ri_exc)
+
     # Phase 9: Signal diagnostics (end of cycle) — write signal_health.json
     try:
         sd_cfg = (policy.get("signal_generation") or {}).get("signal_diagnostics") or {}
@@ -6023,6 +6068,28 @@ def _run_trading_cycle_inner(
         log.debug("[MODEL-AGE] days=%d confidence=%.3f", _mac_days, _mac_confidence)
     except Exception as _mac_exc:
         log.debug("[MODEL-AGE] model_age_confidence skipped: %s", _mac_exc)
+
+    # Step 8.14: Calibration monitor — signal score calibration quality (observability)
+    try:
+        if not result.signals.empty and "score" in result.signals.columns:
+            from src.assembled_core.ml.calibration_monitor import compute_calibration
+            _cal_scores = result.signals["score"].dropna()
+            if len(_cal_scores) >= 10:
+                import numpy as _np_cal
+                _cal_preds = _np_cal.clip(_cal_scores.values.astype(float), 0.0, 1.0)
+                # Proxy actuals: top-half scores → 1, bottom-half → 0
+                _cal_median = float(_np_cal.median(_cal_preds))
+                _cal_actuals = (_cal_preds >= _cal_median).astype(float)
+                _cal_report = compute_calibration(_cal_preds, _cal_actuals, n_bins=5)
+                result.meta["signal_calibration"] = {
+                    "ece": round(_cal_report.ece, 4),
+                    "brier_score": round(_cal_report.brier_score, 4),
+                    "n_samples": _cal_report.n_samples,
+                    "well_calibrated": _cal_report.is_well_calibrated(),
+                }
+                log.debug("[CALIBRATION] ECE=%.4f brier=%.4f", _cal_report.ece, _cal_report.brier_score)
+    except Exception as _cal_exc:
+        log.debug("[CALIBRATION] calibration_monitor skipped: %s", _cal_exc)
 
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
