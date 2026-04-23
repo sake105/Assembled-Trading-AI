@@ -8890,6 +8890,34 @@ def _run_trading_cycle_inner(
     except Exception as _dg_exc:
         log.debug("[DEP-GRAPH] dependency_graph skipped: %s", _dg_exc)
 
+    # Step 8.117: Crisis alpha worker (CrisisStateConfig — observability)
+    try:
+        from src.assembled_core.intel.crisis_alpha_worker import CrisisStateConfig
+        _cac = CrisisStateConfig()
+        result.meta["crisis_alpha_worker"] = {
+            "watch_threshold": _cac.geo_score_watch_threshold,
+            "active_threshold": _cac.geo_score_active_threshold,
+            "available": True,
+        }
+    except Exception as _cac_exc:
+        log.debug("[CRISIS-ALPHA] crisis_alpha_worker skipped: %s", _cac_exc)
+
+    # Step 8.118: Evidence grade writer (EvidenceGradeWriter — observability)
+    try:
+        from src.assembled_core.intel.evidence_grade_writer import EvidenceGradeWriter
+        _egw = EvidenceGradeWriter(output_dir="data/intel/evidence")
+        result.meta["evidence_grade_writer"] = {"output_dir": str(_egw._dir), "available": True}
+    except Exception as _egw_exc:
+        log.debug("[EVIDENCE-GRADE] evidence_grade_writer skipped: %s", _egw_exc)
+
+    # Step 8.119: NewsAPI fetcher (NewsAPIFetcher — observability)
+    try:
+        from src.assembled_core.intel.news_newsapi_fetcher import NewsAPIFetcher
+        _naf = NewsAPIFetcher()
+        result.meta["news_newsapi_fetcher"] = {"enabled": _naf.enabled, "available": True}
+    except Exception as _naf_exc:
+        log.debug("[NEWSAPI] news_newsapi_fetcher skipped: %s", _naf_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
