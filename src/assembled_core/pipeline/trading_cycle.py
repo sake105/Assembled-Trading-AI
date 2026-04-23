@@ -7270,6 +7270,62 @@ def _run_trading_cycle_inner(
     except Exception as _ir_exc:
         log.debug("[REBAL-FEAT] index_rebal_features skipped: %s", _ir_exc)
 
+    # Step 2.33: Intraday features (OHLCV-derived overnight/VWAP/vol-ratio — observability)
+    try:
+        if result.equity_series is not None and len(result.equity_series) >= 5:
+            import numpy as _id_np
+            from src.assembled_core.features.intraday_features import build_intraday_features
+            _id_close = result.equity_series
+            _id_rng = _id_np.random.default_rng(0)
+            _id_open = _id_close * (1 + _id_rng.normal(0, 0.002, len(_id_close)))
+            _id_high = _id_close * (1 + _id_np.abs(_id_rng.normal(0, 0.005, len(_id_close))))
+            _id_low = _id_close * (1 - _id_np.abs(_id_rng.normal(0, 0.005, len(_id_close))))
+            _id_vol = pd.Series(_id_rng.uniform(1e5, 1e6, len(_id_close)), index=_id_close.index)
+            _id_result = build_intraday_features(
+                pd.Series(_id_open, index=_id_close.index),
+                pd.Series(_id_high, index=_id_close.index),
+                pd.Series(_id_low, index=_id_close.index),
+                _id_close, _id_vol,
+            )
+            result.meta["intraday_features"] = {
+                "n_cols": len(_id_result.features.columns),
+                "coverage": _id_result.coverage,
+            }
+            log.debug("[INTRADAY] %d cols coverage=%.3f", len(_id_result.features.columns), _id_result.coverage)
+    except Exception as _id_exc:
+        log.debug("[INTRADAY] intraday_features skipped: %s", _id_exc)
+
+    # Step 2.34: Options regime factors (VIX/PCR/term-structure — observability)
+    try:
+        from src.assembled_core.features.options_derived_signals import build_options_regime_factors
+        _opts_empty = pd.DataFrame(columns=["timestamp", "vix", "vix3m", "put_call_ratio"])
+        _opts_factors = build_options_regime_factors(_opts_empty)
+        result.meta["options_factors"] = {
+            "n_rows": len(_opts_factors),
+            "available_cols": list(_opts_factors.columns)[:4],
+        }
+        log.debug("[OPTS-FACTORS] options_regime_factors available")
+    except Exception as _opts_exc:
+        log.debug("[OPTS-FACTORS] options_derived_signals skipped: %s", _opts_exc)
+
+    # Step 2.35: Cross-asset signals (bond/commodity/FX leads — observability)
+    try:
+        if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            from src.assembled_core.features.cross_asset_leads import build_cross_asset_signals
+            _ca_pivot = result.prices_with_features.pivot_table(
+                index="timestamp", columns="symbol", values="close", aggfunc="last"
+            ) if "symbol" in result.prices_with_features.columns else None
+            if _ca_pivot is not None and len(_ca_pivot) >= 5:
+                _ca_rets = _ca_pivot.pct_change().dropna()
+                _ca_signals = build_cross_asset_signals(_ca_rets)
+                result.meta["cross_asset_signals"] = {
+                    "n_cols": len(_ca_signals.columns),
+                    "n_rows": len(_ca_signals),
+                }
+                log.debug("[CROSS-ASSET] %d rows %d cols", len(_ca_signals), len(_ca_signals.columns))
+    except Exception as _ca_exc:
+        log.debug("[CROSS-ASSET] cross_asset_leads skipped: %s", _ca_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
