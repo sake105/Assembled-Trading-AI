@@ -8095,6 +8095,46 @@ def _run_trading_cycle_inner(
     except Exception as _eg_exc:
         log.debug("[EVIDENCE-GRADER] evidence_grader skipped: %s", _eg_exc)
 
+    # Step 8.69: Evidence action gate (check_evidence_grade_gate — observability)
+    try:
+        from src.assembled_core.events.evidence_engine.action_gate import check_evidence_grade_gate
+        from src.assembled_core.events.evidence_engine.grades import EvidenceGrade as _EG
+        _ag_ok, _ag_reason = check_evidence_grade_gate(_EG.A)
+        result.meta["evidence_action_gate"] = {
+            "gate_ok": _ag_ok,
+            "available": True,
+        }
+    except Exception as _ag_exc:
+        log.debug("[ACTION-GATE] action_gate skipped: %s", _ag_exc)
+
+    # Step 8.70: Misinfo risk (compute_misinfo_risk — observability)
+    try:
+        from src.assembled_core.events.evidence_engine.misinfo_risk import compute_misinfo_risk
+        _mr_summary = {"tierA_count": 0, "tierB_independent_count": 1, "tierB_count": 2}
+        _mr_score = compute_misinfo_risk(_mr_summary, social_only=False)
+        result.meta["misinfo_risk"] = {
+            "score": float(_mr_score),
+            "available": True,
+        }
+    except Exception as _mr_exc:
+        log.debug("[MISINFO] misinfo_risk skipped: %s", _mr_exc)
+
+    # Step 8.71: News burst detection (compute_bursts_for_window — observability)
+    try:
+        from src.assembled_core.events.news.burst import compute_bursts_for_window
+        _burst = compute_bursts_for_window(
+            clusters=[],
+            baseline=None,
+            cfg={},
+            window_hours=24,
+        )
+        result.meta["news_burst"] = {
+            "n_entity_bursts": len(_burst.get("entity_bursts", [])),
+            "available": True,
+        }
+    except Exception as _burst_exc:
+        log.debug("[NEWS-BURST] news_burst skipped: %s", _burst_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
