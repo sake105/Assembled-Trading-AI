@@ -5519,6 +5519,44 @@ def _run_trading_cycle_inner(
     except Exception as _e:
         log.debug("[RISK-WIRE] almgren_chriss skipped: %s", _e)
 
+    # Step 8.1: Regime analysis from index returns (end-of-cycle observability)
+    try:
+        if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            from src.assembled_core.risk.regime_analysis import classify_regimes_from_index
+            _ra_pivot = result.prices_with_features.pivot_table(
+                index="timestamp", columns="symbol", values="close", aggfunc="last"
+            )
+            _ra_index_rets = _ra_pivot.median(axis=1).pct_change().dropna()
+            if len(_ra_index_rets) >= 20:
+                _ra_regimes = classify_regimes_from_index(_ra_index_rets)
+                _ra_latest = str(_ra_regimes.iloc[-1]) if not _ra_regimes.empty else "unknown"
+                result.meta["regime_analysis"] = {
+                    "latest_regime": _ra_latest,
+                    "n_periods": len(_ra_regimes),
+                }
+                log.debug("[REGIME-ANALYSIS] latest regime: %s", _ra_latest)
+    except Exception as _ra_exc:
+        log.debug("[REGIME-ANALYSIS] regime_analysis skipped: %s", _ra_exc)
+
+    # Step 8.2: Performance profile (Sharpe, Calmar, drawdown — end-of-cycle observability)
+    try:
+        if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            from src.assembled_core.qa.portfolio_analyzer import compute_performance_profile
+            _pp_proxy = result.prices_with_features.pivot_table(
+                index="timestamp", columns="symbol", values="close", aggfunc="last"
+            ).median(axis=1).pct_change().dropna()
+            if len(_pp_proxy) >= 10:
+                _pp = compute_performance_profile(_pp_proxy)
+                result.meta["performance_profile"] = {
+                    "sharpe": round(_pp.sharpe, 4),
+                    "calmar": round(_pp.calmar, 4),
+                    "max_drawdown": round(_pp.max_drawdown, 4),
+                    "annualized_vol": round(_pp.annualized_vol, 4),
+                }
+                log.debug("[PERF-PROFILE] sharpe=%.3f maxDD=%.3f", _pp.sharpe, _pp.max_drawdown)
+    except Exception as _pp_exc:
+        log.debug("[PERF-PROFILE] performance_profile skipped: %s", _pp_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
