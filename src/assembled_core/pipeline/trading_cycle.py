@@ -8386,6 +8386,48 @@ def _run_trading_cycle_inner(
     except Exception as _pog_exc:
         log.debug("[PRE-OPEN] pre_open_signals skipped: %s", _pog_exc)
 
+    # Step 5.44: Symbol kill switch (is_symbol_blocked / list_blocked_symbols — observability)
+    try:
+        from src.assembled_core.execution.symbol_kill_switch import (
+            is_symbol_blocked,
+            list_blocked_symbols,
+            filter_orders_by_symbol_blocks,
+        )
+        _blocked = list_blocked_symbols()
+        result.meta["symbol_kill_switch"] = {
+            "n_blocked": len(_blocked),
+            "blocked_symbols": list(_blocked)[:5],
+            "available": True,
+        }
+    except Exception as _sks_exc:
+        log.debug("[SYMBOL-KS] symbol_kill_switch skipped: %s", _sks_exc)
+
+    # Step 5.45: Cost model calibrator (CostModelPriors — observability)
+    try:
+        from src.assembled_core.execution.cost_model_calibrator import CostModelPriors, CalibrationResult
+        _cmp = CostModelPriors()
+        result.meta["cost_model_calibrator"] = {
+            "half_spread_bps_prior": float(_cmp.half_spread_bps),
+            "participation_cap": float(_cmp.participation_cap),
+            "available": True,
+        }
+    except Exception as _cmc_exc:
+        log.debug("[COST-CALIB] cost_model_calibrator skipped: %s", _cmc_exc)
+
+    # Step 5.46: Fill model pipeline (apply_fill_model_pipeline — observability)
+    try:
+        from src.assembled_core.execution.fill_model_pipeline import apply_fill_model_pipeline
+        import pandas as _pd_fmp
+        _fmp_orders = _pd_fmp.DataFrame()
+        _fmp_prices = _pd_fmp.DataFrame()
+        _fmp_result = apply_fill_model_pipeline(_fmp_orders, prices=_fmp_prices, freq="1D")
+        result.meta["fill_model_pipeline"] = {
+            "n_fills": len(_fmp_result),
+            "available": True,
+        }
+    except Exception as _fmp_exc:
+        log.debug("[FILL-PIPELINE] fill_model_pipeline skipped: %s", _fmp_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
