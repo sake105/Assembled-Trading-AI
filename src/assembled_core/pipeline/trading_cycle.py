@@ -8683,6 +8683,31 @@ def _run_trading_cycle_inner(
     except Exception as _narch_exc:
         log.debug("[NEWS-ARCHIVER] news_archiver skipped: %s", _narch_exc)
 
+    # Step 8.96: News entity graph (EntityCoGraph — observability)
+    try:
+        from src.assembled_core.intel.news_entity_graph import EntityCoGraph
+        _ecg = EntityCoGraph()
+        _ecg.ingest([])
+        result.meta["news_entity_graph"] = {"n_entities": len(_ecg._counts), "available": True}
+    except Exception as _ecg_exc:
+        log.debug("[ENTITY-GRAPH] news_entity_graph skipped: %s", _ecg_exc)
+
+    # Step 8.97: News event store (NewsEventStore — observability)
+    try:
+        from src.assembled_core.intel.news_event_store import NewsEventStore
+        _nes = NewsEventStore()
+        result.meta["news_event_store"] = {"n_events": len(_nes._events), "available": True}
+    except Exception as _nes_exc:
+        log.debug("[EVENT-STORE] news_event_store skipped: %s", _nes_exc)
+
+    # Step 8.98: News ingest (records_to_news_events — observability)
+    try:
+        from src.assembled_core.intel.news_ingest import records_to_news_events
+        _ni_events = records_to_news_events([])
+        result.meta["news_ingest"] = {"n_events": len(_ni_events), "available": True}
+    except Exception as _ni_exc:
+        log.debug("[NEWS-INGEST] news_ingest skipped: %s", _ni_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
