@@ -8578,6 +8578,45 @@ def _run_trading_cycle_inner(
     except Exception as _cc_exc:
         log.debug("[CURRENCY-CRISIS] currency_crisis skipped: %s", _cc_exc)
 
+    # Step 8.87: News language detection (detect_language / is_english — observability)
+    try:
+        from src.assembled_core.intel.news_language import detect_language, is_english
+        _nl_lang = detect_language("Federal Reserve raises interest rates")
+        result.meta["news_language"] = {
+            "detected_lang": str(_nl_lang),
+            "is_english": bool(is_english("Federal Reserve raises interest rates")),
+            "available": True,
+        }
+    except Exception as _nl_exc:
+        log.debug("[NEWS-LANG] news_language skipped: %s", _nl_exc)
+
+    # Step 8.88: Macro calendar (MacroCalendar — observability)
+    try:
+        from src.assembled_core.intel.news_macro_calendar import MacroCalendar
+        _mcal = MacroCalendar()
+        result.meta["news_macro_calendar"] = {
+            "n_events": len(_mcal._events),
+            "available": True,
+        }
+    except Exception as _mcal_exc:
+        log.debug("[MACRO-CAL] news_macro_calendar skipped: %s", _mcal_exc)
+
+    # Step 8.89: Central bank divergence (compute_policy_divergence_matrix — observability)
+    try:
+        from src.assembled_core.intel.central_bank_divergence import (
+            compute_policy_divergence_matrix,
+            get_most_divergent_pair,
+        )
+        _cbd_matrix = compute_policy_divergence_matrix()
+        _cbd_top = get_most_divergent_pair()
+        result.meta["central_bank_divergence"] = {
+            "n_pairs": len(_cbd_matrix),
+            "most_divergent": list(_cbd_top[:2]) if _cbd_top else [],
+            "available": True,
+        }
+    except Exception as _cbd_exc:
+        log.debug("[CB-DIVERGENCE] central_bank_divergence skipped: %s", _cbd_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
