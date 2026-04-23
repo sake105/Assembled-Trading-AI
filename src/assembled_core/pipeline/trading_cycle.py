@@ -10158,6 +10158,31 @@ def _run_trading_cycle_inner(
     except Exception as _ptim_exc:
         log.debug("[PIPELINE-TIMING] pipeline.pipeline_timing skipped: %s", _ptim_exc)
 
+    # Step pipe.9: Pipeline portfolio (simulate_with_costs — observability)
+    try:
+        from src.assembled_core.pipeline.portfolio import simulate_with_costs
+        result.meta["pipeline_portfolio"] = {"available": True}
+    except Exception as _ppf_exc:
+        log.debug("[PIPELINE-PORTFOLIO] pipeline.portfolio skipped: %s", _ppf_exc)
+
+    # Step pipe.10: Run metadata (collect_run_metadata — observability)
+    try:
+        from src.assembled_core.pipeline.run_metadata import collect_run_metadata
+        _rmd = collect_run_metadata(config={})
+        result.meta["pipeline_run_metadata"] = {
+            "python_version": str(_rmd.get("python_version", ""))[:20],
+            "available": True,
+        }
+    except Exception as _rmd_exc:
+        log.debug("[PIPELINE-RUN-META] pipeline.run_metadata skipped: %s", _rmd_exc)
+
+    # Step pipe.11: Pipeline signals (compute_ema_signals — observability)
+    try:
+        from src.assembled_core.pipeline.signals import compute_ema_signals
+        result.meta["pipeline_signals"] = {"available": True}
+    except Exception as _psig_exc:
+        log.debug("[PIPELINE-SIGNALS] pipeline.signals skipped: %s", _psig_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
