@@ -9205,6 +9205,30 @@ def _run_trading_cycle_inner(
     except Exception as _sri_exc:
         log.debug("[SHIPPING-INGEST] shipping_routes_ingest skipped: %s", _sri_exc)
 
+    # Step 2.75: ETF universe (load_etf_universe — observability)
+    try:
+        from src.assembled_core.data.universe_etf import load_etf_universe, get_all_symbols
+        _etf_universe = load_etf_universe()
+        _etf_symbols = get_all_symbols(_etf_universe)
+        result.meta["universe_etf"] = {"n_symbols": len(_etf_symbols), "available": True}
+    except Exception as _etf_exc:
+        log.debug("[ETF-UNIVERSE] universe_etf skipped: %s", _etf_exc)
+
+    # Step ops.1: Daily scheduler (WorkerResult — observability)
+    try:
+        from src.assembled_core.ops.daily_scheduler import WorkerResult
+        result.meta["daily_scheduler"] = {"available": True}
+    except Exception as _ds_exc:
+        log.debug("[DAILY-SCHED] daily_scheduler skipped: %s", _ds_exc)
+
+    # Step ops.2: Grafana dashboards (export_all_dashboards — observability)
+    try:
+        from src.assembled_core.ops.grafana_dashboards import export_all_dashboards
+        _gd_boards = export_all_dashboards()
+        result.meta["grafana_dashboards"] = {"n_dashboards": len(_gd_boards), "available": True}
+    except Exception as _gd_exc:
+        log.debug("[GRAFANA] grafana_dashboards skipped: %s", _gd_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
