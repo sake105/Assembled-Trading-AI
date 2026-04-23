@@ -7687,6 +7687,46 @@ def _run_trading_cycle_inner(
     except Exception as _mno_exc:
         log.debug("[MN-OPT] market_neutral_optimizer skipped: %s", _mno_exc)
 
+    # Step 5.100: Multi-period optimizer state (SCIPY_AVAILABLE / trade_speed — observability)
+    try:
+        from src.assembled_core.portfolio.multi_period import (
+            compute_trade_speed, SCIPY_AVAILABLE as _mp_scipy,
+        )
+        _mp_speed = compute_trade_speed(risk_aversion=1.0, transaction_cost=0.001)
+        result.meta["multi_period_optimizer"] = {
+            "scipy_available": bool(_mp_scipy),
+            "trade_speed": round(float(_mp_speed), 4),
+        }
+    except Exception as _mpo_exc:
+        log.debug("[MULTI-PERIOD] multi_period skipped: %s", _mpo_exc)
+
+    # Step 5.101: Multiasset allocator state (RegimeDetector — observability)
+    try:
+        from src.assembled_core.portfolio.multiasset_allocator import (
+            RegimeDetectorConfig, RegimeDetector,
+        )
+        _rd_cfg = RegimeDetectorConfig()
+        _rd = RegimeDetector(config=_rd_cfg)
+        result.meta["multiasset_allocator"] = {
+            "hysteresis_bars": getattr(_rd_cfg, "hysteresis_bars", 3),
+            "available": True,
+        }
+    except Exception as _maa_exc:
+        log.debug("[MULTIASSET] multiasset_allocator skipped: %s", _maa_exc)
+
+    # Step 5.102: Strategy allocator state (AllocationConfig — observability)
+    try:
+        from src.assembled_core.portfolio.strategy_allocator import (
+            AllocationConfig,
+        )
+        _sa_cfg = AllocationConfig(weights={}, method="weighted_average")
+        result.meta["strategy_allocator"] = {
+            "method": _sa_cfg.method,
+            "n_strategies": len(_sa_cfg.weights),
+        }
+    except Exception as _sa_exc:
+        log.debug("[STRAT-ALLOC] strategy_allocator skipped: %s", _sa_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
