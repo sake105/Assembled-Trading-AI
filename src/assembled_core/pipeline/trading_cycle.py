@@ -9475,6 +9475,42 @@ def _run_trading_cycle_inner(
     except Exception as _hptr_exc:
         log.debug("[HOUSE-PTR] data.altdata.house_ptr_parser skipped: %s", _hptr_exc)
 
+    # Step 2.79: Patent features (PatentConfig / compute_patent_features — observability)
+    try:
+        from src.assembled_core.data.altdata.patent_features import PatentConfig, compute_patent_features
+        _pc = PatentConfig()
+        result.meta["patent_features"] = {
+            "lookback_months": _pc.lookback_months,
+            "citation_decay_years": _pc.citation_decay_years,
+            "available": True,
+        }
+    except Exception as _pf_exc:
+        log.debug("[PATENT] data.altdata.patent_features skipped: %s", _pf_exc)
+
+    # Step 2.80: Satellite features (SatelliteConfig / process_parking_lot_data — observability)
+    try:
+        from src.assembled_core.data.altdata.satellite_features import SatelliteConfig, process_parking_lot_data
+        _sc = SatelliteConfig()
+        result.meta["satellite_features"] = {
+            "processing_lag_days": _sc.processing_lag_days,
+            "trend_window_weeks": _sc.trend_window_weeks,
+            "available": True,
+        }
+    except Exception as _sf_exc:
+        log.debug("[SATELLITE] data.altdata.satellite_features skipped: %s", _sf_exc)
+
+    # Step 2.81: Social sentiment (SentimentConfig / aggregate_daily_sentiment — observability)
+    try:
+        from src.assembled_core.data.altdata.social_sentiment import SentimentConfig, aggregate_daily_sentiment
+        _sentc = SentimentConfig()
+        result.meta["social_sentiment"] = {
+            "min_mentions": _sentc.min_mentions,
+            "momentum_window": _sentc.momentum_window,
+            "available": True,
+        }
+    except Exception as _ss_exc:
+        log.debug("[SOCIAL-SENT] data.altdata.social_sentiment skipped: %s", _ss_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
