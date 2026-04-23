@@ -10056,6 +10056,31 @@ def _run_trading_cycle_inner(
     except Exception as _rhmm_exc:
         log.debug("[ML-REGIME-HMM] ml.regime_hmm skipped: %s", _rhmm_exc)
 
+    # Step ops.1: Ops alerts (compute_alerts — observability)
+    try:
+        from src.assembled_core.ops.alerts import compute_alerts
+        _alts = compute_alerts(run_kpis={}, reasons={}, diff={}, cfg={"alerts": {"enabled": True}})
+        result.meta["ops_alerts"] = {
+            "n_alerts": len(_alts),
+            "available": True,
+        }
+    except Exception as _alts_exc:
+        log.debug("[OPS-ALERTS] ops.alerts skipped: %s", _alts_exc)
+
+    # Step ops.2: Ops intel sim (apply_intel_sim — observability)
+    try:
+        from src.assembled_core.ops.intel_sim import apply_intel_sim
+        result.meta["ops_intel_sim"] = {"available": True}
+    except Exception as _isim_exc:
+        log.debug("[OPS-INTEL-SIM] ops.intel_sim skipped: %s", _isim_exc)
+
+    # Step ops.3: Ops paper runner (run_paper_daily_one — observability)
+    try:
+        from src.assembled_core.ops.paper_runner import run_paper_daily_one
+        result.meta["ops_paper_runner"] = {"available": True}
+    except Exception as _prun_exc:
+        log.debug("[OPS-PAPER-RUNNER] ops.paper_runner skipped: %s", _prun_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
