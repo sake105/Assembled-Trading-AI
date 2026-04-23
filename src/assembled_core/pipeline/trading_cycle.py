@@ -9089,6 +9089,29 @@ def _run_trading_cycle_inner(
     except Exception as _evs_exc:
         log.debug("[EVENT-STUDY] event_study skipped: %s", _evs_exc)
 
+    # Step 7.79: Numba kernels (compute_mark_to_market_numba — observability)
+    try:
+        import numpy as _np
+        from src.assembled_core.qa.numba_kernels import compute_mark_to_market_numba
+        _nk_val = compute_mark_to_market_numba(_np.array([100.0]), _np.array([1.0]))
+        result.meta["numba_kernels"] = {"mtm_sample": float(_nk_val), "available": True}
+    except Exception as _nk_exc:
+        log.debug("[NUMBA] numba_kernels skipped: %s", _nk_exc)
+
+    # Step 7.80: Parallel grid (run_grid_parallel — observability)
+    try:
+        from src.assembled_core.qa.parallel_grid import run_grid_parallel, GridPoint
+        result.meta["parallel_grid"] = {"available": True}
+    except Exception as _pg_exc:
+        log.debug("[PARALLEL-GRID] parallel_grid skipped: %s", _pg_exc)
+
+    # Step 7.81: Regime-aware walk-forward (RegimeWalkForwardResult — observability)
+    try:
+        from src.assembled_core.qa.regime_aware_wf import RegimeWalkForwardResult
+        result.meta["regime_aware_wf"] = {"available": True}
+    except Exception as _rawf_exc:
+        log.debug("[REGIME-WF] regime_aware_wf skipped: %s", _rawf_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
