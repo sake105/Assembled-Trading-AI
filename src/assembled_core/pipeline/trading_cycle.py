@@ -2375,6 +2375,29 @@ def _run_trading_cycle_inner(
     except Exception as _ic_exc:
         log.debug("[IC-PRESCREEN] ic_prescreen skipped: %s", _ic_exc)
 
+    # Step 2.15: Triple-barrier labels (ML training data enrichment — adds tb_label_5d)
+    try:
+        _tb_cfg = (policy.get("ml") or {}).get("triple_barrier") or {}
+        if _tb_cfg.get("enabled", False) and not result.prices_with_features.empty:
+            _tb_cols = {"timestamp", "symbol", "close"}
+            if _tb_cols.issubset(result.prices_with_features.columns):
+                from src.assembled_core.ml.triple_barrier import build_triple_barrier_labels
+                _tb_result = build_triple_barrier_labels(
+                    result.prices_with_features,
+                    horizon_days=int(_tb_cfg.get("horizon_days", 5)),
+                )
+                result.prices_with_features = _tb_result
+                _tb_label_col = "tb_label_5d"
+                if _tb_label_col in result.prices_with_features.columns:
+                    _tb_counts = result.prices_with_features[_tb_label_col].value_counts().to_dict()
+                    result.meta["triple_barrier"] = {
+                        "horizon_days": _tb_cfg.get("horizon_days", 5),
+                        "label_counts": {str(k): int(v) for k, v in _tb_counts.items()},
+                    }
+                    log.debug("[TRIPLE-BARRIER] labels set: %s", result.meta["triple_barrier"]["label_counts"])
+    except Exception as _tb_exc:
+        log.debug("[TRIPLE-BARRIER] triple_barrier skipped: %s", _tb_exc)
+
     # Step 3: Generate signals (hook point: generate_signals)
     try:
         if "generate_signals" in hooks:
@@ -2935,6 +2958,31 @@ def _run_trading_cycle_inner(
                     log.debug("[TREND-MA] long=%d flat=%d", result.meta["trend_signals_ma"]["n_long"], result.meta["trend_signals_ma"]["n_flat"])
     except Exception as _ts_exc:
         log.debug("[TREND-MA] rules_trend skipped: %s", _ts_exc)
+
+    # Step 3.9: Adversarial validation — feature drift detection (sklearn-gated, observability)
+    try:
+        if not result.prices_with_features.empty:
+            _av_num_cols = [
+                c for c in result.prices_with_features.select_dtypes("number").columns
+                if c not in ("timestamp",) and result.prices_with_features[c].nunique() > 1
+            ]
+            if len(_av_num_cols) >= 4 and len(result.prices_with_features) >= 40:
+                from src.assembled_core.ml.adversarial_validation import run_adversarial_validation
+                _av_df = result.prices_with_features[_av_num_cols[:30]].dropna()
+                _av_n = len(_av_df)
+                _av_split = max(10, _av_n // 2)
+                _av_train = _av_df.iloc[:_av_split]
+                _av_test = _av_df.iloc[_av_split:]
+                if len(_av_train) >= 10 and len(_av_test) >= 10:
+                    _av_result = run_adversarial_validation(_av_train, _av_test)
+                    result.meta["adversarial_validation"] = {
+                        "auc": round(float(_av_result.auc), 4),
+                        "drift_detected": bool(_av_result.auc > 0.70),
+                        "top_drift_features": [f for f, _ in _av_result.top_drift_features[:5]],
+                    }
+                    log.debug("[ADV-VAL] auc=%.3f drift=%s", _av_result.auc, result.meta["adversarial_validation"]["drift_detected"])
+    except Exception as _av_exc:
+        log.debug("[ADV-VAL] adversarial_validation skipped: %s", _av_exc)
 
     # Step 3.7: Meta-model confidence scoring (shadow — needs pre-trained model)
     try:
@@ -5347,6 +5395,27 @@ def _run_trading_cycle_inner(
             log.debug("[KPI] run_kpis written to %s", _kpi_path)
     except Exception as _kpi_exc:
         log.debug("[KPI] write_run_kpis skipped: %s", _kpi_exc)
+
+    # Step 7.62: Write run manifest (reproducibility + lineage, policy-gated)
+    try:
+        if ctx.write_outputs:
+            from src.assembled_core.ops.run_manifest import write_run_manifest
+            from datetime import timezone as _tz, datetime as _datetime
+            _rm_path = write_run_manifest(
+                run_id=str(ctx.as_of.date()),
+                date=str(ctx.as_of.date()),
+                started_at_utc=ctx.as_of.isoformat(),
+                status="success",
+                metrics={
+                    "n_orders": len(result.orders_filtered),
+                    "n_signals": len(result.signals),
+                    "execution_mode": ctx.execution_mode,
+                },
+                manifests_dir=ctx.output_dir / "manifests",
+            )
+            log.debug("[MANIFEST] run manifest written to %s", _rm_path)
+    except Exception as _rm_exc:
+        log.debug("[MANIFEST] run_manifest skipped: %s", _rm_exc)
 
     # Phase 9: Signal diagnostics (end of cycle) — write signal_health.json
     try:
