@@ -2216,6 +2216,43 @@ def _run_trading_cycle_inner(
     except Exception as _cr_exc:
         log.debug("[CORR-REGIME] correlation_regime skipped: %s", _cr_exc)
 
+    # Step 2.8: Mean-reversion factors (RSI/Bollinger/Z-score per symbol, shadow enrichment)
+    try:
+        mr_fac_cfg = (policy.get("features") or {}).get("mean_reversion_factors") or {}
+        if mr_fac_cfg.get("enabled", False) and not result.prices_with_features.empty:
+            _req_cols_mr = {"symbol", "timestamp", "close"}
+            if _req_cols_mr.issubset(result.prices_with_features.columns):
+                from src.assembled_core.features.mean_reversion_factors import compute_mean_reversion_factors
+                _mr_fac_df = compute_mean_reversion_factors(result.prices_with_features)
+                if not _mr_fac_df.empty:
+                    _mr_fac_cols = [c for c in _mr_fac_df.columns if c.startswith("mr_")]
+                    _merge_keys = [k for k in ["symbol", "timestamp"] if k in _mr_fac_df.columns]
+                    result.prices_with_features = result.prices_with_features.merge(
+                        _mr_fac_df[_merge_keys + _mr_fac_cols], on=_merge_keys, how="left", suffixes=("", "_mrf")
+                    )
+                    result.meta["mean_reversion_factors"] = {"n_factor_cols": len(_mr_fac_cols)}
+                    log.debug("[MR-FACTORS] added %d mr_* factor columns", len(_mr_fac_cols))
+    except Exception as _mrf_exc:
+        log.debug("[MR-FACTORS] mean_reversion_factors skipped: %s", _mrf_exc)
+
+    # Step 2.9: Feature interaction terms (cross-feature products/ratios, shadow enrichment)
+    try:
+        ix_cfg = (policy.get("features") or {}).get("interaction_features") or {}
+        if ix_cfg.get("enabled", False) and not result.prices_with_features.empty:
+            from src.assembled_core.features.interaction_features import (
+                compute_interaction_features,
+                DEFAULT_INTERACTIONS,
+            )
+            _ix_before = set(result.prices_with_features.columns)
+            _ix_df = compute_interaction_features(result.prices_with_features)
+            _ix_added = [c for c in _ix_df.columns if c not in _ix_before]
+            if _ix_added:
+                result.prices_with_features = _ix_df
+                result.meta["interaction_features"] = {"n_added": len(_ix_added)}
+                log.debug("[IX-FEATURES] added %d interaction columns", len(_ix_added))
+    except Exception as _ix_exc:
+        log.debug("[IX-FEATURES] interaction_features skipped: %s", _ix_exc)
+
     # Step 3: Generate signals (hook point: generate_signals)
     try:
         if "generate_signals" in hooks:
