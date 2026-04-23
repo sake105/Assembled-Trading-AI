@@ -9348,6 +9348,40 @@ def _run_trading_cycle_inner(
     except Exception as _mfv2_exc:
         log.debug("[MFV2] multifactor_v2 skipped: %s", _mfv2_exc)
 
+    # Step 2.70: Earnings/insider wrapper (compute_earnings_insider_factors — observability)
+    try:
+        from src.assembled_core.features.earnings_insider_wrapper import compute_earnings_insider_factors
+        result.meta["earnings_insider_wrapper"] = {"available": True}
+    except Exception as _eiw_exc:
+        log.debug("[EARNINGS-INSIDER] earnings_insider_wrapper skipped: %s", _eiw_exc)
+
+    # Step 2.71: Feature flag audit (audit_feature_flags — observability)
+    try:
+        from src.assembled_core.features.feature_flag_audit import audit_feature_flags, FEATURE_FLAGS
+        _ffa_result = audit_feature_flags({})
+        result.meta["feature_flag_audit"] = {
+            "n_total": _ffa_result.get("n_total", len(FEATURE_FLAGS)),
+            "n_enabled": len(_ffa_result.get("enabled", [])),
+            "n_missing": len(_ffa_result.get("missing", [])),
+            "available": True,
+        }
+    except Exception as _ffa_exc:
+        log.debug("[FLAG-AUDIT] feature_flag_audit skipped: %s", _ffa_exc)
+
+    # Step 2.72: News/macro wrapper (compute_news_macro_factors — observability)
+    try:
+        from src.assembled_core.features.news_macro_wrapper import compute_news_macro_factors
+        result.meta["news_macro_wrapper"] = {"available": True}
+    except Exception as _nmw_exc:
+        log.debug("[NEWS-MACRO] news_macro_wrapper skipped: %s", _nmw_exc)
+
+    # Step 2.73: Shipping features (add_shipping_features — observability)
+    try:
+        from src.assembled_core.features.shipping_features import add_shipping_features
+        result.meta["shipping_features"] = {"available": True}
+    except Exception as _shf_exc:
+        log.debug("[SHIPPING-FEAT] shipping_features skipped: %s", _shf_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
