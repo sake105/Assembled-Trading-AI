@@ -10393,6 +10393,33 @@ def _run_trading_cycle_inner(
     except Exception as _ut_exc:
         log.debug("[UTILS-TIMING] utils.timing skipped: %s", _ut_exc)
 
+    # Step api.1: API app (create_app — observability)
+    try:
+        from src.assembled_core.api.app import create_app
+        result.meta["api_app"] = {"available": True}
+    except Exception as _app_exc:
+        log.debug("[API-APP] api.app skipped: %s", _app_exc)
+
+    # Step api.2: API models (SignalType / Signal — observability)
+    try:
+        from src.assembled_core.api.models import SignalType, Signal
+        result.meta["api_models"] = {
+            "n_signal_types": len(SignalType),
+            "available": True,
+        }
+    except Exception as _amod_exc:
+        log.debug("[API-MODELS] api.models skipped: %s", _amod_exc)
+
+    # Step cfg.1: Config package (OUTPUT_DIR / SUPPORTED_FREQS — observability)
+    try:
+        from src.assembled_core.config import OUTPUT_DIR, SUPPORTED_FREQS
+        result.meta["config_package"] = {
+            "n_supported_freqs": len(SUPPORTED_FREQS),
+            "available": True,
+        }
+    except Exception as _cfg_exc:
+        log.debug("[CONFIG] config package skipped: %s", _cfg_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
