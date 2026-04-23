@@ -8428,6 +8428,45 @@ def _run_trading_cycle_inner(
     except Exception as _fmp_exc:
         log.debug("[FILL-PIPELINE] fill_model_pipeline skipped: %s", _fmp_exc)
 
+    # Step 8.75: Intel health monitor (HealthMonitor — observability)
+    try:
+        from src.assembled_core.intel.health_monitor import HealthMonitor
+        _hm = HealthMonitor()
+        _hm.register("news_pipeline")
+        _hm.register("disclosure_pipeline")
+        _hm_status = _hm.overall_status() if hasattr(_hm, "overall_status") else "unknown"
+        result.meta["intel_health_monitor"] = {
+            "n_components": len(_hm._components),
+            "overall_status": str(_hm_status),
+            "available": True,
+        }
+    except Exception as _hm_exc:
+        log.debug("[HEALTH-MON] health_monitor skipped: %s", _hm_exc)
+
+    # Step 8.76: News decay (NewsDecay.impact_remaining — observability)
+    try:
+        from src.assembled_core.intel.news_decay import NewsDecay
+        _nd = NewsDecay()
+        _nd_impact = _nd.impact_remaining("earnings", minutes_since=60.0)
+        result.meta["news_decay"] = {
+            "earnings_impact_60min": float(_nd_impact),
+            "available": True,
+        }
+    except Exception as _nd_exc:
+        log.debug("[NEWS-DECAY] news_decay skipped: %s", _nd_exc)
+
+    # Step 8.77: Nation profiles (load_nation_profiles / compute_vulnerability_score — observability)
+    try:
+        from src.assembled_core.intel.nation_profiles import load_nation_profiles, compute_vulnerability_score
+        _np = load_nation_profiles()
+        _np_n = len(_np) if isinstance(_np, (list, dict)) else 0
+        result.meta["nation_profiles"] = {
+            "n_profiles": _np_n,
+            "available": True,
+        }
+    except Exception as _np_exc:
+        log.debug("[NATION-PROFILES] nation_profiles skipped: %s", _np_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
