@@ -5392,6 +5392,24 @@ def _run_trading_cycle_inner(
     except Exception as _tca_exc:
         log.debug("[TCA-ARRIVAL] tca_arrival skipped: %s", _tca_exc)
 
+    # Step 5.14: Risk escalation ladder (drawdown-based risk level — observability)
+    try:
+        if result.equity_series is not None and len(result.equity_series) >= 5:
+            from src.assembled_core.ops.self_healing import RiskEscalationLadder
+            _rel = RiskEscalationLadder()
+            _rel_eq = result.equity_series
+            _rel_peak = _rel_eq.cummax()
+            _rel_dd = float(((_rel_eq - _rel_peak) / _rel_peak).iloc[-1])
+            _rel_state = _rel.evaluate(current_drawdown=_rel_dd)
+            result.meta["risk_escalation"] = {
+                "level": str(_rel_state.level.value) if hasattr(_rel_state.level, "value") else str(_rel_state.level),
+                "drawdown": round(_rel_dd, 4),
+                "trigger_reason": _rel_state.trigger_reason,
+            }
+            log.debug("[ESCALATION] level=%s dd=%.3f", result.meta["risk_escalation"]["level"], _rel_dd)
+    except Exception as _rel_exc:
+        log.debug("[ESCALATION] self_healing escalation skipped: %s", _rel_exc)
+
     # Step 6: Apply risk controls (hook point: risk_controls)
     try:
         if "risk_controls" in hooks:
@@ -6923,6 +6941,42 @@ def _run_trading_cycle_inner(
             log.debug("[AB-TEST] mde=%.6f p_value=%.4f winner=%s", _ab_mde, _ab_result.p_value, _ab_result.winner)
     except Exception as _ab_exc:
         log.debug("[AB-TEST] ab_testing skipped: %s", _ab_exc)
+
+    # Step 8.34: ML dataset builder (build training dataset from orders + features — observability)
+    try:
+        if not result.orders_filtered.empty and not result.prices_with_features.empty:
+            from src.assembled_core.qa.dataset_builder import build_ml_dataset_from_backtest
+            _dset = build_ml_dataset_from_backtest(
+                result.prices_with_features,
+                result.orders_filtered,
+                label_horizon_days=5,
+                success_threshold=0.01,
+            )
+            result.meta["ml_dataset"] = {
+                "n_rows": len(_dset),
+                "n_cols": len(_dset.columns),
+                "has_label": "label" in _dset.columns,
+            }
+            log.debug("[ML-DATASET] %d rows × %d cols", len(_dset), len(_dset.columns))
+    except Exception as _dset_exc:
+        log.debug("[ML-DATASET] dataset_builder skipped: %s", _dset_exc)
+
+    # Step 8.35: Ensemble diversity check (correlation between signal columns — observability)
+    try:
+        if not result.signals.empty and result.signals.select_dtypes("number").shape[1] >= 2:
+            from src.assembled_core.ml.stacking import enforce_ensemble_diversity
+            _ed_num = result.signals.select_dtypes("number").fillna(0.0)
+            if len(_ed_num) >= 2:
+                _ed_arr = _ed_num.values
+                _ed_report = enforce_ensemble_diversity(_ed_arr, max_correlation=0.95)
+                result.meta["ensemble_diversity"] = {
+                    "avg_correlation": round(float(_ed_report["avg_correlation"]), 4),
+                    "diverse": bool(_ed_report["diverse"]),
+                    "n_models": _ed_arr.shape[1],
+                }
+                log.debug("[ENSEMBLE] avg_corr=%.3f diverse=%s", _ed_report["avg_correlation"], _ed_report["diverse"])
+    except Exception as _ed_exc:
+        log.debug("[ENSEMBLE] stacking ensemble_diversity skipped: %s", _ed_exc)
 
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
