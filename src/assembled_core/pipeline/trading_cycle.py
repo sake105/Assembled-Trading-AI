@@ -8539,6 +8539,45 @@ def _run_trading_cycle_inner(
     except Exception as _nee_exc:
         log.debug("[NEWS-ENRICHER] news_enricher skipped: %s", _nee_exc)
 
+    # Step 8.84: News impact estimator (NewsImpactEstimator — observability)
+    try:
+        from src.assembled_core.intel.news_impact_estimator import NewsImpactEstimator, ImpactEstimate
+        _nie = NewsImpactEstimator()
+        _nie_est = _nie.estimate(
+            type("_Cls", (), {"event_types": ["earnings"], "severity": 5.0,
+                              "market_direction": "bullish", "time_horizon": "short",
+                              "confidence": 0.6})()
+        )
+        result.meta["news_impact_estimator"] = {
+            "impact_bps": float(getattr(_nie_est, "bps", getattr(_nie_est, "impact_bps", 0.0))),
+            "available": True,
+        }
+    except Exception as _nie_exc:
+        log.debug("[IMPACT-EST] news_impact_estimator skipped: %s", _nie_exc)
+
+    # Step 8.85: Market confirmation (compute_market_confirmation — observability)
+    try:
+        from src.assembled_core.intel.market_confirmation import compute_market_confirmation
+        _mc = compute_market_confirmation(cache={})
+        result.meta["market_confirmation"] = {
+            "vix_spike": bool(_mc.get("vix_spike", False)),
+            "oil_move": float(_mc.get("oil_move", 0.0)),
+            "available": True,
+        }
+    except Exception as _mc_exc:
+        log.debug("[MARKET-CONF] market_confirmation skipped: %s", _mc_exc)
+
+    # Step 8.86: Currency crisis (rank_currencies_by_risk — observability)
+    try:
+        from src.assembled_core.intel.currency_crisis import rank_currencies_by_risk
+        _cc_ranked = rank_currencies_by_risk()
+        result.meta["currency_crisis"] = {
+            "n_ranked": len(_cc_ranked),
+            "available": True,
+        }
+    except Exception as _cc_exc:
+        log.debug("[CURRENCY-CRISIS] currency_crisis skipped: %s", _cc_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
