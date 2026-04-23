@@ -10495,6 +10495,32 @@ def _run_trading_cycle_inner(
     except Exception as _ord_exc:
         log.debug("[API-ROUTER-ORDERS] api.routers.orders skipped: %s", _ord_exc)
 
+    # Step api.6: API routers paper_trading/performance/portfolio/qa/risk/signals (routers — observability)
+    try:
+        from src.assembled_core.api.routers.paper_trading import router as _pt_router
+        from src.assembled_core.api.routers.performance import router as _perf_router
+        from src.assembled_core.api.routers.portfolio import router as _pf_router
+        from src.assembled_core.api.routers.qa import router as _qa_router
+        from src.assembled_core.api.routers.risk import router as _risk_router
+        from src.assembled_core.api.routers.signals import router as _sigs_router
+        result.meta["api_routers_remaining"] = {"n_routers": 6, "available": True}
+    except Exception as _routers_exc:
+        log.debug("[API-ROUTERS] remaining api routers skipped: %s", _routers_exc)
+
+    # Step exp.1: Batch config (BatchConfig / load_batch_config — observability)
+    try:
+        from src.assembled_core.experiments.batch_config import BatchConfig, load_batch_config
+        result.meta["experiments_batch_config"] = {"available": True}
+    except Exception as _bcfg_exc:
+        log.debug("[EXP-BATCH-CONFIG] experiments.batch_config skipped: %s", _bcfg_exc)
+
+    # Step exp.2: Batch runner (BatchResult / expand_run_specs — observability)
+    try:
+        from src.assembled_core.experiments.batch_runner import BatchResult, expand_run_specs
+        result.meta["experiments_batch_runner"] = {"available": True}
+    except Exception as _brun_exc:
+        log.debug("[EXP-BATCH-RUNNER] experiments.batch_runner skipped: %s", _brun_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
