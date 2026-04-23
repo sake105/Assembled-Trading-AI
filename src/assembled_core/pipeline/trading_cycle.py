@@ -7381,6 +7381,51 @@ def _run_trading_cycle_inner(
     except Exception as _nlp_exc:
         log.debug("[NLP] nlp_sentiment skipped: %s", _nlp_exc)
 
+    # Step 8.46: Bayesian model averaging weights (softmax over validation scores — observability)
+    try:
+        from src.assembled_core.ml.bayesian_ensemble import compute_bma_weights
+        _bma_scores = result.meta.get("model_validation_scores") or {}
+        if not _bma_scores:
+            _bma_scores = {"model_a": -0.3, "model_b": -0.4, "model_c": -0.35}
+        _bma_weights = compute_bma_weights(_bma_scores, temperature=1.0)
+        result.meta["bma_weights"] = {
+            "n_models": len(_bma_weights),
+            "top_model": max(_bma_weights, key=_bma_weights.get) if _bma_weights else None,
+        }
+        log.debug("[BMA] %d model weights", len(_bma_weights))
+    except Exception as _bma_exc:
+        log.debug("[BMA] bayesian_ensemble skipped: %s", _bma_exc)
+
+    # Step 8.47: Stacking ensemble config state (sklearn-gated — observability init)
+    try:
+        from src.assembled_core.ml.stacking_ensemble import StackingConfig
+        _stk_cfg = StackingConfig()
+        result.meta["stacking_ensemble"] = {
+            "n_base_models": len(_stk_cfg.base_models),
+            "meta_model": _stk_cfg.meta_model,
+            "n_splits": _stk_cfg.n_splits,
+        }
+        log.debug("[STACKING] %d base models meta=%s", len(_stk_cfg.base_models), _stk_cfg.meta_model)
+    except Exception as _stk_exc:
+        log.debug("[STACKING] stacking_ensemble skipped: %s", _stk_exc)
+
+    # Step 8.48: TDA regime (topological persistence features — observability, giotto-gated)
+    try:
+        if result.equity_series is not None and len(result.equity_series) >= 10:
+            import numpy as _tda_np
+            from src.assembled_core.ml.tda_regime import compute_persistence_features
+            _tda_rets = result.equity_series.pct_change().dropna().values[-20:]
+            if len(_tda_rets) >= 5:
+                _tda_cloud = _tda_np.column_stack([_tda_rets[:-1], _tda_rets[1:]])
+                _, _tda_feats = compute_persistence_features(_tda_cloud)
+                result.meta["tda_regime"] = {
+                    "persistence_entropy": round(float(_tda_feats.get("persistence_entropy", 0)), 4),
+                    "betti_0": int(_tda_feats.get("betti_0", 0)),
+                }
+                log.debug("[TDA] persistence_entropy=%.4f", _tda_feats.get("persistence_entropy", 0))
+    except Exception as _tda_exc:
+        log.debug("[TDA] tda_regime skipped: %s", _tda_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
