@@ -9654,6 +9654,31 @@ def _run_trading_cycle_inner(
     except Exception as _poly_exc:
         log.debug("[POLYGON] data.sources.polygon_source skipped: %s", _poly_exc)
 
+    # Step 2.100: World Bank source (fetch_worldbank_indicator — observability)
+    try:
+        from src.assembled_core.data.sources.worldbank_source import fetch_worldbank_indicator
+        result.meta["worldbank_source"] = {"available": True}
+    except Exception as _wb_exc:
+        log.debug("[WORLDBANK] data.sources.worldbank_source skipped: %s", _wb_exc)
+
+    # Step 2.101: yfinance source (fetch_prices_yfinance — observability)
+    try:
+        from src.assembled_core.data.sources.yfinance_source import fetch_prices_yfinance
+        result.meta["yfinance_source"] = {"available": True}
+    except Exception as _yf_exc:
+        log.debug("[YFINANCE] data.sources.yfinance_source skipped: %s", _yf_exc)
+
+    # Step 5.60: Minute bar aggregator (MinuteBarAggregator — observability)
+    try:
+        from src.assembled_core.data.streaming.minute_bar_aggregator import MinuteBarAggregator
+        _mba = MinuteBarAggregator()
+        result.meta["minute_bar_aggregator"] = {
+            "max_history": _mba.max_history,
+            "available": True,
+        }
+    except Exception as _mba_exc:
+        log.debug("[MINUTE-BAR] data.streaming.minute_bar_aggregator skipped: %s", _mba_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
