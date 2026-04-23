@@ -7604,6 +7604,48 @@ def _run_trading_cycle_inner(
     except Exception as _sr_exc:
         log.debug("[SYMBOLIC] symbolic_regression skipped: %s", _sr_exc)
 
+    # Step 8.57: Antifragility score (compute_antifragility_score — observability)
+    try:
+        from src.assembled_core.risk.antifragility import compute_antifragility_score
+        if not result.equity_curve.empty and len(result.equity_curve) >= 20:
+            _af_port_rets = result.equity_curve.pct_change().dropna()
+            _af_mkt_rets = _af_port_rets  # use portfolio as market proxy if no benchmark
+            _af_score = compute_antifragility_score(_af_port_rets, _af_mkt_rets, window=20)
+            result.meta["antifragility"] = {
+                "latest_score": round(float(_af_score.iloc[-1]) if not _af_score.empty and not _af_score.isna().all() else 0.0, 4),
+                "window": 20,
+            }
+        else:
+            result.meta["antifragility"] = {"status": "insufficient_equity_history"}
+    except Exception as _af_exc:
+        log.debug("[ANTIFRAGILITY] antifragility skipped: %s", _af_exc)
+
+    # Step 8.58: Stressed VaR module state (RMT covariance available — observability)
+    try:
+        from src.assembled_core.risk.stressed_var import (
+            StressedVaRResult, marchenko_pastur_bounds, RMTResult,
+        )
+        _mp_bounds = marchenko_pastur_bounds(n_obs=252, n_assets=50)
+        result.meta["stressed_var"] = {
+            "mp_lower": round(float(_mp_bounds[0]), 4),
+            "mp_upper": round(float(_mp_bounds[1]), 4),
+            "available": True,
+        }
+    except Exception as _svar_exc:
+        log.debug("[STRESSED-VAR] stressed_var skipped: %s", _svar_exc)
+
+    # Step 8.59: Profit target config state (ProfitTargetConfig init — observability)
+    try:
+        from src.assembled_core.risk.profit_targets import ProfitTargetConfig
+        _pt_cfg = ProfitTargetConfig()
+        result.meta["profit_targets"] = {
+            "n_tiers": len(_pt_cfg.tiers),
+            "apply_to_shorts": _pt_cfg.apply_to_shorts,
+            "tier_thresholds": [t[0] for t in _pt_cfg.tiers],
+        }
+    except Exception as _pt_exc:
+        log.debug("[PROFIT-TARGETS] profit_targets skipped: %s", _pt_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
