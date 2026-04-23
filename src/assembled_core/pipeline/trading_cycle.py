@@ -8135,6 +8135,43 @@ def _run_trading_cycle_inner(
     except Exception as _burst_exc:
         log.debug("[NEWS-BURST] news_burst skipped: %s", _burst_exc)
 
+    # Step 8.72: News fingerprint (simhash64 / hamming_distance — observability)
+    try:
+        from src.assembled_core.events.news.fingerprint import simhash64, hamming_distance
+        _fp1 = simhash64("market rally equity risk")
+        _fp2 = simhash64("market rally equity risk")
+        result.meta["news_fingerprint"] = {
+            "hash_type": "simhash64",
+            "same_text_distance": hamming_distance(_fp1, _fp2),
+            "available": True,
+        }
+    except Exception as _fp_exc:
+        log.debug("[FINGERPRINT] news_fingerprint skipped: %s", _fp_exc)
+
+    # Step 8.73: News TF-IDF (build_tfidf_vectors / cosine_sparse — observability)
+    try:
+        from src.assembled_core.events.news.tfidf import build_tfidf_vectors, cosine_sparse
+        _tfidf_vecs = build_tfidf_vectors(["equity market rally", "bond yields rising"])
+        _tfidf_sim = cosine_sparse(_tfidf_vecs[0], _tfidf_vecs[1]) if len(_tfidf_vecs) >= 2 else 0.0
+        result.meta["news_tfidf"] = {
+            "n_docs": len(_tfidf_vecs),
+            "cosine_sim_sample": float(_tfidf_sim),
+            "available": True,
+        }
+    except Exception as _tfidf_exc:
+        log.debug("[TFIDF] news_tfidf skipped: %s", _tfidf_exc)
+
+    # Step 8.74: Trigger scoring (score_triggers — observability)
+    try:
+        from src.assembled_core.events.news.trigger_scoring import score_triggers
+        _ts_result = score_triggers(clusters=[], events_by_id={})
+        result.meta["trigger_scoring"] = {
+            "n_triggers": len(_ts_result),
+            "available": True,
+        }
+    except Exception as _ts_exc:
+        log.debug("[TRIGGER-SCORING] trigger_scoring skipped: %s", _ts_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
