@@ -8859,6 +8859,37 @@ def _run_trading_cycle_inner(
     except Exception as _tss_exc:
         log.debug("[TRIGGER-SNAP] trigger_snapshot_store skipped: %s", _tss_exc)
 
+    # Step 8.114: Weaponized interdependence (get_known_wi_pairs — observability)
+    try:
+        from src.assembled_core.intel.weaponized_interdependence import get_known_wi_pairs
+        _wi_pairs = get_known_wi_pairs()
+        result.meta["weaponized_interdependence"] = {
+            "n_wi_pairs": len(_wi_pairs),
+            "available": True,
+        }
+    except Exception as _wi_exc:
+        log.debug("[WI] weaponized_interdependence skipped: %s", _wi_exc)
+
+    # Step 8.115: Wild card detector (detect_volume_anomaly — observability)
+    try:
+        import pandas as pd
+        from src.assembled_core.intel.wild_card_detector import detect_volume_anomaly
+        _wc_result = detect_volume_anomaly(pd.Series([], dtype=float))
+        result.meta["wild_card_detector"] = {
+            "is_anomaly": _wc_result.get("is_anomaly", False),
+            "available": True,
+        }
+    except Exception as _wc_exc:
+        log.debug("[WILD-CARD] wild_card_detector skipped: %s", _wc_exc)
+
+    # Step 8.116: Dependency graph (DependencyGraph — observability)
+    try:
+        from src.assembled_core.intel.dependency_graph import DependencyGraph
+        _dg = DependencyGraph()
+        result.meta["dependency_graph"] = {"n_nodes": len(_dg._nodes), "available": True}
+    except Exception as _dg_exc:
+        log.debug("[DEP-GRAPH] dependency_graph skipped: %s", _dg_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
