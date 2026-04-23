@@ -1875,6 +1875,26 @@ def _run_trading_cycle_inner(
     except Exception as _pqc_exc:
         log.debug("[PRICE-QC] price_panel_qc skipped: %s", _pqc_exc)
 
+    # Step 1.97: Macro diffusion index (proxy from price returns momentum — observability)
+    try:
+        if not result.prices_filtered.empty and "close" in result.prices_filtered.columns:
+            from src.assembled_core.features.macro_features import compute_diffusion_index
+            _mdi_pivot = result.prices_filtered.pivot_table(
+                index="timestamp", columns="symbol", values="close", aggfunc="last"
+            )
+            if len(_mdi_pivot) >= 5:
+                _mdi_dict = {sym: _mdi_pivot[sym].dropna() for sym in _mdi_pivot.columns if _mdi_pivot[sym].notna().sum() >= 3}
+                if _mdi_dict:
+                    _mdi_series = compute_diffusion_index(_mdi_dict, momentum_window=3)
+                    _mdi_latest = float(_mdi_series.iloc[-1]) if not _mdi_series.empty else 0.5
+                    result.meta["macro_diffusion_index"] = {
+                        "latest": round(_mdi_latest, 4),
+                        "n_series": len(_mdi_dict),
+                    }
+                    log.debug("[MACRO-DIFFUSION] diffusion=%.3f from %d series", _mdi_latest, len(_mdi_dict))
+    except Exception as _mdi_exc:
+        log.debug("[MACRO-DIFFUSION] macro_features diffusion skipped: %s", _mdi_exc)
+
     # Step 2: Build features (hook point: build_features)
     try:
         if "build_features" in hooks:
@@ -6390,6 +6410,56 @@ def _run_trading_cycle_inner(
                     log.debug("[POST-TRADE] %d/%d rows with 5d forward returns", _pta_valid, len(_pta_fwd))
     except Exception as _pta_exc:
         log.debug("[POST-TRADE] post_trade_analyzer skipped: %s", _pta_exc)
+
+    # Step 8.19: Performance attribution (OLS alpha/beta vs market proxy — observability)
+    try:
+        if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            from src.assembled_core.qa.performance_attribution import compute_attribution
+            _attr_pivot = result.prices_with_features.pivot_table(
+                index="timestamp", columns="symbol", values="close", aggfunc="last"
+            )
+            _attr_ret = _attr_pivot.pct_change().dropna()
+            if len(_attr_ret) >= 25 and len(_attr_ret.columns) >= 2:
+                _attr_market = _attr_ret.mean(axis=1)
+                # Use first symbol as portfolio proxy
+                _attr_port = _attr_ret.iloc[:, 0]
+                _attr_factors = pd.DataFrame({"market": _attr_market.values}, index=_attr_market.index)
+                _attr_port_aligned = pd.Series(_attr_port.values, index=_attr_market.index)
+                _attr_result = compute_attribution(_attr_port_aligned, _attr_factors, min_obs=20)
+                result.meta["performance_attribution"] = {
+                    "alpha": round(float(_attr_result.alpha), 6),
+                    "market_beta": round(float(_attr_result.factor_betas.get("market", 0.0)), 4),
+                    "r_squared": round(float(_attr_result.r_squared), 4),
+                }
+                log.debug("[ATTR] alpha=%.4f beta=%.3f R2=%.3f", _attr_result.alpha,
+                          _attr_result.factor_betas.get("market", 0.0), _attr_result.r_squared)
+    except Exception as _attr_exc:
+        log.debug("[ATTR] performance_attribution skipped: %s", _attr_exc)
+
+    # Step 8.20: QA gates evaluation on cycle equity proxy (observability)
+    try:
+        if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            from src.assembled_core.qa.qa_gates import evaluate_all_gates
+            from src.assembled_core.qa.metrics import compute_equity_metrics
+            _qg_pivot = result.prices_with_features.pivot_table(
+                index="timestamp", columns="symbol", values="close", aggfunc="last"
+            )
+            _qg_eq_series = _qg_pivot.median(axis=1).dropna()
+            if len(_qg_eq_series) >= 20:
+                _qg_eq_df = pd.DataFrame({"timestamp": _qg_eq_series.index, "equity": _qg_eq_series.values})
+                _qg_metrics = compute_equity_metrics(_qg_eq_df, start_capital=float(_qg_eq_series.iloc[0]))
+                _qg_summary = evaluate_all_gates(_qg_metrics)
+                result.meta["qa_gates"] = {
+                    "overall": str(_qg_summary.overall_result),
+                    "passed": _qg_summary.passed_gates,
+                    "warnings": _qg_summary.warning_gates,
+                    "blocked": _qg_summary.blocked_gates,
+                }
+                log.debug("[QA-GATES] overall=%s passed=%d warned=%d blocked=%d",
+                          _qg_summary.overall_result, _qg_summary.passed_gates,
+                          _qg_summary.warning_gates, _qg_summary.blocked_gates)
+    except Exception as _qg_exc:
+        log.debug("[QA-GATES] qa_gates skipped: %s", _qg_exc)
 
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
