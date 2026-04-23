@@ -8832,6 +8832,33 @@ def _run_trading_cycle_inner(
     except Exception as _sl_exc:
         log.debug("[SHIPPING-LANES] shipping_lanes skipped: %s", _sl_exc)
 
+    # Step 8.111: Shock propagation (SHOCK_TO_ORIGIN_NODES — observability)
+    try:
+        from src.assembled_core.intel.shock_propagation import SHOCK_TO_ORIGIN_NODES, DEFAULT_DAMPENING_FACTOR
+        result.meta["shock_propagation"] = {
+            "n_shock_types": len(SHOCK_TO_ORIGIN_NODES),
+            "dampening_factor": DEFAULT_DAMPENING_FACTOR,
+            "available": True,
+        }
+    except Exception as _shp_exc:
+        log.debug("[SHOCK-PROP] shock_propagation skipped: %s", _shp_exc)
+
+    # Step 8.112: Source registry (list_sources / get_trust_weight — observability)
+    try:
+        from src.assembled_core.intel.source_registry import list_sources, get_trust_weight
+        _sr_sources = list_sources()
+        result.meta["source_registry"] = {"n_sources": len(_sr_sources), "available": True}
+    except Exception as _sr_exc:
+        log.debug("[SOURCE-REG] source_registry skipped: %s", _sr_exc)
+
+    # Step 8.113: Trigger snapshot store (TriggerSnapshotStore — observability)
+    try:
+        from src.assembled_core.intel.trigger_snapshot_store import TriggerSnapshotStore
+        _tss = TriggerSnapshotStore(root="data/intel/snapshots")
+        result.meta["trigger_snapshot_store"] = {"root": str(_tss._root), "available": True}
+    except Exception as _tss_exc:
+        log.debug("[TRIGGER-SNAP] trigger_snapshot_store skipped: %s", _tss_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
