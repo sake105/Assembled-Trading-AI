@@ -3151,6 +3151,24 @@ def _run_trading_cycle_inner(
     except Exception as _cp_exc:
         log.debug("[CONFORMAL] conformal_prediction skipped: %s", _cp_exc)
 
+    # Step 3.86: Purged walk-forward split meta (observability — how many CV folds fit in current history)
+    try:
+        if not result.prices_with_features.empty and "timestamp" in result.prices_with_features.columns:
+            from src.assembled_core.ml.purged_cv import purged_walk_forward_split
+            _pwf_ts = pd.to_datetime(result.prices_with_features["timestamp"]).drop_duplicates().sort_values()
+            if len(_pwf_ts) >= 50:
+                _pwf_splits = purged_walk_forward_split(
+                    _pwf_ts, train_window_days=120, test_window_days=30, max_splits=10
+                )
+                result.meta["purged_cv"] = {
+                    "n_splits": len(_pwf_splits),
+                    "train_window_days": 120,
+                    "test_window_days": 30,
+                }
+                log.debug("[PURGED-CV] %d walk-forward splits", len(_pwf_splits))
+    except Exception as _pwf_exc:
+        log.debug("[PURGED-CV] purged_cv skipped: %s", _pwf_exc)
+
     # Step 4: Size positions (hook point: size_positions)
     try:
         if "size_positions" in hooks:
@@ -6276,6 +6294,41 @@ def _run_trading_cycle_inner(
         log.debug("[EXP-TRACKER] cycle run logged for %s", ctx.as_of.date())
     except Exception as _et_exc:
         log.debug("[EXP-TRACKER] experiment_tracking skipped: %s", _et_exc)
+
+    # Step 8.16: Retraining scheduler — evaluate retrain signals (observability)
+    try:
+        from src.assembled_core.ml.retraining_scheduler import RetrainingScheduler
+        _rs = RetrainingScheduler()
+        _rs_equity = None
+        if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            _rs_piv = result.prices_with_features.pivot_table(
+                index="timestamp", columns="symbol", values="close", aggfunc="last"
+            )
+            _rs_equity = _rs_piv.median(axis=1).dropna()
+        _rs_rec = _rs.evaluate(
+            model_last_trained_date=None,
+            equity_since_retrain=_rs_equity,
+        )
+        result.meta["retraining_scheduler"] = {
+            "decision": _rs_rec.decision,
+            "signals_fired": _rs_rec.signals_fired,
+        }
+        log.debug("[RETRAIN-SCHED] decision=%s fired=%d", _rs_rec.decision, _rs_rec.signals_fired)
+    except Exception as _rs_exc:
+        log.debug("[RETRAIN-SCHED] retraining_scheduler skipped: %s", _rs_exc)
+
+    # Step 8.17: Signal decay tracker state (observability — check snapshot history size)
+    try:
+        from src.assembled_core.ml.signal_decay_tracker import SignalDecayTracker
+        _sdt = SignalDecayTracker(
+            state_path=ctx.output_dir / "ml" / "signal_decay_history.json"
+        )
+        result.meta["signal_decay_tracker"] = {
+            "n_snapshots": len(_sdt._snapshots),
+        }
+        log.debug("[SIGNAL-DECAY] %d historical snapshots loaded", len(_sdt._snapshots))
+    except Exception as _sdt_exc:
+        log.debug("[SIGNAL-DECAY] signal_decay_tracker skipped: %s", _sdt_exc)
 
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
