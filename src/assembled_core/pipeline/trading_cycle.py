@@ -10131,6 +10131,33 @@ def _run_trading_cycle_inner(
     except Exception as _pio_exc:
         log.debug("[PIPELINE-IO] pipeline.io skipped: %s", _pio_exc)
 
+    # Step pipe.6: Pipeline orchestrator (run_eod_pipeline — observability)
+    try:
+        from src.assembled_core.pipeline.orchestrator import run_eod_pipeline, run_backtest_step
+        result.meta["pipeline_orchestrator"] = {"available": True}
+    except Exception as _orch_exc:
+        log.debug("[PIPELINE-ORCH] pipeline.orchestrator skipped: %s", _orch_exc)
+
+    # Step pipe.7: Pipeline orders (signals_to_orders — observability)
+    try:
+        from src.assembled_core.pipeline.orders import signals_to_orders
+        result.meta["pipeline_orders"] = {"available": True}
+    except Exception as _pord_exc:
+        log.debug("[PIPELINE-ORDERS] pipeline.orders skipped: %s", _pord_exc)
+
+    # Step pipe.8: Pipeline timing (PipelineTimer — observability)
+    try:
+        from src.assembled_core.pipeline.pipeline_timing import PipelineTimer
+        _ptimer = PipelineTimer(budget_seconds=300.0)
+        _ptimer.start_step("shadow")
+        _ptimer.end_step()
+        result.meta["pipeline_timing"] = {
+            "budget_seconds": _ptimer.budget_seconds,
+            "available": True,
+        }
+    except Exception as _ptim_exc:
+        log.debug("[PIPELINE-TIMING] pipeline.pipeline_timing skipped: %s", _ptim_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
