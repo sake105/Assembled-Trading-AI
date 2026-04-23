@@ -9611,6 +9611,28 @@ def _run_trading_cycle_inner(
     except Exception as _av_exc:
         log.debug("[ALPHAVANTAGE] data.sources.alphavantage_source skipped: %s", _av_exc)
 
+    # Step 2.94: BLS source (fetch_bls_series — observability)
+    try:
+        from src.assembled_core.data.sources.bls_source import fetch_bls_series
+        result.meta["bls_source"] = {"available": True}
+    except Exception as _bls_exc:
+        log.debug("[BLS] data.sources.bls_source skipped: %s", _bls_exc)
+
+    # Step 2.95: CBOE source (CBOESource — observability)
+    try:
+        from src.assembled_core.data.sources.cboe_source import CBOESource
+        _cboe = CBOESource()
+        result.meta["cboe_source"] = {"available": True}
+    except Exception as _cboe_exc:
+        log.debug("[CBOE] data.sources.cboe_source skipped: %s", _cboe_exc)
+
+    # Step 2.96: EDGAR source (fetch_insider_trades — observability)
+    try:
+        from src.assembled_core.data.sources.edgar_source import fetch_insider_trades
+        result.meta["edgar_source"] = {"available": True}
+    except Exception as _edgar_exc:
+        log.debug("[EDGAR] data.sources.edgar_source skipped: %s", _edgar_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
