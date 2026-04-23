@@ -4326,6 +4326,38 @@ def _run_trading_cycle_inner(
     except Exception as _caw_exc:
         log.debug("[COST-AWARE] cost_aware_wrapper skipped: %s", _caw_exc)
 
+    # Step 4.86: Regime-conditional cost estimate for target orders
+    try:
+        rc_cfg = (policy.get("ml") or {}).get("regime_costs") or {}
+        if rc_cfg.get("enabled", False) and not result.target_positions.empty:
+            from src.assembled_core.risk.regime_costs import estimate_regime_costs
+            _rc_regime = str(result.meta.get("regime", {}).get("regime", "normal"))
+            _rc_total = 0.0
+            _rc_count = 0
+            w_col = next((c for c in ("target_weight", "weight") if c in result.target_positions.columns), None)
+            if w_col:
+                _pv = float(ctx.portfolio_value) if ctx.portfolio_value else 100_000.0
+                for _, _row in result.target_positions.iterrows():
+                    _wt = float(_row.get(w_col, 0.0) or 0.0)
+                    _notional = abs(_wt) * _pv
+                    if _notional > 0:
+                        _est = estimate_regime_costs(
+                            trade_value=_notional,
+                            adv=float(rc_cfg.get("default_adv", 50_000_000.0)),
+                            regime=_rc_regime,
+                        )
+                        _rc_total += _est.total_cost_bps * _notional / 10_000
+                        _rc_count += 1
+            if _rc_count > 0:
+                result.meta["regime_costs"] = {
+                    "regime": _rc_regime,
+                    "n_positions": _rc_count,
+                    "estimated_total_cost_usd": round(_rc_total, 4),
+                }
+                log.debug("[REGIME-COST] regime=%s n=%d total=$%.4f", _rc_regime, _rc_count, _rc_total)
+    except Exception as _rc_exc:
+        log.debug("[REGIME-COST] regime_costs skipped: %s", _rc_exc)
+
     # Step 4.9: Long-short balance enforcement (exposure audit + optional rebalance)
     try:
         if not result.target_positions.empty:
@@ -4640,6 +4672,28 @@ def _run_trading_cycle_inner(
                 )
     except Exception as e:
         log.debug("[RISK-WIRE] barbell_strategy skipped: %s", e)
+
+    # Step 5.5: Portfolio risk metrics (VaR, vol, drawdown from price history)
+    try:
+        if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            from src.assembled_core.qa.risk_metrics import compute_portfolio_risk_metrics
+            _rm_proxy = result.prices_with_features.pivot_table(
+                index="timestamp", columns="symbol", values="close", aggfunc="last"
+            ).median(axis=1)
+            if len(_rm_proxy) >= 5:
+                _rm_result = compute_portfolio_risk_metrics(_rm_proxy)
+                result.meta["portfolio_risk_metrics"] = {
+                    k: round(v, 6) if isinstance(v, float) else v
+                    for k, v in _rm_result.items() if v is not None
+                }
+                log.debug(
+                    "[RISK-METRICS] ann_vol=%.4f maxDD=%.4f var95=%.4f",
+                    _rm_result.get("ann_vol") or 0.0,
+                    _rm_result.get("max_drawdown") or 0.0,
+                    _rm_result.get("var_95") or 0.0,
+                )
+    except Exception as _rm_exc:
+        log.debug("[RISK-METRICS] portfolio risk_metrics skipped: %s", _rm_exc)
 
     # Step 5.6: Tail dependence diagnostic (crash synchronization risk, observability)
     try:
