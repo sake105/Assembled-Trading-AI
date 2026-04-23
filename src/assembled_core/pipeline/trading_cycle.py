@@ -10318,6 +10318,31 @@ def _run_trading_cycle_inner(
     except Exception as _th_exc:
         log.debug("[RISK-TAIL-HEDGE] risk.tail_hedge skipped: %s", _th_exc)
 
+    # Step sig.1: Signal ensemble (apply_meta_filter — observability)
+    try:
+        from src.assembled_core.signals.ensemble import apply_meta_filter, apply_meta_scaling
+        result.meta["signals_ensemble"] = {"available": True}
+    except Exception as _ens_exc:
+        log.debug("[SIGNALS-ENSEMBLE] signals.ensemble skipped: %s", _ens_exc)
+
+    # Step strat.1: Strategy base (StrategyRegistry — observability)
+    try:
+        from src.assembled_core.strategies.base import StrategyRegistry, StrategySignal
+        _sreg = StrategyRegistry()
+        result.meta["strategies_base"] = {
+            "n_registered": len(_sreg._strategies) if hasattr(_sreg, "_strategies") else 0,
+            "available": True,
+        }
+    except Exception as _sbase_exc:
+        log.debug("[STRATEGIES-BASE] strategies.base skipped: %s", _sbase_exc)
+
+    # Step strat.2: Cointegration (PairCandidate / screen_pairs — observability)
+    try:
+        from src.assembled_core.strategies.stat_arb.cointegration import PairCandidate, screen_pairs
+        result.meta["strategies_stat_arb_cointegration"] = {"available": True}
+    except Exception as _coint_exc:
+        log.debug("[STRAT-COINTEGRATION] strategies.stat_arb.cointegration skipped: %s", _coint_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
