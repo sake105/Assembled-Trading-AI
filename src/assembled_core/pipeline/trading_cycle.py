@@ -2678,6 +2678,29 @@ def _run_trading_cycle_inner(
     except Exception as _mr_exc:
         log.debug("[MR-SIGNAL] mean_reversion_signals skipped: %s", _mr_exc)
 
+    # Step 3.45: Factor timing momentum (which factors are working now, shadow)
+    try:
+        ft_cfg = (policy.get("ml") or {}).get("factor_timing") or {}
+        if ft_cfg.get("enabled", False) and not result.prices_with_features.empty:
+            from src.assembled_core.ml.factor_timing import compute_factor_momentum
+            _factor_cols = [c for c in result.prices_with_features.columns
+                            if c not in {"symbol", "timestamp", "open", "high", "low", "close", "volume"}
+                            and pd.api.types.is_numeric_dtype(result.prices_with_features[c])][:15]
+            if len(_factor_cols) >= 2:
+                # Use cross-sectional mean per timestamp as factor "returns"
+                _ft_pivot = result.prices_with_features.groupby("timestamp")[_factor_cols].mean()
+                _ft_returns = _ft_pivot.diff().dropna()
+                if len(_ft_returns) >= 5:
+                    _ft_momentum = compute_factor_momentum(_ft_returns, lookback=min(12, len(_ft_returns)))
+                    result.meta["factor_timing"] = {
+                        "top_factors": sorted(_ft_momentum, key=_ft_momentum.get, reverse=True)[:5],
+                        "n_factors": len(_ft_momentum),
+                    }
+                    log.debug("[FACTOR-TIMING] top factor: %s",
+                              sorted(_ft_momentum, key=_ft_momentum.get, reverse=True)[:1])
+    except Exception as _ft_exc:
+        log.debug("[FACTOR-TIMING] factor_timing skipped: %s", _ft_exc)
+
     # Step 3.55: Multi-factor composite signal (shadow — enriches signals with mf_score)
     try:
         mf_cfg = policy.get("multifactor_signal") or {}
@@ -2717,6 +2740,25 @@ def _run_trading_cycle_inner(
                 log.debug("[MULTIFACTOR] bundle not found at %s — skipping", _mf_bundle_path)
     except Exception as _mf_exc:
         log.debug("[MULTIFACTOR] multifactor_signal skipped: %s", _mf_exc)
+
+    # Step 3.58: Signal correlation analysis (redundancy detection, shadow observability)
+    try:
+        if not result.signals.empty:
+            from src.assembled_core.ml.signal_correlation import SignalCorrelationAnalyzer
+            _sig_numeric_cols = [c for c in result.signals.columns
+                                  if c not in ("symbol", "direction", "timestamp")
+                                  and pd.api.types.is_numeric_dtype(result.signals[c])]
+            if len(_sig_numeric_cols) >= 2 and len(result.signals) >= 5:
+                _sca = SignalCorrelationAnalyzer()
+                _sca_report = _sca.analyze(result.signals[_sig_numeric_cols])
+                result.meta["signal_correlation"] = {
+                    "mean_abs_corr": round(_sca_report.mean_abs_corr, 4),
+                    "n_signals": _sca_report.n_signals,
+                    "n_redundant_clusters": len(_sca_report.redundant_clusters),
+                }
+                log.debug("[SIG-CORR] mean_abs_corr=%.3f, n_signals=%d", _sca_report.mean_abs_corr, _sca_report.n_signals)
+    except Exception as _sca_exc:
+        log.debug("[SIG-CORR] signal_correlation skipped: %s", _sca_exc)
 
     # Step 3.6: Ranking hysteresis (anti-churn) — reduces symbol rotation noise
     try:
