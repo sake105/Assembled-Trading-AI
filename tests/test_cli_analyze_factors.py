@@ -156,7 +156,7 @@ def test_analyze_factors_direct_call(
     """Test analyze_factors by calling the function directly."""
     from scripts.run_factor_analysis import run_factor_analysis_from_args
     from argparse import Namespace
-    from assembled_core.config.settings import reset_settings
+    from src.assembled_core.config.settings import reset_settings
 
     # Set up environment
     # sample_price_data is the output_dir root containing aggregates/1d.parquet
@@ -221,7 +221,7 @@ def test_analyze_factors_with_vol_liquidity(
     """Test analyze_factors with vol_liquidity factor set."""
     from scripts.run_factor_analysis import run_factor_analysis_from_args
     from argparse import Namespace
-    from assembled_core.config.settings import reset_settings
+    from src.assembled_core.config.settings import reset_settings
 
     # Set up environment
     # sample_price_data is the output_dir root containing aggregates/1d.parquet

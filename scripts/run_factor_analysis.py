@@ -599,23 +599,29 @@ def write_factor_analysis_report(
         f.write(f"**Forward Horizon:** {horizon_days} days\n")
         f.write(f"**Frequency:** {freq}\n\n")
 
+        def _df_to_md(df):
+            try:
+                return df.to_markdown(index=False)
+            except ImportError:
+                return df.to_csv(index=False)
+
         f.write("## IC Summary (Pearson Correlation)\n\n")
         if not summary_ic.empty:
-            f.write(summary_ic.to_markdown(index=False))
+            f.write(_df_to_md(summary_ic))
             f.write("\n\n")
         else:
             f.write("No IC data available.\n\n")
 
         f.write("## Rank-IC Summary (Spearman Rank Correlation)\n\n")
         if not summary_rank_ic.empty:
-            f.write(summary_rank_ic.to_markdown(index=False))
+            f.write(_df_to_md(summary_rank_ic))
             f.write("\n\n")
         else:
             f.write("No Rank-IC data available.\n\n")
 
         f.write("## Portfolio Performance Summary\n\n")
         if not portfolio_summary.empty:
-            f.write(portfolio_summary.to_markdown(index=False))
+            f.write(_df_to_md(portfolio_summary))
             f.write("\n\n")
         else:
             f.write("No portfolio data available.\n\n")

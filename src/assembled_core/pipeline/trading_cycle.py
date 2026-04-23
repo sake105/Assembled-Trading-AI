@@ -8872,7 +8872,6 @@ def _run_trading_cycle_inner(
 
     # Step 8.115: Wild card detector (detect_volume_anomaly — observability)
     try:
-        import pandas as pd
         from src.assembled_core.intel.wild_card_detector import detect_volume_anomaly
         _wc_result = detect_volume_anomaly(pd.Series([], dtype=float))
         result.meta["wild_card_detector"] = {
