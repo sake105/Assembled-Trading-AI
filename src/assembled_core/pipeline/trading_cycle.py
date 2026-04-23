@@ -9318,6 +9318,36 @@ def _run_trading_cycle_inner(
     except Exception as _icd_exc:
         log.debug("[IC-DECAY] ic_decay_weights skipped: %s", _icd_exc)
 
+    # Step 3.92: MultiFactorLongShort strategy (generate_multifactor_long_short_signals — observability)
+    try:
+        from src.assembled_core.strategies.multifactor_long_short import (
+            MultiFactorStrategyConfig,
+            generate_multifactor_long_short_signals,
+        )
+        _mfls_cfg = MultiFactorStrategyConfig(bundle_path="")
+        result.meta["multifactor_long_short"] = {
+            "top_quantile": _mfls_cfg.top_quantile,
+            "bottom_quantile": _mfls_cfg.bottom_quantile,
+            "rebalance_freq": _mfls_cfg.rebalance_freq,
+            "available": True,
+        }
+    except Exception as _mfls_exc:
+        log.debug("[MFLS] multifactor_long_short skipped: %s", _mfls_exc)
+
+    # Step 3.93: MultiFactorV1 strategy (compute_signals — observability)
+    try:
+        from src.assembled_core.strategies.multifactor_v1 import compute_signals as _mfv1_signals
+        result.meta["multifactor_v1"] = {"available": True}
+    except Exception as _mfv1_exc:
+        log.debug("[MFV1] multifactor_v1 skipped: %s", _mfv1_exc)
+
+    # Step 3.94: MultiFactorV2 strategy (compute_signals — observability)
+    try:
+        from src.assembled_core.strategies.multifactor_v2 import compute_signals as _mfv2_signals
+        result.meta["multifactor_v2"] = {"available": True}
+    except Exception as _mfv2_exc:
+        log.debug("[MFV2] multifactor_v2 skipped: %s", _mfv2_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
