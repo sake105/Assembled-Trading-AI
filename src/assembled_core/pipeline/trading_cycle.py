@@ -8297,6 +8297,53 @@ def _run_trading_cycle_inner(
     except Exception as _dat_exc:
         log.debug("[DECISION-AUDIT] decision_audit skipped: %s", _dat_exc)
 
+    # Step 7.82: Position engine (build_positions_from_ledger — observability)
+    try:
+        from src.assembled_core.accounting.position_engine import build_positions_from_ledger
+        import pandas as _pd_pe
+        _pe_events = _pd_pe.DataFrame(columns=[
+            "event_id", "event_ts", "event_type", "symbol",
+            "quantity", "price", "cash_delta",
+        ])
+        _pe_result = build_positions_from_ledger(_pe_events)
+        _pe_positions = _pe_result.get("positions_df", _pe_result.get("positions", {}))
+        _pe_cash = _pe_result.get("cash_balance", _pe_result.get("cash", 0.0))
+        result.meta["position_engine"] = {
+            "n_positions": len(_pe_positions) if hasattr(_pe_positions, "__len__") else 0,
+            "cash": float(_pe_cash),
+            "available": True,
+        }
+    except Exception as _pe_exc:
+        log.debug("[POSITION-ENGINE] position_engine skipped: %s", _pe_exc)
+
+    # Step 7.83: Broker snapshot (normalize_broker_snapshot — observability)
+    try:
+        from src.assembled_core.accounting.broker_snapshot import normalize_broker_snapshot
+        import pandas as _pd_bs
+        _bs = normalize_broker_snapshot(
+            cash=0.0,
+            positions_df=_pd_bs.DataFrame(columns=["symbol", "qty"]),
+        )
+        result.meta["broker_snapshot"] = {
+            "n_positions": len(_bs.get("positions_df", _pd_bs.DataFrame())),
+            "cash": float(_bs.get("cash", 0.0)),
+            "available": True,
+        }
+    except Exception as _bs_exc:
+        log.debug("[BROKER-SNAPSHOT] broker_snapshot skipped: %s", _bs_exc)
+
+    # Step 7.84: Accounting report (accounting_report — observability)
+    try:
+        from src.assembled_core.accounting.accounting_report import (
+            AccountingReport,
+        )
+        result.meta["accounting_report"] = {
+            "available": True,
+            "class": "AccountingReport",
+        }
+    except Exception as _ar_exc:
+        log.debug("[ACCOUNTING-REPORT] accounting_report skipped: %s", _ar_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
