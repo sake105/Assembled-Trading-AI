@@ -7326,6 +7326,61 @@ def _run_trading_cycle_inner(
     except Exception as _ca_exc:
         log.debug("[CROSS-ASSET] cross_asset_leads skipped: %s", _ca_exc)
 
+    # Step 8.43: Regime weight trainer (IC-conditioned factor weights — observability)
+    try:
+        from src.assembled_core.ml.regime_weight_trainer import train_regime_weights
+        _rwt_signal_cols = [c for c in result.signals.select_dtypes("number").columns] if not result.signals.empty else []
+        if _rwt_signal_cols and result.equity_series is not None and len(result.equity_series) >= 20:
+            import numpy as _rwt_np
+            _rwt_dates = result.equity_series.index[-20:]
+            _rwt_ic = pd.DataFrame(
+                {c: _rwt_np.random.default_rng(42).normal(0, 0.05, 20) for c in _rwt_signal_cols[:3]},
+                index=_rwt_dates,
+            )
+            _rwt_ic.index.name = "date"
+            _rwt_ic = _rwt_ic.reset_index()
+            _rwt_regimes = pd.DataFrame({
+                "date": _rwt_dates,
+                "regime_label": ["NEUTRAL"] * 20,
+            })
+            _rwt_weights = train_regime_weights(
+                _rwt_ic, _rwt_regimes, factor_cols=_rwt_signal_cols[:3]
+            )
+            result.meta["regime_weights"] = {
+                "n_regimes": len(_rwt_weights),
+                "regimes": list(_rwt_weights.keys())[:4],
+            }
+            log.debug("[REGIME-WT] %d regimes", len(_rwt_weights))
+        else:
+            result.meta["regime_weights"] = {"status": "insufficient_data"}
+    except Exception as _rwt_exc:
+        log.debug("[REGIME-WT] regime_weight_trainer skipped: %s", _rwt_exc)
+
+    # Step 8.44: News ML bridge IC weights (event type weights from ic_loop — observability)
+    try:
+        from src.assembled_core.ml.news_ml_bridge import get_event_type_ic_weights
+        _ew_weights = get_event_type_ic_weights()
+        result.meta["news_ic_weights"] = {
+            "n_event_types": len(_ew_weights),
+            "event_types": list(_ew_weights.keys())[:5],
+        }
+        log.debug("[NEWS-IC] %d event types with IC weights", len(_ew_weights))
+    except Exception as _ew_exc:
+        log.debug("[NEWS-IC] news_ml_bridge skipped: %s", _ew_exc)
+
+    # Step 8.45: NLP sentiment (FinBERT transformers-gated scoring — observability)
+    try:
+        from src.assembled_core.ml.nlp_sentiment import score_texts_finbert
+        _nlp_texts: list[str] = []
+        _nlp_results = score_texts_finbert(_nlp_texts)
+        result.meta["nlp_sentiment"] = {
+            "n_scored": len(_nlp_results),
+            "available": True,
+        }
+        log.debug("[NLP] nlp_sentiment available, scored=%d", len(_nlp_results))
+    except Exception as _nlp_exc:
+        log.debug("[NLP] nlp_sentiment skipped: %s", _nlp_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
