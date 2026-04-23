@@ -7232,6 +7232,44 @@ def _run_trading_cycle_inner(
     except Exception as _bb_exc:
         log.debug("[BUYBACK] buyback_features skipped: %s", _bb_exc)
 
+    # Step 2.30: Short interest features (squeeze score + days-to-cover — observability)
+    try:
+        from src.assembled_core.features.short_interest_features import build_short_interest_features
+        _si_empty = pd.DataFrame(columns=["symbol", "short_interest", "shares_float", "avg_volume", "settlement_date"])
+        _si_features = build_short_interest_features(_si_empty)
+        result.meta["short_interest_features"] = {
+            "n_rows": len(_si_features),
+            "available_cols": list(_si_features.columns)[:4],
+        }
+        log.debug("[SI-FEAT] short_interest_features available")
+    except Exception as _si_exc:
+        log.debug("[SI-FEAT] short_interest_features skipped: %s", _si_exc)
+
+    # Step 2.31: Institutional features (ownership metrics — observability)
+    try:
+        from src.assembled_core.features.institutional_features import build_institutional_features
+        _inst_df = build_institutional_features({})
+        result.meta["institutional_features"] = {
+            "n_rows": len(_inst_df),
+            "n_cols": len(_inst_df.columns) if not _inst_df.empty else 0,
+        }
+        log.debug("[INST-FEAT] institutional_features available")
+    except Exception as _inst_exc:
+        log.debug("[INST-FEAT] institutional_features skipped: %s", _inst_exc)
+
+    # Step 2.32: Index rebalancing features (demand scores — observability)
+    try:
+        from src.assembled_core.features.index_rebal_features import build_index_rebal_features
+        _ir_changes = pd.DataFrame(columns=["symbol", "effective_date", "action", "index_name"])
+        _ir_features = build_index_rebal_features(_ir_changes)
+        result.meta["index_rebal_features"] = {
+            "n_rows": len(_ir_features),
+            "available_cols": list(_ir_features.columns)[:4],
+        }
+        log.debug("[REBAL-FEAT] index_rebal_features available")
+    except Exception as _ir_exc:
+        log.debug("[REBAL-FEAT] index_rebal_features skipped: %s", _ir_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
