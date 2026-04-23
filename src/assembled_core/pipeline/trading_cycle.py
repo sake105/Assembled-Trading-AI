@@ -8980,6 +8980,38 @@ def _run_trading_cycle_inner(
     except Exception as _bex_exc:
         log.debug("[BROKER-EXEC] broker_execution skipped: %s", _bex_exc)
 
+    # Step 5.59: IBKR adapter (IBKRAdapter simulation — observability)
+    try:
+        from src.assembled_core.execution.ibkr_adapter import IBKRAdapter
+        _ibkr = IBKRAdapter(simulation=True)
+        result.meta["ibkr_adapter"] = {
+            "simulation": _ibkr._simulation,
+            "connected": _ibkr._connected,
+            "available": True,
+        }
+    except Exception as _ibkr_exc:
+        log.debug("[IBKR] ibkr_adapter skipped: %s", _ibkr_exc)
+
+    # Step 5.60: Paper monitoring (PaperMonitor — observability)
+    try:
+        from src.assembled_core.execution.paper_monitoring import PaperMonitor
+        _pm = PaperMonitor()
+        result.meta["paper_monitoring"] = {"n_results": len(_pm._results), "available": True}
+    except Exception as _pm_exc:
+        log.debug("[PAPER-MONITOR] paper_monitoring skipped: %s", _pm_exc)
+
+    # Step 5.61: Paper trading engine (PaperTradingEngine — observability)
+    try:
+        from src.assembled_core.execution.paper_trading_engine import PaperTradingEngine
+        _pte = PaperTradingEngine()
+        result.meta["paper_trading_engine"] = {
+            "n_orders": len(_pte._orders),
+            "n_positions": len(_pte._positions),
+            "available": True,
+        }
+    except Exception as _pte_exc:
+        log.debug("[PAPER-ENGINE] paper_trading_engine skipped: %s", _pte_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
