@@ -8708,6 +8708,35 @@ def _run_trading_cycle_inner(
     except Exception as _ni_exc:
         log.debug("[NEWS-INGEST] news_ingest skipped: %s", _ni_exc)
 
+    # Step 8.99: News semantic dedup (SemanticDedup — observability)
+    try:
+        from src.assembled_core.intel.news_semantic_dedup import SemanticDedup
+        _sdd = SemanticDedup(enabled=False)
+        result.meta["news_semantic_dedup"] = {"backend": _sdd.backend, "available": True}
+    except Exception as _sdd_exc:
+        log.debug("[SEMANTIC-DEDUP] news_semantic_dedup skipped: %s", _sdd_exc)
+
+    # Step 8.100: News sentiment drift (SentimentDriftTracker — observability)
+    try:
+        from src.assembled_core.intel.news_sentiment_drift import SentimentDriftTracker
+        _sdt = SentimentDriftTracker()
+        _sdt.update([])
+        result.meta["news_sentiment_drift"] = {"n_tracked_keys": len(_sdt._buffers), "available": True}
+    except Exception as _sdt_exc:
+        log.debug("[SENTIMENT-DRIFT] news_sentiment_drift skipped: %s", _sdt_exc)
+
+    # Step 8.101: News signal aggregator (aggregate_signals — observability)
+    try:
+        from src.assembled_core.intel.news_signal_aggregator import aggregate_signals
+        _nsa_signal = aggregate_signals([])
+        result.meta["news_signal_aggregator"] = {
+            "net_direction": _nsa_signal.net_direction,
+            "n_signals": _nsa_signal.n_signals,
+            "available": True,
+        }
+    except Exception as _nsa_exc:
+        log.debug("[SIGNAL-AGG] news_signal_aggregator skipped: %s", _nsa_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
