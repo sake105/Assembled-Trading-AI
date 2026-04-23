@@ -2353,6 +2353,28 @@ def _run_trading_cycle_inner(
     except Exception as _fc_exc:
         log.debug("[FEAT-CLUSTER] feature_clustering skipped: %s", _fc_exc)
 
+    # Step 2.14: IC prescreen — drop features with zero predictive power (observability)
+    try:
+        if not result.prices_with_features.empty:
+            from src.assembled_core.ml.feature_selection import ic_prescreen
+            _ic_num_cols = [
+                c for c in result.prices_with_features.select_dtypes("number").columns
+                if c not in ("timestamp",)
+            ]
+            if len(_ic_num_cols) >= 3:
+                _ic_panel = result.prices_with_features.copy()
+                if "timestamp" not in _ic_panel.columns and result.prices_with_features.index.dtype == "datetime64[ns]":
+                    _ic_panel = _ic_panel.reset_index()
+                _ic_kept, _ic_scores = ic_prescreen(_ic_panel, min_ic=0.02)
+                result.meta["ic_prescreen"] = {
+                    "n_features_evaluated": len(_ic_scores),
+                    "n_features_kept": len(_ic_kept),
+                    "top_ic": dict(sorted(_ic_scores.items(), key=lambda x: -x[1])[:5]),
+                }
+                log.debug("[IC-PRESCREEN] %d/%d features pass IC>=0.02", len(_ic_kept), len(_ic_scores))
+    except Exception as _ic_exc:
+        log.debug("[IC-PRESCREEN] ic_prescreen skipped: %s", _ic_exc)
+
     # Step 3: Generate signals (hook point: generate_signals)
     try:
         if "generate_signals" in hooks:
@@ -5310,6 +5332,22 @@ def _run_trading_cycle_inner(
     except Exception as _cap_exc:
         log.debug("[CAPACITY] capacity_estimate skipped: %s", _cap_exc)
 
+    # Step 7.6: Write run KPIs artifact (structured output for monitoring)
+    try:
+        if ctx.write_outputs:
+            from src.assembled_core.ops.kpi_artifacts import write_run_kpis
+            _kpi_dir = ctx.output_dir
+            _kpi_path = write_run_kpis(
+                output_dir=_kpi_dir,
+                ctx=ctx,
+                result=result,
+                policy=policy,
+                mode=ctx.execution_mode,
+            )
+            log.debug("[KPI] run_kpis written to %s", _kpi_path)
+    except Exception as _kpi_exc:
+        log.debug("[KPI] write_run_kpis skipped: %s", _kpi_exc)
+
     # Phase 9: Signal diagnostics (end of cycle) — write signal_health.json
     try:
         sd_cfg = (policy.get("signal_generation") or {}).get("signal_diagnostics") or {}
@@ -5899,6 +5937,23 @@ def _run_trading_cycle_inner(
                 log.debug("[SCENARIO] worst=%s cvar=%.4f", _ss_report.worst_scenario, _ss_report.worst_cvar)
     except Exception as _ss_exc:
         log.debug("[SCENARIO] scenario_simulator skipped: %s", _ss_exc)
+
+    # Step 8.12: Model age confidence (freshness decay of last-trained model, observability)
+    try:
+        from src.assembled_core.ml.online_learning import compute_model_age_confidence
+        _mac_days = int(result.meta.get("ml_model_age_days", 0))
+        if _mac_days == 0:
+            # Try to infer from meta if model was retrained this cycle
+            _mac_days = 1 if result.meta.get("model_retrained") else 30
+        _mac_confidence = compute_model_age_confidence(_mac_days, half_life_days=30)
+        result.meta["model_age_confidence"] = {
+            "days_since_refit": _mac_days,
+            "confidence": round(_mac_confidence, 4),
+            "half_life_days": 30,
+        }
+        log.debug("[MODEL-AGE] days=%d confidence=%.3f", _mac_days, _mac_confidence)
+    except Exception as _mac_exc:
+        log.debug("[MODEL-AGE] model_age_confidence skipped: %s", _mac_exc)
 
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
