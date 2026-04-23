@@ -10240,6 +10240,27 @@ def _run_trading_cycle_inner(
     except Exception as _qah_exc:
         log.debug("[QA-HEALTH] qa.health skipped: %s", _qah_exc)
 
+    # Step qa.5: Altdata leakage tests (assert_feature_zero_before_disclosure — observability)
+    try:
+        from src.assembled_core.qa.leakage_tests.altdata_leakage import assert_feature_zero_before_disclosure
+        result.meta["qa_altdata_leakage"] = {"available": True}
+    except Exception as _alt_exc:
+        log.debug("[QA-ALTDATA-LEAKAGE] qa.leakage_tests.altdata_leakage skipped: %s", _alt_exc)
+
+    # Step qa.6: Signal decay (SignalDecayProfile — observability)
+    try:
+        from src.assembled_core.qa.signal_decay import SignalDecayProfile, compute_ic_series
+        result.meta["qa_signal_decay"] = {"available": True}
+    except Exception as _sdec_exc:
+        log.debug("[QA-SIGNAL-DECAY] qa.signal_decay skipped: %s", _sdec_exc)
+
+    # Step qa.7: TCA (build_tca_report — observability)
+    try:
+        from src.assembled_core.qa.tca import build_tca_report
+        result.meta["qa_tca"] = {"available": True}
+    except Exception as _tca_exc:
+        log.debug("[QA-TCA] qa.tca skipped: %s", _tca_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
