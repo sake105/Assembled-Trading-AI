@@ -203,7 +203,7 @@ def _run_backtest_subprocess(
         str(run_dir),
         "--no-ledger",
     ]
-    r = subprocess.run(cmd, cwd=str(ROOT), timeout=300, capture_output=True, text=True)
+    r = subprocess.run(cmd, cwd=str(ROOT), timeout=600, capture_output=True, text=True)
     if r.returncode != 0 and r.stderr:
         sys.stderr.write(r.stderr[:2000] + "\n")
     return r.returncode
