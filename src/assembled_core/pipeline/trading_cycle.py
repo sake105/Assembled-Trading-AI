@@ -2332,6 +2332,27 @@ def _run_trading_cycle_inner(
     except Exception as _ffd_exc:
         log.debug("[FFD] fractional_diff skipped: %s", _ffd_exc)
 
+    # Step 2.13: Feature clustering by correlation (redundancy map — observability)
+    try:
+        if not result.prices_with_features.empty:
+            from src.assembled_core.ml.feature_clustering import cluster_features_by_correlation
+            _fc_num_cols = [
+                c for c in result.prices_with_features.select_dtypes("number").columns
+                if c not in ("timestamp",) and result.prices_with_features[c].nunique() > 1
+            ]
+            if len(_fc_num_cols) >= 4:
+                _fc_result = cluster_features_by_correlation(
+                    result.prices_with_features, feature_cols=_fc_num_cols[:50]
+                )
+                result.meta["feature_clustering"] = {
+                    "n_original": _fc_result.n_original_features,
+                    "n_clusters": _fc_result.n_clusters,
+                    "compression_ratio": round(1.0 - _fc_result.n_clusters / max(_fc_result.n_original_features, 1), 3),
+                }
+                log.debug("[FEAT-CLUSTER] %d→%d clusters (%.1f%% compression)", _fc_result.n_original_features, _fc_result.n_clusters, result.meta["feature_clustering"]["compression_ratio"] * 100)
+    except Exception as _fc_exc:
+        log.debug("[FEAT-CLUSTER] feature_clustering skipped: %s", _fc_exc)
+
     # Step 3: Generate signals (hook point: generate_signals)
     try:
         if "generate_signals" in hooks:
@@ -5677,6 +5698,43 @@ def _run_trading_cycle_inner(
             )
     except Exception as _e:
         log.debug("[RISK-WIRE] almgren_chriss skipped: %s", _e)
+
+    # Step 7.8: Shadow mode snapshot (persist cycle meta for offline analysis)
+    try:
+        from src.assembled_core.ops.shadow_mode import write_shadow_snapshot
+        from datetime import date as _date
+        _shadow_payload = {
+            k: v for k, v in result.meta.items()
+            if k in (
+                "regime", "stress_test", "robust_weights", "exposure_metrics",
+                "scenario_stress", "deflated_sharpe", "performance_profile",
+                "regime_analysis", "benchmark_metrics", "feature_clustering",
+            )
+        }
+        write_shadow_snapshot(
+            "trading_cycle",
+            _shadow_payload,
+            snapshot_date=_date.fromisoformat(str(ctx.as_of.date())),
+        )
+        log.debug("[SHADOW] cycle meta snapshot written for %s", ctx.as_of.date())
+    except Exception as _shad_exc:
+        log.debug("[SHADOW] shadow_mode snapshot skipped: %s", _shad_exc)
+
+    # Step 7.9: Experience log (append cycle data for ML training)
+    try:
+        from src.assembled_core.ops.experience_log import append_experience
+        _exp_entry = {
+            "cycle_date": str(ctx.as_of.date()),
+            "execution_mode": ctx.execution_mode,
+            "n_signals": len(result.signals),
+            "n_orders": len(result.orders_filtered),
+            "regime": str(result.meta.get("regime", {}).get("regime", "unknown")),
+            "meta_keys": list(result.meta.keys()),
+        }
+        append_experience(_exp_entry)
+        log.debug("[EXPERIENCE] cycle experience logged for %s", ctx.as_of.date())
+    except Exception as _exp_exc:
+        log.debug("[EXPERIENCE] experience_log skipped: %s", _exp_exc)
 
     # Step 8.1: Regime analysis from index returns (end-of-cycle observability)
     try:
