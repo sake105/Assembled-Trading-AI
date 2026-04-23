@@ -8737,6 +8737,42 @@ def _run_trading_cycle_inner(
     except Exception as _nsa_exc:
         log.debug("[SIGNAL-AGG] news_signal_aggregator skipped: %s", _nsa_exc)
 
+    # Step 8.102: News source voting (vote_direction — observability)
+    try:
+        from src.assembled_core.intel.news_source_voting import vote_direction, VoteResult
+        _nsv_result = vote_direction([])
+        result.meta["news_source_voting"] = {
+            "winner": _nsv_result.winner,
+            "margin": _nsv_result.margin,
+            "available": True,
+        }
+    except Exception as _nsv_exc:
+        log.debug("[SOURCE-VOTING] news_source_voting skipped: %s", _nsv_exc)
+
+    # Step 8.103: News ticker velocity (TickerVelocityTracker — observability)
+    try:
+        from src.assembled_core.intel.news_ticker_velocity import TickerVelocityTracker
+        _tvt = TickerVelocityTracker()
+        _tvt_signals = _tvt.update([])
+        result.meta["news_ticker_velocity"] = {
+            "n_ticker_signals": len(_tvt_signals),
+            "available": True,
+        }
+    except Exception as _tvt_exc:
+        log.debug("[TICKER-VEL] news_ticker_velocity skipped: %s", _tvt_exc)
+
+    # Step 8.104: News trade attribution (NewsTradeAttributor — observability)
+    try:
+        from src.assembled_core.intel.news_trade_attribution import NewsTradeAttributor
+        _nta = NewsTradeAttributor()
+        result.meta["news_trade_attribution"] = {
+            "pre_window_hours": _nta.pre,
+            "post_window_hours": _nta.post,
+            "available": True,
+        }
+    except Exception as _nta_exc:
+        log.debug("[TRADE-ATTR] news_trade_attribution skipped: %s", _nta_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
