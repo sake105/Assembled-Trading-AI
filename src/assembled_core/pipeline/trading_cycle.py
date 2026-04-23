@@ -8212,6 +8212,47 @@ def _run_trading_cycle_inner(
     except Exception as _lat_exc:
         log.debug("[DATA-LATENCY] data_latency skipped: %s", _lat_exc)
 
+    # Step 2.44: Synthetic generator (generate_crisis_returns — observability)
+    try:
+        from src.assembled_core.data.synthetic_generator import generate_crisis_returns, generate_normal_returns
+        _sg = generate_normal_returns(n_assets=3, n_days=5, seed=42)
+        result.meta["synthetic_generator"] = {
+            "n_assets": _sg.shape[1],
+            "n_days": len(_sg),
+            "available": True,
+        }
+    except Exception as _sg_exc:
+        log.debug("[SYNTHETIC-GEN] synthetic_generator skipped: %s", _sg_exc)
+
+    # Step 2.45: Data resample (resample_to_weekly — observability)
+    try:
+        from src.assembled_core.data.resample import resample_to_weekly
+        if not result.prices_with_features.empty and "symbol" in result.prices_with_features.columns:
+            import pandas as _pd_rs
+            _rs_df = result.prices_with_features.copy()
+            if "timestamp" not in _rs_df.columns:
+                _rs_df["timestamp"] = _pd_rs.date_range("2024-01-01", periods=len(_rs_df), freq="B")
+            _rs_weekly = resample_to_weekly(_rs_df)
+            result.meta["data_resample"] = {
+                "weekly_rows": len(_rs_weekly),
+                "available": True,
+            }
+        else:
+            result.meta["data_resample"] = {"available": True, "skipped": "no_prices"}
+    except Exception as _rs_exc:
+        log.debug("[DATA-RESAMPLE] data_resample skipped: %s", _rs_exc)
+
+    # Step 2.46: Panel store (panel_exists — observability)
+    try:
+        from src.assembled_core.data.panel_store import panel_exists
+        _pe = panel_exists("__cycle_observability_probe__")
+        result.meta["panel_store"] = {
+            "probe_exists": bool(_pe),
+            "available": True,
+        }
+    except Exception as _pe_exc:
+        log.debug("[PANEL-STORE] panel_store skipped: %s", _pe_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
