@@ -9180,6 +9180,31 @@ def _run_trading_cycle_inner(
     except Exception as _cmp_exc:
         log.debug("[COST-POLICY] cost_model_policy skipped: %s", _cmp_exc)
 
+    # Step 2.72: Insider ingest (load_insider_sample — observability)
+    try:
+        from src.assembled_core.data.insider_ingest import load_insider_sample
+        _ins_df = load_insider_sample()
+        result.meta["insider_ingest"] = {"n_rows": len(_ins_df), "available": True}
+    except Exception as _ins_exc:
+        log.debug("[INSIDER] insider_ingest skipped: %s", _ins_exc)
+
+    # Step 2.73: Prices ingest (validate_price_data — observability)
+    try:
+        from src.assembled_core.data.prices_ingest import validate_price_data
+        import pandas as _pd
+        _pi_result = validate_price_data(_pd.DataFrame(columns=["symbol", "timestamp", "close"]))
+        result.meta["prices_ingest"] = {"available": True}
+    except Exception as _pi_exc:
+        log.debug("[PRICES-INGEST] prices_ingest skipped: %s", _pi_exc)
+
+    # Step 2.74: Shipping routes ingest (load_shipping_sample — observability)
+    try:
+        from src.assembled_core.data.shipping_routes_ingest import load_shipping_sample
+        _sr_df = load_shipping_sample()
+        result.meta["shipping_routes_ingest"] = {"n_rows": len(_sr_df), "available": True}
+    except Exception as _sri_exc:
+        log.debug("[SHIPPING-INGEST] shipping_routes_ingest skipped: %s", _sri_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
