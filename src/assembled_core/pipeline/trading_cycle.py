@@ -7128,6 +7128,60 @@ def _run_trading_cycle_inner(
     except Exception as _expl_exc:
         log.debug("[EXPL] explainability skipped: %s", _expl_exc)
 
+    # Step 2.24: News features (sentiment + count features from news events — observability)
+    try:
+        if not result.prices_with_features.empty:
+            from src.assembled_core.features.news_features import add_news_features
+            _nf_prices = result.prices_with_features[
+                [c for c in ["timestamp", "symbol", "close"] if c in result.prices_with_features.columns]
+            ].copy()
+            _nf_events = pd.DataFrame(columns=["timestamp", "symbol", "sentiment_score"])
+            if {"timestamp", "symbol", "close"}.issubset(_nf_prices.columns):
+                _nf_result = add_news_features(_nf_prices, _nf_events, as_of=ctx.as_of)
+                _nf_new_cols = [c for c in _nf_result.columns if c not in _nf_prices.columns]
+                result.meta["news_features"] = {
+                    "n_new_cols": len(_nf_new_cols),
+                    "cols": _nf_new_cols[:5],
+                }
+                log.debug("[NEWS-FEAT] %d new feature columns", len(_nf_new_cols))
+    except Exception as _nf_exc:
+        log.debug("[NEWS-FEAT] news_features skipped: %s", _nf_exc)
+
+    # Step 2.25: Geopolitical risk proxy (GPR index from VIX proxy — observability)
+    try:
+        from src.assembled_core.features.geopolitical_features import compute_gpr_proxy
+        _geo_vix = None
+        if result.equity_series is not None and len(result.equity_series) >= 20:
+            import numpy as _geo_np
+            _geo_rets = result.equity_series.pct_change().dropna()
+            _geo_vix = (_geo_rets.rolling(20).std() * _geo_np.sqrt(252) * 100).dropna()
+        _geo_df = compute_gpr_proxy(vix_series=_geo_vix)
+        result.meta["geopolitical_risk"] = {
+            "n_rows": len(_geo_df),
+            "has_gpr_level": "gpr_level" in _geo_df.columns,
+        }
+        log.debug("[GEO-RISK] n_rows=%d", len(_geo_df))
+    except Exception as _geo_exc:
+        log.debug("[GEO-RISK] geopolitical_features skipped: %s", _geo_exc)
+
+    # Step 2.26: Insider features (PIT-safe insider trading signal columns — observability)
+    try:
+        if not result.prices_with_features.empty:
+            from src.assembled_core.features.insider_features import add_insider_features
+            _ins_prices = result.prices_with_features[
+                [c for c in ["timestamp", "symbol", "close"] if c in result.prices_with_features.columns]
+            ].copy()
+            _ins_events = pd.DataFrame(columns=["timestamp", "symbol"])
+            if {"timestamp", "symbol", "close"}.issubset(_ins_prices.columns):
+                _ins_result = add_insider_features(_ins_prices, _ins_events, as_of=ctx.as_of)
+                _ins_new_cols = [c for c in _ins_result.columns if c not in _ins_prices.columns]
+                result.meta["insider_features"] = {
+                    "n_new_cols": len(_ins_new_cols),
+                }
+                log.debug("[INSIDER-FEAT] %d new feature columns", len(_ins_new_cols))
+    except Exception as _ins_exc:
+        log.debug("[INSIDER-FEAT] insider_features skipped: %s", _ins_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
