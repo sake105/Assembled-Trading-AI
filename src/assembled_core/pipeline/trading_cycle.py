@@ -9711,6 +9711,27 @@ def _run_trading_cycle_inner(
     except Exception as _cab_exc:
         log.debug("[CA-BASKETS] events.crisis_alpha.baskets skipped: %s", _cab_exc)
 
+    # Step 8.51: Crisis alpha entry (generate_crisis_entry — observability)
+    try:
+        from src.assembled_core.events.crisis_alpha.entry import generate_crisis_entry
+        result.meta["crisis_alpha_entry"] = {"available": True}
+    except Exception as _cae_exc:
+        log.debug("[CA-ENTRY] events.crisis_alpha.entry skipped: %s", _cae_exc)
+
+    # Step 8.52: Crisis alpha exit rules (get_positions_to_exit — observability)
+    try:
+        from src.assembled_core.events.crisis_alpha.exit_rules import get_positions_to_exit
+        result.meta["crisis_alpha_exit"] = {"available": True}
+    except Exception as _caex_exc:
+        log.debug("[CA-EXIT] events.crisis_alpha.exit_rules skipped: %s", _caex_exc)
+
+    # Step 8.53: Crisis alpha gates (check_health_gate / run_all_activation_gates — observability)
+    try:
+        from src.assembled_core.events.crisis_alpha.gates import run_all_activation_gates
+        result.meta["crisis_alpha_gates"] = {"available": True}
+    except Exception as _cag_exc:
+        log.debug("[CA-GATES] events.crisis_alpha.gates skipped: %s", _cag_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
