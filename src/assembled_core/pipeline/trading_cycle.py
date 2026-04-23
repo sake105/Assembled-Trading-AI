@@ -9540,6 +9540,27 @@ def _run_trading_cycle_inner(
     except Exception as _ds_exc:
         log.debug("[DATA-SOURCE] data.data_source skipped: %s", _ds_exc)
 
+    # Step 2.85: Ledger store (LedgerStore — observability)
+    try:
+        from src.assembled_core.data.ledger_store import LedgerStore
+        result.meta["ledger_store"] = {"available": True}
+    except Exception as _ls_exc:
+        log.debug("[LEDGER-STORE] data.ledger_store skipped: %s", _ls_exc)
+
+    # Step 2.86: Macro contract (normalize_macro_releases — observability)
+    try:
+        from src.assembled_core.data.macro.contract import normalize_macro_releases
+        result.meta["macro_contract"] = {"available": True}
+    except Exception as _mc_exc:
+        log.debug("[MACRO-CONTRACT] data.macro.contract skipped: %s", _mc_exc)
+
+    # Step 2.87: News contract (normalize_news_events — observability)
+    try:
+        from src.assembled_core.data.news.contract import normalize_news_events
+        result.meta["news_contract"] = {"available": True}
+    except Exception as _nc_exc:
+        log.debug("[NEWS-CONTRACT] data.news.contract skipped: %s", _nc_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
