@@ -2558,6 +2558,22 @@ def _run_trading_cycle_inner(
     except Exception as _csz_exc:
         log.debug("[CSZ] cross_sectional_zscore skipped: %s", _csz_exc)
 
+    # Step 2.23: Incremental update filter (filter prices to last N sessions — observability)
+    try:
+        if not result.prices_with_features.empty and "timestamp" in result.prices_with_features.columns:
+            from src.assembled_core.features.incremental_updates import filter_prices_for_incremental
+            _iu_filtered = filter_prices_for_incremental(
+                result.prices_with_features, as_of=ctx.as_of, window_days=5
+            )
+            result.meta["incremental_update"] = {
+                "total_rows": len(result.prices_with_features),
+                "last_5d_rows": len(_iu_filtered),
+                "window_days": 5,
+            }
+            log.debug("[INCR-UPDATE] total=%d last_5d=%d", len(result.prices_with_features), len(_iu_filtered))
+    except Exception as _iu_exc:
+        log.debug("[INCR-UPDATE] incremental_updates skipped: %s", _iu_exc)
+
     # Step 3: Generate signals (hook point: generate_signals)
     try:
         if "generate_signals" in hooks:
@@ -6870,6 +6886,43 @@ def _run_trading_cycle_inner(
                       result.meta["ml_evaluation"]["brier_score"], _mle_n)
     except Exception as _mle_exc:
         log.debug("[ML-EVAL] ml_evaluation skipped: %s", _mle_exc)
+
+    # Step 8.32: Dashboard data snapshot (PnL curve + risk snapshot — observability)
+    try:
+        if result.equity_series is not None and len(result.equity_series) >= 2:
+            from src.assembled_core.ops.dashboard_data import build_pnl_curve, compute_risk_snapshot
+            _dd_pnl = build_pnl_curve(result.equity_series, initial_capital=float(result.equity_series.iloc[0]))
+            _dd_rets = result.equity_series.pct_change().dropna()
+            _dd_risk = compute_risk_snapshot(_dd_rets, lookback=252) if len(_dd_rets) >= 5 else {}
+            result.meta["dashboard_snapshot"] = {
+                "n_pnl_points": len(_dd_pnl),
+                "latest_pnl": list(_dd_pnl.values())[-1] if _dd_pnl else 0.0,
+                "sharpe": round(float(_dd_risk.get("sharpe_ratio", 0.0) or 0.0), 4),
+                "drawdown": round(float(_dd_risk.get("drawdown", 0.0) or 0.0), 4),
+            }
+            log.debug("[DASHBOARD] n_pnl=%d sharpe=%.3f", len(_dd_pnl), result.meta["dashboard_snapshot"]["sharpe"])
+    except Exception as _dd_exc:
+        log.debug("[DASHBOARD] dashboard_data skipped: %s", _dd_exc)
+
+    # Step 8.33: A/B test MDE + test (minimum detectable effect + paired test — observability)
+    try:
+        from src.assembled_core.qa.ab_testing import minimum_detectable_effect, paired_ab_test
+        if result.equity_series is not None and len(result.equity_series) >= 30:
+            _ab_rets = result.equity_series.pct_change().dropna()
+            _ab_vol = float(_ab_rets.std())
+            _ab_mde = minimum_detectable_effect(n_days=len(_ab_rets), baseline_vol=_ab_vol)
+            # Paired test: strategy returns vs zero benchmark
+            _ab_bench = pd.Series(0.0, index=_ab_rets.index)
+            _ab_result = paired_ab_test(_ab_rets, _ab_bench, name_a="strategy", name_b="benchmark")
+            result.meta["ab_test"] = {
+                "mde": round(float(_ab_mde), 6),
+                "n_days": len(_ab_rets),
+                "p_value": round(float(_ab_result.p_value), 4),
+                "winner": _ab_result.winner,
+            }
+            log.debug("[AB-TEST] mde=%.6f p_value=%.4f winner=%s", _ab_mde, _ab_result.p_value, _ab_result.winner)
+    except Exception as _ab_exc:
+        log.debug("[AB-TEST] ab_testing skipped: %s", _ab_exc)
 
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
