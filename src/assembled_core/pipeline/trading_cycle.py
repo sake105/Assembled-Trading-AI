@@ -4358,6 +4358,26 @@ def _run_trading_cycle_inner(
     except Exception as _rc_exc:
         log.debug("[REGIME-COST] regime_costs skipped: %s", _rc_exc)
 
+    # Step 4.87: Stress scenario test for target positions (observability)
+    try:
+        if not result.target_positions.empty and "weight" in result.target_positions.columns:
+            from src.assembled_core.portfolio.stress_test_constraints import evaluate_stress_scenarios
+            _st_syms = list(result.target_positions["symbol"].astype(str))
+            _st_weights = dict(zip(_st_syms, result.target_positions["weight"].astype(float).values))
+            _st_sectors = (policy.get("universe") or {}).get("sector_mapping") or {}
+            _st_sector_map = {s: _st_sectors.get(s, "Unknown") for s in _st_syms}
+            _st_result = evaluate_stress_scenarios(_st_weights, _st_syms, _st_sector_map)
+            result.meta["stress_test"] = {
+                "worst_scenario": _st_result.worst_scenario,
+                "worst_loss": round(_st_result.worst_loss, 4),
+                "all_within_floors": _st_result.all_within_floors,
+                "violated_scenarios": _st_result.violated_scenarios,
+                "scenario_losses": {k: round(v, 4) for k, v in _st_result.scenario_losses.items()},
+            }
+            log.debug("[STRESS] worst=%s loss=%.3f", _st_result.worst_scenario, _st_result.worst_loss)
+    except Exception as _st_exc:
+        log.debug("[STRESS] stress_test_constraints skipped: %s", _st_exc)
+
     # Step 4.9: Long-short balance enforcement (exposure audit + optional rebalance)
     try:
         if not result.target_positions.empty:
@@ -5556,6 +5576,54 @@ def _run_trading_cycle_inner(
                 log.debug("[PERF-PROFILE] sharpe=%.3f maxDD=%.3f", _pp.sharpe, _pp.max_drawdown)
     except Exception as _pp_exc:
         log.debug("[PERF-PROFILE] performance_profile skipped: %s", _pp_exc)
+
+    # Step 8.3: Drawdown decomposition — attribution during worst drawdown (observability)
+    try:
+        if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            from src.assembled_core.qa.drawdown_decomposition import decompose_drawdown
+            _ddc_pivot = result.prices_with_features.pivot_table(
+                index="timestamp", columns="symbol", values="close", aggfunc="last"
+            )
+            _ddc_rets = _ddc_pivot.pct_change().dropna(how="all")
+            if len(_ddc_rets) >= 15 and len(_ddc_rets.columns) >= 2:
+                import pandas as _ddc_pd
+                _ddc_portfolio = _ddc_rets.median(axis=1)
+                _ddc_factors = _ddc_pd.DataFrame(
+                    {"market": _ddc_rets.mean(axis=1)}, index=_ddc_rets.index
+                )
+                _ddc_report = decompose_drawdown(_ddc_portfolio, _ddc_factors)
+                result.meta["drawdown_decomposition"] = {
+                    "max_drawdown": round(_ddc_report.drawdown.max_drawdown, 4),
+                    "dd_duration": _ddc_report.drawdown.duration,
+                    "alpha_during_dd": round(float(_ddc_report.alpha_during_dd), 4),
+                    "r_squared": round(float(_ddc_report.r_squared), 4),
+                    "idiosyncratic": round(float(_ddc_report.idiosyncratic_return), 6),
+                }
+                log.debug("[DD-DECOMP] maxDD=%.3f dur=%d", _ddc_report.drawdown.max_drawdown, _ddc_report.drawdown.duration)
+    except Exception as _ddc_exc:
+        log.debug("[DD-DECOMP] drawdown_decomposition skipped: %s", _ddc_exc)
+
+    # Step 8.4: Benchmark-relative metrics (alpha, IR, tracking error — observability)
+    try:
+        if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            from src.assembled_core.qa.benchmark_metrics import compute_benchmark_metrics
+            _bm_pivot = result.prices_with_features.pivot_table(
+                index="timestamp", columns="symbol", values="close", aggfunc="last"
+            )
+            _bm_rets = _bm_pivot.pct_change().dropna(how="all")
+            if len(_bm_rets) >= 15 and len(_bm_rets.columns) >= 2:
+                _bm_portfolio = _bm_rets.median(axis=1)
+                _bm_benchmark = _bm_rets.mean(axis=1)
+                _bm = compute_benchmark_metrics(_bm_portfolio, _bm_benchmark)
+                result.meta["benchmark_metrics"] = {
+                    "alpha": round(float(_bm.alpha), 4) if _bm.alpha is not None else None,
+                    "beta": round(float(_bm.beta), 4) if _bm.beta is not None else None,
+                    "information_ratio": round(float(_bm.information_ratio), 4) if _bm.information_ratio is not None else None,
+                    "tracking_error": round(float(_bm.tracking_error), 4) if _bm.tracking_error is not None else None,
+                }
+                log.debug("[BM-METRICS] alpha=%.4f IR=%.4f", _bm.alpha or 0.0, _bm.information_ratio or 0.0)
+    except Exception as _bm_exc:
+        log.debug("[BM-METRICS] benchmark_metrics skipped: %s", _bm_exc)
 
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
