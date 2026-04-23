@@ -10102,6 +10102,35 @@ def _run_trading_cycle_inner(
     except Exception as _btleg_exc:
         log.debug("[PIPELINE-BACKTEST-LEGACY] pipeline.backtest_legacy skipped: %s", _btleg_exc)
 
+    # Step pipe.3: Event bus (EventBus — observability)
+    try:
+        from src.assembled_core.pipeline.event_bus import EventBus, EventType
+        _ebus = EventBus(max_queue_size=1000)
+        result.meta["pipeline_event_bus"] = {
+            "n_event_types": len(EventType),
+            "available": True,
+        }
+    except Exception as _ebus_exc:
+        log.debug("[PIPELINE-EVENT-BUS] pipeline.event_bus skipped: %s", _ebus_exc)
+
+    # Step pipe.4: Graceful degradation (DegradationTracker — observability)
+    try:
+        from src.assembled_core.pipeline.graceful_degradation import DegradationTracker
+        _dgt = DegradationTracker()
+        result.meta["pipeline_graceful_degradation"] = {
+            "is_degraded": _dgt.is_degraded,
+            "available": True,
+        }
+    except Exception as _dgt_exc:
+        log.debug("[PIPELINE-GRACEFUL-DEG] pipeline.graceful_degradation skipped: %s", _dgt_exc)
+
+    # Step pipe.5: Pipeline IO (load_prices / load_orders — observability)
+    try:
+        from src.assembled_core.pipeline.io import load_prices, load_orders
+        result.meta["pipeline_io"] = {"available": True}
+    except Exception as _pio_exc:
+        log.debug("[PIPELINE-IO] pipeline.io skipped: %s", _pio_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
