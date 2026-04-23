@@ -9511,6 +9511,35 @@ def _run_trading_cycle_inner(
     except Exception as _ss_exc:
         log.debug("[SOCIAL-SENT] data.altdata.social_sentiment skipped: %s", _ss_exc)
 
+    # Step 2.82: Web scraping features (WebScrapingConfig / compute_job_posting_features — observability)
+    try:
+        from src.assembled_core.data.altdata.web_scraping import WebScrapingConfig, compute_job_posting_features
+        _wsc = WebScrapingConfig()
+        result.meta["web_scraping"] = {
+            "trend_window_days": _wsc.trend_window_days,
+            "processing_lag_days": _wsc.processing_lag_days,
+            "available": True,
+        }
+    except Exception as _wsc_exc:
+        log.debug("[WEB-SCRAPE] data.altdata.web_scraping skipped: %s", _wsc_exc)
+
+    # Step 2.83: Trading calendar (is_trading_day / calendar_mode — observability)
+    try:
+        from src.assembled_core.data.calendar import calendar_mode, is_trading_day_safe
+        result.meta["data_calendar"] = {
+            "calendar_mode": calendar_mode(),
+            "available": True,
+        }
+    except Exception as _cal_exc:
+        log.debug("[CALENDAR] data.calendar skipped: %s", _cal_exc)
+
+    # Step 2.84: Price data source factory (get_price_data_source — observability)
+    try:
+        from src.assembled_core.data.data_source import get_price_data_source
+        result.meta["data_source"] = {"available": True}
+    except Exception as _ds_exc:
+        log.debug("[DATA-SOURCE] data.data_source skipped: %s", _ds_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
