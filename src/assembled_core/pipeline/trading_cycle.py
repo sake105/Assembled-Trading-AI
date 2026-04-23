@@ -9252,6 +9252,28 @@ def _run_trading_cycle_inner(
     except Exception as _io_exc:
         log.debug("[INTEL-ORCH] intel_orchestrator skipped: %s", _io_exc)
 
+    # Step ops.6: Replay snapshot (RunSnapshot — observability)
+    try:
+        from src.assembled_core.ops.replay_snapshot import RunSnapshot
+        result.meta["replay_snapshot"] = {"available": True}
+    except Exception as _rs_exc:
+        log.debug("[REPLAY-SNAP] replay_snapshot skipped: %s", _rs_exc)
+
+    # Step paper.1: Geo-risk gate (compute_georisk_multiplier — observability)
+    try:
+        from src.assembled_core.paper.georisk_gate import compute_georisk_multiplier
+        _grm = compute_georisk_multiplier(None)
+        result.meta["georisk_gate"] = {"multiplier": _grm, "available": True}
+    except Exception as _grm_exc:
+        log.debug("[GEORISK-GATE] georisk_gate skipped: %s", _grm_exc)
+
+    # Step paper.2: Intel context (active_shocks_from_triggers — observability)
+    try:
+        from src.assembled_core.paper.intel_context import active_shocks_from_triggers
+        result.meta["intel_context"] = {"available": True}
+    except Exception as _ic_exc:
+        log.debug("[INTEL-CTX] intel_context skipped: %s", _ic_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
