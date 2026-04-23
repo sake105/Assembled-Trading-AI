@@ -2458,6 +2458,30 @@ def _run_trading_cycle_inner(
     except Exception as _garch_exc:
         log.debug("[GARCH] garch_models skipped: %s", _garch_exc)
 
+    # Step 2.19: Combined regime (HMM + news ensemble) — observability
+    try:
+        if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            from src.assembled_core.ml.combined_regime import CombinedRegimeClassifier
+            from src.assembled_core.ml.online_hmm_regime import OnlineHMMRegimeDetector as _HMMDet
+            _cr_pivot = result.prices_with_features.pivot_table(
+                index="timestamp", columns="symbol", values="close", aggfunc="last"
+            )
+            _cr_rets = _cr_pivot.median(axis=1).pct_change().dropna()
+            if len(_cr_rets) >= 20:
+                _cr_hmm = _HMMDet(n_states=3, lookback=252)
+                _cr = CombinedRegimeClassifier(hmm_detector=_cr_hmm)
+                _cr_out = _cr.predict(returns=_cr_rets)
+                result.meta["combined_regime"] = {
+                    "combined": _cr_out.combined_regime,
+                    "hmm": _cr_out.hmm_regime,
+                    "news": _cr_out.news_regime,
+                    "agreement": _cr_out.agreement,
+                    "confidence": round(float(_cr_out.confidence), 3),
+                }
+                log.debug("[COMBINED-REGIME] %s (agreement=%s)", _cr_out.combined_regime, _cr_out.agreement)
+    except Exception as _cr_exc:
+        log.debug("[COMBINED-REGIME] combined_regime skipped: %s", _cr_exc)
+
     # Step 3: Generate signals (hook point: generate_signals)
     try:
         if "generate_signals" in hooks:
@@ -5575,6 +5599,32 @@ def _run_trading_cycle_inner(
     except Exception as _rr_exc:
         log.debug("[RETENTION] report_retention skipped: %s", _rr_exc)
 
+    # Step 7.66: Trade journal — log orders as journal entries (policy-gated on write_outputs)
+    try:
+        if ctx.write_outputs and not result.orders_filtered.empty:
+            from src.assembled_core.ops.trade_journal import append_trade_journal_entries
+            _tj_fills = []
+            for _, _row in result.orders_filtered.iterrows():
+                _tj_fills.append({
+                    "symbol": str(_row.get("symbol", "")),
+                    "side": str(_row.get("side", "BUY")),
+                    "qty": float(_row.get("quantity", _row.get("qty", 0))),
+                    "price": float(_row.get("price", _row.get("limit_price", 0))),
+                })
+            _tj_signal_ctx = {
+                "regime": result.meta.get("regime", {}).get("regime", ""),
+                "execution_mode": ctx.execution_mode,
+            }
+            append_trade_journal_entries(
+                _tj_fills,
+                signal_context=_tj_signal_ctx,
+                run_id=str(ctx.as_of.date()),
+                journal_path=ctx.output_dir / "trade_journal.jsonl",
+            )
+            log.debug("[TRADE-JOURNAL] %d orders logged", len(_tj_fills))
+    except Exception as _tj_exc:
+        log.debug("[TRADE-JOURNAL] trade_journal skipped: %s", _tj_exc)
+
     # Phase 9: Signal diagnostics (end of cycle) — write signal_health.json
     try:
         sd_cfg = (policy.get("signal_generation") or {}).get("signal_diagnostics") or {}
@@ -6203,6 +6253,29 @@ def _run_trading_cycle_inner(
                 log.debug("[CALIBRATION] ECE=%.4f brier=%.4f", _cal_report.ece, _cal_report.brier_score)
     except Exception as _cal_exc:
         log.debug("[CALIBRATION] calibration_monitor skipped: %s", _cal_exc)
+
+    # Step 8.15: Experiment tracking — log cycle run as experiment (observability)
+    try:
+        from src.assembled_core.ml.experiment_tracking import ExperimentTracker
+        _et = ExperimentTracker(storage_path=ctx.output_dir / "experiments" if ctx.write_outputs else None)
+        _et_metrics: dict[str, float] = {
+            "n_orders": float(len(result.orders_filtered)),
+            "n_signals": float(len(result.signals)),
+            "equity": float(getattr(ctx, "current_equity", ctx.equity)),
+        }
+        if "signal_calibration" in result.meta:
+            _et_metrics["signal_ece"] = float(result.meta["signal_calibration"].get("ece", 0.0))
+        if "model_age_confidence" in result.meta:
+            _et_metrics["model_age_confidence"] = float(result.meta["model_age_confidence"].get("confidence", 1.0))
+        _et.log_run(
+            experiment_name=f"trading_cycle_{ctx.execution_mode}",
+            params={"as_of": str(ctx.as_of.date()), "mode": ctx.execution_mode},
+            metrics=_et_metrics,
+            tags={"regime": str(result.meta.get("combined_regime", {}).get("combined", ""))},
+        )
+        log.debug("[EXP-TRACKER] cycle run logged for %s", ctx.as_of.date())
+    except Exception as _et_exc:
+        log.debug("[EXP-TRACKER] experiment_tracking skipped: %s", _et_exc)
 
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
