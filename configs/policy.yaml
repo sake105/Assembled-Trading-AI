@@ -517,6 +517,9 @@ features:
   macro_risk_aversion: true
   enhanced_factors:
     enabled: true
+  behavioral_features:
+    enabled: true
+    min_rows: 60                  # min history per symbol to compute composite
     ta_factors_core: true           # add multi-horizon returns, trend strength, reversal
     cross_sectional_rank: true      # rank-normalize key features across symbols per day
     rank_normalize_to: "symmetric"  # -1..+1 symmetric percentile rank

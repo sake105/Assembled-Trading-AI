@@ -1994,6 +1994,22 @@ def _run_trading_cycle_inner(
         result.error_message = f"Error in build_features: {e}"
         return result
 
+    # Step 2.1: PIT safety check on features (point-in-time guard)
+    try:
+        if ctx.as_of is not None and not result.prices_with_features.empty:
+            from src.assembled_core.qa.point_in_time_checks import check_features_pit_safe
+            _pit_ok = check_features_pit_safe(
+                result.prices_with_features,
+                ctx.as_of,
+                strict=False,
+                feature_source="prices_with_features",
+            )
+            result.meta["pit_check"] = {"passed": _pit_ok}
+            if not _pit_ok:
+                log.warning("[PIT] Feature DataFrame contains future-dated rows (as_of=%s)", ctx.as_of)
+    except Exception as _pit_exc:
+        log.debug("[PIT] point_in_time check skipped: %s", _pit_exc)
+
     # Step 2.2: Enhanced feature enrichment (ta_factors_core + cross-sectional normalization)
     try:
         enh_cfg = (policy.get("features") or {}).get("enhanced_factors") or {}
@@ -2117,6 +2133,51 @@ def _run_trading_cycle_inner(
                     )
     except Exception as _dr_exc:
         log.debug("[DRIFT] feature_drift detection skipped: %s", _dr_exc)
+
+    # Step 2.5: Behavioral features composite (per-symbol disposition/anchoring/vol alpha)
+    try:
+        beh_cfg = (policy.get("features") or {}).get("behavioral_features") or {}
+        if beh_cfg.get("enabled", False) and not result.prices_with_features.empty:
+            from src.assembled_core.features.behavioral_features import (
+                compute_behavioral_composite,
+            )
+            _req_cols = {"symbol", "close"}
+            if _req_cols.issubset(result.prices_with_features.columns):
+                _beh_scores: dict[str, float] = {}
+                _beh_min_rows = int(beh_cfg.get("min_rows", 60))
+                _beh_syms = result.prices_with_features["symbol"].unique()[:50]  # cap at 50 symbols
+                for _beh_sym in _beh_syms:
+                    _beh_grp = (
+                        result.prices_with_features[result.prices_with_features["symbol"] == _beh_sym]
+                        .sort_values("timestamp") if "timestamp" in result.prices_with_features.columns
+                        else result.prices_with_features[result.prices_with_features["symbol"] == _beh_sym]
+                    )
+                    if len(_beh_grp) < _beh_min_rows:
+                        continue
+                    _beh_prices = _beh_grp["close"].reset_index(drop=True)
+                    _beh_vols = _beh_grp["volume"].reset_index(drop=True) if "volume" in _beh_grp.columns else pd.Series(1.0, index=range(len(_beh_grp)))
+                    _beh_rets = _beh_prices.pct_change().fillna(0)
+                    try:
+                        _beh_composite = compute_behavioral_composite(_beh_prices, _beh_vols, _beh_rets)
+                        _val = float(_beh_composite.iloc[-1]) if len(_beh_composite) > 0 else 0.0
+                        _beh_scores[str(_beh_sym)] = _val if pd.notna(_val) else 0.0
+                    except Exception:
+                        pass
+                if _beh_scores:
+                    result.prices_with_features = result.prices_with_features.copy()
+                    result.prices_with_features["behavioral_composite"] = (
+                        result.prices_with_features["symbol"].map(_beh_scores)
+                    )
+                    result.meta["behavioral_features"] = {
+                        "n_computed": len(_beh_scores),
+                        "mean_score": round(sum(_beh_scores.values()) / len(_beh_scores), 4),
+                    }
+                    log.info(
+                        "[BEHAVIORAL] composite computed for %d symbols",
+                        len(_beh_scores),
+                    )
+    except Exception as _beh_exc:
+        log.debug("[BEHAVIORAL] behavioral_features skipped: %s", _beh_exc)
 
     # Step 3: Generate signals (hook point: generate_signals)
     try:
