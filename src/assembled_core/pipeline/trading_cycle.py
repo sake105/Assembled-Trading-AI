@@ -10445,6 +10445,35 @@ def _run_trading_cycle_inner(
     except Exception as _costs_exc:
         log.debug("[COSTS] costs skipped: %s", _costs_exc)
 
+    # Step core.1: Errors (AssembledError hierarchy — observability)
+    try:
+        from src.assembled_core.errors import AssembledError, KillSwitchActive, PITViolation
+        result.meta["errors"] = {
+            "kill_switch_class": KillSwitchActive.__name__,
+            "available": True,
+        }
+    except Exception as _err_exc:
+        log.debug("[ERRORS] errors skipped: %s", _err_exc)
+
+    # Step core.2: EMA config (EmaConfig / get_default_ema_config — observability)
+    try:
+        from src.assembled_core.ema_config import EmaConfig, get_default_ema_config
+        _ec = get_default_ema_config("1d")
+        result.meta["ema_config"] = {
+            "fast": _ec.fast,
+            "slow": _ec.slow,
+            "available": True,
+        }
+    except Exception as _ec_exc:
+        log.debug("[EMA-CONFIG] ema_config skipped: %s", _ec_exc)
+
+    # Step core.3: Logging utils (get_logger — observability)
+    try:
+        from src.assembled_core.logging_utils import get_logger
+        result.meta["logging_utils"] = {"available": True}
+    except Exception as _lu_exc:
+        log.debug("[LOGGING-UTILS] logging_utils skipped: %s", _lu_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
