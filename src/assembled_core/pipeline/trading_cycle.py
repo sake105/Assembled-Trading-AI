@@ -9068,6 +9068,27 @@ def _run_trading_cycle_inner(
     except Exception as _bcc_exc:
         log.debug("[BT-COMPARE] backtest_comparison skipped: %s", _bcc_exc)
 
+    # Step 7.76: Backtest engine (BacktestResult — observability)
+    try:
+        from src.assembled_core.qa.backtest_engine import BacktestResult
+        result.meta["backtest_engine"] = {"available": True}
+    except Exception as _bte_exc:
+        log.debug("[BT-ENGINE] backtest_engine skipped: %s", _bte_exc)
+
+    # Step 7.77: E2E integration (E2ETestResult — observability)
+    try:
+        from src.assembled_core.qa.e2e_integration import E2ETestResult, E2ESuiteResult
+        result.meta["e2e_integration"] = {"available": True}
+    except Exception as _e2e_exc:
+        log.debug("[E2E] e2e_integration skipped: %s", _e2e_exc)
+
+    # Step 7.78: Event study (build_event_window_prices — observability)
+    try:
+        from src.assembled_core.qa.event_study import build_event_window_prices, compute_event_returns
+        result.meta["event_study"] = {"available": True}
+    except Exception as _evs_exc:
+        log.debug("[EVENT-STUDY] event_study skipped: %s", _evs_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
