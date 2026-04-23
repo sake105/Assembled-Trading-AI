@@ -9679,6 +9679,38 @@ def _run_trading_cycle_inner(
     except Exception as _mba_exc:
         log.debug("[MINUTE-BAR] data.streaming.minute_bar_aggregator skipped: %s", _mba_exc)
 
+    # Step 5.61: WebSocket client (WSConfig — observability)
+    try:
+        from src.assembled_core.data.streaming.ws_client import WSConfig
+        _wscfg = WSConfig()
+        result.meta["ws_client"] = {
+            "url": _wscfg.url,
+            "reconnect_delay": _wscfg.reconnect_delay,
+            "available": True,
+        }
+    except Exception as _wsc2_exc:
+        log.debug("[WS-CLIENT] data.streaming.ws_client skipped: %s", _wsc2_exc)
+
+    # Step 2.102: Universe (get_universe_members — observability)
+    try:
+        from src.assembled_core.data.universe import get_universe_members
+        result.meta["data_universe"] = {"available": True}
+    except Exception as _univ_exc:
+        log.debug("[UNIVERSE] data.universe skipped: %s", _univ_exc)
+
+    # Step 8.50: Crisis alpha baskets (get_baskets / get_basket_symbols — observability)
+    try:
+        from src.assembled_core.events.crisis_alpha.baskets import get_baskets, get_basket_symbols
+        _ca_baskets = get_baskets()
+        _ca_syms = get_basket_symbols()
+        result.meta["crisis_alpha_baskets"] = {
+            "n_baskets": len(_ca_baskets),
+            "n_symbols": len(_ca_syms),
+            "available": True,
+        }
+    except Exception as _cab_exc:
+        log.debug("[CA-BASKETS] events.crisis_alpha.baskets skipped: %s", _cab_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
