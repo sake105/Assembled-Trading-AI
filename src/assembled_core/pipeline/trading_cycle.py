@@ -8052,6 +8052,49 @@ def _run_trading_cycle_inner(
     except Exception as _reg_exc:
         log.debug("[REG-REPORTS] regulatory_reports skipped: %s", _reg_exc)
 
+    # Step 8.66: Config constants (observability)
+    try:
+        from src.assembled_core.config.constants import (
+            TRADING_DAYS_PER_YEAR,
+            DEFAULT_COMMISSION_BPS,
+            DEFAULT_START_CAPITAL,
+        )
+        result.meta["config_constants"] = {
+            "trading_days_per_year": TRADING_DAYS_PER_YEAR,
+            "default_commission_bps": DEFAULT_COMMISSION_BPS,
+            "default_start_capital": DEFAULT_START_CAPITAL,
+        }
+    except Exception as _cc_exc:
+        log.debug("[CONFIG-CONST] config constants skipped: %s", _cc_exc)
+
+    # Step 8.67: Policy schema validation (validate_policy — observability)
+    try:
+        from src.assembled_core.config.policy_schema import validate_policy
+        _ps_valid, _ps_errors = validate_policy({})
+        result.meta["policy_schema"] = {
+            "empty_policy_valid": len(_ps_errors) == 0,
+            "n_errors": len(_ps_errors),
+        }
+    except Exception as _ps_exc:
+        log.debug("[POLICY-SCHEMA] policy_schema skipped: %s", _ps_exc)
+
+    # Step 8.68: Evidence grader (grade_evidence / EvidenceGrade — observability)
+    try:
+        from src.assembled_core.events.evidence_engine.grader import grade_evidence
+        from src.assembled_core.events.evidence_engine.grades import EvidenceGrade
+        _eg_summary = {
+            "tierA_count": 2,
+            "tierB_independent_count": 1,
+            "evidence_ok": True,
+        }
+        _eg_grade = grade_evidence(_eg_summary)
+        result.meta["evidence_grader"] = {
+            "grade": str(_eg_grade),
+            "available": True,
+        }
+    except Exception as _eg_exc:
+        log.debug("[EVIDENCE-GRADER] evidence_grader skipped: %s", _eg_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
