@@ -2253,6 +2253,42 @@ def _run_trading_cycle_inner(
     except Exception as _ix_exc:
         log.debug("[IX-FEATURES] interaction_features skipped: %s", _ix_exc)
 
+    # Step 2.10: Realized volatility features (rv_20, rv_60 per symbol)
+    try:
+        rv_cfg = (policy.get("features") or {}).get("realized_volatility") or {}
+        if rv_cfg.get("enabled", False) and not result.prices_with_features.empty:
+            _rv_req = {"close", "symbol", "timestamp"}
+            if _rv_req.issubset(result.prices_with_features.columns):
+                from src.assembled_core.features.ta_liquidity_vol_factors import add_realized_volatility
+                _rv_windows = [int(w) for w in rv_cfg.get("windows", [20, 60])]
+                _rv_existing = set(result.prices_with_features.columns)
+                result.prices_with_features = add_realized_volatility(
+                    result.prices_with_features, windows=_rv_windows
+                )
+                _rv_added = [c for c in result.prices_with_features.columns if c not in _rv_existing]
+                result.meta["realized_volatility"] = {"n_added": len(_rv_added), "windows": _rv_windows}
+                log.debug("[RV] added %d realized vol columns: %s", len(_rv_added), _rv_added)
+    except Exception as _rv_exc:
+        log.debug("[RV] realized_volatility skipped: %s", _rv_exc)
+
+    # Step 2.11: Fractional differentiation of close price (memory-preserving stationarity)
+    try:
+        ffd_cfg = (policy.get("features") or {}).get("fractional_diff") or {}
+        if ffd_cfg.get("enabled", False) and not result.prices_with_features.empty:
+            _ffd_req = {"close", "symbol", "timestamp"}
+            if _ffd_req.issubset(result.prices_with_features.columns):
+                from src.assembled_core.features.fractional_diff import apply_ffd_to_panel
+                _ffd_d = float(ffd_cfg.get("d", 0.4))
+                _ffd_before = set(result.prices_with_features.columns)
+                result.prices_with_features = apply_ffd_to_panel(
+                    result.prices_with_features, price_cols=["close"], d=_ffd_d
+                )
+                _ffd_added = [c for c in result.prices_with_features.columns if c not in _ffd_before]
+                result.meta["fractional_diff"] = {"d": _ffd_d, "n_added": len(_ffd_added)}
+                log.debug("[FFD] fractional diff applied, d=%.2f, added=%s", _ffd_d, _ffd_added)
+    except Exception as _ffd_exc:
+        log.debug("[FFD] fractional_diff skipped: %s", _ffd_exc)
+
     # Step 3: Generate signals (hook point: generate_signals)
     try:
         if "generate_signals" in hooks:
