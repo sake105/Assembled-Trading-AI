@@ -9812,6 +9812,27 @@ def _run_trading_cycle_inner(
     except Exception as _dm_exc:
         log.debug("[DISC-MODELS] events.disclosures.models skipped: %s", _dm_exc)
 
+    # Step 8.63: Disclosures normalize (normalize_raw_item — observability)
+    try:
+        from src.assembled_core.events.disclosures.normalize import normalize_raw_item
+        result.meta["disclosures_normalize"] = {"available": True}
+    except Exception as _dn_exc:
+        log.debug("[DISC-NORMALIZE] events.disclosures.normalize skipped: %s", _dn_exc)
+
+    # Step 8.64: Disclosures pipeline (run_disclosures_pipeline — observability)
+    try:
+        from src.assembled_core.events.disclosures.pipeline import run_disclosures_pipeline
+        result.meta["disclosures_pipeline"] = {"available": True}
+    except Exception as _dp_exc:
+        log.debug("[DISC-PIPELINE] events.disclosures.pipeline skipped: %s", _dp_exc)
+
+    # Step 8.65: Disclosures sources (DisclosureSource / load_sources_registry — observability)
+    try:
+        from src.assembled_core.events.disclosures.sources import DisclosureSource, load_sources_registry
+        result.meta["disclosures_sources"] = {"available": True}
+    except Exception as _dsrc_exc:
+        log.debug("[DISC-SOURCES] events.disclosures.sources skipped: %s", _dsrc_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
