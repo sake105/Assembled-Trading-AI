@@ -2536,6 +2536,28 @@ def _run_trading_cycle_inner(
     except Exception as _vpin_exc:
         log.debug("[VPIN] vpin skipped: %s", _vpin_exc)
 
+    # Step 2.22: Cross-sectional z-score of numeric features (normalization observability)
+    try:
+        if not result.prices_with_features.empty:
+            from src.assembled_core.features.fundamental_factors import cross_sectional_zscore
+            _csz_num_cols = [
+                c for c in result.prices_with_features.columns
+                if c not in {"timestamp", "symbol", "open", "high", "low", "close", "volume"}
+                and result.prices_with_features[c].dtype in ("float64", "float32")
+            ][:20]
+            if _csz_num_cols:
+                _csz_df = cross_sectional_zscore(
+                    result.prices_with_features[["symbol"] + _csz_num_cols].dropna(how="all"),
+                    columns=_csz_num_cols,
+                )
+                result.meta["cross_sectional_zscore"] = {
+                    "n_cols": len(_csz_num_cols),
+                    "n_rows": len(_csz_df),
+                }
+                log.debug("[CSZ] z-scored %d cols × %d rows", len(_csz_num_cols), len(_csz_df))
+    except Exception as _csz_exc:
+        log.debug("[CSZ] cross_sectional_zscore skipped: %s", _csz_exc)
+
     # Step 3: Generate signals (hook point: generate_signals)
     try:
         if "generate_signals" in hooks:
@@ -3270,6 +3292,25 @@ def _run_trading_cycle_inner(
         log.debug("[PLUGIN] %d signal plugins discovered", len(_pl_plugins))
     except Exception as _pl_exc:
         log.debug("[PLUGIN] plugin_loader skipped: %s", _pl_exc)
+
+    # Step 3.90: CPCV splits (Combinatorial Purged Cross-Validation — observability)
+    try:
+        from src.assembled_core.ml.cpcv import generate_cpcv_splits
+        _cpcv_n = len(result.equity_series) if result.equity_series is not None else 0
+        if _cpcv_n >= 60:
+            _cpcv_splits = generate_cpcv_splits(
+                n_timestamps=_cpcv_n, n_groups=6, k_test_groups=2,
+                purge_length=5, embargo_length=3,
+            )
+            result.meta["cpcv_splits"] = {
+                "n_timestamps": _cpcv_n,
+                "n_groups": 6,
+                "k_test_groups": 2,
+                "n_splits": len(_cpcv_splits),
+            }
+            log.debug("[CPCV] n_timestamps=%d n_splits=%d", _cpcv_n, len(_cpcv_splits))
+    except Exception as _cpcv_exc:
+        log.debug("[CPCV] cpcv skipped: %s", _cpcv_exc)
 
     # Step 4: Size positions (hook point: size_positions)
     try:
@@ -6695,6 +6736,23 @@ def _run_trading_cycle_inner(
         log.debug("[REGIME-ROUTER] has_state=%s", _rmr._state is not None)
     except Exception as _rmr_exc:
         log.debug("[REGIME-ROUTER] regime_model_router skipped: %s", _rmr_exc)
+
+    # Step 8.28: Factor model feature detection (auto-detect feature cols — observability)
+    try:
+        if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            from src.assembled_core.ml.factor_models import detect_feature_cols
+            _fdc_label = "tb_label_5d" if "tb_label_5d" in result.prices_with_features.columns else "close"
+            _fdc_cols = detect_feature_cols(
+                result.prices_with_features,
+                label_col=_fdc_label,
+            )
+            result.meta["factor_model_features"] = {
+                "n_feature_cols": len(_fdc_cols),
+                "feature_cols_sample": _fdc_cols[:5],
+            }
+            log.debug("[FACTOR-COLS] %d feature cols detected", len(_fdc_cols))
+    except Exception as _fdc_exc:
+        log.debug("[FACTOR-COLS] factor_models detect_feature_cols skipped: %s", _fdc_exc)
 
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
