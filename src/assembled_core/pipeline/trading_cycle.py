@@ -9937,6 +9937,31 @@ def _run_trading_cycle_inner(
     except Exception as _nm_exc:
         log.debug("[NEWS-MODELS] events.news.models skipped: %s", _nm_exc)
 
+    # Step 8.78: News normalize (canonicalize_url / normalize_raw_item — observability)
+    try:
+        from src.assembled_core.events.news.normalize import canonicalize_url
+        _curl = canonicalize_url("https://example.com/news?utm_source=test#anchor")
+        result.meta["news_normalize"] = {
+            "canonicalize_test": _curl,
+            "available": True,
+        }
+    except Exception as _nnorm_exc:
+        log.debug("[NEWS-NORMALIZE] events.news.normalize skipped: %s", _nnorm_exc)
+
+    # Step 8.79: News pipeline (run_news_pipeline — observability)
+    try:
+        from src.assembled_core.events.news.pipeline import run_news_pipeline
+        result.meta["news_pipeline"] = {"available": True}
+    except Exception as _np_exc:
+        log.debug("[NEWS-PIPELINE] events.news.pipeline skipped: %s", _np_exc)
+
+    # Step 8.80: News sources (NewsSource / load_sources_registry — observability)
+    try:
+        from src.assembled_core.events.news.sources import NewsSource, load_sources_registry as _load_news_sources
+        result.meta["news_sources"] = {"available": True}
+    except Exception as _nsrc_exc:
+        log.debug("[NEWS-SOURCES] events.news.sources skipped: %s", _nsrc_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
