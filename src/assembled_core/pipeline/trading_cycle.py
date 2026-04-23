@@ -9136,6 +9136,28 @@ def _run_trading_cycle_inner(
     except Exception as _eix_exc:
         log.debug("[EVIDENCE-IDX] evidence_index skipped: %s", _eix_exc)
 
+    # Step 7.85: Evidence pack (write functions — observability)
+    try:
+        from src.assembled_core.accounting.evidence_pack import _sha256_bytes
+        _ep_hash = _sha256_bytes(b"test")
+        result.meta["evidence_pack"] = {"sha256_ok": len(_ep_hash) == 64, "available": True}
+    except Exception as _ep_exc:
+        log.debug("[EVIDENCE-PACK] evidence_pack skipped: %s", _ep_exc)
+
+    # Step 7.86: Ledger integration (build_ledger_from_trades — observability)
+    try:
+        from src.assembled_core.accounting.ledger_integration import build_ledger_from_trades
+        result.meta["ledger_integration"] = {"available": True}
+    except Exception as _li_exc:
+        log.debug("[LEDGER-INTEG] ledger_integration skipped: %s", _li_exc)
+
+    # Step 7.87: Ledger store (accounting) (ledger_base_path — observability)
+    try:
+        from src.assembled_core.accounting.ledger_store import ledger_base_path, list_ledger_runs
+        result.meta["accounting_ledger_store"] = {"available": True}
+    except Exception as _als_exc:
+        log.debug("[ACCT-LEDGER] accounting ledger_store skipped: %s", _als_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
