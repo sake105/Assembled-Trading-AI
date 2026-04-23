@@ -7860,6 +7860,40 @@ def _run_trading_cycle_inner(
     except Exception as _hp_exc:
         log.debug("[HMM-POST] hmm_posterior skipped: %s", _hp_exc)
 
+    # Step 8.60: GNN stock embedder state (GNNConfig init — observability)
+    try:
+        from src.assembled_core.ml.gnn_stocks import GNNConfig, TORCH_AVAILABLE as _gnn_torch
+        _gnn_cfg = GNNConfig()
+        result.meta["gnn_stocks"] = {
+            "torch_available": bool(_gnn_torch),
+            "embedding_dim": _gnn_cfg.embedding_dim,
+            "n_layers": _gnn_cfg.n_layers,
+        }
+    except Exception as _gnn_exc:
+        log.debug("[GNN] gnn_stocks skipped: %s", _gnn_exc)
+
+    # Step 8.61: Graph models state (build_correlation_graph — observability)
+    try:
+        from src.assembled_core.ml.graph_models import generate_graph_signals, GraphSignal
+        result.meta["graph_models"] = {
+            "available": True,
+        }
+    except Exception as _gm_exc:
+        log.debug("[GRAPH-MOD] graph_models skipped: %s", _gm_exc)
+
+    # Step 8.62: MAML meta-learning state (MAMLConfig init — observability)
+    try:
+        from src.assembled_core.ml.maml import MAMLConfig, TORCH_AVAILABLE as _maml_torch
+        _maml_cfg = MAMLConfig()
+        result.meta["maml"] = {
+            "torch_available": bool(_maml_torch),
+            "inner_lr": _maml_cfg.inner_lr,
+            "inner_steps": _maml_cfg.inner_steps,
+            "hidden_dim": _maml_cfg.hidden_dim,
+        }
+    except Exception as _maml_exc:
+        log.debug("[MAML] maml skipped: %s", _maml_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
