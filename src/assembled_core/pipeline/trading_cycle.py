@@ -10420,6 +10420,31 @@ def _run_trading_cycle_inner(
     except Exception as _cfg_exc:
         log.debug("[CONFIG] config package skipped: %s", _cfg_exc)
 
+    # Step cfg.2: Logging config (configure_json_logging — observability)
+    try:
+        from src.assembled_core.config.logging_config import configure_json_logging, JSONFormatter
+        result.meta["config_logging_config"] = {"available": True}
+    except Exception as _lcfg_exc:
+        log.debug("[CONFIG-LOGGING] config.logging_config skipped: %s", _lcfg_exc)
+
+    # Step cfg.3: Secrets loader (get_secret — observability)
+    try:
+        from src.assembled_core.config.secrets_loader import get_secret, is_secret_set
+        result.meta["config_secrets_loader"] = {"available": True}
+    except Exception as _sload_exc:
+        log.debug("[CONFIG-SECRETS] config.secrets_loader skipped: %s", _sload_exc)
+
+    # Step cost.1: Cost model (CostModel / get_default_cost_model — observability)
+    try:
+        from src.assembled_core.costs import CostModel, get_default_cost_model
+        _dcm = get_default_cost_model()
+        result.meta["costs"] = {
+            "commission_bps": _dcm.commission_bps,
+            "available": True,
+        }
+    except Exception as _costs_exc:
+        log.debug("[COSTS] costs skipped: %s", _costs_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
