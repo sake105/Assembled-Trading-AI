@@ -2582,6 +2582,28 @@ def _run_trading_cycle_inner(
     except Exception as e:
         log.debug("crash_prediction step skipped: %s", e)
 
+    # Step 3.4: Mean-reversion signal layer (regime-conditional, shadow enrichment)
+    try:
+        mr_cfg = (policy.get("signals") or {}).get("mean_reversion") or {}
+        if mr_cfg.get("enabled", False) and not result.prices_with_features.empty:
+            from src.assembled_core.signals.mean_reversion import compute_mean_reversion_signals
+            _mr_regime = str(result.meta.get("regime", {}).get("regime", "bull"))
+            _mr_signals = compute_mean_reversion_signals(
+                result.prices_with_features,
+                regime=_mr_regime,
+            )
+            if not _mr_signals.empty and not result.signals.empty:
+                _mr_map = _mr_signals.set_index("symbol")["reversion_signal"].to_dict()
+                result.signals["mr_signal"] = result.signals["symbol"].map(_mr_map)
+            result.meta["mean_reversion_signal"] = {
+                "regime": _mr_regime,
+                "n_signals": int((_mr_signals.get("reversion_signal", pd.Series()) != 0).sum())
+                if not _mr_signals.empty else 0,
+            }
+            log.debug("[MR-SIGNAL] mean-reversion signals computed, regime=%s", _mr_regime)
+    except Exception as _mr_exc:
+        log.debug("[MR-SIGNAL] mean_reversion_signals skipped: %s", _mr_exc)
+
     # Step 3.55: Multi-factor composite signal (shadow — enriches signals with mf_score)
     try:
         mf_cfg = policy.get("multifactor_signal") or {}
@@ -4758,6 +4780,36 @@ def _run_trading_cycle_inner(
         result.status = "error"
         result.error_message = f"Error in write_outputs hook: {e}"
         return result
+
+    # Step 7.5: Strategy capacity QA (observability — shadow, no blocking)
+    try:
+        cap_cfg = (policy.get("qa") or {}).get("capacity") or {}
+        if cap_cfg.get("enabled", False) and not result.orders_filtered.empty:
+            from src.assembled_core.qa.capacity import estimate_strategy_capacity
+            _cap_orders = result.orders_filtered.copy()
+            if "timestamp" not in _cap_orders.columns:
+                _cap_orders["timestamp"] = ctx.as_of
+            if "notional" not in _cap_orders.columns and "qty" in _cap_orders.columns and "price" in _cap_orders.columns:
+                _cap_orders["notional"] = (_cap_orders["qty"] * _cap_orders["price"]).abs()
+            if "notional" in _cap_orders.columns:
+                _cap_est = estimate_strategy_capacity(
+                    _cap_orders,
+                    alpha_gross_bps=float(cap_cfg.get("alpha_gross_bps", 1500.0)),
+                    target_aum_usd=float(cap_cfg.get("target_aum_usd", 10_000_000.0)),
+                    n_positions=int(cap_cfg.get("n_positions", 20)),
+                )
+                result.meta["capacity_estimate"] = {
+                    "verdict": _cap_est.verdict,
+                    "max_aum_usd": _cap_est.max_aum_usd,
+                    "alpha_net_at_target_bps": _cap_est.alpha_net_at_target_bps,
+                }
+                if _cap_est.verdict != "ok":
+                    log.warning(
+                        "[CAPACITY] verdict=%s max_aum=$%.0f alpha_net=%.1fbps",
+                        _cap_est.verdict, _cap_est.max_aum_usd, _cap_est.alpha_net_at_target_bps,
+                    )
+    except Exception as _cap_exc:
+        log.debug("[CAPACITY] capacity_estimate skipped: %s", _cap_exc)
 
     # Phase 9: Signal diagnostics (end of cycle) — write signal_health.json
     try:
