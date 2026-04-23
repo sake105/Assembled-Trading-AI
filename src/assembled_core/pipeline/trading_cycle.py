@@ -9043,6 +9043,31 @@ def _run_trading_cycle_inner(
     except Exception as _sor_exc:
         log.debug("[SOR] smart_order_router skipped: %s", _sor_exc)
 
+    # Step 5.65: Unified paper engine (UnifiedPaperEngine — observability)
+    try:
+        from src.assembled_core.execution.unified_paper_engine import UnifiedPaperEngine
+        _upe = UnifiedPaperEngine()
+        result.meta["unified_paper_engine"] = {
+            "initialized": _upe._initialized,
+            "available": True,
+        }
+    except Exception as _upe_exc:
+        log.debug("[UNIFIED-PAPER] unified_paper_engine skipped: %s", _upe_exc)
+
+    # Step 7.74: Adversarial testing (run_adversarial_audit — observability)
+    try:
+        from src.assembled_core.qa.adversarial_testing import run_adversarial_audit
+        result.meta["adversarial_testing"] = {"available": True}
+    except Exception as _aat_exc:
+        log.debug("[ADVERSARIAL] adversarial_testing skipped: %s", _aat_exc)
+
+    # Step 7.75: Backtest comparison (compare_backtests — observability)
+    try:
+        from src.assembled_core.qa.backtest_comparison import compare_backtests, BacktestComparisonReport
+        result.meta["backtest_comparison"] = {"available": True}
+    except Exception as _bcc_exc:
+        log.debug("[BT-COMPARE] backtest_comparison skipped: %s", _bcc_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
