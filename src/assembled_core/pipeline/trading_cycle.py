@@ -7646,6 +7646,47 @@ def _run_trading_cycle_inner(
     except Exception as _pt_exc:
         log.debug("[PROFIT-TARGETS] profit_targets skipped: %s", _pt_exc)
 
+    # Step 5.97: Exposure engine state (ExposureSummary fields — observability)
+    try:
+        from src.assembled_core.risk.exposure_engine import ExposureSummary, compute_target_positions
+        import pandas as _ee_pd
+        _ee_curr = _ee_pd.DataFrame(columns=["symbol", "qty"])
+        _ee_orders = _ee_pd.DataFrame(columns=["symbol", "side", "qty"])
+        _ee_target = compute_target_positions(_ee_curr, _ee_orders)
+        result.meta["exposure_engine"] = {
+            "target_positions_cols": list(_ee_target.columns),
+            "available": True,
+        }
+    except Exception as _ee_exc:
+        log.debug("[EXPOSURE] exposure_engine skipped: %s", _ee_exc)
+
+    # Step 5.98: Intraday risk monitor state (IntradayRiskConfig init — observability)
+    try:
+        from src.assembled_core.risk.intraday_monitor import IntradayRiskConfig, IntradayRiskMonitor
+        _idc = IntradayRiskConfig()
+        result.meta["intraday_monitor"] = {
+            "max_intraday_drawdown_pct": _idc.max_intraday_drawdown_pct,
+            "warning_drawdown_pct": _idc.warning_drawdown_pct,
+            "var_confidence": _idc.var_confidence,
+        }
+    except Exception as _idm_exc:
+        log.debug("[INTRADAY-MON] intraday_monitor skipped: %s", _idm_exc)
+
+    # Step 5.99: Market-neutral optimizer state (MarketNeutralConfig — observability)
+    try:
+        from src.assembled_core.portfolio.market_neutral_optimizer import (
+            MarketNeutralConfig, CVXPY_AVAILABLE as _mn_cvxpy,
+        )
+        _mn_cfg = MarketNeutralConfig()
+        result.meta["market_neutral_optimizer"] = {
+            "cvxpy_available": bool(_mn_cvxpy),
+            "max_weight": _mn_cfg.max_weight,
+            "beta_neutral": _mn_cfg.beta_neutral,
+            "max_gross_exposure": _mn_cfg.max_gross_exposure,
+        }
+    except Exception as _mno_exc:
+        log.debug("[MN-OPT] market_neutral_optimizer skipped: %s", _mno_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
