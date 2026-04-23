@@ -8504,6 +8504,41 @@ def _run_trading_cycle_inner(
     except Exception as _ct_exc:
         log.debug("[CORROBORATION] news_corroboration skipped: %s", _ct_exc)
 
+    # Step 8.81: News contradiction (ContradictionDetector — observability)
+    try:
+        from src.assembled_core.intel.news_contradiction import ContradictionDetector
+        _cd = ContradictionDetector()
+        _cd_result = _cd.analyse([])
+        result.meta["news_contradiction"] = {
+            "n_contradictions": len(_cd_result),
+            "available": True,
+        }
+    except Exception as _cd_exc:
+        log.debug("[CONTRADICTION] news_contradiction skipped: %s", _cd_exc)
+
+    # Step 8.82: News dedupe (NewsDedupeIndex — observability)
+    try:
+        from src.assembled_core.intel.news_dedupe import NewsDedupeIndex
+        _ndi = NewsDedupeIndex()
+        result.meta["news_dedupe"] = {
+            "n_seen_ids": len(_ndi.seen_event_ids),
+            "available": True,
+        }
+    except Exception as _ndi_exc:
+        log.debug("[NEWS-DEDUPE] news_dedupe skipped: %s", _ndi_exc)
+
+    # Step 8.83: News enricher (NewsEventEnricher — observability)
+    try:
+        from src.assembled_core.intel.news_enricher import NewsEventEnricher
+        _nee = NewsEventEnricher()
+        _nee_result = _nee.enrich([])
+        result.meta["news_enricher"] = {
+            "n_enriched": len(_nee_result),
+            "available": True,
+        }
+    except Exception as _nee_exc:
+        log.debug("[NEWS-ENRICHER] news_enricher skipped: %s", _nee_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
