@@ -10343,6 +10343,31 @@ def _run_trading_cycle_inner(
     except Exception as _coint_exc:
         log.debug("[STRAT-COINTEGRATION] strategies.stat_arb.cointegration skipped: %s", _coint_exc)
 
+    # Step strat.3: Pair signals (PairSignalGenerator — observability)
+    try:
+        from src.assembled_core.strategies.stat_arb.pair_signals import PairSignalGenerator
+        _psg = PairSignalGenerator(hedge_ratio=1.0)
+        result.meta["strategies_stat_arb_pair_signals"] = {
+            "hedge_ratio": _psg.hedge_ratio,
+            "available": True,
+        }
+    except Exception as _psg_exc:
+        log.debug("[STRAT-PAIR-SIGNALS] strategies.stat_arb.pair_signals skipped: %s", _psg_exc)
+
+    # Step strat.4: PCA arb (PCAFactorModel / compute_pca_factors — observability)
+    try:
+        from src.assembled_core.strategies.stat_arb.pca_arb import PCAFactorModel, compute_pca_factors
+        result.meta["strategies_stat_arb_pca_arb"] = {"available": True}
+    except Exception as _pca_exc:
+        log.debug("[STRAT-PCA-ARB] strategies.stat_arb.pca_arb skipped: %s", _pca_exc)
+
+    # Step util.1: Dataframe utils (ensure_cols / coerce_price_types — observability)
+    try:
+        from src.assembled_core.utils.dataframe import ensure_cols, coerce_price_types
+        result.meta["utils_dataframe"] = {"available": True}
+    except Exception as _udf_exc:
+        log.debug("[UTILS-DATAFRAME] utils.dataframe skipped: %s", _udf_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
