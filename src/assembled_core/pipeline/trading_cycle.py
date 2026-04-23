@@ -8172,6 +8172,46 @@ def _run_trading_cycle_inner(
     except Exception as _ts_exc:
         log.debug("[TRIGGER-SCORING] trigger_scoring skipped: %s", _ts_exc)
 
+    # Step 2.41: PIT guard (PITGuard — observability)
+    try:
+        from src.assembled_core.data.pit_guard import PITGuard
+        import pandas as _pd_pit
+        _pit = PITGuard(as_of=_pd_pit.Timestamp.now(tz="UTC"), mode="warn")
+        result.meta["pit_guard"] = {
+            "mode": _pit.mode,
+            "available": True,
+        }
+    except Exception as _pit_exc:
+        log.debug("[PIT-GUARD] pit_guard skipped: %s", _pit_exc)
+
+    # Step 2.42: Realism meta (build_realism_label — observability)
+    try:
+        from src.assembled_core.data.realism_meta import build_realism_label
+        _rm = build_realism_label(
+            calendar_mode="nyse",
+            cost_model_mode="policy",
+            data_source="synthetic",
+        )
+        result.meta["realism_meta"] = {
+            "realism_level": _rm.get("realism_level", "unknown"),
+            "data_source": _rm.get("data_source", "unknown"),
+        }
+    except Exception as _rm_exc:
+        log.debug("[REALISM-META] realism_meta skipped: %s", _rm_exc)
+
+    # Step 2.43: Data latency (apply_source_latency — observability)
+    try:
+        from src.assembled_core.data.latency import apply_source_latency
+        import pandas as _pd_lat
+        _lat_events = _pd_lat.DataFrame(columns=["source", "event_timestamp", "available_from"])
+        _lat_result = apply_source_latency(_lat_events)
+        result.meta["data_latency"] = {
+            "n_events": len(_lat_result),
+            "available": True,
+        }
+    except Exception as _lat_exc:
+        log.debug("[DATA-LATENCY] data_latency skipped: %s", _lat_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
