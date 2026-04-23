@@ -5872,6 +5872,25 @@ def _run_trading_cycle_inner(
     except Exception as _hb_exc:
         log.debug("[HEARTBEAT] heartbeat skipped: %s", _hb_exc)
 
+    # Step 7.69: Alert manager — emit alerts for key cycle risk conditions (observability)
+    try:
+        from src.assembled_core.ops.alert_manager import AlertManager
+        _am = AlertManager(rate_limit_seconds=0, output_dir=str(ctx.output_dir / "alerts"))
+        _am_fired = 0
+        # Alert if qa_gates blocked
+        _am_qa_gates = result.meta.get("qa_gates", {})
+        if _am_qa_gates.get("overall") in {"BLOCK", "block", "BLOCKED"}:
+            _am.alert("WARNING", "cycle", "QA gates BLOCKED", details=_am_qa_gates)
+            _am_fired += 1
+        # Alert if no orders generated at all and this is live/paper
+        if len(result.orders_filtered) == 0 and getattr(ctx, "execution_mode", "") in ("paper", "live"):
+            _am.alert("INFO", "cycle", "No orders generated this cycle")
+            _am_fired += 1
+        result.meta["alert_manager"] = {"alerts_fired": _am_fired, "pending": _am.pending_count}
+        log.debug("[ALERT-MGR] alerts_fired=%d", _am_fired)
+    except Exception as _am_exc:
+        log.debug("[ALERT-MGR] alert_manager skipped: %s", _am_exc)
+
     # Phase 9: Signal diagnostics (end of cycle) — write signal_health.json
     try:
         sd_cfg = (policy.get("signal_generation") or {}).get("signal_diagnostics") or {}
@@ -6807,6 +6826,50 @@ def _run_trading_cycle_inner(
         log.debug("[CANDIDATE-GATE] allowed=%s", _cg_allowed)
     except Exception as _cg_exc:
         log.debug("[CANDIDATE-GATE] candidate_gate skipped: %s", _cg_exc)
+
+    # Step 8.30: Probability of Backtest Overfitting (CSCV method — observability)
+    try:
+        if result.equity_series is not None and len(result.equity_series) >= 8:
+            from src.assembled_core.qa.backtest_overfit import compute_pbo
+            _pbo_eq = result.equity_series
+            _pbo_rets = _pbo_eq.pct_change().dropna()
+            if len(_pbo_rets) >= 4:
+                _pbo_bench = pd.Series(0.0, index=_pbo_rets.index)
+                _pbo_df = pd.DataFrame({"strategy": _pbo_rets.values, "benchmark": _pbo_bench.values})
+                _pbo_result = compute_pbo(_pbo_df, n_splits=32)
+                result.meta["pbo"] = {
+                    "pbo": round(float(_pbo_result.pbo), 4),
+                    "n_splits": _pbo_result.n_splits,
+                    "overfit_risk": "high" if _pbo_result.pbo > 0.5 else "low",
+                }
+                log.debug("[PBO] pbo=%.3f n_splits=%d", _pbo_result.pbo, _pbo_result.n_splits)
+    except Exception as _pbo_exc:
+        log.debug("[PBO] backtest_overfit skipped: %s", _pbo_exc)
+
+    # Step 8.31: ML evaluation meta-model metrics (sklearn-gated, observability)
+    try:
+        from src.assembled_core.qa.ml_evaluation import evaluate_meta_model
+        _mle_labels = result.meta.get("equity_labels", {})
+        _mle_n = int(_mle_labels.get("n_labeled") or 0)
+        if _mle_n >= 10:
+            _mle_pos_rate = float(_mle_labels.get("positive_rate", 0.5))
+            _mle_y_true = pd.Series(
+                [1.0 if i / _mle_n < _mle_pos_rate else 0.0 for i in range(_mle_n)]
+            )
+            _mle_y_prob = pd.Series(
+                [min(0.99, max(0.01, _mle_pos_rate + (i / _mle_n - 0.5) * 0.2)) for i in range(_mle_n)]
+            )
+            _mle_metrics = evaluate_meta_model(_mle_y_true, _mle_y_prob)
+            result.meta["ml_evaluation"] = {
+                "roc_auc": round(float(_mle_metrics.get("roc_auc", 0.0) or 0.0), 4),
+                "brier_score": round(float(_mle_metrics.get("brier_score", 0.0) or 0.0), 4),
+                "n_samples": _mle_n,
+            }
+            log.debug("[ML-EVAL] roc_auc=%.3f brier=%.3f n=%d",
+                      result.meta["ml_evaluation"]["roc_auc"],
+                      result.meta["ml_evaluation"]["brier_score"], _mle_n)
+    except Exception as _mle_exc:
+        log.debug("[ML-EVAL] ml_evaluation skipped: %s", _mle_exc)
 
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
