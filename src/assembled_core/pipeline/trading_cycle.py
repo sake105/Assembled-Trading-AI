@@ -7894,6 +7894,115 @@ def _run_trading_cycle_inner(
     except Exception as _maml_exc:
         log.debug("[MAML] maml skipped: %s", _maml_exc)
 
+    # Step 8.63: LIME explainer state (LIMEExplainerWrapper — observability)
+    try:
+        from src.assembled_core.ml.lime_explainer import LIMEExplainerWrapper
+        try:
+            import lime as _lime_check
+            _lime_available = True
+        except ImportError:
+            _lime_available = False
+        result.meta["lime_explainer"] = {
+            "lime_available": _lime_available,
+            "available": True,
+        }
+    except Exception as _lime_exc:
+        log.debug("[LIME] lime_explainer skipped: %s", _lime_exc)
+
+    # Step 8.64: Online HPO bandit state (OnlineHyperparamAdapter — observability)
+    try:
+        from src.assembled_core.ml.online_hpo import OnlineHyperparamAdapter
+        _ohpo = OnlineHyperparamAdapter()
+        _ohpo_best = _ohpo.select_arm()
+        result.meta["online_hpo"] = {
+            "n_arms": len(_ohpo.arms),
+            "selected_arm": _ohpo_best.arm_id if _ohpo_best else None,
+        }
+    except Exception as _ohpo_exc:
+        log.debug("[ONLINE-HPO] online_hpo skipped: %s", _ohpo_exc)
+
+    # Step 8.65: Nested meta-labeling state (NestedMetaLabeler — observability)
+    try:
+        from src.assembled_core.ml.nested_meta_labeling import NestedMetaLabeler
+        _nml = NestedMetaLabeler()
+        result.meta["nested_meta_labeling"] = {
+            "fitted": bool(getattr(_nml, "_fitted", False)),
+            "available": True,
+        }
+    except Exception as _nml_exc:
+        log.debug("[NESTED-META] nested_meta_labeling skipped: %s", _nml_exc)
+
+    # Step 7.73: Factor report (run_factor_report — observability)
+    try:
+        from src.assembled_core.qa.factor_report import run_factor_report
+        if not result.prices_with_features.empty and len(result.prices_with_features) >= 10:
+            _fr_report = run_factor_report(
+                result.prices_with_features,
+                factor_set="core",
+                fwd_horizon_days=5,
+            )
+            result.meta["factor_report"] = {
+                "n_factors": len(_fr_report) if isinstance(_fr_report, dict) else 0,
+                "available": True,
+            }
+        else:
+            result.meta["factor_report"] = {"available": True, "skipped": "insufficient_data"}
+    except Exception as _fr_exc:
+        log.debug("[FACTOR-REPORT] factor_report skipped: %s", _fr_exc)
+
+    # Step 7.74: Shipping risk (compute_shipping_exposure — observability)
+    try:
+        from src.assembled_core.qa.shipping_risk import (
+            compute_shipping_exposure,
+            compute_systemic_risk_flags,
+        )
+        import pandas as _pd_sr
+        if result.orders_filtered:
+            _sr_portfolio = _pd_sr.DataFrame([
+                {"symbol": o.symbol, "weight": 1.0 / max(len(result.orders_filtered), 1)}
+                for o in result.orders_filtered
+            ])
+            _sr_features = _pd_sr.DataFrame([
+                {"symbol": o.symbol, "shipping_congestion_score": 0.0}
+                for o in result.orders_filtered
+            ])
+            _sr_exp = compute_shipping_exposure(_sr_portfolio, _sr_features)
+            _sr_flags = compute_systemic_risk_flags(_sr_exp)
+            result.meta["shipping_risk"] = {
+                "avg_congestion": float(_sr_exp.get("avg_shipping_congestion", 0.0)),
+                "systemic_risk": bool(_sr_flags.get("systemic_risk", False)),
+            }
+        else:
+            result.meta["shipping_risk"] = {"available": True, "skipped": "no_orders"}
+    except Exception as _sr_exc:
+        log.debug("[SHIPPING-RISK] shipping_risk skipped: %s", _sr_exc)
+
+    # Step 7.75: Trade TCA (compute_trade_tca / aggregate_tca — observability)
+    try:
+        from src.assembled_core.qa.trade_tca import TradeTCA, compute_trade_tca, aggregate_tca
+        _tca_list: list[TradeTCA] = []
+        for _o in result.orders_filtered[:5]:
+            _tca = compute_trade_tca(
+                trade_id=str(getattr(_o, "order_id", id(_o))),
+                symbol=_o.symbol,
+                side=getattr(_o, "side", "buy"),
+                quantity=float(getattr(_o, "quantity", 1.0)),
+                execution_price=float(getattr(_o, "limit_price", 0.0) or getattr(_o, "price", 0.0) or 1.0),
+                arrival_price=float(getattr(_o, "limit_price", 0.0) or getattr(_o, "price", 0.0) or 1.0),
+            )
+            _tca_list.append(_tca)
+        if _tca_list:
+            _tca_agg = aggregate_tca(_tca_list)
+            result.meta["trade_tca"] = {
+                "n_trades": _tca_agg.n_trades,
+                "mean_impact_bps": float(_tca_agg.mean_impact_bps),
+                "mean_vwap_slippage_bps": float(_tca_agg.mean_vwap_slippage_bps),
+            }
+        else:
+            result.meta["trade_tca"] = {"available": True, "skipped": "no_orders"}
+    except Exception as _tca_exc:
+        log.debug("[TRADE-TCA] trade_tca skipped: %s", _tca_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )

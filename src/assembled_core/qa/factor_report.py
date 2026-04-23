@@ -299,8 +299,7 @@ def run_factor_report(
 
     rank_ic_df = compute_rank_ic(
         result_df,
-        factor_cols=factor_cols,
-        fwd_return_col=fwd_return_col,
+        forward_returns_col=fwd_return_col,
         group_col=timestamp_col,
     )
 
