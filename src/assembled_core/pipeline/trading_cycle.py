@@ -8802,6 +8802,36 @@ def _run_trading_cycle_inner(
     except Exception as _rsf_exc:
         log.debug("[RSS-FETCHER] rss_fetcher skipped: %s", _rsf_exc)
 
+    # Step 8.108: Sanctions model (get_sanction_package — observability)
+    try:
+        from src.assembled_core.intel.sanctions_model import get_sanction_package, HISTORICAL_SANCTIONS
+        _smp = get_sanction_package(next(iter(HISTORICAL_SANCTIONS), ""))
+        result.meta["sanctions_model"] = {
+            "n_packages": len(HISTORICAL_SANCTIONS),
+            "available": True,
+        }
+    except Exception as _smp_exc:
+        log.debug("[SANCTIONS] sanctions_model skipped: %s", _smp_exc)
+
+    # Step 8.109: Sector news overlay (SectorNewsOverlay — observability)
+    try:
+        from src.assembled_core.intel.sector_news_overlay import SectorNewsOverlay
+        _sno = SectorNewsOverlay()
+        _sno_scores = _sno.compute(clusters=[])
+        result.meta["sector_news_overlay"] = {
+            "n_sectors": len(_sno_scores),
+            "available": True,
+        }
+    except Exception as _sno_exc:
+        log.debug("[SECTOR-OVERLAY] sector_news_overlay skipped: %s", _sno_exc)
+
+    # Step 8.110: Shipping lanes (LANES_DATABASE — observability)
+    try:
+        from src.assembled_core.intel.shipping_lanes import LANES_DATABASE
+        result.meta["shipping_lanes"] = {"n_lanes": len(LANES_DATABASE), "available": True}
+    except Exception as _sl_exc:
+        log.debug("[SHIPPING-LANES] shipping_lanes skipped: %s", _sl_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
