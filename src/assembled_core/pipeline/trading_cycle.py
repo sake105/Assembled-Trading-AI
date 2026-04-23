@@ -4423,6 +4423,25 @@ def _run_trading_cycle_inner(
     except Exception as e:
         log.debug("[RISK-WIRE] barbell_strategy skipped: %s", e)
 
+    # Step 5.8: Systemic risk network centrality (observability)
+    try:
+        if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            from src.assembled_core.risk.systemic_risk import compute_return_network_centrality
+            _sr_pivot = result.prices_with_features.pivot_table(
+                index="timestamp", columns="symbol", values="close", aggfunc="last"
+            )
+            _sr_returns = _sr_pivot.pct_change().dropna(how="all")
+            if len(_sr_returns) >= 5 and len(_sr_returns.columns) >= 2:
+                _centrality = compute_return_network_centrality(_sr_returns)
+                result.meta["systemic_risk"] = {
+                    "centrality": _centrality,
+                    "n_symbols": len(_centrality),
+                    "top_central": sorted(_centrality, key=_centrality.get, reverse=True)[:3],
+                }
+                log.debug("[SYSTEMIC] centrality computed for %d symbols", len(_centrality))
+    except Exception as _sr_exc:
+        log.debug("[SYSTEMIC] systemic_risk skipped: %s", _sr_exc)
+
     # Step 6: Apply risk controls (hook point: risk_controls)
     try:
         if "risk_controls" in hooks:
@@ -4667,6 +4686,39 @@ def _run_trading_cycle_inner(
             log.debug("[ORDER_LIFECYCLE] tracked %d orders", len(_olt_ids))
     except Exception as _ol_exc:
         log.debug("[ORDER_LIFECYCLE] order_lifecycle tracking skipped: %s", _ol_exc)
+
+    # Step 6.85: Per-trade transaction cost estimate (observability)
+    try:
+        if not result.orders_filtered.empty:
+            from src.assembled_core.risk.transaction_costs import estimate_per_trade_cost
+            _tc_orders = result.orders_filtered.copy()
+            if "timestamp" not in _tc_orders.columns:
+                _tc_orders["timestamp"] = ctx.as_of
+            if "side" not in _tc_orders.columns:
+                _tc_orders["side"] = _tc_orders.get("direction", "buy")
+            _req_cols = {"timestamp", "symbol", "side", "qty", "price"}
+            if _req_cols.issubset(set(_tc_orders.columns)):
+                _tc_series = estimate_per_trade_cost(
+                    _tc_orders,
+                    method="simple",
+                    commission_bps=float(
+                        (policy.get("transaction_costs") or {}).get("commission_bps", 0.5)
+                    ),
+                    slippage_bps=float(
+                        (policy.get("transaction_costs") or {}).get("slippage_bps", 3.0)
+                    ),
+                )
+                result.meta["transaction_costs"] = {
+                    "n_orders": len(_tc_series),
+                    "total_cost_usd": round(float(_tc_series.sum()), 4),
+                    "avg_cost_usd": round(float(_tc_series.mean()), 4),
+                }
+                log.debug(
+                    "[TCA] estimated trade costs: total=$%.4f, n=%d",
+                    float(_tc_series.sum()), len(_tc_series),
+                )
+    except Exception as _tc_exc:
+        log.debug("[TCA] transaction_costs skipped: %s", _tc_exc)
 
     # Step 7: Write outputs (hook point: write_outputs)
     try:
