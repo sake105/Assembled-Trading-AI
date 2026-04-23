@@ -3204,6 +3204,22 @@ def _run_trading_cycle_inner(
     except Exception as _pwf_exc:
         log.debug("[PURGED-CV] purged_cv skipped: %s", _pwf_exc)
 
+    # Step 3.87: Behavioral finance signals (disposition, anchoring, herding — observability)
+    try:
+        if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            from src.assembled_core.signals.behavioral_finance import generate_behavioral_signals
+            _bfs_list = generate_behavioral_signals(result.prices_with_features)
+            if _bfs_list:
+                _bfs_scores = [float(s.composite_score) for s in _bfs_list]
+                result.meta["behavioral_signals"] = {
+                    "n_symbols": len(_bfs_list),
+                    "mean_composite_score": round(float(sum(_bfs_scores) / len(_bfs_scores)), 4),
+                    "max_composite_score": round(max(_bfs_scores), 4),
+                }
+                log.debug("[BEHAVIORAL] %d symbols, mean_score=%.3f", len(_bfs_list), result.meta["behavioral_signals"]["mean_composite_score"])
+    except Exception as _bfs_exc:
+        log.debug("[BEHAVIORAL] behavioral_finance skipped: %s", _bfs_exc)
+
     # Step 4: Size positions (hook point: size_positions)
     try:
         if "size_positions" in hooks:
@@ -5705,6 +5721,28 @@ def _run_trading_cycle_inner(
     except Exception as _tj_exc:
         log.debug("[TRADE-JOURNAL] trade_journal skipped: %s", _tj_exc)
 
+    # Step 7.67: Learning store — append cycle outcome as learning record (observability)
+    try:
+        from src.assembled_core.qa.learning_store import append_learning_record
+        _ls_record = {
+            "cycle_date": str(ctx.as_of.date()),
+            "execution_mode": ctx.execution_mode,
+            "n_orders": len(result.orders_filtered),
+            "n_signals": len(result.signals),
+            "regime": result.meta.get("regime", {}).get("regime", ""),
+            "hmm_regime": result.meta.get("hmm_regime", {}).get("regime_label", ""),
+            "combined_regime": result.meta.get("combined_regime", {}).get("combined", ""),
+            "equity": float(getattr(ctx, "current_equity", ctx.equity)),
+            "signal_fdr_significant": result.meta.get("signal_fdr", {}).get("n_significant", 0),
+        }
+        append_learning_record(
+            _ls_record,
+            store_path=ctx.output_dir / "ml" / "learning_store.jsonl",
+        )
+        log.debug("[LEARNING-STORE] record appended for %s", ctx.as_of.date())
+    except Exception as _ls_exc:
+        log.debug("[LEARNING-STORE] learning_store skipped: %s", _ls_exc)
+
     # Phase 9: Signal diagnostics (end of cycle) — write signal_health.json
     try:
         sd_cfg = (policy.get("signal_generation") or {}).get("signal_diagnostics") or {}
@@ -6460,6 +6498,33 @@ def _run_trading_cycle_inner(
                           _qg_summary.warning_gates, _qg_summary.blocked_gates)
     except Exception as _qg_exc:
         log.debug("[QA-GATES] qa_gates skipped: %s", _qg_exc)
+
+    # Step 8.21: Factor IC summary (observability — IC of features vs TB labels if available)
+    try:
+        if not result.prices_with_features.empty and "tb_label_5d" in result.prices_with_features.columns:
+            from src.assembled_core.qa.factor_analysis import compute_factor_ic, summarize_factor_ic
+            _fic_num_cols = [
+                c for c in result.prices_with_features.columns
+                if c not in {"timestamp", "symbol", "open", "high", "low", "close", "volume", "tb_label_5d", "tb_ret_5d"}
+                and result.prices_with_features[c].dtype in ("float64", "float32")
+            ][:10]
+            if _fic_num_cols and "timestamp" in result.prices_with_features.columns:
+                _fic_df = result.prices_with_features[["timestamp", "symbol"] + _fic_num_cols + ["tb_label_5d"]].dropna()
+                if len(_fic_df) >= 30 and len(_fic_df["timestamp"].unique()) >= 5:
+                    _fic_ic = compute_factor_ic(_fic_df, factor_cols=_fic_num_cols, fwd_return_col="tb_label_5d")
+                    if not _fic_ic.empty:
+                        _fic_summary = summarize_factor_ic(_fic_ic)
+                        _fic_top = _fic_summary.iloc[0] if not _fic_summary.empty else None
+                        result.meta["factor_ic_summary"] = {
+                            "n_factors": len(_fic_summary),
+                            "top_factor": str(_fic_top["factor"]) if _fic_top is not None else "",
+                            "top_ic_ir": round(float(_fic_top["ic_ir"]), 4) if _fic_top is not None else 0.0,
+                        }
+                        log.debug("[FACTOR-IC] %d factors, top=%s IR=%.3f", len(_fic_summary),
+                                  result.meta["factor_ic_summary"]["top_factor"],
+                                  result.meta["factor_ic_summary"]["top_ic_ir"])
+    except Exception as _fic_exc:
+        log.debug("[FACTOR-IC] factor_analysis skipped: %s", _fic_exc)
 
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
