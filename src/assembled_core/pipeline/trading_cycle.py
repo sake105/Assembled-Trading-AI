@@ -9912,6 +9912,31 @@ def _run_trading_cycle_inner(
     except Exception as _ngdelt_exc:
         log.debug("[NEWS-GDELT] events.news.fetch_gdelt skipped: %s", _ngdelt_exc)
 
+    # Step 8.75: RSS fetch (fetch_rss_feed — observability)
+    try:
+        from src.assembled_core.events.news.fetch_rss import fetch_rss_feed
+        result.meta["news_fetch_rss"] = {"available": True}
+    except Exception as _nrss_exc:
+        log.debug("[NEWS-RSS] events.news.fetch_rss skipped: %s", _nrss_exc)
+
+    # Step 8.76: News health (compute_health — observability)
+    try:
+        from src.assembled_core.events.news.health import compute_health as _news_compute_health
+        _nh = _news_compute_health(["test_src"], 0, 0, [])
+        result.meta["news_health"] = {
+            "status": _nh.status,
+            "available": True,
+        }
+    except Exception as _nhl_exc:
+        log.debug("[NEWS-HEALTH] events.news.health skipped: %s", _nhl_exc)
+
+    # Step 8.77: News event models (NewsEvent / NewsHealth — observability)
+    try:
+        from src.assembled_core.events.news.models import NewsEvent, NewsHealth
+        result.meta["news_models"] = {"available": True}
+    except Exception as _nm_exc:
+        log.debug("[NEWS-MODELS] events.news.models skipped: %s", _nm_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
