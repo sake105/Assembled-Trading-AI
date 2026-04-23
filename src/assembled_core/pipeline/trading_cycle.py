@@ -2438,6 +2438,26 @@ def _run_trading_cycle_inner(
     except Exception as _evt_exc:
         log.debug("[EVT] evt_models skipped: %s", _evt_exc)
 
+    # Step 2.18: GARCH volatility forecast (arch-gated, observability)
+    try:
+        if not result.prices_with_features.empty and "close" in result.prices_with_features.columns:
+            from src.assembled_core.ml.garch_models import fit_garch
+            _garch_pivot = result.prices_with_features.pivot_table(
+                index="timestamp", columns="symbol", values="close", aggfunc="last"
+            )
+            _garch_rets = _garch_pivot.median(axis=1).pct_change().dropna()
+            if len(_garch_rets) >= 60:
+                _garch_result = fit_garch(_garch_rets, symbol="portfolio")
+                if _garch_result is not None:
+                    result.meta["garch_vol"] = {
+                        "vol_forecast_1d": round(float(_garch_result.vol_forecast_1d), 6),
+                        "persistence": round(float(_garch_result.persistence), 4),
+                        "converged": _garch_result.converged,
+                    }
+                    log.debug("[GARCH] vol_1d=%.4f persistence=%.3f", _garch_result.vol_forecast_1d, _garch_result.persistence)
+    except Exception as _garch_exc:
+        log.debug("[GARCH] garch_models skipped: %s", _garch_exc)
+
     # Step 3: Generate signals (hook point: generate_signals)
     try:
         if "generate_signals" in hooks:
@@ -5100,6 +5120,28 @@ def _run_trading_cycle_inner(
     except Exception as _ps_exc:
         log.debug("[PARAM-STABILITY] param_stability skipped: %s", _ps_exc)
 
+    # Step 5.12: Execution cost annotation (observability — impact + routing cost per order)
+    try:
+        if not result.orders.empty and not result.prices_with_features.empty:
+            from src.assembled_core.ops.execution_cost_meta import annotate_execution_cost
+            _regime_label = str(result.meta.get("regime", {}).get("regime", "bull"))
+            _, _ecm_summary = annotate_execution_cost(
+                result.orders,
+                result.prices_with_features,
+                policy,
+                regime=_regime_label,
+            )
+            result.meta["execution_cost_meta"] = {
+                "enabled": _ecm_summary.get("enabled", False),
+                "n_orders": _ecm_summary.get("n_orders_in", 0),
+                "total_est_cost_bps": round(float(_ecm_summary.get("total_est_cost_bps", 0.0)), 4),
+                "high_impact_count": int(_ecm_summary.get("high_impact_count", 0)),
+            }
+            log.debug("[EXEC-COST-META] total_cost=%.2f bps, high_impact=%d",
+                      _ecm_summary.get("total_est_cost_bps", 0.0), _ecm_summary.get("high_impact_count", 0))
+    except Exception as _ecm_exc:
+        log.debug("[EXEC-COST-META] execution_cost_meta skipped: %s", _ecm_exc)
+
     # Step 6: Apply risk controls (hook point: risk_controls)
     try:
         if "risk_controls" in hooks:
@@ -5520,6 +5562,18 @@ def _run_trading_cycle_inner(
         log.debug("[MODEL-REGISTRY] %d models registered", len(_mr_models))
     except Exception as _mr_exc:
         log.debug("[MODEL-REGISTRY] model_registry skipped: %s", _mr_exc)
+
+    # Step 7.65: Report retention — purge stale run artifacts (observability)
+    try:
+        if ctx.write_outputs:
+            from src.assembled_core.ops.report_retention import purge_old_dated_reports
+            _rr_dir = ctx.output_dir / "manifests"
+            _rr_purged = purge_old_dated_reports(_rr_dir, prefix="", suffix=".json", keep_last_n=90)
+            result.meta["report_retention"] = {"purged_files": _rr_purged}
+            if _rr_purged > 0:
+                log.debug("[RETENTION] purged %d old report files", _rr_purged)
+    except Exception as _rr_exc:
+        log.debug("[RETENTION] report_retention skipped: %s", _rr_exc)
 
     # Phase 9: Signal diagnostics (end of cycle) — write signal_health.json
     try:
