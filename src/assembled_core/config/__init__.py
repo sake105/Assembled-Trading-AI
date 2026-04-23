@@ -88,7 +88,7 @@ from src.assembled_core.config.secrets_loader import (  # noqa: F401
     is_secret_set,
     load_env_file,
 )
-from src.assembled_core.config.logging_config import (  # noqa: F401
+from src.assembled_core.logging_config import (  # noqa: F401
     JSONFormatter,
     configure_json_logging,
 )

@@ -304,7 +304,7 @@ class TestPipelineTimer:
 
 class TestJSONLogging:
     def test_formatter(self):
-        from src.assembled_core.config.logging_config import JSONFormatter
+        from src.assembled_core.logging_config import JSONFormatter
         import json
         import logging
 

@@ -10376,7 +10376,7 @@ def _run_trading_cycle_inner(
 
     # Step cfg.2: Logging config (configure_json_logging — observability)
     try:
-        from src.assembled_core.config.logging_config import configure_json_logging, JSONFormatter
+        from src.assembled_core.logging_config import configure_json_logging, JSONFormatter
         result.meta["config_logging_config"] = {"available": True}
     except Exception as _lcfg_exc:
         log.debug("[CONFIG-LOGGING] config.logging_config skipped: %s", _lcfg_exc)

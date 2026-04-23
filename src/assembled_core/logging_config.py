@@ -17,9 +17,10 @@ Usage:
 
 from __future__ import annotations
 
+import json
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Literal
@@ -160,6 +161,35 @@ def setup_logging(
     logger.info(
         f"Logging initialized: Run-ID={run_id}, Level={level}, Log file={log_file}"
     )
+
+
+class JSONFormatter(logging.Formatter):
+    """Format log records as JSON."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        log_entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "level": record.levelname,
+            "module": record.module,
+            "event": record.getMessage(),
+        }
+        if record.exc_info and record.exc_info[1]:
+            log_entry["exception"] = str(record.exc_info[1])
+        return json.dumps(log_entry)
+
+
+def configure_json_logging(
+    level: str = "INFO",
+    logger_name: str | None = None,
+) -> logging.Logger:
+    """Configure a logger with JSON formatting."""
+    log = logging.getLogger(logger_name)
+    log.setLevel(getattr(logging, level.upper(), logging.INFO))
+    handler = logging.StreamHandler()
+    handler.setFormatter(JSONFormatter())
+    if not any(isinstance(h, logging.StreamHandler) and isinstance(h.formatter, JSONFormatter) for h in log.handlers):
+        log.addHandler(handler)
+    return log
 
 
 def generate_run_id(prefix: str = "run") -> str:
