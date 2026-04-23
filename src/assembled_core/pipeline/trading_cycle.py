@@ -10022,6 +10022,40 @@ def _run_trading_cycle_inner(
     except Exception as _imod_exc:
         log.debug("[INTEL-MODELS] intel.models skipped: %s", _imod_exc)
 
+    # Step 3.95: ML calibration (CalibrationResult — observability)
+    try:
+        from src.assembled_core.ml.calibration import CalibrationResult, IsotonicCalibrator
+        _cal_r = CalibrationResult(method="isotonic", brier_score=0.0, ece=0.0, mce=0.0, n_bins=10)
+        result.meta["ml_calibration"] = {
+            "method": _cal_r.method,
+            "n_bins": _cal_r.n_bins,
+            "available": True,
+        }
+    except Exception as _mlcal_exc:
+        log.debug("[ML-CALIBRATION] ml.calibration skipped: %s", _mlcal_exc)
+
+    # Step 3.96: Conformal prediction (SplitConformalPredictor — observability)
+    try:
+        from src.assembled_core.ml.conformal import SplitConformalPredictor
+        _scp = SplitConformalPredictor(model=None, alpha=0.1)
+        result.meta["ml_conformal"] = {
+            "alpha": _scp.alpha,
+            "available": True,
+        }
+    except Exception as _mlconf_exc:
+        log.debug("[ML-CONFORMAL] ml.conformal skipped: %s", _mlconf_exc)
+
+    # Step 3.97: Regime HMM (RegimeHMM — observability)
+    try:
+        from src.assembled_core.ml.regime_hmm import RegimeHMM
+        _rhmm = RegimeHMM(n_regimes=3)
+        result.meta["ml_regime_hmm"] = {
+            "n_regimes": _rhmm.n_regimes,
+            "available": True,
+        }
+    except Exception as _rhmm_exc:
+        log.debug("[ML-REGIME-HMM] ml.regime_hmm skipped: %s", _rhmm_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
