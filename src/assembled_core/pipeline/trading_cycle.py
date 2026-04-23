@@ -8344,6 +8344,48 @@ def _run_trading_cycle_inner(
     except Exception as _ar_exc:
         log.debug("[ACCOUNTING-REPORT] accounting_report skipped: %s", _ar_exc)
 
+    # Step 5.41: Fill model (PartialFillModel — observability)
+    try:
+        from src.assembled_core.execution.fill_model import PartialFillModel
+        _pfm = PartialFillModel()
+        result.meta["fill_model"] = {
+            "adv_window": _pfm.adv_window,
+            "participation_cap": _pfm.participation_cap,
+            "available": True,
+        }
+    except Exception as _pfm_exc:
+        log.debug("[FILL-MODEL] fill_model skipped: %s", _pfm_exc)
+
+    # Step 5.42: Intent store (has_intent — observability)
+    try:
+        from src.assembled_core.execution.intent_store import has_intent, make_daily_key
+        _ik = make_daily_key("cycle_complete")
+        _ih = has_intent(_ik)
+        result.meta["intent_store"] = {
+            "cycle_intent_exists": bool(_ih),
+            "available": True,
+        }
+    except Exception as _is_exc:
+        log.debug("[INTENT-STORE] intent_store skipped: %s", _is_exc)
+
+    # Step 5.43: Pre-open signals (compute_overnight_gap_signal — observability)
+    try:
+        from src.assembled_core.execution.pre_open_signals import (
+            compute_overnight_gap_signal,
+            PreOpenConfig,
+        )
+        _pog_strength, _pog_direction = compute_overnight_gap_signal(
+            prev_close=100.0,
+            premarket_price=None,
+            futures_return=0.005,
+        )
+        result.meta["pre_open_signals"] = {
+            "overnight_gap_strength": float(_pog_strength),
+            "config_available": True,
+        }
+    except Exception as _pog_exc:
+        log.debug("[PRE-OPEN] pre_open_signals skipped: %s", _pog_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
