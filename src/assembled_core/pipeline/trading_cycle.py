@@ -9382,6 +9382,36 @@ def _run_trading_cycle_inner(
     except Exception as _shf_exc:
         log.debug("[SHIPPING-FEAT] shipping_features skipped: %s", _shf_exc)
 
+    # Step 7.50: Accounting attribution (compute_cost_attribution — observability)
+    try:
+        from src.assembled_core.accounting.attribution import compute_cost_attribution
+        _acca_result = compute_cost_attribution(pd.DataFrame())
+        result.meta["accounting_attribution"] = {
+            "n_symbols": len(_acca_result.get("per_symbol", [])),
+            "total_notional": _acca_result.get("total", {}).get("notional", 0.0),
+            "available": True,
+        }
+    except Exception as _acca_exc:
+        log.debug("[ACCT-ATTR] accounting.attribution skipped: %s", _acca_exc)
+
+    # Step 7.51: Accounting currency (FXConverter — observability)
+    try:
+        from src.assembled_core.accounting.currency import FXConverter
+        _fx = FXConverter()
+        result.meta["accounting_currency"] = {
+            "n_rates": len(_fx.rates),
+            "available": True,
+        }
+    except Exception as _fx_exc:
+        log.debug("[ACCT-FX] accounting.currency skipped: %s", _fx_exc)
+
+    # Step 7.52: Accounting ledger events (events_from_orders — observability)
+    try:
+        from src.assembled_core.accounting.ledger import events_from_orders
+        result.meta["accounting_ledger"] = {"available": True}
+    except Exception as _led_exc:
+        log.debug("[ACCT-LEDGER] accounting.ledger skipped: %s", _led_exc)
+
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
     )
