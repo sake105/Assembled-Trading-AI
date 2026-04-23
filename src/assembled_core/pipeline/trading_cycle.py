@@ -3220,6 +3220,25 @@ def _run_trading_cycle_inner(
     except Exception as _bfs_exc:
         log.debug("[BEHAVIORAL] behavioral_finance skipped: %s", _bfs_exc)
 
+    # Step 3.88: Risk-aware signal combiner (regime-conditioned weighting — observability)
+    try:
+        if not result.signals.empty and result.signals.select_dtypes("number").shape[1] >= 1:
+            from src.assembled_core.signals.risk_aware_combiner import RiskAwareSignalCombiner
+            _rac = RiskAwareSignalCombiner()
+            _rac_regime = str(result.meta.get("combined_regime", {}).get("combined") or
+                              result.meta.get("hmm_regime", {}).get("regime_label") or "NEUTRAL")
+            _rac_sig_df = result.signals.select_dtypes("number").fillna(0.0)
+            if not _rac_sig_df.empty:
+                _rac_combined = _rac.combine(_rac_sig_df, current_regime=_rac_regime)
+                result.meta["risk_aware_combiner"] = {
+                    "regime": _rac_regime,
+                    "n_signals": len(_rac_sig_df.columns),
+                    "combined_mean": round(float(_rac_combined.mean()), 4),
+                }
+                log.debug("[RAC] regime=%s n_signals=%d mean=%.4f", _rac_regime, len(_rac_sig_df.columns), float(_rac_combined.mean()))
+    except Exception as _rac_exc:
+        log.debug("[RAC] risk_aware_combiner skipped: %s", _rac_exc)
+
     # Step 4: Size positions (hook point: size_positions)
     try:
         if "size_positions" in hooks:
@@ -6525,6 +6544,41 @@ def _run_trading_cycle_inner(
                                   result.meta["factor_ic_summary"]["top_ic_ir"])
     except Exception as _fic_exc:
         log.debug("[FACTOR-IC] factor_analysis skipped: %s", _fic_exc)
+
+    # Step 8.22: Label daily equity records for ML training (observability)
+    try:
+        if result.equity_series is not None and len(result.equity_series) >= 10:
+            from src.assembled_core.qa.labeling import label_daily_records
+            _ld_ts = pd.date_range(
+                end=ctx.as_of, periods=len(result.equity_series), freq="B", tz="UTC"
+            )
+            _ld_df = pd.DataFrame({"timestamp": _ld_ts, "equity": result.equity_series.values})
+            _ld_labeled = label_daily_records(_ld_df, horizon_days=5, success_threshold=0.01)
+            _ld_label_col = _ld_labeled["label"] if "label" in _ld_labeled.columns else pd.Series(dtype=float)
+            _ld_valid = _ld_label_col.dropna()
+            result.meta["equity_labels"] = {
+                "n_rows": len(_ld_labeled),
+                "n_labeled": int(_ld_valid.count()),
+                "positive_rate": round(float(_ld_valid.mean()), 4) if len(_ld_valid) > 0 else 0.0,
+                "horizon_days": 5,
+            }
+            log.debug("[LABELS] %d rows labeled, positive_rate=%.3f", len(_ld_labeled), result.meta["equity_labels"]["positive_rate"])
+    except Exception as _ld_exc:
+        log.debug("[LABELS] labeling skipped: %s", _ld_exc)
+
+    # Step 8.23: Feature importance tracker (persistent snapshot count — observability)
+    try:
+        from src.assembled_core.ml.feature_importance_tracker import FeatureImportanceTracker
+        _fit = FeatureImportanceTracker(
+            state_path=ctx.output_dir / "ml" / "feature_importance_history.json"
+        )
+        result.meta["feature_importance_tracker"] = {
+            "n_snapshots": len(_fit._snapshots),
+            "state_path": str(_fit.state_path),
+        }
+        log.debug("[FI-TRACKER] n_snapshots=%d", len(_fit._snapshots))
+    except Exception as _fit_exc:
+        log.debug("[FI-TRACKER] feature_importance_tracker skipped: %s", _fit_exc)
 
     log.info(
         f"Trading cycle completed successfully: {len(result.orders_filtered)} orders"
