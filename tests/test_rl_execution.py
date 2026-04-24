@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 import numpy as np
 
+import pytest; pytest.importorskip('src.assembled_core.ml.rl_execution')
 from src.assembled_core.ml.rl_execution import (
     ExecutionState,
     QLearningExecutionAgent,

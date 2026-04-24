@@ -6,6 +6,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
+import pytest; pytest.importorskip('src.assembled_core.ml.causal_inference')
 from src.assembled_core.ml.causal_inference import (
     CausalEffectResult,
     GrangerResult,

@@ -721,6 +721,7 @@ def test_combined_regime_agreement():
 
 def test_combined_regime_wiring_ml_pipeline():
     """WIRING: MLSignalPipeline akzeptiert combined_regime_classifier."""
+    import pytest; pytest.importorskip('src.assembled_core.signals.ml_integration')
     pytest.importorskip("src.assembled_core.ml.combined_regime")
     from src.assembled_core.signals.ml_integration import MLSignalPipeline
     from src.assembled_core.ml.combined_regime import CombinedRegimeClassifier

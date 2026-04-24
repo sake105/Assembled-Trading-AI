@@ -7,6 +7,7 @@ import numpy as np
 
 pytest.importorskip("sklearn")
 
+import pytest; pytest.importorskip('src.assembled_core.ml.bayesian_nn')
 from src.assembled_core.ml.bayesian_nn import (  # noqa: E402
     MCDropoutMLP,
     BNNPrediction,

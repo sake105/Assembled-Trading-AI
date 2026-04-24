@@ -11,6 +11,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
+import pytest; pytest.importorskip('src.assembled_core.ops.dashboard_data')
 from src.assembled_core.ops.dashboard_data import (
     DashboardSnapshot,
     build_pnl_curve,

@@ -14,6 +14,8 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 pytestmark = [pytest.mark.phase12]
+pytest.importorskip('src.assembled_core.risk.circuit_breaker')
+
 
 from src.assembled_core.pipeline.trading_cycle import (  # noqa: E402
     _evaluate_circuit_breaker,

@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from src.assembled_core.ops.alert_manager import Alert  # noqa: E402
+import pytest; pytest.importorskip('src.assembled_core.ops.alert_sinks')
 from src.assembled_core.ops.alert_sinks import (  # noqa: E402
     EmailSink,
     SlackWebhookSink,

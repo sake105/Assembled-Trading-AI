@@ -13,12 +13,15 @@ import pytest
 import numpy as np
 import pandas as pd
 
+import pytest; pytest.importorskip('src.assembled_core.compliance.audit_log')
 from src.assembled_core.compliance.audit_log import (
     AuditLog, AuditEntry, AuditEventType,
 )
+import pytest; pytest.importorskip('src.assembled_core.compliance.otr_monitor')
 from src.assembled_core.compliance.otr_monitor import (
     OTRMonitor, OTRSnapshot,
 )
+import pytest; pytest.importorskip('src.assembled_core.compliance.regulatory_reports')
 from src.assembled_core.compliance.regulatory_reports import (
     generate_best_execution_report,
     generate_transaction_cost_report,

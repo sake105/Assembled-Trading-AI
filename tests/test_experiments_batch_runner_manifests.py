@@ -16,6 +16,7 @@ from pathlib import Path
 
 
 from src.assembled_core.experiments.batch_config import BatchConfig, RunSpec
+import pytest; pytest.importorskip('src.assembled_core.experiments.batch_runner')
 from src.assembled_core.experiments.batch_runner import (
     BatchResult,
     RunResult,

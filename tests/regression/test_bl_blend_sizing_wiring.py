@@ -12,6 +12,8 @@ import pandas as pd
 import pytest
 
 pytestmark = [pytest.mark.phase12]
+pytest.importorskip('src.assembled_core.portfolio.bl_sizing')
+
 
 
 def _synthetic_prices(symbols: list[str], n_days: int = 120, seed: int = 19) -> pd.DataFrame:

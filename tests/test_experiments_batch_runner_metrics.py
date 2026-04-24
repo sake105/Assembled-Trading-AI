@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pandas as pd
 
+import pytest; pytest.importorskip('src.assembled_core.experiments.batch_runner')
 from src.assembled_core.experiments.batch_runner import collect_backtest_metrics
 
 

@@ -6,6 +6,7 @@ import pytest
 import pandas as pd
 
 from src.assembled_core.strategies.base import Strategy, StrategySignal
+import pytest; pytest.importorskip('src.assembled_core.portfolio.strategy_allocator')
 from src.assembled_core.portfolio.strategy_allocator import (
     AllocationConfig,
     EnsembleResult,

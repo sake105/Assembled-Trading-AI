@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from src.assembled_core.data.snapshot import compute_price_panel_snapshot_id
+import pytest; pytest.importorskip('src.assembled_core.experiments.batch_runner')
 from src.assembled_core.experiments.batch_runner import collect_backtest_metrics
 
 

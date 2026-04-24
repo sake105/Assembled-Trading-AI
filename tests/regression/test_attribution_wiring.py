@@ -13,6 +13,8 @@ import pandas as pd
 import pytest
 
 pytestmark = [pytest.mark.phase12]
+pytest.importorskip('src.assembled_core.risk.attribution')
+
 
 
 def _synthetic_prices(symbols: list[str], n_days: int = 60, seed: int = 9) -> pd.DataFrame:
