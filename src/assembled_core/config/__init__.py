@@ -1,23 +1,31 @@
 """Configuration package for Assembled Trading AI.
 
 This package provides:
-- `config.py`: Legacy configuration (OUTPUT_DIR, SUPPORTED_FREQS)
+- Core path/frequency constants (OUTPUT_DIR, SUPPORTED_FREQS)
 - `settings.py`: New Pydantic Settings-based configuration (environment modes, paths)
 """
 
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 _logger = logging.getLogger(__name__)
 
-# Import legacy config for backward compatibility
-from src.assembled_core.config.config import (
-    OUTPUT_DIR,
-    SUPPORTED_FREQS,
-    get_base_dir,
-    get_output_path,
-)
+# --- Core constants (previously in config/config.py) ---
+_BASE_DIR = Path(__file__).resolve().parents[3]
+OUTPUT_DIR = _BASE_DIR / "output"
+SUPPORTED_FREQS = ("1d", "5min")
+
+
+def get_output_path(*parts: str) -> Path:
+    """Get a path within the output directory."""
+    return OUTPUT_DIR.joinpath(*parts)
+
+
+def get_base_dir() -> Path:
+    """Get the repository root directory."""
+    return _BASE_DIR
 
 # Base __all__ — always available (hard dependencies).
 __all__ = [
@@ -101,8 +109,5 @@ __all__.extend(
         "ensure_signal_config",
         "ensure_risk_config",
         "ensure_gate_config",
-        # Secrets loader
-        "load_env_file",
-        "is_secret_set",
     ]
 )
