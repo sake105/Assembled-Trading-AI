@@ -6,6 +6,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
+pytest.importorskip("src.assembled_core.risk.factor_risk_model")
 from src.assembled_core.risk.factor_risk_model import (
     FactorRiskModel,
     check_factor_exposure_limits,

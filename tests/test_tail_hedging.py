@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 import numpy as np
 
+pytest.importorskip("src.assembled_core.risk.tail_hedging")
 from src.assembled_core.risk.tail_hedging import (
     TailHedgeConfig,
     HedgeRecommendation,

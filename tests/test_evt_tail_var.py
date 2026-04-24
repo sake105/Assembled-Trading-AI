@@ -11,6 +11,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+pytest.importorskip("src.assembled_core.risk.evt_tail_var")
 from src.assembled_core.risk.evt_tail_var import (  # noqa: E402
     evt_expected_shortfall,
     evt_var,

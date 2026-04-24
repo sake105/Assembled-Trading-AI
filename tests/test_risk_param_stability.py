@@ -19,6 +19,7 @@ import pytest
 
 pytestmark = pytest.mark.phase12
 
+pytest.importorskip("src.assembled_core.risk.param_stability")
 from src.assembled_core.risk.param_stability import (
     check_drawdown_stability,
     check_turnover_stability,

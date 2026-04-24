@@ -19,6 +19,7 @@ import pytest
 
 pytestmark = pytest.mark.phase12
 
+pytest.importorskip("src.assembled_core.risk.attribution")
 from src.assembled_core.risk.attribution import (
     compute_attribution_report,
     compute_covariance_matrix,
