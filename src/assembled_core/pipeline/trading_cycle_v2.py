@@ -1,11 +1,8 @@
 """trading_cycle_v2 — decomposed trading cycle (Week 4–6 refactor).
 
 The old trading_cycle.py remains the active implementation until Day 9.
-This file holds the 7-function target structure.  Each function below is
-a stub that raises NotImplementedError; they will be filled in during
-Days 2–8 by migrating steps from _run_trading_cycle_inner.
+This file holds the 7-function target structure.
 
-Target: every function ≤ 500 lines, zero observability-only steps.
 A step survives only when ALL three hold:
   1. It changes a value that a downstream step or caller reads.
   2. It has a test asserting concrete output values (not just existence).
@@ -14,76 +11,447 @@ A step survives only when ALL three hold:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import logging
+import os
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from src.assembled_core.pipeline.trading_cycle import TradingContext, TradingCycleResult
+from src.assembled_core.config import get_base_dir
+from src.assembled_core.config.policy_loader import load_policy
+from src.assembled_core.pipeline.trading_cycle import (
+    TradingContext,
+    TradingCycleResult,
+    _evaluate_circuit_breaker_daily,
+    _filter_prices_for_as_of,
+)
+from src.assembled_core.risk.market_stress import compute_market_stress
+from src.assembled_core.risk.state_machine import (
+    compute_next_state,
+    load_risk_state,
+    save_risk_state,
+)
 
 if TYPE_CHECKING:
     pass
 
+logger = logging.getLogger(__name__)
+
 
 # ---------------------------------------------------------------------------
-# Sub-functions (one per pipeline stage)
+# ingest_data — Stage 1
 # ---------------------------------------------------------------------------
 
 
-def ingest_data(ctx: TradingContext) -> pd.DataFrame:
-    """Filter and validate raw price data PIT-safely.
+def ingest_data(
+    ctx: TradingContext,
+    *,
+    log: logging.Logger | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame | None]:
+    """Validate, prepare context, and filter prices PIT-safely.
 
-    Returns prices_filtered: one row per symbol <= ctx.as_of (EOD/paper)
-    or full history slice <= ctx.as_of (backtest).
+    Real steps included (see 3-criteria rule in module docstring):
+      - input validation (raises ValueError on bad ctx)
+      - risk state machine: sets ctx.risk_state (read by check_risk)
+      - intel loading: disclosures triggers (ctx.disclosures_triggers),
+        crisis state (ctx.crisis_state_intel, ctx.news_geo),
+        market stress (ctx.market_stress)
+      - circuit breaker: activates kill switch when daily CB trips
+      - disclosures confirm: adjusts ctx.news_geo.geo_confidence
+      - price filtering: PIT-safe, returns (prices_filtered, prices_latest)
+
+    Observability-only steps dropped vs the old monolith:
+      - result.meta["data_lineage"] (Step 1.8)
+      - result.meta["price_quality_check"] (Step 1.9)
+      - result.meta["market_breadth"] (Phase 5.2)
+      - result.meta["intel_geo_triggers"] (intel crisis sub-block)
+      - Steps 1.95, 1.97 (comprehensive QC, macro diffusion)
+
+    Returns:
+        (prices_filtered, prices_latest)
+    Raises:
+        ValueError: on missing/invalid ctx fields.
     """
-    raise NotImplementedError("ingest_data — stub, not yet filled in")
+    if log is None:
+        log = logger
+
+    # --- Validation ---
+    if ctx.prices is None or ctx.prices.empty:
+        raise ValueError("prices DataFrame is None or empty")
+
+    required_cols = ["timestamp", "symbol", "close"]
+    missing = [c for c in required_cols if c not in ctx.prices.columns]
+    if missing:
+        raise ValueError(f"Missing required price columns: {', '.join(missing)}")
+
+    if ctx.signal_fn is None:
+        raise ValueError("signal_fn is required but not provided")
+
+    if ctx.position_sizing_fn is None:
+        raise ValueError("position_sizing_fn is required but not provided")
+
+    # --- Risk state machine setup ---
+    try:
+        policy = load_policy()
+    except Exception as e:
+        log.warning("load_policy failed, using empty policy: %s", e)
+        policy = {}
+
+    rsm = policy.get("risk_state_machine") or {}
+    base_dir = get_base_dir()
+    persistence = rsm.get("persistence") or {}
+    mode = os.environ.get("ASSEMBLED_RISK_STATE_PERSISTENCE_MODE") or persistence.get(
+        "mode", "live"
+    )
+
+    if getattr(ctx, "as_of", None) is not None:
+        now_utc = pd.to_datetime(ctx.as_of, utc=True).strftime("%Y-%m-%dT%H:%M:%SZ")
+    else:
+        now_utc = pd.Timestamp.now("UTC").strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    if mode == "ephemeral":
+        import tempfile
+
+        _ephemeral_path = (
+            Path(tempfile.gettempdir())
+            / f"assembled_risk_state_ephemeral_{os.getpid()}.json"
+        )
+        prev = load_risk_state(_ephemeral_path)
+        next_rec = compute_next_state(ctx, policy, now_utc, prev)
+        ctx.risk_state = next_rec.to_dict()
+    else:
+        if mode == "per_run":
+            run_id = (
+                getattr(ctx, "run_id", None)
+                or os.environ.get("ASSEMBLED_RUN_ID")
+                or f"pid{os.getpid()}"
+            )
+            per_run_dir = base_dir / str(
+                persistence.get("per_run_dir", "output/state/runs")
+            )
+            state_path = per_run_dir / str(run_id) / "risk_state.json"
+        else:
+            state_path = base_dir / str(
+                rsm.get("state_path", "output/state/risk_state.json")
+            )
+        prev = load_risk_state(state_path)
+        next_rec = compute_next_state(ctx, policy, now_utc, prev)
+        if rsm.get("enabled", True):
+            save_risk_state(next_rec, state_path, policy)
+        ctx.risk_state = next_rec.to_dict()
+
+    # --- Intel loading (skip when paper_runner injected simulated intel) ---
+    if not getattr(ctx, "intel_sim_applied", False):
+        _load_intel(ctx, policy, base_dir, log)
+
+    # --- Price filtering (Step 1) ---
+    prices_filtered, prices_latest = _filter_prices_for_as_of(
+        prices=ctx.prices,
+        as_of=ctx.as_of,
+        universe=ctx.universe,
+        mode=ctx.mode,
+    )
+
+    if prices_filtered.empty:
+        raise ValueError("No prices remaining after filtering (as_of or universe)")
+
+    log.debug(
+        "Prices filtered: %d rows, %d symbols (mode=%s, latest=%s)",
+        len(prices_filtered),
+        prices_filtered["symbol"].nunique(),
+        ctx.mode,
+        "yes" if prices_latest is not None else "no",
+    )
+
+    return prices_filtered, prices_latest
 
 
-def build_features(prices: pd.DataFrame, ctx: TradingContext) -> pd.DataFrame:
-    """Add technical features to the filtered price DataFrame.
+def _load_intel(
+    ctx: TradingContext,
+    policy: dict[str, Any],
+    base_dir: Path,
+    log: logging.Logger,
+) -> None:
+    """Load intel into ctx (disclosures triggers, crisis state, market stress, CB)."""
+    import json as _json
 
-    Returns prices_with_features: all columns from prices plus feature
-    columns (ma_20, ma_50, atr_14, rsi_14, …).
+    intel_cfg = policy.get("intel") or {}
+
+    # Disclosures triggers
+    try:
+        disc_tr_cfg = intel_cfg.get("disclosures_triggers") or {}
+        if disc_tr_cfg.get("enabled", False):
+            from src.assembled_core.intel.disclosures_triggers_loader import (
+                load_disclosures_triggers,
+            )
+
+            path_raw = disc_tr_cfg.get(
+                "path", "output/intel/disclosures/triggers_latest.json"
+            )
+            path_resolved = (
+                (base_dir / path_raw) if not Path(path_raw).is_absolute() else Path(path_raw)
+            )
+            snap = load_disclosures_triggers(path_resolved)
+            ctx.disclosures_triggers = snap if snap.generated_utc else None
+            if not snap.generated_utc:
+                ctx.intel_health_flags["intel_disclosures_triggers"] = "DEGRADED"
+    except Exception as e:
+        log.warning("intel disclosures_triggers load failed: %s", e)
+        ctx.disclosures_triggers = None
+        ctx.intel_health_flags = ctx.intel_health_flags or {}
+        ctx.intel_health_flags.setdefault("intel_disclosures_triggers", "DEGRADED")
+
+    # Crisis Alpha state
+    try:
+        crisis_cfg = intel_cfg.get("crisis_alpha") or {}
+        if crisis_cfg.get("enabled", False):
+            cs_path_raw = crisis_cfg.get("crisis_state_path", "data/intel/crisis_state.json")
+            cs_path = (
+                (base_dir / cs_path_raw)
+                if not Path(cs_path_raw).is_absolute()
+                else Path(cs_path_raw)
+            )
+            if cs_path.exists():
+                cs_data = _json.loads(cs_path.read_text(encoding="utf-8"))
+                ctx.crisis_state_intel = cs_data
+                geo_score = int(cs_data.get("geo_score", 0))
+                mode_str = str(cs_data.get("mode", "NORMAL"))
+                ctx.news_geo = {
+                    "geo_score": geo_score,
+                    "geo_confidence": float(cs_data.get("confidence", 0.0)),
+                    "state_hint": mode_str,
+                    "crisis_mode": mode_str,
+                    "active_triggers": cs_data.get("active_triggers", []),
+                    "basket_overrides": cs_data.get("basket_overrides", {}),
+                }
+                log.info(
+                    "CRISIS_ALPHA: mode=%s, geo_score=%d, triggers=%d",
+                    mode_str,
+                    geo_score,
+                    len(cs_data.get("active_triggers", [])),
+                )
+    except Exception as e:
+        log.warning("crisis_alpha intel load failed: %s", e)
+        ctx.intel_health_flags["intel_crisis_alpha"] = "DEGRADED"
+
+    # Market stress (INT-5)
+    ms_cfg = policy.get("market_stress") or {}
+    if ms_cfg.get("enabled", False):
+        ctx.market_stress = compute_market_stress(ctx.prices, policy)
+    else:
+        ctx.market_stress = None
+
+    # Daily circuit breaker
+    try:
+        cb_trip = _evaluate_circuit_breaker_daily(ctx.prices, policy, ctx.as_of)
+        if cb_trip is not None:
+            from src.assembled_core.execution.kill_switch import activate_kill_switch
+
+            activate_kill_switch(
+                throttle_pct=0.0,
+                reason=cb_trip["reason"],
+                actor="trading_cycle_circuit_breaker",
+            )
+            log.critical(
+                "CIRCUIT_BREAKER: %s — kill-switch engaged (block all)",
+                cb_trip["reason"],
+            )
+    except Exception as e:
+        log.warning(
+            "[RISK-SAFETY] circuit_breaker_daily check failed: %s — breaker may not engage", e
+        )
+
+    # Disclosures confirm (boosts geo_confidence when disclosure triggers sev >= 1)
+    try:
+        from src.assembled_core.risk.disclosures_confirm import apply_disclosures_confirm
+
+        apply_disclosures_confirm(ctx, policy)
+    except Exception as e:
+        log.warning("disclosures_confirm apply failed: %s", e)
+
+
+# ---------------------------------------------------------------------------
+# build_features — Stage 2 (stub)
+# ---------------------------------------------------------------------------
+
+
+def build_features(
+    prices: pd.DataFrame,
+    ctx: TradingContext,
+    *,
+    log: logging.Logger | None = None,
+) -> pd.DataFrame:
+    """Add TA features, factor store enrichment, and selected real enrichment steps.
+
+    Real steps (from old Steps 2.x) to fill in during Days 3-4:
+      - Step 2: TA features via build_or_load_factors / add_all_features
+      - Step 2.1: PIT safety check on feature timestamps
+      - Step 2.2: Enhanced enrichment (ta_factors_core + cross-sectional normalization)
+      - Step 2.5: D3 HMM regime detection (sets result.meta used by position sizing)
+      - Step 2.3: Stale-feature detection (flags data-feed outage)
+      - Step 2.6: Seasonal features (zero look-ahead calendar)
+      - Step 2.12: Weekly alignment filter (daily vs weekly EMA slope)
+      - Step 2.10: Realized volatility features (rv_20, rv_60)
+      - Step 2.11: Fractional differentiation of close
+
+    Observability-only steps to DROP:
+      - Steps 2.4, 2.7, 2.8, 2.9, 2.13-2.23, 2.24-2.35 (all meta-only)
+
+    Returns prices_with_features DataFrame.
     """
     raise NotImplementedError("build_features — stub, not yet filled in")
 
 
-def generate_signals(features: pd.DataFrame, ctx: TradingContext) -> pd.DataFrame:
-    """Apply signal_fn to feature-enriched prices.
+# ---------------------------------------------------------------------------
+# generate_signals — Stage 3 (stub)
+# ---------------------------------------------------------------------------
 
-    Returns signals: columns [timestamp, symbol, direction, score].
+
+def generate_signals(
+    features: pd.DataFrame,
+    ctx: TradingContext,
+    *,
+    log: logging.Logger | None = None,
+) -> pd.DataFrame:
+    """Apply signal_fn + real signal enrichment layers.
+
+    Real steps to fill in during Day 4:
+      - Step 3: signal_fn (caller-provided, core signal generation)
+      - Step 3.1: Intel signal layer (disclosures_triggers → signal overlay)
+      - Step 3.2: Sector rotation signals
+      - Step 3.3: Earnings guard (suppress signals pre-earnings)
+      - Step 3.35: News→Signal bridge
+      - Step 3.4: Bayesian signal confidence scoring
+      - Step 3.5: Crash prediction + short signal
+      - Step 3.6: Ranking hysteresis (anti-churn)
+      - Step 3.62: MA-crossover trend signals
+
+    Observability-only steps to DROP:
+      - Steps 3.45, 3.55, 3.58, 3.7, 3.75, 3.8, 3.86-3.91 (all meta-only)
+
+    Returns signals DataFrame (columns: timestamp, symbol, direction, score).
     """
     raise NotImplementedError("generate_signals — stub, not yet filled in")
 
 
-def size_positions(signals: pd.DataFrame, ctx: TradingContext) -> pd.DataFrame:
-    """Apply position_sizing_fn to convert signals to target weights/quantities.
+# ---------------------------------------------------------------------------
+# size_positions — Stage 4 (stub)
+# ---------------------------------------------------------------------------
 
-    Returns target_positions: columns [symbol, target_weight, target_qty].
+
+def size_positions(
+    signals: pd.DataFrame,
+    ctx: TradingContext,
+    *,
+    log: logging.Logger | None = None,
+) -> pd.DataFrame:
+    """Convert signals to target positions with vol-targeting and real risk overlays.
+
+    Real steps to fill in during Day 4:
+      - Step 4: position_sizing_fn (caller-provided)
+      - Phase 11.5: Trailing stops (regime-adaptive ATR)
+      - Step 4.5: Rebalancing trigger check (skip order generation if no trigger)
+      - Step 4.85: Cost-aware weight shrinkage
+      - Step 4.9: Long-short balance enforcement
+
+    Observability-only steps to DROP:
+      - Steps 4.86, 4.87, 4.88, 4.93, 4.94 (all meta-only)
+      - Step 4.9: ML training snapshot (meta-only)
+
+    Returns target_positions DataFrame (columns: symbol, target_weight, target_qty).
     """
     raise NotImplementedError("size_positions — stub, not yet filled in")
 
 
-def check_risk(targets: pd.DataFrame, ctx: TradingContext) -> pd.DataFrame:
-    """Apply pre-trade risk controls (kill switch, exposure caps, vol checks).
+# ---------------------------------------------------------------------------
+# check_risk — Stage 5 (stub)
+# ---------------------------------------------------------------------------
 
-    Returns filtered_targets: same schema as target_positions, with
-    violating positions removed or scaled down.
+
+def check_risk(
+    targets: pd.DataFrame,
+    ctx: TradingContext,
+    *,
+    log: logging.Logger | None = None,
+) -> pd.DataFrame:
+    """Apply pre-trade risk controls and return approved positions.
+
+    Real steps to fill in during Day 5:
+      - Step 6: filter_orders_with_risk_controls (kill switch, position limits)
+      - Step 6.35: Parametric VaR exposure gate
+      - Step 6.4: Auto-drawdown kill-switch trigger
+      - Step 6.45: Intraday circuit breaker
+      - Step 6.5: Scenario engine stress tests
+      - Step 6.6: Anti-churn order filters (deadzone + min-notional)
+      - Step 6.7: Fat-finger guard (hard notional + qty-multiple cap)
+      - Step 6.9: Order lifecycle tracking (audit trail)
+      - QA Gate: block orders if ctx.qa_block_trading
+
+    Observability-only steps to DROP:
+      - Step 6.8 (borrow cost meta-only snapshot)
+
+    Returns filtered_targets DataFrame (same schema as target_positions).
     """
     raise NotImplementedError("check_risk — stub, not yet filled in")
 
 
-def route_orders(checked: pd.DataFrame, ctx: TradingContext) -> pd.DataFrame:
-    """Generate and filter orders from approved target positions.
+# ---------------------------------------------------------------------------
+# route_orders — Stage 6 (stub)
+# ---------------------------------------------------------------------------
 
-    Returns orders: columns [timestamp, symbol, side, qty, price].
+
+def route_orders(
+    checked: pd.DataFrame,
+    ctx: TradingContext,
+    *,
+    log: logging.Logger | None = None,
+) -> pd.DataFrame:
+    """Generate orders from approved target positions.
+
+    Real steps to fill in during Day 5:
+      - Step 5: generate_orders_from_targets + align_current_and_target
+      - Phase 17.8: Pre-Trade Impact estimate (Almgren-Chriss)
+      - Phase 17.85: Optional TWAP order slicing
+      - Phase 17.9: Group-Exposure caps (sector/region/currency)
+
+    Observability-only steps to DROP:
+      - Steps 5.5-5.14 (portfolio risk metrics, tail dependence, HRP shadow,
+        systemic risk, param stability, TCA, execution cost, risk escalation — all meta-only)
+
+    Returns orders DataFrame (columns: timestamp, symbol, side, qty, price).
     """
     raise NotImplementedError("route_orders — stub, not yet filled in")
 
 
-def book_fills(orders: pd.DataFrame, ctx: TradingContext) -> TradingCycleResult:
-    """Write outputs (CSV, equity curve, state) and package final result.
+# ---------------------------------------------------------------------------
+# book_fills — Stage 7 (stub)
+# ---------------------------------------------------------------------------
 
-    Returns a TradingCycleResult with all intermediate fields populated.
+
+def book_fills(
+    orders: pd.DataFrame,
+    result: TradingCycleResult,
+    ctx: TradingContext,
+    *,
+    log: logging.Logger | None = None,
+) -> TradingCycleResult:
+    """Write outputs and return the final TradingCycleResult.
+
+    Real steps to fill in during Day 5:
+      - Step 7: write_outputs (safe_csv, equity_curve, state)
+      - Step 7.6: Write run KPIs artifact
+      - Step 7.62: Write run manifest
+      - Step 7.63: Append run index CSV
+      - Step 7.66: Trade journal (policy-gated on write_outputs)
+      - Step 7.68: Heartbeat (write cycle completion heartbeat)
+      - Phase 9: Signal diagnostics (write signal_health.json)
+      - Phase 11: KPI export
+
+    Observability-only steps to DROP (all Step 7.5, 7.64, 7.65, 7.67, 7.69-7.71,
+    7.8, 7.9, Steps 8.x — none of these affect trading decisions):
+
+    Returns a fully-populated TradingCycleResult.
     """
     raise NotImplementedError("book_fills — stub, not yet filled in")
 
@@ -93,16 +461,80 @@ def book_fills(orders: pd.DataFrame, ctx: TradingContext) -> TradingCycleResult:
 # ---------------------------------------------------------------------------
 
 
-def run_trading_cycle(ctx: TradingContext) -> TradingCycleResult:
+def run_trading_cycle(
+    ctx: TradingContext,
+    *,
+    hooks: dict[str, Any] | None = None,
+) -> TradingCycleResult:
     """Run the full trading cycle via the seven stage functions.
 
     This replaces _run_trading_cycle_inner once all stubs are filled.
     The old trading_cycle.run_trading_cycle() remains active until Day 9.
     """
-    prices = ingest_data(ctx)
-    features = build_features(prices, ctx)
-    signals = generate_signals(features, ctx)
-    targets = size_positions(signals, ctx)
-    checked = check_risk(targets, ctx)
-    orders = route_orders(checked, ctx)
-    return book_fills(orders, ctx)
+    log = ctx.logger if ctx.logger is not None else logger
+
+    # E0.1 parity: backtest kill-switch backup/restore
+    _ks_state_backup: bool | None = None
+    _is_backtest = getattr(ctx, "mode", None) in ("backtest", "bt")
+    _ks_persist = bool(getattr(ctx, "kill_switch_persist", True))
+    _ks_restore_active = _is_backtest and not _ks_persist
+    if _ks_restore_active:
+        try:
+            from src.assembled_core.execution.kill_switch import is_kill_switch_engaged
+
+            _ks_state_backup = is_kill_switch_engaged()
+        except Exception as _e:
+            log.warning("[KS-BACKUP] kill-switch state snapshot failed: %s", _e)
+
+    result = TradingCycleResult(
+        run_id=ctx.run_id,
+        timestamp=pd.Timestamp.now("UTC"),
+        status="success",
+    )
+    hooks = hooks or {}
+
+    try:
+        prices, prices_latest = ingest_data(ctx, log=log)
+        result.prices_filtered = prices
+        result.prices_latest = prices_latest
+
+        features = build_features(prices, ctx, log=log)
+        result.prices_with_features = features
+
+        signals = generate_signals(features, ctx, log=log)
+        result.signals = signals
+
+        targets = size_positions(signals, ctx, log=log)
+        result.target_positions = targets
+
+        checked = check_risk(targets, ctx, log=log)
+
+        orders = route_orders(checked, ctx, log=log)
+        result.orders = orders
+
+        result = book_fills(orders, result, ctx, log=log)
+
+    except ValueError as exc:
+        result.status = "error"
+        result.error_message = str(exc)
+    except Exception as exc:
+        result.status = "error"
+        result.error_message = f"Unexpected error: {exc}"
+        log.exception("trading_cycle_v2: unexpected error in run_trading_cycle")
+    finally:
+        if _ks_restore_active and _ks_state_backup is not None and not _ks_state_backup:
+            try:
+                from src.assembled_core.execution.kill_switch import (
+                    deactivate_kill_switch,
+                    is_kill_switch_engaged,
+                )
+
+                if is_kill_switch_engaged():
+                    deactivate_kill_switch(
+                        reason="backtest_bar_restore",
+                        actor="trading_cycle_v2_backtest_guard",
+                    )
+            except Exception as _e:
+                log.warning("[KS-RESTORE] kill-switch state restore failed: %s", _e)
+
+    return result
