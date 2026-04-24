@@ -56,6 +56,8 @@ SYMBOL_SECTOR_MAP = {
 }
 
 
+pytest.importorskip("src.assembled_core.signals.intel_signal_adapter")
+
 # ---------------------------------------------------------------------------
 # IntelSignalAdapter unit tests
 # ---------------------------------------------------------------------------

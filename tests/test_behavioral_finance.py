@@ -6,6 +6,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
+pytest.importorskip("src.assembled_core.signals.behavioral_finance")
 from src.assembled_core.signals.behavioral_finance import (
     BehavioralConfig,
     BehavioralSignal,

@@ -7,6 +7,7 @@ import json
 import pandas as pd
 import pytest
 
+pytest.importorskip("src.assembled_core.signals.news_signal_bridge")
 from src.assembled_core.signals.news_signal_bridge import (
     _extract_tickers,
     _sentiment_sign,

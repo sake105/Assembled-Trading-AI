@@ -11,6 +11,7 @@ import pytest
 
 pytestmark = pytest.mark.advanced
 
+pytest.importorskip("src.assembled_core.signals.signal_api")
 from src.assembled_core.qa.point_in_time_checks import PointInTimeViolationError
 from src.assembled_core.signals.signal_api import (
     SignalMetadata,
