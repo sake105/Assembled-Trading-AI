@@ -3,18 +3,21 @@
 This module provides trend-following signal generation based on technical indicators.
 It extends the basic EMA crossover functionality from pipeline.signals.
 
-Zukünftige Integration:
-- Nutzt pipeline.signals.compute_ema_signals als Basis für EMA-Crossover
-- Erweitert um weitere Trend-Following-Regeln (Moving Average Crossovers, etc.)
-- Bietet konfigurierbare Signal-Generierung
+Supports an optional news/intel overlay via ``intel_overlay`` parameter:
+pass an IntelOverlay from intel_signal_adapter.adapt_intel_signal to blend
+news-derived scores with the technical signal.
 """
 
 from __future__ import annotations
+
+import logging
 
 import numpy as np
 import pandas as pd
 
 from src.assembled_core.features.ta_features import add_moving_averages
+
+logger = logging.getLogger(__name__)
 
 
 def generate_trend_signals(
@@ -24,6 +27,8 @@ def generate_trend_signals(
     volume_threshold: float | None = None,
     min_volume_multiplier: float = 1.0,
     require_weekly_alignment: bool = False,
+    intel_overlay: "object | None" = None,
+    news_alpha: float = 0.20,
 ) -> pd.DataFrame:
     """Generate trend-following signals based on moving average crossover.
 
@@ -39,6 +44,9 @@ def generate_trend_signals(
         ma_slow: Slow moving average window (default: 50)
         volume_threshold: Optional volume threshold. If None, uses min_volume_multiplier * mean(volume)
         min_volume_multiplier: Multiplier for mean volume to compute threshold (default: 1.0)
+        intel_overlay: Optional IntelOverlay from intel_signal_adapter.adapt_intel_signal.
+            If provided and actionable, news scores are blended with trend scores.
+        news_alpha: Blend weight for news scores (default 0.20 = 20% news, 80% trend).
 
     Returns:
         DataFrame with columns: timestamp, symbol, direction, score
@@ -138,6 +146,14 @@ def generate_trend_signals(
 
     # Select output columns
     result = df[["timestamp", "symbol", "direction", "score"]].copy()
+
+    # Apply news intel overlay if provided
+    if intel_overlay is not None:
+        try:
+            from src.assembled_core.signals.news_signal_bridge import blend_with_news
+            result = blend_with_news(result, intel_overlay, news_alpha=news_alpha)
+        except Exception as exc:
+            logger.warning("[rules_trend] news blend failed, using pure trend: %s", exc)
 
     return result
 
