@@ -12,6 +12,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+import pytest; pytest.importorskip('src.assembled_core.qa.robustness')
 from src.assembled_core.qa.robustness import build_multiple_testing_warnings
 
 

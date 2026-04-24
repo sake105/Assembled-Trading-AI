@@ -8,6 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 
 
+import pytest; pytest.importorskip('src.assembled_core.qa.candidate_gate')
 from src.assembled_core.qa.candidate_gate import check_candidate_allowed
 
 

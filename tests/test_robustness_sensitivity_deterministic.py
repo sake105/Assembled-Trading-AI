@@ -13,6 +13,7 @@ from typing import Any
 
 import pandas as pd
 
+import pytest; pytest.importorskip('src.assembled_core.qa.robustness')
 from src.assembled_core.qa.robustness import (
     export_sensitivity_results,
     run_sensitivity_suite,

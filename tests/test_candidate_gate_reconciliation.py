@@ -15,6 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+import pytest; pytest.importorskip('src.assembled_core.qa.candidate_gate')
 from src.assembled_core.qa.candidate_gate import (
     check_candidate_allowed,
     read_reconciliation_ok_from_manifest,

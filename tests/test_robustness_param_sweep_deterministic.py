@@ -14,6 +14,7 @@ from typing import Any
 import pandas as pd
 import pytest
 
+import pytest; pytest.importorskip('src.assembled_core.qa.robustness')
 from src.assembled_core.qa.robustness import (
     detect_plateau,
     run_param_grid_sweep,

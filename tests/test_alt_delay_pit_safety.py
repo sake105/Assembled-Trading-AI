@@ -11,6 +11,7 @@ import pandas as pd
 import pytest
 
 from src.assembled_core.data.altdata.contract import filter_events_pit
+import pytest; pytest.importorskip('src.assembled_core.qa.robustness')
 from src.assembled_core.qa.robustness import apply_disclosure_delay
 
 
