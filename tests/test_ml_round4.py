@@ -14,6 +14,7 @@ pytestmark = pytest.mark.phase12
 # ---------------------------------------------------------------------------
 
 def test_online_learner_learn_predict():
+    pytest.importorskip("src.assembled_core.ml.online_gradient_boosting")
     from src.assembled_core.ml.online_gradient_boosting import OnlineAdaptiveLearner
 
     learner = OnlineAdaptiveLearner(feature_names=["f1", "f2"])
@@ -31,6 +32,7 @@ def test_online_learner_learn_predict():
 
 
 def test_online_learner_batch():
+    pytest.importorskip("src.assembled_core.ml.online_gradient_boosting")
     from src.assembled_core.ml.online_gradient_boosting import OnlineAdaptiveLearner
 
     rng = np.random.default_rng(5)
@@ -48,6 +50,7 @@ def test_online_learner_batch():
 
 def test_online_learner_no_river_fallback():
     """Ohne river installiert → Mini-Batch-Fallback, aber learn_one/predict_one funktioniert."""
+    pytest.importorskip("src.assembled_core.ml.online_gradient_boosting")
     from src.assembled_core.ml.online_gradient_boosting import OnlineAdaptiveLearner
 
     learner = OnlineAdaptiveLearner(feature_names=["f1"])
@@ -62,6 +65,7 @@ def test_online_learner_no_river_fallback():
 # ---------------------------------------------------------------------------
 
 def test_nested_meta_fit_predict():
+    pytest.importorskip("src.assembled_core.ml.nested_meta_labeling")
     pytest.importorskip("sklearn")
     from src.assembled_core.ml.nested_meta_labeling import NestedMetaLabeler
 
@@ -103,6 +107,7 @@ def test_nested_meta_size_scale_batch_invariant():
     size_scale depending on which other rows were in the batch. Fix persists the
     training-time max as self._size_scale_max.
     """
+    pytest.importorskip("src.assembled_core.ml.nested_meta_labeling")
     pytest.importorskip("sklearn")
     from src.assembled_core.ml.nested_meta_labeling import NestedMetaLabeler
 
@@ -138,6 +143,7 @@ def test_nested_meta_size_scale_batch_invariant():
 
 def test_nested_meta_threshold_gates():
     """Confidence unter Threshold → final_position = 0."""
+    pytest.importorskip("src.assembled_core.ml.nested_meta_labeling")
     pytest.importorskip("sklearn")
     from src.assembled_core.ml.nested_meta_labeling import NestedMetaLabeler
 
@@ -168,6 +174,7 @@ def test_nested_meta_threshold_gates():
 
 def test_build_nested_labels_from_trades_uses_direction_col():
     """Helper leitet success_label aus sign(return) == sign(direction) ab."""
+    pytest.importorskip("src.assembled_core.ml.nested_meta_labeling")
     from src.assembled_core.ml.nested_meta_labeling import build_nested_labels_from_trades
 
     trades = pd.DataFrame({
@@ -182,6 +189,7 @@ def test_build_nested_labels_from_trades_uses_direction_col():
 
 def test_build_nested_labels_from_trades_falls_back_to_signal():
     """Ohne direction_col nutzt der Helper sign(primary_signal)."""
+    pytest.importorskip("src.assembled_core.ml.nested_meta_labeling")
     from src.assembled_core.ml.nested_meta_labeling import build_nested_labels_from_trades
 
     trades = pd.DataFrame({
@@ -194,6 +202,7 @@ def test_build_nested_labels_from_trades_falls_back_to_signal():
 
 def test_build_nested_labels_empty_direction_safe():
     """Ohne beide Direction-Spalten → success=0 überall."""
+    pytest.importorskip("src.assembled_core.ml.nested_meta_labeling")
     from src.assembled_core.ml.nested_meta_labeling import build_nested_labels_from_trades
 
     trades = pd.DataFrame({"closed_return": [0.01, -0.02]})
@@ -204,6 +213,7 @@ def test_build_nested_labels_empty_direction_safe():
 
 def test_build_nested_labels_then_fit_e2e():
     """E2E: Helper liefert Labels, NestedMetaLabeler.fit akzeptiert sie."""
+    pytest.importorskip("src.assembled_core.ml.nested_meta_labeling")
     pytest.importorskip("sklearn")
     from src.assembled_core.ml.nested_meta_labeling import (
         NestedMetaLabeler,

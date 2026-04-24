@@ -698,6 +698,7 @@ def test_trade_tca_wiring_learning_store(tmp_path):
 
 def test_online_hmm_fallback():
     """Ohne hmmlearn → Vol-Quantile-Fallback funktioniert."""
+    pytest.importorskip("src.assembled_core.ml.online_hmm_regime")
     from src.assembled_core.ml.online_hmm_regime import OnlineHMMRegimeDetector
 
     rng = np.random.default_rng(2)
@@ -709,6 +710,7 @@ def test_online_hmm_fallback():
 
 
 def test_combined_regime_agreement():
+    pytest.importorskip("src.assembled_core.ml.combined_regime")
     from src.assembled_core.ml.combined_regime import CombinedRegimeClassifier
 
     # Beide classifier None → NEUTRAL / NEUTRAL → agreement
@@ -719,6 +721,7 @@ def test_combined_regime_agreement():
 
 def test_combined_regime_wiring_ml_pipeline():
     """WIRING: MLSignalPipeline akzeptiert combined_regime_classifier."""
+    pytest.importorskip("src.assembled_core.ml.combined_regime")
     from src.assembled_core.signals.ml_integration import MLSignalPipeline
     from src.assembled_core.ml.combined_regime import CombinedRegimeClassifier
 
@@ -938,6 +941,7 @@ def test_trade_tca_aggregate_mean_matches():
 
 def test_online_hmm_high_vol_detection():
     """Künstlich hohe Vol am Ende → recent_vol / long_vol > 1.5 → HIGH_VOL im Fallback."""
+    pytest.importorskip("src.assembled_core.ml.online_hmm_regime")
     from src.assembled_core.ml.online_hmm_regime import OnlineHMMRegimeDetector
 
     rng = np.random.default_rng(0)
@@ -956,6 +960,7 @@ def test_online_hmm_high_vol_detection():
 
 def test_online_hmm_low_vol_detection():
     """Künstlich ruhiges Ende nach volatiler Historie → ratio < 0.7 → LOW_VOL."""
+    pytest.importorskip("src.assembled_core.ml.online_hmm_regime")
     from src.assembled_core.ml.online_hmm_regime import OnlineHMMRegimeDetector
 
     rng = np.random.default_rng(1)
@@ -972,6 +977,7 @@ def test_online_hmm_low_vol_detection():
 
 def test_online_hmm_short_input_safe():
     """Weniger als 20 Punkte → default NORMAL, kein Crash."""
+    pytest.importorskip("src.assembled_core.ml.online_hmm_regime")
     from src.assembled_core.ml.online_hmm_regime import OnlineHMMRegimeDetector
 
     detector = OnlineHMMRegimeDetector()
