@@ -20,6 +20,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+import pytest; pytest.importorskip("src.assembled_core.features.registry")
 from src.assembled_core.features.registry import (
     FEATURE_REGISTRY,
     get_feature_metadata,

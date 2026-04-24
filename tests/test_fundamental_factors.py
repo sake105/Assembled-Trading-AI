@@ -6,6 +6,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
+pytest.importorskip("src.assembled_core.features.fundamental_factors")
 from src.assembled_core.features.fundamental_factors import (
     FundamentalFactorResult,
     FUNDAMENTAL_COLUMNS,

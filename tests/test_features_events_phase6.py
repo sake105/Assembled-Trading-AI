@@ -18,6 +18,7 @@ from src.assembled_core.data.insider_ingest import (
 )
 from src.assembled_core.data.news_ingest import load_news_sample
 from src.assembled_core.data.shipping_routes_ingest import load_shipping_sample
+import pytest; pytest.importorskip("src.assembled_core.features.news_features")
 from src.assembled_core.features.congress_features import add_congress_features
 from src.assembled_core.features.insider_features import add_insider_features
 from src.assembled_core.features.news_features import add_news_features

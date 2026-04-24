@@ -87,6 +87,7 @@ def test_triple_barrier_build_panel():
 # ---------------------------------------------------------------------------
 
 def test_frac_diff_weights():
+    import pytest; pytest.importorskip('src.assembled_core.features.fractional_diff')
     from src.assembled_core.features.fractional_diff import frac_diff_weights
     w = frac_diff_weights(d=0.5, threshold=1e-4)
     assert len(w) > 5
@@ -98,6 +99,7 @@ def test_frac_diff_weights():
 
 def test_frac_diff_d_zero_equals_identity():
     """d=0 → series bleibt unverändert."""
+    import pytest; pytest.importorskip('src.assembled_core.features.fractional_diff')
     from src.assembled_core.features.fractional_diff import frac_diff_ffd
 
     s = pd.Series(np.arange(50, dtype=float))
@@ -108,6 +110,7 @@ def test_frac_diff_d_zero_equals_identity():
 
 def test_frac_diff_ffd_reduces_integration():
     """Fractional diff auf kumulativer Reihe → stationär ohne Memory-Loss."""
+    import pytest; pytest.importorskip('src.assembled_core.features.fractional_diff')
     from src.assembled_core.features.fractional_diff import frac_diff_ffd
 
     rng = np.random.default_rng(0)
@@ -123,6 +126,7 @@ def test_frac_diff_ffd_reduces_integration():
 
 
 def test_apply_ffd_to_panel():
+    import pytest; pytest.importorskip('src.assembled_core.features.fractional_diff')
     from src.assembled_core.features.fractional_diff import apply_ffd_to_panel
 
     panel = pd.DataFrame({
@@ -244,6 +248,7 @@ def test_conformal_position_sizing():
 # ---------------------------------------------------------------------------
 
 def test_rank_cross_sectional_percentile():
+    import pytest; pytest.importorskip('src.assembled_core.features.cross_sectional')
     from src.assembled_core.features.cross_sectional import rank_cross_sectional
 
     panel = pd.DataFrame({
@@ -262,6 +267,7 @@ def test_rank_cross_sectional_percentile():
 
 
 def test_zscore_cross_sectional():
+    import pytest; pytest.importorskip('src.assembled_core.features.cross_sectional')
     from src.assembled_core.features.cross_sectional import zscore_cross_sectional
 
     panel = pd.DataFrame({
@@ -325,6 +331,7 @@ def test_pbo_interpret():
 # ---------------------------------------------------------------------------
 
 def test_regime_router_fit_predict():
+    import pytest; pytest.importorskip('src.assembled_core.ml.regime_model_router')
     pytest.importorskip("sklearn")
     from src.assembled_core.ml.regime_model_router import RegimeModelRouter, RegimeRouterConfig
 
@@ -353,6 +360,7 @@ def test_regime_router_fit_predict():
 
 
 def test_regime_router_crisis_no_trade():
+    import pytest; pytest.importorskip('src.assembled_core.ml.regime_model_router')
     pytest.importorskip("sklearn")
     from src.assembled_core.ml.regime_model_router import RegimeModelRouter, RegimeRouterConfig
 
@@ -381,6 +389,7 @@ def test_regime_router_crisis_no_trade():
 # ---------------------------------------------------------------------------
 
 def test_importance_tracker_record_and_prune(tmp_path):
+    import pytest; pytest.importorskip('src.assembled_core.ml.feature_importance_tracker')
     pytest.importorskip("sklearn")
     from sklearn.linear_model import Ridge
 

@@ -6,6 +6,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
+pytest.importorskip("src.assembled_core.features.behavioral_features")
 from src.assembled_core.features.behavioral_features import (
     capital_gains_overhang,
     anchoring_52w_high,

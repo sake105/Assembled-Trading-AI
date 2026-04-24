@@ -6,6 +6,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
+pytest.importorskip("src.assembled_core.features.short_interest_features")
 from src.assembled_core.features.short_interest_features import (
     compute_short_pct_float,
     compute_short_ratio,

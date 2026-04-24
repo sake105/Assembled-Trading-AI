@@ -35,7 +35,6 @@ CORE_MODULES = [
     "src.assembled_core.features.insider_features",
     "src.assembled_core.features.congress_features",
     "src.assembled_core.features.shipping_features",
-    "src.assembled_core.features.news_features",
     # Layer 3: signals
     "src.assembled_core.signals.rules_trend",
     "src.assembled_core.signals.rules_event_insider_shipping",

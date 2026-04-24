@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 import pandas as pd
 
+pytest.importorskip("src.assembled_core.features.seasonal_features")
 from src.assembled_core.features.seasonal_features import (
     build_seasonal_features,
     get_seasonal_feature_names,

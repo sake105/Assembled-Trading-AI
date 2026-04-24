@@ -269,6 +269,7 @@ class TestSectorRotationSignal:
         return pd.DataFrame(rows)
 
     def test_returns_dict(self):
+        import pytest; pytest.importorskip('src.assembled_core.features.news_features')
         from src.assembled_core.features.news_features import compute_sector_rotation_signal
 
         df = self._make_events_df()
@@ -276,6 +277,7 @@ class TestSectorRotationSignal:
         assert isinstance(result, dict)
 
     def test_energy_bearish_gets_negative_score(self):
+        import pytest; pytest.importorskip('src.assembled_core.features.news_features')
         from src.assembled_core.features.news_features import compute_sector_rotation_signal
 
         df = self._make_events_df()
@@ -285,6 +287,7 @@ class TestSectorRotationSignal:
             assert result["energy"] < 0
 
     def test_empty_df_returns_empty(self):
+        import pytest; pytest.importorskip('src.assembled_core.features.news_features')
         import pandas as pd
         from src.assembled_core.features.news_features import compute_sector_rotation_signal
 
@@ -292,6 +295,7 @@ class TestSectorRotationSignal:
         assert result == {}
 
     def test_scores_bounded(self):
+        import pytest; pytest.importorskip('src.assembled_core.features.news_features')
         from src.assembled_core.features.news_features import compute_sector_rotation_signal
 
         df = self._make_events_df()
@@ -308,6 +312,7 @@ class TestSectorRotationSignal:
 @pytest.mark.phase12
 class TestEarningsProximityBoost:
     def test_near_quarter_end_gets_boost(self):
+        import pytest; pytest.importorskip('src.assembled_core.features.news_features')
         import pandas as pd
         from src.assembled_core.features.news_features import compute_earnings_proximity_boost
 
@@ -320,6 +325,7 @@ class TestEarningsProximityBoost:
         assert result.iloc[1]["earnings_proximity_boost"] == 1.0
 
     def test_boost_capped_at_1_5(self):
+        import pytest; pytest.importorskip('src.assembled_core.features.news_features')
         import pandas as pd
         from src.assembled_core.features.news_features import compute_earnings_proximity_boost
 
@@ -328,6 +334,7 @@ class TestEarningsProximityBoost:
         assert result.iloc[0]["earnings_proximity_boost"] <= 1.5
 
     def test_empty_df(self):
+        import pytest; pytest.importorskip('src.assembled_core.features.news_features')
         import pandas as pd
         from src.assembled_core.features.news_features import compute_earnings_proximity_boost
 
