@@ -28,6 +28,7 @@ def _fat_tail_returns(n: int = 2000, seed: int = 7) -> pd.Series:
 
 
 def test_fat_tail_returns_yield_positive_tail_var() -> None:
+    pytest.importorskip("src.assembled_core.ml.evt_models")
     r = _fat_tail_returns()
     metrics = compute_evt_tail_var(r)
     assert metrics["evt_var_95"] > 0
@@ -45,6 +46,7 @@ def test_insufficient_data_returns_zeros() -> None:
 
 
 def test_metric_schema_keys_stable() -> None:
+    pytest.importorskip("src.assembled_core.ml.evt_models")
     r = _fat_tail_returns()
     metrics = compute_evt_tail_var(r)
     expected = {
@@ -60,6 +62,7 @@ def test_metric_schema_keys_stable() -> None:
 
 
 def test_accepts_numpy_array() -> None:
+    pytest.importorskip("src.assembled_core.ml.evt_models")
     r = _fat_tail_returns().to_numpy()
     metrics = compute_evt_tail_var(r)
     assert isinstance(metrics, dict)
