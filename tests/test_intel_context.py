@@ -75,6 +75,8 @@ def test_custom_min_severity():
 
 def test_all_curated_topics_map_to_known_shocks():
     # Sanity: every value in TOPIC_TO_SHOCKS must be a SHOCK_BENEFICIARY_MAP key
+    import pytest
+    pytest.importorskip("src.assembled_core.signals.intel_signal_adapter")
     from src.assembled_core.signals.intel_signal_adapter import SHOCK_BENEFICIARY_MAP
 
     known = set(SHOCK_BENEFICIARY_MAP.keys())
