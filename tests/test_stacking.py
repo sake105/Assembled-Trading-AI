@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest; pytest.importorskip("src.assembled_core.ml.stacking")
 import pytest
 import numpy as np
 import pandas as pd

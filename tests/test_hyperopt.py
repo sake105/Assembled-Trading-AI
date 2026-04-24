@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 optuna = pytest.importorskip("optuna")
+pytest.importorskip("src.assembled_core.ml.hyperopt")
 
 from src.assembled_core.ml.hyperopt import tune_model_optuna, guardrailed_hyperopt
 

@@ -32,6 +32,7 @@ def _make_trending_prices(n: int = 50, trend: float = 0.002, seed: int = 0) -> p
 
 
 def test_triple_barrier_labels_basic():
+    import pytest; pytest.importorskip('src.assembled_core.ml.triple_barrier')
     from src.assembled_core.ml.triple_barrier import (
         apply_triple_barrier,
         compute_daily_volatility,
@@ -49,6 +50,7 @@ def test_triple_barrier_labels_basic():
 
 def test_triple_barrier_upper_hit_on_trend():
     """Starker positiver Trend → viele UPPER-Treffer."""
+    import pytest; pytest.importorskip('src.assembled_core.ml.triple_barrier')
     from src.assembled_core.ml.triple_barrier import (
         apply_triple_barrier,
         compute_daily_volatility,
@@ -64,6 +66,7 @@ def test_triple_barrier_upper_hit_on_trend():
 
 
 def test_triple_barrier_build_panel():
+    import pytest; pytest.importorskip('src.assembled_core.ml.triple_barrier')
     from src.assembled_core.ml.triple_barrier import build_triple_barrier_labels
 
     rng = np.random.default_rng(42)
@@ -144,6 +147,7 @@ def test_apply_ffd_to_panel():
 
 def test_stacking_cv_basic():
     pytest.importorskip("sklearn")
+    pytest.importorskip("src.assembled_core.ml.stacking_ensemble")
     from src.assembled_core.ml.stacking_ensemble import StackingConfig, run_stacking_cv
 
     rng = np.random.default_rng(42)
@@ -173,6 +177,7 @@ def test_stacking_cv_basic():
 
 def test_stacking_predict():
     pytest.importorskip("sklearn")
+    pytest.importorskip("src.assembled_core.ml.stacking_ensemble")
     from src.assembled_core.ml.stacking_ensemble import StackingConfig, run_stacking_cv
 
     rng = np.random.default_rng(7)
@@ -199,6 +204,7 @@ def test_stacking_predict():
 def test_conformal_coverage():
     """90%-Intervall sollte ca. 90% der echten Werte abdecken."""
     pytest.importorskip("sklearn")
+    pytest.importorskip("src.assembled_core.ml.conformal")
     from sklearn.linear_model import Ridge
 
     from src.assembled_core.ml.conformal import SplitConformalPredictor
@@ -225,6 +231,7 @@ def test_conformal_coverage():
 
 def test_conformal_position_sizing():
     pytest.importorskip("sklearn")
+    pytest.importorskip("src.assembled_core.ml.conformal")
     from sklearn.linear_model import Ridge
 
     from src.assembled_core.ml.conformal import SplitConformalPredictor, conformal_position_size

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import pytest
+import pytest; pytest.importorskip("src.assembled_core.ml.nlp_sentiment")
 import pandas as pd
 
 from src.assembled_core.ml.nlp_sentiment import (

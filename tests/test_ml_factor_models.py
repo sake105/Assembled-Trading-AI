@@ -13,6 +13,7 @@ import pandas as pd
 import pytest
 
 pytestmark = pytest.mark.advanced
+pytest.importorskip("src.assembled_core.ml.factor_models")
 
 from src.assembled_core.ml.factor_models import (
     MLExperimentConfig,

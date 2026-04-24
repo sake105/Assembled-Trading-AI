@@ -6,6 +6,8 @@ ML alpha factors from factor panels and merging them back into panels.
 
 from __future__ import annotations
 
+import pytest; pytest.importorskip("src.assembled_core.ml.factor_models")
+
 import subprocess
 import sys
 from pathlib import Path

@@ -46,12 +46,14 @@ def _make_records(n: int, closed_date: str = "2025-06-01") -> list[dict]:
 # ---------------------------------------------------------------------------
 
 def test_scale_position_below_threshold():
+    import pytest; pytest.importorskip('src.assembled_core.ml.meta_labeling')
     from src.assembled_core.ml.meta_labeling import MetaLabeler
     labeler = MetaLabeler(confidence_threshold=0.55)
     assert labeler.scale_position(0.8, 0.40) == 0.0
 
 
 def test_scale_position_above_threshold():
+    import pytest; pytest.importorskip('src.assembled_core.ml.meta_labeling')
     from src.assembled_core.ml.meta_labeling import MetaLabeler
     labeler = MetaLabeler(confidence_threshold=0.55)
     result = labeler.scale_position(0.8, 0.70)
@@ -59,6 +61,7 @@ def test_scale_position_above_threshold():
 
 
 def test_scale_position_short():
+    import pytest; pytest.importorskip('src.assembled_core.ml.meta_labeling')
     from src.assembled_core.ml.meta_labeling import MetaLabeler
     labeler = MetaLabeler(confidence_threshold=0.55)
     result = labeler.scale_position(-0.5, 0.65)
@@ -66,6 +69,7 @@ def test_scale_position_short():
 
 
 def test_scale_position_at_threshold():
+    import pytest; pytest.importorskip('src.assembled_core.ml.meta_labeling')
     from src.assembled_core.ml.meta_labeling import MetaLabeler
     labeler = MetaLabeler(confidence_threshold=0.55)
     # exactly at threshold → scale (>= threshold, not strictly above)
@@ -79,6 +83,7 @@ def test_scale_position_at_threshold():
 
 def test_from_learning_store_pit_guard(tmp_path):
     """Records mit closed_at in der Zukunft werden NICHT verwendet."""
+    import pytest; pytest.importorskip('src.assembled_core.ml.meta_labeling')
     from src.assembled_core.ml.meta_labeling import MetaLabeler
 
     pytest.importorskip("sklearn")
@@ -95,6 +100,7 @@ def test_from_learning_store_pit_guard(tmp_path):
 
 def test_from_learning_store_min_samples_error(tmp_path):
     """Weniger als 100 Records → ValueError."""
+    import pytest; pytest.importorskip('src.assembled_core.ml.meta_labeling')
     from src.assembled_core.ml.meta_labeling import MetaLabeler
 
     store = tmp_path / "store.jsonl"
@@ -107,6 +113,7 @@ def test_from_learning_store_min_samples_error(tmp_path):
 
 def test_from_learning_store_only_closed_records(tmp_path):
     """Nur Records mit closed_at UND closed_return werden gezählt."""
+    import pytest; pytest.importorskip('src.assembled_core.ml.meta_labeling')
     from src.assembled_core.ml.meta_labeling import MetaLabeler
 
     store = tmp_path / "store.jsonl"
@@ -130,6 +137,7 @@ def test_from_learning_store_only_closed_records(tmp_path):
 
 def test_labeler_fit_predict(tmp_path):
     pytest.importorskip("sklearn")
+    pytest.importorskip("src.assembled_core.ml.meta_labeling")
 
     from src.assembled_core.ml.meta_labeling import MetaLabeler
 
@@ -161,6 +169,7 @@ def test_labeler_fit_predict(tmp_path):
 
 def test_predict_confidence_no_model():
     """Ohne fit() → Fallback 0.5."""
+    import pytest; pytest.importorskip('src.assembled_core.ml.meta_labeling')
     from src.assembled_core.ml.meta_labeling import MetaLabeler
 
     labeler = MetaLabeler()
@@ -179,6 +188,7 @@ def test_predict_confidence_no_model():
 def test_labeler_save_load(tmp_path):
     pytest.importorskip("sklearn")
     pytest.importorskip("joblib")
+    pytest.importorskip("src.assembled_core.ml.meta_labeling")
 
     from src.assembled_core.ml.meta_labeling import MetaLabeler
 

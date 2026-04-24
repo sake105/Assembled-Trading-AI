@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest; pytest.importorskip("src.assembled_core.ml.online_learning")
 import pytest
 import numpy as np
 

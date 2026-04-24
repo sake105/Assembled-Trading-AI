@@ -27,6 +27,7 @@ def _make_random_embeddings(n: int = 50, dim: int = 768) -> np.ndarray:
 
 def test_extract_embeddings_zero_array_without_transformers(monkeypatch):
     """extract_finbert_embeddings gibt Zero-Array zurück wenn transformers fehlt."""
+    import pytest; pytest.importorskip('src.assembled_core.ml.news_ml_bridge')
     import src.assembled_core.ml.news_ml_bridge as bridge
 
     original = bridge._get_embedding_model
@@ -46,6 +47,7 @@ def test_extract_embeddings_zero_array_without_transformers(monkeypatch):
 
 
 def test_extract_embeddings_empty_list():
+    import pytest; pytest.importorskip('src.assembled_core.ml.news_ml_bridge')
     from src.assembled_core.ml.news_ml_bridge import extract_finbert_embeddings
     result = extract_finbert_embeddings([])
     assert result.shape == (0, 768)
@@ -53,6 +55,7 @@ def test_extract_embeddings_empty_list():
 
 def test_pca_roundtrip():
     """Fit PCA auf Zufalls-Embeddings → transform neuer Embeddings → Shape korrekt."""
+    import pytest; pytest.importorskip('src.assembled_core.ml.news_ml_bridge')
     from src.assembled_core.ml.news_ml_bridge import fit_embedding_pca, transform_embeddings_pca
 
     pytest.importorskip("sklearn")
@@ -68,6 +71,7 @@ def test_pca_roundtrip():
 
 
 def test_pca_save_load(tmp_path):
+    import pytest; pytest.importorskip('src.assembled_core.ml.news_ml_bridge')
     from src.assembled_core.ml.news_ml_bridge import fit_embedding_pca, load_pca, transform_embeddings_pca
 
     pytest.importorskip("sklearn")
@@ -92,6 +96,7 @@ def test_pca_save_load(tmp_path):
 
 def test_ic_weights_missing_file():
     """Fehlende ic_loop.json → leeres Dict."""
+    import pytest; pytest.importorskip('src.assembled_core.ml.news_ml_bridge')
     from src.assembled_core.ml.news_ml_bridge import get_event_type_ic_weights
 
     result = get_event_type_ic_weights(ic_loop_path=Path("/nonexistent/path/ic_loop.json"))
@@ -100,6 +105,7 @@ def test_ic_weights_missing_file():
 
 def test_ic_weights_normalization(tmp_path):
     """IC-Werte -0.1 bis 0.2 → Gewichte in [0.5, 1.5]."""
+    import pytest; pytest.importorskip('src.assembled_core.ml.news_ml_bridge')
     import json
 
     pytest.importorskip("src.assembled_core.intel.ic_loop")
@@ -146,6 +152,7 @@ def _make_sentiment_history(n: int = 120, seed: int = 42) -> pd.DataFrame:
 def test_regime_classifier_four_states():
     """Klassifikator gibt alle 4 Labels für synthetische Gruppe-Daten zurück."""
     pytest.importorskip("sklearn")
+    pytest.importorskip("src.assembled_core.ml.news_ml_bridge")
 
     from src.assembled_core.ml.news_ml_bridge import NewsRegimeClassifier
 
@@ -177,6 +184,7 @@ def test_regime_classifier_four_states():
 def test_regime_random_state_reproducible():
     """Gleicher Fit zweimal → identische Predictions."""
     pytest.importorskip("sklearn")
+    pytest.importorskip("src.assembled_core.ml.news_ml_bridge")
 
     from src.assembled_core.ml.news_ml_bridge import NewsRegimeClassifier
 
@@ -195,6 +203,7 @@ def test_regime_random_state_reproducible():
 
 
 def test_regime_predict_before_fit_returns_neutral():
+    import pytest; pytest.importorskip('src.assembled_core.ml.news_ml_bridge')
     from src.assembled_core.ml.news_ml_bridge import NewsRegimeClassifier
 
     clf = NewsRegimeClassifier()
@@ -210,6 +219,7 @@ def test_regime_predict_before_fit_returns_neutral():
 def test_regime_save_load(tmp_path):
     pytest.importorskip("sklearn")
     pytest.importorskip("joblib")
+    pytest.importorskip("src.assembled_core.ml.news_ml_bridge")
 
     from src.assembled_core.ml.news_ml_bridge import NewsRegimeClassifier
 

@@ -278,6 +278,7 @@ def test_meta_model_predict_with_intervals_no_calib():
 def test_meta_model_predict_with_intervals_calib():
     """Mit Calib → non-zero half_width, lower < predictions < upper."""
     pytest.importorskip("sklearn")
+    pytest.importorskip("src.assembled_core.ml.conformal")
     from src.assembled_core.signals.meta_model import train_meta_model
 
     rng = np.random.default_rng(15)

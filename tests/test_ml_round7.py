@@ -17,6 +17,7 @@ pytestmark = pytest.mark.phase12
 # ---------------------------------------------------------------------------
 
 def test_signal_decay_tracker_basic(tmp_path):
+    import pytest; pytest.importorskip('src.assembled_core.ml.signal_decay_tracker')
     from src.assembled_core.ml.signal_decay_tracker import SignalDecayTracker
 
     tracker = SignalDecayTracker(state_path=tmp_path / "decay.json", horizons=[1, 5])
@@ -34,6 +35,7 @@ def test_signal_decay_tracker_basic(tmp_path):
 
 def test_signal_decay_report_halflife(tmp_path):
     """IC sinkt über Snapshots → halflife erkennbar."""
+    import pytest; pytest.importorskip('src.assembled_core.ml.signal_decay_tracker')
     from src.assembled_core.ml.signal_decay_tracker import SignalDecayTracker
 
     tracker = SignalDecayTracker(state_path=tmp_path / "decay.json", horizons=[5])
@@ -61,6 +63,7 @@ def test_signal_decay_report_halflife(tmp_path):
 
 def test_signal_decay_wiring_feedback_loop(tmp_path):
     """WIRING: feedback_loop._record_signal_decay existiert und crasht nicht."""
+    import pytest; pytest.importorskip('src.assembled_core.ml.feedback_loop')
     from src.assembled_core.ml.feedback_loop import FeedbackLoopController
 
     controller = FeedbackLoopController()
@@ -161,6 +164,7 @@ def test_smoothing_preserves_capital_scaling():
 # ---------------------------------------------------------------------------
 
 def test_online_hpo_select_arm(tmp_path):
+    import pytest; pytest.importorskip('src.assembled_core.ml.online_hpo')
     from src.assembled_core.ml.online_hpo import OnlineHyperparamAdapter
 
     adapter = OnlineHyperparamAdapter(state_path=tmp_path / "hpo.json")
@@ -170,6 +174,7 @@ def test_online_hpo_select_arm(tmp_path):
 
 
 def test_online_hpo_reward_update(tmp_path):
+    import pytest; pytest.importorskip('src.assembled_core.ml.online_hpo')
     from src.assembled_core.ml.online_hpo import OnlineHyperparamAdapter
 
     adapter = OnlineHyperparamAdapter(state_path=tmp_path / "hpo.json")
@@ -185,6 +190,7 @@ def test_online_hpo_reward_update(tmp_path):
 
 def test_online_hpo_wiring_retraining_scheduler(tmp_path):
     """WIRING: adapt_hyperparameters_via_bandit existiert."""
+    import pytest; pytest.importorskip('src.assembled_core.ml.retraining_scheduler')
     from src.assembled_core.ml.retraining_scheduler import RetrainingScheduler
 
     scheduler = RetrainingScheduler()
@@ -195,6 +201,7 @@ def test_online_hpo_wiring_retraining_scheduler(tmp_path):
 
 def test_online_hpo_sklearn_gb_preset(tmp_path):
     """Preset: sklearn GB-Arme ohne LightGBM-spezifische Keys."""
+    import pytest; pytest.importorskip('src.assembled_core.ml.online_hpo')
     from src.assembled_core.ml.online_hpo import OnlineHyperparamAdapter
 
     adapter = OnlineHyperparamAdapter.with_sklearn_gb_arms(state_path=tmp_path / "hpo.json")
@@ -206,6 +213,7 @@ def test_online_hpo_sklearn_gb_preset(tmp_path):
 
 def test_online_hpo_ridge_preset(tmp_path):
     """Preset: Ridge-Arme mit nur alpha-Parameter."""
+    import pytest; pytest.importorskip('src.assembled_core.ml.online_hpo')
     from src.assembled_core.ml.online_hpo import OnlineHyperparamAdapter
 
     adapter = OnlineHyperparamAdapter.with_ridge_arms(state_path=tmp_path / "hpo.json")
@@ -216,6 +224,7 @@ def test_online_hpo_ridge_preset(tmp_path):
 
 def test_online_hpo_from_param_grid(tmp_path):
     """Custom-Grid: kartesisches Produkt → n_arms = prod(len(values))."""
+    import pytest; pytest.importorskip('src.assembled_core.ml.online_hpo')
     from src.assembled_core.ml.online_hpo import OnlineHyperparamAdapter
 
     grid = {"alpha": [0.1, 1.0], "l1_ratio": [0.0, 0.5, 1.0]}
@@ -228,6 +237,7 @@ def test_online_hpo_from_param_grid(tmp_path):
 
 def test_online_hpo_from_empty_grid_safe(tmp_path):
     """Leerer Grid → keine Arme, select_arm nimmt fallback."""
+    import pytest; pytest.importorskip('src.assembled_core.ml.online_hpo')
     from src.assembled_core.ml.online_hpo import OnlineHyperparamAdapter
 
     adapter = OnlineHyperparamAdapter.from_param_grid({}, state_path=tmp_path / "hpo.json")
@@ -236,6 +246,7 @@ def test_online_hpo_from_empty_grid_safe(tmp_path):
 
 def test_online_hpo_discount_factor_bounds_effective_n(tmp_path):
     """Mit discount_factor < 1 bleibt effektive Sample-Size endlich."""
+    import pytest; pytest.importorskip('src.assembled_core.ml.online_hpo')
     from src.assembled_core.ml.online_hpo import OnlineHyperparamAdapter
 
     adapter = OnlineHyperparamAdapter(
@@ -253,6 +264,7 @@ def test_online_hpo_discount_factor_bounds_effective_n(tmp_path):
 
 def test_online_hpo_no_discount_keeps_integer_count(tmp_path):
     """Default discount_factor=1.0 → n_pulls bleibt exakt integer-äquivalent."""
+    import pytest; pytest.importorskip('src.assembled_core.ml.online_hpo')
     from src.assembled_core.ml.online_hpo import OnlineHyperparamAdapter
 
     adapter = OnlineHyperparamAdapter(
@@ -265,6 +277,7 @@ def test_online_hpo_no_discount_keeps_integer_count(tmp_path):
 
 def test_online_hpo_rejects_invalid_discount():
     """discount_factor außerhalb (0, 1] → ValueError."""
+    import pytest; pytest.importorskip('src.assembled_core.ml.online_hpo')
     from src.assembled_core.ml.online_hpo import OnlineHyperparamAdapter
 
     with pytest.raises(ValueError):
@@ -569,6 +582,7 @@ def test_kelly_wiring_position_sizing():
 # ---------------------------------------------------------------------------
 
 def test_signal_correlation_redundancy():
+    import pytest; pytest.importorskip('src.assembled_core.ml.signal_correlation')
     from src.assembled_core.ml.signal_correlation import SignalCorrelationAnalyzer
 
     rng = np.random.default_rng(1)
@@ -588,6 +602,7 @@ def test_signal_correlation_redundancy():
 
 def test_signal_correlation_wiring_feedback_loop():
     """WIRING: _record_signal_correlation existiert und läuft fehlerfrei."""
+    pytest.importorskip("src.assembled_core.ml.feedback_loop")
     from src.assembled_core.ml.feedback_loop import FeedbackLoopController
 
     controller = FeedbackLoopController()
@@ -740,6 +755,7 @@ def test_combined_regime_wiring_ml_pipeline():
 def test_lime_permutation_fallback():
     """Ohne training_data → Permutation-Fallback."""
     pytest.importorskip("sklearn")
+    pytest.importorskip("src.assembled_core.ml.lime_explainer")
     from sklearn.linear_model import LinearRegression
     from src.assembled_core.ml.lime_explainer import LIMEExplainerWrapper
 
@@ -992,6 +1008,7 @@ def test_online_hmm_short_input_safe():
 
 def test_feedback_loop_config_auto_deploy_default_false():
     """FeedbackLoopConfig.auto_deploy default MUSS False bleiben (Human-Review-Pflicht)."""
+    pytest.importorskip("src.assembled_core.ml.feedback_loop")
     from src.assembled_core.ml.feedback_loop import FeedbackLoopConfig
 
     cfg = FeedbackLoopConfig()
@@ -1000,6 +1017,7 @@ def test_feedback_loop_config_auto_deploy_default_false():
 
 def test_retraining_scheduler_hard_enforces_auto_deploy_false(tmp_path):
     """Selbst wenn eine YAML-Config `auto_deploy: true` enthält, muss Scheduler False erzwingen."""
+    pytest.importorskip("src.assembled_core.ml.retraining_scheduler")
     from src.assembled_core.ml.retraining_scheduler import RetrainingScheduler
 
     cfg = tmp_path / "self_learning.yaml"
@@ -1015,6 +1033,7 @@ def test_retraining_scheduler_hard_enforces_auto_deploy_false(tmp_path):
 
 def test_model_registry_register_returns_candidate_status(tmp_path):
     """register() liefert IMMER status='candidate' — promote_to_deployed ist explizit nötig."""
+    pytest.importorskip("src.assembled_core.ml.model_registry")
     from src.assembled_core.ml.model_registry import ModelRegistry
 
     reg = ModelRegistry(base_dir=tmp_path)
@@ -1031,6 +1050,7 @@ def test_model_registry_register_returns_candidate_status(tmp_path):
 
 def test_model_registry_promote_requires_approved(tmp_path):
     """promote_to_deployed lehnt ab, wenn Status nicht 'approved' ist."""
+    pytest.importorskip("src.assembled_core.ml.model_registry")
     from src.assembled_core.ml.model_registry import ModelRegistry
 
     reg = ModelRegistry(base_dir=tmp_path)

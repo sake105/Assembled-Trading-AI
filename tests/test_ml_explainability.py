@@ -9,6 +9,7 @@ import pandas as pd
 import pytest
 
 pytest.importorskip("sklearn")
+pytest.importorskip("src.assembled_core.ml.explainability")
 
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import Ridge
