@@ -53,17 +53,12 @@ from src.assembled_core.risk.regime_costs import (
     RegimeCostEstimate,
     estimate_regime_costs,
 )
-from src.assembled_core.risk.antifragility import (  # noqa: F401
-    compute_antifragility_score,
-    compute_portfolio_antifragility,
-)
 from src.assembled_core.risk.profit_targets import (  # noqa: F401
     PositionRecord,
     ProfitTargetConfig,
     build_position_records,
     check_profit_targets,
 )
-from src.assembled_core.risk.systemic_risk import compute_return_network_centrality  # noqa: F401
 from src.assembled_core.risk.tail_dependence import (  # noqa: F401
     classify_tail_regime,
     compute_empirical_tail_dependence,

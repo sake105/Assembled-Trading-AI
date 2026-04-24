@@ -124,10 +124,6 @@ from src.assembled_core.qa.candidate_gate import (  # noqa: F401
     read_reconciliation_ok_from_manifest,
     read_robustness_ok_from_manifest,
 )
-from src.assembled_core.qa.capacity import (  # noqa: F401
-    CapacityEstimate,
-    estimate_strategy_capacity,
-)
 from src.assembled_core.qa.deflated_sharpe import (  # noqa: F401
     DSRResult,
     deflated_sharpe,

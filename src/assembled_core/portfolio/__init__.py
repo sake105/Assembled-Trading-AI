@@ -39,7 +39,6 @@ from src.assembled_core.portfolio.multiasset_allocator import (  # noqa: F401
     RegimeDetectorConfig,
     allocate_by_regime,
 )
-from src.assembled_core.portfolio.regime_portfolio import blend_regime_templates  # noqa: F401
 from src.assembled_core.portfolio.robust_optimizer import (  # noqa: F401
     RobustOptResult,
     compute_robust_weights,
@@ -68,7 +67,6 @@ __all__ = [
     "RegimeDetector",
     "RegimeDetectorConfig",
     "allocate_by_regime",
-    "blend_regime_templates",
     "RobustOptResult",
     "compute_robust_weights",
     "StressTestConfig",

@@ -12,12 +12,6 @@ from src.assembled_core.pipeline.graceful_degradation import (  # noqa: F401
     DegradationTracker,
     neutralize_missing_features,
 )
-from src.assembled_core.pipeline.pipeline_timing import PipelineTimer  # noqa: F401
-from src.assembled_core.pipeline.run_metadata import (  # noqa: F401
-    collect_run_metadata,
-    save_run_metadata,
-)
-from src.assembled_core.pipeline import backtest_legacy as backtest_legacy  # noqa: F401
 
 __all__ = [
     "TradingContext",
@@ -28,8 +22,4 @@ __all__ = [
     "EventType",
     "DegradationTracker",
     "neutralize_missing_features",
-    "PipelineTimer",
-    "collect_run_metadata",
-    "save_run_metadata",
-    "backtest_legacy",
 ]

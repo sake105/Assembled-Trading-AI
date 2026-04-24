@@ -34,17 +34,9 @@ from src.assembled_core.signals.behavioral_finance import (
     compute_overreaction_score,
     generate_behavioral_signals,
 )
-from src.assembled_core.signals.mean_reversion import (  # noqa: F401
-    compute_mean_reversion_signals,
-    compute_rsi,
-)
 from src.assembled_core.signals.ml_integration import (  # noqa: F401
     MLPipelineOutput,
     MLSignalPipeline,
-)
-from src.assembled_core.signals.plugin_loader import (  # noqa: F401
-    discover_signal_plugins,
-    load_signal_plugin,
 )
 from src.assembled_core.signals.risk_aware_combiner import (  # noqa: F401
     CombinerState,
