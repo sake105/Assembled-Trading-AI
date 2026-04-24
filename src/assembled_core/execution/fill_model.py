@@ -89,10 +89,20 @@ def apply_cash_gate(
                 cost_series = cost_series + fills[col].fillna(0.0).astype(float)
 
     notional = fills["qty"].abs() * fills["price"].abs()
+    sell_mask = ~buy_mask
     # Per-timestamp cumulative: process BUYs in deterministic order (symbol asc)
     timestamps = sorted(fills["timestamp"].unique())
     CASH_MIN_TOLERANCE = 1e-6  # reject if cash would go below this (avoids float/cost rounding overspend)
     for ts in timestamps:
+        # Credit SELL proceeds before checking BUY capacity for this bar.
+        # Without this, cash never replenishes and BUYs get rejected after initial
+        # capital is spent, causing positions to drift short indefinitely.
+        ts_sell_mask = (fills["timestamp"] == ts) & sell_mask
+        if ts_sell_mask.any():
+            sell_proceeds = float(notional.loc[ts_sell_mask].sum())
+            sell_costs = float(cost_series.loc[ts_sell_mask].sum())
+            available_cash += max(0.0, sell_proceeds - sell_costs)
+
         ts_mask = (fills["timestamp"] == ts) & buy_mask
         if not ts_mask.any():
             continue
@@ -442,8 +452,11 @@ def apply_session_gate(
                 fills.loc[idx, "total_cost_cash"] = 0.0
             continue
 
-        # For freq="1d": only accept at session close (unless strict=False, e.g. EOD bars at 00:00 UTC)
-        if freq == "1d" and strict:
+        # For freq="1d": EOD daily bars use midnight UTC by convention, not actual
+        # session close time. Accept any order whose date is a trading day — the
+        # is_trading_day check above already enforces that. Skip session-close
+        # proximity check for daily bars to avoid rejecting all valid EOD orders.
+        if freq != "1d" and strict:
             try:
                 session_close = session_close_utc(timestamp.date())
                 time_diff = abs((timestamp - session_close).total_seconds())

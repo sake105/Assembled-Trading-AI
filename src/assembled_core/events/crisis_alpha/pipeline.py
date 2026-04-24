@@ -150,7 +150,7 @@ def run_crisis_alpha_pipeline(
 
     # --- Step 8: Emit result ---
     logger.info(
-        "[CRISIS_PIPELINE] done | state=%s→%s | gates_ok=%s | "
+        "[CRISIS_PIPELINE] done | state=%s->%s | gates_ok=%s | "
         "targets=%d | exits=%d | flatten=%s",
         previous_state,
         current_state,

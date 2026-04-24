@@ -1859,6 +1859,10 @@ def route_orders(
     except Exception as e:
         log.debug("group_exposures skipped: %s", e)
 
+    if not orders.empty and "qty" in orders.columns:
+        orders = orders.copy()
+        orders["qty"] = orders["qty"].abs()
+
     return orders
 
 

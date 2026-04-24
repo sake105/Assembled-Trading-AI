@@ -952,12 +952,15 @@ def run_portfolio_backtest(
                 # Persist profit_lock state for next step
                 profit_lock_state = cycle_result.meta.get("profit_lock_state")
 
-                # Extract orders (prefer orders_filtered, fallback to orders)
-                orders = (
-                    cycle_result.orders_filtered
-                    if not cycle_result.orders_filtered.empty
-                    else cycle_result.orders
-                )
+                # Use orders_filtered (risk-checked). If empty (all blocked), use no orders.
+                # Do NOT fall back to unfiltered cycle_result.orders — that bypasses
+                # pre-trade risk controls and causes unbounded position accumulation.
+                orders = cycle_result.orders_filtered
+
+                # Defensive guard: qty must be >= 0 (side encodes direction)
+                if not orders.empty and "qty" in orders.columns and (orders["qty"] < 0).any():
+                    orders = orders.copy()
+                    orders["qty"] = orders["qty"].abs()
 
                 # Update cash from orders (buy = outflow, sell = inflow)
                 if not orders.empty:
