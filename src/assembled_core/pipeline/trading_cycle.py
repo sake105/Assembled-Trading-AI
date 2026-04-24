@@ -1465,49 +1465,12 @@ def run_trading_cycle(
         Hook points allow callers to override default behavior or integrate
         with existing workflows. Default implementations ensure deterministic
         behavior while maintaining flexibility.
+
+        Day-9 switch: this function now delegates to trading_cycle_v2.
+        The legacy implementation is preserved in _run_trading_cycle_inner.
     """
-    # Use context logger or module logger
-    log = ctx.logger if ctx.logger is not None else logger
-
-    # E0.1 parity: in backtest mode the kill-switch can either persist across
-    # bars (new default — matches paper/live) or be restored per-bar (legacy
-    # behavior, required only for fast research runs that should not be
-    # gated by a single bar's circuit-breaker trip).
-    #
-    # Opt-out flag: ``ctx.kill_switch_persist=False`` restores the old
-    # "reset-after-each-bar" behavior. Default True so backtest and paper
-    # share the same decision logic.
-    _ks_state_backup: bool | None = None
-    _is_backtest = getattr(ctx, "mode", None) in ("backtest", "bt")
-    _ks_persist = bool(getattr(ctx, "kill_switch_persist", True))
-    _ks_restore_active = _is_backtest and not _ks_persist
-    if _ks_restore_active:
-        try:
-            from src.assembled_core.execution.kill_switch import is_kill_switch_engaged
-            _ks_state_backup = is_kill_switch_engaged()
-        except Exception as _ks_err:
-            log.warning("[KS-BACKUP] kill-switch state snapshot failed: %s", _ks_err)
-
-    try:
-        return _run_trading_cycle_inner(ctx, hooks=hooks, log=log)
-    finally:
-        if (
-            _ks_restore_active
-            and _ks_state_backup is not None
-            and not _ks_state_backup
-        ):
-            try:
-                from src.assembled_core.execution.kill_switch import (
-                    deactivate_kill_switch,
-                    is_kill_switch_engaged,
-                )
-                if is_kill_switch_engaged():
-                    deactivate_kill_switch(
-                        reason="backtest_bar_restore",
-                        actor="trading_cycle_backtest_guard",
-                    )
-            except Exception as _ks_err:
-                log.warning("[KS-RESTORE] kill-switch state restore failed: %s", _ks_err)
+    from src.assembled_core.pipeline import trading_cycle_v2 as _v2
+    return _v2.run_trading_cycle(ctx, hooks=hooks)
 
 
 def _run_trading_cycle_inner(

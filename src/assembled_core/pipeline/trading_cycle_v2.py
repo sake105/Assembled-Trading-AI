@@ -1625,6 +1625,7 @@ def check_risk(
         result.orders = pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
         result.orders_filtered = result.orders.copy()
         result.meta["qa_block_trading"] = True
+        result.meta["qa_block_reason"] = ctx.qa_block_reason
         return result
 
     # EVT tail VaR
