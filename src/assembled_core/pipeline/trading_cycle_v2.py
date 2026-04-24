@@ -1009,11 +1009,12 @@ def size_positions(
     prices_latest: pd.DataFrame | None = None,
     *,
     log: logging.Logger | None = None,
-) -> tuple[pd.DataFrame, bool]:
+) -> tuple[pd.DataFrame, bool, dict]:
     """Convert signals to target positions with all exposure overlays.
 
-    Returns (target_positions, do_rebal). do_rebal=False means route_orders
-    should return empty orders for this bar.
+    Returns (target_positions, do_rebal, meta). do_rebal=False means route_orders
+    should return empty orders for this bar. meta contains profit_lock, vol_targeting,
+    and other overlay diagnostics for result.meta.
 
     Kept steps (3-criteria rule — changes a downstream-read value):
       - Step 4: all sizing method dispatch (kelly/risk_parity/vol_scaled/
@@ -1265,6 +1266,7 @@ def size_positions(
             profit_lock_mult, pl_state_out = compute_profit_lock_multiplier(ctx.equity_curve, pl_cfg, ctx.equity_curve_index, state=pl_state)
             ctx.profit_lock_state = pl_state_out
             meta["profit_lock_state"] = pl_state_out
+            meta["profit_lock"] = {"multiplier": float(profit_lock_mult)}
     except Exception as e:
         log.debug("profit_lock skipped: %s", e)
 
@@ -1576,7 +1578,7 @@ def size_positions(
     except Exception as e:
         log.debug("cost_aware_wrapper skipped: %s", e)
 
-    return target_positions, do_rebal
+    return target_positions, do_rebal, meta
 
 
 # ---------------------------------------------------------------------------
@@ -2062,7 +2064,7 @@ def run_trading_cycle(
         signals = generate_signals(features, ctx, log=log)
         result.signals = signals
 
-        targets, do_rebal = size_positions(
+        targets, do_rebal, sizing_meta = size_positions(
             signals, ctx,
             prices_filtered=result.prices_filtered,
             prices_with_features=result.prices_with_features,
@@ -2070,6 +2072,7 @@ def run_trading_cycle(
             log=log,
         )
         result.target_positions = targets
+        result.meta.update(sizing_meta)
 
         orders = route_orders(
             targets, ctx,

@@ -244,3 +244,105 @@ def add_news_features(
 
     prices = prices.drop(columns=["_ts_key"])
     return prices
+
+
+def compute_sector_rotation_signal(
+    events_df: pd.DataFrame,
+    window_hours: float = 24.0,
+    min_events: int = 2,
+) -> dict[str, float]:
+    """Compute a sector rotation signal from news momentum (Point 36).
+
+    Score = (severity_weighted_momentum) / sqrt(total_events + 1)
+    Normalised to [-1, +1] across all sectors.
+    """
+    if events_df.empty:
+        return {}
+
+    import math
+
+    df = events_df.copy()
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+    now = df["timestamp"].max()
+    window_td = pd.Timedelta(hours=window_hours)
+    prior_td = pd.Timedelta(hours=window_hours * 2)
+
+    current = df[df["timestamp"] >= now - window_td]
+    prior = df[(df["timestamp"] >= now - prior_td) & (df["timestamp"] < now - window_td)]
+
+    def _sector_scores(frame: pd.DataFrame) -> dict[str, dict]:
+        scores: dict[str, dict] = {}
+        for _, row in frame.iterrows():
+            sectors = row.get("affected_sectors", [])
+            if isinstance(sectors, str):
+                sectors = [sectors]
+            elif not isinstance(sectors, list):
+                sectors = []
+            severity = float(row.get("severity", 1.0) or 1.0)
+            direction = str(row.get("market_direction", "neutral")).lower()
+            direction_sign = -1.0 if direction == "bearish" else (1.0 if direction == "bullish" else 0.0)
+            for sector in sectors:
+                if sector not in scores:
+                    scores[sector] = {"count": 0, "weighted": 0.0}
+                scores[sector]["count"] += 1
+                scores[sector]["weighted"] += severity * (direction_sign if direction_sign != 0 else 1.0)
+        return scores
+
+    curr_scores = _sector_scores(current)
+    prior_scores = _sector_scores(prior)
+
+    rotation: dict[str, float] = {}
+    for sector in set(curr_scores) | set(prior_scores):
+        curr = curr_scores.get(sector, {"count": 0, "weighted": 0.0})
+        if curr["count"] < min_events:
+            continue
+        prev = prior_scores.get(sector, {"count": 0, "weighted": 0.0})
+        momentum = curr["weighted"] - prev["weighted"]
+        rotation[sector] = round(momentum / math.sqrt(curr["count"] + 1), 4)
+
+    if not rotation:
+        return {}
+
+    max_abs = max(abs(v) for v in rotation.values())
+    if max_abs > 0:
+        rotation = {k: round(v / max_abs, 4) for k, v in rotation.items()}
+    return rotation
+
+
+def compute_earnings_proximity_boost(
+    events_df: pd.DataFrame,
+    quarter_end_months: tuple[int, ...] = (3, 6, 9, 12),
+    proximity_days: int = 14,
+) -> pd.DataFrame:
+    """Add earnings_proximity_boost column to events near quarter-end (Point 32).
+
+    Events within proximity_days of a quarter-end get a boost 1.0–1.5.
+    """
+    if events_df.empty:
+        return events_df.copy()
+
+    import calendar as _cal
+
+    df = events_df.copy()
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
+
+    boosts = []
+    for ts in df["timestamp"]:
+        month = ts.month
+        day = ts.day
+        boost = 1.0
+        for qe_month in quarter_end_months:
+            last_day = _cal.monthrange(ts.year, qe_month)[1]
+            if month == qe_month and day >= (last_day - proximity_days):
+                days_remaining = last_day - day
+                boost = max(boost, 1.0 + 0.5 * (1.0 - days_remaining / proximity_days))
+            elif month == qe_month - 1 and qe_month > 1:
+                last_day_this = _cal.monthrange(ts.year, month)[1]
+                days_until_qe_start = last_day_this - day
+                total_proximity = proximity_days - days_until_qe_start
+                if total_proximity > 0:
+                    boost = max(boost, 1.0 + 0.3 * (total_proximity / proximity_days))
+        boosts.append(round(boost, 3))
+
+    df["earnings_proximity_boost"] = boosts
+    return df
