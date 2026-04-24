@@ -265,19 +265,19 @@ def test_run_trading_cycle_fills_risk_state(monkeypatch: Any) -> None:
 
     with tempfile.TemporaryDirectory() as tmp:
         base = Path(tmp)
-        monkeypatch.setattr(
-            "src.assembled_core.pipeline.trading_cycle.get_base_dir", lambda: base
-        )
-        monkeypatch.setattr(
-            "src.assembled_core.pipeline.trading_cycle.load_policy",
-            lambda: {
-                "risk_state_machine": {
-                    "enabled": True,
-                    "state_path": "risk_state.json",
-                    "persistence": {"mode": "live"},
-                }
-            },
-        )
+        _policy = {
+            "risk_state_machine": {
+                "enabled": True,
+                "state_path": "risk_state.json",
+                "persistence": {"mode": "live"},
+            }
+        }
+        for _mod in (
+            "src.assembled_core.pipeline.trading_cycle",
+            "src.assembled_core.pipeline.trading_cycle_v2",
+        ):
+            monkeypatch.setattr(f"{_mod}.get_base_dir", lambda: base)
+            monkeypatch.setattr(f"{_mod}.load_policy", lambda: _policy)
         prices = pd.DataFrame(
             {
                 "timestamp": [pd.Timestamp("2025-01-01", tz="UTC")] * 2,
@@ -363,22 +363,22 @@ def test_per_run_mode_writes_to_unique_path(monkeypatch: Any) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         base = Path(tmp)
         run_id = "test_run_123"
-        monkeypatch.setattr(
-            "src.assembled_core.pipeline.trading_cycle.get_base_dir", lambda: base
-        )
-        monkeypatch.setattr(
-            "src.assembled_core.pipeline.trading_cycle.load_policy",
-            lambda: {
-                "risk_state_machine": {
-                    "enabled": True,
-                    "state_path": "output/state/risk_state.json",
-                    "persistence": {
-                        "mode": "per_run",
-                        "per_run_dir": "output/state/runs",
-                    },
-                }
-            },
-        )
+        _policy = {
+            "risk_state_machine": {
+                "enabled": True,
+                "state_path": "output/state/risk_state.json",
+                "persistence": {
+                    "mode": "per_run",
+                    "per_run_dir": "output/state/runs",
+                },
+            }
+        }
+        for _mod in (
+            "src.assembled_core.pipeline.trading_cycle",
+            "src.assembled_core.pipeline.trading_cycle_v2",
+        ):
+            monkeypatch.setattr(f"{_mod}.get_base_dir", lambda: base)
+            monkeypatch.setattr(f"{_mod}.load_policy", lambda: _policy)
         prices = pd.DataFrame(
             {
                 "timestamp": [pd.Timestamp("2025-01-01", tz="UTC")] * 2,

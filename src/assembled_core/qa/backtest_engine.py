@@ -268,7 +268,7 @@ def make_cycle_fn(
     position_sizing_fn: Callable[[pd.DataFrame, float], pd.DataFrame],
     capital: float,
     run_trading_cycle_fn: Callable | None = None,
-    enable_risk_controls: bool = True,
+    enable_risk_controls: bool | None = None,
 ) -> Callable[[pd.Timestamp, pd.DataFrame], "TradingCycleResult"]:
     """Create a callable that runs trading cycle for a given timestamp and positions.
 
@@ -312,6 +312,13 @@ def make_cycle_fn(
             run_trading_cycle as run_trading_cycle_fn,
         )
 
+    # When not explicitly set, respect ctx_template's enable_risk_controls value.
+    _enable_risk_controls: bool = (
+        enable_risk_controls
+        if enable_risk_controls is not None
+        else getattr(ctx_template, "enable_risk_controls", True)
+    )
+
     def cycle_fn(
         timestamp: pd.Timestamp,
         current_positions: pd.DataFrame,
@@ -349,7 +356,7 @@ def make_cycle_fn(
             # Explicit opt-out (enable_risk_controls=False) is still possible
             # for speed-focused research runs but must be documented at the
             # call site.
-            enable_risk_controls=enable_risk_controls,
+            enable_risk_controls=_enable_risk_controls,
             security_meta_df=ctx_template.security_meta_df,  # Pass through security metadata
             backtest_use_snapshot=getattr(ctx_template, "backtest_use_snapshot", False),
             equity_curve=equity_curve,

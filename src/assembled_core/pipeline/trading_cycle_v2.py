@@ -1619,6 +1619,12 @@ def check_risk(
     except Exception:
         policy = {}
 
+    # Fast path: if risk controls are disabled, skip all steps and pass orders through.
+    if not getattr(ctx, "enable_risk_controls", True):
+        result.orders = orders
+        result.orders_filtered = orders.copy()
+        return result
+
     # QA gate
     if ctx.qa_block_trading:
         log.warning("QA Gate: Trading blocked - %s", ctx.qa_block_reason or "no reason")
