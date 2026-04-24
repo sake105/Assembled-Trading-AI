@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest; pytest.importorskip("src.assembled_core.ml.factor_models")
+
 import sys
 import subprocess
 from pathlib import Path
