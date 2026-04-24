@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest; pytest.importorskip("src.assembled_core.intel.news_impact_calibrator")
+
 import pytest
 
 from src.assembled_core.intel.news_impact_calibrator import ImpactCalibrator

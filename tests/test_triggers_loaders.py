@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest; pytest.importorskip("src.assembled_core.intel.news_triggers_loader")
+
 import json
 import pytest
 

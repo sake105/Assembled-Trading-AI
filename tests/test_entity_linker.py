@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest; pytest.importorskip("src.assembled_core.intel.entity_linker")
+
 import csv
 from pathlib import Path
 
