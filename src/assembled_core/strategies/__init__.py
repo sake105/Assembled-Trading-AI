@@ -4,9 +4,6 @@ Exposes:
 - EMA trend v0 strategy
 - Multi-factor long-short strategy
 - Stat-arb (cointegration / pair-signals / PCA arbitrage)
-- Strategy discovery (genetic / enumerative)
-Wired 2026-04-22 to include previously orphan stat_arb and
-strategy_discovery modules.
 """
 
 from __future__ import annotations
@@ -41,11 +38,6 @@ from src.assembled_core.strategies.stat_arb import (
     screen_pairs,
     test_cointegration,
 )
-from src.assembled_core.strategies.strategy_discovery import (
-    DiscoveryResult,
-    StrategyCandidate,
-    discover_strategies,
-)
 
 __all__ = [
     "MultiFactorStrategyConfig",
@@ -73,8 +65,4 @@ __all__ = [
     "generate_pca_signals",
     "PCAFactorModel",
     "PCASignal",
-    # Strategy discovery
-    "StrategyCandidate",
-    "DiscoveryResult",
-    "discover_strategies",
 ]
