@@ -610,23 +610,367 @@ def generate_signals(
 ) -> pd.DataFrame:
     """Apply signal_fn + real signal enrichment layers.
 
-    Real steps to fill in during Day 4:
-      - Step 3: signal_fn (caller-provided, core signal generation)
-      - Step 3.1: Intel signal layer (disclosures_triggers → signal overlay)
-      - Step 3.2: Sector rotation signals
-      - Step 3.3: Earnings guard (suppress signals pre-earnings)
-      - Step 3.35: News→Signal bridge
-      - Step 3.4: Bayesian signal confidence scoring
-      - Step 3.5: Crash prediction + short signal
-      - Step 3.6: Ranking hysteresis (anti-churn)
-      - Step 3.62: MA-crossover trend signals
+    Real steps kept:
+      - Step 3: signal_fn (caller-provided) + reduce to latest bar
+      - Zombie killer: force-FLAT signals for held positions past hold limit
+      - Step 3.1: Intel signal layer (modifies scores for ctx-wired intel dims)
+      - Step 3.2: Sector rotation signals (adds new rows)
+      - Step 3.3: Earnings guard (suppresses pre-earnings signals)
+      - Step 3.35: News→Signal bridge (modifies signals from news data)
+      - Step 3.4 Bayesian: confidence scaling on scores
+      - Step 3.5: Crash prediction + short signal generation
+      - Step 3.4 MR: mean-reversion signal column (mr_signal)
+      - Step 3.55: Multi-factor composite mf_score column
+      - Step 3.6: Ranking hysteresis (anti-churn filter)
+      - Step 3.62: MA-crossover trend_ma_score column
 
-    Observability-only steps to DROP:
-      - Steps 3.45, 3.55, 3.58, 3.7, 3.75, 3.8, 3.86-3.91 (all meta-only)
+    Dropped (meta-only, no signal data changes):
+      - Steps 3.45 (factor timing meta), 3.58 (signal correlation meta),
+        3.7 (meta-model meta-only path), 3.75 (FDR meta), 3.8 (conformal meta),
+        3.86-3.91 (all observability), 3.9 (adversarial validation meta)
 
     Returns signals DataFrame (columns: timestamp, symbol, direction, score).
+    Raises ValueError if signals are missing required columns after generation.
     """
-    raise NotImplementedError("generate_signals — stub, not yet filled in")
+    if log is None:
+        log = logger
+
+    try:
+        policy = load_policy()
+    except Exception:
+        policy = {}
+
+    from src.assembled_core.config.settings import get_settings
+    from src.assembled_core.risk.zombie_killer import get_zombie_positions
+
+    # --- Step 3: Call signal_fn ---
+    signals = ctx.signal_fn(features)
+
+    # Reduce to latest bar per symbol if configured
+    settings = get_settings()
+    if (
+        settings.reduce_signals_to_latest_bar
+        and ctx.mode in ("backtest", "eod", "paper", "live")
+        and "timestamp" in signals.columns
+        and not signals.empty
+    ):
+        signals["_ts"] = pd.to_datetime(signals["timestamp"], utc=True)
+        signals = (
+            signals.sort_values("_ts")
+            .groupby("symbol", group_keys=False)
+            .last()
+            .reset_index()
+            .drop(columns=["_ts"])
+        )
+
+    # Validate required columns
+    required_cols = ["timestamp", "symbol", "direction"]
+    missing = [c for c in required_cols if c not in signals.columns]
+    if missing:
+        raise ValueError(f"signals missing required columns: {', '.join(missing)}")
+
+    log.debug("Signals generated: %d rows", len(signals))
+
+    # --- Zombie killer: force-FLAT for positions held too long ---
+    try:
+        if ctx.current_positions is not None and not ctx.current_positions.empty and not signals.empty:
+            now_utc = pd.Timestamp.now("UTC").to_pydatetime()
+            zombies = get_zombie_positions(ctx.current_positions.to_dict("records"), now_utc, policy)
+            if zombies:
+                from src.assembled_core.ops.shadow_recorder import is_shadow_only, record_shadow
+
+                zk_shadow = is_shadow_only(policy, "zombie_killer")
+                zombie_symbols = {pos["symbol"] for pos, _reason in zombies}
+                record_shadow(
+                    "zombie_killer",
+                    {"zombie_symbols": sorted(zombie_symbols), "would_force_flat": sorted(zombie_symbols)},
+                    as_of=str(ctx.as_of) if ctx.as_of is not None else None,
+                    meta={"zombies_found": len(zombies), "applied": not zk_shadow},
+                )
+                for _pos, reason in zombies:
+                    log.warning(reason)
+                if not zk_shadow:
+                    mask = signals["symbol"].isin(zombie_symbols)
+                    signals.loc[mask, "direction"] = "FLAT"
+                    existing_syms = set(signals["symbol"].values)
+                    missing_zombies = zombie_symbols - existing_syms
+                    if missing_zombies:
+                        zombie_rows = pd.DataFrame({
+                            "timestamp": [ctx.as_of or pd.Timestamp.now("UTC")] * len(missing_zombies),
+                            "symbol": list(missing_zombies),
+                            "direction": ["FLAT"] * len(missing_zombies),
+                            "score": [0.0] * len(missing_zombies),
+                        })
+                        signals = pd.concat([signals, zombie_rows], ignore_index=True)
+    except Exception as e:
+        log.debug("zombie_killer check skipped: %s", e)
+
+    # --- Step 3.1: Intel signal layer ---
+    try:
+        intel_sig_cfg = (policy.get("intel") or {}).get("signal_layer") or {}
+        if intel_sig_cfg.get("enabled", False) and not signals.empty:
+            from src.assembled_core.signals.intel_signal_adapter import (
+                IntelSignalAdapter,
+                compute_symbol_intel_scores,
+            )
+
+            sector_impacts = getattr(ctx, "intel_sector_impacts", None)
+            supply_vuln = getattr(ctx, "intel_supply_vulnerability", None)
+            sanctions_ben = getattr(ctx, "intel_sanctions_beneficiary", None)
+            chokepoint_exp = getattr(ctx, "intel_chokepoint_exposure", None)
+            intel_conf = getattr(ctx, "intel_confidence", None)
+
+            if any(x is not None for x in [sector_impacts, supply_vuln, sanctions_ben, chokepoint_exp]):
+                raw_scores = compute_symbol_intel_scores(
+                    sector_impacts=sector_impacts,
+                    supply_chain_vulnerability=supply_vuln,
+                    sanctions_beneficiary=sanctions_ben,
+                    chokepoint_exposure=chokepoint_exp,
+                    confidence=intel_conf,
+                )
+                if raw_scores and "score" in signals.columns:
+                    intel_weight = float(intel_sig_cfg.get("weight", 0.15))
+                    for idx, row in signals.iterrows():
+                        sym = row.get("symbol", "")
+                        if sym in raw_scores:
+                            signals.at[idx, "score"] = float(row["score"]) + intel_weight * raw_scores[sym]
+                    log.info("[INTEL] signal layer applied: %d symbols scored", len(raw_scores))
+
+            active_shocks = getattr(ctx, "intel_active_shocks", None)
+            if active_shocks:
+                adapter = IntelSignalAdapter(
+                    allow_short_signals=intel_sig_cfg.get("allow_short", False),
+                    min_confidence=float(intel_sig_cfg.get("min_confidence", 0.50)),
+                )
+                shock_df = adapter.enrich_signals_with_shock_beneficiaries(
+                    active_shocks,
+                    base_confidence=float(intel_sig_cfg.get("shock_confidence", 0.60)),
+                )
+                if not shock_df.empty:
+                    existing_syms = set(signals["symbol"].values)
+                    new_shock = shock_df[~shock_df["symbol"].isin(existing_syms)].copy()
+                    if not new_shock.empty:
+                        new_shock["timestamp"] = ctx.as_of or pd.Timestamp.now("UTC")
+                        new_shock["direction"] = "LONG"
+                        signals = pd.concat(
+                            [signals, new_shock[["timestamp", "symbol", "direction", "score"]]],
+                            ignore_index=True,
+                        )
+    except Exception as e:
+        log.debug("[INTEL] intel_signal_layer skipped: %s", e)
+
+    # --- Step 3.2: Sector rotation signals ---
+    try:
+        sr_cfg = (policy.get("signal_generation") or {}).get("sector_rotation") or {}
+        if sr_cfg.get("enabled", False):
+            from src.assembled_core.signals.sector_rotation import (
+                generate_sector_rotation_signals,
+                get_sector_weights,
+            )
+
+            scores_row = getattr(ctx, "sector_rotation_scores", None)
+            if scores_row is not None:
+                sr_signals = generate_sector_rotation_signals(scores_row)
+                sr_weights = get_sector_weights(
+                    sr_signals,
+                    long_weight=float(sr_cfg.get("long_weight", 0.12)),
+                    short_weight=float(sr_cfg.get("short_weight", 0.08)),
+                )
+                if sr_weights:
+                    ts_now = ctx.as_of or pd.Timestamp.now("UTC")
+                    existing_syms = set(signals["symbol"].values) if not signals.empty else set()
+                    sr_rows = [
+                        {"timestamp": ts_now, "symbol": sym,
+                         "direction": "LONG" if w > 0 else "SHORT", "score": round(w, 4)}
+                        for sym, w in sr_weights.items()
+                        if sym not in existing_syms
+                    ]
+                    if sr_rows:
+                        signals = pd.concat([signals, pd.DataFrame(sr_rows)], ignore_index=True)
+    except Exception as e:
+        log.debug("[SIGNAL-DIAG] sector_rotation skipped: %s", e)
+
+    # --- Step 3.3: Earnings guard ---
+    try:
+        eg_cfg = (policy.get("signal_generation") or {}).get("earnings_guard") or {}
+        if eg_cfg.get("enabled", False) and not signals.empty:
+            from src.assembled_core.signals.earnings_integration import apply_earnings_integration
+
+            earnings_calendar = getattr(ctx, "earnings_calendar", None)
+            earnings_events = getattr(ctx, "earnings_events", None)
+            if earnings_calendar is not None or earnings_events is not None:
+                adjusted_signals, _eg_result = apply_earnings_integration(
+                    signals,
+                    earnings_calendar=earnings_calendar,
+                    earnings_events=earnings_events,
+                    as_of=ctx.as_of or pd.Timestamp.now("UTC"),
+                    suppress_window=int(eg_cfg.get("suppress_window", 3)),
+                    pead_window_days=int(eg_cfg.get("pead_window_days", 60)),
+                    pead_weight=float(eg_cfg.get("pead_weight", 0.15)),
+                )
+                signals = adjusted_signals
+    except Exception as e:
+        log.debug("[SIGNAL-DIAG] earnings_guard skipped: %s", e)
+
+    # --- Step 3.35: News→Signal bridge ---
+    try:
+        from src.assembled_core.signals.news_signal_bridge import load_and_apply_news_signals
+
+        root_for_news = Path(ctx.data_root) if getattr(ctx, "data_root", None) else Path.cwd()
+        signals, _nsb_meta = load_and_apply_news_signals(
+            signals, root=root_for_news, policy=policy, as_of=ctx.as_of
+        )
+    except Exception as e:
+        log.debug("[SIGNAL-DIAG] news_signal_bridge skipped: %s", e)
+
+    # --- Step 3.4a: Bayesian signal confidence scoring ---
+    try:
+        bc_cfg = (policy.get("signal_generation") or {}).get("bayesian_confidence") or {}
+        if bc_cfg.get("enabled", False) and not signals.empty and "score" in signals.columns:
+            from src.assembled_core.signals.signal_confidence import (
+                compute_signal_confidence,
+                confidence_position_scaler,
+            )
+
+            current_scores = signals.set_index("symbol")["score"].dropna()
+            if len(current_scores) >= 2:
+                confidences = compute_signal_confidence(
+                    current_scores,
+                    historical_scores=getattr(ctx, "signal_historical_scores", None),
+                    ci_level=float(bc_cfg.get("ci_level", 0.90)),
+                )
+                for idx, row in signals.iterrows():
+                    sym = row.get("symbol", "")
+                    if sym in confidences:
+                        scaler = confidence_position_scaler(
+                            confidences[sym],
+                            max_scale=float(bc_cfg.get("max_scale", 1.5)),
+                            min_scale=float(bc_cfg.get("min_scale", 0.5)),
+                        )
+                        signals.at[idx, "score"] = float(row["score"]) * scaler
+    except Exception as e:
+        log.debug("[SIGNAL-DIAG] bayesian_confidence skipped: %s", e)
+
+    # --- Step 3.5: Crash prediction + short signals ---
+    try:
+        shorts_policy = policy.get("shorts", {})
+        if shorts_policy.get("enabled", False):
+            from src.assembled_core.signals.crash_prediction import CrashPredictionEngine
+            from src.assembled_core.signals.short_signals import ShortSignalGenerator
+            from src.assembled_core.risk.short_risk import ShortRiskManager
+
+            macro_data: dict = {}
+            if ctx.prices is not None and not ctx.prices.empty and "VIX" in ctx.prices.columns:
+                macro_data["vix"] = float(ctx.prices["VIX"].iloc[-1])
+
+            crash_engine = CrashPredictionEngine()
+            crash_signal = crash_engine.predict(
+                market_data=ctx.prices,
+                regime=getattr(ctx, "regime_state", None),
+                intel_state=getattr(ctx, "crisis_state_intel", None),
+                macro_data=macro_data or None,
+            )
+            if crash_signal.crash_probability >= float(shorts_policy.get("min_crash_probability", 0.60)):
+                short_gen = ShortSignalGenerator(policy=shorts_policy)
+                short_df = short_gen.generate_short_targets(
+                    crash_signal=crash_signal,
+                    universe=ctx.universe if hasattr(ctx, "universe") and ctx.universe is not None else pd.DataFrame(),
+                    prices=ctx.prices,
+                    regime=getattr(ctx, "regime_state", None),
+                )
+                risk_mgr = ShortRiskManager(policy=policy)
+                risk_check = risk_mgr.validate_short_targets(short_df, regime=getattr(ctx, "regime_state", None))
+                if risk_check.passed and not short_df.empty:
+                    existing_syms = set(signals["symbol"].values) if not signals.empty else set()
+                    short_rows = [
+                        {"timestamp": ctx.as_of or pd.Timestamp.now("UTC"),
+                         "symbol": row["symbol"],
+                         "direction": row.get("direction", "SHORT"),
+                         "score": -abs(row["confidence"])}
+                        for _, row in short_df.iterrows()
+                        if row["symbol"] not in existing_syms
+                    ]
+                    if short_rows:
+                        signals = pd.concat([signals, pd.DataFrame(short_rows)], ignore_index=True)
+    except Exception as e:
+        log.debug("crash_prediction step skipped: %s", e)
+
+    # --- Step 3.4b: MR signal column (mr_signal) ---
+    try:
+        mr_cfg = (policy.get("signals") or {}).get("mean_reversion") or {}
+        if mr_cfg.get("enabled", False) and not features.empty:
+            from src.assembled_core.signals.mean_reversion import compute_mean_reversion_signals
+
+            _mr_signals = compute_mean_reversion_signals(features, regime=str(getattr(ctx, "regime_state", "bull") or "bull"))
+            if not _mr_signals.empty and not signals.empty:
+                _mr_map = _mr_signals.set_index("symbol")["reversion_signal"].to_dict()
+                signals = signals.copy()
+                signals["mr_signal"] = signals["symbol"].map(_mr_map)
+    except Exception as e:
+        log.debug("[MR-SIGNAL] mean_reversion_signals skipped: %s", e)
+
+    # --- Step 3.55: Multi-factor composite mf_score column ---
+    try:
+        mf_cfg = policy.get("multifactor_signal") or {}
+        if mf_cfg.get("enabled", False) and not features.empty and not signals.empty:
+            import pathlib as _pl
+
+            from src.assembled_core.config.factor_bundles import load_factor_bundle
+            from src.assembled_core.signals.multifactor_signal import build_multifactor_signal
+
+            _bundle_path = _pl.Path(mf_cfg.get("bundle_path", "config/factor_bundles/macro_world_etfs_core_bundle.yaml"))
+            if _bundle_path.exists():
+                _mf_result = build_multifactor_signal(features, load_factor_bundle(_bundle_path))
+                if not _mf_result.df.empty and "mf_score" in _mf_result.df.columns:
+                    _mf_latest = (
+                        _mf_result.df.sort_values("timestamp").groupby("symbol")["mf_score"].last()
+                        if "timestamp" in _mf_result.df.columns
+                        else _mf_result.df.groupby("symbol")["mf_score"].last()
+                    )
+                    signals = signals.copy()
+                    signals["mf_score"] = signals["symbol"].map(_mf_latest)
+    except Exception as e:
+        log.debug("[MULTIFACTOR] multifactor_signal skipped: %s", e)
+
+    # --- Step 3.6: Ranking hysteresis (anti-churn) ---
+    try:
+        anti_churn_cfg = policy.get("anti_churn") or {}
+        if anti_churn_cfg.get("ranking_hysteresis_enabled", False) and not signals.empty:
+            from src.assembled_core.paper.ranking_hysteresis import apply_ranking_hysteresis
+
+            held_symbols: set[str] = set()
+            if (ctx.current_positions is not None and not ctx.current_positions.empty
+                    and "symbol" in ctx.current_positions.columns):
+                held_symbols = set(ctx.current_positions["symbol"].tolist())
+            signals, _rh_meta = apply_ranking_hysteresis(
+                signals, held_symbols,
+                entry_n=int(anti_churn_cfg.get("entry_n", 5)),
+                hold_n=int(anti_churn_cfg.get("hold_n", 7)),
+            )
+    except Exception as e:
+        log.debug("[ANTI-CHURN] ranking_hysteresis skipped: %s", e)
+
+    # --- Step 3.62: MA-crossover trend_ma_score column ---
+    try:
+        if not features.empty and not signals.empty:
+            _req = {"timestamp", "symbol", "close"}
+            if _req.issubset(set(features.columns)):
+                from src.assembled_core.signals.rules_trend import generate_trend_signals
+
+                _ts_signals = generate_trend_signals(features, ma_fast=20, ma_slow=50)
+                if not _ts_signals.empty and "symbol" in _ts_signals.columns:
+                    _ts_latest = (
+                        _ts_signals.sort_values("timestamp")
+                        .groupby("symbol")
+                        .last()
+                        .reset_index()[["symbol", "score"]]
+                        .rename(columns={"score": "trend_ma_score"})
+                    )
+                    signals = signals.merge(_ts_latest, on="symbol", how="left")
+    except Exception as e:
+        log.debug("[TREND-MA] rules_trend skipped: %s", e)
+
+    return signals
 
 
 # ---------------------------------------------------------------------------
