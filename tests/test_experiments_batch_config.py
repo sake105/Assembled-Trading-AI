@@ -44,12 +44,12 @@ base_args:
 
 runs:
   - id: run1
-    bundle_path: config/bundle1.yaml
+    bundle_path: configs/bundle1.yaml
     start_date: "2015-01-01"
     end_date: "2020-12-31"
     tags: ["test", "baseline"]
   - id: run2
-    bundle_path: config/bundle2.yaml
+    bundle_path: configs/bundle2.yaml
     start_date: "2015-01-01"
     end_date: "2020-12-31"
     tags: ["test", "ml"]
@@ -87,7 +87,7 @@ def test_load_valid_json_config(tmp_path: Path) -> None:
   "runs": [
     {
       "id": "run1",
-      "bundle_path": "config/bundle1.yaml",
+      "bundle_path": "configs/bundle1.yaml",
       "start_date": "2015-01-01",
       "end_date": "2020-12-31"
     }
@@ -146,7 +146,7 @@ description: Test batch
 output_root: output/test
 runs:
   - id: "run with spaces"
-    bundle_path: config/bundle.yaml
+    bundle_path: configs/bundle.yaml
     start_date: "2015-01-01"
     end_date: "2020-12-31"
 """,
@@ -167,7 +167,7 @@ description: Test batch
 output_root: output/test
 runs:
   - id: run1
-    bundle_path: config/bundle.yaml
+    bundle_path: configs/bundle.yaml
     start_date: "2015/01/01"
     end_date: "2020-12-31"
 """,
@@ -205,7 +205,7 @@ batch_name: test_batch
 description: Test batch
 output_root: output/test
 base_args:
-  bundle_path: config/bundle.yaml
+  bundle_path: configs/bundle.yaml
   start_date: "2015-01-01"
   end_date: "2020-12-31"
   freq: "1d"
@@ -232,7 +232,7 @@ batch_name: test_batch
 description: Test batch
 output_root: output/test
 base_args:
-  bundle_path: config/bundle.yaml
+  bundle_path: configs/bundle.yaml
   start_date: "2015-01-01"
   end_date: "2020-12-31"
   freq: "1d"
@@ -266,7 +266,7 @@ description: Test batch
 output_root: output/test
 run_tag: experiment_2025
 base_args:
-  bundle_path: config/bundle.yaml
+  bundle_path: configs/bundle.yaml
   start_date: "2015-01-01"
   end_date: "2020-12-31"
   freq: "1d"
@@ -299,7 +299,7 @@ batch_name: test_batch
 description: Test batch
 output_root: output/test
 base_args:
-  bundle_path: config/bundle.yaml
+  bundle_path: configs/bundle.yaml
   start_date: "2015-01-01"
   end_date: "2020-12-31"
   freq: "1d"
@@ -350,12 +350,12 @@ batch_name: test_batch
 description: Test batch
 output_root: output/test
 base_args:
-  bundle_path: config/bundle.yaml
+  bundle_path: configs/bundle.yaml
   start_date: "2015-01-01"
   end_date: "2020-12-31"
 runs:
   - id: run1
-    bundle_path: config/bundle.yaml
+    bundle_path: configs/bundle.yaml
     start_date: "2015-01-01"
     end_date: "2020-12-31"
 grid:
@@ -431,7 +431,7 @@ def test_run_spec_validation() -> None:
     # Valid RunSpec
     run_spec = RunSpec(
         id="run1",
-        bundle_path=Path("config/bundle.yaml"),
+        bundle_path=Path("configs/bundle.yaml"),
         start_date="2015-01-01",
         end_date="2020-12-31",
     )
@@ -441,7 +441,7 @@ def test_run_spec_validation() -> None:
     with pytest.raises(ValueError, match="run id must contain only"):
         RunSpec(
             id="run 1",
-            bundle_path=Path("config/bundle.yaml"),
+            bundle_path=Path("configs/bundle.yaml"),
             start_date="2015-01-01",
             end_date="2020-12-31",
         )
@@ -450,7 +450,7 @@ def test_run_spec_validation() -> None:
     with pytest.raises(ValueError, match="date must be in YYYY-MM-DD format"):
         RunSpec(
             id="run1",
-            bundle_path=Path("config/bundle.yaml"),
+            bundle_path=Path("configs/bundle.yaml"),
             start_date="2015/01/01",
             end_date="2020-12-31",
         )
@@ -466,7 +466,7 @@ def test_batch_config_validation() -> None:
         runs=[
             RunSpec(
                 id="run1",
-                bundle_path=Path("config/bundle.yaml"),
+                bundle_path=Path("configs/bundle.yaml"),
                 start_date="2015-01-01",
                 end_date="2020-12-31",
             )
