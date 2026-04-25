@@ -92,7 +92,7 @@ def extract_universe_from_filename(filename: str) -> str | None:
             return universe_id
 
     # Try to extract from symbols-file pattern in path
-    # (e.g., config/macro_world_etfs_tickers.txt or macro_world_etfs_tickers)
+    # (e.g., configs/universes/macro_world_etfs_tickers.txt or macro_world_etfs_tickers)
     symbols_file_match = re.search(r"([a-z_]+)_tickers", path_lower)
     if symbols_file_match:
         universe_candidate = symbols_file_match.group(1)

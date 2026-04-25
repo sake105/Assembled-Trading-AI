@@ -89,7 +89,7 @@ class PlaybookConfig:
         backtest_root: Root directory for backtest outputs
         risk_output_dir: Directory for risk report outputs
 
-        universe_file: Path to universe ticker file (e.g., config/universe_ai_tech_tickers.txt)
+        universe_file: Path to universe ticker file (e.g., configs/universes/universe_ai_tech_tickers.txt)
         core_bundle_path: Path to core-only bundle YAML
         core_ml_bundle_path: Path to core+ML alpha bundle YAML
         ml_alpha_bundle_path: Path to ML alpha-only bundle YAML

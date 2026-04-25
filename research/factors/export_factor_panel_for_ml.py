@@ -8,7 +8,7 @@ from run_factor_analysis.py and saves panels as Parquet files.
 Usage:
     python research/factors/export_factor_panel_for_ml.py \
       --freq 1d \
-      --universe config/macro_world_etfs_tickers.txt \
+      --universe configs/universes/macro_world_etfs_tickers.txt \
       --factor-set core \
       --horizon-days 20 \
       --start-date 2010-01-01 \
@@ -78,7 +78,7 @@ def _parse_args() -> argparse.Namespace:
     group.add_argument(
         "--universe",
         type=Path,
-        help="Pfad zu einer Universe-Datei (z.B. config/macro_world_etfs_tickers.txt).",
+        help="Pfad zu einer Universe-Datei (z.B. configs/universes/macro_world_etfs_tickers.txt).",
     )
 
     parser.add_argument(
