@@ -22,10 +22,77 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - ASSEMBLED_OUTPUT_DIR=/app/output
+      - DATABASE_URL=postgresql://trading:${POSTGRES_PASSWORD:-trading}@postgres:5432/trading
+      - REDIS_URL=redis://redis:6379
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
     # Persist run artefacts (ledger, reports, logs) across container
     # restarts by mounting the host directories read/write.
     volumes:
       - ./output:/app/output
       - ./data:/app/data
+    depends_on:
+      - postgres
+      - redis
     # Restart policy matches typical paper-trading cron behaviour.
     restart: unless-stopped
+
+  # --- Free Infrastructure Stack (12_FREE_INFRASTRUKTUR.md) ---
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: assembled-postgres
+    environment:
+      POSTGRES_USER: trading
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trading}
+      POSTGRES_DB: trading
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trading"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: assembled-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v3.1.0
+    container_name: assembled-mlflow
+    command: >
+      mlflow server
+      --backend-store-uri sqlite:///mlruns/mlflow.db
+      --default-artifact-root /mlruns/artifacts
+      --host 0.0.0.0
+      --port 5000
+    volumes:
+      - mlruns:/mlruns
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: assembled-uptime
+    volumes:
+      - uptime-kuma:/app/data
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  mlruns:
+  uptime-kuma:
