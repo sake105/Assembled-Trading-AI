@@ -137,3 +137,62 @@ def overlay_to_dataframe(overlay: IntelOverlay) -> pd.DataFrame:
         for sym, score in overlay.ticker_scores.items()
     ]
     return pd.DataFrame(rows)
+
+
+# ---------------------------------------------------------------------------
+# Factor-building helpers (from 13_FREE_MODULE §M17-Wave1-Batch2)
+# ---------------------------------------------------------------------------
+
+
+def compute_symbol_intel_scores(
+    sector_impacts: dict[str, float] | None = None,
+    supply_chain_vulnerability: dict[str, float] | None = None,
+    confidence: dict[str, float] | None = None,
+) -> dict[str, float]:
+    """Combine sector impacts and supply-chain vulnerability into per-symbol scores.
+
+    Score = sector_impact - supply_chain_vulnerability, weighted by confidence.
+    Returns {} if no inputs supplied.
+    """
+    if not sector_impacts and not supply_chain_vulnerability:
+        return {}
+
+    all_symbols = set(sector_impacts or {}) | set(supply_chain_vulnerability or {})
+    result: dict[str, float] = {}
+    for sym in all_symbols:
+        raw = (sector_impacts or {}).get(sym, 0.0) - (supply_chain_vulnerability or {}).get(sym, 0.0)
+        conf = (confidence or {}).get(sym, 1.0)
+        result[sym] = raw * conf
+    return result
+
+
+def normalize_intel_scores(scores: dict[str, float]) -> dict[str, float]:
+    """Z-score normalize a dict of per-symbol scores."""
+    import numpy as np
+
+    if len(scores) < 2:
+        return {k: 0.0 for k in scores}
+    vals = list(scores.values())
+    mu = float(np.mean(vals))
+    sigma = float(np.std(vals))
+    if sigma < 1e-9:
+        return {k: 0.0 for k in scores}
+    return {k: (v - mu) / sigma for k, v in scores.items()}
+
+
+def build_intel_alpha_factor(
+    sector_impacts: dict[str, float] | None = None,
+    supply_chain_vulnerability: dict[str, float] | None = None,
+    confidence: dict[str, float] | None = None,
+) -> "pd.Series":
+    """Build a normalized intel alpha factor Series from sector/supply-chain data."""
+    raw = compute_symbol_intel_scores(
+        sector_impacts=sector_impacts,
+        supply_chain_vulnerability=supply_chain_vulnerability,
+        confidence=confidence,
+    )
+    normed = normalize_intel_scores(raw) if raw else {}
+    import pandas as pd
+    s = pd.Series(normed, name="intel_alpha")
+    s.index.name = "symbol"
+    return s
