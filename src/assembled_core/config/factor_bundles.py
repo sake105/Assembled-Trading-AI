@@ -8,7 +8,7 @@ Example:
     from src.assembled_core.config.factor_bundles import load_factor_bundle, list_available_factor_bundles
 
     # Load a bundle
-    bundle = load_factor_bundle("config/factor_bundles/macro_world_etfs_core_bundle.yaml")
+    bundle = load_factor_bundle("configs/factor_bundles/macro_world_etfs_core_bundle.yaml")
 
     # List all available bundles
     bundles = list_available_factor_bundles()
@@ -214,12 +214,12 @@ def load_factor_bundle(path: str | Path) -> FactorBundleConfig:
 
 
 def list_available_factor_bundles(
-    root_dir: str | Path = "config/factor_bundles",
+    root_dir: str | Path = "configs/factor_bundles",
 ) -> list[Path]:
     """List all available factor bundle YAML files.
 
     Args:
-        root_dir: Root directory to search for bundle files (default: "config/factor_bundles")
+        root_dir: Root directory to search for bundle files (default: "configs/factor_bundles")
                   Can be relative to project root or absolute
 
     Returns:

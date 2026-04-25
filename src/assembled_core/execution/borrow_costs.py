@@ -82,7 +82,7 @@ def compute_borrow_cost(
 def load_rate_table_from_yaml(
     path: str | "os.PathLike[str]",
 ) -> BorrowRateTable:
-    """Load a :class:`BorrowRateTable` from ``config/htb_symbols.yaml``.
+    """Load a :class:`BorrowRateTable` from ``configs/htb_symbols.yaml``.
 
     The YAML schema is:
 

@@ -15,7 +15,7 @@ Example:
     from src.assembled_core.signals.multifactor_signal import build_multifactor_signal
 
     # Load bundle
-    bundle = load_factor_bundle("config/factor_bundles/macro_world_etfs_core_bundle.yaml")
+    bundle = load_factor_bundle("configs/factor_bundles/macro_world_etfs_core_bundle.yaml")
 
     # Build signal (factors_df must contain timestamp, symbol, and factor columns)
     result = build_multifactor_signal(factors_df, bundle)

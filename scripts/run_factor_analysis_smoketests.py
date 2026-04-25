@@ -15,7 +15,7 @@ Usage:
 
 Prerequisites:
     - Local alt-data available (ASSEMBLED_LOCAL_DATA_ROOT environment variable set)
-    - Universe files: config/macro_world_etfs_tickers.txt, config/universe_ai_tech_tickers.txt
+    - Universe files: configs/universes/macro_world_etfs_tickers.txt, configs/universes/universe_ai_tech_tickers.txt
     - For tests 2 & 3: Alt-data files in output/altdata/ (download via download scripts first)
 """
 
@@ -172,8 +172,8 @@ def main() -> int:
 
     # Check prerequisites
     required_universe_files = [
-        "config/macro_world_etfs_tickers.txt",
-        "config/universe_ai_tech_tickers.txt",
+        "configs/universes/macro_world_etfs_tickers.txt",
+        "configs/universes/universe_ai_tech_tickers.txt",
     ]
 
     missing_files = []
@@ -204,14 +204,14 @@ def main() -> int:
         print("=" * 80)
         print("TEST 1: Plain Core-Factors")
         print("=" * 80)
-        print("Universe: config/macro_world_etfs_tickers.txt")
+        print("Universe: configs/universes/macro_world_etfs_tickers.txt")
         print("Factor-Set: core")
         print("Date Range: 2010-01-01 to 2025-12-03")
         print()
 
         exit_code, output = run_analyze_factors(
             freq="1d",
-            symbols_file="config/macro_world_etfs_tickers.txt",
+            symbols_file="configs/universes/macro_world_etfs_tickers.txt",
             start_date="2010-01-01",
             end_date="2025-12-03",
             factor_set="core",
@@ -244,7 +244,7 @@ def main() -> int:
         print("=" * 80)
         print("TEST 2: Core + Alt B1 (Earnings/Insider)")
         print("=" * 80)
-        print("Universe: config/universe_ai_tech_tickers.txt")
+        print("Universe: configs/universes/universe_ai_tech_tickers.txt")
         print("Factor-Set: core+alt")
         print("Date Range: 2015-01-01 to 2025-12-03")
         print()
@@ -256,7 +256,7 @@ def main() -> int:
 
         exit_code, output = run_analyze_factors(
             freq="1d",
-            symbols_file="config/universe_ai_tech_tickers.txt",
+            symbols_file="configs/universes/universe_ai_tech_tickers.txt",
             start_date="2015-01-01",
             end_date="2025-12-03",
             factor_set="core+alt",
@@ -289,7 +289,7 @@ def main() -> int:
         print("=" * 80)
         print("TEST 3: Core + Alt Full (B1 + B2: Earnings/Insider + News/Macro)")
         print("=" * 80)
-        print("Universe: config/universe_ai_tech_tickers.txt")
+        print("Universe: configs/universes/universe_ai_tech_tickers.txt")
         print("Factor-Set: core+alt_full")
         print("Date Range: 2015-01-01 to 2025-12-03")
         print()
@@ -305,7 +305,7 @@ def main() -> int:
 
         exit_code, output = run_analyze_factors(
             freq="1d",
-            symbols_file="config/universe_ai_tech_tickers.txt",
+            symbols_file="configs/universes/universe_ai_tech_tickers.txt",
             start_date="2015-01-01",
             end_date="2025-12-03",
             factor_set="core+alt_full",

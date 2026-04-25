@@ -55,7 +55,7 @@ def get_default_cost_model() -> CostModel:
 # ---------------------------------------------------------------------------
 
 _TIER_CACHE: dict[str, Any] | None = None
-_TIER_YAML_PATH = Path("config/cost_tiers.yaml")
+_TIER_YAML_PATH = Path("configs/cost_tiers.yaml")
 
 _FALLBACK_TIERS: dict[str, Any] = {
     "tiers": {

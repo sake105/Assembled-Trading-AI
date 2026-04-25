@@ -25,7 +25,7 @@ Example YAML config:
 
     runs:
       - id: "core_2015_2020"
-        bundle_path: "config/factor_bundles/ai_tech_core_bundle.yaml"
+        bundle_path: "configs/factor_bundles/ai_tech_core_bundle.yaml"
         start_date: "2015-01-01"
         end_date: "2020-12-31"
 

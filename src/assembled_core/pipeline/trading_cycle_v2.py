@@ -941,7 +941,7 @@ def generate_signals(
             from src.assembled_core.config.factor_bundles import load_factor_bundle
             from src.assembled_core.signals.multifactor_signal import build_multifactor_signal
 
-            _bundle_path = _pl.Path(mf_cfg.get("bundle_path", "config/factor_bundles/macro_world_etfs_core_bundle.yaml"))
+            _bundle_path = _pl.Path(mf_cfg.get("bundle_path", "configs/factor_bundles/macro_world_etfs_core_bundle.yaml"))
             if _bundle_path.exists():
                 _mf_result = build_multifactor_signal(features, load_factor_bundle(_bundle_path))
                 if not _mf_result.df.empty and "mf_score" in _mf_result.df.columns:

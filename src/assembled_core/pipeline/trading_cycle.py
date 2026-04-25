@@ -2993,7 +2993,7 @@ def _run_trading_cycle_inner(
             from src.assembled_core.config.factor_bundles import load_factor_bundle
             import pathlib as _pathlib
             _mf_bundle_path = _pathlib.Path(
-                mf_cfg.get("bundle_path", "config/factor_bundles/macro_world_etfs_core_bundle.yaml")
+                mf_cfg.get("bundle_path", "configs/factor_bundles/macro_world_etfs_core_bundle.yaml")
             )
             if _mf_bundle_path.exists():
                 _mf_bundle = load_factor_bundle(_mf_bundle_path)

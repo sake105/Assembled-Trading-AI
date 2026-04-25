@@ -14,7 +14,7 @@ Example:
     )
 
     config = MultiFactorStrategyConfig(
-        bundle_path="config/factor_bundles/macro_world_etfs_core_bundle.yaml",
+        bundle_path="configs/factor_bundles/macro_world_etfs_core_bundle.yaml",
         top_quantile=0.2,
         bottom_quantile=0.2,
         rebalance_freq="M",

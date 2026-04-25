@@ -11,13 +11,13 @@ defaults:
   generate_report: false
   generate_risk_report: false
   generate_tca_report: false
-  symbols_file: "config/macro_world_etfs_tickers.txt"
+  symbols_file: "configs/universes/macro_world_etfs_tickers.txt"
 runs:
   - id: "run1_core"
-    bundle_path: "config/factor_bundles/macro_world_etfs_core_bundle.yaml"
+    bundle_path: "configs/factor_bundles/macro_world_etfs_core_bundle.yaml"
     start_date: "2015-01-01"
     end_date: "2015-01-10"
   - id: "run2_core"
-    bundle_path: "config/factor_bundles/macro_world_etfs_core_bundle.yaml"
+    bundle_path: "configs/factor_bundles/macro_world_etfs_core_bundle.yaml"
     start_date: "2015-01-11"
     end_date: "2015-01-20"

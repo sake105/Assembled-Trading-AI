@@ -437,7 +437,7 @@ signals:
 # ---------------------------------------------------------------------------
 multifactor_signal:
   enabled: true
-  bundle_path: "config/factor_bundles/macro_world_etfs_core_bundle.yaml"
+  bundle_path: "configs/factor_bundles/macro_world_etfs_core_bundle.yaml"
 
 # ---------------------------------------------------------------------------
 # Phase 10: Monte Carlo robustness (bootstrap after each cycle / backtest)

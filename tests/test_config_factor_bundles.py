@@ -40,7 +40,7 @@ def test_config_package_all_is_consistent():
 def test_load_factor_bundle_core():
     """Test loading existing core bundle."""
     bundle = load_factor_bundle(
-        "config/factor_bundles/macro_world_etfs_core_bundle.yaml"
+        "configs/factor_bundles/macro_world_etfs_core_bundle.yaml"
     )
 
     assert isinstance(bundle, FactorBundleConfig)
@@ -66,7 +66,7 @@ def test_load_factor_bundle_core():
 @pytest.mark.advanced
 def test_load_factor_bundle_ai_tech_core_alt():
     """Test loading AI Tech core+alt bundle."""
-    bundle = load_factor_bundle("config/factor_bundles/ai_tech_core_alt_bundle.yaml")
+    bundle = load_factor_bundle("configs/factor_bundles/ai_tech_core_alt_bundle.yaml")
 
     assert isinstance(bundle, FactorBundleConfig)
     assert bundle.universe == "universe_ai_tech"
@@ -83,7 +83,7 @@ def test_load_factor_bundle_ai_tech_core_alt():
 @pytest.mark.advanced
 def test_load_factor_bundle_ml_alpha_only():
     """Test loading ML alpha only bundle."""
-    bundle = load_factor_bundle("config/factor_bundles/ai_tech_ml_alpha_bundle.yaml")
+    bundle = load_factor_bundle("configs/factor_bundles/ai_tech_ml_alpha_bundle.yaml")
 
     assert isinstance(bundle, FactorBundleConfig)
     assert bundle.universe == "universe_ai_tech"
@@ -115,7 +115,7 @@ def test_load_factor_bundle_ml_alpha_only():
 @pytest.mark.advanced
 def test_load_factor_bundle_core_ml_mixed():
     """Test loading mixed core+ML bundle."""
-    bundle = load_factor_bundle("config/factor_bundles/ai_tech_core_ml_bundle.yaml")
+    bundle = load_factor_bundle("configs/factor_bundles/ai_tech_core_ml_bundle.yaml")
 
     assert isinstance(bundle, FactorBundleConfig)
     assert bundle.universe == "universe_ai_tech"
@@ -161,7 +161,7 @@ def test_load_factor_bundle_core_ml_mixed():
 @pytest.mark.advanced
 def test_bundle_options_validation():
     """Test that bundle options are correctly loaded and validated."""
-    bundle = load_factor_bundle("config/factor_bundles/ai_tech_ml_alpha_bundle.yaml")
+    bundle = load_factor_bundle("configs/factor_bundles/ai_tech_ml_alpha_bundle.yaml")
 
     assert isinstance(bundle.options, FactorBundleOptions)
 
@@ -170,7 +170,7 @@ def test_bundle_options_validation():
 
     # Check mixed bundle has winsorize: true
     mixed_bundle = load_factor_bundle(
-        "config/factor_bundles/ai_tech_core_ml_bundle.yaml"
+        "configs/factor_bundles/ai_tech_core_ml_bundle.yaml"
     )
     assert mixed_bundle.options.winsorize is True
 
@@ -183,10 +183,10 @@ def test_bundle_options_validation():
 def test_all_factor_names_are_strings():
     """Test that all factor names in bundles are strings."""
     bundles_to_test = [
-        "config/factor_bundles/macro_world_etfs_core_bundle.yaml",
-        "config/factor_bundles/ai_tech_core_alt_bundle.yaml",
-        "config/factor_bundles/ai_tech_ml_alpha_bundle.yaml",
-        "config/factor_bundles/ai_tech_core_ml_bundle.yaml",
+        "configs/factor_bundles/macro_world_etfs_core_bundle.yaml",
+        "configs/factor_bundles/ai_tech_core_alt_bundle.yaml",
+        "configs/factor_bundles/ai_tech_ml_alpha_bundle.yaml",
+        "configs/factor_bundles/ai_tech_core_ml_bundle.yaml",
     ]
 
     for bundle_path in bundles_to_test:
@@ -201,10 +201,10 @@ def test_all_factor_names_are_strings():
 def test_all_directions_are_valid():
     """Test that all factor directions are valid (positive or negative)."""
     bundles_to_test = [
-        "config/factor_bundles/macro_world_etfs_core_bundle.yaml",
-        "config/factor_bundles/ai_tech_core_alt_bundle.yaml",
-        "config/factor_bundles/ai_tech_ml_alpha_bundle.yaml",
-        "config/factor_bundles/ai_tech_core_ml_bundle.yaml",
+        "configs/factor_bundles/macro_world_etfs_core_bundle.yaml",
+        "configs/factor_bundles/ai_tech_core_alt_bundle.yaml",
+        "configs/factor_bundles/ai_tech_ml_alpha_bundle.yaml",
+        "configs/factor_bundles/ai_tech_core_ml_bundle.yaml",
     ]
 
     for bundle_path in bundles_to_test:
