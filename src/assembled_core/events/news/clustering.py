@@ -320,4 +320,110 @@ def enrich_clusters_with_sentiment(
     return clusters
 
 
-__all__ = ["UnionFind", "build_clusters", "score_cluster_sentiment", "enrich_clusters_with_sentiment"]
+# ---------------------------------------------------------------------------
+# HDBSCAN + hnswlib semantic clustering (11_FREE_MODELLE §11.16)
+# Install: pip install hdbscan==0.8.38 hnswlib==0.8.0
+# ---------------------------------------------------------------------------
+
+import numpy as np
+
+_DEDUP_THRESHOLD = 0.92  # cosine similarity → duplicate
+
+
+def _try_hdbscan():
+    try:
+        import hdbscan as _hdbscan
+        return _hdbscan
+    except ImportError:
+        _logger.warning("hdbscan not installed — pip install hdbscan==0.8.38")
+        return None
+
+
+def _try_hnswlib():
+    try:
+        import hnswlib as _hnswlib
+        return _hnswlib
+    except ImportError:
+        _logger.warning("hnswlib not installed — pip install hnswlib==0.8.0")
+        return None
+
+
+def cluster_embeddings_hdbscan(
+    embeddings: "np.ndarray",
+    min_cluster_size: int = 3,
+    metric: str = "cosine",
+) -> "np.ndarray":
+    """Cluster news embeddings using HDBSCAN (semantic, dense clusters).
+
+    Args:
+        embeddings: 2D float array (n_docs, n_dims)
+        min_cluster_size: Minimum cluster size (default 3)
+        metric: Distance metric
+
+    Returns:
+        1D int array of labels (-1 = noise).
+    """
+    hdbscan = _try_hdbscan()
+    if hdbscan is None or len(embeddings) < min_cluster_size:
+        return np.full(len(embeddings), -1)
+    clusterer = hdbscan.HDBSCAN(min_cluster_size=min_cluster_size, metric=metric, core_dist_n_jobs=-1)
+    return clusterer.fit_predict(embeddings)
+
+
+class SemanticDeduplicator:
+    """Incremental semantic dedup via hnswlib HNSW index.
+
+    Usage::
+
+        dedup = SemanticDeduplicator(dim=384)
+        for emb in embeddings:
+            if not dedup.is_duplicate(emb):
+                dedup.add(emb)
+                process()
+    """
+
+    def __init__(self, dim: int = 384, max_elements: int = 100_000, threshold: float = _DEDUP_THRESHOLD):
+        self._dim = dim
+        self._threshold = threshold
+        self._count = 0
+        hnswlib = _try_hnswlib()
+        if hnswlib is None:
+            self._index = None
+            return
+        self._index = hnswlib.Index(space="cosine", dim=dim)
+        self._index.init_index(max_elements=max_elements, ef_construction=200, M=16)
+        self._index.set_ef(50)
+
+    def is_duplicate(self, embedding: "np.ndarray") -> bool:
+        if self._index is None or self._count == 0:
+            return False
+        emb = np.asarray(embedding, dtype=np.float32).reshape(1, -1)
+        try:
+            _, distances = self._index.knn_query(emb, k=1)
+            return float(1.0 - distances[0][0]) > self._threshold
+        except Exception:
+            return False
+
+    def add(self, embedding: "np.ndarray") -> None:
+        if self._index is None:
+            return
+        emb = np.asarray(embedding, dtype=np.float32).reshape(1, -1)
+        try:
+            self._index.add_items(emb, np.array([self._count]))
+            self._count += 1
+        except Exception:
+            pass
+
+    @property
+    def size(self) -> int:
+        return self._count
+
+
+__all__ = [
+    "UnionFind",
+    "build_clusters",
+    "score_cluster_sentiment",
+    "enrich_clusters_with_sentiment",
+    "cluster_embeddings_hdbscan",
+    "SemanticDeduplicator",
+]
