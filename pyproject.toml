@@ -169,9 +169,15 @@ skips = ["B101", "B314"]
 
 [tool.pytest.ini_options]
 markers = [
+  "phase4: Phase 4 tests",
+  "phase6: Phase 6 tests",
+  "phase7: Phase 7 tests",
+  "phase8: Phase 8 tests",
+  "phase9: Phase 9 tests",
   "phase10: M5 Crisis Alpha tests",
   "phase11: M6 Risk v1.1 tests",
   "phase12: M7 Realism v2 and prior milestone tests",
   "phase13: M8 Evidence Engine tests",
   "slow: tests that are too slow for CI (run locally only)",
+  "characterization: golden-master characterization tests (slow, require fixtures)",
 ]
