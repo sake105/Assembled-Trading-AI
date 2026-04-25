@@ -1,10 +1,4 @@
-"""Intel loaders and geopolitical/macro intel modules.
-
-Public API exposes:
-- trigger snapshot loaders (disclosures, news)
-- evidence grade writer
-- persistent trigger snapshot store
-"""
+"""Intel loaders and geopolitical/macro intel modules."""
 
 from __future__ import annotations
 
@@ -12,9 +6,6 @@ from .disclosures_triggers_loader import (
     DisclosuresTriggerSnapshot,
     load_disclosures_triggers,
 )
-from .evidence_grade_writer import EvidenceGradeWriter
-from .trigger_snapshot_store import TriggerSnapshotStore
-
 from .news_alerts import AlertEngine, NewsAlert  # noqa: F401
 from .news_archiver import NewsArchiver  # noqa: F401
 from .news_entity_graph import EntityCoGraph, EntityStat  # noqa: F401
@@ -24,11 +15,8 @@ from .news_sentiment_drift import DriftEntry, SentimentDriftTracker  # noqa: F40
 from .news_ticker_velocity import TickerSignal, TickerVelocityTracker  # noqa: F401
 from .news_velocity import VelocityResult, VelocityTracker  # noqa: F401
 from .sector_news_overlay import SectorNewsOverlay  # noqa: F401
-from .wild_card_detector import detect_cross_domain_spike, detect_volume_anomaly  # noqa: F401
 
 __all__ = [
     "DisclosuresTriggerSnapshot",
     "load_disclosures_triggers",
-    "EvidenceGradeWriter",
-    "TriggerSnapshotStore",
 ]
