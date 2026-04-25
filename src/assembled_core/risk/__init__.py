@@ -42,12 +42,6 @@ from src.assembled_core.risk.profit_targets import (  # noqa: F401
     build_position_records,
     check_profit_targets,
 )
-from src.assembled_core.risk.tail_dependence import (  # noqa: F401
-    classify_tail_regime,
-    compute_empirical_tail_dependence,
-    compute_portfolio_tail_dependence_score,
-)
-
 __all__ = [
     # Regime Models (D1)
     "RegimeStateConfig",
