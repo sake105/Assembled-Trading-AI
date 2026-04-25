@@ -316,15 +316,31 @@ docs/
 
 ## 5. `configs/` - Konfigurationsdateien
 
+> **Note (2026-04-25):** The legacy `config/` (singular) directory has been
+> merged into `configs/`. Factor bundles are now under `configs/factor_bundles/`,
+> universe ticker files under `configs/universes/`. The `config/` path no longer
+> exists and is blocked in `.gitignore`.
+
 ### Zweck
-YAML/JSON-Konfigurationsdateien fuer Batch-Runner, Paper-Track, etc.
+Alle runtime YAML/JSON/CSV-Konfigurationsdateien. Einzige autoritative Quelle
+für Laufzeit-Konfiguration (Policy, Factor Bundles, Universa, Paper-Track, etc.).
 
 ### Struktur
 ```
 configs/
- batch_*.yaml              # Batch Backtest Configs
+ app.yaml                   # Haupt-App-Konfiguration
+ policy.yaml                # Signal/Risk Policy
+ news_sources.yaml          # News-Feed-Konfiguration
+ factor_bundles/            # Factor-Bundle-YAMLs (früher: config/factor_bundles/)
+ universes/                 # Universe-Ticker-Listen (früher: config/*.txt)
+ batch_backtests/           # Batch Backtest Configs
  paper_track/               # Paper Trading Configs
- *.yaml                     # Weitere Configs
+ feature_bundles/           # Feature-Bundle-Configs
+ crisis_alpha/              # Crisis-Alpha-Configs
+ disclosures/               # Disclosures-Configs
+ intel/                     # Intel-Configs
+ news/                      # News-Configs
+ secrets/                   # Secrets-Templates (nie echte Keys!)
 ```
 
 ### Was rein darf

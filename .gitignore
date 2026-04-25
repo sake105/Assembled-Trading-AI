@@ -62,3 +62,7 @@ system_check/runs/*/
 
 # Model artifacts (not versioned — use Git LFS or external storage if needed)
 /models/
+
+# Legacy singular config/ dir — merged into configs/ on 2026-04-25
+# Prevents accidental re-creation of the old split
+/config/
