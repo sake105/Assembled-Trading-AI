@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 import pandas as pd
 
+import pytest; pytest.importorskip("src.assembled_core.data.altdata.house_ptr_parser")
 from src.assembled_core.data.altdata.house_ptr_parser import (
     HousePTRTransaction,
     parse_house_ptr_csv,

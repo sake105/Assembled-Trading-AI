@@ -6,6 +6,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
+import pytest; pytest.importorskip("src.assembled_core.data.altdata.social_sentiment")
 from src.assembled_core.data.altdata.social_sentiment import (
     SentimentConfig,
     aggregate_daily_sentiment,

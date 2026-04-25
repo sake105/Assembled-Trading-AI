@@ -1,4 +1,4 @@
-"""Tests for PITStore (X1 full) and NewsReplayer (X5)."""
+"""Tests for PITStore (X1 full)."""
 
 from __future__ import annotations
 
@@ -6,7 +6,10 @@ import json
 import pytest
 
 from src.assembled_core.intel.pit_store import PITStore
-from src.assembled_core.intel.news_replay import NewsReplayer, ReplayStep
+
+# news_replay archived — TestNewsReplayer skipped
+pytest.importorskip("src.assembled_core.intel.news_replay")
+from src.assembled_core.intel.news_replay import NewsReplayer, ReplayStep  # noqa: E402
 
 
 @pytest.mark.phase12

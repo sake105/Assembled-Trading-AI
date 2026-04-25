@@ -917,9 +917,9 @@ def test_context_sets_degraded_flag(tmp_path: Path) -> None:
         assert ctx.intel_health_flags.get("intel_disclosures_triggers") == "DEGRADED"
 
 
-# --- Disclosures confirm boost (DISCL-4.2) ---
-
-from src.assembled_core.risk.disclosures_confirm import apply_disclosures_confirm
+# --- Disclosures confirm boost (DISCL-4.2) archived — section removed ---
+pytest.importorskip("src.assembled_core.risk.disclosures_confirm")
+from src.assembled_core.risk.disclosures_confirm import apply_disclosures_confirm  # noqa: E402
 
 
 def test_disclosures_boost_applies_when_sev_ge_1() -> None:

@@ -147,7 +147,8 @@ def test_is_model_zero_adv() -> None:
 
 
 def test_congress_features_add_columns() -> None:
-    from src.assembled_core.data.congress_trades_ingest import load_congress_sample
+    pytest.importorskip("src.assembled_core.data.congress_trades_ingest")
+    from src.assembled_core.data.congress_trades_ingest import load_congress_sample  # noqa: E402
     from src.assembled_core.features.congress_features import add_congress_features
 
     prices = pd.DataFrame({

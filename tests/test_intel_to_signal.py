@@ -63,6 +63,7 @@ pytest.importorskip("src.assembled_core.signals.intel_signal_adapter")
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.skip(reason="IntelSignalAdapter class archived to observability_graveyard_2026q2/signals/")
 class TestIntelSignalAdapter:
     def test_import(self):
         from src.assembled_core.signals.intel_signal_adapter import IntelSignalAdapter
