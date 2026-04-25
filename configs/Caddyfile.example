@@ -1,0 +1,66 @@
+# Caddyfile — Reverse-Proxy + Auto-HTTPS für Oracle Always-Free VM
+# From: 12_FREE_INFRASTRUKTUR.md §12.10
+#
+# Setup:
+#   1. Domain in DNS auf Oracle-VM-IP zeigen
+#   2. Datei nach /etc/caddy/Caddyfile kopieren (Docker: volume mount)
+#   3. Platzhalter {YOUR_DOMAIN} ersetzen
+#
+# Caddy übernimmt automatisch:
+#   - Let's-Encrypt-Zertifikate (HTTP-01 oder TLS-ALPN)
+#   - HTTP/2 + HTTPS-Redirect
+#   - gzip-Kompression
+#
+# Docker-Start:
+#   docker run -v ./Caddyfile:/etc/caddy/Caddyfile caddy:2-alpine
+
+# ---------------------------------------------------------------------------
+# Trading API (FastAPI + Uvicorn)
+# ---------------------------------------------------------------------------
+
+trading.{YOUR_DOMAIN} {
+    reverse_proxy app:8000 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+    }
+    encode gzip
+    log {
+        output file /var/log/caddy/trading.log {
+            roll_size 10mb
+            roll_keep 5
+        }
+    }
+}
+
+# ---------------------------------------------------------------------------
+# MLflow Model Registry
+# ---------------------------------------------------------------------------
+
+mlflow.{YOUR_DOMAIN} {
+    basicauth {
+        # Generate: caddy hash-password
+        admin {BCRYPT_HASH_HERE}
+    }
+    reverse_proxy mlflow:5000
+    encode gzip
+}
+
+# ---------------------------------------------------------------------------
+# Uptime Kuma Status Page
+# ---------------------------------------------------------------------------
+
+status.{YOUR_DOMAIN} {
+    reverse_proxy uptime-kuma:3001
+    encode gzip
+}
+
+# ---------------------------------------------------------------------------
+# Optional: local-only Grafana (if self-hosted instead of Grafana Cloud)
+# ---------------------------------------------------------------------------
+
+# grafana.{YOUR_DOMAIN} {
+#     basicauth {
+#         admin {BCRYPT_HASH_HERE}
+#     }
+#     reverse_proxy grafana:3000
+# }

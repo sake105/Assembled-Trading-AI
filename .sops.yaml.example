@@ -1,0 +1,43 @@
+# SOPS + age Secrets-Management
+# From: 12_FREE_INFRASTRUKTUR.md §12.14
+#
+# SETUP:
+#   1. age installieren (Windows: scoop install age)
+#   2. Schlüssel generieren: age-keygen -o ~/.config/sops/age/keys.txt
+#   3. Public-Key unten eintragen (beginnt mit "age1...")
+#   4. Diese Datei nach .sops.yaml umbenennen und committen
+#
+# VERSCHLÜSSELN:
+#   sops -e .env > .env.sops.yaml            # encrypt
+#   sops -d .env.sops.yaml > .env            # decrypt
+#   sops .env.sops.yaml                       # edit in-place
+#
+# IN PYTHON NUTZEN:
+#   import subprocess, dotenv, io
+#   result = subprocess.run(["sops", "-d", ".env.sops.yaml"], capture_output=True, text=True)
+#   dotenv.load_dotenv(stream=io.StringIO(result.stdout))
+#
+# WARUM SOPS/age:
+#   - Zero-Infra (kein HashiCorp Vault Server)
+#   - Git-native (verschlüsselte YAML-Datei committen)
+#   - HCP Vault Secrets: June 2025 eingestellt
+#   - Infisical: Free-Tier nur 3 Members
+#
+# VORSICHT:
+#   - .env (unverschlüsselt) niemals committen → steht in .gitignore
+#   - age-private-key niemals committen → liegt in ~/.config/sops/age/keys.txt
+#   - Nach Secret-Leak: sofort beim Provider rotieren (Git-History bleibt)
+
+creation_rules:
+  - path_regex: \.env\.sops\.yaml$
+    age:
+      - age1REPLACE_WITH_YOUR_PUBLIC_KEY_HERE
+
+  - path_regex: configs/secrets/.*\.yaml$
+    age:
+      - age1REPLACE_WITH_YOUR_PUBLIC_KEY_HERE
+
+# CI/CD: Private-Key als GitHub Secret SOPS_AGE_KEY speichern
+# Im Workflow:
+#   env:
+#     SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
