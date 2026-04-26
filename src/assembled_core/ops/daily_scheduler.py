@@ -326,8 +326,8 @@ def _retrain_scheduler_worker(date_str: str, output_dir: str, dry_run: bool) -> 
                 eq_df = _sched_pd.read_parquet(str(eq_candidates[0]))
                 if "equity" in eq_df.columns:
                     equity_since_retrain = eq_df["equity"]
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.debug("[daily_scheduler] equity_curve load skipped: %s", _e)
 
         # --- Optional: load IC series ---
         ic_series = None
@@ -337,8 +337,8 @@ def _retrain_scheduler_worker(date_str: str, output_dir: str, dry_run: bool) -> 
                 ic_df = _sched_pd.read_parquet(str(ic_candidates[0]))
                 if "ic" in ic_df.columns:
                     ic_series = ic_df["ic"]
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.debug("[daily_scheduler] ic_series load skipped: %s", _e)
 
         # --- Optional: load regime series ---
         regime_series = None
@@ -348,8 +348,8 @@ def _retrain_scheduler_worker(date_str: str, output_dir: str, dry_run: bool) -> 
                 reg_df = _sched_pd.read_parquet(str(reg_candidates[0]))
                 if "regime" in reg_df.columns:
                     regime_series = reg_df["regime"]
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.debug("[daily_scheduler] regime_series load skipped: %s", _e)
 
         # --- Optional: load last retrain date ---
         model_last_trained_date = None
@@ -361,8 +361,8 @@ def _retrain_scheduler_worker(date_str: str, output_dir: str, dry_run: bool) -> 
                 if last_retrain_str:
                     from datetime import date as _date
                     model_last_trained_date = _date.fromisoformat(str(last_retrain_str)[:10])
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.debug("[daily_scheduler] last_retrain_date load skipped: %s", _e)
 
         rec = scheduler.evaluate(
             model_last_trained_date=model_last_trained_date,

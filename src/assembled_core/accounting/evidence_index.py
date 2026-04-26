@@ -130,6 +130,6 @@ def write_evidence_index_json(
             try:
                 tmp_path.unlink()
             except Exception:
-                pass
+                pass  # best-effort cleanup — original exception already propagated
 
     return json_path

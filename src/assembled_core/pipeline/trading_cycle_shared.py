@@ -362,6 +362,21 @@ def _filter_prices_for_as_of(
 
     This is a PIT-safe filtering function that ensures no future data leaks into the cycle.
 
+    Bar-Convention (D5):
+        timestamp refers to the *open* of the bar (bar-open convention).
+        A bar with timestamp=T contains price information for the period [T, T+freq).
+        The `<= as_of` filter is INCLUSIVE on timestamp, meaning a bar whose open falls
+        exactly ON as_of IS included. This matches EOD data convention where the bar at
+        date D represents that full trading day and is available at close of day D.
+
+        Example — as_of = 2024-03-15 (EOD):
+          bar 2024-03-15 is INCLUDED (daily bar for that trading day is available)
+          bar 2024-03-18 (next Monday) is EXCLUDED
+
+        Implication for signals: signals computed from `prices_filtered` in backtest
+        mode are based on closes available at or before as_of. No look-ahead bias
+        as long as as_of represents the decision point (e.g., market close).
+
     Args:
         prices: DataFrame with columns: timestamp, symbol, close, ...
         as_of: Maximum allowed timestamp (pd.Timestamp, UTC). If None, no time filtering.

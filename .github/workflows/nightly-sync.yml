@@ -30,21 +30,7 @@ jobs:
         with:
           persist-credentials: true
 
-      # Optional: make a small heartbeat change so there's a traceable nightly commit.
-      # Remove this step if you DON'T want daily commits.
-      - name: Write heartbeat
-        run: |
-          mkdir -p .github
-          echo "Last sync: $(date -u +'%Y-%m-%dT%H:%M:%SZ')" > .github/heartbeat.txt
-          git add .github/heartbeat.txt
-
-      - name: Commit & Push if changed
-        run: |
-          if git diff --staged --quiet; then
-            echo "Nothing to commit."
-          else
-            git -c user.name="github-actions[bot]" \
-                -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
-                commit -m "CI: nightly heartbeat [skip ci]"
-            git push
-          fi
+      # Heartbeat DISABLED (C6 audit 2026-04-26) — was generating ~200 noise commits.
+      # Re-enable by restoring the Write heartbeat + Commit & Push steps.
+      - name: Heartbeat disabled
+        run: echo "Heartbeat commits disabled. No commit will be pushed."

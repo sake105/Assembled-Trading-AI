@@ -112,8 +112,8 @@ def check_crisis_alpha_kill_switch(ctx: Any) -> tuple[bool, str]:
                     .get("crisis_alpha", {})
                     .get("state_path")
                 )
-            except Exception:
-                pass
+            except Exception as _policy_err:
+                logger.debug("[risk_controls] policy.intel.crisis_alpha.state_path lookup failed: %s", _policy_err)
         resolved_path = Path(policy_path) if policy_path else _state_file
         if resolved_path.exists():
             try:
