@@ -125,6 +125,19 @@ class WalkForwardConfig:
     min_test_periods: int = 63  # ~3 months for daily data
     max_splits: int | None = None  # None = no limit
     overlap_allowed: bool = False
+    # A9: Purged Walk-Forward — López de Prado §12
+    purge_days: int = 0
+    """Calendar days to purge between train_end and test_start.
+    Must be >= max label horizon to prevent train labels from overlapping test data.
+    Default 0 preserves backward-compatible behavior. Set to ≥ horizon_days of labels.
+    """
+    embargo_days: int = 0
+    """Calendar days to embargo after test_end before the next train window begins.
+    Prevents information leakage from market impact of test-period trades into next train.
+    Default 0 preserves backward-compatible behavior.
+    """
+    max_label_horizon: int | None = None
+    """If set, validates that purge_days >= max_label_horizon at split-generation time."""
 
 
 @dataclass
@@ -235,6 +248,13 @@ def generate_walk_forward_splits(
     if config.test_window_days <= 0:
         raise ValueError(f"test_window_days must be > 0, got {config.test_window_days}")
 
+    # A9: Validate purge_days >= max_label_horizon
+    if config.max_label_horizon is not None and config.purge_days < config.max_label_horizon:
+        raise ValueError(
+            f"purge_days ({config.purge_days}) must be >= max_label_horizon "
+            f"({config.max_label_horizon}) to prevent label leakage between train and test."
+        )
+
     if config.mode == "rolling" and config.train_window_days is None:
         raise ValueError("train_window_days must be provided for mode='rolling'")
 
@@ -274,10 +294,19 @@ def generate_walk_forward_splits(
     splits = []
     split_index = 0
 
-    # Start with first test window
-    current_test_start = start_ts
+    # A9: purge and embargo offsets
+    _purge = pd.Timedelta(days=config.purge_days)
+    _embargo = pd.Timedelta(days=config.embargo_days)
+
+    # Start with first test window start (cursor logic: test window starts here)
+    # With purge: train_end = test_start - purge_days → test_start = train_end + purge_days
+    # We iterate over train_end (= original "current_test_start" in old code) and compute test_start from it
+    current_train_end = start_ts
 
     while True:
+        # A9: test starts after purge gap
+        current_test_start = current_train_end + _purge
+
         # Check if we can fit another test window
         test_end = current_test_start + pd.Timedelta(days=config.test_window_days)
 
@@ -288,18 +317,18 @@ def generate_walk_forward_splits(
 
         # Calculate training window
         if config.mode == "expanding":
-            # Expanding: all data before test_start
+            # Expanding: all data before train_end (not test_start, to respect purge gap)
             train_start = start_ts
-            train_end = current_test_start
+            train_end = current_train_end
         else:  # mode == "rolling"
-            # Rolling: fixed-size window before test_start
-            train_end = current_test_start
+            # Rolling: fixed-size window before train_end
+            train_end = current_train_end
             train_start = train_end - pd.Timedelta(days=config.train_window_days)
 
             # Ensure train_start doesn't go before start_date
             if train_start < start_ts:
                 # Skip this split if we don't have enough training data
-                current_test_start = current_test_start + pd.Timedelta(days=step_size)
+                current_train_end = current_train_end + pd.Timedelta(days=step_size)
                 continue
 
         # Calculate number of periods (approximate, assuming daily frequency)
@@ -308,10 +337,10 @@ def generate_walk_forward_splits(
 
         # Filter by min_train_periods and min_test_periods
         if n_train < config.min_train_periods or n_test < config.min_test_periods:
-            current_test_start = current_test_start + pd.Timedelta(days=step_size)
+            current_train_end = current_train_end + pd.Timedelta(days=step_size)
             continue
 
-        # Create split
+        # Create split — test_start is now purge-adjusted
         split = WalkForwardWindow(
             train_start=train_start,
             train_end=train_end,
@@ -329,11 +358,11 @@ def generate_walk_forward_splits(
         if config.max_splits is not None and len(splits) >= config.max_splits:
             break
 
-        # Advance to next window
-        current_test_start = current_test_start + pd.Timedelta(days=step_size)
+        # A9: Advance to next window — next train_end = test_end + embargo
+        current_train_end = test_end + _embargo
 
         # Safety check: avoid infinite loops
-        if current_test_start > end_ts:
+        if current_train_end > end_ts:
             break
 
     if not splits:
