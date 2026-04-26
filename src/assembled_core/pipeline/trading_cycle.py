@@ -1417,7 +1417,7 @@ def run_trading_cycle(
     *,
     hooks: dict[str, Callable] | None = None,
 ) -> TradingCycleResult:
-    """Execute unified trading cycle.
+    """[LEGACY — use trading_cycle_v2.run_trading_cycle] Execute unified trading cycle.
 
     This function orchestrates the common trading cycle steps using hook points
     for each step. The default implementation is a skeleton that validates inputs
