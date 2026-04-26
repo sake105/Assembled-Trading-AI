@@ -531,6 +531,9 @@ def run_portfolio_backtest(
     rebalance_schedule: str = "daily",
     # Optional: restrict rebalance to these timestamps only (e.g. for EOD parity tests)
     rebalance_timestamps: list[pd.Timestamp] | None = None,
+    # A7: Corporate actions — splits/dividends adjustment (default: False for backtest to avoid data dep)
+    enable_corporate_actions: bool = False,
+    corporate_actions_path: str | None = None,
 ) -> BacktestResult:
     """Run a portfolio-level backtest with configurable signal and position sizing functions.
 
@@ -626,6 +629,24 @@ def run_portfolio_backtest(
 
     # Ensure prices are sorted
     prices = prices.sort_values(["symbol", "timestamp"]).reset_index(drop=True).copy()
+
+    # A7: Step 0 — Corporate actions adjustment (splits/dividends)
+    if not enable_corporate_actions:
+        logger.warning(
+            "[BACKTEST] Corporate actions DISABLED — splits/dividends ignored. "
+            "Results may be misleading for multi-year backtests."
+        )
+    elif corporate_actions_path is not None:
+        try:
+            from src.assembled_core.data.corporate_actions import adjust_prices_for_splits
+            import pandas as _pd_ca
+            splits = _pd_ca.read_csv(corporate_actions_path)
+            prices = adjust_prices_for_splits(prices, splits)
+            logger.info("[BACKTEST] Corporate actions applied from %s", corporate_actions_path)
+        except Exception as _ca_err:
+            logger.warning("[BACKTEST] Corporate actions adjustment failed: %s", _ca_err)
+    else:
+        logger.debug("[BACKTEST] enable_corporate_actions=True but no corporate_actions_path provided — skipping adjustment")
 
     # Step 1: Compute features (optional) - skip if cycle_fn is provided (features precomputed and passed via ctx_template)
     # Note: timed_block is not defined, using nullcontext for now

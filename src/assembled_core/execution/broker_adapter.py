@@ -564,7 +564,14 @@ class AlpacaAdapter(BrokerAdapter):
                 side=order_side,
                 time_in_force=tif,
             )
-            order = api.submit_order(order_data=request)
+            try:
+                order = api.submit_order(order_data=request)
+            except Exception as _broker_err:
+                from src.assembled_core.execution.idempotency import is_duplicate_error
+                if is_duplicate_error(str(_broker_err)):
+                    logger.warning("[AlpacaAdapter] duplicate client_order_id detected — skipping retry: %s", _broker_err)
+                    raise
+                raise
         except ImportError:
             order = api.submit_order(
                 symbol=symbol,

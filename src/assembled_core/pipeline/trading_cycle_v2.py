@@ -1914,6 +1914,25 @@ def book_fills(
     if result.orders_filtered is None:
         result.orders_filtered = result.orders.copy() if result.orders is not None else pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
 
+    # A8: Apply cost annotation for backtest/paper modes
+    if ctx.mode in ("backtest", "paper") and result.orders_filtered is not None and not result.orders_filtered.empty:
+        try:
+            from src.assembled_core.execution.transaction_costs import (
+                add_cost_columns_to_trades,
+                CommissionModel,
+            )
+            from src.assembled_core.costs import get_default_cost_model
+            cost_model = get_default_cost_model()
+            commission_model = CommissionModel(commission_bps=cost_model.commission_bps)
+            prices = getattr(ctx, "prices", None)
+            result.orders_filtered = add_cost_columns_to_trades(
+                result.orders_filtered,
+                commission_model=commission_model,
+                prices=prices if prices is not None else pd.DataFrame(),
+            )
+        except Exception as _cost_err:
+            log.debug("[book_fills] cost annotation skipped (mode=%s): %s", ctx.mode, _cost_err)
+
     # Step 7: Write outputs
     try:
         if ctx.write_outputs:

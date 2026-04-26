@@ -262,7 +262,7 @@ class UnifiedPaperConfig:
     borrow_rate_htb_bps: float = 500.0
     borrow_rate_overrides: dict[str, float] = field(default_factory=dict)
     htb_symbols: tuple[str, ...] = ()
-    enable_corporate_actions: bool = False
+    enable_corporate_actions: bool = True
     corporate_actions_path: Path | None = None
     # Phase 6 — Alpaca parity: intent store + hardened reconciliation
     enable_intent_store: bool = False
@@ -1572,10 +1572,21 @@ class UnifiedPaperEngine:
           Prices are split-adjusted in-place via ``adjust_prices_for_splits``.
         - Dividends: cash += qty * dividend_cash for each long position.
         """
-        if not (self.config.enable_corporate_actions and _HAS_CORP_ACTIONS):
+        if not self.config.enable_corporate_actions:
+            logger.warning(
+                "[PAPER] Corporate actions DISABLED — splits/dividends ignored. "
+                "Results may be misleading."
+            )
+            return prices
+        if not _HAS_CORP_ACTIONS:
             return prices
         ca_path = self.config.corporate_actions_path
         if ca_path is None or not Path(ca_path).exists():
+            logger.warning(
+                "[PAPER] corporate_actions_path not set or missing — "
+                "CA adjustments disabled despite enable_corporate_actions=True. "
+                "Provide a valid path to apply splits/dividends."
+            )
             return prices
         try:
             actions = pd.read_csv(ca_path)

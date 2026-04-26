@@ -330,19 +330,36 @@ class PaperTradingEngine:
         slices = scheduler.schedule(total_quantity=total_quantity, reference_price=price or 0.0)
         slice_orders: list[PaperOrder] = []
 
+        from src.assembled_core.execution.idempotency import (
+            build_client_order_id,
+            compute_intent_hash,
+        )
+        # Deterministic base hash for this algo order (symbol+side+qty+type)
+        _base_hash = compute_intent_hash(
+            symbol=symbol,
+            side=side.lower(),
+            qty=total_quantity,
+            order_type=algo.lower(),
+            limit_price=price,
+        )
         for i, sl in enumerate(slices):
-            import uuid
             qty = sl.quantity if hasattr(sl, "quantity") else (total_quantity / n_slices)
             slice_price = sl.price if hasattr(sl, "price") else price
+            # Use slice index as signal_id so each slice gets a unique but deterministic ID
+            _client_id = build_client_order_id(
+                signal_id=f"{algo.lower()}_slice_{i+1}_of_{n_slices}",
+                intent_hash=_base_hash,
+                attempt=0,
+            )
 
             order = PaperOrder(
-                order_id=str(uuid.uuid4()),
+                order_id=_client_id,
                 symbol=symbol,
                 side=side.upper(),  # type: ignore[arg-type]
                 quantity=abs(qty),
                 price=slice_price,
                 status="NEW",
-                client_order_id=f"{algo.lower()}_slice_{i+1}_of_{n_slices}",
+                client_order_id=_client_id,
                 route="PAPER",
                 source="ALGO",
             )
