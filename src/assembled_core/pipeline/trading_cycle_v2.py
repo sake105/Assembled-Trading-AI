@@ -20,7 +20,7 @@ import pandas as pd
 
 from src.assembled_core.config import get_base_dir
 from src.assembled_core.config.policy_loader import load_policy
-from src.assembled_core.pipeline.trading_cycle import (
+from src.assembled_core.pipeline.trading_cycle_shared import (
     TradingContext,
     TradingCycleResult,
     _apply_group_exposure_caps,
