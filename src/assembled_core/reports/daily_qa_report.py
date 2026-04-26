@@ -10,7 +10,7 @@ This module provides functions to generate QA reports that summarize:
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 from pathlib import Path
@@ -81,7 +81,7 @@ def generate_qa_report(
     base.mkdir(parents=True, exist_ok=True)
 
     # Generate filename
-    date_str = datetime.now().strftime("%Y%m%d")
+    date_str = datetime.now(timezone.utc).strftime("%Y%m%d")
     report_filename = f"qa_report_{strategy_name}_{freq}_{date_str}.md"
     report_path = base / report_filename
 
@@ -159,7 +159,7 @@ def _build_report_content(
     # Header
     lines.append(f"# QA Report: {strategy_name} ({freq})")
     lines.append("")
-    lines.append(f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}")
+    lines.append(f"**Generated:** {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}")
     lines.append("")
     lines.append("---")
     lines.append("")

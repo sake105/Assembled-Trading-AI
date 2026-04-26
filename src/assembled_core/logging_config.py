@@ -61,7 +61,7 @@ def setup_logging(
     """
     # Generate Run-ID if not provided
     if run_id is None:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%SZ")
         run_id = f"run_{timestamp}"
 
     # Determine log directory
@@ -205,6 +205,6 @@ def generate_run_id(prefix: str = "run") -> str:
         >>> generate_run_id("backtest")
         'backtest_20250115_143022_a1b2c3d4'
     """
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%SZ")
     uuid_short = str(uuid4()).replace("-", "")[:8]
     return f"{prefix}_{timestamp}_{uuid_short}"

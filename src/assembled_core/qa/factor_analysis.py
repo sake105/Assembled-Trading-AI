@@ -2173,7 +2173,7 @@ def compute_ic_decay_curve(
                 "n_timestamps": len(ic_series),
             }
         )
-        df.drop(columns=[fwd_col], inplace=True)
+        df = df.drop(columns=[fwd_col])
 
     if not records:
         return pd.DataFrame(columns=["horizon_days", "ic_mean", "ic_std", "ic_ir", "n_timestamps"])

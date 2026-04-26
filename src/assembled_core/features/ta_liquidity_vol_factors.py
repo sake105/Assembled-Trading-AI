@@ -348,7 +348,7 @@ def add_amihud_illiquidity(
             lambda x: x.rolling(w, min_periods=max(1, w // 4)).mean()
         ).astype("float64")
 
-    result.drop(columns=["_amihud_daily"], inplace=True)
+    result = result.drop(columns=["_amihud_daily"])
     return result
 
 
@@ -383,7 +383,7 @@ def add_roll_spread_estimate(
 
         result[col] = result.groupby(group_col)["_ret"].transform(_spread)
 
-    result.drop(columns=["_ret"], inplace=True)
+    result = result.drop(columns=["_ret"])
     return result
 
 
@@ -416,7 +416,7 @@ def add_kyle_lambda_proxy(
             lambda x: x.rolling(w, min_periods=max(1, w // 4)).mean()
         ).astype("float64")
 
-    result.drop(columns=["_lambda_daily"], inplace=True)
+    result = result.drop(columns=["_lambda_daily"])
     return result
 
 
@@ -458,7 +458,7 @@ def add_tick_rule_imbalance(
             .reset_index(level=0, drop=True)
         )
 
-    result.drop(columns=["_buy_vol", "_sell_vol"], inplace=True)
+    result = result.drop(columns=["_buy_vol", "_sell_vol"])
     return result
 
 

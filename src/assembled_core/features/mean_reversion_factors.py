@@ -72,8 +72,8 @@ def _rsi_14(close: pd.Series) -> pd.Series:
 
 def _zscore_reversal_3d(close: pd.Series) -> pd.Series:
     ret_3d = close.pct_change(3)
-    rolling_mean = ret_3d.rolling(60).mean()
-    rolling_std = ret_3d.rolling(60).std()
+    rolling_mean = ret_3d.rolling(60, min_periods=60).mean()
+    rolling_std = ret_3d.rolling(60, min_periods=60).std()
     z = (ret_3d - rolling_mean) / rolling_std.replace(0.0, np.nan)
     factor = -z
     return factor.clip(lower=-3.0, upper=3.0)
@@ -90,14 +90,14 @@ def _rsi_extreme_uptrend(close: pd.Series) -> pd.Series:
 
 
 def _bollinger_squeeze_break(close: pd.Series) -> pd.Series:
-    ma20 = close.rolling(20).mean()
-    std20 = close.rolling(20).std()
+    ma20 = close.rolling(20, min_periods=20).mean()
+    std20 = close.rolling(20, min_periods=20).std()
     upper = ma20 + 2.0 * std20
     lower = ma20 - 2.0 * std20
     width = (upper - lower).replace(0.0, np.nan)
     pct_b = (close - lower) / width
     squeeze_width = (upper - lower) / ma20.replace(0.0, np.nan)
-    squeeze_mean = squeeze_width.rolling(60).mean()
+    squeeze_mean = squeeze_width.rolling(60, min_periods=60).mean()
     squeeze_ratio = squeeze_width / squeeze_mean.replace(0.0, np.nan)
 
     inv_squeeze = (1.0 / squeeze_ratio.clip(lower=0.5)).clip(upper=2.0)

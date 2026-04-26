@@ -1,7 +1,6 @@
 # Known Issues & Open Topics
 
-**Letzte Aktualisierung:** 2025-01-15  
-**Status:** Phase 12.3 – Review-Vorbereitung
+**Letzte Aktualisierung:** 2026-04-26
 
 Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante Erweiterungen im Backend von Assembled Trading AI.
 

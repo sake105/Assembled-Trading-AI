@@ -66,3 +66,6 @@ system_check/runs/*/
 # Legacy singular config/ dir — merged into configs/ on 2026-04-25
 # Prevents accidental re-creation of the old split
 /config/
+*profile_out*.txt
+*.prof
+F:*
