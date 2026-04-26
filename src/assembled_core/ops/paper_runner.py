@@ -36,10 +36,8 @@ def run_paper_daily_one(
         write_targets_artifact,
     )
     from src.assembled_core.ops.alerts import compute_alerts, write_alerts_artifact
-    from src.assembled_core.pipeline.trading_cycle import (
-        TradingContext,
-        run_trading_cycle,
-    )
+    from src.assembled_core.pipeline.trading_cycle import TradingContext
+    from src.assembled_core.pipeline.trading_cycle_v2 import run_trading_cycle
 
     reconcile_status: str | None = None
     paper_cfg_sc = app_cfg.get("paper_runner") or {}

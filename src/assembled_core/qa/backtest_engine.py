@@ -308,7 +308,7 @@ def make_cycle_fn(
     """
     # Import at runtime to avoid circular dependency
     if run_trading_cycle_fn is None:
-        from src.assembled_core.pipeline.trading_cycle import (
+        from src.assembled_core.pipeline.trading_cycle_v2 import (
             run_trading_cycle as run_trading_cycle_fn,
         )
 

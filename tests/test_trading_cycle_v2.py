@@ -335,28 +335,28 @@ class TestSizePositions:
             "score": [0.6, 0.5, 0.4],
         })
 
-    def test_returns_two_element_tuple(self):
+    def test_returns_three_element_tuple(self):
         ctx = _make_ctx()
         signals = self._make_signals()
         result = size_positions(signals, ctx)
-        assert isinstance(result, tuple) and len(result) == 2
+        assert isinstance(result, tuple) and len(result) == 3
 
     def test_first_element_is_dataframe(self):
         ctx = _make_ctx()
         signals = self._make_signals()
-        targets, _ = size_positions(signals, ctx)
+        targets, _, _meta = size_positions(signals, ctx)
         assert isinstance(targets, pd.DataFrame)
 
     def test_do_rebal_is_bool(self):
         ctx = _make_ctx()
         signals = self._make_signals()
-        _, do_rebal = size_positions(signals, ctx)
+        _, do_rebal, _meta = size_positions(signals, ctx)
         assert isinstance(do_rebal, bool)
 
     def test_targets_have_required_columns(self):
         ctx = _make_ctx()
         signals = self._make_signals()
-        targets, _ = size_positions(signals, ctx)
+        targets, _, _meta = size_positions(signals, ctx)
         assert not targets.empty
         assert "symbol" in targets.columns
         assert "target_weight" in targets.columns or "target_qty" in targets.columns
@@ -364,7 +364,7 @@ class TestSizePositions:
     def test_default_sizing_equal_weight(self):
         ctx = _make_ctx()
         signals = self._make_signals()
-        targets, _ = size_positions(signals, ctx)
+        targets, _, _meta = size_positions(signals, ctx)
         assert len(targets) == 3
         # equal-weight: each symbol ~1/3
         w = targets["target_weight"].values
@@ -374,13 +374,13 @@ class TestSizePositions:
         ctx = _make_ctx()
         ctx.current_positions = None
         signals = self._make_signals()
-        _, do_rebal = size_positions(signals, ctx)
+        _, do_rebal, _meta = size_positions(signals, ctx)
         assert do_rebal is True
 
     def test_target_weights_sum_to_one(self):
         ctx = _make_ctx()
         signals = self._make_signals()
-        targets, _ = size_positions(signals, ctx)
+        targets, _, _meta = size_positions(signals, ctx)
         assert abs(targets["target_weight"].sum() - 1.0) < 1e-4
 
     def test_sizing_fn_returning_none_yields_empty_targets(self):
@@ -388,7 +388,7 @@ class TestSizePositions:
         ctx = _make_ctx()
         ctx.position_sizing_fn = lambda s, c: None  # type: ignore[arg-type]
         signals = self._make_signals()
-        targets, _ = size_positions(signals, ctx)
+        targets, _, _meta = size_positions(signals, ctx)
         assert isinstance(targets, pd.DataFrame)
         assert targets.empty
 
