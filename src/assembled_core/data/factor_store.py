@@ -226,9 +226,8 @@ def _write_manifest(
     if extra_metadata:
         manifest.update(extra_metadata)
 
-    (panel_dir / "_metadata.json").write_text(
-        json.dumps(manifest, indent=2, default=str), encoding="utf-8"
-    )
+    from src.assembled_core.utils.atomic_io import atomic_write_json
+    atomic_write_json(panel_dir / "_metadata.json", manifest)
 
 
 def store_factors(

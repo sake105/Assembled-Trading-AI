@@ -1768,7 +1768,8 @@ class UnifiedPaperEngine:
             "reconcile": verdict.get("reconcile", {}),
             "written_at_utc": datetime.now(timezone.utc).isoformat(),
         }
-        out_path.write_text(json.dumps(payload, indent=2, default=str))
+        from src.assembled_core.utils.atomic_io import atomic_write_json
+        atomic_write_json(out_path, payload)
         logger.warning(
             "[PAPER] Reconcile alert written: %s (severity=%s)",
             out_path, verdict["severity"],
@@ -1890,7 +1891,8 @@ class UnifiedPaperEngine:
             },
             "written_at_utc": datetime.now(timezone.utc).isoformat(),
         }
-        json_path.write_text(json.dumps(aggregate, indent=2, default=str))
+        from src.assembled_core.utils.atomic_io import atomic_write_json
+        atomic_write_json(json_path, aggregate)
         logger.info("[PAPER] TCA artifacts written: %s", csv_path)
         return csv_path, json_path
 
@@ -1938,7 +1940,8 @@ class UnifiedPaperEngine:
             "factor": factor.to_dict(orient="records"),
             "written_at_utc": datetime.now(timezone.utc).isoformat(),
         }
-        json_path.write_text(json.dumps(payload, indent=2, default=str))
+        from src.assembled_core.utils.atomic_io import atomic_write_json
+        atomic_write_json(json_path, payload)
         logger.info("[PAPER] Attribution artifacts written: %s", csv_path)
         return csv_path, json_path
 

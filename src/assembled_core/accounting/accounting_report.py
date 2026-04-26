@@ -388,10 +388,9 @@ def write_accounting_report_json(
     # Serialize NaN/Inf to None
     report_serialized = _json_serialize_nan(report)
 
-    # Write JSON (deterministic: sort_keys=True, indent=2)
-    with json_path.open("w", encoding="utf-8") as f:
-        json.dump(report_serialized, f, sort_keys=True, indent=2, default=str)
-        f.write("\n")  # Trailing newline for byte-stability
+    # Write JSON atomically (deterministic: sort_keys=True, indent=2)
+    from src.assembled_core.utils.atomic_io import atomic_write_json
+    atomic_write_json(json_path, report_serialized, sort_keys=True)
 
     logger.info(f"Accounting report JSON written: {json_path}")
     return json_path

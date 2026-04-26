@@ -40,6 +40,24 @@ Dies installiert:
 
 **Minimale Installation (nur Dev):** `pip install -e ".[dev]"` — die Standard-Suite (`pytest -q`) läuft ohne optionale Pakete; fehlende Abhängigkeit führt zu SKIP, nicht ERROR. FastAPI ist Core-Dependency. Marker: `requires_scipy`, `requires_fastapi`, `requires_sklearn` in `pytest.ini`.
 
+#### Dependency-Dateien
+
+| Datei | Zweck | Autoritativ für |
+|---|---|---|
+| `pyproject.toml` | Version-Ranges + Extras | Paket-Metadaten, lokale `pip install -e` |
+| `requirements.txt` | Gepinnte Exact-Versionen | **CI (alle Workflows nutzen diese Datei)** |
+| `requirements.lock` | Vollständiger transitive Freeze | Reproduzierbarkeits-Referenz |
+
+Regeneration nach Package-Updates:
+```bash
+# requirements.txt aktualisieren (manuell oder via pip-compile):
+pip-compile pyproject.toml -o requirements.txt
+
+# requirements.lock nach requirements.txt-Installation regenerieren:
+pip install -r requirements.txt
+pip freeze | grep -v "^-e " > requirements.lock
+```
+
 ### 4. Phase-4-Tests ausführen
 
 **Über CLI:**

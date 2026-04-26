@@ -71,23 +71,9 @@ def atomic_write_json_with_retry(
     retries: int = 5,
     backoff_ms: int = 50,
 ) -> None:
-    """Write JSON to path atomically (tmp + replace). Retry on PermissionError with exponential backoff."""
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.parent / (path.name + ".tmp")
-    last_err: BaseException | None = None
-    for attempt in range(retries):
-        try:
-            with tmp_path.open("w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2)
-            os.replace(str(tmp_path), str(path))
-            return
-        except (PermissionError, OSError) as e:
-            last_err = e
-            if attempt < retries - 1:
-                time.sleep(backoff_ms * (2**attempt) / 1000.0)
-    if last_err is not None:
-        raise last_err
+    """Write JSON to path atomically. Canonical impl: utils.atomic_io.atomic_write_json."""
+    from src.assembled_core.utils.atomic_io import atomic_write_json
+    atomic_write_json(path, data, retries=retries, backoff_ms=backoff_ms)
 
 
 def load_risk_state(path: str | Path) -> RiskStateRecord:

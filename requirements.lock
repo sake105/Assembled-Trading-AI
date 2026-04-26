@@ -1,7 +1,9 @@
-# requirements.lock — deterministic dependency pins
-# Generated: 2026-04-08 via pip freeze from .venv (Python 3.11, Windows)
-# Purpose: CI and local builds should use this for reproducible installs.
-# Regenerate: pip freeze | grep -v "^-e " > requirements.lock
+# requirements.lock — full transitive freeze snapshot
+# Last regenerated: 2026-04-08 via pip freeze (Python 3.11, Windows)
+# WARNING: Key packages (numpy, pandas) diverge from requirements.txt pins.
+# IMPORTANT: requirements.txt is the authoritative CI file. This lock is a
+# secondary reference. Regenerate after any requirements.txt update:
+#   pip install -r requirements.txt && pip freeze | grep -v "^-e " > requirements.lock
 alpaca-py==0.43.2
 annotated-doc==0.0.4
 annotated-types==0.7.0
@@ -40,9 +42,9 @@ multitasking==0.0.12
 mypy==1.19.0
 mypy_extensions==1.1.0
 newsapi-python==0.2.7
-numpy==1.26.4
+numpy==2.3.3
 packaging==25.0
-pandas==2.2.3
+pandas==2.3.3
 pathspec==0.12.1
 peewee==3.18.2
 pillow==11.3.0

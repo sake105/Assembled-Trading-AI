@@ -1,3 +1,13 @@
+# ============================================================
+# requirements.txt — PRIMARY pinned dependency file for CI
+# ============================================================
+# Single source of truth for CI installs (all workflows use this file).
+# pyproject.toml defines version ranges; this file pins exact versions.
+# requirements.lock is a full transitive freeze snapshot (regenerate via
+#   pip freeze | grep -v "^-e " > requirements.lock  after installing from here).
+# To regenerate: pip-compile pyproject.toml -o requirements.txt
+# ============================================================
+
 pandas==2.3.3
 numpy==2.3.3
 pyarrow==21.0.0

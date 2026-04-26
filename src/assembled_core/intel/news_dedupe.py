@@ -208,21 +208,18 @@ class NewsDedupeIndex:
         self._persist_path.parent.mkdir(parents=True, exist_ok=True)
         now = time.monotonic()
         try:
-            with open(self._persist_path, "w", encoding="utf-8") as fh:
-                json.dump(
-                    {
-                        "event_ids": list(self.seen_event_ids.keys()),
-                        "fingerprints": list(self.seen_fingerprints.keys()),
-                        # store relative age so load() can re-anchor timestamps
-                        "event_id_ages": [
-                            now - ts for ts in self.seen_event_ids.values()
-                        ],
-                        "fingerprint_ages": [
-                            now - ts for ts in self.seen_fingerprints.values()
-                        ],
-                    },
-                    fh,
-                )
+            from src.assembled_core.utils.atomic_io import atomic_write_json
+            atomic_write_json(self._persist_path, {
+                "event_ids": list(self.seen_event_ids.keys()),
+                "fingerprints": list(self.seen_fingerprints.keys()),
+                # store relative age so load() can re-anchor timestamps
+                "event_id_ages": [
+                    now - ts for ts in self.seen_event_ids.values()
+                ],
+                "fingerprint_ages": [
+                    now - ts for ts in self.seen_fingerprints.values()
+                ],
+            })
         except Exception as exc:
             logger.warning("[WARN] NewsDedupeIndex.save: %s", exc)
 

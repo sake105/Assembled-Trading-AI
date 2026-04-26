@@ -62,7 +62,8 @@ class PITStore:
             logger.debug("[SKIP] PITStore: already exists %s", dest)
             return dest
 
-        dest.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
+        from src.assembled_core.utils.atomic_io import atomic_write_json
+        atomic_write_json(dest, data)
 
         now_utc = (archived_utc or datetime.now(tz=timezone.utc)).isoformat()
         self._update_manifest(dest_dir, artifact_type, now_utc)
@@ -229,7 +230,8 @@ class PITStore:
         manifest = self._load_manifest(run_dir)
         manifest[artifact_type] = {"archived_utc": archived_utc}
         manifest_path = run_dir / _MANIFEST_FILE
-        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+        from src.assembled_core.utils.atomic_io import atomic_write_json
+        atomic_write_json(manifest_path, manifest)
 
     def _load_manifest(self, run_dir: Path) -> dict[str, dict]:
         manifest_path = run_dir / _MANIFEST_FILE

@@ -1,8 +1,33 @@
 # Known Issues & Open Topics
 
-**Letzte Aktualisierung:** 2026-04-26
+**Letzte Aktualisierung:** 2026-04-26 (A10 survivorship-bias entry added)
 
 Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante Erweiterungen im Backend von Assembled Trading AI.
+
+---
+
+## 0. Bekannte Datenqualitäts-Risiken (AUDIT A10)
+
+### 0.1 Survivorship-Bias: PIT-Universe nicht aktiviert
+
+**Schwere:** AKUT für Backtests mit Mid-Cap / historischem Universum  
+**Entdeckt:** 2026-04-26 (Audit A10)  
+**Status:** API implementiert, aber KEIN produktiver Aufrufer — statische watchlist.txt in Betrieb
+
+**Problem:** `data/universe.py::get_universe_members_pit(as_of)` existiert mit vollständiger PIT-Logik.  
+Kein Script oder Pipeline-Schritt ruft sie produktiv auf. Stattdessen kommt das Universum aus der  
+statischen `watchlist.txt`, die nur *aktuelle* Symbole enthält.
+
+**Konsequenz:** Backtests 2015–2024 mit heutiger Watchlist kennen Symbole, die damals noch nicht
+handelbar waren (TSLA vor 2010 als Penny-Stock; Zwischenzeit-Delistings usw.).
+Erwarteter Bias: +1–2% p.a. bei US Large-Caps, **+5–10% p.a.** bei Mid-Caps.
+
+**Voraussetzung für echten Fix:** Historische Mitgliedschaftsdaten beschaffen:
+- Kommerziell: Sharadar (SFACT), Norgate, FactSet
+- Open: S&P-Zusammensetzungs-CSVs via Wikipedia-Scraper (unvollständig)
+
+**Datei:** `src/assembled_core/data/universe.py:144` (Funktion existiert, unverkabelt)  
+**Tracking:** autonome weiterarbeit/AUDIT_2026-04-26_FINDINGS_AND_REMEDIATION_v2.md#a10
 
 ---
 
