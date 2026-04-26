@@ -978,13 +978,13 @@ def run_eod_pipeline(
                 backtest_equity_file = base / f"equity_curve_{freq}.csv"
 
                 if portfolio_equity_file.exists():
-                    equity_df = pd.read_csv(portfolio_equity_file)
+                    equity_df = pd.read_csv(portfolio_equity_file, dtype={"timestamp": "string"})
                     equity_df["timestamp"] = pd.to_datetime(
                         equity_df["timestamp"], utc=True
                     )
                     logger.info(f"Using portfolio equity: {len(equity_df)} rows")
                 elif backtest_equity_file.exists():
-                    equity_df = pd.read_csv(backtest_equity_file)
+                    equity_df = pd.read_csv(backtest_equity_file, dtype={"timestamp": "string"})
                     equity_df["timestamp"] = pd.to_datetime(
                         equity_df["timestamp"], utc=True
                     )

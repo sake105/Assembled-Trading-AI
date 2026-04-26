@@ -37,7 +37,7 @@ def get_risk_summary(freq: Frequency) -> RiskMetrics:
 
     try:
         try:
-            df = pd.read_csv(portfolio_file)
+            df = pd.read_csv(portfolio_file, dtype={"symbol": "string"})
         except (IOError, OSError) as exc:
             raise HTTPException(
                 status_code=500,

@@ -129,11 +129,11 @@ def get_qa_status_summary(
 
         equity_df = None
         if portfolio_equity_file.exists():
-            equity_df = pd.read_csv(portfolio_equity_file)
+            equity_df = pd.read_csv(portfolio_equity_file, dtype={"timestamp": "string"})
             equity_df["timestamp"] = pd.to_datetime(equity_df["timestamp"], utc=True)
             last_updated = equity_df["timestamp"].max().to_pydatetime()
         elif backtest_equity_file.exists():
-            equity_df = pd.read_csv(backtest_equity_file)
+            equity_df = pd.read_csv(backtest_equity_file, dtype={"timestamp": "string"})
             equity_df["timestamp"] = pd.to_datetime(equity_df["timestamp"], utc=True)
             last_updated = equity_df["timestamp"].max().to_pydatetime()
 
@@ -224,11 +224,11 @@ def get_risk_status_summary(
         last_updated = None
 
         if portfolio_equity_file.exists():
-            equity_df = pd.read_csv(portfolio_equity_file)
+            equity_df = pd.read_csv(portfolio_equity_file, dtype={"timestamp": "string"})
             equity_df["timestamp"] = pd.to_datetime(equity_df["timestamp"], utc=True)
             last_updated = equity_df["timestamp"].max().to_pydatetime()
         elif backtest_equity_file.exists():
-            equity_df = pd.read_csv(backtest_equity_file)
+            equity_df = pd.read_csv(backtest_equity_file, dtype={"timestamp": "string"})
             equity_df["timestamp"] = pd.to_datetime(equity_df["timestamp"], utc=True)
             last_updated = equity_df["timestamp"].max().to_pydatetime()
 

@@ -1589,7 +1589,7 @@ class UnifiedPaperEngine:
             )
             return prices
         try:
-            actions = pd.read_csv(ca_path)
+            actions = pd.read_csv(ca_path, dtype={"symbol": "string", "action_type": "string"})
         except Exception as exc:
             logger.warning("[PAPER] Could not read CA file: %s", exc)
             return prices

@@ -20,7 +20,7 @@ def load_corporate_actions(path: str | None = None) -> pd.DataFrame:
     """
     if path is None:
         return pd.DataFrame(columns=["symbol", "date", "action_type", "factor"])
-    return pd.read_csv(path)
+    return pd.read_csv(path, dtype={"symbol": "string", "action_type": "string"})
 
 
 def apply_splits_for_research_prices(

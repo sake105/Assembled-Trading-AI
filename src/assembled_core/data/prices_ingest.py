@@ -378,7 +378,7 @@ def incremental_update(
         if existing_path.suffix == ".parquet":
             existing = pd.read_parquet(existing_path)
         else:
-            existing = pd.read_csv(existing_path)
+            existing = pd.read_csv(existing_path, dtype={"symbol": "string"})
 
         # Combine and deduplicate
         combined = pd.concat([existing, new_data], ignore_index=True)

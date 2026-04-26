@@ -37,7 +37,7 @@ def get_backtest_curve(freq: Frequency) -> EquityCurveResponse:
 
     try:
         try:
-            df = pd.read_csv(curve_file)
+            df = pd.read_csv(curve_file, dtype={"timestamp": "string"})
         except (IOError, OSError) as exc:
             raise HTTPException(
                 status_code=500,
@@ -109,7 +109,7 @@ def get_performance_metrics(freq: Frequency) -> dict:
 
     try:
         try:
-            df = pd.read_csv(curve_file)
+            df = pd.read_csv(curve_file, dtype={"timestamp": "string"})
         except (IOError, OSError) as exc:
             raise HTTPException(
                 status_code=500,

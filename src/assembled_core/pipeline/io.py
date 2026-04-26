@@ -130,7 +130,7 @@ def load_orders(
         return pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
 
     try:
-        df = pd.read_csv(p)
+        df = pd.read_csv(p, dtype={"symbol": "string", "side": "string"})
     except (IOError, OSError) as exc:
         if strict:
             raise IOError(f"Failed to read orders file {p}") from exc

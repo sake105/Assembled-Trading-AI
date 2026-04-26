@@ -75,7 +75,7 @@ def load_security_master(path: Path | str | None = None) -> pd.DataFrame:
     if path.suffix == ".parquet":
         df = pd.read_parquet(path)
     elif path.suffix == ".csv":
-        df = pd.read_csv(path)
+        df = pd.read_csv(path, dtype={"symbol": "string", "name": "string", "exchange": "string", "sector": "string"})
     else:
         raise ValueError(f"Unsupported file format: {path.suffix}")
 

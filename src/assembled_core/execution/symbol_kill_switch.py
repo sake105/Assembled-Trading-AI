@@ -185,10 +185,45 @@ def filter_orders_from_policy(
     return filter_orders_by_symbol_blocks(orders, state_path=state_path)
 
 
+def filter_orders_with_kill_switches(
+    orders: pd.DataFrame,
+    *,
+    state_path: str | Path | None = None,
+) -> pd.DataFrame:
+    """B8: Unified kill-switch filter — combines global + per-symbol blocks.
+
+    Applies in order:
+    1. Global kill switch (all trading halted): returns empty DataFrame.
+    2. Per-symbol blocks: filters out blocked symbols.
+
+    Returns:
+        Filtered orders DataFrame (copy). May be empty if global kill is active.
+    """
+    if orders is None or orders.empty:
+        return orders if orders is not None else pd.DataFrame()
+
+    # 1. Global kill switch check
+    try:
+        from src.assembled_core.execution.kill_switch import is_kill_switch_engaged
+        if is_kill_switch_engaged():
+            import logging as _log
+            _log.getLogger(__name__).warning(
+                "[kill_switch] Global kill switch ENGAGED — all %d orders blocked", len(orders)
+            )
+            return orders.iloc[0:0].copy()
+    except Exception:
+        pass  # If global kill_switch unavailable, continue with per-symbol check
+
+    # 2. Per-symbol blocks
+    filtered, _ = filter_orders_by_symbol_blocks(orders, state_path=state_path)
+    return filtered
+
+
 __all__ = [
     "block_symbol",
     "filter_orders_by_symbol_blocks",
     "filter_orders_from_policy",
+    "filter_orders_with_kill_switches",
     "is_symbol_blocked",
     "list_blocked_symbols",
     "unblock_symbol",

@@ -62,7 +62,7 @@ def load_universe_history(
     for fmt in ("parquet", "csv"):
         path = _universe_path(universe_name, base, fmt)
         if path.exists():
-            return pd.read_csv(path) if fmt == "csv" else pd.read_parquet(path)
+            return pd.read_csv(path, dtype={"symbol": "string"}) if fmt == "csv" else pd.read_parquet(path)
 
     return empty
 

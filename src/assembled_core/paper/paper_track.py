@@ -1797,7 +1797,7 @@ def _write_aggregated_artifacts(
         if output_format == "parquet":
             existing = pd.read_parquet(equity_curve_path)
         else:
-            existing = pd.read_csv(equity_curve_path)
+            existing = pd.read_csv(equity_curve_path, dtype={"date": "string"})
         # Remove duplicate for this date (if rerun)
         existing = existing[existing["date"] != date_str]
         # Append new row
@@ -1831,7 +1831,7 @@ def _write_aggregated_artifacts(
         if output_format == "parquet":
             existing = pd.read_parquet(trades_all_path)
         else:
-            existing = pd.read_csv(trades_all_path)
+            existing = pd.read_csv(trades_all_path, dtype={"symbol": "string", "side": "string", "date": "string"})
         # Remove duplicates for this date (if rerun)
         if "date" in existing.columns:
             existing = existing[existing["date"] != date_str]

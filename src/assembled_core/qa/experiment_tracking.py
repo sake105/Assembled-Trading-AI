@@ -40,7 +40,7 @@ import json
 import logging
 import shutil
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 from uuid import uuid4
@@ -129,7 +129,7 @@ class ExperimentTracker:
             '20250115_143022_abc12345'
         """
         # Generate run_id: YYYYMMDD_HHMMSS_<uuid8>
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         uuid_short = str(uuid4()).replace("-", "")[:8]
         run_id = f"{timestamp}_{uuid_short}"
 
@@ -143,7 +143,7 @@ class ExperimentTracker:
         run = ExperimentRun(
             run_id=run_id,
             name=name,
-            created_at=datetime.now().isoformat(),
+            created_at=datetime.now(timezone.utc).isoformat(),
             config=dict(config) if config else {},
             tags=list(tags) if tags else [],
             status="running",
@@ -195,7 +195,7 @@ class ExperimentTracker:
         metrics_csv_path = run_dir / "metrics.csv"
 
         # Prepare data for CSV
-        timestamp = datetime.now().isoformat()
+        timestamp = datetime.now(timezone.utc).isoformat()
         step_str = str(step) if step is not None else ""
 
         # Check if CSV exists
@@ -302,7 +302,7 @@ class ExperimentTracker:
 
         # Update status
         run_data["status"] = status
-        run_data["finished_at"] = datetime.now().isoformat()
+        run_data["finished_at"] = datetime.now(timezone.utc).isoformat()
 
         # Save updated run.json
         try:

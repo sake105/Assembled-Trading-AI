@@ -70,7 +70,7 @@ class AlertManager:
             return None
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        filepath = self.output_dir / f"alerts_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        filepath = self.output_dir / f"alerts_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.json"
 
         data = [
             {"level": a.level, "source": a.source, "message": a.message,

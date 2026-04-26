@@ -154,7 +154,7 @@ def get_portfolio_current(freq: Frequency) -> PortfolioSnapshot:
         )
 
     try:
-        equity_df = pd.read_csv(equity_file)
+        equity_df = pd.read_csv(equity_file, dtype={"timestamp": "string"})
 
         if "timestamp" not in equity_df.columns or "equity" not in equity_df.columns:
             raise HTTPException(
@@ -266,7 +266,7 @@ def get_portfolio_equity_curve(freq: Frequency) -> EquityCurveResponse:
 
     try:
         try:
-            df = pd.read_csv(equity_file)
+            df = pd.read_csv(equity_file, dtype={"timestamp": "string"})
         except (IOError, OSError) as exc:
             raise HTTPException(
                 status_code=500,

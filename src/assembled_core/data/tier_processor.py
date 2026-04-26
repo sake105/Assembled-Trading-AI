@@ -105,7 +105,7 @@ async def on_demand_analysis(
     # Fetch data
     try:
         import yfinance as yf
-        data = await asyncio.get_event_loop().run_in_executor(
+        data = await asyncio.get_running_loop().run_in_executor(
             None,
             lambda: yf.Ticker(ticker).history(period=f"{lookback_days}d"),
         )
@@ -181,7 +181,7 @@ class TierProcessor:
             async with self._tier1_sem:
                 if asyncio.iscoroutinefunction(fn):
                     return await fn(ticker)
-                return await asyncio.get_event_loop().run_in_executor(None, fn, ticker)
+                return await asyncio.get_running_loop().run_in_executor(None, fn, ticker)
 
         return await asyncio.gather(*[_bounded(t) for t in tickers])
 
@@ -197,7 +197,7 @@ class TierProcessor:
             async with self._tier2_sem:
                 if asyncio.iscoroutinefunction(fn):
                     return await fn(ticker)
-                return await asyncio.get_event_loop().run_in_executor(None, fn, ticker)
+                return await asyncio.get_running_loop().run_in_executor(None, fn, ticker)
 
         return await asyncio.gather(*[_bounded(t) for t in tickers])
 

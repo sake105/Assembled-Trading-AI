@@ -33,7 +33,7 @@ class LocalParquetPriceDataSource:
 
         try:
             if path.suffix == ".csv":
-                df = pd.read_csv(path)
+                df = pd.read_csv(path, dtype={"symbol": "string"})
             else:
                 df = pd.read_parquet(path)
         except FileNotFoundError as exc:

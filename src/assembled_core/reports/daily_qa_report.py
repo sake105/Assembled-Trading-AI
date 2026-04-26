@@ -524,7 +524,7 @@ def generate_qa_report_from_files(
     if not equity_file.exists():
         raise FileNotFoundError(f"Equity file not found: {equity_file}")
 
-    equity_df = pd.read_csv(equity_file)
+    equity_df = pd.read_csv(equity_file, dtype={"timestamp": "string"})
     equity_df["timestamp"] = pd.to_datetime(equity_df["timestamp"], utc=True)
 
     # Load trades if available
@@ -533,7 +533,7 @@ def generate_qa_report_from_files(
         if isinstance(trades_file, str):
             trades_file = Path(trades_file)
         if trades_file.exists():
-            trades_df = pd.read_csv(trades_file)
+            trades_df = pd.read_csv(trades_file, dtype={"symbol": "string", "side": "string", "timestamp": "string"})
             trades_df["timestamp"] = pd.to_datetime(trades_df["timestamp"], utc=True)
 
     # Compute metrics

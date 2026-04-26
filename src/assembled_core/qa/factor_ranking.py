@@ -76,7 +76,7 @@ def build_factor_ranking(
     ic_dfs = []
     for path in ic_summary_paths:
         try:
-            df = pd.read_csv(path)
+            df = pd.read_csv(path, dtype={"factor": "string", "symbol": "string"})
             if "factor" not in df.columns:
                 logger.warning(f"IC summary {path} missing 'factor' column. Skipping.")
                 continue
@@ -104,7 +104,7 @@ def build_factor_ranking(
     rank_ic_dfs = []
     for path in rank_ic_summary_paths:
         try:
-            df = pd.read_csv(path)
+            df = pd.read_csv(path, dtype={"factor": "string", "symbol": "string"})
             if "factor" not in df.columns:
                 logger.warning(
                     f"Rank-IC summary {path} missing 'factor' column. Skipping."
@@ -144,7 +144,7 @@ def build_factor_ranking(
         portfolio_dfs = []
         for path in portfolio_summary_paths:
             try:
-                df = pd.read_csv(path)
+                df = pd.read_csv(path, dtype={"factor": "string", "symbol": "string"})
                 if "factor" not in df.columns:
                     logger.warning(
                         f"Portfolio summary {path} missing 'factor' column. Skipping."

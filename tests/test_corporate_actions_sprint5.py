@@ -25,7 +25,7 @@ from src.assembled_core.data.corporate_actions import (  # noqa: E402
     apply_spinoff,
 )
 
-pytestmark = pytest.mark.phase12
+pytestmark = [pytest.mark.phase12, pytest.mark.unwired_code]
 
 
 # ---------------------------------------------------------------------------

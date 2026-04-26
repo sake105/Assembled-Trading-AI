@@ -49,7 +49,7 @@ def load_insider_sample(path: Path | str | None = None) -> pd.DataFrame:
                 raise IOError(f"Failed to read insider data file {path}") from exc
         elif path.suffix == ".csv":
             try:
-                df = pd.read_csv(path)
+                df = pd.read_csv(path, dtype={"symbol": "string", "transaction_type": "string"})
             except (IOError, OSError) as exc:
                 raise IOError(f"Failed to read insider data file {path}") from exc
             if "timestamp" in df.columns:

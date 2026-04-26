@@ -136,7 +136,7 @@ line-length = 88
 
 [tool.ruff.lint]
 # Nur echte Fehler prüfen, keine Style-Warnungen
-select = ["E", "F"]
+select = ["E", "F", "NPY201"]
 ignore = ["E501", "E203", "E402"]  # E402: Module level import not at top (absichtlich in Tests nach sys.path.insert)
 
 [tool.ruff.lint.isort]

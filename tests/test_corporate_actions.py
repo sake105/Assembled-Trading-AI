@@ -25,6 +25,7 @@ from src.assembled_core.data.corporate_actions import (
 )
 
 
+@pytest.mark.unwired_code
 def test_split_adjustment_no_fake_crash() -> None:
     """Test that 2:1 split doesn't create fake -50% crash in research returns."""
     # Create prices: 2:1 split on day 3
@@ -82,6 +83,7 @@ def test_split_adjustment_no_fake_crash() -> None:
     assert any(returns_unadjusted < -0.5), "Unadjusted returns show fake crash"
 
 
+@pytest.mark.unwired_code
 def test_split_adjustment_multiple_splits() -> None:
     """Test that multiple splits are applied correctly."""
     # Create prices with two splits
@@ -127,6 +129,7 @@ def test_split_adjustment_multiple_splits() -> None:
     ), "Multiple splits should be applied correctly"
 
 
+@pytest.mark.unwired_code
 def test_dividend_cashflow_computation() -> None:
     """Test that dividend cashflows are computed correctly."""
     # Create positions
@@ -168,6 +171,7 @@ def test_dividend_cashflow_computation() -> None:
     ), "Timestamp should match"
 
 
+@pytest.mark.unwired_code
 def test_dividend_cashflow_multiple_dividends() -> None:
     """Test that multiple dividends are computed correctly."""
     # Create positions
@@ -209,6 +213,7 @@ def test_dividend_cashflow_multiple_dividends() -> None:
     ].is_monotonic_increasing, "Cashflows should be sorted by timestamp"
 
 
+@pytest.mark.unwired_code
 def test_dividend_cashflow_as_of_filter() -> None:
     """Test that as_of filter works correctly."""
     # Create positions
@@ -243,6 +248,7 @@ def test_dividend_cashflow_as_of_filter() -> None:
     ), "Should be first dividend"
 
 
+@pytest.mark.unwired_code
 def test_split_adjustment_empty_actions() -> None:
     """Test that empty actions return unchanged prices."""
     prices = pd.DataFrame(
@@ -265,6 +271,7 @@ def test_split_adjustment_empty_actions() -> None:
     ), "close_research should equal close when no actions"
 
 
+@pytest.mark.unwired_code
 def test_dividend_cashflow_empty_positions() -> None:
     """Test that empty positions return empty cashflows."""
     positions = pd.DataFrame(columns=["symbol", "qty"])
@@ -284,6 +291,7 @@ def test_dividend_cashflow_empty_positions() -> None:
     assert cashflows.empty, "Should return empty cashflows when no positions"
 
 
+@pytest.mark.unwired_code
 def test_split_adjustment_validation() -> None:
     """Test that validation errors are raised for invalid inputs."""
     prices = pd.DataFrame(
@@ -320,6 +328,7 @@ def test_split_adjustment_validation() -> None:
         apply_splits_for_research_prices(prices, actions_dividend)
 
 
+@pytest.mark.unwired_code
 def test_dividend_cashflow_validation() -> None:
     """Test that validation errors are raised for invalid inputs."""
     positions = pd.DataFrame(

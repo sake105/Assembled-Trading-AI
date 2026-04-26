@@ -162,7 +162,7 @@ def check_orders(freq: str, output_dir: Path | None = None) -> QaCheckResult:
     try:
         # Load and check DataFrame
         try:
-            df = pd.read_csv(orders_file)
+            df = pd.read_csv(orders_file, dtype={"symbol": "string", "side": "string"})
         except (IOError, OSError) as exc:
             return QaCheckResult(
                 name="orders",
@@ -262,7 +262,7 @@ def check_portfolio(freq: str, output_dir: Path | None = None) -> QaCheckResult:
     try:
         # Load and check DataFrame
         try:
-            df = pd.read_csv(portfolio_file)
+            df = pd.read_csv(portfolio_file, dtype={"symbol": "string"})
         except (IOError, OSError) as exc:
             return QaCheckResult(
                 name="portfolio",
