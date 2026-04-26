@@ -148,7 +148,8 @@ def _triple_barrier_numpy(
     """Numpy fallback triple-barrier implementation."""
     if vol is None:
         log_ret = np.log(prices).diff()
-        vol = log_ret.rolling(20).std().fillna(method="bfill")
+        vol = log_ret.rolling(20, min_periods=20).std()
+        # No forward-fill — first 20 rows stay NaN to avoid look-ahead leakage in ML labels.
 
     pt_mult, sl_mult = pt_sl
     rows = []
@@ -158,7 +159,10 @@ def _triple_barrier_numpy(
             continue
 
         p0 = prices.loc[t0]
-        v = float(vol.asof(t0)) if hasattr(vol, "asof") else float(vol.loc[t0]) if t0 in vol.index else 0.01
+        v_raw = vol.asof(t0) if hasattr(vol, "asof") else (vol.loc[t0] if t0 in vol.index else None)
+        if v_raw is None or pd.isna(v_raw):
+            continue  # Skip events before vol window is fully populated (avoids look-ahead)
+        v = float(v_raw)
 
         pt_barrier = p0 * (1 + pt_mult * v)
         sl_barrier = p0 * (1 - sl_mult * v)
@@ -191,12 +195,13 @@ def _triple_barrier_numpy(
                 exit_price = window.iloc[-1]
 
         ret = (exit_price - p0) / p0
-        rows.append({"t1": t1, "ret": ret, "bin": label})
+        rows.append({"t0": t0, "t1": t1, "ret": ret, "bin": label})
 
     if not rows:
         return pd.DataFrame(columns=["t1", "ret", "bin"])
 
-    df = pd.DataFrame(rows, index=events[:len(rows)])
+    df = pd.DataFrame(rows).set_index("t0")
+    df.index.name = None
     return df
 
 

@@ -1,22 +1,10 @@
-"""Compliance & Audit modules for regulatory readiness."""
+"""Compliance module — currently archived.
+
+The implementation modules (audit_log, otr_monitor, regulatory_reports)
+were moved to archive/observability_graveyard_2026q2/compliance/ on 2026-04-25.
+See KNOWN_ISSUES.md for details. Re-activate by restoring those modules.
+"""
 
 from __future__ import annotations
 
-
-__all__ = [
-    "AuditEntry",
-    "AuditEventType",
-    "AuditLog",
-    "OTRAlertLevel",
-    "OTRMonitor",
-    "OTRSnapshot",
-    "BestExecutionReport",
-    "ModelInventoryEntry",
-    "ModelInventoryReport",
-    "RiskReport",
-    "TransactionCostReport",
-    "generate_best_execution_report",
-    "generate_model_inventory",
-    "generate_risk_report",
-    "generate_transaction_cost_report",
-]
+__all__: list[str] = []

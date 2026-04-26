@@ -970,7 +970,7 @@ def run_correlated_stress_test(
     Returns:
         Dict with mean_loss, var_95, cvar_95, worst_case.
     """
-    np.random.seed(seed)
+    rng = np.random.default_rng(seed)
     assets = [s for s in weights if s in returns.columns]
     if not assets:
         return {"mean_loss": 0.0, "var_95": 0.0, "cvar_95": 0.0, "worst_case": 0.0}
@@ -988,14 +988,21 @@ def run_correlated_stress_test(
     # Covariance from stressed corr + amplified vols
     cov = np.outer(vols, vols) * corr
 
-    # Cholesky
-    try:
-        L = np.linalg.cholesky(cov + np.eye(n) * 1e-8)
-    except np.linalg.LinAlgError:
-        L = np.eye(n) * vols.mean()
+    # Eigenvalue-clip to ensure positive-semidefinite
+    eigvals, eigvecs = np.linalg.eigh(cov)
+    eigvals = np.maximum(eigvals, 1e-10)
+    cov = eigvecs @ np.diag(eigvals) @ eigvecs.T
 
-    # Simulate
-    z = np.random.standard_normal((n_sims, n))
+    # Cholesky (diagonal fallback uses per-asset vols, not averaged)
+    try:
+        L = np.linalg.cholesky(cov)
+    except np.linalg.LinAlgError:
+        import logging as _log
+        _log.getLogger(__name__).warning("[scenario_engine] Cholesky failed — falling back to diagonal vols")
+        L = np.diag(np.sqrt(np.diag(cov)))
+
+    # Simulate using isolated RNG (reproducible with seed)
+    z = rng.standard_normal((n_sims, n))
     sim_returns = return_shock + z @ L.T
     port_returns = sim_returns @ w
 

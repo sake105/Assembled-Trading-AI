@@ -33,6 +33,8 @@ from typing import Any
 
 import pandas as pd
 
+from src.assembled_core.risk.state_machine import atomic_write_json_with_retry
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_STATE_PATH = Path("output") / "state" / "symbol_kill_switch.json"
@@ -69,7 +71,7 @@ def _read_state(path: Path) -> dict[str, Any]:
 
 def _write_state(path: Path, state: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
+    atomic_write_json_with_retry(path, state, retries=3, backoff_ms=50)
 
 
 def block_symbol(

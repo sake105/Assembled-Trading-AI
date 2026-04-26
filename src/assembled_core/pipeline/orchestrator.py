@@ -543,6 +543,17 @@ def run_execute_step(
     # Generate orders
     orders = signals_to_orders(signals)
 
+    # Annotate orders with cost columns (slippage, commission, spread)
+    try:
+        from src.assembled_core.execution.transaction_costs import (
+            add_cost_columns_to_trades,
+        )
+        from src.assembled_core.costs import get_default_cost_model
+        cost_model = get_default_cost_model()
+        orders = add_cost_columns_to_trades(orders, prices=prices, cost_model=cost_model)
+    except Exception as _e:  # noqa: BLE001
+        logger.debug("[orchestrator] Cost annotation skipped: %s", _e)
+
     # Write orders
     orders_path = write_orders(orders, freq, output_dir=base)
 

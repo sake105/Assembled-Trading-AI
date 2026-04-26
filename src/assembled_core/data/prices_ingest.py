@@ -17,9 +17,13 @@ from typing import Literal
 
 import pandas as pd
 
+import logging
+
 from src.assembled_core.config import OUTPUT_DIR, get_base_dir
 from src.assembled_core.utils.dataframe import coerce_price_types, ensure_cols
 from src.assembled_core.utils.paths import get_default_price_path
+
+logger = logging.getLogger(__name__)
 
 
 def load_eod_prices(
@@ -138,10 +142,13 @@ def load_eod_prices(
     )
     if invalid.any():
         invalid_count = invalid.sum()
-        print(
-            f"[PRICES] WARNING: {invalid_count} rows with invalid OHLC relationships (high < low, etc.)"
-        )
-        # Don't fail, but log warning
+        logger.warning("[load_eod_prices] %d rows with invalid OHLC relationships (high < low, etc.)", invalid_count)
+
+    # Run full validation and log issues
+    validation = validate_price_data(df)
+    if not validation.get("valid", True):
+        issues = validation.get("issues", [])
+        logger.warning("[load_eod_prices] Data quality issues: %s", issues)
 
     # Sort and return
     df = df.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
