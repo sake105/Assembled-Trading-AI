@@ -90,7 +90,7 @@ from src.assembled_core.pipeline.portfolio import simulate_with_costs
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.assembled_core.pipeline.trading_cycle import (
+    from src.assembled_core.pipeline.trading_cycle_shared import (
         TradingContext,
         TradingCycleResult,
     )
@@ -268,7 +268,7 @@ def make_cycle_fn(
     position_sizing_fn: Callable[[pd.DataFrame, float], pd.DataFrame],
     capital: float,
     run_trading_cycle_fn: Callable | None = None,
-    enable_risk_controls: bool | None = None,
+    enable_risk_controls: bool = True,
 ) -> Callable[[pd.Timestamp, pd.DataFrame], "TradingCycleResult"]:
     """Create a callable that runs trading cycle for a given timestamp and positions.
 
@@ -312,12 +312,7 @@ def make_cycle_fn(
             run_trading_cycle as run_trading_cycle_fn,
         )
 
-    # When not explicitly set, respect ctx_template's enable_risk_controls value.
-    _enable_risk_controls: bool = (
-        enable_risk_controls
-        if enable_risk_controls is not None
-        else getattr(ctx_template, "enable_risk_controls", True)
-    )
+    _enable_risk_controls: bool = enable_risk_controls
 
     def cycle_fn(
         timestamp: pd.Timestamp,

@@ -202,3 +202,33 @@ Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante 
 
 **Hinweis:** Dieses Dokument wird regelmäßig aktualisiert. Neue Issues sollten hier eingetragen werden, bevor sie in GitHub Issues erstellt werden.
 
+
+---
+
+## 5. trading_cycle.py Migration Audit (2026-04-26)
+
+**Status:** Phase 0 abgeschlossen — Phase 3+4 bereit
+
+### Audit-Ergebnis
+
+| Metrik | Wert |
+|---|---|
+| Zeilen trading_cycle.py | 9.141 |
+| Imports gesamt (intern) | 516 |
+| OK (Datei existiert) | 331 |
+| Dead total | 185 |
+| davon ARCHIVED | 151 |
+| davon MISSING | 34 |
+| in try/except (safe to delete) | 184 |
+| außerhalb try/except | 1 (`news_triggers_loader`, bereits archiviert) |
+
+**Coverage-Befund:** `trading_cycle.py` wird in der gesamten phase12-Suite **nie importiert** — 100% toter Code im Testlauf.
+
+### Phase 2 — Keine Migration nötig
+
+Alle 7 vermeintlichen "Phase 2"-Integrationen (evidence_engine, news_burst, fingerprint, tfidf, trigger_scoring, misinfo_risk, news_ml_bridge) sind reine Observability-Wiring-Blöcke. Sie verwenden hardcodierte Dummy-Daten und schreiben ausschließlich `{"available": True}` in `result.meta`. Keine echte Handelslogik. → **Direkt löschen in Phase 3**.
+
+### Nächste Schritte
+
+- Phase 3: 185 tote try/except-Blöcke löschen → trading_cycle.py < 500 Zeilen
+- Phase 4: trading_cycle.py archivieren, trading_cycle_v2.py → trading_cycle.py umbenennen

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Dict
 
 if TYPE_CHECKING:
-    from src.assembled_core.pipeline.trading_cycle import TradingContext
+    from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
 
 
 def compute_exposure_multiplier(ctx: "TradingContext", policy: Dict[str, Any]) -> float:

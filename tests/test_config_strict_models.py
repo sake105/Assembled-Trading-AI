@@ -273,7 +273,7 @@ def test_ensure_gate_config_none() -> None:
 
 def test_trading_context_backward_compatibility() -> None:
     """Test that TradingContext accepts dict configs (backward compatibility)."""
-    from src.assembled_core.pipeline.trading_cycle import TradingContext
+    from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
     import pandas as pd
 
     # Create minimal prices DataFrame
@@ -301,7 +301,7 @@ def test_trading_context_backward_compatibility() -> None:
 
 def test_trading_context_with_models() -> None:
     """Test that TradingContext accepts Pydantic model configs."""
-    from src.assembled_core.pipeline.trading_cycle import TradingContext
+    from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
     import pandas as pd
 
     # Create minimal prices DataFrame

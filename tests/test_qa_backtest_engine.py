@@ -531,7 +531,7 @@ def test_backtest_engine_cost_model(synthetic_prices_multi_year):
 @pytest.mark.unit
 def test_rebalance_timestamps_timezone_normalization(synthetic_prices_single_symbol):
     """Naive rebalance_timestamps must match UTC-aware price timestamps (cycle_fn path)."""
-    from src.assembled_core.pipeline.trading_cycle import TradingContext
+    from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
 
     prices = synthetic_prices_single_symbol.copy()
     # Price timestamps are UTC-aware; create naive variants for first 2 days
@@ -556,6 +556,7 @@ def test_rebalance_timestamps_timezone_normalization(synthetic_prices_single_sym
         signal_fn=dummy_signal_fn,
         position_sizing_fn=dummy_position_sizing_fn,
         capital=10000.0,
+        enable_risk_controls=False,  # timezone test; risk controls not relevant here
     )
 
     result = run_portfolio_backtest(

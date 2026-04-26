@@ -164,7 +164,7 @@ def save_risk_state(
 
 
 if TYPE_CHECKING:
-    from src.assembled_core.pipeline.trading_cycle import TradingContext
+    from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
 
 
 def _effective_geo(ctx: "TradingContext", policy: Dict[str, Any]) -> tuple[int, float]:

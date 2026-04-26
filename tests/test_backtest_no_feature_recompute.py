@@ -27,7 +27,7 @@ from src.assembled_core.qa.backtest_engine import (
     make_cycle_fn,
     run_portfolio_backtest,
 )
-from src.assembled_core.pipeline.trading_cycle import TradingContext
+from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
 from src.assembled_core.signals.rules_trend import generate_trend_signals_from_prices
 from src.assembled_core.portfolio.position_sizing import (
     compute_target_positions_from_trend_signals,
@@ -128,7 +128,7 @@ def test_backtest_features_not_recomputed_per_timestamp(monkeypatch):
     )
 
     # Also track _build_features_default calls (it might be called, but should skip feature building)
-    from src.assembled_core.pipeline.trading_cycle import _build_features_default
+    from src.assembled_core.pipeline.trading_cycle_shared import _build_features_default
 
     def tracked_build_features_default(*args, **kwargs):
         """Wrapper that tracks calls to _build_features_default."""

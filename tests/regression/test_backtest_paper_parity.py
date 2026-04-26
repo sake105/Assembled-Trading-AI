@@ -26,7 +26,7 @@ import inspect
 import pandas as pd
 import pytest
 
-from src.assembled_core.pipeline.trading_cycle import TradingContext
+from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
 from src.assembled_core.qa.backtest_engine import make_cycle_fn, run_portfolio_backtest
 
 pytestmark = pytest.mark.phase_zero
@@ -61,7 +61,7 @@ def test_make_cycle_fn_applies_enable_risk_controls_to_ctx() -> None:
 
     def fake_run_cycle(ctx):
         captured["enable_risk_controls"] = ctx.enable_risk_controls
-        from src.assembled_core.pipeline.trading_cycle import TradingCycleResult
+        from src.assembled_core.pipeline.trading_cycle_shared import TradingCycleResult
 
         return TradingCycleResult(
             timestamp=ctx.as_of,

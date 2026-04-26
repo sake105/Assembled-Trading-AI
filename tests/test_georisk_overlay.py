@@ -5,7 +5,7 @@ from typing import Any, Dict, cast
 
 import pytest
 
-from src.assembled_core.pipeline.trading_cycle import TradingContext
+from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
 from src.assembled_core.risk.georisk_overlay import compute_exposure_multiplier
 
 

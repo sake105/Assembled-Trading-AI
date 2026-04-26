@@ -47,7 +47,7 @@ from src.assembled_core.data.security_master import (
     get_default_security_master_path,
     load_security_master,
 )
-from src.assembled_core.pipeline.trading_cycle import TradingContext
+from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
 from src.assembled_core.qa.metrics import compute_all_metrics
 from src.assembled_core.qa.qa_gates import QAResult, evaluate_all_gates
 from src.assembled_core.reports.daily_qa_report import generate_qa_report
