@@ -117,8 +117,8 @@ def test_georisk_overlay_applied_in_trading_cycle(monkeypatch: Any) -> None:
         capital=1.0,
     )
 
-    # Monkeypatch overlay components at call site in trading_cycle
-    import src.assembled_core.pipeline.trading_cycle as tc
+    # Monkeypatch overlay components at call site in trading_cycle_v2
+    import src.assembled_core.pipeline.trading_cycle_v2 as tc
 
     def fake_load_policy(path: str = "configs/policy.yaml") -> dict:
         return {"georisk_overlay": {"enabled": True}}
