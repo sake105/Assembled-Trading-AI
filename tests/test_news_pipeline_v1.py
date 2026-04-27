@@ -1775,7 +1775,7 @@ def test_rss_headers_if_modified_since_etag_applied(monkeypatch):
         return Resp()
 
     fake_requests = types.SimpleNamespace(get=fake_get)
-    sys.modules["requests"] = fake_requests
+    monkeypatch.setitem(sys.modules, "requests", fake_requests)
 
     # Stub feedparser module so that import inside fetch_rss_feed succeeds
     fake_feedparser = types.SimpleNamespace(
@@ -1790,7 +1790,7 @@ def test_rss_headers_if_modified_since_etag_applied(monkeypatch):
             ]
         )
     )
-    sys.modules["feedparser"] = fake_feedparser
+    monkeypatch.setitem(sys.modules, "feedparser", fake_feedparser)
 
     fetch_state = {
         "rss": {
@@ -1845,8 +1845,8 @@ def test_rss_fetch_state_persists_new_source_entry(monkeypatch):
 
         return Resp()
 
-    sys.modules["requests"] = types.SimpleNamespace(get=fake_get)
-    sys.modules["feedparser"] = types.SimpleNamespace(
+    monkeypatch.setitem(sys.modules, "requests", types.SimpleNamespace(get=fake_get))
+    monkeypatch.setitem(sys.modules, "feedparser", types.SimpleNamespace(
         parse=lambda content: types.SimpleNamespace(
             entries=[
                 {
@@ -1857,7 +1857,7 @@ def test_rss_fetch_state_persists_new_source_entry(monkeypatch):
                 }
             ]
         )
-    )
+    ))
 
     fetch_state = {"rss": {}}
     items, failure, stats = fetch_rss_feed(
@@ -1890,7 +1890,7 @@ def test_gdelt_cache_hit_no_request(monkeypatch):
         raise AssertionError("requests.get should not be called on cache hit")
 
     fake_requests = types.SimpleNamespace(get=fake_get)
-    sys.modules["requests"] = fake_requests
+    monkeypatch.setitem(sys.modules, "requests", fake_requests)
 
     from datetime import datetime, timezone, timedelta
 
