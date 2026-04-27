@@ -126,7 +126,7 @@ class CBOESource:
             DataFrame with columns: timestamp, put_call_ratio.
         """
         try:
-            raw = pd.read_csv(_CBOE_PCR_URL)
+            raw = pd.read_csv(_CBOE_PCR_URL, dtype=str)
         except Exception as exc:
             logger.warning("[CBOE] Failed to fetch put/call ratio from CBOE: %s", exc)
             return pd.DataFrame(columns=["timestamp", "put_call_ratio"])

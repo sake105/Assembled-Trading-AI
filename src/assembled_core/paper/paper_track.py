@@ -1877,7 +1877,7 @@ def _write_aggregated_artifacts(
         if output_format == "parquet":
             existing = pd.read_parquet(positions_history_path)
         else:
-            existing = pd.read_csv(positions_history_path)
+            existing = pd.read_csv(positions_history_path, dtype={"date": str, "symbol": str})
         # Remove duplicates for this date (if rerun)
         if "date" in existing.columns:
             existing = existing[existing["date"] != date_str]
@@ -1918,7 +1918,7 @@ def _write_aggregated_artifacts(
                 if output_format == "parquet":
                     existing_perf = pd.read_parquet(perf_path)
                 else:
-                    existing_perf = pd.read_csv(perf_path)
+                    existing_perf = pd.read_csv(perf_path, dtype={"timestamp": str, "window": str})
                 # Deduplicate by (timestamp, window)
                 key_cols = ["timestamp", "window"]
                 merged = pd.concat(

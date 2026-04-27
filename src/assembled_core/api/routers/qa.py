@@ -335,10 +335,10 @@ def get_qa_gates(freq: str) -> QAGatesSummaryResponse:
 
         equity_df = None
         if portfolio_equity_file.exists():
-            equity_df = pd.read_csv(portfolio_equity_file)
+            equity_df = pd.read_csv(portfolio_equity_file, dtype={"timestamp": str})
             equity_df["timestamp"] = pd.to_datetime(equity_df["timestamp"], utc=True)
         elif backtest_equity_file.exists():
-            equity_df = pd.read_csv(backtest_equity_file)
+            equity_df = pd.read_csv(backtest_equity_file, dtype={"timestamp": str})
             equity_df["timestamp"] = pd.to_datetime(equity_df["timestamp"], utc=True)
 
         if equity_df is None or equity_df.empty:

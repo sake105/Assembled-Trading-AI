@@ -104,7 +104,7 @@ def get_russell2000_tickers() -> list[str]:
         "?fileType=csv&fileName=IWM_holdings&dataType=fund"
     )
     try:
-        df = pd.read_csv(url, skiprows=9)
+        df = pd.read_csv(url, skiprows=9, dtype=str)
         tickers = df["Ticker"].dropna().tolist()
         # Filter out non-equity rows
         tickers = [t for t in tickers if isinstance(t, str) and t.isalpha() and 1 <= len(t) <= 5]

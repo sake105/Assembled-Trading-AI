@@ -391,4 +391,4 @@ class ExperimentTracker:
                 columns=["step", "timestamp", "metric_name", "metric_value"]
             )
 
-        return pd.read_csv(metrics_csv_path)
+        return pd.read_csv(metrics_csv_path, dtype={"step": str, "metric_name": str})

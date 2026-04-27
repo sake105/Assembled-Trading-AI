@@ -31,9 +31,9 @@ from src.assembled_core.execution.paper_trading_engine import (
 )
 from src.assembled_core.execution.pre_trade_checks import PreTradeConfig
 from src.assembled_core.execution.risk_controls import filter_orders_with_risk_controls
-from src.assembled_core.logging_utils import setup_logging
+from src.assembled_core.logging_utils import get_logger
 
-logger = setup_logging(level="INFO")
+logger = get_logger("assembled_core.api.paper_trading")
 
 router = APIRouter()
 

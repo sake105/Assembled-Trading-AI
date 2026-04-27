@@ -276,7 +276,7 @@ def _compute_sector_rotation_bias(
         if not os.path.isfile(meta_path):
             return pd.Series(0.0, index=latest_symbols)
 
-        meta = pd.read_csv(meta_path)
+        meta = pd.read_csv(meta_path, dtype={"symbol": str, "sector": str})
         sym_to_sector = dict(zip(meta["symbol"], meta["sector"]))
 
         from src.assembled_core.signals.sector_rotation import (

@@ -41,12 +41,12 @@ from src.assembled_core.execution.pre_trade_checks import (
     PreTradeConfig,
     run_pre_trade_checks,
 )
-from src.assembled_core.logging_utils import setup_logging
+from src.assembled_core.logging_utils import get_logger
 
 if TYPE_CHECKING:
     from src.assembled_core.qa.qa_gates import QAGatesSummary
 
-logger = setup_logging(level="INFO")
+logger = get_logger("assembled_core.execution.risk_controls")
 
 # ---------------------------------------------------------------------------
 # Crisis-Alpha PAUSE Kill-Switch (T4.3)

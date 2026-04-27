@@ -17,9 +17,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Literal
 
-from src.assembled_core.logging_utils import setup_logging
+from src.assembled_core.logging_utils import get_logger
 
-logger = setup_logging(level="INFO")
+logger = get_logger("assembled_core.execution.paper_trading_engine")
 
 
 @dataclass
