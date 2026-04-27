@@ -1176,7 +1176,8 @@ def size_positions(
                 from src.assembled_core.portfolio.bl_sizing import apply_bl_sizing
                 base_tp = ctx.position_sizing_fn(signals, ctx.capital)
                 if base_tp is not None and not base_tp.empty and "target_weight" in base_tp.columns and prices_for_sizing is not None and not prices_for_sizing.empty:
-                    score_w = {str(r["symbol"]): float(r["target_weight"]) for _, r in base_tp.iterrows() if pd.notna(r.get("target_weight"))}
+                    _btw = base_tp.dropna(subset=["target_weight"])
+                    score_w = {str(k): float(v) for k, v in _btw.set_index("symbol")["target_weight"].items()}
                     bl_w, _ = apply_bl_sizing(score_w, prices_for_sizing, lookback_days=int(sizing_cfg.get("lookback_days", 60)), risk_aversion=float(sizing_cfg.get("risk_aversion", 2.5)), tau=float(sizing_cfg.get("tau", 0.05)), max_position=float(sizing_cfg.get("max_weight", 0.15)), confidence=float(sizing_cfg.get("bl_confidence", 0.5)), return_scale=float(sizing_cfg.get("return_scale", 0.10)), target_invested_pct=float(sizing_cfg.get("target_invested_pct", 1.0)))
                     target_positions = pd.DataFrame([{"symbol": s, "target_weight": round(w, 6), "target_qty": round(w * ctx.capital, 2)} for s, w in bl_w.items() if abs(w) > 1e-6])
                 else:
@@ -1189,7 +1190,8 @@ def size_positions(
                 from src.assembled_core.portfolio.hrp_sizing import apply_hrp_sizing
                 base_tp = ctx.position_sizing_fn(signals, ctx.capital)
                 if base_tp is not None and not base_tp.empty and "target_weight" in base_tp.columns and prices_for_sizing is not None and not prices_for_sizing.empty:
-                    score_w = {str(r["symbol"]): float(r["target_weight"]) for _, r in base_tp.iterrows() if pd.notna(r.get("target_weight"))}
+                    _btw = base_tp.dropna(subset=["target_weight"])
+                    score_w = {str(k): float(v) for k, v in _btw.set_index("symbol")["target_weight"].items()}
                     blended, _ = apply_hrp_sizing(score_w, prices_for_sizing, lookback_days=int(sizing_cfg.get("lookback_days", 60)), blend=float(sizing_cfg.get("blend", 0.7)), target_invested_pct=float(sizing_cfg.get("target_invested_pct", 1.0)), min_weight=float(sizing_cfg.get("min_weight", 0.0)), max_weight=float(sizing_cfg.get("max_weight", 1.0)))
                     target_positions = pd.DataFrame([{"symbol": s, "target_weight": round(w, 6), "target_qty": round(w * ctx.capital, 2)} for s, w in blended.items() if abs(w) > 1e-6])
                 else:
@@ -1246,7 +1248,7 @@ def size_positions(
             from src.assembled_core.risk.liquidity_scoring import apply_liquidity_adjusted_sizing, compute_liquidity_scores
             liq_scores = compute_liquidity_scores(prices_for_sizing, lookback_days=int(liq_cfg.get("lookback_days", 60)))
             if liq_scores:
-                tw_map = {str(r["symbol"]).upper(): float(r["target_weight"]) for _, r in target_positions.iterrows()}
+                tw_map = {str(k).upper(): float(v) for k, v in target_positions.set_index("symbol")["target_weight"].items()}
                 for s in liq_scores:
                     s.symbol = s.symbol.upper()
                 adjusted_tw = apply_liquidity_adjusted_sizing(tw_map, liq_scores, alpha=float(liq_cfg.get("alpha", 0.5)), min_score_threshold=float(liq_cfg.get("min_score_threshold", 0.1)))
@@ -1351,7 +1353,7 @@ def size_positions(
                     if ts_result.triggered_symbols or ts_result.reduction_symbols:
                         tw_col = "target_weight" if "target_weight" in target_positions.columns else "weight"
                         if tw_col in target_positions.columns:
-                            weights_map = {str(r["symbol"]).upper(): float(r[tw_col]) for _, r in target_positions.iterrows()}
+                            weights_map = {str(k).upper(): float(v) for k, v in target_positions.set_index("symbol")[tw_col].items()}
                             adjusted = apply_stop_reductions_to_weights(weights_map, ts_result)
                             target_positions[tw_col] = target_positions["symbol"].astype(str).str.upper().map(adjusted).fillna(target_positions[tw_col])
                             if "target_qty" in target_positions.columns:
@@ -1372,7 +1374,8 @@ def size_positions(
             _invested_pct = None
             if ctx.capital > 0 and ctx.current_positions is not None and not ctx.current_positions.empty and "qty" in ctx.current_positions.columns:
                 _price_s = prices_for_turnover.groupby("symbol")["close"].last() if (prices_for_turnover is not None and not prices_for_turnover.empty and "close" in prices_for_turnover.columns) else pd.Series(dtype=float)
-                _inv = sum(float(r.get("qty", 0) or 0) * float(_price_s.get(r.get("symbol", ""), 0) or 0) for _, r in ctx.current_positions.iterrows())
+                _cp = ctx.current_positions
+                _inv = float((_cp["qty"].fillna(0).astype(float) * _cp["symbol"].map(_price_s).fillna(0)).sum())
                 _invested_pct = _inv / ctx.capital
             target_positions, _scale = apply_turnover_gate(
                 target_positions, ctx.current_positions, cap=cap,
@@ -1546,8 +1549,10 @@ def size_positions(
         if isinstance(ctx.current_positions, dict):
             current_w = ctx.current_positions
         elif isinstance(ctx.current_positions, pd.DataFrame) and "symbol" in ctx.current_positions.columns:
-            for _, row in ctx.current_positions.iterrows():
-                current_w[row["symbol"]] = float(row.get("weight", row.get("target_weight", 0.0)))
+            _cp = ctx.current_positions
+            _wcol = "weight" if "weight" in _cp.columns else "target_weight"
+            if _wcol in _cp.columns:
+                current_w.update({str(k): float(v) for k, v in _cp.set_index("symbol")[_wcol].fillna(0.0).items()})
 
     do_rebal, rebal_reason = should_rebalance(
         ctx, target_positions, current_weights=current_w,
@@ -1567,10 +1572,10 @@ def size_positions(
             from src.assembled_core.portfolio.cost_aware_wrapper import apply_cost_aware_from_policy
             w_col = next((c for c in ("target_weight", "weight", "target_pct") if c in target_positions.columns), None)
             if w_col and "symbol" in target_positions.columns:
-                _target_w = {str(r["symbol"]): float(r[w_col]) for _, r in target_positions.iterrows() if pd.notna(r.get(w_col))}
+                _target_w = {str(k): float(v) for k, v in target_positions.dropna(subset=[w_col]).set_index("symbol")[w_col].items()}
                 _curr_w_caw: dict[str, float] = {}
                 if ctx.current_positions is not None and not ctx.current_positions.empty and "symbol" in ctx.current_positions.columns and w_col in ctx.current_positions.columns:
-                    _curr_w_caw = {str(r["symbol"]): float(r[w_col]) for _, r in ctx.current_positions.iterrows() if pd.notna(r.get(w_col))}
+                    _curr_w_caw = {str(k): float(v) for k, v in ctx.current_positions.dropna(subset=[w_col]).set_index("symbol")[w_col].items()}
                 _adj_w, _caw_reasons = apply_cost_aware_from_policy(_target_w, _curr_w_caw, policy, current_invested_pct=float(sum(abs(v) for v in _target_w.values())))
                 if _caw_reasons:
                     target_positions = target_positions.copy()
@@ -1977,7 +1982,10 @@ def book_fills(
     try:
         if ctx.write_outputs and not result.orders_filtered.empty and ctx.as_of is not None:
             from src.assembled_core.ops.trade_journal import append_trade_journal_entries
-            _tj_fills = [{"symbol": str(r.get("symbol", "")), "side": str(r.get("side", "BUY")), "qty": float(r.get("quantity", r.get("qty", 0))), "price": float(r.get("price", r.get("limit_price", 0)))} for _, r in result.orders_filtered.iterrows()]
+            _of = result.orders_filtered
+            _qty_col = "quantity" if "quantity" in _of.columns else "qty"
+            _price_col = "price" if "price" in _of.columns else "limit_price"
+            _tj_fills = [{"symbol": str(r["symbol"]), "side": str(r["side"]), "qty": float(r[_qty_col] if pd.notna(r[_qty_col]) else 0), "price": float(r[_price_col] if pd.notna(r[_price_col]) else 0)} for r in _of[["symbol", "side", _qty_col, _price_col]].itertuples(index=False)]
             append_trade_journal_entries(_tj_fills, signal_context={"regime": result.meta.get("regime", {}).get("regime", ""), "execution_mode": ctx.execution_mode}, run_id=str(ctx.as_of.date()), journal_path=ctx.output_dir / "trade_journal.jsonl")
     except Exception as e:
         log.debug("[TRADE-JOURNAL] trade_journal skipped: %s", e)
