@@ -14,12 +14,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 # Required docs (relative to repo root)
 REQUIRED_DOCS = [
-    "docs/RELEASE_NOTES_SPRINT13.md",
     "docs/OPS_EVIDENCE_GOLDEN_PATH.md",
-    "docs/MERGE_GATE_SPRINT13.md",
     "docs/EVIDENCE_PACK.md",
     "docs/PROJECT_STRUCTURE.md",
-    "docs/ROADMAP_STATUS_SPRINT13.md",
 ]
 
 # Pattern to find .github/workflows/... references in markdown (links or plain paths)

@@ -25,9 +25,8 @@ CORE_MODULES = [
     # Layer 1: data (bottom)
     "src.assembled_core.data.prices_ingest",
     "src.assembled_core.data.insider_ingest",
-    "src.assembled_core.data.congress_trades_ingest",
     "src.assembled_core.data.shipping_routes_ingest",
-    "src.assembled_core.data.news_ingest",
+    "src.assembled_core.intel.news_ingest",
     "src.assembled_core.data.factor_store",
     "src.assembled_core.data.data_source",
     # Layer 2: features
