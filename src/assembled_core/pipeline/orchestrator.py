@@ -1,5 +1,16 @@
 # src/assembled_core/pipeline/orchestrator.py
-"""Pipeline orchestration for EOD runs."""
+"""Pipeline orchestration for EOD runs.
+
+**Architecture note (B5):** This module is the *stateless EOD batch* pipeline,
+called via ``scripts/run_eod_pipeline.py`` / ``assembled-run-daily``.
+
+The *live/paper* pipeline (``trading_cycle_v2.py``) is called via
+``scripts/run_daily.py`` and uses ``TradingContext`` + full risk overlays.
+
+Both pipelines share signal generation via
+``pipeline._shared_eod.compute_signals_by_mode``.  Full convergence (Option A)
+is deferred — see ``autonome_weiterarbeit/AUDIT_2026-04-26_FINDINGS_AND_REMEDIATION_v2.md`` §B5.
+"""
 
 from __future__ import annotations
 
@@ -30,7 +41,6 @@ from src.assembled_core.pipeline.portfolio import (
     simulate_with_costs,
     write_portfolio_report,
 )
-from src.assembled_core.pipeline.signals import compute_ema_signals
 from src.assembled_core.qa.health import aggregate_qa_status
 from src.assembled_core.qa.metrics import compute_all_metrics
 from src.assembled_core.qa.qa_gates import QAResult, evaluate_all_gates
@@ -467,71 +477,24 @@ def run_execute_step(
     # Load prices
     prices = load_prices(freq, price_file=price_file, output_dir=base)
 
-    # Determine signal mode from policy
-    signal_mode = "ema"
+    # Load policy for signal mode dispatch and enrichment
+    _policy: dict = {}
     try:
         import yaml
         _policy_path = Path("configs/policy.yaml")
         if _policy_path.exists():
             with open(_policy_path, "r", encoding="utf-8") as _pf:
                 _policy = yaml.safe_load(_pf) or {}
-            signal_mode = (_policy.get("signal_generation") or {}).get("mode", "ema")
     except Exception as exc:
-        logger.debug("Could not read signal_generation.mode from policy: %s", exc)
+        logger.debug("Could not read policy.yaml: %s", exc)
 
-    # Compute signals based on mode. A multifactor config that silently
-    # downgrades to EMA on any exception is a structurally different
-    # strategy with a different risk profile — elevate the exception log
-    # level from WARNING to ERROR so the fallback is visible in ops feeds.
-    # Full silent-fallback attribution tracking requires the run_manifest
-    # path (see run_eod_pipeline) — noted as follow-up.
-    if signal_mode == "multifactor":
-        try:
-            from src.assembled_core.strategies.multifactor_v2 import (
-                compute_signals as mf_compute_signals,
-            )
-            signals = mf_compute_signals(prices)
-            logger.info("[ORCHESTRATOR] Signal mode: multifactor_v2 (%d signals)", len(signals))
-        except Exception as exc:
-            logger.error(
-                "[ORCHESTRATOR] multifactor_v2 failed, falling back to EMA: %s",
-                exc, exc_info=True,
-            )
-            ema_config = get_default_ema_config(freq)
-            signals = compute_ema_signals(prices, ema_config.fast, ema_config.slow)
-    elif signal_mode == "ml_enhanced":
-        # Phase 2+: Meta-model enhanced signals (placeholder until meta-model trained)
-        logger.info("[ORCHESTRATOR] Signal mode: ml_enhanced (not yet trained, using multifactor)")
-        try:
-            from src.assembled_core.strategies.multifactor_v2 import (
-                compute_signals as mf_compute_signals,
-            )
-            signals = mf_compute_signals(prices)
-        except Exception as exc:
-            logger.error(
-                "[ORCHESTRATOR] ml_enhanced -> multifactor fallback failed: %s",
-                exc, exc_info=True,
-            )
-            ema_config = get_default_ema_config(freq)
-            signals = compute_ema_signals(prices, ema_config.fast, ema_config.slow)
-    else:
-        # Default: legacy EMA signals
-        ema_config = get_default_ema_config(freq)
-        signals = compute_ema_signals(prices, ema_config.fast, ema_config.slow)
-        logger.info("[ORCHESTRATOR] Signal mode: ema (fast=%d, slow=%d)", ema_config.fast, ema_config.slow)
+    # Compute signals via shared canonical dispatch (B5: single source of truth).
+    from src.assembled_core.pipeline._shared_eod import compute_signals_by_mode
+    signals = compute_signals_by_mode(prices, _policy, freq=freq)
 
-    # --- Phase 9: Post-signal enrichment (same as trading_cycle) ---
+    # Post-signal enrichment (earnings guard, Bayesian confidence, diagnostics).
     try:
-        _policy_for_enrichment: dict = {}
-        try:
-            import yaml as _yaml
-            _pe_path = Path("configs/policy.yaml")
-            if _pe_path.exists():
-                with open(_pe_path, "r", encoding="utf-8") as _pef:
-                    _policy_for_enrichment = _yaml.safe_load(_pef) or {}
-        except Exception as _pe_exc:
-            logger.debug("[ORCHESTRATOR] Could not load policy for enrichment: %s", _pe_exc)
-        _enrich_signals_post_generation(signals, prices, _policy_for_enrichment)
+        _enrich_signals_post_generation(signals, prices, _policy)
     except Exception as exc:
         logger.debug("[ORCHESTRATOR] Post-signal enrichment skipped: %s", exc)
 
