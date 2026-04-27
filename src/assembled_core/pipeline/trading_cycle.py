@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import warnings
 
+from src.assembled_core.config import get_base_dir
+from src.assembled_core.config.policy_loader import load_policy
 from src.assembled_core.pipeline.trading_cycle_shared import (
     TradingContext,
     TradingCycleResult,
@@ -26,6 +28,8 @@ from src.assembled_core.pipeline.trading_cycle_shared import (
 )
 
 __all__ = [
+    "get_base_dir",
+    "load_policy",
     "TradingContext",
     "TradingCycleResult",
     "run_trading_cycle",

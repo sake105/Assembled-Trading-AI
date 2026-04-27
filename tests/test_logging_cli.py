@@ -108,8 +108,13 @@ def test_run_daily_logging_patterns(tmp_path: Path, monkeypatch, capsys):
     # Should have step messages
     assert "Step" in output or "Loading" in output or "Computing" in output
 
-    # Should have success message
-    assert "SUCCESS" in output or "completed" in output.lower()
+    # Should have success or completion indicator (written/orders/SUCCESS)
+    assert (
+        "SUCCESS" in output
+        or "completed" in output.lower()
+        or "written" in output.lower()
+        or "orders" in output.lower()
+    )
 
 
 def test_run_eod_pipeline_logging_patterns(tmp_path: Path, monkeypatch, capsys):

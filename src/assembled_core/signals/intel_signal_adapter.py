@@ -20,6 +20,20 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+# Maps shock type keys (from TOPIC_TO_SHOCKS in intel_context) to sector/asset beneficiaries.
+# Positive weight = sector benefits; negative = sector is hurt.
+SHOCK_BENEFICIARY_MAP: dict[str, dict[str, float]] = {
+    "defense_demand_surge": {"defense": 1.0, "aerospace": 0.8, "cybersecurity": 0.6},
+    "global_risk_off": {"gold": 1.0, "treasuries": 0.8, "utilities": 0.4, "equities": -0.8},
+    "inflation_spike": {"commodities": 1.0, "tips": 0.8, "reits": -0.4, "growth": -0.6},
+    "shipping_cost_risk": {"shipping": 1.0, "logistics": 0.6, "retail": -0.5, "manufacturing": -0.4},
+    "oil_supply_risk": {"energy": 1.0, "oil_majors": 0.8, "airlines": -0.8, "chemicals": -0.4},
+    "semiconductor_supply_risk": {"semis": -0.9, "tech_hardware": -0.7, "defense_tech": 0.4},
+    "energy_price_spike": {"energy": 1.0, "utilities": -0.3, "industrials": -0.5},
+    "rate_shock": {"financials": 0.5, "growth": -1.0, "bonds": -0.8, "value": 0.4},
+    "nuclear_escalation_risk": {"defense": 1.0, "gold": 1.0, "equities": -1.0, "em_equities": -1.0},
+}
+
 # When risk_level is HIGH/CRITICAL, multiply the overlay strength by this factor.
 _CRISIS_MULTIPLIER = 1.5
 
