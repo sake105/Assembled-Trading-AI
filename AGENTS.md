@@ -21,7 +21,7 @@ Plan, Spec, Roadmap und tatsächlich implementierter Code sind unterschiedliche 
 - API-Schicht (FastAPI, read-only)
 
 Das Projekt ist **kein Skeleton und kein Proof-of-Concept**.
-Es umfasst **25 Kernmodule** in `src/assembled_core/`, **~90 Scripts**, **~556 Testdateien** und **17 CI-Workflows**. (Stand 2026-04-26 — `scripts/regenerate_agents_stats.py` für aktuelle Zahlen.)
+Es umfasst **31 Kernmodule** in `src/assembled_core/`, **91 Scripts**, **557 Testdateien** und **17 CI-Workflows**. (Stand 2026-04-27 — `scripts/regenerate_agents_stats.py` für aktuelle Zahlen.)
 
 **Quellen der Wahrheit:**
 - `src/assembled_core/` — Kernlogik (Single Source of Truth für Backend-Module)
