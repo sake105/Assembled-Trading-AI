@@ -1,0 +1,1356 @@
+# scripts/commands/ml.py
+"""ML subcommands: build_ml_dataset, train_meta_model, analyze_factors, ml_validate_factors, ml_model_zoo, factor_report."""
+from __future__ import annotations
+
+import argparse
+import logging
+import sys
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+
+from src.assembled_core.config.settings import RuntimeProfile, get_runtime_profile
+from src.assembled_core.logging_config import generate_run_id, setup_logging
+
+
+def _run_backtest_for_ml_dataset(
+    strategy: str,
+    freq: str,
+    price_file: Path | None = None,
+    universe: Path | None = None,
+    start_capital: float = 10000.0,
+    with_costs: bool = True,
+    commission_bps: float | None = None,
+    spread_w: float | None = None,
+    impact_w: float | None = None,
+    output_dir: Path | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Run backtest and return prices_with_features and trades for ML dataset building."""
+    import pandas as pd
+    from src.assembled_core.config import OUTPUT_DIR
+    from src.assembled_core.data.prices_ingest import (
+        load_eod_prices,
+        load_eod_prices_for_universe,
+    )
+    from src.assembled_core.ema_config import get_default_ema_config
+    from src.assembled_core.qa.backtest_engine import run_portfolio_backtest
+    from scripts.run_backtest_strategy import (
+        create_trend_baseline_signal_fn,
+        create_position_sizing_fn,
+        create_event_insider_shipping_signal_fn,
+        create_event_position_sizing_fn,
+        get_cost_model,
+    )
+
+    if output_dir is None:
+        output_dir = OUTPUT_DIR
+
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    if price_file:
+        logger.info(f"Loading prices from explicit file: {price_file}")
+        prices = load_eod_prices(price_file=price_file, freq=freq)
+    elif universe:
+        logger.info(f"Loading prices for universe: {universe}")
+        prices = load_eod_prices_for_universe(
+            universe_file=universe, data_dir=output_dir, freq=freq
+        )
+    else:
+        logger.info("Loading prices for default universe (watchlist.txt)")
+        prices = load_eod_prices_for_universe(
+            universe_file=None, data_dir=output_dir, freq=freq
+        )
+
+    if prices.empty:
+        raise ValueError("No price data loaded")
+
+    logger.info(f"Loaded {len(prices)} rows for {prices['symbol'].nunique()} symbols")
+
+    class CostArgs:
+        def __init__(self):
+            self.commission_bps = commission_bps
+            self.spread_w = spread_w
+            self.impact_w = impact_w
+
+    cost_args = CostArgs()
+    cost_model = get_cost_model(cost_args)
+
+    from src.assembled_core.features.ta_features import (
+        add_all_features,
+        add_log_returns,
+        add_moving_averages,
+    )
+
+    has_ohlc = all(col in prices.columns for col in ["high", "low", "open"])
+    if has_ohlc:
+        prices_with_features = add_all_features(
+            prices,
+            ma_windows=(20, 50, 200),
+            atr_window=14,
+            rsi_window=14,
+            include_rsi=True,
+        )
+    else:
+        prices_with_features = add_log_returns(prices.copy())
+        prices_with_features = add_moving_averages(
+            prices_with_features, windows=(20, 50, 200)
+        )
+
+    if strategy == "event_insider_shipping":
+        from src.assembled_core.features.insider_features import add_insider_features
+        from src.assembled_core.features.shipping_features import add_shipping_features
+        from src.assembled_core.data.insider_ingest import load_insider_sample
+        from src.assembled_core.data.shipping_routes_ingest import load_shipping_sample
+        from pathlib import Path as P
+
+        _ROOT = P(__file__).resolve().parents[2]
+        EVENT_DIR = _ROOT / "data" / "sample" / "events"
+
+        insider_file = EVENT_DIR / "insider_sample.parquet"
+        shipping_file = EVENT_DIR / "shipping_sample.parquet"
+
+        if insider_file.exists():
+            insider_events = pd.read_parquet(insider_file)
+            if "timestamp" in insider_events.columns:
+                insider_events["timestamp"] = pd.to_datetime(
+                    insider_events["timestamp"], utc=True
+                )
+        else:
+            insider_events = load_insider_sample()
+
+        if shipping_file.exists():
+            shipping_events = pd.read_parquet(shipping_file)
+            if "timestamp" in shipping_events.columns:
+                shipping_events["timestamp"] = pd.to_datetime(
+                    shipping_events["timestamp"], utc=True
+                )
+        else:
+            shipping_events = load_shipping_sample()
+
+        prices_with_features = add_insider_features(
+            prices_with_features, insider_events
+        )
+        prices_with_features = add_shipping_features(
+            prices_with_features, shipping_events
+        )
+
+    if strategy == "trend_baseline":
+        ema_config = get_default_ema_config(freq)
+        signal_fn = create_trend_baseline_signal_fn(
+            ma_fast=ema_config.fast, ma_slow=ema_config.slow
+        )
+        position_sizing_fn = create_position_sizing_fn()
+    elif strategy == "event_insider_shipping":
+        signal_fn = create_event_insider_shipping_signal_fn()
+        position_sizing_fn = create_event_position_sizing_fn()
+    else:
+        raise ValueError(
+            f"Unknown strategy: {strategy}. Supported: trend_baseline, event_insider_shipping"
+        )
+
+    result = run_portfolio_backtest(
+        prices=prices_with_features,
+        signal_fn=signal_fn,
+        position_sizing_fn=position_sizing_fn,
+        start_capital=start_capital,
+        commission_bps=cost_model.commission_bps,
+        spread_w=cost_model.spread_w,
+        impact_w=cost_model.impact_w,
+        include_costs=with_costs,
+        include_trades=True,
+        include_signals=False,
+        include_targets=False,
+        rebalance_freq=freq,
+        compute_features=False,
+    )
+
+    if result.trades is None or result.trades.empty:
+        logger.warning("No trades generated from backtest")
+        trades = pd.DataFrame()
+    else:
+        trades = result.trades.copy()
+        if "open_time" not in trades.columns and "timestamp" in trades.columns:
+            trades["open_time"] = trades["timestamp"]
+        if "open_price" not in trades.columns and "price" in trades.columns:
+            trades["open_price"] = trades["price"]
+
+    return prices_with_features, trades
+
+
+def build_ml_dataset_subcommand(args: argparse.Namespace) -> int:
+    """Build ML dataset from backtest results subcommand."""
+    run_id = generate_run_id(prefix="ml_dataset")
+    setup_logging(run_id=run_id, level="INFO")
+    logger = logging.getLogger(__name__)
+
+    profile = RuntimeProfile.BACKTEST
+
+    logger.info("=" * 60)
+    logger.info("ML Dataset Builder (build_ml_dataset)")
+    logger.info(f"Run-ID: {run_id}")
+    logger.info(f"Runtime Profile: {profile.value}")
+    logger.info("=" * 60)
+
+    try:
+        from src.assembled_core.config import OUTPUT_DIR
+        from src.assembled_core.qa.dataset_builder import build_ml_dataset_from_backtest
+
+        if args.out:
+            output_path = Path(args.out)
+        else:
+            output_dir = OUTPUT_DIR / "ml_datasets"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            output_path = output_dir / f"{args.strategy}_{args.freq}.parquet"
+
+        logger.info(f"Strategy: {args.strategy}")
+        logger.info(f"Frequency: {args.freq}")
+        logger.info(f"Label Horizon: {args.label_horizon_days} days")
+        logger.info(f"Success Threshold: {args.success_threshold:.2%}")
+        logger.info(f"Label Type: {args.label_type}")
+        logger.info(f"Output Path: {output_path}")
+        logger.info(f"Output Format: {args.format}")
+
+        use_new_builder = (
+            args.start_date is not None
+            or args.end_date is not None
+            or args.symbols is not None
+        )
+
+        if use_new_builder:
+            logger.info("")
+            logger.info(
+                "Using strategy-based dataset builder (build_ml_dataset_for_strategy)..."
+            )
+
+            from src.assembled_core.qa.dataset_builder import (
+                build_ml_dataset_for_strategy,
+                export_ml_dataset,
+            )
+
+            if args.start_date is None:
+                args.start_date = "2020-01-01"
+            if args.end_date is None:
+                args.end_date = "2099-12-31"
+
+            universe_list = None
+            if args.symbols:
+                universe_list = args.symbols
+            elif args.universe:
+                universe_list = [
+                    line.strip().upper()
+                    for line in open(args.universe, "r").readlines()
+                    if line.strip()
+                ]
+
+            label_params = {
+                "horizon_days": args.label_horizon_days,
+                "threshold_pct": args.success_threshold,
+                "label_type": args.label_type,
+            }
+
+            ml_dataset = build_ml_dataset_for_strategy(
+                strategy_name=args.strategy,
+                start_date=args.start_date,
+                end_date=args.end_date,
+                universe=universe_list,
+                universe_file=args.universe if not args.symbols else None,
+                label_params=label_params,
+                price_file=args.price_file,
+                freq=args.freq,
+            )
+
+            if ml_dataset.empty:
+                logger.error("ML dataset is empty")
+                return 1
+
+            logger.info(
+                f"ML dataset built: {len(ml_dataset)} records, {len(ml_dataset.columns)} columns"
+            )
+
+            if "label" in ml_dataset.columns:
+                label_counts = ml_dataset["label"].value_counts()
+                logger.info(f"Label distribution: {dict(label_counts)}")
+
+            logger.info("")
+            logger.info("Exporting ML dataset...")
+            export_ml_dataset(ml_dataset, output_path, format=args.format)
+
+        else:
+            logger.info("")
+            logger.info(
+                "Using backtest-based dataset builder (build_ml_dataset_from_backtest)..."
+            )
+
+            logger.info("Running backtest...")
+            prices_with_features, trades = _run_backtest_for_ml_dataset(
+                strategy=args.strategy,
+                freq=args.freq,
+                price_file=args.price_file,
+                universe=args.universe,
+                start_capital=args.start_capital,
+                with_costs=args.with_costs,
+                output_dir=OUTPUT_DIR,
+            )
+
+            if prices_with_features.empty:
+                logger.error("No price data with features available")
+                return 1
+
+            if trades.empty:
+                logger.error("No trades generated from backtest")
+                return 1
+
+            logger.info(
+                f"Prices with features: {len(prices_with_features)} rows, {prices_with_features['symbol'].nunique()} symbols"
+            )
+            logger.info(f"Trades: {len(trades)} trades")
+
+            logger.info("")
+            logger.info("Building ML dataset...")
+            ml_dataset = build_ml_dataset_from_backtest(
+                prices_with_features=prices_with_features,
+                trades=trades,
+                label_horizon_days=args.label_horizon_days,
+                success_threshold=args.success_threshold,
+                feature_prefixes=("ta_", "insider_", "congress_", "shipping_", "news_"),
+            )
+
+            if ml_dataset.empty:
+                logger.error("ML dataset is empty")
+                return 1
+
+            logger.info(
+                f"ML dataset built: {len(ml_dataset)} records, {len(ml_dataset.columns)} columns"
+            )
+
+            if "label" in ml_dataset.columns:
+                label_counts = ml_dataset["label"].value_counts()
+                logger.info(f"Label distribution: {dict(label_counts)}")
+
+            logger.info("")
+            logger.info("Saving ML dataset...")
+            from src.assembled_core.qa.dataset_builder import export_ml_dataset
+
+            export_ml_dataset(ml_dataset, output_path, format=args.format)
+
+        logger.info("")
+        logger.info("=" * 60)
+        logger.info("ML Dataset Build Complete")
+        logger.info("=" * 60)
+        logger.info(f"Output: {output_path}")
+        logger.info(f"Records: {len(ml_dataset)}")
+        logger.info(
+            f"Features: {len([c for c in ml_dataset.columns if c not in ['label', 'open_time', 'symbol', 'open_price', 'close_time', 'pnl_pct', 'horizon_days']])}"
+        )
+        logger.info("=" * 60)
+
+        return 0
+
+    except FileNotFoundError as e:
+        logger.error(f"File not found: {e}")
+        return 1
+    except ValueError as e:
+        logger.error(f"Invalid input: {e}")
+        return 1
+    except KeyboardInterrupt:
+        logger.warning("Interrupted by user")
+        return 1
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        return 1
+
+
+def train_meta_model_subcommand(args: argparse.Namespace) -> int:
+    """Train meta-model subcommand."""
+    run_id = generate_run_id(prefix="meta_model")
+    setup_logging(run_id=run_id, level="INFO")
+    logger = logging.getLogger(__name__)
+
+    profile = RuntimeProfile.BACKTEST
+
+    logger.info("=" * 60)
+    logger.info("Meta-Model Training (train_meta_model)")
+    logger.info(f"Run-ID: {run_id}")
+    logger.info(f"Runtime Profile: {profile.value}")
+    logger.info("=" * 60)
+
+    experiment_run = None
+
+    try:
+        import pandas as pd
+        from src.assembled_core.config.settings import get_settings
+        from src.assembled_core.qa.dataset_builder import (
+            build_ml_dataset_for_strategy,
+        )
+        from src.assembled_core.qa.ml_evaluation import (
+            evaluate_meta_model,
+            plot_calibration_curve,
+        )
+        from src.assembled_core.signals.meta_model import (
+            save_meta_model,
+            train_meta_model,
+        )
+
+        settings = get_settings()
+
+        if args.track_experiment:
+            if not args.experiment_name:
+                logger.error(
+                    "--experiment-name is required when --track-experiment is set"
+                )
+                return 1
+
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+
+            tracker = ExperimentTracker(settings.experiments_dir)
+            tags = args.experiment_tags.split(",") if args.experiment_tags else []
+            tags = [t.strip() for t in tags if t.strip()]
+
+            config = {
+                "model_type": args.model_type,
+                "label_horizon_days": args.label_horizon_days,
+                "success_threshold": args.success_threshold,
+            }
+
+            if args.dataset_path:
+                config["dataset_path"] = str(args.dataset_path)
+            else:
+                config["strategy"] = args.strategy
+                config["freq"] = args.freq
+                config["start_date"] = args.start_date
+                config["end_date"] = args.end_date
+                if args.symbols:
+                    config["symbols"] = args.symbols
+
+            experiment_run = tracker.start_run(
+                name=args.experiment_name, config=config, tags=tags
+            )
+
+            logger.info("")
+            logger.info("Experiment Tracking: ENABLED")
+            logger.info(f"  Run-ID: {experiment_run.run_id}")
+            logger.info(f"  Name: {experiment_run.name}")
+            logger.info(
+                f"  Tags: {', '.join(experiment_run.tags) if experiment_run.tags else 'none'}"
+            )
+            logger.info(
+                f"  Run Directory: {settings.experiments_dir / experiment_run.run_id}"
+            )
+            logger.info("")
+
+        if args.dataset_path:
+            logger.info(f"Loading dataset from: {args.dataset_path}")
+            if args.dataset_path.suffix == ".parquet":
+                df = pd.read_parquet(args.dataset_path)
+            elif args.dataset_path.suffix == ".csv":
+                df = pd.read_csv(args.dataset_path)
+            else:
+                logger.error(f"Unsupported file format: {args.dataset_path.suffix}")
+                return 1
+            logger.info(f"Loaded dataset: {len(df)} rows, {len(df.columns)} columns")
+        else:
+            if (
+                not args.strategy
+                or not args.freq
+                or not args.start_date
+                or not args.end_date
+            ):
+                logger.error(
+                    "If --dataset-path is not provided, --strategy, --freq, --start-date, and --end-date are required"
+                )
+                return 1
+
+            logger.info("Building ML dataset on-the-fly...")
+            logger.info(f"Strategy: {args.strategy}")
+            logger.info(f"Frequency: {args.freq}")
+            logger.info(f"Date range: {args.start_date} to {args.end_date}")
+            logger.info(f"Label Horizon: {args.label_horizon_days} days")
+            logger.info(f"Success Threshold: {args.success_threshold:.2%}")
+
+            df = build_ml_dataset_for_strategy(
+                strategy_name=args.strategy,
+                start_date=args.start_date,
+                end_date=args.end_date,
+                universe=args.symbols,
+                label_params={
+                    "horizon_days": args.label_horizon_days,
+                    "threshold_pct": args.success_threshold,
+                    "label_type": "binary_absolute",
+                },
+                freq=args.freq,
+            )
+
+            if df.empty:
+                logger.error("ML dataset is empty")
+                return 1
+
+            logger.info(f"Built dataset: {len(df)} rows, {len(df.columns)} columns")
+
+        if "label" not in df.columns:
+            logger.error("Dataset must contain 'label' column")
+            return 1
+
+        logger.info("")
+        logger.info("Training meta-model...")
+        logger.info(f"Model Type: {args.model_type}")
+
+        meta_model = train_meta_model(
+            df=df,
+            feature_cols=None,
+            label_col="label",
+            model_type=args.model_type,
+            random_state=42,
+        )
+
+        logger.info(f"Model trained with {len(meta_model.feature_names)} features")
+
+        logger.info("")
+        logger.info("Evaluating model on training set...")
+        X = df[meta_model.feature_names]
+        y_prob = meta_model.predict_proba(X)
+        y_true = df["label"]
+
+        metrics = evaluate_meta_model(y_true, y_prob)
+
+        logger.info("=" * 60)
+        logger.info("Evaluation Metrics:")
+        logger.info(
+            f"  ROC-AUC: {metrics['roc_auc']:.4f}"
+            if not pd.isna(metrics["roc_auc"])
+            else "  ROC-AUC: N/A"
+        )
+        logger.info(f"  Brier Score: {metrics['brier_score']:.4f}")
+        logger.info(
+            f"  Log Loss: {metrics['log_loss']:.4f}"
+            if not pd.isna(metrics["log_loss"])
+            else "  Log Loss: N/A"
+        )
+        logger.info("=" * 60)
+
+        if args.output_model_path:
+            model_path = args.output_model_path
+        else:
+            strategy_name = args.strategy if args.strategy else "unknown"
+            model_dir = settings.models_dir / "meta"
+            model_dir.mkdir(parents=True, exist_ok=True)
+            model_path = model_dir / f"{strategy_name}_meta_model.joblib"
+
+        logger.info("")
+        logger.info(f"Saving model to: {model_path}")
+        save_meta_model(meta_model, model_path)
+
+        logger.info("")
+        logger.info("Generating calibration curve...")
+        calibration_dir = settings.output_dir / "reports" / "meta"
+        calibration_dir.mkdir(parents=True, exist_ok=True)
+        calibration_path = calibration_dir / f"{model_path.stem}_calibration.png"
+        plot_calibration_curve(y_true, y_prob, calibration_path)
+        logger.info(f"Calibration curve saved to: {calibration_path}")
+
+        logger.info("")
+        logger.info("=" * 60)
+        logger.info("Meta-Model Training Complete")
+        logger.info("=" * 60)
+        logger.info(f"Model: {model_path}")
+        logger.info(f"Features: {len(meta_model.feature_names)}")
+        logger.info(f"Training Samples: {len(df)}")
+        logger.info("=" * 60)
+
+        if experiment_run:
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+
+            settings = get_settings()
+            tracker = ExperimentTracker(settings.experiments_dir)
+
+            metrics_dict = {
+                "brier_score": metrics["brier_score"],
+            }
+            if not pd.isna(metrics["roc_auc"]):
+                metrics_dict["roc_auc"] = metrics["roc_auc"]
+            if not pd.isna(metrics["log_loss"]):
+                metrics_dict["log_loss"] = metrics["log_loss"]
+
+            tracker.log_metrics(experiment_run, metrics_dict)
+
+            if model_path.exists():
+                tracker.log_artifact(experiment_run, model_path, "meta_model.joblib")
+            if calibration_path.exists():
+                tracker.log_artifact(
+                    experiment_run, calibration_path, "calibration_curve.png"
+                )
+
+            tracker.finish_run(experiment_run, status="finished")
+            logger.info("")
+            logger.info(f"Experiment run completed: {experiment_run.run_id}")
+
+        return 0
+
+    except FileNotFoundError as e:
+        logger.error(f"File not found: {e}")
+        if experiment_run:
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+            from src.assembled_core.config.settings import get_settings
+
+            settings = get_settings()
+            tracker = ExperimentTracker(settings.experiments_dir)
+            tracker.finish_run(experiment_run, status="failed")
+        return 1
+    except ValueError as e:
+        logger.error(f"Invalid input: {e}")
+        if experiment_run:
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+            from src.assembled_core.config.settings import get_settings
+
+            settings = get_settings()
+            tracker = ExperimentTracker(settings.experiments_dir)
+            tracker.finish_run(experiment_run, status="failed")
+        return 1
+    except ImportError as e:
+        logger.error(f"Missing dependency: {e}")
+        logger.error("Install scikit-learn with: pip install scikit-learn")
+        if experiment_run:
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+            from src.assembled_core.config.settings import get_settings
+
+            settings = get_settings()
+            tracker = ExperimentTracker(settings.experiments_dir)
+            tracker.finish_run(experiment_run, status="failed")
+        return 1
+    except KeyboardInterrupt:
+        logger.warning("Interrupted by user")
+        if experiment_run:
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+            from src.assembled_core.config.settings import get_settings
+
+            settings = get_settings()
+            tracker = ExperimentTracker(settings.experiments_dir)
+            tracker.finish_run(experiment_run, status="failed")
+        return 1
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        if experiment_run:
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
+            from src.assembled_core.config.settings import get_settings
+
+            settings = get_settings()
+            tracker = ExperimentTracker(settings.experiments_dir)
+            tracker.finish_run(experiment_run, status="failed")
+        return 1
+
+
+def analyze_factors_subcommand(args: argparse.Namespace) -> int:
+    """Run comprehensive factor analysis subcommand."""
+    run_id = generate_run_id(prefix="analyze_factors")
+    setup_logging(run_id=run_id, level="INFO")
+
+    logger = logging.getLogger(__name__)
+    logger.info("Comprehensive Factor Analysis (analyze_factors)")
+
+    from scripts.run_factor_analysis import run_factor_analysis_from_args
+
+    try:
+        return run_factor_analysis_from_args(args)
+    except Exception as e:
+        logger.error(f"Factor analysis failed: {e}", exc_info=True)
+        return 1
+
+
+def ml_validate_factors_subcommand(args: argparse.Namespace) -> int:
+    """Run ML validation on factor panels subcommand."""
+    from scripts.run_ml_factor_validation import run_ml_validation
+
+    logger = logging.getLogger(__name__)
+
+    factor_panel_file = args.factor_panel_file
+    if not factor_panel_file.is_absolute():
+        factor_panel_file = ROOT / factor_panel_file
+
+    output_dir = None
+    if args.output_dir:
+        output_dir = (
+            args.output_dir if args.output_dir.is_absolute() else ROOT / args.output_dir
+        )
+
+    model_params = None
+    if args.model_param:
+        from scripts.run_ml_factor_validation import parse_model_params
+
+        model_params = parse_model_params(args.model_param)
+
+    logger.info(f"Running ML validation on factor panel: {factor_panel_file}")
+
+    return run_ml_validation(
+        factor_panel_file=factor_panel_file,
+        label_col=args.label_col,
+        model_type=args.model_type,
+        model_params=model_params,
+        n_splits=args.n_splits,
+        test_start=args.test_start,
+        test_end=args.test_end,
+        output_dir=output_dir,
+    )
+
+
+def ml_model_zoo_subcommand(args: argparse.Namespace) -> int:
+    """Run model zoo comparison on factor panels subcommand."""
+    from research.ml.model_zoo_factor_validation import (
+        run_model_zoo_for_panel,
+        write_model_zoo_summary,
+    )
+
+    run_id = generate_run_id(prefix="ml_model_zoo")
+    setup_logging(run_id=run_id, level="INFO")
+    logger = logging.getLogger(__name__)
+
+    factor_panel_file = args.factor_panel_file
+    if not factor_panel_file.is_absolute():
+        factor_panel_file = ROOT / factor_panel_file
+
+    output_dir = None
+    if args.output_dir:
+        output_dir = (
+            args.output_dir if args.output_dir.is_absolute() else ROOT / args.output_dir
+        )
+    else:
+        output_dir = ROOT / "output" / "ml_model_zoo"
+
+    logger.info(f"Running model zoo comparison on factor panel: {factor_panel_file}")
+
+    experiment_cfg_kwargs: dict[str, Any] = {}
+    if args.n_splits is not None:
+        experiment_cfg_kwargs["n_splits"] = args.n_splits
+    if args.train_size is not None:
+        experiment_cfg_kwargs["train_size"] = args.train_size
+    if args.standardize is not None:
+        experiment_cfg_kwargs["standardize"] = args.standardize
+    if args.min_train_samples is not None:
+        experiment_cfg_kwargs["min_train_samples"] = args.min_train_samples
+    if args.test_start:
+        experiment_cfg_kwargs["test_start"] = pd.to_datetime(args.test_start, utc=True)
+    if args.test_end:
+        experiment_cfg_kwargs["test_end"] = pd.to_datetime(args.test_end, utc=True)
+
+    try:
+        summary_df = run_model_zoo_for_panel(
+            factor_panel_path=factor_panel_file,
+            label_col=args.label_col,
+            output_dir=output_dir,
+            experiment_cfg_kwargs=(
+                experiment_cfg_kwargs if experiment_cfg_kwargs else None
+            ),
+        )
+
+        write_model_zoo_summary(
+            summary_df=summary_df,
+            output_dir=output_dir,
+            write_markdown=not args.no_markdown,
+        )
+
+        logger.info("Model zoo comparison completed successfully")
+        return 0
+
+    except Exception as e:
+        logger.error(f"Model zoo comparison failed: {e}", exc_info=True)
+        return 1
+
+
+def factor_report_subcommand(args: argparse.Namespace) -> int:
+    """Run factor analysis report subcommand."""
+    run_id = generate_run_id(prefix="factor_report")
+    setup_logging(run_id=run_id, level="INFO")
+    logger = logging.getLogger(__name__)
+
+    logger.info("=" * 60)
+    logger.info("Factor Analysis Report")
+    logger.info(f"Run-ID: {run_id}")
+    logger.info("=" * 60)
+
+    from scripts.cli_factor_report import run_factor_report_from_args
+
+    try:
+        return run_factor_report_from_args(args)
+    except Exception as e:
+        logger.error(f"Factor report failed: {e}", exc_info=True)
+        return 1
+
+
+def register(subparsers: argparse._SubParsersAction) -> None:  # type: ignore[type-arg]
+    """Register all ML subcommands."""
+    # build_ml_dataset
+    ml_dataset_parser = subparsers.add_parser(
+        "build_ml_dataset",
+        help="Build ML-ready dataset from backtest results",
+        description="Runs a strategy backtest and builds an ML-ready dataset with features and labels.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python scripts/cli.py build_ml_dataset --strategy trend_baseline --freq 1d
+  python scripts/cli.py build_ml_dataset --strategy event_insider_shipping --freq 1d --price-file data/sample/eod_sample.parquet
+  python scripts/cli.py build_ml_dataset --strategy trend_baseline --freq 1d --label-horizon-days 5 --success-threshold 0.03
+        """,
+    )
+    ml_dataset_parser.add_argument(
+        "--strategy",
+        type=str,
+        required=True,
+        choices=["trend_baseline", "event_insider_shipping"],
+        metavar="NAME",
+        help="Strategy name: 'trend_baseline' (EMA crossover) or 'event_insider_shipping' (Phase 6 event-based)",
+    )
+    ml_dataset_parser.add_argument(
+        "--freq",
+        type=str,
+        required=True,
+        choices=["1d", "5min"],
+        help="Trading frequency: '1d' for daily or '5min' for 5-minute bars",
+    )
+    ml_dataset_parser.add_argument(
+        "--price-file",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Explicit path to price file (overrides default path)",
+    )
+    ml_dataset_parser.add_argument(
+        "--universe",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Path to universe file (default: watchlist.txt in repo root)",
+    )
+    ml_dataset_parser.add_argument(
+        "--start-capital",
+        type=float,
+        default=10000.0,
+        metavar="AMOUNT",
+        help="Starting capital in USD (default: 10000.0)",
+    )
+    ml_dataset_parser.add_argument(
+        "--with-costs",
+        action="store_true",
+        default=True,
+        help="Include transaction costs in backtest (default: True)",
+    )
+    ml_dataset_parser.add_argument(
+        "--no-costs",
+        action="store_false",
+        dest="with_costs",
+        help="Disable transaction costs (use cost-free simulation)",
+    )
+    ml_dataset_parser.add_argument(
+        "--label-horizon-days",
+        type=int,
+        default=10,
+        metavar="DAYS",
+        help="Number of days to look forward for P&L calculation (default: 10)",
+    )
+    ml_dataset_parser.add_argument(
+        "--success-threshold",
+        type=float,
+        default=0.02,
+        metavar="THRESHOLD",
+        help="P&L percentage threshold for a successful trade (label=1) (default: 0.02 = 2%%)",
+    )
+    ml_dataset_parser.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Output path for ML dataset (default: output/ml_datasets/<strategy>_<freq>.parquet)",
+    )
+    ml_dataset_parser.add_argument(
+        "--start-date",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Start date for dataset (default: use all available data)",
+    )
+    ml_dataset_parser.add_argument(
+        "--end-date",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="End date for dataset (default: use all available data)",
+    )
+    ml_dataset_parser.add_argument(
+        "--symbols",
+        type=str,
+        nargs="+",
+        default=None,
+        metavar="SYMBOL",
+        help="List of symbols to include (e.g., --symbols AAPL MSFT GOOGL). Overrides --universe.",
+    )
+    ml_dataset_parser.add_argument(
+        "--label-type",
+        type=str,
+        choices=["binary_absolute", "binary_outperformance", "multi_class"],
+        default="binary_absolute",
+        help="Label type: binary_absolute (default), binary_outperformance, or multi_class",
+    )
+    ml_dataset_parser.add_argument(
+        "--format",
+        type=str,
+        choices=["parquet", "csv"],
+        default="parquet",
+        help="Output format: parquet (default) or csv",
+    )
+    ml_dataset_parser.set_defaults(func=build_ml_dataset_subcommand)
+
+    # train_meta_model
+    train_meta_parser = subparsers.add_parser(
+        "train_meta_model",
+        help="Train meta-model for setup success prediction",
+        description="Trains a meta-model that predicts the success probability (confidence_score) of trading setups.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Train from existing dataset
+  python scripts/cli.py train_meta_model --dataset-path output/ml_datasets/trend_baseline_1d.parquet
+
+  # Build dataset and train in one step
+  python scripts/cli.py train_meta_model --strategy trend_baseline --freq 1d --start-date 2024-01-01 --end-date 2024-12-31
+
+  # Train with custom model type
+  python scripts/cli.py train_meta_model --dataset-path output/ml_datasets/trend_baseline_1d.parquet --model-type random_forest
+        """,
+    )
+    train_meta_parser.add_argument(
+        "--dataset-path",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Path to existing ML dataset (Parquet or CSV). If not provided, dataset will be built on-the-fly.",
+    )
+    train_meta_parser.add_argument(
+        "--strategy",
+        type=str,
+        default=None,
+        choices=["trend_baseline", "event_insider_shipping"],
+        metavar="NAME",
+        help="Strategy name (required if --dataset-path is not provided): 'trend_baseline' or 'event_insider_shipping'",
+    )
+    train_meta_parser.add_argument(
+        "--freq",
+        type=str,
+        default=None,
+        choices=["1d", "5min"],
+        metavar="FREQ",
+        help="Trading frequency (required if --dataset-path is not provided): '1d' or '5min'",
+    )
+    train_meta_parser.add_argument(
+        "--start-date",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Start date for dataset (required if --dataset-path is not provided)",
+    )
+    train_meta_parser.add_argument(
+        "--end-date",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="End date for dataset (required if --dataset-path is not provided)",
+    )
+    train_meta_parser.add_argument(
+        "--symbols",
+        type=str,
+        nargs="+",
+        default=None,
+        metavar="SYMBOL",
+        help="List of symbols to include (optional, for on-the-fly dataset building)",
+    )
+    train_meta_parser.add_argument(
+        "--model-type",
+        type=str,
+        choices=["gradient_boosting", "random_forest"],
+        default="gradient_boosting",
+        help="Model type: 'gradient_boosting' (default) or 'random_forest'",
+    )
+    train_meta_parser.add_argument(
+        "--output-model-path",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Output path for trained model (default: models/meta/<strategy>_meta_model.joblib)",
+    )
+    train_meta_parser.add_argument(
+        "--label-horizon-days",
+        type=int,
+        default=10,
+        metavar="DAYS",
+        help="Label horizon in days (for on-the-fly dataset building, default: 10)",
+    )
+    train_meta_parser.add_argument(
+        "--success-threshold",
+        type=float,
+        default=0.05,
+        metavar="THRESHOLD",
+        help="Success threshold (for on-the-fly dataset building, default: 0.05 = 5%%)",
+    )
+    train_meta_parser.add_argument(
+        "--track-experiment",
+        action="store_true",
+        default=False,
+        help="Enable experiment tracking (stores run config, metrics, and artifacts)",
+    )
+    train_meta_parser.add_argument(
+        "--experiment-name",
+        type=str,
+        default=None,
+        metavar="NAME",
+        help="Name for the experiment run (required if --track-experiment is set)",
+    )
+    train_meta_parser.add_argument(
+        "--experiment-tags",
+        type=str,
+        default=None,
+        metavar="TAGS",
+        help="Comma-separated tags for the experiment (e.g., 'meta_model,gradient_boosting')",
+    )
+    train_meta_parser.set_defaults(func=train_meta_model_subcommand)
+
+    # factor_report
+    factor_report_parser = subparsers.add_parser(
+        "factor_report",
+        help="Run a factor analysis report on a given universe and date range",
+        description="Generates a comprehensive factor analysis report with IC/IR statistics.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Factor report for AI Tech universe (local alt-data)
+  $env:ASSEMBLED_DATA_SOURCE = "local"
+  $env:ASSEMBLED_LOCAL_DATA_ROOT = "F:\\Python_Projekt\\Aktiengerüst\\datensammlungen\\altdaten\\stand 3-12-2025"
+  python scripts/cli.py factor_report --freq 1d --symbols-file config/universe_ai_tech_tickers.txt --start-date 2005-01-01 --end-date 2025-12-02 --factor-set core --fwd-horizon-days 5
+
+  # Factor report with all factors and CSV output
+  python scripts/cli.py factor_report --freq 1d --symbols-file config/universe_ai_tech_tickers.txt --start-date 2005-01-01 --end-date 2025-12-02 --factor-set all --fwd-horizon-days 21 --output-csv output/factor_reports/ai_tech_all_21d_ic.csv
+        """,
+    )
+    factor_report_parser.add_argument(
+        "--freq",
+        type=str,
+        required=True,
+        choices=["1d", "5min"],
+        help="Frequency, e.g. 1d",
+    )
+    factor_report_parser.add_argument(
+        "--symbols-file",
+        type=Path,
+        required=True,
+        metavar="FILE",
+        help="Path to a text file with one symbol per line (e.g., config/universe_ai_tech_tickers.txt)",
+    )
+    factor_report_parser.add_argument(
+        "--start-date",
+        type=str,
+        required=True,
+        metavar="YYYY-MM-DD",
+        help="Start date for data loading (e.g., 2005-01-01)",
+    )
+    factor_report_parser.add_argument(
+        "--end-date",
+        type=str,
+        required=True,
+        metavar="YYYY-MM-DD",
+        help="End date for data loading (e.g., 2025-12-02)",
+    )
+    factor_report_parser.add_argument(
+        "--factor-set",
+        type=str,
+        choices=["core", "vol_liquidity", "all"],
+        default="core",
+        help="Which factors to compute: 'core' (TA/Price factors, default), 'vol_liquidity' (volatility/liquidity), or 'all' (both)",
+    )
+    factor_report_parser.add_argument(
+        "--fwd-horizon-days",
+        type=int,
+        default=5,
+        metavar="DAYS",
+        help="Forward return horizon in days (default: 5)",
+    )
+    factor_report_parser.add_argument(
+        "--data-source",
+        type=str,
+        choices=["local", "yahoo"],
+        default=None,
+        help="Data source type: 'local' (Parquet files) or 'yahoo' (Yahoo Finance API). Default: from settings.data_source",
+    )
+    factor_report_parser.add_argument(
+        "--output-csv",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Optional path for summary CSV output (e.g., output/factor_reports/ai_tech_core_5d_ic.csv)",
+    )
+    factor_report_parser.set_defaults(func=factor_report_subcommand)
+
+    # analyze_factors
+    analyze_factors_parser = subparsers.add_parser(
+        "analyze_factors",
+        help="Comprehensive factor analysis (IC + Portfolio evaluation)",
+        description="Run comprehensive factor analysis including IC-based evaluation (C1) and portfolio-based evaluation (C2).",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Analyze factors for ETF universe
+  python scripts/cli.py analyze_factors --freq 1d --symbols-file config/macro_world_etfs_tickers.txt --data-source local --start-date 2010-01-01 --end-date 2025-12-03 --factor-set core+vol_liquidity --horizon-days 20
+
+  # Analyze with custom quantiles and output directory
+  python scripts/cli.py analyze_factors --freq 1d --universe config/universe_ai_tech_tickers.txt --start-date 2005-01-01 --end-date 2025-12-02 --factor-set all --horizon-days 21 --quantiles 10 --output-dir output/custom_analysis
+        """,
+    )
+    analyze_factors_parser.add_argument(
+        "--freq",
+        type=str,
+        required=True,
+        choices=["1d", "5min"],
+        help="Frequency (1d or 5min)",
+    )
+    symbol_group = analyze_factors_parser.add_mutually_exclusive_group(required=False)
+    symbol_group.add_argument(
+        "--symbols",
+        type=str,
+        nargs="+",
+        help="List of symbols (e.g., --symbols AAPL MSFT GOOG)",
+    )
+    symbol_group.add_argument(
+        "--symbols-file", type=str, help="Path to file with symbols (one per line)"
+    )
+    symbol_group.add_argument(
+        "--universe", type=str, help="Path to universe file (alias for --symbols-file)"
+    )
+    analyze_factors_parser.add_argument(
+        "--data-source",
+        type=str,
+        default="local",
+        choices=["local", "yahoo", "finnhub", "twelve_data"],
+        help="Data source (default: local)",
+    )
+    analyze_factors_parser.add_argument(
+        "--start-date", type=str, required=True, help="Start date (YYYY-MM-DD)"
+    )
+    analyze_factors_parser.add_argument(
+        "--end-date", type=str, required=True, help="End date (YYYY-MM-DD)"
+    )
+    _factor_set_choices = [
+        "core",
+        "vol_liquidity",
+        "core+vol_liquidity",
+        "all",
+        "alt_earnings_insider",
+        "alt_news_macro",
+        "core+alt",
+        "core+alt_news",
+        "core+alt_full",
+    ]
+    analyze_factors_parser.add_argument(
+        "--factor-set",
+        type=str,
+        default="core",
+        choices=_factor_set_choices,
+        help="Factor set: core (TA/Price), vol_liquidity (Volatility/Liquidity), core+vol_liquidity, all, alt_earnings_insider (Alt-Data B1 only), core+alt (Core + Alt-Data B1), alt_news_macro (Alt-Data B2 only), core+alt_news (Core + Alt-Data B2), or core+alt_full (Core + B1 + B2) (default: core)",
+    )
+    analyze_factors_parser.add_argument(
+        "--horizon-days",
+        type=int,
+        default=20,
+        help="Forward return horizon in days (default: 20)",
+    )
+    analyze_factors_parser.add_argument(
+        "--quantiles",
+        type=int,
+        default=5,
+        help="Number of quantiles for portfolio analysis (default: 5)",
+    )
+    analyze_factors_parser.add_argument(
+        "--output-dir",
+        type=str,
+        help="Output directory (default: output/factor_analysis)",
+    )
+    analyze_factors_parser.set_defaults(func=analyze_factors_subcommand)
+
+    # ml_validate_factors
+    ml_validate_parser = subparsers.add_parser(
+        "ml_validate_factors",
+        help="Run ML validation on factor panels",
+        description="Trains ML models to predict forward returns from factor panels and evaluates them using time-series cross-validation.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Basic validation with Ridge model
+  python scripts/cli.py ml_validate_factors \\
+    --factor-panel-file output/factor_analysis/ai_tech_factors.parquet \\
+    --label-col fwd_return_20d \\
+    --model-type ridge
+
+  # With custom parameters
+  python scripts/cli.py ml_validate_factors \\
+    --factor-panel-file output/factor_analysis/ai_tech_factors.parquet \\
+    --label-col fwd_return_20d \\
+    --model-type ridge \\
+    --model-param alpha=0.1 \\
+    --model-param max_iter=1000
+
+  # Random Forest with time filter
+  python scripts/cli.py ml_validate_factors \\
+    --factor-panel-file output/factor_analysis/ai_tech_factors.parquet \\
+    --label-col fwd_return_20d \\
+    --model-type random_forest \\
+    --n-splits 10 \\
+    --test-start 2020-01-01 \\
+    --test-end 2024-12-31
+        """,
+    )
+    ml_validate_parser.add_argument(
+        "--factor-panel-file",
+        type=Path,
+        required=True,
+        metavar="FILE",
+        help="Path to factor panel file (Parquet or CSV) with factors and forward returns",
+    )
+    ml_validate_parser.add_argument(
+        "--label-col",
+        type=str,
+        required=True,
+        metavar="COL",
+        help="Name of label column (e.g., 'fwd_return_20d')",
+    )
+    ml_validate_parser.add_argument(
+        "--model-type",
+        type=str,
+        required=True,
+        choices=["linear", "ridge", "lasso", "random_forest"],
+        metavar="TYPE",
+        help="Model type: 'linear', 'ridge', 'lasso', or 'random_forest'",
+    )
+    ml_validate_parser.add_argument(
+        "--model-param",
+        type=str,
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="Model hyperparameter in format 'key=value' (can be specified multiple times)",
+    )
+    ml_validate_parser.add_argument(
+        "--n-splits",
+        type=int,
+        default=5,
+        metavar="N",
+        help="Number of time-series CV splits (default: 5)",
+    )
+    ml_validate_parser.add_argument(
+        "--test-start",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Test start date (YYYY-MM-DD, optional)",
+    )
+    ml_validate_parser.add_argument(
+        "--test-end",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Test end date (YYYY-MM-DD, optional)",
+    )
+    ml_validate_parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        metavar="DIR",
+        help="Output directory (default: output/ml_validation)",
+    )
+    ml_validate_parser.set_defaults(func=ml_validate_factors_subcommand)
+
+    # ml_model_zoo
+    ml_model_zoo_parser = subparsers.add_parser(
+        "ml_model_zoo",
+        help="Compare multiple ML models on factor panels (model zoo)",
+        description="Runs a predefined set of ML models (linear, ridge, lasso, random forest) on a factor panel and compares their performance.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Basic model zoo comparison
+  python scripts/cli.py ml_model_zoo \\
+    --factor-panel-file output/factor_panels/core_20d_factors.parquet \\
+    --label-col fwd_return_20d
+
+  # With custom CV splits
+  python scripts/cli.py ml_model_zoo \\
+    --factor-panel-file output/factor_panels/core_20d_factors.parquet \\
+    --label-col fwd_return_20d \\
+    --n-splits 10 \\
+    --output-dir output/ml_validation/custom_zoo
+        """,
+    )
+    ml_model_zoo_parser.add_argument(
+        "--factor-panel-file",
+        type=Path,
+        required=True,
+        metavar="FILE",
+        help="Path to factor panel file (Parquet or CSV) with factors and forward returns",
+    )
+    ml_model_zoo_parser.add_argument(
+        "--label-col",
+        type=str,
+        required=True,
+        metavar="COL",
+        help="Name of label column (e.g., 'fwd_return_20d')",
+    )
+    ml_model_zoo_parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        metavar="DIR",
+        help="Output directory (default: output/ml_model_zoo)",
+    )
+    ml_model_zoo_parser.add_argument(
+        "--n-splits",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Number of CV splits (default: 5)",
+    )
+    ml_model_zoo_parser.add_argument(
+        "--train-size",
+        type=int,
+        default=None,
+        metavar="DAYS",
+        help="Training window size in days (default: None = expanding window)",
+    )
+    ml_model_zoo_parser.add_argument(
+        "--standardize",
+        type=bool,
+        default=None,
+        help="Whether to standardize features (default: True)",
+    )
+    ml_model_zoo_parser.add_argument(
+        "--min-train-samples",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Minimum training samples (default: 252)",
+    )
+    ml_model_zoo_parser.add_argument(
+        "--test-start",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Test start date (YYYY-MM-DD, optional)",
+    )
+    ml_model_zoo_parser.add_argument(
+        "--test-end",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Test end date (YYYY-MM-DD, optional)",
+    )
+    ml_model_zoo_parser.add_argument(
+        "--no-markdown", action="store_true", help="Skip Markdown report generation"
+    )
+    ml_model_zoo_parser.set_defaults(func=ml_model_zoo_subcommand)
