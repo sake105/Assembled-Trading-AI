@@ -80,7 +80,12 @@ def test_holiday_rejected() -> None:
 
 
 def test_1d_only_close_accepted() -> None:
-    """Test that for freq='1d', only session close is accepted."""
+    """Test that for freq='1d', any order on a trading day is accepted.
+
+    Daily bars use midnight-UTC convention — the session-close proximity check
+    is intentionally skipped for 1d so that valid EOD orders are not rejected.
+    Only the is_trading_day guard applies.
+    """
     try:
         from src.assembled_core.data.calendar import session_close_utc
 
@@ -101,17 +106,16 @@ def test_1d_only_close_accepted() -> None:
 
         fills_at_close = apply_session_gate(orders_at_close, freq="1d", strict=True)
 
-        # Should be accepted (status="filled" by default, or unchanged if already set)
         assert (
             fills_at_close["fill_qty"].iloc[0] == 100.0
         ), "Order at session close should be accepted"
 
-        # Order not at session close (should be rejected)
-        orders_not_at_close = pd.DataFrame(
+        # Order 2 hours before session close — also accepted for 1d (trading day is sufficient)
+        orders_mid_day = pd.DataFrame(
             {
                 "timestamp": [
                     session_close - pd.Timedelta(hours=2)
-                ],  # 2 hours before close
+                ],
                 "symbol": ["AAPL"],
                 "side": ["BUY"],
                 "qty": [100.0],
@@ -119,17 +123,14 @@ def test_1d_only_close_accepted() -> None:
             }
         )
 
-        fills_not_at_close = apply_session_gate(
-            orders_not_at_close, freq="1d", strict=True
+        fills_mid_day = apply_session_gate(
+            orders_mid_day, freq="1d", strict=True
         )
 
-        # Should be rejected
+        # For 1d, any trading-day order is accepted (session-close proximity not checked)
         assert (
-            fills_not_at_close["status"].iloc[0] == "rejected"
-        ), "Order not at session close should be rejected"
-        assert (
-            fills_not_at_close["fill_qty"].iloc[0] == 0.0
-        ), "Rejected order should have fill_qty=0"
+            fills_mid_day["fill_qty"].iloc[0] == 100.0
+        ), "Mid-day 1d order on trading day should be accepted"
     except ImportError:
         # Skip if exchange_calendars not available
         pass

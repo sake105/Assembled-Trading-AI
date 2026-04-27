@@ -456,41 +456,9 @@ def apply_session_gate(
         # session close time. Accept any order whose date is a trading day — the
         # is_trading_day check above already enforces that. Skip session-close
         # proximity check for daily bars to avoid rejecting all valid EOD orders.
-        if freq != "1d" and strict:
-            try:
-                session_close = session_close_utc(timestamp.date())
-                time_diff = abs((timestamp - session_close).total_seconds())
-                if time_diff > 60:  # More than 1 minute away from session close
-                    fills.loc[idx, "status"] = "rejected"
-                    fills.loc[idx, "reject_reason"] = "NOT_AT_SESSION_CLOSE"
-                    fills.loc[idx, "fill_qty"] = 0.0
-                    fills.loc[idx, "remaining_qty"] = row["qty"]
-                    fills.loc[idx, "fill_price"] = row["price"]
-                    if "commission_cash" in fills.columns:
-                        fills.loc[idx, "commission_cash"] = 0.0
-                    if "spread_cash" in fills.columns:
-                        fills.loc[idx, "spread_cash"] = 0.0
-                    if "slippage_cash" in fills.columns:
-                        fills.loc[idx, "slippage_cash"] = 0.0
-                    if "total_cost_cash" in fills.columns:
-                        fills.loc[idx, "total_cost_cash"] = 0.0
-            except ValueError:
-                fills.loc[idx, "status"] = "rejected"
-                fills.loc[idx, "reject_reason"] = "NOT_TRADING_DAY"
-                fills.loc[idx, "fill_qty"] = 0.0
-                fills.loc[idx, "remaining_qty"] = row["qty"]
-                fills.loc[idx, "fill_price"] = row["price"]
-                if "commission_cash" in fills.columns:
-                    fills.loc[idx, "commission_cash"] = 0.0
-                if "spread_cash" in fills.columns:
-                    fills.loc[idx, "spread_cash"] = 0.0
-                if "slippage_cash" in fills.columns:
-                    fills.loc[idx, "slippage_cash"] = 0.0
-                if "total_cost_cash" in fills.columns:
-                    fills.loc[idx, "total_cost_cash"] = 0.0
 
-        # For freq="5min": only accept within trading session
-        elif freq == "5min":
+        # For intraday (freq != "1d"): check within trading session (open to close).
+        if freq != "1d" and strict:
             try:
                 session_date = timestamp.date()
                 session_ts = pd.Timestamp(session_date)
