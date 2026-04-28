@@ -52,6 +52,7 @@ dependencies = [
     "newsapi-python>=0.2.7",
     "pandera>=0.21.0",
     "pandas-market-calendars>=4.6.0",
+    "arch>=6.0.0",
 ]
 
 [project.optional-dependencies]

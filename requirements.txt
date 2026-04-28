@@ -66,3 +66,4 @@ PyYAML>=6.0
 
 pandera==0.31.1
 pandas-market-calendars==4.6.1
+arch==8.0.0
