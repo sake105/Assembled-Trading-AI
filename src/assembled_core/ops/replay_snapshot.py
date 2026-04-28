@@ -30,7 +30,7 @@ Usage::
 
     # later:
     loaded = RunSnapshot.load(path)
-    assert loaded.seed == 42
+    assert loaded.seed == 42, "Loaded snapshot seed must match"
 """
 
 from __future__ import annotations

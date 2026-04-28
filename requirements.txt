@@ -34,6 +34,9 @@ exchange-calendars>=4.5.0
 feedparser>=6.0.0
 newsapi-python>=0.2.7
 
+# --- Dev / Test ---
+hypothesis>=6.0.0
+
 # --- System Check Tournament (system_check/) ---
 anthropic>=0.45.0
 PyYAML>=6.0

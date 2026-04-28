@@ -1,5 +1,6 @@
 # requirements.lock — full transitive freeze snapshot
 # Last regenerated: 2026-04-08 via pip freeze (Python 3.11, Windows)
+# Updated: 2026-04-28 — added hypothesis==6.152.4 (D3 property tests)
 # WARNING: Key packages (numpy, pandas) diverge from requirements.txt pins.
 # IMPORTANT: requirements.txt is the authoritative CI file. This lock is a
 # secondary reference. Regenerate after any requirements.txt update:
@@ -27,6 +28,7 @@ fredapi==0.5.2
 frozendict==2.4.6
 fsspec==2025.9.0
 h11==0.16.0
+hypothesis==6.152.4
 httpcore==1.0.9
 httptools==0.7.1
 httpx==0.28.1

@@ -29,3 +29,12 @@ repos:
     rev: 24.10.0
     hooks:
       - id: black
+
+  - repo: local
+    hooks:
+      - id: no-bare-assert
+        name: no bare assert in src (assert without message)
+        language: pygrep
+        entry: '^\s*assert [^,\n]+$'
+        files: '^src/'
+        types: [python]
