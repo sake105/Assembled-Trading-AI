@@ -620,6 +620,493 @@ def run_portfolio_step(
     return eq_path, rep_path, trades_df
 
 
+# ---------------------------------------------------------------------------
+# run_eod_pipeline helpers (_eo_*)
+# ---------------------------------------------------------------------------
+
+def _eo_load_prices(
+    freq: str,
+    symbols: list[str] | None,
+    data_source: str | None,
+    price_file: str | None,
+    start_date: str | None,
+    end_date: str | None,
+    base: Path,
+) -> tuple[pd.DataFrame, bool]:
+    """Load price data from the configured source. Returns (prices, failed)."""
+    try:
+        from src.assembled_core.config.settings import get_settings
+        from src.assembled_core.data.data_source import get_price_data_source
+
+        settings = get_settings()
+        source_type = data_source if data_source is not None else settings.data_source
+
+        if symbols is None:
+            if settings.watchlist_file.exists():
+                symbols = []
+                try:
+                    with settings.watchlist_file.open("r", encoding="utf-8") as f:
+                        for line in f:
+                            line = line.strip()
+                            if line and not line.startswith("#"):
+                                symbols.append(line.upper())
+                except (IOError, OSError) as exc:
+                    logger.warning(
+                        "Failed to read watchlist file %s: %s. Using default universe.",
+                        settings.watchlist_file, exc,
+                    )
+                    symbols = settings.default_universe
+                if not symbols:
+                    symbols = settings.default_universe
+            else:
+                symbols = settings.default_universe
+
+        _start = start_date or "2020-01-01"
+        _end = end_date or "today"
+
+        price_source = get_price_data_source(
+            settings=settings, data_source=source_type, price_file=price_file
+        )
+        logger.info("Loading prices from %s source...", source_type)
+        logger.info(
+            "Symbols: %s%s (%d total)",
+            symbols[:10], "..." if len(symbols) > 10 else "", len(symbols),
+        )
+        logger.info("Date range: %s to %s", _start, _end)
+
+        prices = price_source.get_history(
+            symbols=symbols, start_date=_start, end_date=_end, freq=freq
+        )
+        logger.info(
+            "Price data OK: %d rows, %d symbols", len(prices), prices["symbol"].nunique()
+        )
+
+        if source_type == "yahoo" and len(prices) > 0:
+            cache_path = base / "aggregates" / f"{freq}_live_cache.parquet"
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            prices.to_parquet(cache_path, index=False)
+            logger.info("Cached live data to %s", cache_path)
+
+        return prices, False
+    except FileNotFoundError as e:
+        logger.error("Price data not found: %s", e)
+        return pd.DataFrame(), True
+    except Exception as e:
+        logger.error("Failed to load price data: %s", e, exc_info=True)
+        return pd.DataFrame(), True
+
+
+def _eo_step_ledger(
+    *,
+    freq: str,
+    base: Path,
+    started_at: datetime,
+    start_capital: float,
+    portfolio_trades_df: pd.DataFrame,
+    broker_snapshot_policy: str,
+    broker_snapshot_file: str | Path | None,
+    broker_snapshot_date: str | None,
+    broker_snapshot_run_id: str | None,
+    write_evidence_pack: bool,
+    write_paper_broker_snapshot: bool,
+) -> dict[str, Any]:
+    """Run Step 4b ledger/accounting. Returns {ledger_result, completed, failed}."""
+    run_id = f"run_{started_at.strftime('%Y%m%d_%H%M%S')}"
+    snapshot_run_id = broker_snapshot_run_id if broker_snapshot_run_id is not None else run_id
+
+    try:
+        from src.assembled_core.accounting.ledger_integration import build_ledger_from_trades
+
+        orders_df = load_orders(freq, output_dir=base, strict=False)
+
+        prices_df = None
+        try:
+            prices_df = load_prices_with_fallback(freq, output_dir=base)
+        except Exception:
+            logger.warning("Could not load prices for unrealized PnL calculation")
+
+        if broker_snapshot_file:
+            try:
+                logger.info("Importing external broker snapshot from: %s", broker_snapshot_file)
+                from src.assembled_core.accounting.broker_snapshot_importer import import_broker_snapshot
+
+                if broker_snapshot_date is not None:
+                    snapshot_date = pd.to_datetime(broker_snapshot_date, utc=True)
+                elif (
+                    not portfolio_trades_df.empty
+                    and "timestamp" in portfolio_trades_df.columns
+                ):
+                    snapshot_date = pd.to_datetime(
+                        portfolio_trades_df["timestamp"].max(), utc=True
+                    )
+                else:
+                    snapshot_date = pd.Timestamp.now("UTC")
+
+                import_result = import_broker_snapshot(
+                    snapshot_path=Path(broker_snapshot_file),
+                    run_id=snapshot_run_id,
+                    snapshot_date=snapshot_date,
+                    output_dir=base,
+                    qty_tol=1e-8,
+                    store_parquet=True,
+                )
+                logger.info(
+                    "Imported broker snapshot: %s, cash=%s",
+                    import_result["broker_snapshot_path"], import_result["cash"],
+                )
+            except Exception as e:
+                logger.error("Failed to import broker snapshot: %s", e, exc_info=True)
+                if broker_snapshot_policy == "require":
+                    raise ValueError(
+                        f"Broker snapshot import failed (policy=require): {e}"
+                    ) from e
+
+        ledger_result = build_ledger_from_trades(
+            orders_df=orders_df,
+            trades_df=portfolio_trades_df,
+            run_id=run_id,
+            output_dir=base,
+            as_of_date=None,
+            prices_df=prices_df,
+            start_cash=start_capital,
+            broker_snapshot_policy=broker_snapshot_policy,
+            write_paper_broker_snapshot=write_paper_broker_snapshot,
+            broker_snapshot_run_id=snapshot_run_id,
+            write_evidence_pack=write_evidence_pack,
+        )
+        logger.info(
+            "Ledger built: pack_path=%s, reconciliation_ok=%s",
+            ledger_result["ledger_pack_path"], ledger_result["reconciliation_ok"],
+        )
+        return {"ledger_result": ledger_result, "completed": True, "failed": False}
+    except ValueError:
+        raise
+    except Exception as e:
+        logger.error("Ledger/Accounting step failed: %s", e, exc_info=True)
+        return {"ledger_result": None, "completed": False, "failed": True}
+
+
+def _eo_step_qa(
+    freq: str,
+    base: Path,
+    start_capital: float,
+    commission_bps: float | None,
+    spread_w: float | None,
+    impact_w: float | None,
+) -> dict[str, Any]:
+    """Run Step 5 QA (health + metrics + gates + report). Returns result dict."""
+    out: dict[str, Any] = {
+        "qa_result": None,
+        "qa_metrics": None,
+        "qa_gate_result": None,
+        "qa_report_path_rel": None,
+        "completed": False,
+        "failed": False,
+    }
+    try:
+        out["qa_result"] = aggregate_qa_status(freq, output_dir=base)
+        qa_status = out["qa_result"].get("overall_status", "unknown")
+        logger.info("QA health checks completed: overall_status=%s", qa_status)
+        if qa_status == "error":
+            logger.error("QA overall_status is 'error' - some checks failed")
+        elif qa_status == "warning":
+            logger.warning("QA overall_status is 'warning' - some checks have warnings")
+
+        try:
+            portfolio_equity_file = base / f"portfolio_equity_{freq}.csv"
+            backtest_equity_file = base / f"equity_curve_{freq}.csv"
+
+            if portfolio_equity_file.exists():
+                equity_df = pd.read_csv(portfolio_equity_file, dtype={"timestamp": "string"})
+                equity_df["timestamp"] = pd.to_datetime(equity_df["timestamp"], utc=True)
+                logger.info("Using portfolio equity: %d rows", len(equity_df))
+            elif backtest_equity_file.exists():
+                equity_df = pd.read_csv(backtest_equity_file, dtype={"timestamp": "string"})
+                equity_df["timestamp"] = pd.to_datetime(equity_df["timestamp"], utc=True)
+                logger.info("Using backtest equity: %d rows", len(equity_df))
+            else:
+                logger.warning("No equity file found for metrics computation")
+                equity_df = None
+
+            orders_df = None
+            try:
+                orders_df = load_orders(freq, output_dir=base, strict=False)
+                if orders_df.empty:
+                    orders_df = None
+            except Exception:
+                pass
+
+            if equity_df is not None and not equity_df.empty:
+                qa_metrics = compute_all_metrics(
+                    equity=equity_df,
+                    trades=orders_df,
+                    start_capital=start_capital,
+                    freq=freq,
+                    risk_free_rate=0.0,
+                )
+                out["qa_metrics"] = qa_metrics
+                logger.info(
+                    "Performance metrics computed: PF=%.4f, Sharpe=%s, CAGR=%s",
+                    qa_metrics.final_pf, qa_metrics.sharpe_ratio, qa_metrics.cagr,
+                )
+
+                qa_gate_result = evaluate_all_gates(qa_metrics)
+                out["qa_gate_result"] = qa_gate_result
+                gate_status = qa_gate_result.overall_result.value
+                passed = sum(1 for r in qa_gate_result.gate_results if r.result.value == "ok")
+                warnings = sum(1 for r in qa_gate_result.gate_results if r.result.value == "warning")
+                blocked = sum(1 for r in qa_gate_result.gate_results if r.result.value == "block")
+                logger.info(
+                    "QA gates: overall=%s (passed=%d, warnings=%d, blocked=%d)",
+                    gate_status, passed, warnings, blocked,
+                )
+                if qa_gate_result.overall_result == QAResult.BLOCK:
+                    logger.error("QA gates BLOCKED - strategy does not meet quality thresholds")
+                elif qa_gate_result.overall_result == QAResult.WARNING:
+                    logger.warning("QA gates WARNING - some quality thresholds not met")
+
+                try:
+                    cost_model = get_default_cost_model()
+                    config_info = {
+                        "strategy": "eod_pipeline_core",
+                        "freq": freq,
+                        "start_capital": start_capital,
+                        "ema_fast": get_default_ema_config(freq).fast,
+                        "ema_slow": get_default_ema_config(freq).slow,
+                        "commission_bps": commission_bps if commission_bps is not None else cost_model.commission_bps,
+                        "spread_w": spread_w if spread_w is not None else cost_model.spread_w,
+                        "impact_w": impact_w if impact_w is not None else cost_model.impact_w,
+                    }
+                    equity_curve_path = (
+                        portfolio_equity_file if portfolio_equity_file.exists()
+                        else (backtest_equity_file if backtest_equity_file.exists() else None)
+                    )
+                    qa_report_path = generate_qa_report(
+                        metrics=qa_metrics,
+                        gate_result=qa_gate_result,
+                        strategy_name="eod_pipeline_core",
+                        freq=freq,
+                        equity_curve_path=equity_curve_path,
+                        data_start_date=qa_metrics.start_date,
+                        data_end_date=qa_metrics.end_date,
+                        config_info=config_info,
+                        output_dir=base / "reports",
+                    )
+                    out["qa_report_path_rel"] = qa_report_path.relative_to(base)
+                    logger.info("QA report written: %s", qa_report_path)
+                except Exception as e:
+                    logger.warning("QA report generation failed: %s", e, exc_info=True)
+            else:
+                logger.warning("Cannot compute QA metrics: no equity data available")
+        except Exception as e:
+            logger.warning("QA metrics/gates computation failed: %s", e, exc_info=True)
+
+        out["completed"] = True
+    except Exception as e:
+        logger.error("ERROR in QA step: %s", e, exc_info=True)
+        out["failed"] = True
+    return out
+
+
+def _eo_snapshot_id(
+    prices: pd.DataFrame,
+    freq: str,
+    price_file: str | None,
+    data_source: str | None,
+) -> str | None:
+    """Compute deterministic data snapshot ID for run manifest reproducibility."""
+    try:
+        from src.assembled_core.data.snapshot import compute_price_panel_snapshot_id
+
+        source_meta: dict[str, str] = {}
+        if price_file:
+            source_meta["file"] = str(price_file)
+        if data_source:
+            source_meta["source"] = str(data_source)
+
+        snap_id = compute_price_panel_snapshot_id(
+            prices=prices,
+            freq=freq,
+            source_meta=source_meta if source_meta else None,
+        )
+        logger.info("Data snapshot ID computed: %s...", snap_id[:16])
+        return snap_id
+    except Exception as exc:
+        logger.warning("Failed to compute data snapshot ID: %s", exc, exc_info=True)
+        return None
+
+
+def _eo_build_manifest(
+    *,
+    freq: str,
+    start_capital: float,
+    data_snapshot_id: str | None,
+    completed_steps: list[str],
+    qa: dict[str, Any],
+    ledger_result: dict[str, Any] | None,
+    started_at: datetime,
+    finished_at: datetime,
+    failure_flag: bool,
+    base: Path,
+) -> dict[str, Any]:
+    """Build the run manifest dict from pipeline step outputs."""
+    qa_result = qa.get("qa_result")
+    qa_metrics = qa.get("qa_metrics")
+    qa_gate_result = qa.get("qa_gate_result")
+    qa_report_path_rel = qa.get("qa_report_path_rel")
+
+    return {
+        "schema_version": 1,
+        "freq": freq,
+        "start_capital": start_capital,
+        "data_snapshot_id": data_snapshot_id,
+        "completed_steps": completed_steps,
+        "qa_overall_status": qa_result["overall_status"] if qa_result else None,
+        "qa_checks": qa_result["checks"] if qa_result else [],
+        "qa_metrics": _metrics_to_dict(qa_metrics) if qa_metrics else None,
+        "qa_gate_result": _gate_result_to_dict(qa_gate_result) if qa_gate_result else None,
+        "qa_report_path": (
+            _manifest_path_str(qa_report_path_rel, base_dir=base) if qa_report_path_rel else None
+        ),
+        "robustness_pack_path": None,
+        "wf_oos_metrics": None,
+        "plateau_score": None,
+        "sensitivity_summary": None,
+        "crisis_summary": None,
+        "deflated_sharpe": None,
+        "multiple_testing_warning": None,
+        "robustness_ok": None,
+        "ledger_pack_path": (
+            _manifest_path_str(ledger_result.get("ledger_pack_path"), base_dir=base)
+            if ledger_result else None
+        ),
+        "reconcile_report_path": (
+            _manifest_path_str(ledger_result.get("reconcile_report_path"), base_dir=base)
+            if ledger_result else None
+        ),
+        "accounting_report_path": (
+            _manifest_path_str(ledger_result.get("accounting_report_path"), base_dir=base)
+            if ledger_result else None
+        ),
+        "evidence_index_path": (
+            _manifest_path_str(ledger_result.get("evidence_index_path"), base_dir=base)
+            if ledger_result else None
+        ),
+        "evidence_pack_path": (
+            _manifest_path_str(ledger_result.get("evidence_pack_path"), base_dir=base)
+            if ledger_result else None
+        ),
+        "evidence_pack_manifest_path": (
+            _manifest_path_str(ledger_result.get("evidence_pack_manifest_path"), base_dir=base)
+            if ledger_result else None
+        ),
+        "broker_snapshot_path": (
+            _manifest_path_str(ledger_result.get("broker_snapshot_path"), base_dir=base)
+            if ledger_result else None
+        ),
+        "reconciliation_ok": (
+            ledger_result["reconciliation_ok"] if ledger_result else None
+        ),
+        "timestamps": {
+            "started": started_at.isoformat(),
+            "finished": finished_at.isoformat(),
+        },
+        "failure": failure_flag,
+    }
+
+
+def _eo_post_steps(base: Path) -> None:
+    """Run non-blocking post-pipeline steps: feedback loop, news attribution, TCA."""
+    try:
+        from src.assembled_core.ml.feedback_loop import FeedbackLoopController  # type: ignore
+
+        _fl = FeedbackLoopController()
+        _fl_result = _fl.run_feedback_check(
+            learning_store_path=base / "ops" / "learning_store.jsonl",
+            current_model_path=base / "models" / "meta_model_current.joblib",
+            panel_df=pd.DataFrame(),
+        )
+        logger.info(
+            "[EOD][Feedback] signals=%d retrain_triggered=%s blocked=%s",
+            _fl_result.active_signal_count,
+            _fl_result.retrain_triggered,
+            bool(_fl_result.blocked_reason),
+        )
+    except Exception as _fl_exc:
+        logger.warning("[EOD][Feedback] Non-blocking Fehler (ignoriert): %s", _fl_exc)
+
+    try:
+        from src.assembled_core.intel.news_trade_attribution import NewsTradeAttributor  # type: ignore
+
+        _ls_path = base / "ops" / "learning_store.jsonl"
+        _news_path = base / "intel" / "news_event_store.jsonl"
+        if _ls_path.exists() and _news_path.exists():
+            _attributor = NewsTradeAttributor()
+            _n_enriched = _attributor.enrich_learning_store(
+                learning_store_path=_ls_path,
+                news_events_path=_news_path,
+            )
+            logger.info("[EOD][NewsAttr] enriched %d Trade-Records mit news_links", _n_enriched)
+    except Exception as _na_exc:
+        logger.warning("[EOD][NewsAttr] Non-blocking Fehler: %s", _na_exc)
+
+    try:
+        import json as _json
+
+        from src.assembled_core.qa.trade_tca import run_tca_from_learning_store  # type: ignore
+
+        _ls_path = base / "ops" / "learning_store.jsonl"
+        _tca_date_str: str | None = None
+        try:
+            if _ls_path.exists():
+                _max_ts = None
+                with _ls_path.open("r", encoding="utf-8") as _fh:
+                    for _line in _fh:
+                        _line = _line.strip()
+                        if not _line:
+                            continue
+                        try:
+                            _rec = _json.loads(_line)
+                        except Exception:
+                            continue
+                        _t = _rec.get("timestamp") or _rec.get("execution_time") or _rec.get("closed_at")
+                        if _t is None:
+                            continue
+                        _ts = pd.to_datetime(_t, utc=True, errors="coerce")
+                        if pd.isna(_ts):
+                            continue
+                        if _max_ts is None or _ts > _max_ts:
+                            _max_ts = _ts
+                if _max_ts is not None:
+                    _tca_date_str = _max_ts.strftime("%Y%m%d")
+        except Exception:
+            _tca_date_str = None
+
+        if _tca_date_str is None:
+            _tca_date_str = pd.Timestamp.now("UTC").strftime("%Y%m%d")
+            logger.warning(
+                "[EOD][TCA] Kein Trade-Timestamp im learning_store — fallback auf wall-clock-Datum %s",
+                _tca_date_str,
+            )
+
+        _tca_out = base / "ops" / f"tca_report_{_tca_date_str}.json"
+        if _ls_path.exists():
+            _tca_result = run_tca_from_learning_store(_ls_path, _tca_out)
+            if _tca_result:
+                logger.info(
+                    "[EOD][TCA] %d Trades analysiert, mean_impact_bps=%.2f",
+                    _tca_result.get("n_trades", 0),
+                    _tca_result.get("mean_impact_bps", 0.0),
+                )
+            try:
+                from src.assembled_core.ops.report_retention import purge_old_dated_reports
+                purge_old_dated_reports(_tca_out.parent, "tca_report_", ".json", keep_last_n=60)
+            except OSError as _ret_exc:
+                logger.debug("[EOD][TCA] Retention-Purge IO-Fehler: %s", _ret_exc)
+    except Exception as _tca_exc:
+        logger.warning("[EOD][TCA] Non-blocking Fehler: %s", _tca_exc)
+
+
 def run_eod_pipeline(
     freq: str,
     start_capital: float = 10000.0,
@@ -673,92 +1160,25 @@ def run_eod_pipeline(
 
     base = output_dir if output_dir else OUTPUT_DIR
     started_at = datetime.now(tz=timezone.utc)
-
-    completed_steps = []
+    completed_steps: list[str] = []
     failure_flag = False
 
-    # Step 1: Load price data (using data source abstraction)
-    try:
-        from src.assembled_core.config.settings import get_settings
-        from src.assembled_core.data.data_source import get_price_data_source
-
-        settings = get_settings()
-
-        # Determine data source
-        source_type = data_source if data_source is not None else settings.data_source
-
-        # Determine symbols
-        if symbols is None:
-            # Try to read from watchlist file if it exists
-            if settings.watchlist_file.exists():
-                symbols = []
-                try:
-                    with settings.watchlist_file.open("r", encoding="utf-8") as f:
-                        for line in f:
-                            line = line.strip()
-                            if line and not line.startswith("#"):
-                                symbols.append(line.upper())
-                except (IOError, OSError) as exc:
-                    logger.warning(
-                        f"Failed to read watchlist file {settings.watchlist_file}: {exc}. Using default universe."
-                    )
-                    symbols = settings.default_universe
-                if not symbols:
-                    symbols = settings.default_universe
-            else:
-                symbols = settings.default_universe
-
-        # Determine date range
-        if start_date is None:
-            start_date = "2020-01-01"  # Default: use all available data
-        if end_date is None:
-            end_date = "today"  # Default: use current date
-
-        # Get data source and load prices
-        price_source = get_price_data_source(
-            settings=settings, data_source=source_type, price_file=price_file
-        )
-
-        logger.info(f"Loading prices from {source_type} source...")
-        logger.info(
-            f"Symbols: {symbols[:10]}{'...' if len(symbols) > 10 else ''} ({len(symbols)} total)"
-        )
-        logger.info(f"Date range: {start_date} to {end_date}")
-
-        prices = price_source.get_history(
-            symbols=symbols, start_date=start_date, end_date=end_date, freq=freq
-        )
-
-        logger.info(
-            f"Price data OK: {len(prices)} rows, {prices['symbol'].nunique()} symbols"
-        )
-
-        # If using online source, optionally save to local file for caching
-        if source_type == "yahoo" and len(prices) > 0:
-            cache_path = base / "aggregates" / f"{freq}_live_cache.parquet"
-            cache_path.parent.mkdir(parents=True, exist_ok=True)
-            prices.to_parquet(cache_path, index=False)
-            logger.info(f"Cached live data to {cache_path}")
-
-    except FileNotFoundError as e:
-        logger.error(f"Price data not found: {e}")
+    # Step 1: Load price data
+    logger.info("Step 1: Load price data")
+    prices, load_failed = _eo_load_prices(
+        freq, symbols, data_source, price_file, start_date, end_date, base
+    )
+    if load_failed:
         failure_flag = True
-        prices = pd.DataFrame()  # Empty DataFrame to prevent downstream errors
-    except Exception as e:
-        logger.error(f"Failed to load price data: {e}", exc_info=True)
-        failure_flag = True
-        prices = pd.DataFrame()  # Empty DataFrame to prevent downstream errors
 
     # Step 2: Execute
     try:
         logger.info("Step 2: Execute")
-        orders_path, orders = run_execute_step(
-            freq, output_dir=base, price_file=price_file
-        )
-        logger.info(f"Orders written: {orders_path} | rows={len(orders)}")
+        orders_path, orders = run_execute_step(freq, output_dir=base, price_file=price_file)
+        logger.info("Orders written: %s | rows=%d", orders_path, len(orders))
         completed_steps.append("execute")
     except Exception as e:
-        logger.error(f"ERROR in execute step: {e}", exc_info=True)
+        logger.error("ERROR in execute step: %s", e, exc_info=True)
         failure_flag = True
 
     # Step 3: Backtest
@@ -768,10 +1188,10 @@ def run_eod_pipeline(
             curve_path, rep_path = run_backtest_step(
                 freq, start_capital, output_dir=base, price_file=price_file
             )
-            logger.info(f"Backtest written: {curve_path}, {rep_path}")
+            logger.info("Backtest written: %s, %s", curve_path, rep_path)
             completed_steps.append("backtest")
         except Exception as e:
-            logger.error(f"ERROR in backtest step: {e}", exc_info=True)
+            logger.error("ERROR in backtest step: %s", e, exc_info=True)
             failure_flag = True
     else:
         logger.info("Step 3: Backtest (SKIPPED)")
@@ -782,544 +1202,79 @@ def run_eod_pipeline(
         try:
             logger.info("Step 4: Portfolio")
             eq_path, rep_path, portfolio_trades_df = run_portfolio_step(
-                freq,
-                start_capital,
-                commission_bps=commission_bps,
-                spread_w=spread_w,
-                impact_w=impact_w,
+                freq, start_capital,
+                commission_bps=commission_bps, spread_w=spread_w, impact_w=impact_w,
                 output_dir=base,
             )
-            logger.info(f"Portfolio written: {eq_path}, {rep_path}")
+            logger.info("Portfolio written: %s, %s", eq_path, rep_path)
             completed_steps.append("portfolio")
         except Exception as e:
-            logger.error(f"ERROR in portfolio step: {e}", exc_info=True)
+            logger.error("ERROR in portfolio step: %s", e, exc_info=True)
             failure_flag = True
     else:
         logger.info("Step 4: Portfolio (SKIPPED)")
 
-    # Step 4b: Ledger/Accounting (Sprint 13 L5)
+    # Step 4b: Ledger/Accounting
     ledger_result = None
-    if (
-        not skip_portfolio
-        and portfolio_trades_df is not None
-        and not portfolio_trades_df.empty
-    ):
-        try:
-            logger.info("Step 4b: Ledger/Accounting")
-            from src.assembled_core.accounting.ledger_integration import (
-                build_ledger_from_trades,
-            )
-
-            # Generate run_id from timestamp
-            run_id = f"run_{started_at.strftime('%Y%m%d_%H%M%S')}"
-
-            # Load orders for ORDER_SUBMIT events
-            orders_df = load_orders(freq, output_dir=base, strict=False)
-
-            # Load prices for unrealized PnL
-            prices_df = None
-            try:
-                prices_df = load_prices_with_fallback(freq, output_dir=base)
-            except Exception:
-                logger.warning("Could not load prices for unrealized PnL calculation")
-
-            # Default: use run_id as snapshot namespace unless explicitly overridden
-            snapshot_run_id = (
-                broker_snapshot_run_id if broker_snapshot_run_id is not None else run_id
-            )
-
-            # Step 4b.1: Import external broker snapshot if provided
-            if broker_snapshot_file:
-                try:
-                    logger.info(
-                        f"Importing external broker snapshot from: {broker_snapshot_file}"
-                    )
-                    from src.assembled_core.accounting.broker_snapshot_importer import (
-                        import_broker_snapshot,
-                    )
-
-                    # Determine snapshot date (use provided date, or last trade date, or today)
-                    snapshot_date = broker_snapshot_date
-                    if snapshot_date is None:
-                        if (
-                            not portfolio_trades_df.empty
-                            and "timestamp" in portfolio_trades_df.columns
-                        ):
-                            snapshot_date = pd.to_datetime(
-                                portfolio_trades_df["timestamp"].max(), utc=True
-                            )
-                        else:
-                            snapshot_date = pd.Timestamp.now("UTC")
-                    else:
-                        snapshot_date = pd.to_datetime(snapshot_date, utc=True)
-
-                    # Import snapshot
-                    import_result = import_broker_snapshot(
-                        snapshot_path=Path(broker_snapshot_file),
-                        run_id=snapshot_run_id,
-                        snapshot_date=snapshot_date,
-                        output_dir=base,
-                        qty_tol=1e-8,
-                        store_parquet=True,
-                    )
-                    logger.info(
-                        f"Imported broker snapshot: {import_result['broker_snapshot_path']}, "
-                        f"cash={import_result['cash']}"
-                    )
-                except Exception as e:
-                    logger.error(
-                        f"Failed to import broker snapshot: {e}", exc_info=True
-                    )
-                    # If policy is require, we should fail here
-                    if broker_snapshot_policy == "require":
-                        raise ValueError(
-                            f"Broker snapshot import failed (policy=require): {e}"
-                        ) from e
-                    # Otherwise, log and continue (snapshot might still exist from previous import)
-
-            # Build ledger
-            ledger_result = build_ledger_from_trades(
-                orders_df=orders_df,
-                trades_df=portfolio_trades_df,
-                run_id=run_id,
-                output_dir=base,
-                as_of_date=None,  # Use last trade timestamp
-                prices_df=prices_df,
-                start_cash=start_capital,
-                broker_snapshot_policy=broker_snapshot_policy,
-                write_paper_broker_snapshot=write_paper_broker_snapshot,
-                broker_snapshot_run_id=snapshot_run_id,
-                write_evidence_pack=write_evidence_pack,
-            )
-
-            logger.info(
-                f"Ledger built: pack_path={ledger_result['ledger_pack_path']}, "
-                f"reconciliation_ok={ledger_result['reconciliation_ok']}"
-            )
+    if not skip_portfolio and portfolio_trades_df is not None and not portfolio_trades_df.empty:
+        logger.info("Step 4b: Ledger/Accounting")
+        _ledger = _eo_step_ledger(
+            freq=freq, base=base, started_at=started_at, start_capital=start_capital,
+            portfolio_trades_df=portfolio_trades_df,
+            broker_snapshot_policy=broker_snapshot_policy,
+            broker_snapshot_file=broker_snapshot_file,
+            broker_snapshot_date=broker_snapshot_date,
+            broker_snapshot_run_id=broker_snapshot_run_id,
+            write_evidence_pack=write_evidence_pack,
+            write_paper_broker_snapshot=write_paper_broker_snapshot,
+        )
+        ledger_result = _ledger["ledger_result"]
+        if _ledger["completed"]:
             completed_steps.append("ledger")
-        except ValueError:
-            # Important: do NOT swallow fail-fast policy errors (e.g. policy="require")
-            raise
-        except Exception as e:
-            logger.error(f"Ledger/Accounting step failed: {e}", exc_info=True)
-            # Ledger is labeled "optional" at the pipeline level, but a
-            # silent ledger failure produces downstream QA on inconsistent
-            # equity/trades and can surface as green overall status. Set
-            # failure_flag so the run manifest records the degradation,
-            # even though the pipeline does not abort.
-            ledger_result = None
+        if _ledger["failed"]:
             failure_flag = True
     else:
         logger.info("Step 4b: Ledger/Accounting (SKIPPED - no trades available)")
 
     # Step 5: QA
-    qa_result = None
-    qa_metrics = None
-    qa_gate_result = None
-    qa_report_path_rel = None
     if not skip_qa:
-        try:
-            logger.info("Step 5: QA")
-
-            # 5a: Health checks (existing)
-            qa_result = aggregate_qa_status(freq, output_dir=base)
-            qa_status = qa_result.get("overall_status", "unknown")
-            logger.info(f"QA health checks completed: overall_status={qa_status}")
-
-            if qa_status == "error":
-                logger.error("QA overall_status is 'error' - some checks failed")
-            elif qa_status == "warning":
-                logger.warning(
-                    "QA overall_status is 'warning' - some checks have warnings"
-                )
-
-            # 5b: Performance metrics (new)
-            try:
-                logger.info("Step 5b: Computing performance metrics")
-                # Load portfolio equity (preferred) or backtest equity
-                portfolio_equity_file = base / f"portfolio_equity_{freq}.csv"
-                backtest_equity_file = base / f"equity_curve_{freq}.csv"
-
-                if portfolio_equity_file.exists():
-                    equity_df = pd.read_csv(portfolio_equity_file, dtype={"timestamp": "string"})
-                    equity_df["timestamp"] = pd.to_datetime(
-                        equity_df["timestamp"], utc=True
-                    )
-                    logger.info(f"Using portfolio equity: {len(equity_df)} rows")
-                elif backtest_equity_file.exists():
-                    equity_df = pd.read_csv(backtest_equity_file, dtype={"timestamp": "string"})
-                    equity_df["timestamp"] = pd.to_datetime(
-                        equity_df["timestamp"], utc=True
-                    )
-                    logger.info(f"Using backtest equity: {len(equity_df)} rows")
-                else:
-                    logger.warning("No equity file found for metrics computation")
-                    equity_df = None
-
-                # Load trades if available
-                orders_df = None
-                try:
-                    orders_df = load_orders(freq, output_dir=base, strict=False)
-                    if orders_df.empty:
-                        orders_df = None
-                except Exception:
-                    pass  # Orders optional for metrics
-
-                if equity_df is not None and not equity_df.empty:
-                    qa_metrics = compute_all_metrics(
-                        equity=equity_df,
-                        trades=orders_df,
-                        start_capital=start_capital,
-                        freq=freq,
-                        risk_free_rate=0.0,
-                    )
-                    logger.info(
-                        f"Performance metrics computed: PF={qa_metrics.final_pf:.4f}, Sharpe={qa_metrics.sharpe_ratio}, CAGR={qa_metrics.cagr}"
-                    )
-
-                    # 5c: QA gates (new)
-                    logger.info("Step 5c: Evaluating QA gates")
-                    qa_gate_result = evaluate_all_gates(qa_metrics)
-                    gate_status = qa_gate_result.overall_result.value
-                    passed = sum(
-                        1 for r in qa_gate_result.gate_results if r.result.value == "ok"
-                    )
-                    warnings = sum(
-                        1
-                        for r in qa_gate_result.gate_results
-                        if r.result.value == "warning"
-                    )
-                    blocked = sum(
-                        1
-                        for r in qa_gate_result.gate_results
-                        if r.result.value == "block"
-                    )
-                    logger.info(
-                        f"QA gates completed: overall_result={gate_status} (passed={passed}, warnings={warnings}, blocked={blocked})"
-                    )
-
-                    if qa_gate_result.overall_result == QAResult.BLOCK:
-                        logger.error(
-                            "QA gates BLOCKED - strategy does not meet quality thresholds"
-                        )
-                        # Don't set failure_flag here - gates are informational, not blocking
-                    elif qa_gate_result.overall_result == QAResult.WARNING:
-                        logger.warning(
-                            "QA gates WARNING - some quality thresholds not met"
-                        )
-
-                    # 5d: Generate QA report
-                    try:
-                        logger.info("Step 5d: Generating QA report")
-
-                        # Build config info for report
-                        # Get actual cost parameters used (CLI overrides or defaults)
-                        cost_model = get_default_cost_model()
-                        final_commission_bps = (
-                            commission_bps
-                            if commission_bps is not None
-                            else cost_model.commission_bps
-                        )
-                        final_spread_w = (
-                            spread_w if spread_w is not None else cost_model.spread_w
-                        )
-                        final_impact_w = (
-                            impact_w if impact_w is not None else cost_model.impact_w
-                        )
-
-                        ema_config = get_default_ema_config(freq)
-                        config_info = {
-                            "strategy": "eod_pipeline_core",
-                            "freq": freq,
-                            "start_capital": start_capital,
-                            "ema_fast": ema_config.fast,
-                            "ema_slow": ema_config.slow,
-                            "commission_bps": final_commission_bps,
-                            "spread_w": final_spread_w,
-                            "impact_w": final_impact_w,
-                        }
-
-                        # Determine equity curve path for report
-                        equity_curve_path = None
-                        if portfolio_equity_file.exists():
-                            equity_curve_path = portfolio_equity_file
-                        elif backtest_equity_file.exists():
-                            equity_curve_path = backtest_equity_file
-
-                        # Generate report
-                        qa_report_path = generate_qa_report(
-                            metrics=qa_metrics,
-                            gate_result=qa_gate_result,
-                            strategy_name="eod_pipeline_core",
-                            freq=freq,
-                            equity_curve_path=equity_curve_path,
-                            data_start_date=qa_metrics.start_date,
-                            data_end_date=qa_metrics.end_date,
-                            config_info=config_info,
-                            output_dir=base / "reports",
-                        )
-
-                        # Convert to relative path for manifest (relative to base output dir)
-                        qa_report_path_rel = qa_report_path.relative_to(base)
-                        logger.info(f"QA report written: {qa_report_path}")
-
-                    except Exception as e:
-                        logger.warning(
-                            f"QA report generation failed: {e}", exc_info=True
-                        )
-                        qa_report_path_rel = None
-                        # Don't fail the pipeline if report generation fails - it's optional
-                else:
-                    logger.warning(
-                        "Cannot compute QA metrics: no equity data available"
-                    )
-                    qa_report_path_rel = None
-
-            except Exception as e:
-                logger.warning(
-                    f"QA metrics/gates computation failed: {e}", exc_info=True
-                )
-                # Don't fail the pipeline if metrics/gates fail - they're optional
-                qa_report_path_rel = None
-
+        logger.info("Step 5: QA")
+        _qa = _eo_step_qa(freq, base, start_capital, commission_bps, spread_w, impact_w)
+        if _qa["completed"]:
             completed_steps.append("qa")
-        except Exception as e:
-            logger.error(f"ERROR in QA step: {e}", exc_info=True)
+        if _qa["failed"]:
             failure_flag = True
     else:
         logger.info("Step 5: QA (SKIPPED)")
+        _qa = {}
 
     finished_at = datetime.now(tz=timezone.utc)
 
-    # Compute data snapshot ID (D4)
-    # Berechne genau einmal nachdem Preise geladen wurden (nicht pro Timestamp)
-    data_snapshot_id = None
-    try:
-        from src.assembled_core.data.snapshot import compute_price_panel_snapshot_id
+    data_snapshot_id = _eo_snapshot_id(prices, freq, price_file, data_source)
 
-        # Auch bei leeren Preisen: Empty-Semantik aus D3 (stabiler Hash)
-        # Build source_meta from available information (nur wenn vorhanden und deterministisch)
-        source_meta = {}
-        if price_file:
-            source_meta["file"] = str(price_file)
-        if data_source:
-            source_meta["source"] = str(data_source)
+    manifest = _eo_build_manifest(
+        freq=freq, start_capital=start_capital, data_snapshot_id=data_snapshot_id,
+        completed_steps=completed_steps, qa=_qa, ledger_result=ledger_result,
+        started_at=started_at, finished_at=finished_at, failure_flag=failure_flag, base=base,
+    )
 
-        data_snapshot_id = compute_price_panel_snapshot_id(
-            prices=prices,  # Kann leer sein (Empty-Semantik)
-            freq=freq,
-            source_meta=source_meta if source_meta else None,
-        )
-        logger.info(f"Data snapshot ID computed: {data_snapshot_id[:16]}...")
-    except Exception as exc:
-        logger.warning(f"Failed to compute data snapshot ID: {exc}", exc_info=True)
-        # Bei Fehler: data_snapshot_id bleibt None (wird im Manifest als None gespeichert)
-
-    # Build manifest
-    manifest = {
-        "schema_version": 1,
-        "freq": freq,
-        "start_capital": start_capital,
-        "data_snapshot_id": data_snapshot_id,  # D4: Snapshot ID for reproducibility
-        "completed_steps": completed_steps,
-        "qa_overall_status": qa_result["overall_status"] if qa_result else None,
-        "qa_checks": qa_result["checks"] if qa_result else [],
-        "qa_metrics": _metrics_to_dict(qa_metrics) if qa_metrics else None,
-        "qa_gate_result": (
-            _gate_result_to_dict(qa_gate_result) if qa_gate_result else None
-        ),
-        "qa_report_path": (
-            _manifest_path_str(qa_report_path_rel, base_dir=base)
-            if qa_report_path_rel
-            else None
-        ),
-        # Sprint 12: Robustness Pack fields (backward compatible: None if not run)
-        "robustness_pack_path": None,
-        "wf_oos_metrics": None,
-        "plateau_score": None,
-        "sensitivity_summary": None,
-        "crisis_summary": None,
-        "deflated_sharpe": None,
-        "multiple_testing_warning": None,
-        "robustness_ok": None,
-        # Sprint 13 L5: Ledger/Accounting fields
-        "ledger_pack_path": (
-            _manifest_path_str(ledger_result.get("ledger_pack_path"), base_dir=base)
-            if ledger_result
-            else None
-        ),
-        "reconcile_report_path": (
-            _manifest_path_str(
-                ledger_result.get("reconcile_report_path"), base_dir=base
-            )
-            if ledger_result
-            else None
-        ),
-        "accounting_report_path": (
-            _manifest_path_str(
-                ledger_result.get("accounting_report_path"), base_dir=base
-            )
-            if ledger_result
-            else None
-        ),
-        "evidence_index_path": (
-            _manifest_path_str(ledger_result.get("evidence_index_path"), base_dir=base)
-            if ledger_result
-            else None
-        ),
-        "evidence_pack_path": (
-            _manifest_path_str(ledger_result.get("evidence_pack_path"), base_dir=base)
-            if ledger_result
-            else None
-        ),
-        "evidence_pack_manifest_path": (
-            _manifest_path_str(
-                ledger_result.get("evidence_pack_manifest_path"), base_dir=base
-            )
-            if ledger_result
-            else None
-        ),
-        "broker_snapshot_path": (
-            _manifest_path_str(ledger_result.get("broker_snapshot_path"), base_dir=base)
-            if ledger_result
-            else None
-        ),
-        "reconciliation_ok": (
-            ledger_result["reconciliation_ok"] if ledger_result else None
-        ),
-        "timestamps": {
-            "started": started_at.isoformat(),
-            "finished": finished_at.isoformat(),
-        },
-        "failure": failure_flag,
-    }
-
-    # Write manifest
     manifest_path = base / f"run_manifest_{freq}.json"
     try:
         _write_manifest_json(manifest_path, manifest)
-        # Best-effort backfill: ensure Evidence Index references the manifest if it exists.
         if ledger_result and ledger_result.get("evidence_index_path"):
             _backfill_evidence_index_manifest_path(
-                base_dir=base,
-                ledger_result=ledger_result,
-                manifest_path=manifest_path,
+                base_dir=base, ledger_result=ledger_result, manifest_path=manifest_path,
             )
-            _backfill_evidence_index_accounting_path(
-                base_dir=base,
-                ledger_result=ledger_result,
-            )
+            _backfill_evidence_index_accounting_path(base_dir=base, ledger_result=ledger_result)
     except (IOError, OSError) as exc:
         logger.error("Failed to write manifest to %s: %s", manifest_path, exc)
         raise RuntimeError(f"Failed to write manifest to {manifest_path}") from exc
     except (TypeError, ValueError) as exc:
         logger.error("Failed to serialize manifest to JSON: %s", exc)
-        raise ValueError(
-            f"Failed to serialize manifest to JSON: {manifest_path}"
-        ) from exc
+        raise ValueError(f"Failed to serialize manifest to JSON: {manifest_path}") from exc
 
-    logger.info(f"Manifest written: {manifest_path}")
+    logger.info("Manifest written: %s", manifest_path)
 
-    # ═══════════════════════════════════════════════════════════════════
-    # Self-Learning Feedback Check (non-blocking, letzte Stufe EOD)
-    # ═══════════════════════════════════════════════════════════════════
-    try:
-        from src.assembled_core.ml.feedback_loop import FeedbackLoopController  # type: ignore
-
-        _fl = FeedbackLoopController()
-        _fl_result = _fl.run_feedback_check(
-            learning_store_path=base / "ops" / "learning_store.jsonl",
-            current_model_path=base / "models" / "meta_model_current.joblib",
-            panel_df=pd.DataFrame(),  # Phase 3 füllt echten panel_df
-        )
-        logger.info(
-            "[EOD][Feedback] signals=%d retrain_triggered=%s blocked=%s",
-            _fl_result.active_signal_count,
-            _fl_result.retrain_triggered,
-            bool(_fl_result.blocked_reason),
-        )
-    except Exception as _fl_exc:
-        logger.warning("[EOD][Feedback] Non-blocking Fehler (ignoriert): %s", _fl_exc)
-
-    # ═══════════════════════════════════════════════════════════════════
-    # News-zu-Trade-Attribution (Round 7E, non-blocking)
-    # ═══════════════════════════════════════════════════════════════════
-    try:
-        from src.assembled_core.intel.news_trade_attribution import NewsTradeAttributor  # type: ignore
-
-        _ls_path = base / "ops" / "learning_store.jsonl"
-        _news_path = base / "intel" / "news_event_store.jsonl"
-        if _ls_path.exists() and _news_path.exists():
-            _attributor = NewsTradeAttributor()
-            _n_enriched = _attributor.enrich_learning_store(
-                learning_store_path=_ls_path,
-                news_events_path=_news_path,
-            )
-            logger.info("[EOD][NewsAttr] enriched %d Trade-Records mit news_links", _n_enriched)
-    except Exception as _na_exc:
-        logger.warning("[EOD][NewsAttr] Non-blocking Fehler: %s", _na_exc)
-
-    # ═══════════════════════════════════════════════════════════════════
-    # Trade-Level TCA (Round 7I, non-blocking)
-    # ═══════════════════════════════════════════════════════════════════
-    try:
-        from src.assembled_core.qa.trade_tca import run_tca_from_learning_store  # type: ignore
-
-        _ls_path = base / "ops" / "learning_store.jsonl"
-
-        # Deterministic report date. Prefer the last trade timestamp in the
-        # learning_store so two replays on the same as_of produce the same
-        # filename (backtest/paper parity). Fall back to wall-clock only if
-        # the store is unreadable or empty.
-        _tca_date_str: str | None = None
-        try:
-            if _ls_path.exists():
-                import json as _json
-                _max_ts = None
-                with _ls_path.open("r", encoding="utf-8") as _fh:
-                    for _line in _fh:
-                        _line = _line.strip()
-                        if not _line:
-                            continue
-                        try:
-                            _rec = _json.loads(_line)
-                        except Exception:
-                            continue
-                        _t = _rec.get("timestamp") or _rec.get("execution_time") or _rec.get("closed_at")
-                        if _t is None:
-                            continue
-                        _ts = pd.to_datetime(_t, utc=True, errors="coerce")
-                        if pd.isna(_ts):
-                            continue
-                        if _max_ts is None or _ts > _max_ts:
-                            _max_ts = _ts
-                if _max_ts is not None:
-                    _tca_date_str = _max_ts.strftime("%Y%m%d")
-        except Exception:
-            _tca_date_str = None
-
-        if _tca_date_str is None:
-            _tca_date_str = pd.Timestamp.now("UTC").strftime("%Y%m%d")
-            logger.warning(
-                "[EOD][TCA] Kein Trade-Timestamp im learning_store — fallback auf wall-clock-Datum %s",
-                _tca_date_str,
-            )
-
-        _tca_out = base / "ops" / f"tca_report_{_tca_date_str}.json"
-        if _ls_path.exists():
-            _tca_result = run_tca_from_learning_store(_ls_path, _tca_out)
-            if _tca_result:
-                logger.info(
-                    "[EOD][TCA] %d Trades analysiert, mean_impact_bps=%.2f",
-                    _tca_result.get("n_trades", 0),
-                    _tca_result.get("mean_impact_bps", 0.0),
-                )
-            try:
-                from src.assembled_core.ops.report_retention import purge_old_dated_reports
-                purge_old_dated_reports(_tca_out.parent, "tca_report_", ".json", keep_last_n=60)
-            except OSError as _ret_exc:
-                logger.debug("[EOD][TCA] Retention-Purge IO-Fehler: %s", _ret_exc)
-    except Exception as _tca_exc:
-        logger.warning("[EOD][TCA] Non-blocking Fehler: %s", _tca_exc)
+    _eo_post_steps(base)
 
     return manifest

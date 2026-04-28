@@ -481,6 +481,604 @@ def _validate_order_notional_guard(
     )
 
 
+# ---------------------------------------------------------------------------
+# _pb_* private helpers for run_portfolio_backtest
+# ---------------------------------------------------------------------------
+
+
+def _pb_compute_features(
+    prices: pd.DataFrame,
+    compute_features: bool,
+    cycle_fn: Any,
+    feature_config: dict[str, Any] | None,
+    use_factor_store: bool,
+    factor_store_root: Path | None,
+    factor_group: str,
+    rebalance_freq: str,
+) -> pd.DataFrame:
+    """Return prices_with_features; falls back to prices copy when features are skipped."""
+    if not (compute_features and len(prices) > 0 and cycle_fn is None):
+        return prices.copy()
+
+    config = feature_config or {}
+    has_ohlc = all(col in prices.columns for col in ["high", "low", "open"])
+
+    if use_factor_store:
+        logger.info("Using factor store: group=%s, root=%s", factor_group, factor_store_root)
+        universe_symbols = sorted(prices["symbol"].unique().tolist())
+        universe_key = compute_universe_key(symbols=universe_symbols)
+        start_date = prices["timestamp"].min()
+        end_date = prices["timestamp"].max()
+        return build_or_load_factors(
+            prices=prices,
+            factor_group=factor_group,
+            freq=rebalance_freq,
+            universe_key=universe_key,
+            start_date=start_date,
+            end_date=end_date,
+            as_of=None,
+            force_rebuild=False,
+            builder_fn=add_all_features if has_ohlc else None,
+            builder_kwargs=(
+                {
+                    "ma_windows": config.get("ma_windows", (20, 50, 200)),
+                    "atr_window": config.get("atr_window", 14),
+                    "rsi_window": config.get("rsi_window", 14),
+                    "include_rsi": config.get("include_rsi", True),
+                }
+                if has_ohlc
+                else {
+                    "windows": config.get("ma_windows", (20, 50, 200)),
+                }
+            ),
+            factors_root=factor_store_root,
+        )
+    if has_ohlc:
+        return add_all_features(
+            prices,
+            ma_windows=config.get("ma_windows", (20, 50, 200)),
+            atr_window=config.get("atr_window", 14),
+            rsi_window=config.get("rsi_window", 14),
+            include_rsi=config.get("include_rsi", True),
+        )
+    prices_wf = add_log_returns(prices.copy())
+    return add_moving_averages(prices_wf, windows=config.get("ma_windows", (20, 50, 200)))
+
+
+def _pb_generate_signals(
+    prices_with_features: pd.DataFrame,
+    signal_fn: Callable | None,
+    cycle_fn: Any,
+    *,
+    use_meta_model: bool,
+    meta_model: Any | None,
+    meta_model_path: str | None,
+    meta_min_confidence: float,
+    meta_ensemble_mode: str,
+) -> pd.DataFrame:
+    """Generate signals and optionally apply meta-model ensemble. Returns signals DataFrame."""
+    if cycle_fn is None:
+        if signal_fn is None:
+            raise ValueError("signal_fn is required when cycle_fn is not provided")
+        signals = signal_fn(prices_with_features)
+    else:
+        signals = pd.DataFrame(columns=["timestamp", "symbol", "direction", "score"])
+
+    if cycle_fn is None:
+        required_signal_cols = ["timestamp", "symbol", "direction"]
+        missing_signal = [c for c in required_signal_cols if c not in signals.columns]
+        if missing_signal:
+            raise KeyError(
+                f"signal_fn must return DataFrame with columns: {required_signal_cols}. Missing: {missing_signal}"
+            )
+        signals = signals.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
+
+    if not (use_meta_model and cycle_fn is None):
+        return signals
+
+    logger.info("Applying meta-model ensemble...")
+    _mm = meta_model
+    if _mm is None and meta_model_path is not None:
+        try:
+            from src.assembled_core.signals.meta_model import load_meta_model
+            _mm = load_meta_model(meta_model_path)
+            logger.info("Loaded meta-model from %s", meta_model_path)
+        except Exception as e:
+            raise ValueError(f"Failed to load meta-model: {e}") from e
+    if _mm is None:
+        raise ValueError("use_meta_model=True but no meta_model or meta_model_path provided")
+
+    feature_cols = _mm.feature_names
+    available_features = [f for f in feature_cols if f in prices_with_features.columns]
+    missing_features = [f for f in feature_cols if f not in prices_with_features.columns]
+
+    if missing_features:
+        logger.warning(
+            "Missing %d features for meta-model: %s...", len(missing_features), missing_features[:5]
+        )
+        logger.warning("Meta-model ensemble may not work correctly. Continuing anyway...")
+
+    if not available_features:
+        logger.error("No features available for meta-model. Disabling ensemble.")
+        return signals
+
+    signals_with_features = signals.merge(
+        prices_with_features[["timestamp", "symbol"] + available_features],
+        on=["timestamp", "symbol"],
+        how="inner",
+    )
+    if signals_with_features.empty:
+        logger.warning("No signals matched with features. Disabling meta-model ensemble.")
+        return signals
+
+    features_subset = signals_with_features[available_features].copy()
+    if missing_features:
+        for feat in missing_features:
+            features_subset[feat] = 0.0
+        features_subset = features_subset[_mm.feature_names]
+
+    from src.assembled_core.signals.ensemble import apply_meta_filter, apply_meta_scaling
+
+    original_signal_count = len(signals_with_features)
+    original_long_count = (signals_with_features["direction"] == "LONG").sum()
+
+    if meta_ensemble_mode == "filter":
+        signals_with_features = apply_meta_filter(
+            signals=signals_with_features, meta_model=_mm, features=features_subset,
+            min_confidence=meta_min_confidence, join_keys=["timestamp", "symbol"],
+        )
+    elif meta_ensemble_mode == "scaling":
+        signals_with_features = apply_meta_scaling(
+            signals=signals_with_features, meta_model=_mm, features=features_subset,
+            min_confidence=meta_min_confidence, max_scaling=1.0,
+            join_keys=["timestamp", "symbol"], scale_score=True,
+        )
+    else:
+        raise ValueError(
+            f"Unsupported meta_ensemble_mode: {meta_ensemble_mode}. Supported: 'filter', 'scaling'"
+        )
+
+    meta_cols = ["timestamp", "symbol", "direction", "meta_confidence"]
+    if "final_score" in signals_with_features.columns:
+        meta_cols.append("final_score")
+    signals = signals.merge(
+        signals_with_features[meta_cols], on=["timestamp", "symbol"],
+        how="left", suffixes=("", "_meta"),
+    )
+    if "direction_meta" in signals.columns:
+        signals["direction"] = signals["direction_meta"].fillna(signals["direction"])
+        signals = signals.drop(columns=["direction_meta"])
+    if "final_score" in signals.columns:
+        if "score" not in signals.columns:
+            signals["score"] = 0.0
+        signals["score"] = signals["final_score"].fillna(signals["score"])
+        signals = signals.drop(columns=["final_score"])
+
+    filtered_signal_count = len(signals_with_features)
+    filtered_long_count = (signals_with_features["direction"] == "LONG").sum()
+    dropped_count = original_long_count - filtered_long_count
+    logger.info("Meta-model ensemble applied:")
+    logger.info("  Original signals: %d (LONG: %d)", original_signal_count, original_long_count)
+    logger.info("  After filtering: %d (LONG: %d)", filtered_signal_count, filtered_long_count)
+    logger.info("  Dropped signals: %d", dropped_count)
+    logger.info("  Mode: %s, Min confidence: %s", meta_ensemble_mode, meta_min_confidence)
+    return signals
+
+
+def _pb_run_cycle_fn_loop(
+    *,
+    cycle_fn: Callable,
+    timeline: list,
+    rebalance_timestamps_set: set,
+    start_capital: float,
+    use_numba: bool,
+    include_targets: bool,
+    include_signals: bool,
+    prices: pd.DataFrame,
+) -> tuple[list, list, list, dict]:
+    """Run cycle_fn path. Returns (all_orders, all_targets, all_signals_list, timings)."""
+    all_orders: list = []
+    all_targets: list = []
+    all_signals_list: list = []
+    timings: dict[str, Any] = {}
+    decision_timings: list = []
+    position_update_timings: list = []
+    equity_values: list[float] = [start_capital]
+    cash = start_capital
+    profit_lock_state: dict[str, Any] | None = None
+    current_positions = pd.DataFrame(columns=["symbol", "qty"])
+
+    for timestamp in timeline:
+        if timestamp not in rebalance_timestamps_set:
+            continue
+        equity_curve_series = pd.Series(equity_values)
+        equity_curve_index = len(equity_values) - 1
+        with timed_step(f"decision_{timestamp}", timings, logger):
+            cycle_result = cycle_fn(
+                timestamp,
+                current_positions,
+                equity_curve=equity_curve_series,
+                equity_curve_index=equity_curve_index,
+                profit_lock_state=profit_lock_state,
+            )
+        if f"decision_{timestamp}" in timings:
+            decision_timings.append(timings[f"decision_{timestamp}"]["duration_ms"])
+
+        if cycle_result.status != "success":
+            logger.warning(
+                "Trading cycle failed for timestamp %s: %s",
+                timestamp, cycle_result.error_message,
+            )
+            continue
+
+        profit_lock_state = cycle_result.meta.get("profit_lock_state")
+        orders = cycle_result.orders_filtered
+        if not orders.empty and "qty" in orders.columns and (orders["qty"] < 0).any():
+            orders = orders.copy()
+            orders["qty"] = orders["qty"].abs()
+
+        if not orders.empty:
+            for _, row in orders.iterrows():
+                side = row.get("side", "BUY")
+                qty = float(row.get("qty", 0) or 0)
+                price = float(row.get("price", 0) or 0)
+                notional = qty * price
+                if side == "BUY":
+                    cash -= notional
+                else:
+                    cash += notional
+
+        if not orders.empty:
+            with timed_step(f"position_update_{timestamp}", timings, logger):
+                current_positions = _update_positions_vectorized(
+                    orders, current_positions, use_numba=use_numba
+                )
+            if f"position_update_{timestamp}" in timings:
+                position_update_timings.append(
+                    timings[f"position_update_{timestamp}"]["duration_ms"]
+                )
+            all_orders.append(orders)
+
+        prices_at_ts = prices[prices["timestamp"] == timestamp]
+        if not prices_at_ts.empty and not current_positions.empty:
+            px = prices_at_ts.set_index("symbol")["close"]
+            qty_series = current_positions.set_index("symbol")["qty"]
+            mtm = (qty_series * px.reindex(qty_series.index).fillna(0)).sum()
+        else:
+            mtm = 0.0
+        equity_values.append(cash + float(mtm))
+
+        if include_targets and not cycle_result.target_positions.empty:
+            targets_with_timestamp = cycle_result.target_positions.copy()
+            targets_with_timestamp["timestamp"] = timestamp
+            all_targets.append(targets_with_timestamp)
+        if include_signals and not cycle_result.signals.empty:
+            all_signals_list.append(cycle_result.signals)
+
+    if decision_timings:
+        timings["decision"] = {
+            "total_duration_ms": sum(decision_timings),
+            "avg_duration_ms": sum(decision_timings) / len(decision_timings),
+            "count": len(decision_timings),
+        }
+    if position_update_timings:
+        timings["position_update"] = {
+            "total_duration_ms": sum(position_update_timings),
+            "avg_duration_ms": sum(position_update_timings) / len(position_update_timings),
+            "count": len(position_update_timings),
+        }
+    return all_orders, all_targets, all_signals_list, timings
+
+
+def _pb_run_legacy_loop(
+    *,
+    signals: pd.DataFrame,
+    position_sizing_fn: Callable,
+    start_capital: float,
+    prices: pd.DataFrame,
+    include_targets: bool,
+    rebalance_schedule: str,
+) -> tuple[list, list, dict]:
+    """Run legacy signal/sizing path. Returns (all_orders, all_targets, timings)."""
+    all_orders: list = []
+    all_targets: list = []
+    timings: dict[str, Any] = {}
+    order_generation_timings: list = []
+    _legacy_cash: float = start_capital
+    current_positions = pd.DataFrame(columns=["symbol", "qty"])
+
+    sig_timeline = sorted(signals["timestamp"].unique())
+    if rebalance_schedule == "weekly":
+        rebalance_timestamps_legacy = set(
+            sig_timeline[i] for i in range(0, len(sig_timeline), 5)
+        )
+    else:
+        rebalance_timestamps_legacy = set(sig_timeline)
+
+    for timestamp, signal_group in signals.groupby("timestamp"):
+        if timestamp not in rebalance_timestamps_legacy:
+            continue
+        _current_equity: float = _legacy_cash
+        try:
+            prices_at_ts = prices[prices["timestamp"] == timestamp]
+            if not prices_at_ts.empty and not current_positions.empty:
+                px = prices_at_ts.set_index("symbol")["close"]
+                qty_series = current_positions.set_index("symbol")["qty"]
+                mtm = float((qty_series * px.reindex(qty_series.index).fillna(0.0)).sum())
+                _current_equity = _legacy_cash + mtm
+        except Exception:
+            pass
+
+        with timed_step(f"order_generation_{timestamp}", timings, logger):
+            orders, updated_positions, targets = _process_rebalancing_timestamp(
+                timestamp=timestamp,
+                signal_group=signal_group,
+                current_positions=current_positions,
+                position_sizing_fn=position_sizing_fn,
+                start_capital=_current_equity,
+                prices=prices,
+                include_targets=include_targets,
+            )
+        if f"order_generation_{timestamp}" in timings:
+            order_generation_timings.append(
+                timings[f"order_generation_{timestamp}"]["duration_ms"]
+            )
+
+        try:
+            if not orders.empty:
+                for _, _row in orders.iterrows():
+                    _side = _row.get("side", "BUY")
+                    _qty = float(_row.get("qty", 0) or 0)
+                    _price = float(_row.get("price", 0) or 0)
+                    _notional = _qty * _price
+                    if _side == "BUY":
+                        _legacy_cash -= _notional
+                    else:
+                        _legacy_cash += _notional
+        except Exception:
+            pass
+
+        current_positions = updated_positions
+        if include_targets and not targets.empty:
+            all_targets.append(targets)
+        if not orders.empty:
+            all_orders.append(orders)
+
+    if order_generation_timings:
+        timings["order_generation"] = {
+            "total_duration_ms": sum(order_generation_timings),
+            "avg_duration_ms": sum(order_generation_timings) / len(order_generation_timings),
+            "count": len(order_generation_timings),
+        }
+    return all_orders, all_targets, timings
+
+
+def _pb_simulate_equity(
+    *,
+    orders_df: pd.DataFrame,
+    prices: pd.DataFrame,
+    start_capital: float,
+    cost_model: Any | None,
+    commission_bps: float | None,
+    spread_w: float | None,
+    impact_w: float | None,
+    include_costs: bool,
+    include_trades: bool,
+    rebalance_freq: str,
+    strict_session_gate: bool,
+    timings: dict[str, Any],
+) -> tuple[pd.DataFrame, dict, pd.DataFrame, pd.DataFrame]:
+    """Steps 4-4.6: equity simulation, fill pipeline, cost columns.
+
+    Returns (equity, metrics, trades_df, orders_df).
+    """
+    with timed_step("fill_sim", timings, logger):
+        if cost_model is not None:
+            commission_bps = commission_bps if commission_bps is not None else cost_model.commission_bps
+            spread_w = spread_w if spread_w is not None else cost_model.spread_w
+            impact_w = impact_w if impact_w is not None else cost_model.impact_w
+        else:
+            default_costs = get_default_cost_model()
+            commission_bps = commission_bps if commission_bps is not None else default_costs.commission_bps
+            spread_w = spread_w if spread_w is not None else default_costs.spread_w
+            impact_w = impact_w if impact_w is not None else default_costs.impact_w
+
+        if include_costs:
+            equity, metrics, trades_df = simulate_with_costs(
+                orders=orders_df,
+                start_capital=start_capital,
+                commission_bps=commission_bps,
+                spread_w=spread_w,
+                impact_w=impact_w,
+                freq=rebalance_freq,
+                prices=prices,
+                strict_session_gate=strict_session_gate,
+            )
+            metrics["trades"] = len(orders_df)
+        else:
+            equity = simulate_equity(prices, orders_df, start_capital)
+            metrics = compute_metrics(equity)
+            metrics["trades"] = len(orders_df)
+            # For ledger integration, use orders_df as trades_df when costs are disabled
+            trades_df = pd.DataFrame()
+
+    # Step 4.5: Apply fill model pipeline (session gate -> limit -> partial)
+    # This must happen BEFORE cost calculation, as costs are based on fill_qty
+    if not orders_df.empty:
+        from src.assembled_core.execution.fill_model_pipeline import (
+            apply_fill_model_pipeline,
+        )
+        orders_df = apply_fill_model_pipeline(
+            orders_df,
+            prices=prices,
+            freq=rebalance_freq,
+            partial_fill_model=None,
+            strict_session_gate=strict_session_gate,
+        )
+
+    # Step 4.6: Add cost columns to orders (if include_trades=True)
+    if include_trades and not orders_df.empty:
+        if include_costs:
+            if cost_model is not None:
+                commission_model = commission_model_from_cost_params(
+                    commission_bps=cost_model.commission_bps
+                )
+            else:
+                commission_model = commission_model_from_cost_params(
+                    commission_bps=commission_bps if commission_bps is not None else 0.0
+                )
+            spread_model = None
+            if spread_w is not None and spread_w > 0.0:
+                spread_model = SpreadModel(
+                    adv_window=20,
+                    buckets=None,
+                    fallback_spread_bps=spread_w * 100.0,
+                )
+            slippage_model = None
+            if impact_w is not None and impact_w > 0.0:
+                slippage_model = SlippageModel(
+                    vol_window=20,
+                    k=impact_w,
+                    min_bps=0.0,
+                    max_bps=50.0,
+                    fallback_slippage_bps=impact_w * 100.0,
+                )
+            orders_df = add_cost_columns_to_trades(
+                orders_df,
+                commission_model=commission_model,
+                spread_model=spread_model,
+                slippage_model=slippage_model,
+                prices=prices if include_trades else None,
+            )
+        else:
+            orders_df["commission_cash"] = 0.0
+            orders_df["spread_cash"] = 0.0
+            orders_df["slippage_cash"] = 0.0
+            orders_df["total_cost_cash"] = 0.0
+
+    return equity, metrics, trades_df, orders_df
+
+
+def _pb_normalize_equity(equity: pd.DataFrame) -> pd.DataFrame:
+    """Ensure equity DataFrame has date, timestamp, equity, daily_return columns."""
+    if "timestamp" in equity.columns:
+        equity = equity.copy()
+        equity["date"] = pd.to_datetime(equity["timestamp"]).dt.date
+        equity["daily_return"] = equity["equity"].pct_change().fillna(0.0)
+        base_cols = ["date", "timestamp", "equity", "daily_return"]
+        extra = [c for c in ["cash"] if c in equity.columns]
+        return equity[base_cols + extra].copy()
+    if "date" in equity.columns:
+        equity = equity.copy()
+        equity["daily_return"] = equity["equity"].pct_change().fillna(0.0)
+        base = ["date", "equity", "daily_return"]
+        if "timestamp" in equity.columns:
+            base = ["date", "timestamp", "equity", "daily_return"]
+        extra = [c for c in ["cash"] if c in equity.columns]
+        return equity[base + extra].copy()
+    equity = equity.copy()
+    if equity.index.dtype == "datetime64[ns]":
+        equity["date"] = equity.index.date
+        equity["timestamp"] = equity.index
+    else:
+        if "timestamp" in equity.columns:
+            equity["date"] = pd.to_datetime(equity["timestamp"]).dt.date
+        else:
+            equity["date"] = pd.date_range(start="2000-01-01", periods=len(equity), freq="D").date
+            equity["timestamp"] = pd.to_datetime(equity["date"])
+    equity["daily_return"] = equity["equity"].pct_change().fillna(0.0)
+    base_cols = ["date", "timestamp", "equity", "daily_return"]
+    extra = [c for c in ["cash"] if c in equity.columns]
+    return equity[base_cols + extra].copy()
+
+
+def _pb_build_ledger(
+    *,
+    orders_df: pd.DataFrame,
+    trades_df: pd.DataFrame,
+    prices: pd.DataFrame,
+    start_capital: float,
+    include_ledger: bool,
+    run_id: str | None,
+    output_dir: Path | None,
+    broker_snapshot_policy: str,
+    write_broker_snapshot: bool,
+    broker_snapshot_run_id: str | None,
+    broker_snapshot_file: str | Path | None,
+    broker_snapshot_date: str | None,
+    include_costs: bool,
+    write_evidence_pack: bool,
+) -> dict | None:
+    """Build ledger from trades (step 6). Returns ledger_result dict or None."""
+    if not (include_ledger and run_id and output_dir):
+        return None
+    try:
+        from src.assembled_core.accounting.ledger_integration import build_ledger_from_trades
+        trades_for_ledger = orders_df.copy()
+        if include_costs and not trades_df.empty:
+            trades_for_ledger = trades_df.copy()
+        snapshot_run_id = broker_snapshot_run_id if broker_snapshot_run_id is not None else run_id
+        if broker_snapshot_file:
+            try:
+                logger.info("Importing external broker snapshot from: %s", broker_snapshot_file)
+                from src.assembled_core.accounting.broker_snapshot_importer import (
+                    import_broker_snapshot,
+                )
+                snapshot_date = broker_snapshot_date
+                if snapshot_date is None:
+                    if not trades_for_ledger.empty and "timestamp" in trades_for_ledger.columns:
+                        snapshot_date = pd.to_datetime(
+                            trades_for_ledger["timestamp"].max(), utc=True
+                        )
+                    else:
+                        snapshot_date = pd.Timestamp.now("UTC")
+                else:
+                    snapshot_date = pd.to_datetime(snapshot_date, utc=True)
+                import_result = import_broker_snapshot(
+                    snapshot_path=Path(broker_snapshot_file),
+                    run_id=snapshot_run_id,
+                    snapshot_date=snapshot_date,
+                    output_dir=output_dir,
+                    qty_tol=1e-8,
+                    store_parquet=True,
+                )
+                logger.info(
+                    "Imported broker snapshot: %s, cash=%s",
+                    import_result["broker_snapshot_path"], import_result["cash"],
+                )
+            except Exception as e:
+                logger.error("Failed to import broker snapshot: %s", e, exc_info=True)
+                if broker_snapshot_policy == "require":
+                    raise ValueError(
+                        f"Broker snapshot import failed (policy=require): {e}"
+                    ) from e
+        ledger_result = build_ledger_from_trades(
+            orders_df=orders_df,
+            trades_df=trades_for_ledger,
+            run_id=run_id,
+            output_dir=output_dir,
+            as_of_date=None,
+            prices_df=prices,
+            start_cash=start_capital,
+            broker_snapshot_policy=broker_snapshot_policy,
+            write_paper_broker_snapshot=write_broker_snapshot,
+            broker_snapshot_run_id=snapshot_run_id,
+            write_evidence_pack=write_evidence_pack,
+        )
+        logger.info(
+            "Ledger integration completed: ledger_pack_path=%s, reconciliation_ok=%s",
+            ledger_result.get("ledger_pack_path"),
+            ledger_result.get("reconciliation_ok"),
+        )
+        return ledger_result
+    except Exception as e:
+        logger.warning("Ledger integration failed: %s", e, exc_info=True)
+        # Distinguish "ledger not attempted" (None) from "attempted but failed".
+        # A silent None after an exception has masked reconciliation gaps in prior
+        # incidents — keep the failure explicit so downstream meta consumers see it.
+        return {"reconciliation_ok": False, "ledger_error": str(e)}
+
+
 def run_portfolio_backtest(
     prices: pd.DataFrame,
     signal_fn: Callable[[pd.DataFrame], pd.DataFrame] | None = None,
@@ -613,24 +1211,21 @@ def run_portfolio_backtest(
         >>> print(f"Sharpe: {result.metrics['sharpe']:.4f}")
         >>> print(f"Trades: {result.metrics['trades']}")
     """
-    # Get use_numba from parameter or settings (default: False)
+    # Numba setup
     if use_numba is None:
         settings = get_settings()
         use_numba = settings.use_numba
 
-    # Validate input
+    # Input validation
     if prices is None or prices.empty:
         raise ValueError("Missing required columns: prices DataFrame is None or empty")
-
     required_cols = ["timestamp", "symbol", "close"]
     missing = [c for c in required_cols if c not in prices.columns]
     if missing:
         raise ValueError(f"Missing required columns: {', '.join(missing)}")
-
-    # Ensure prices are sorted
     prices = prices.sort_values(["symbol", "timestamp"]).reset_index(drop=True).copy()
 
-    # A7: Step 0 — Corporate actions adjustment (splits/dividends)
+    # Step 0: Corporate actions adjustment (splits/dividends)
     if not enable_corporate_actions:
         logger.warning(
             "[BACKTEST] Corporate actions DISABLED — splits/dividends ignored. "
@@ -646,764 +1241,128 @@ def run_portfolio_backtest(
         except Exception as _ca_err:
             logger.warning("[BACKTEST] Corporate actions adjustment failed: %s", _ca_err)
     else:
-        logger.debug("[BACKTEST] enable_corporate_actions=True but no corporate_actions_path provided — skipping adjustment")
+        logger.debug(
+            "[BACKTEST] enable_corporate_actions=True but no corporate_actions_path provided"
+            " — skipping adjustment"
+        )
 
-    # Step 1: Compute features (optional) - skip if cycle_fn is provided (features precomputed and passed via ctx_template)
-    # Note: timed_block is not defined, using nullcontext for now
-    # TODO: Add proper timing support if needed
-    with nullcontext():
-        # Only compute features if prices is not empty (features require data)
-        # Skip feature computation if cycle_fn is provided (features are precomputed once and passed via ctx_template.precomputed_prices_with_features)
-        if compute_features and len(prices) > 0 and cycle_fn is None:
-            config = feature_config or {}
-            # Check if we have required columns for features (ATR needs high/low)
-            has_ohlc = all(col in prices.columns for col in ["high", "low", "open"])
+    # Step 1: Feature computation
+    prices_with_features = _pb_compute_features(
+        prices, compute_features, cycle_fn, feature_config,
+        use_factor_store, factor_store_root, factor_group, rebalance_freq,
+    )
 
-            if use_factor_store:
-                # Use factor store (build_or_load_factors)
-                logger.info(
-                    f"Using factor store: group={factor_group}, root={factor_store_root}"
-                )
+    # Step 2: Signal generation + meta-model ensemble
+    signals = _pb_generate_signals(
+        prices_with_features, signal_fn, cycle_fn,
+        use_meta_model=use_meta_model,
+        meta_model=meta_model,
+        meta_model_path=meta_model_path,
+        meta_min_confidence=meta_min_confidence,
+        meta_ensemble_mode=meta_ensemble_mode,
+    )
 
-                # Compute universe key
-                universe_symbols = sorted(prices["symbol"].unique().tolist())
-                universe_key = compute_universe_key(symbols=universe_symbols)
-
-                # Determine date range for PIT-safe loading
-                start_date = prices["timestamp"].min()
-                end_date = prices["timestamp"].max()
-
-                # Build or load factors
-                prices_with_features = build_or_load_factors(
-                    prices=prices,
-                    factor_group=factor_group,
-                    freq=rebalance_freq,
-                    universe_key=universe_key,
-                    start_date=start_date,
-                    end_date=end_date,
-                    as_of=None,  # Backtest uses full range
-                    force_rebuild=False,
-                    builder_fn=add_all_features if has_ohlc else None,
-                    builder_kwargs=(
-                        {
-                            "ma_windows": config.get("ma_windows", (20, 50, 200)),
-                            "atr_window": config.get("atr_window", 14),
-                            "rsi_window": config.get("rsi_window", 14),
-                            "include_rsi": config.get("include_rsi", True),
-                        }
-                        if has_ohlc
-                        else {
-                            "windows": config.get("ma_windows", (20, 50, 200)),
-                        }
-                    ),
-                    factors_root=factor_store_root,
-                )
-            else:
-                # Default: direct computation (backward compatible)
-                if has_ohlc:
-                    prices_with_features = add_all_features(
-                        prices,
-                        ma_windows=config.get("ma_windows", (20, 50, 200)),
-                        atr_window=config.get("atr_window", 14),
-                        rsi_window=config.get("rsi_window", 14),
-                        include_rsi=config.get("include_rsi", True),
-                    )
-                else:
-                    # If OHLC not available, only compute features that don't need them
-                    prices_with_features = add_log_returns(prices.copy())
-                    prices_with_features = add_moving_averages(
-                        prices_with_features,
-                        windows=config.get("ma_windows", (20, 50, 200)),
-                    )
+    # Step 3: Build timeline and rebalance set
+    raw_timeline = sorted(prices["timestamp"].unique())
+    timeline: list[pd.Timestamp] = []
+    for ts in raw_timeline:
+        ts_pd = pd.to_datetime(ts)
+        if ts_pd.tzinfo is None or ts_pd.tz is None:
+            ts_pd = ts_pd.tz_localize("UTC")
         else:
-            prices_with_features = prices.copy()
-        # If cycle_fn is provided, features are precomputed once and passed via ctx_template.precomputed_prices_with_features
-        # Set prices_with_features to prices for now (will not be used, as cycle_fn uses precomputed features)
-        if cycle_fn is not None:
-            prices_with_features = prices.copy()
+            ts_pd = ts_pd.tz_convert("UTC")
+        timeline.append(ts_pd)
 
-    # Step 2: Generate signals (skip if cycle_fn is provided, signals generated per timestamp)
-    with nullcontext():
-        if cycle_fn is None:
-            if signal_fn is None:
-                raise ValueError("signal_fn is required when cycle_fn is not provided")
-            signals = signal_fn(prices_with_features)
-        else:
-            # Signals will be generated per timestamp via cycle_fn
-            # Create empty signals DataFrame for compatibility
-            signals = pd.DataFrame(
-                columns=["timestamp", "symbol", "direction", "score"]
-            )
-
-    # Validate signals (skip validation if cycle_fn is provided)
-    if cycle_fn is None:
-        required_signal_cols = ["timestamp", "symbol", "direction"]
-        missing_signal = [c for c in required_signal_cols if c not in signals.columns]
-        if missing_signal:
-            raise KeyError(
-                f"signal_fn must return DataFrame with columns: {required_signal_cols}. Missing: {missing_signal}"
-            )
-
-        signals = signals.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
-
-    # Step 2.5: Apply meta-model ensemble (if enabled) - skip if cycle_fn is provided
-    if use_meta_model and cycle_fn is None:
-        logger.info("Applying meta-model ensemble...")
-
-        # Load meta-model if path provided
-        if meta_model is None and meta_model_path is not None:
-            try:
-                from src.assembled_core.signals.meta_model import load_meta_model
-
-                meta_model = load_meta_model(meta_model_path)
-                logger.info(f"Loaded meta-model from {meta_model_path}")
-            except Exception as e:
-                logger.error(f"Failed to load meta-model from {meta_model_path}: {e}")
-                raise ValueError(f"Failed to load meta-model: {e}") from e
-
-        if meta_model is None:
-            raise ValueError(
-                "use_meta_model=True but no meta_model or meta_model_path provided"
-            )
-
-        # Extract features for meta-model
-        # Features must match the feature_names used during training
-        feature_cols = meta_model.feature_names
-
-        # Check which features are available in prices_with_features
-        available_features = [
-            f for f in feature_cols if f in prices_with_features.columns
-        ]
-        missing_features = [
-            f for f in feature_cols if f not in prices_with_features.columns
-        ]
-
-        if missing_features:
-            logger.warning(
-                f"Missing {len(missing_features)} features for meta-model: {missing_features[:5]}..."
-            )
-            logger.warning(
-                "Meta-model ensemble may not work correctly. Continuing anyway..."
-            )
-
-        if not available_features:
-            logger.error("No features available for meta-model. Disabling ensemble.")
-            use_meta_model = False
-        else:
-            # Join signals with prices_with_features to get features
-            # Use timestamp and symbol as join keys
-            signals_with_features = signals.merge(
-                prices_with_features[["timestamp", "symbol"] + available_features],
-                on=["timestamp", "symbol"],
-                how="inner",
-            )
-
-            if signals_with_features.empty:
-                logger.warning(
-                    "No signals matched with features. Disabling meta-model ensemble."
-                )
-                use_meta_model = False
-            else:
-                # Extract features DataFrame (only available features)
-                features_subset = signals_with_features[available_features].copy()
-
-                # Fill missing features with 0 (for features not in prices_with_features)
-                if missing_features:
-                    for feat in missing_features:
-                        features_subset[feat] = 0.0
-                    # Reorder to match meta_model.feature_names
-                    features_subset = features_subset[meta_model.feature_names]
-
-                # Apply ensemble layer
-                from src.assembled_core.signals.ensemble import (
-                    apply_meta_filter,
-                    apply_meta_scaling,
-                )
-
-                original_signal_count = len(signals_with_features)
-                original_long_count = (
-                    signals_with_features["direction"] == "LONG"
-                ).sum()
-
-                if meta_ensemble_mode == "filter":
-                    signals_with_features = apply_meta_filter(
-                        signals=signals_with_features,
-                        meta_model=meta_model,
-                        features=features_subset,
-                        min_confidence=meta_min_confidence,
-                        join_keys=["timestamp", "symbol"],
-                    )
-                elif meta_ensemble_mode == "scaling":
-                    signals_with_features = apply_meta_scaling(
-                        signals=signals_with_features,
-                        meta_model=meta_model,
-                        features=features_subset,
-                        min_confidence=meta_min_confidence,
-                        max_scaling=1.0,
-                        join_keys=["timestamp", "symbol"],
-                        scale_score=True,
-                    )
-                else:
-                    raise ValueError(
-                        f"Unsupported meta_ensemble_mode: {meta_ensemble_mode}. Supported: 'filter', 'scaling'"
-                    )
-
-                # Update signals with filtered/scaled results
-                # Keep original signals structure but update direction and add meta_confidence
-                meta_cols = ["timestamp", "symbol", "direction", "meta_confidence"]
-                if "final_score" in signals_with_features.columns:
-                    meta_cols.append("final_score")
-
-                signals = signals.merge(
-                    signals_with_features[meta_cols],
-                    on=["timestamp", "symbol"],
-                    how="left",
-                    suffixes=("", "_meta"),
-                )
-
-                # Update direction from meta-filtered signals
-                if "direction_meta" in signals.columns:
-                    signals["direction"] = signals["direction_meta"].fillna(
-                        signals["direction"]
-                    )
-                    signals = signals.drop(columns=["direction_meta"])
-
-                # Update score if final_score is available (from scaling mode)
-                if "final_score" in signals.columns:
-                    if "score" not in signals.columns:
-                        signals["score"] = 0.0
-                    signals["score"] = signals["final_score"].fillna(signals["score"])
-                    signals = signals.drop(columns=["final_score"])
-
-                # Log results
-                filtered_signal_count = len(signals_with_features)
-                filtered_long_count = (
-                    signals_with_features["direction"] == "LONG"
-                ).sum()
-                dropped_count = original_long_count - filtered_long_count
-
-                logger.info("Meta-model ensemble applied:")
-                logger.info(
-                    f"  Original signals: {original_signal_count} (LONG: {original_long_count})"
-                )
-                logger.info(
-                    f"  After filtering: {filtered_signal_count} (LONG: {filtered_long_count})"
-                )
-                logger.info(f"  Dropped signals: {dropped_count}")
-                logger.info(
-                    f"  Mode: {meta_ensemble_mode}, Min confidence: {meta_min_confidence}"
-                )
-
-    # Step 3: Compute target positions (group by timestamp for rebalancing)
-    # Initialize timings dictionary for step-level profiling
-    timings: dict[str, Any] = {}
-
-    with nullcontext():
-        all_targets = []
-        all_orders = []
-        all_signals_list = []  # For collecting signals if include_signals=True
-        current_positions = pd.DataFrame(columns=["symbol", "qty"])
-
-        # Determine timeline (unique timestamps from prices, sorted)
-        # Normalize to UTC-aware timestamps for stable membership checks
-        raw_timeline = sorted(prices["timestamp"].unique())
-        timeline: list[pd.Timestamp] = []
-        for ts in raw_timeline:
+    if rebalance_timestamps is not None:
+        normalized_rebalance: list[pd.Timestamp] = []
+        for ts in rebalance_timestamps:
             ts_pd = pd.to_datetime(ts)
             if ts_pd.tzinfo is None or ts_pd.tz is None:
                 ts_pd = ts_pd.tz_localize("UTC")
             else:
                 ts_pd = ts_pd.tz_convert("UTC")
-            timeline.append(ts_pd)
+            normalized_rebalance.append(ts_pd)
+        rebalance_timestamps_set: set = set(normalized_rebalance)
+    elif rebalance_schedule == "weekly":
+        rebalance_timestamps_set = set(timeline[i] for i in range(0, len(timeline), 5))
+    else:
+        rebalance_timestamps_set = set(timeline)
 
-        # Normalize rebalance_timestamps (if provided) to UTC-aware as well
-        if rebalance_timestamps is not None:
-            normalized_rebalance: list[pd.Timestamp] = []
-            for ts in rebalance_timestamps:
-                ts_pd = pd.to_datetime(ts)
-                if ts_pd.tzinfo is None or ts_pd.tz is None:
-                    ts_pd = ts_pd.tz_localize("UTC")
-                else:
-                    ts_pd = ts_pd.tz_convert("UTC")
-                normalized_rebalance.append(ts_pd)
-            rebalance_timestamps_set = set(normalized_rebalance)
-        elif rebalance_schedule == "weekly":
-            rebalance_timestamps_set = set(
-                timeline[i] for i in range(0, len(timeline), 5)
+    # Step 3 (continued): Execute per-timestamp loop
+    all_signals_list: list = []
+    if cycle_fn is not None:
+        all_orders, all_targets, all_signals_list, timings = _pb_run_cycle_fn_loop(
+            cycle_fn=cycle_fn,
+            timeline=timeline,
+            rebalance_timestamps_set=rebalance_timestamps_set,
+            start_capital=start_capital,
+            use_numba=use_numba,
+            include_targets=include_targets,
+            include_signals=include_signals,
+            prices=prices,
+        )
+    else:
+        if signal_fn is None or position_sizing_fn is None:
+            raise ValueError(
+                "signal_fn and position_sizing_fn are required when cycle_fn is not provided"
             )
-        else:
-            rebalance_timestamps_set = set(timeline)
+        all_orders, all_targets, timings = _pb_run_legacy_loop(
+            signals=signals,
+            position_sizing_fn=position_sizing_fn,
+            start_capital=start_capital,
+            prices=prices,
+            include_targets=include_targets,
+            rebalance_schedule=rebalance_schedule,
+        )
 
-        # Use cycle_fn if provided (TradingCycle integration), otherwise use legacy path
-        if cycle_fn is not None:
-            # TradingCycle path: use cycle_fn for each timestamp
-            decision_timings = []
-            position_update_timings = []
-            # Running equity and state for profit_lock (INT-6.2)
-            equity_values: list[float] = [start_capital]
-            cash = start_capital
-            profit_lock_state: dict[str, Any] | None = None
-
-            for timestamp in timeline:
-                if timestamp not in rebalance_timestamps_set:
-                    continue
-                # Equity curve up to (and including) previous step; index = len-1
-                equity_curve_series = pd.Series(equity_values)
-                equity_curve_index = len(equity_values) - 1
-                # Decision (cycle_fn) - pass equity and profit_lock state
-                with timed_step(f"decision_{timestamp}", timings, logger):
-                    cycle_result = cycle_fn(
-                        timestamp,
-                        current_positions,
-                        equity_curve=equity_curve_series,
-                        equity_curve_index=equity_curve_index,
-                        profit_lock_state=profit_lock_state,
-                    )
-
-                # Track per-timestamp decision timing for aggregation
-                if f"decision_{timestamp}" in timings:
-                    decision_timings.append(
-                        timings[f"decision_{timestamp}"]["duration_ms"]
-                    )
-
-                if cycle_result.status != "success":
-                    logger.warning(
-                        f"Trading cycle failed for timestamp {timestamp}: {cycle_result.error_message}"
-                    )
-                    continue
-
-                # Persist profit_lock state for next step
-                profit_lock_state = cycle_result.meta.get("profit_lock_state")
-
-                # Use orders_filtered (risk-checked). If empty (all blocked), use no orders.
-                # Do NOT fall back to unfiltered cycle_result.orders — that bypasses
-                # pre-trade risk controls and causes unbounded position accumulation.
-                orders = cycle_result.orders_filtered
-
-                # Defensive guard: qty must be >= 0 (side encodes direction)
-                if not orders.empty and "qty" in orders.columns and (orders["qty"] < 0).any():
-                    orders = orders.copy()
-                    orders["qty"] = orders["qty"].abs()
-
-                # Update cash from orders (buy = outflow, sell = inflow)
-                if not orders.empty:
-                    for _, row in orders.iterrows():
-                        side = row.get("side", "BUY")
-                        qty = float(row.get("qty", 0) or 0)
-                        price = float(row.get("price", 0) or 0)
-                        notional = qty * price
-                        if side == "BUY":
-                            cash -= notional
-                        else:
-                            cash += notional
-
-                # Update positions using vectorized operations (Fill/Fees/Equity-Update stays in Engine)
-                if not orders.empty:
-                    with timed_step(f"position_update_{timestamp}", timings, logger):
-                        current_positions = _update_positions_vectorized(
-                            orders, current_positions, use_numba=use_numba
-                        )
-                    # Track per-timestamp position update timing
-                    if f"position_update_{timestamp}" in timings:
-                        position_update_timings.append(
-                            timings[f"position_update_{timestamp}"]["duration_ms"]
-                        )
-                    all_orders.append(orders)
-
-                # Running equity for next step (cash + MTM of current positions)
-                prices_at_ts = prices[prices["timestamp"] == timestamp]
-                if not prices_at_ts.empty and not current_positions.empty:
-                    px = prices_at_ts.set_index("symbol")["close"]
-                    qty_series = current_positions.set_index("symbol")["qty"]
-                    mtm = (qty_series * px.reindex(qty_series.index).fillna(0)).sum()
-                else:
-                    mtm = 0.0
-                equity_values.append(cash + float(mtm))
-
-                # Store targets if requested
-                if include_targets and not cycle_result.target_positions.empty:
-                    targets_with_timestamp = cycle_result.target_positions.copy()
-                    targets_with_timestamp["timestamp"] = timestamp
-                    all_targets.append(targets_with_timestamp)
-
-                # Store signals if requested
-                if include_signals and not cycle_result.signals.empty:
-                    all_signals_list.append(cycle_result.signals)
-
-            # Aggregate per-timestamp timings into summary
-            if decision_timings:
-                timings["decision"] = {
-                    "total_duration_ms": sum(decision_timings),
-                    "avg_duration_ms": sum(decision_timings) / len(decision_timings),
-                    "count": len(decision_timings),
-                }
-            if position_update_timings:
-                timings["position_update"] = {
-                    "total_duration_ms": sum(position_update_timings),
-                    "avg_duration_ms": sum(position_update_timings)
-                    / len(position_update_timings),
-                    "count": len(position_update_timings),
-                }
-        else:
-            # Legacy path: group signals by timestamp and process
-            if signal_fn is None or position_sizing_fn is None:
-                raise ValueError(
-                    "signal_fn and position_sizing_fn are required when cycle_fn is not provided"
-                )
-
-            order_generation_timings = []
-            # Fix 18: track running equity (cash + MTM) so position sizing uses
-            # current equity rather than start_capital throughout the backtest.
-            _legacy_cash: float = start_capital
-            # Rebalance only on selected bars (weekly = every 5th for 1d)
-            sig_timeline = sorted(signals["timestamp"].unique())
-            if rebalance_schedule == "weekly":
-                rebalance_timestamps_legacy = set(
-                    sig_timeline[i] for i in range(0, len(sig_timeline), 5)
-                )
-            else:
-                rebalance_timestamps_legacy = set(sig_timeline)
-
-            for timestamp, signal_group in signals.groupby("timestamp"):
-                if timestamp not in rebalance_timestamps_legacy:
-                    continue
-
-                # Fix 18: compute current equity = cash + mark-to-market of positions
-                _current_equity: float = _legacy_cash
-                try:
-                    prices_at_ts = prices[prices["timestamp"] == timestamp]
-                    if not prices_at_ts.empty and not current_positions.empty:
-                        px = prices_at_ts.set_index("symbol")["close"]
-                        qty_series = current_positions.set_index("symbol")["qty"]
-                        mtm = float(
-                            (qty_series * px.reindex(qty_series.index).fillna(0.0)).sum()
-                        )
-                        _current_equity = _legacy_cash + mtm
-                except Exception:
-                    pass
-
-                # Order generation (includes position sizing and order generation)
-                with timed_step(f"order_generation_{timestamp}", timings, logger):
-                    orders, updated_positions, targets = _process_rebalancing_timestamp(
-                        timestamp=timestamp,
-                        signal_group=signal_group,
-                        current_positions=current_positions,
-                        position_sizing_fn=position_sizing_fn,
-                        start_capital=_current_equity,
-                        prices=prices,
-                        include_targets=include_targets,
-                    )
-                # Track per-timestamp order generation timing
-                if f"order_generation_{timestamp}" in timings:
-                    order_generation_timings.append(
-                        timings[f"order_generation_{timestamp}"]["duration_ms"]
-                    )
-
-                # Fix 18: update running cash from executed orders
-                try:
-                    if not orders.empty:
-                        for _, _row in orders.iterrows():
-                            _side = _row.get("side", "BUY")
-                            _qty = float(_row.get("qty", 0) or 0)
-                            _price = float(_row.get("price", 0) or 0)
-                            _notional = _qty * _price
-                            if _side == "BUY":
-                                _legacy_cash -= _notional
-                            else:
-                                _legacy_cash += _notional
-                except Exception:
-                    pass
-
-                # Position update is done inside _process_rebalancing_timestamp for legacy path
-                current_positions = updated_positions
-
-                # Store targets and orders
-                if include_targets and not targets.empty:
-                    all_targets.append(targets)
-
-                if not orders.empty:
-                    all_orders.append(orders)
-
-            # Aggregate per-timestamp timings into summary
-            if order_generation_timings:
-                timings["order_generation"] = {
-                    "total_duration_ms": sum(order_generation_timings),
-                    "avg_duration_ms": sum(order_generation_timings)
-                    / len(order_generation_timings),
-                    "count": len(order_generation_timings),
-                }
-
-        # Combine all orders
-        if all_orders:
-            orders_df = pd.concat(all_orders, ignore_index=True)
-            orders_df = orders_df.sort_values("timestamp").reset_index(drop=True)
-        else:
-            orders_df = pd.DataFrame(
-                columns=["timestamp", "symbol", "side", "qty", "price"]
-            )
-
+    # Combine all orders
+    if all_orders:
+        orders_df = pd.concat(all_orders, ignore_index=True)
+        orders_df = orders_df.sort_values("timestamp").reset_index(drop=True)
+    else:
+        orders_df = pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"])
     _validate_order_notional_guard(orders_df, start_capital)
-    # Meta: mark unit for debugging (orders from order_generation are in shares)
     if not orders_df.empty:
         orders_df.attrs["qty_unit"] = "shares"
 
-    # Step 4: Simulate equity (fill_sim + equity_update)
-    with timed_step("fill_sim", timings, logger):
-        # Get cost parameters
-        if cost_model is not None:
-            commission_bps = (
-                commission_bps
-                if commission_bps is not None
-                else cost_model.commission_bps
-            )
-            spread_w = spread_w if spread_w is not None else cost_model.spread_w
-            impact_w = impact_w if impact_w is not None else cost_model.impact_w
-        else:
-            default_costs = get_default_cost_model()
-            commission_bps = (
-                commission_bps
-                if commission_bps is not None
-                else default_costs.commission_bps
-            )
-            spread_w = spread_w if spread_w is not None else default_costs.spread_w
-            impact_w = impact_w if impact_w is not None else default_costs.impact_w
+    # Steps 4-4.6: Equity simulation + fill pipeline + cost columns
+    equity, metrics, trades_df, orders_df = _pb_simulate_equity(
+        orders_df=orders_df,
+        prices=prices,
+        start_capital=start_capital,
+        cost_model=cost_model,
+        commission_bps=commission_bps,
+        spread_w=spread_w,
+        impact_w=impact_w,
+        include_costs=include_costs,
+        include_trades=include_trades,
+        rebalance_freq=rebalance_freq,
+        strict_session_gate=strict_session_gate,
+        timings=timings,
+    )
 
-        if include_costs:
-            equity, metrics, trades_df = simulate_with_costs(
-                orders=orders_df,
-                start_capital=start_capital,
-                commission_bps=commission_bps,
-                spread_w=spread_w,
-                impact_w=impact_w,
-                freq=rebalance_freq,
-                prices=prices,  # Pass prices for fill model pipeline
-                strict_session_gate=strict_session_gate,
-            )
-            # Add trades count to metrics
-            metrics["trades"] = len(orders_df)
-        else:
-            equity = simulate_equity(prices, orders_df, start_capital)
-            metrics = compute_metrics(equity)
-            metrics["trades"] = len(orders_df)
-            # For ledger integration, use orders_df as trades_df when costs are disabled
-            trades_df = pd.DataFrame()
+    # Step 5: Normalize equity DataFrame
+    equity = _pb_normalize_equity(equity)
 
-    # Step 4.5: Apply fill model pipeline (session gate -> limit -> partial)
-    # This must happen BEFORE cost calculation, as costs are based on fill_qty
-    if not orders_df.empty:
-        from src.assembled_core.execution.fill_model_pipeline import (
-            apply_fill_model_pipeline,
-        )
-
-        # Apply fill model pipeline
-        # For now, use default partial fill model (can be made configurable later)
-        partial_fill_model = None  # Default: full fills (no ADV cap)
-        # TODO: Make partial_fill_model configurable via cost_model or separate parameter
-
-        orders_df = apply_fill_model_pipeline(
-            orders_df,
-            prices=prices,
-            freq=rebalance_freq,
-            partial_fill_model=partial_fill_model,
-            strict_session_gate=strict_session_gate,
-        )
-
-    # Step 4.6: Add cost columns to orders (if include_trades=True)
-    # Costs are now computed based on fill_qty (for partial/rejected fills)
-    if include_trades and not orders_df.empty:
-        # Only compute costs if include_costs=True
-        if include_costs:
-            # Create commission model from cost parameters
-            if cost_model is not None:
-                commission_model = commission_model_from_cost_params(
-                    commission_bps=cost_model.commission_bps
-                )
-            else:
-                commission_model = commission_model_from_cost_params(
-                    commission_bps=commission_bps if commission_bps is not None else 0.0
-                )
-            # Create spread model from legacy parameters (if spread_w > 0)
-            spread_model = None
-            if spread_w is not None and spread_w > 0.0:
-                # Default spread model: simple buckets based on ADV
-                # For now, use fallback spread_bps = spread_w (legacy compatibility)
-                spread_model = SpreadModel(
-                    adv_window=20,
-                    buckets=None,  # No buckets: use fallback for all
-                    fallback_spread_bps=spread_w
-                    * 100.0,  # Convert spread_w (0.25 = 25 bps) to bps
-                )
-
-            # Create slippage model from legacy parameters (if impact_w > 0)
-            slippage_model = None
-            if impact_w is not None and impact_w > 0.0:
-                # Default slippage model: volatility-based
-                # Map impact_w to slippage model (impact_w is a weight, convert to reasonable slippage)
-                slippage_model = SlippageModel(
-                    vol_window=20,
-                    k=impact_w,  # Use impact_w as scaling factor
-                    min_bps=0.0,
-                    max_bps=50.0,
-                    fallback_slippage_bps=impact_w * 100.0,  # Convert to bps
-                )
-
-            orders_df = add_cost_columns_to_trades(
-                orders_df,
-                commission_model=commission_model,
-                spread_model=spread_model,
-                slippage_model=slippage_model,
-                prices=prices if include_trades else None,
-            )
-        else:
-            # Costs disabled: add cost columns with 0.0 values (for schema stability)
-            orders_df["commission_cash"] = 0.0
-            orders_df["spread_cash"] = 0.0
-            orders_df["slippage_cash"] = 0.0
-            orders_df["total_cost_cash"] = 0.0
-
-    # Step 5: Enhance equity DataFrame with daily_return
-    with nullcontext():
-        # Ensure equity has timestamp column (rename if needed)
-        if "timestamp" in equity.columns:
-            equity = equity.copy()
-            # Add date column (date part of timestamp)
-            equity["date"] = pd.to_datetime(equity["timestamp"]).dt.date
-            # Compute daily return
-            equity["daily_return"] = equity["equity"].pct_change().fillna(0.0)
-            # Ensure columns: date, timestamp, equity, daily_return; keep cash if present (for cash_curve CSV)
-            base_cols = ["date", "timestamp", "equity", "daily_return"]
-            extra = [c for c in ["cash"] if c in equity.columns]
-            equity = equity[base_cols + extra].copy()
-        elif "date" in equity.columns:
-            # If already has date, add daily_return
-            equity = equity.copy()
-            equity["daily_return"] = equity["equity"].pct_change().fillna(0.0)
-            # Ensure columns are in correct order: date, equity, daily_return
-            base = ["date", "equity", "daily_return"]
-            if "timestamp" in equity.columns:
-                base = ["date", "timestamp", "equity", "daily_return"]
-            extra = [c for c in ["cash"] if c in equity.columns]
-            equity = equity[base + extra].copy()
-        else:
-            # Fallback: create date from index or use timestamp
-            equity = equity.copy()
-            if equity.index.dtype == "datetime64[ns]":
-                equity["date"] = equity.index.date
-                equity["timestamp"] = equity.index
-            else:
-                # Try to infer from timestamp column
-                if "timestamp" in equity.columns:
-                    equity["date"] = pd.to_datetime(equity["timestamp"]).dt.date
-                else:
-                    # Last resort: use row number as date surrogate
-                    equity["date"] = pd.date_range(
-                        start="2000-01-01", periods=len(equity), freq="D"
-                    ).date
-                    equity["timestamp"] = pd.to_datetime(equity["date"])
-            equity["daily_return"] = equity["equity"].pct_change().fillna(0.0)
-            base_cols = ["date", "timestamp", "equity", "daily_return"]
-            extra = [c for c in ["cash"] if c in equity.columns]
-            equity = equity[base_cols + extra].copy()
-
-    # Step 6: Ledger/Reconciliation integration (optional, default-on)
-    ledger_result = None
-    if include_ledger and run_id and output_dir:
-        try:
-            from src.assembled_core.accounting.ledger_integration import (
-                build_ledger_from_trades,
-            )
-
-            # Get trades_df (from simulate_with_costs if include_costs=True, otherwise from orders_df)
-            trades_for_ledger = orders_df.copy()
-            if include_costs and not trades_df.empty:
-                # Use trades_df from simulate_with_costs (has fill_qty, fill_price, status, costs)
-                trades_for_ledger = trades_df.copy()
-
-            # Determine snapshot run_id (for import and lookup)
-            snapshot_run_id = (
-                broker_snapshot_run_id if broker_snapshot_run_id is not None else run_id
-            )
-
-            # Step 6.1: Import external broker snapshot if provided
-            if broker_snapshot_file:
-                try:
-                    logger.info(
-                        f"Importing external broker snapshot from: {broker_snapshot_file}"
-                    )
-                    from pathlib import Path
-                    from src.assembled_core.accounting.broker_snapshot_importer import (
-                        import_broker_snapshot,
-                    )
-
-                    # Determine snapshot date (use provided date, or last trade date, or today)
-                    snapshot_date = broker_snapshot_date
-                    if snapshot_date is None:
-                        if (
-                            not trades_for_ledger.empty
-                            and "timestamp" in trades_for_ledger.columns
-                        ):
-                            snapshot_date = pd.to_datetime(
-                                trades_for_ledger["timestamp"].max(), utc=True
-                            )
-                        else:
-                            snapshot_date = pd.Timestamp.now("UTC")
-                    else:
-                        snapshot_date = pd.to_datetime(snapshot_date, utc=True)
-
-                    # Import snapshot
-                    import_result = import_broker_snapshot(
-                        snapshot_path=Path(broker_snapshot_file),
-                        run_id=snapshot_run_id,
-                        snapshot_date=snapshot_date,
-                        output_dir=output_dir,
-                        qty_tol=1e-8,
-                        store_parquet=True,
-                    )
-                    logger.info(
-                        f"Imported broker snapshot: {import_result['broker_snapshot_path']}, "
-                        f"cash={import_result['cash']}"
-                    )
-                except Exception as e:
-                    logger.error(
-                        f"Failed to import broker snapshot: {e}", exc_info=True
-                    )
-                    # If policy is require, we should fail here
-                    if broker_snapshot_policy == "require":
-                        raise ValueError(
-                            f"Broker snapshot import failed (policy=require): {e}"
-                        ) from e
-                    # Otherwise, log and continue (snapshot might still exist from previous import)
-
-            # Build ledger from trades
-            ledger_result = build_ledger_from_trades(
-                orders_df=orders_df,
-                trades_df=trades_for_ledger,
-                run_id=run_id,
-                output_dir=output_dir,
-                as_of_date=None,  # Use last timestamp from trades
-                prices_df=prices,
-                start_cash=start_capital,
-                broker_snapshot_policy=broker_snapshot_policy,
-                write_paper_broker_snapshot=write_broker_snapshot,
-                broker_snapshot_run_id=snapshot_run_id,
-                write_evidence_pack=write_evidence_pack,
-            )
-            logger.info(
-                f"Ledger integration completed: ledger_pack_path={ledger_result.get('ledger_pack_path')}, reconciliation_ok={ledger_result.get('reconciliation_ok')}"
-            )
-        except Exception as e:
-            logger.warning(f"Ledger integration failed: {e}", exc_info=True)
-            # Distinguish "ledger not attempted" (None) from "attempted but
-            # failed". A silent None after an exception has masked
-            # reconciliation gaps in prior incidents — keep the failure
-            # explicit so downstream meta consumers (QA, gating) see it.
-            ledger_result = {
-                "reconciliation_ok": False,
-                "ledger_error": str(e),
-            }
+    # Step 6: Ledger integration
+    ledger_result = _pb_build_ledger(
+        orders_df=orders_df,
+        trades_df=trades_df,
+        prices=prices,
+        start_capital=start_capital,
+        include_ledger=include_ledger,
+        run_id=run_id,
+        output_dir=output_dir,
+        broker_snapshot_policy=broker_snapshot_policy,
+        write_broker_snapshot=write_broker_snapshot,
+        broker_snapshot_run_id=broker_snapshot_run_id,
+        broker_snapshot_file=broker_snapshot_file,
+        broker_snapshot_date=broker_snapshot_date,
+        include_costs=include_costs,
+        write_evidence_pack=write_evidence_pack,
+    )
 
     # Step 7: Build result
-    # Combine signals if collected from cycle_fn
     signals_result = None
     if include_signals:
         if cycle_fn is not None and all_signals_list:
@@ -1414,28 +1373,22 @@ def run_portfolio_backtest(
         elif cycle_fn is None:
             signals_result = signals
 
-    # Build meta dict with timings and ledger info
-    meta_dict = {}
+    meta_dict: dict[str, Any] = {}
     if timings:
         meta_dict["timings"] = timings
     if ledger_result:
-        # Core ledger / reconciliation paths
         meta_dict["ledger_pack_path"] = ledger_result.get("ledger_pack_path")
         meta_dict["reconcile_report_path"] = ledger_result.get("reconcile_report_path")
         meta_dict["reconciliation_ok"] = ledger_result.get("reconciliation_ok")
         meta_dict["broker_snapshot_path"] = ledger_result.get("broker_snapshot_path")
-        # Surface ledger failures so downstream gates can see them instead of
-        # misreading a missing key as "ledger not attempted".
         if ledger_result.get("ledger_error"):
             meta_dict["ledger_error"] = ledger_result.get("ledger_error")
-        # Evidence pack fields (if written)
         meta_dict["evidence_index_path"] = ledger_result.get("evidence_index_path")
         meta_dict["evidence_pack_path"] = ledger_result.get("evidence_pack_path")
         meta_dict["evidence_pack_manifest_path"] = ledger_result.get(
             "evidence_pack_manifest_path"
         )
 
-    # Use trades_df (with fill_qty, status, reject_reason) when from simulate_with_costs
     trades_for_result = None
     if include_trades:
         trades_for_result = (
@@ -1444,17 +1397,13 @@ def run_portfolio_backtest(
             else orders_df
         )
 
-    result = BacktestResult(
+    return BacktestResult(
         equity=equity,
         metrics=metrics,
         trades=trades_for_result,
         signals=signals_result,
         target_positions=(
-            pd.concat(all_targets, ignore_index=True)
-            if include_targets and all_targets
-            else None
+            pd.concat(all_targets, ignore_index=True) if include_targets and all_targets else None
         ),
         meta=meta_dict if meta_dict else None,
     )
-
-    return result
