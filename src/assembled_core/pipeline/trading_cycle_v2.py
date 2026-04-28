@@ -2111,6 +2111,21 @@ def book_fills(
                 _slip_obs = result.orders_filtered["total_cost_bps"].dropna().tolist()
                 if _slip_obs:
                     kpi_histograms = {"assembled_slippage_bps": slippage_histogram(_slip_obs)}
+            # Kill-switch state gauge (1 = engaged, 0 = inactive)
+            try:
+                from src.assembled_core.execution.kill_switch import is_kill_switch_engaged
+                kpi_metrics["assembled_kill_switch_engaged"] = 1.0 if is_kill_switch_engaged() else 0.0
+            except Exception:
+                pass
+            # Drift-PSI gauge from drift_monitor meta (if present)
+            _drift_meta = result.meta.get("drift_monitor") or {}
+            if "max_psi" in _drift_meta:
+                kpi_metrics["assembled_drift_max_psi"] = float(_drift_meta["max_psi"])
+            # Rejection counters (per reason)
+            _rej_meta = result.meta.get("rejection_counts") or {}
+            for _reason, _cnt in _rej_meta.items():
+                _safe = str(_reason).replace("-", "_").replace(" ", "_").upper()
+                kpi_metrics[f"assembled_rejections_{_safe}_total"] = float(_cnt)
             metrics_dir = ctx.output_dir / "metrics" if ctx.write_outputs else None
             export_metrics(kpi_metrics, histograms=kpi_histograms, labels={"strategy": ctx.strategy_name or "unknown", "mode": ctx.mode}, path=metrics_dir / "assembled.prom" if metrics_dir else None)
     except Exception as e:

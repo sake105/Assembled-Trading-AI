@@ -379,6 +379,7 @@ class UnifiedPaperEngine:
         self._last_fills: pd.DataFrame = pd.DataFrame()
         self._last_orders_n: int = 0
         self._last_slippage_obs: list[float] = []
+        self._last_rejection_counts: dict[str, int] = {}
 
         # B2 — batched state-save bookkeeping. Counters are days *elapsed since
         # last flush*, not absolute day indices, so they stay correct even if
@@ -569,8 +570,18 @@ class UnifiedPaperEngine:
                     self._last_slippage_obs = ((_f["fill_price"] - _mid) / _mid.where(_mid != 0, other=float("nan")) * 10_000).dropna().tolist()
                 else:
                     self._last_slippage_obs = []
+                # Rejection counts keyed by reject_reason
+                if "reject_reason" in fills.columns:
+                    _rej = fills[fills["status"] == "rejected"]
+                    if not _rej.empty:
+                        self._last_rejection_counts = _rej["reject_reason"].value_counts().to_dict()
+                    else:
+                        self._last_rejection_counts = {}
+                else:
+                    self._last_rejection_counts = {}
             else:
                 self._last_slippage_obs = []
+                self._last_rejection_counts = {}
 
         n_fills = len(fills) if not fills.empty else 0
         logger.info("[PAPER] %s fills executed for %s", n_fills, as_of_date)
