@@ -30,6 +30,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -39,6 +40,50 @@ logger = logging.getLogger(__name__)
 _METRIC_NAME_RE = re.compile(r"^[a-zA-Z_:][a-zA-Z0-9_:]*$")
 _LABEL_NAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 _DEFAULT_PATH = Path("output") / "metrics" / "assembled.prom"
+
+# Slippage histogram buckets in basis points
+_SLIPPAGE_BUCKETS: list[float] = [-200, -50, -20, -10, -5, -1, 0, 1, 5, 10, 20, 50, 200, float("inf")]
+
+
+@dataclass
+class HistogramSnapshot:
+    """Pre-computed histogram bucket counts for Prometheus histogram format.
+
+    buckets: {upper_bound: cumulative_count}, last key must be float('inf').
+    sum: sum of all observed values.
+    count: total number of observations.
+    """
+    buckets: dict[float, int]
+    sum: float
+    count: int
+
+
+def slippage_histogram(slippage_bps: list[float]) -> HistogramSnapshot:
+    """Build a Prometheus-compatible histogram from slippage observations (in bps).
+
+    Uses standard slippage bucket boundaries:
+    -200, -50, -20, -10, -5, -1, 0, 1, 5, 10, 20, 50, 200, +Inf
+
+    Buckets are cumulative (each upper_bound stores count of all obs <= that bound),
+    matching the Prometheus histogram wire format requirement.
+    """
+    per_bucket: dict[float, int] = {b: 0 for b in _SLIPPAGE_BUCKETS}
+    for s in slippage_bps:
+        for b in _SLIPPAGE_BUCKETS:
+            if s <= b:
+                per_bucket[b] += 1
+                break
+    # Accumulate: _SLIPPAGE_BUCKETS is already sorted ascending with +Inf last
+    cumulative = 0
+    cumul: dict[float, int] = {}
+    for b in _SLIPPAGE_BUCKETS:
+        cumulative += per_bucket[b]
+        cumul[b] = cumulative
+    return HistogramSnapshot(
+        buckets=cumul,
+        sum=float(sum(slippage_bps)),
+        count=len(slippage_bps),
+    )
 
 
 def _escape_label_value(value: str) -> str:
@@ -61,6 +106,7 @@ def _format_labels(labels: dict[str, Any] | None) -> str:
 def render_prometheus_text(
     metrics: dict[str, float | int],
     *,
+    histograms: dict[str, HistogramSnapshot] | None = None,
     labels: dict[str, Any] | None = None,
     now: datetime | None = None,
 ) -> str:
@@ -68,12 +114,21 @@ def render_prometheus_text(
 
     Invalid metric names are dropped with a warning rather than raising,
     so a typo in one metric can't break the whole push.
+
+    Args:
+        metrics: Flat dict of gauge/counter values.
+        histograms: Optional dict of HistogramSnapshot for distribution metrics
+            (e.g. slippage). Rendered as Prometheus histogram format with _bucket,
+            _sum, _count series.
+        labels: Label key/value pairs applied to all series.
+        now: Timestamp override (default: UTC now).
     """
     ts = now or datetime.now(timezone.utc)
     header = f"# Exported {ts.isoformat()}\n"
     label_block = _format_labels(labels)
 
     lines: list[str] = [header]
+
     for raw_name, raw_value in metrics.items():
         name = str(raw_name)
         if not _METRIC_NAME_RE.match(name):
@@ -85,6 +140,20 @@ def render_prometheus_text(
             logger.warning("[metrics_exporter] skipping non-numeric %s=%r", name, raw_value)
             continue
         lines.append(f"{name}{label_block} {value}")
+
+    if histograms:
+        for hist_name, snap in histograms.items():
+            if not _METRIC_NAME_RE.match(hist_name):
+                logger.warning("[metrics_exporter] skipping invalid histogram name %r", hist_name)
+                continue
+            lines.append(f"# TYPE {hist_name} histogram")
+            for upper, count in sorted(snap.buckets.items(), key=lambda x: (x[0] == float("inf"), x[0])):
+                bucket_label = "+Inf" if upper == float("inf") else str(upper)
+                bucket_labels = {**(labels or {}), "le": bucket_label}
+                lines.append(f"{hist_name}_bucket{_format_labels(bucket_labels)} {count}")
+            lines.append(f"{hist_name}_sum{label_block} {snap.sum}")
+            lines.append(f"{hist_name}_count{label_block} {snap.count}")
+
     return "\n".join(lines) + "\n"
 
 
@@ -137,6 +206,7 @@ def push_to_gateway(
 def export_metrics(
     metrics: dict[str, float | int],
     *,
+    histograms: dict[str, HistogramSnapshot] | None = None,
     labels: dict[str, Any] | None = None,
     path: str | Path | None = None,
     gateway_url: str | None = None,
@@ -151,7 +221,7 @@ def export_metrics(
     2. ``os.environ[gateway_url_env]``
     3. None → file-only export
     """
-    text = render_prometheus_text(metrics, labels=labels, now=now)
+    text = render_prometheus_text(metrics, histograms=histograms, labels=labels, now=now)
     written = write_metrics_file(text, path=path)
 
     url = gateway_url or os.environ.get(gateway_url_env, "").strip() or None
@@ -170,6 +240,8 @@ def export_metrics(
 
 
 __all__ = [
+    "HistogramSnapshot",
+    "slippage_histogram",
     "render_prometheus_text",
     "write_metrics_file",
     "push_to_gateway",
