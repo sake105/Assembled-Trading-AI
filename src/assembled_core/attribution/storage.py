@@ -9,7 +9,7 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-from src.assembled_core.attribution.schemas import CompositeAttribution
+from assembled_core.attribution.schemas import CompositeAttribution
 
 
 class AttributionStore:

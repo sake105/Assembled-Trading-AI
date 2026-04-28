@@ -2,11 +2,18 @@
 
 From 38_FEATURE_ATTRIBUTION_DASHBOARD.md.
 """
-from src.assembled_core.attribution.schemas import CompositeAttribution
-from src.assembled_core.attribution.storage import AttributionStore
-from src.assembled_core.attribution.composite import (
+from assembled_core.attribution.schemas import CompositeAttribution
+from assembled_core.attribution.storage import AttributionStore
+from assembled_core.attribution.composite import (
     build_attribution,
     attribution_to_dict,
+)
+from assembled_core.attribution.time_series import (
+    attributions_to_df,
+    detect_dead_features,
+    detect_attribution_drift,
+    dead_feature_report,
+    rolling_dimension_ic,
 )
 
 __all__ = [
@@ -14,4 +21,9 @@ __all__ = [
     "AttributionStore",
     "build_attribution",
     "attribution_to_dict",
+    "attributions_to_df",
+    "detect_dead_features",
+    "detect_attribution_drift",
+    "dead_feature_report",
+    "rolling_dimension_ic",
 ]
