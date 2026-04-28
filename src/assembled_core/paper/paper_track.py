@@ -948,6 +948,215 @@ def save_paper_state(state: PaperTrackState, state_path: Path) -> None:
         raise IOError(f"Failed to save state to {state_path}: {e}") from e
 
 
+# ---------------------------------------------------------------------------
+# run_paper_day — private helpers (ptd = paper_track_day)
+# ---------------------------------------------------------------------------
+
+def _ptd_validate_config(
+    config: PaperTrackConfig, as_of: pd.Timestamp, state_path: "Path | None"
+) -> None:
+    if config.seed_capital <= 0 or not math.isfinite(config.seed_capital):
+        raise ValueError(f"seed_capital must be > 0 and finite, got {config.seed_capital}")
+    if config.commission_bps < 0 or not math.isfinite(config.commission_bps):
+        raise ValueError(f"commission_bps must be >= 0 and finite, got {config.commission_bps}")
+    if config.spread_w < 0 or not math.isfinite(config.spread_w):
+        raise ValueError(f"spread_w must be >= 0 and finite, got {config.spread_w}")
+    if config.impact_w < 0 or not math.isfinite(config.impact_w):
+        raise ValueError(f"impact_w must be >= 0 and finite, got {config.impact_w}")
+    if as_of > pd.Timestamp.now("UTC"):
+        now = pd.Timestamp.now("UTC")
+        raise ValueError(f"as_of ({as_of.date()}) cannot be in the future (current: {now.date()})")
+    if state_path is not None and state_path.exists() and not state_path.is_file():
+        raise ValueError(f"state_path exists but is not a file: {state_path}")
+
+
+def _ptd_load_or_init_state(
+    state_path: "Path | None", config: PaperTrackConfig, as_of: pd.Timestamp
+) -> PaperTrackState:
+    state_before: PaperTrackState | None = None
+    if state_path and state_path.exists():
+        state_before = load_paper_state(state_path, config.strategy_name)
+        if state_before and state_before.last_run_date is not None:
+            if state_before.last_run_date.date() == as_of.date():
+                raise ValueError(
+                    f"Paper track already run for date {as_of.date()}. "
+                    "Use force=True or delete state file to re-run."
+                )
+            if state_before.last_run_date > as_of:
+                raise ValueError(
+                    f"State last_run_date ({state_before.last_run_date.date()}) is in the future "
+                    f"compared to as_of ({as_of.date()}). Possible clock skew."
+                )
+    if state_before is None:
+        now = pd.Timestamp.now("UTC")
+        state_before = PaperTrackState(
+            strategy_name=config.strategy_name,
+            last_run_date=None,
+            cash=config.seed_capital,
+            equity=config.seed_capital,
+            seed_capital=config.seed_capital,
+            created_at=now,
+            updated_at=now,
+        )
+        logger.info(f"Initialized new paper state (seed_capital={config.seed_capital})")
+    return state_before
+
+
+def _ptd_load_universe(config: PaperTrackConfig) -> list[str]:
+    universe_file_path = (
+        Path(config.universe_file) if isinstance(config.universe_file, str) else config.universe_file
+    )
+    universe_symbols: list[str] = []
+    if universe_file_path.exists():
+        with open(universe_file_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    universe_symbols.append(line.upper())
+    else:
+        logger.warning(f"Universe file not found: {universe_file_path}")
+    return universe_symbols
+
+
+def _ptd_load_and_filter_prices(
+    config: PaperTrackConfig, universe_symbols: list[str], as_of: pd.Timestamp
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, int, int, int]:
+    """Return (prices, prices_history, prices_tradeable, n_req, n_tradeable, n_missing)."""
+    logger.info(f"Loading prices for {as_of.date()}")
+    prices = load_eod_prices_for_universe(
+        universe_file=config.universe_file, price_file=config.price_file, freq=config.freq,
+    )
+    prices_history = prices[prices["timestamp"] <= as_of].copy()
+    prices_tradeable, n_req, n_tradeable, n_missing = filter_tradeable_universe(
+        prices_filtered=_filter_prices_for_date(prices, as_of),
+        universe_symbols=universe_symbols,
+        min_history_days=0,
+    )
+    if prices_tradeable.empty:
+        logger.warning(
+            f"No tradeable symbols for date {as_of.date()} "
+            f"(requested: {n_req}, tradeable: {n_tradeable}, missing: {n_missing})"
+        )
+    return prices, prices_history, prices_tradeable, n_req, n_tradeable, n_missing
+
+
+def _ptd_apply_order_filters(
+    orders: pd.DataFrame, config: PaperTrackConfig, current_positions: pd.DataFrame
+) -> pd.DataFrame:
+    """Apply GeoRisk, rebalance, and dead-zone order filters sequentially."""
+    if config.georisk_gate_enabled:
+        from src.assembled_core.paper.georisk_gate import apply_georisk_to_orders
+        georisk_multiplier = getattr(config, "_georisk_multiplier", 1.0)
+        if georisk_multiplier < 1.0 and not orders.empty:
+            pre = len(orders)
+            orders = apply_georisk_to_orders(orders, georisk_multiplier)
+            logger.info(f"GeoRisk gate applied: multiplier={georisk_multiplier:.2f}, orders {pre} -> {len(orders)}")
+    if config.rebalance_filter_enabled and not orders.empty:
+        from src.assembled_core.paper.rebalance_filter import filter_small_rebalances
+        orders, stats = filter_small_rebalances(orders, min_notional=config.rebalance_min_notional)
+        if stats["orders_dropped"] > 0:
+            logger.info(
+                f"Rebalance filter: {stats['orders_before']} -> {stats['orders_after']} orders "
+                f"(dropped {stats['orders_dropped']}, min_notional={config.rebalance_min_notional})"
+            )
+    if config.deadzone_enabled and not orders.empty:
+        from src.assembled_core.paper.deadzone_rebalance import filter_deadzone_orders
+        orders, stats = filter_deadzone_orders(
+            orders, current_positions=current_positions, deadzone_pct=config.deadzone_pct
+        )
+        if stats["orders_dropped"] > 0:
+            logger.info(
+                f"Dead-zone filter: {stats['orders_before']} -> {stats['orders_after']} orders "
+                f"(dropped {stats['orders_dropped']}, deadzone_pct={config.deadzone_pct})"
+            )
+    return orders
+
+
+def _ptd_build_state_after(
+    config: PaperTrackConfig,
+    state_before: PaperTrackState,
+    updated_positions: pd.DataFrame,
+    new_cash: float,
+    new_equity: float,
+    filled_orders: pd.DataFrame,
+    as_of: pd.Timestamp,
+) -> PaperTrackState:
+    now = pd.Timestamp.now("UTC")
+    return PaperTrackState(
+        strategy_name=config.strategy_name,
+        last_run_date=as_of,
+        version=state_before.version,
+        positions=updated_positions,
+        cash=new_cash,
+        equity=new_equity,
+        seed_capital=state_before.seed_capital,
+        created_at=state_before.created_at,
+        updated_at=now,
+        total_trades=state_before.total_trades + len(filled_orders),
+        total_pnl=new_equity - state_before.seed_capital,
+        last_equity=state_before.equity,
+        last_positions_value=state_before.equity - state_before.cash,
+    )
+
+
+def _ptd_compute_daily_metrics(
+    filled_orders: pd.DataFrame,
+    updated_positions: pd.DataFrame,
+    prices_tradeable: pd.DataFrame,
+    state_before: PaperTrackState,
+    new_equity: float,
+) -> dict:
+    """Return kwargs dict for PaperTrackDayResult numeric fields."""
+    daily_pnl = new_equity - state_before.equity
+    daily_return_pct = (daily_pnl / state_before.equity * 100.0) if state_before.equity > 0 else 0.0
+    buy_count = len(filled_orders[filled_orders["side"] == "BUY"]) if not filled_orders.empty else 0
+    sell_count = len(filled_orders[filled_orders["side"] == "SELL"]) if not filled_orders.empty else 0
+    if not filled_orders.empty:
+        notionals = filled_orders["qty"].abs() * filled_orders["fill_price"].abs()
+        daily_turnover = float(notionals.sum()) / state_before.equity if state_before.equity > 0 else 0.0
+    else:
+        daily_turnover = 0.0
+    if not updated_positions.empty and not prices_tradeable.empty:
+        latest_px = prices_tradeable.groupby("symbol")["close"].last().to_dict()
+        pos = updated_positions.copy()
+        pos["price"] = pos["symbol"].map(latest_px)
+        pos["value"] = pos["qty"] * pos["price"]
+        gross_exposure = float(pos["value"].abs().sum())
+        net_exposure = float(pos["value"].sum())
+        gross_exposure_pct = (gross_exposure / new_equity * 100.0) if new_equity > 0 else 0.0
+        net_exposure_pct = (net_exposure / new_equity * 100.0) if new_equity > 0 else 0.0
+    else:
+        gross_exposure = net_exposure = gross_exposure_pct = net_exposure_pct = 0.0
+    return {
+        "daily_return_pct": float(daily_return_pct),
+        "daily_pnl": float(daily_pnl),
+        "trades_count": len(filled_orders),
+        "buy_count": buy_count,
+        "sell_count": sell_count,
+        "daily_turnover": float(daily_turnover),
+        "gross_exposure": float(gross_exposure),
+        "net_exposure": float(net_exposure),
+        "gross_exposure_pct": float(gross_exposure_pct),
+        "net_exposure_pct": float(net_exposure_pct),
+    }
+
+
+def _ptd_make_error_result(
+    config: PaperTrackConfig, state_before: PaperTrackState, as_of: pd.Timestamp, exc: Exception
+) -> PaperTrackDayResult:
+    logger.error(f"Paper day failed: {exc}", exc_info=True)
+    _fb = state_before or PaperTrackState(strategy_name=config.strategy_name, last_run_date=None)
+    return PaperTrackDayResult(
+        date=as_of, config=config, state_before=_fb, state_after=_fb,
+        orders=pd.DataFrame(columns=["timestamp", "symbol", "side", "qty", "price"]),
+        daily_return_pct=0.0, daily_pnl=0.0, trades_count=0, buy_count=0, sell_count=0,
+        daily_turnover=0.0, gross_exposure=0.0, net_exposure=0.0,
+        gross_exposure_pct=0.0, net_exposure_pct=0.0,
+        n_symbols_requested=0, n_tradeable=0, n_missing=0,
+        status="error", error_message=str(exc),
+    )
+
+
 def run_paper_day(
     config: PaperTrackConfig,
     as_of: pd.Timestamp,
@@ -978,155 +1187,32 @@ def run_paper_day(
         FileNotFoundError: If required data files not found
         PointInTimeViolationError: If PIT-checks enabled and violation detected
     """
-    # Validate config parameters
-    if config.seed_capital <= 0 or not math.isfinite(config.seed_capital):
-        raise ValueError(
-            f"seed_capital must be > 0 and finite, got {config.seed_capital}"
-        )
-    if config.commission_bps < 0 or not math.isfinite(config.commission_bps):
-        raise ValueError(
-            f"commission_bps must be >= 0 and finite, got {config.commission_bps}"
-        )
-    if config.spread_w < 0 or not math.isfinite(config.spread_w):
-        raise ValueError(f"spread_w must be >= 0 and finite, got {config.spread_w}")
-    if config.impact_w < 0 or not math.isfinite(config.impact_w):
-        raise ValueError(f"impact_w must be >= 0 and finite, got {config.impact_w}")
-
-    # Validate as_of
-    now = pd.Timestamp.now("UTC")
-    if as_of > now:
-        raise ValueError(
-            f"as_of ({as_of.date()}) cannot be in the future (current: {now.date()})"
-        )
-
-    # Validate state_path if provided
-    # Note: parent directory will be created by save_paper_state if needed
-    if state_path is not None and state_path.exists():
-        # Only validate if file exists but is invalid
-        if not state_path.is_file():
-            raise ValueError(f"state_path exists but is not a file: {state_path}")
-
-    # Set random seed if provided
+    _ptd_validate_config(config, as_of, state_path)
     _set_random_seed(config.random_seed)
-
-    # Load or initialize state
-    state_before: PaperTrackState | None = None
-    if state_path and state_path.exists():
-        state_before = load_paper_state(state_path, config.strategy_name)
-        if state_before and state_before.last_run_date is not None:
-            if state_before.last_run_date.date() == as_of.date():
-                raise ValueError(
-                    f"Paper track already run for date {as_of.date()}. "
-                    "Use force=True or delete state file to re-run."
-                )
-            if state_before.last_run_date > as_of:
-                raise ValueError(
-                    f"State last_run_date ({state_before.last_run_date.date()}) is in the future "
-                    f"compared to as_of ({as_of.date()}). Possible clock skew."
-                )
-
-    if state_before is None:
-        # Initialize new state
-        now = pd.Timestamp.now("UTC")
-        state_before = PaperTrackState(
-            strategy_name=config.strategy_name,
-            last_run_date=None,
-            cash=config.seed_capital,
-            equity=config.seed_capital,
-            seed_capital=config.seed_capital,
-            created_at=now,
-            updated_at=now,
-        )
-        logger.info(f"Initialized new paper state (seed_capital={config.seed_capital})")
-
+    state_before = _ptd_load_or_init_state(state_path, config, as_of)
     try:
-        # Step 1: Load universe symbols
-        universe_symbols: list[str] = []
-        universe_file_path = (
-            Path(config.universe_file)
-            if isinstance(config.universe_file, str)
-            else config.universe_file
+        universe_symbols = _ptd_load_universe(config)
+        prices, prices_history, prices_tradeable, n_sym_req, n_tradeable, n_missing = (
+            _ptd_load_and_filter_prices(config, universe_symbols, as_of)
         )
-        if universe_file_path.exists():
-            with open(universe_file_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith("#"):
-                        universe_symbols.append(line.upper())
-        else:
-            logger.warning(f"Universe file not found: {universe_file_path}")
-            universe_symbols = []
+        current_positions = state_before.positions.copy()
 
-        # Step 2: Load prices (filtered to as_of)
-        logger.info(f"Loading prices for {as_of.date()}")
-        prices = load_eod_prices_for_universe(
-            universe_file=config.universe_file,
-            price_file=config.price_file,
-            freq=config.freq,
-        )
-        # Full history up to as_of (needed for feature/EMA computation)
-        prices_history = prices[prices["timestamp"] <= as_of].copy()
-        # Snapshot: one row per symbol (last available price)
-        prices_filtered = _filter_prices_for_date(prices, as_of)
-
-        # Step 3: Filter to tradeable universe (exclude NaNs, missing data)
-        prices_tradeable, n_symbols_requested, n_tradeable, n_missing = (
-            filter_tradeable_universe(
-                prices_filtered=prices_filtered,
-                universe_symbols=universe_symbols,
-                min_history_days=0,
-            )
-        )
-
-        if prices_tradeable.empty:
-            logger.warning(
-                f"No tradeable symbols for date {as_of.date()} "
-                f"(requested: {n_symbols_requested}, tradeable: {n_tradeable}, missing: {n_missing})"
-            )
-            # Continue with empty prices_tradeable - will result in no orders
-
-        # Step 4-7: Run unified trading cycle (features/signals/positions/orders)
-        logger.debug("Running trading cycle (features/signals/positions/orders)")
-
-        # Build signal and sizing functions from strategy adapter
-        # We need to wrap the strategy adapter to work with trading_cycle
         def signal_fn(df_with_features: pd.DataFrame) -> pd.DataFrame:
-            """Signal function wrapper for trading_cycle."""
             signals, _ = _generate_signals_and_targets_for_day(
-                config=config,
-                state_before=state_before,
-                prices_full=prices,
-                prices_filtered=prices_tradeable,
-                prices_with_features=df_with_features,
-                as_of=as_of,
+                config=config, state_before=state_before, prices_full=prices,
+                prices_filtered=prices_tradeable, prices_with_features=df_with_features, as_of=as_of,
             )
             if not signals.empty and "timestamp" in signals.columns:
                 signals = (
-                    signals.sort_values("timestamp")
-                    .groupby("symbol", group_keys=False)
-                    .last()
-                    .reset_index()
+                    signals.sort_values("timestamp").groupby("symbol", group_keys=False).last().reset_index()
                 )
             if config.ranking_hysteresis_enabled and not signals.empty:
-                from src.assembled_core.paper.ranking_hysteresis import (
-                    apply_ranking_hysteresis,
-                )
-
-                held = (
-                    set(current_positions["symbol"].tolist())
-                    if not current_positions.empty
-                    else set()
-                )
+                from src.assembled_core.paper.ranking_hysteresis import apply_ranking_hysteresis
+                held = set(current_positions["symbol"].tolist()) if not current_positions.empty else set()
                 signals, hyst_meta = apply_ranking_hysteresis(
-                    signals,
-                    held,
-                    entry_n=config.ranking_entry_n,
-                    hold_n=config.ranking_hold_n,
+                    signals, held, entry_n=config.ranking_entry_n, hold_n=config.ranking_hold_n,
                 )
-                if (
-                    hyst_meta.get("kept_by_hysteresis", 0) > 0
-                    or hyst_meta.get("blocked_entry", 0) > 0
-                ):
+                if hyst_meta.get("kept_by_hysteresis", 0) > 0 or hyst_meta.get("blocked_entry", 0) > 0:
                     logger.info(
                         f"Ranking hysteresis: kept={hyst_meta['kept_by_hysteresis']}, "
                         f"blocked={hyst_meta['blocked_entry']}, "
@@ -1135,59 +1221,28 @@ def run_paper_day(
             return signals
 
         def sizing_fn(signals: pd.DataFrame, capital: float) -> pd.DataFrame:
-            """Position sizing function wrapper for trading_cycle."""
-            # For trend_baseline, we can compute target positions directly from signals
-            # For other strategies, we'll need to call the strategy adapter with features
             if config.strategy_type == "trend_baseline":
-                from src.assembled_core.portfolio.position_sizing import (
-                    compute_target_positions_from_trend_signals,
-                )
-
+                from src.assembled_core.portfolio.position_sizing import compute_target_positions_from_trend_signals
                 params = config.strategy_params or {}
                 return compute_target_positions_from_trend_signals(
-                    signals,
-                    total_capital=capital,
-                    top_n=params.get("top_n"),
-                    min_score=params.get("min_score", 0.0),
+                    signals, total_capital=capital,
+                    top_n=params.get("top_n"), min_score=params.get("min_score", 0.0),
                 )
-            else:
-                # For other strategies (e.g., multifactor), we need to call the adapter
-                # We'll need prices_with_features, so we compute them again (cached in cycle)
-                # This is a limitation, but acceptable for now
-                prices_with_features_temp = _compute_features_for_strategy(
-                    config, prices_tradeable
-                )
-                _, target_positions = _generate_signals_and_targets_for_day(
-                    config=config,
-                    state_before=state_before,
-                    prices_full=prices,
-                    prices_filtered=prices_tradeable,
-                    prices_with_features=prices_with_features_temp,
-                    as_of=as_of,
-                )
-                # Filter to signals that are in the input
-                if not signals.empty and not target_positions.empty:
-                    signal_symbols = set(signals["symbol"].unique())
-                    target_positions = target_positions[
-                        target_positions["symbol"].isin(signal_symbols)
-                    ].copy()
-                return target_positions
+            prices_tmp = _compute_features_for_strategy(config, prices_tradeable)
+            _, targets = _generate_signals_and_targets_for_day(
+                config=config, state_before=state_before, prices_full=prices,
+                prices_filtered=prices_tradeable, prices_with_features=prices_tmp, as_of=as_of,
+            )
+            if not signals.empty and not targets.empty:
+                targets = targets[targets["symbol"].isin(set(signals["symbol"].unique()))].copy()
+            return targets
 
-        # Build TradingContext
-        current_positions = state_before.positions.copy()
         tradeable_symbols = set(prices_tradeable["symbol"].unique())
-        prices_for_cycle = prices_history[
-            prices_history["symbol"].isin(tradeable_symbols)
-        ].copy()
         ctx = TradingContext(
-            prices=prices_for_cycle,
-            mode="backtest",  # Need full history for feature/EMA computation
-            as_of=as_of,
-            freq=config.freq,
+            prices=prices_history[prices_history["symbol"].isin(tradeable_symbols)].copy(),
+            mode="backtest", as_of=as_of, freq=config.freq,
             universe=universe_symbols if universe_symbols else None,
-            use_factor_store=False,  # Paper track doesn't use factor store yet
-            factor_store_root=None,
-            factor_group="core_ta",
+            use_factor_store=False, factor_store_root=None, factor_group="core_ta",
             feature_config={
                 "ma_windows": (
                     config.strategy_params.get("ma_fast", DEFAULT_MA_WINDOWS[0]),
@@ -1197,266 +1252,53 @@ def run_paper_day(
                 "rsi_window": DEFAULT_RSI_WINDOW,
                 "include_rsi": True,
             },
-            signal_fn=signal_fn,
-            signal_config=config.strategy_params,
-            position_sizing_fn=sizing_fn,
-            capital=state_before.equity,  # Use current equity as capital
-            current_positions=(
-                current_positions if not current_positions.empty else None
-            ),
-            order_timestamp=as_of,
-            enable_risk_controls=False,  # Paper track handles risk separately
-            risk_config={},
-            output_dir=None,  # No outputs from trading_cycle (we handle outputs)
-            output_format="none",
-            write_outputs=False,  # Pure function
-            run_id=None,
-            strategy_name=config.strategy_name,
-            logger=logger,
-            timings=None,
+            signal_fn=signal_fn, signal_config=config.strategy_params,
+            position_sizing_fn=sizing_fn, capital=state_before.equity,
+            current_positions=current_positions if not current_positions.empty else None,
+            order_timestamp=as_of, enable_risk_controls=False, risk_config={},
+            output_dir=None, output_format="none", write_outputs=False, run_id=None,
+            strategy_name=config.strategy_name, logger=logger, timings=None,
         )
-
-        # Run trading cycle
         cycle_result = run_trading_cycle(ctx)
-
         if cycle_result.status != "success":
             raise ValueError(f"Trading cycle failed: {cycle_result.error_message}")
 
-        # PIT check (if enabled) - now on cycle_result.prices_with_features
         enable_pit = _should_enable_pit_checks(config)
         if enable_pit:
             check_features_pit_safe(
-                cycle_result.prices_with_features,
-                as_of=as_of,
-                timestamp_col="timestamp",
-                strict=True,
-                feature_source="paper_track",
+                cycle_result.prices_with_features, as_of=as_of, timestamp_col="timestamp",
+                strict=True, feature_source="paper_track",
             )
             logger.debug("PIT checks passed")
 
-        # Extract results (cycle_result.orders already generated from targets)
-        orders = cycle_result.orders
-
-        # GeoRisk gate: scale order quantities if enabled
-        georisk_multiplier_applied = 1.0
-        if config.georisk_gate_enabled:
-            from src.assembled_core.paper.georisk_gate import (
-                apply_georisk_to_orders,
-            )
-
-            georisk_multiplier_applied = getattr(config, "_georisk_multiplier", 1.0)
-            if georisk_multiplier_applied < 1.0 and not orders.empty:
-                pre_count = len(orders)
-                orders = apply_georisk_to_orders(orders, georisk_multiplier_applied)
-                logger.info(
-                    f"GeoRisk gate applied: multiplier={georisk_multiplier_applied:.2f}, "
-                    f"orders {pre_count} -> {len(orders)}"
-                )
-
-        # Rebalance filter: drop small orders to reduce churn
-        rebalance_filter_stats = None
-        if config.rebalance_filter_enabled and not orders.empty:
-            from src.assembled_core.paper.rebalance_filter import (
-                filter_small_rebalances,
-            )
-
-            orders, rebalance_filter_stats = filter_small_rebalances(
-                orders,
-                min_notional=config.rebalance_min_notional,
-            )
-            if rebalance_filter_stats["orders_dropped"] > 0:
-                logger.info(
-                    f"Rebalance filter: {rebalance_filter_stats['orders_before']} -> "
-                    f"{rebalance_filter_stats['orders_after']} orders "
-                    f"(dropped {rebalance_filter_stats['orders_dropped']}, "
-                    f"min_notional={config.rebalance_min_notional})"
-                )
-
-        # Dead-zone filter: suppress micro-rebalances
-        deadzone_stats = None
-        if config.deadzone_enabled and not orders.empty:
-            from src.assembled_core.paper.deadzone_rebalance import (
-                filter_deadzone_orders,
-            )
-
-            orders, deadzone_stats = filter_deadzone_orders(
-                orders,
-                current_positions=current_positions,
-                deadzone_pct=config.deadzone_pct,
-            )
-            if deadzone_stats["orders_dropped"] > 0:
-                logger.info(
-                    f"Dead-zone filter: {deadzone_stats['orders_before']} -> "
-                    f"{deadzone_stats['orders_after']} orders "
-                    f"(dropped {deadzone_stats['orders_dropped']}, "
-                    f"deadzone_pct={config.deadzone_pct})"
-                )
-
-        # Step 8: Simulate fills
-        logger.debug("Simulating order fills")
+        orders = _ptd_apply_order_filters(cycle_result.orders, config, current_positions)
         filled_orders, new_cash = _simulate_order_fills(
-            orders,
-            state_before.cash,
-            config.commission_bps,
-            config.spread_w,
-            config.impact_w,
+            orders, state_before.cash, config.commission_bps, config.spread_w, config.impact_w,
         )
-
-        # Step 9: Update positions
-        logger.debug("Updating positions")
         updated_positions = _update_positions_vectorized(
             filled_orders[["timestamp", "symbol", "side", "qty", "price"]],
-            current_positions,
-            use_numba=True,
+            current_positions, use_numba=True,
         )
-
-        # Step 10: Compute new equity (mark-to-market)
-        position_value = _compute_position_value(updated_positions, prices_tradeable)
-        new_equity = new_cash + position_value
-
-        # Step 9: Create updated state
-        now = pd.Timestamp.now("UTC")
-        # Store previous day's values for tracking (v2.0+)
-        last_equity = state_before.equity
-        last_positions_value = state_before.equity - state_before.cash
-
-        state_after = PaperTrackState(
-            strategy_name=config.strategy_name,
-            last_run_date=as_of,
-            version=state_before.version,  # Will be updated to current on save
-            positions=updated_positions,
-            cash=new_cash,
-            equity=new_equity,
-            seed_capital=state_before.seed_capital,
-            created_at=state_before.created_at,
-            updated_at=now,
-            total_trades=state_before.total_trades + len(filled_orders),
-            total_pnl=new_equity - state_before.seed_capital,
-            last_equity=last_equity,  # v2.0+ field
-            last_positions_value=last_positions_value,  # v2.0+ field
+        new_equity = new_cash + _compute_position_value(updated_positions, prices_tradeable)
+        state_after = _ptd_build_state_after(
+            config, state_before, updated_positions, new_cash, new_equity, filled_orders, as_of
         )
-
-        # Compute daily metrics
-        daily_pnl = new_equity - state_before.equity
-        daily_return_pct = (
-            (daily_pnl / state_before.equity * 100.0)
-            if state_before.equity > 0
-            else 0.0
+        metrics = _ptd_compute_daily_metrics(
+            filled_orders, updated_positions, prices_tradeable, state_before, new_equity
         )
-        buy_count = (
-            len(filled_orders[filled_orders["side"] == "BUY"])
-            if not filled_orders.empty
-            else 0
-        )
-        sell_count = (
-            len(filled_orders[filled_orders["side"] == "SELL"])
-            if not filled_orders.empty
-            else 0
-        )
-
-        # Compute turnover: sum(abs(trade_notional)) / previous equity
-        if not filled_orders.empty:
-            trade_notionals = (
-                filled_orders["qty"].abs() * filled_orders["fill_price"].abs()
-            )
-            total_trade_notional = float(trade_notionals.sum())
-            daily_turnover = (
-                total_trade_notional / state_before.equity
-                if state_before.equity > 0
-                else 0.0
-            )
-        else:
-            daily_turnover = 0.0
-
-        # Compute gross/net exposure from positions
-        if not updated_positions.empty and not prices_tradeable.empty:
-            # Get latest prices for each symbol
-            latest_prices = prices_tradeable.groupby("symbol")["close"].last().to_dict()
-            # Calculate position values
-            positions_with_prices = updated_positions.copy()
-            positions_with_prices["price"] = positions_with_prices["symbol"].map(
-                latest_prices
-            )
-            positions_with_prices["value"] = (
-                positions_with_prices["qty"] * positions_with_prices["price"]
-            )
-
-            # Gross exposure = sum of absolute position values
-            gross_exposure = float(positions_with_prices["value"].abs().sum())
-            # Net exposure = sum of position values (can be negative)
-            net_exposure = float(positions_with_prices["value"].sum())
-            # Normalize by equity
-            gross_exposure_pct = (
-                (gross_exposure / new_equity * 100.0) if new_equity > 0 else 0.0
-            )
-            net_exposure_pct = (
-                (net_exposure / new_equity * 100.0) if new_equity > 0 else 0.0
-            )
-        else:
-            gross_exposure = 0.0
-            net_exposure = 0.0
-            gross_exposure_pct = 0.0
-            net_exposure_pct = 0.0
-
-        # Create result
         result = PaperTrackDayResult(
-            date=as_of,
-            config=config,
-            state_before=state_before,
-            state_after=state_after,
-            orders=filled_orders,
-            daily_return_pct=float(daily_return_pct),
-            daily_pnl=float(daily_pnl),
-            trades_count=len(filled_orders),
-            buy_count=buy_count,
-            sell_count=sell_count,
-            daily_turnover=float(daily_turnover),
-            gross_exposure=float(gross_exposure),
-            net_exposure=float(net_exposure),
-            gross_exposure_pct=float(gross_exposure_pct),
-            net_exposure_pct=float(net_exposure_pct),
-            n_symbols_requested=n_symbols_requested,
-            n_tradeable=n_tradeable,
-            n_missing=n_missing,
-            status="success",
-            error_message=None,
+            date=as_of, config=config, state_before=state_before, state_after=state_after,
+            orders=filled_orders, **metrics,
+            n_symbols_requested=n_sym_req, n_tradeable=n_tradeable, n_missing=n_missing,
+            status="success", error_message=None,
         )
-
         logger.info(
-            f"Paper day completed: equity={new_equity:.2f}, daily_return={daily_return_pct:.2f}%, "
-            f"trades={len(filled_orders)}"
+            f"Paper day completed: equity={new_equity:.2f}, "
+            f"daily_return={metrics['daily_return_pct']:.2f}%, trades={len(filled_orders)}"
         )
         return result
-
     except Exception as e:
-        # Return error result
-        logger.error(f"Paper day failed: {e}", exc_info=True)
-        return PaperTrackDayResult(
-            date=as_of,
-            config=config,
-            state_before=state_before
-            or PaperTrackState(strategy_name=config.strategy_name, last_run_date=None),
-            state_after=state_before
-            or PaperTrackState(strategy_name=config.strategy_name, last_run_date=None),
-            orders=pd.DataFrame(
-                columns=["timestamp", "symbol", "side", "qty", "price"]
-            ),
-            daily_return_pct=0.0,
-            daily_pnl=0.0,
-            trades_count=0,
-            buy_count=0,
-            sell_count=0,
-            daily_turnover=0.0,
-            gross_exposure=0.0,
-            net_exposure=0.0,
-            gross_exposure_pct=0.0,
-            net_exposure_pct=0.0,
-            n_symbols_requested=0,
-            n_tradeable=0,
-            n_missing=0,
-            status="error",
-            error_message=str(e),
-        )
+        return _ptd_make_error_result(config, state_before, as_of, e)
 
 
 def write_paper_day_outputs(

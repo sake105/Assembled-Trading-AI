@@ -129,6 +129,232 @@ def _collect_raw_items(
     return items, failures, per_source_stats
 
 
+# ---------------------------------------------------------------------------
+# run_news_pipeline — private helpers (np = news_pipeline)
+# ---------------------------------------------------------------------------
+
+def _np_normalize_events_loop(
+    raw_items: list,
+    dedupe_store: Any,
+    dedupe_cfg: dict,
+    dedupe_enabled: bool,
+    source_meta: Dict[str, Dict[str, str]],
+    fetched_utc: str,
+) -> dict:
+    """Normalize raw items, apply persistent dedupe, return aggregated results."""
+    MAX_NORMALIZE_SAMPLES = 3
+    events: List[NewsEvent] = []
+    dropped_url = dropped_fp0 = near_dupes_tagged = dropped_short_title = 0
+    normalize_exception_count = normalize_none_count = normalized_ok_count = 0
+    normalize_exception_reasons: Dict[str, int] = {}
+    normalize_none_reasons: Dict[str, int] = {}
+    normalize_failure_samples: List[Dict[str, Any]] = []
+
+    for raw in raw_items:
+        source_id = str(raw.get("source_id") or "unknown")
+        source_name = str(raw.get("source_name") or "unknown")
+        source_domain = str(raw.get("source_domain") or "")
+        raw_preview = {
+            "title": raw.get("title"), "link": raw.get("link"),
+            "published": raw.get("published"), "keys": sorted(list(raw.keys()))[:20],
+        }
+        try:
+            ev = normalize_raw_item(
+                {"title": raw.get("title"), "link": raw.get("link"),
+                 "published": raw.get("published"), "summary": raw.get("summary"),
+                 "raw": raw.get("raw", raw)},
+                source_id=source_id, source_name=source_name,
+                source_domain=source_domain, fetched_utc=fetched_utc,
+            )
+        except Exception as exc:
+            normalize_exception_count += 1
+            reason = f"{type(exc).__name__}: {str(exc)[:200]}"
+            normalize_exception_reasons[reason] = normalize_exception_reasons.get(reason, 0) + 1
+            if len(normalize_failure_samples) < MAX_NORMALIZE_SAMPLES:
+                normalize_failure_samples.append({"kind": "exception", "reason": reason, "raw_preview": raw_preview})
+            continue
+        if ev is None:
+            normalize_none_count += 1
+            normalize_none_reasons["returned_none"] = normalize_none_reasons.get("returned_none", 0) + 1
+            if len(normalize_failure_samples) < MAX_NORMALIZE_SAMPLES:
+                normalize_failure_samples.append({"kind": "returned_none", "reason": "returned_none", "raw_preview": raw_preview})
+            dropped_short_title += 1
+            continue
+
+        normalized_ok_count += 1
+        if dedupe_store is not None and dedupe_enabled:
+            try:
+                if ev.canonical_url and dedupe_store.has_url(ev.canonical_url):
+                    dropped_url += 1
+                    continue
+                fp64_hex = getattr(ev, "fingerprint64", "") or ""
+                treat_fp0 = bool((dedupe_cfg.get("fingerprint") or {}).get("treat_distance0_as_duplicate", True))
+                if treat_fp0 and fp64_hex:
+                    fp64_int = int(fp64_hex, 16)
+                    has_fp, _ = dedupe_store.has_fingerprint64(fp64_int)
+                    if has_fp:
+                        dropped_fp0 += 1
+                        continue
+                near_cfg = dedupe_cfg.get("near_duplicate") or {}
+                if fp64_hex and bool(near_cfg.get("enabled", True)):
+                    threshold = int(near_cfg.get("hamming_threshold", 3) or 3)
+                    if threshold > 0:
+                        fp64_int_nd = int(fp64_hex, 16)
+                        bucket = DedupeStoreSQLite._bucket(fp64_int_nd)
+                        candidates = dedupe_store.candidates_by_bucket(bucket)
+                        best_event_id: str | None = None
+                        best_dist: int | None = None
+                        for cand_event_id, cand_fp in candidates:
+                            dist = hamming_distance(fp64_int_nd, cand_fp)
+                            if dist == 0:
+                                continue
+                            if best_dist is None or dist < best_dist:
+                                best_dist = dist
+                                best_event_id = cand_event_id
+                        if best_event_id is not None and best_dist is not None and best_dist <= threshold:
+                            if not isinstance(ev.raw, dict):
+                                ev.raw = {}
+                            ev.raw["near_duplicate_of"] = best_event_id
+                            ev.raw["near_duplicate_distance"] = int(best_dist)
+                            near_dupes_tagged += 1
+            except Exception as exc:
+                logger.warning("[NewsPipeline] store/dedupe error (non-fatal): %s", exc)
+        events.append(ev)
+
+    return {
+        "events": events,
+        "dropped_url": dropped_url,
+        "dropped_fp0": dropped_fp0,
+        "near_dupes_tagged": near_dupes_tagged,
+        "dropped_short_title": dropped_short_title,
+        "funnel_updates": {
+            "normalize_exception_count": normalize_exception_count,
+            "normalize_none_count": normalize_none_count,
+            "normalized_ok_count": normalized_ok_count,
+            "normalized_events_count": len(events),
+            "post_store_kept_count": len(events),
+            "dedupe_store_dropped_url_count": dropped_url,
+            "dedupe_store_dropped_fp0_count": dropped_fp0,
+            "dropped_short_title_count": dropped_short_title,
+        },
+        "normalize_exception_reasons": normalize_exception_reasons,
+        "normalize_none_reasons": normalize_none_reasons,
+        "normalize_failure_samples": normalize_failure_samples,
+    }
+
+
+def _np_run_burst_detection(
+    clusters: list,
+    burst_cfg: dict,
+    clustering_cfg: dict,
+    cadence: str,
+    base_dir: Path,
+    fetched_utc: str,
+) -> dict:
+    """Update baseline (daily) and run burst detection across all configured windows."""
+    baseline_meta: Dict[str, Any] = {"version_hash": "", "days_covered": 0}
+    if cadence == "daily" and bool(burst_cfg.get("enabled", False)):
+        try:
+            baseline_meta = update_baseline(
+                clusters=clusters, cfg={"burst": burst_cfg, "clustering": clustering_cfg},
+                now_utc=fetched_utc, baseline_dir=base_dir / "baseline",
+            )
+        except Exception as exc:
+            logger.warning("[WARN] update_baseline failed: %s", exc)
+            baseline_meta = {"version_hash": "", "days_covered": 0}
+
+    baseline_latest: Dict[str, Any] | None = None
+    baseline_loaded = False
+    baseline_latest_path = base_dir / "baseline" / "baseline_latest.json"
+    if baseline_latest_path.exists():
+        try:
+            import json as _json
+            baseline_latest = _json.loads(baseline_latest_path.read_text(encoding="utf-8"))
+            baseline_loaded = isinstance(baseline_latest, dict)
+        except Exception as exc:
+            logger.warning("[WARN] baseline_latest load failed: %s", exc)
+
+    bursts_primary: List[Dict[str, Any]] = []
+    bursts_windows: List[Dict[str, Any]] = []
+    windows_cfg = burst_cfg.get("windows_hours") or [1, 6, 24]
+    windows: List[int] = sorted({int(w) for w in windows_cfg})
+    window_hours_primary = 1 if cadence == "hourly" else 24
+
+    if bool(burst_cfg.get("enabled", False)):
+        cfg_for_burst = {"burst": burst_cfg, "clustering": clustering_cfg}
+        for wh in windows:
+            bw = compute_bursts_for_window(clusters=clusters, baseline=baseline_latest, cfg=cfg_for_burst, window_hours=wh)
+            bursts_windows.append(bw)
+        primary_map = (burst_cfg.get("primary_window_by_cadence") or {}) if isinstance(burst_cfg.get("primary_window_by_cadence"), dict) else {}
+        if cadence in primary_map:
+            window_hours_primary = int(primary_map[cadence])
+        if window_hours_primary not in windows and windows:
+            window_hours_primary = windows[0]
+        primary = next((bw for bw in bursts_windows if int(bw.get("window_hours")) == window_hours_primary), {"top_entities_burst": [], "top_phrases_burst": []})
+        items_flat: List[Dict[str, Any]] = [*primary.get("top_entities_burst", []), *primary.get("top_phrases_burst", [])]
+        items_flat.sort(key=lambda x: (-x["score"], x["kind"], x["key"]))
+        bursts_primary = items_flat
+
+    return {
+        "baseline_meta": baseline_meta,
+        "bursts_primary": bursts_primary,
+        "bursts_windows": bursts_windows,
+        "window_hours_primary": window_hours_primary,
+        "baseline_loaded": baseline_loaded,
+        "baseline_latest": baseline_latest,
+        "windows": windows,
+    }
+
+
+def _np_persist_dedupe(
+    dedupe_store: Any, deduped: list, dedupe_enabled: bool, fetched_utc: str
+) -> None:
+    if dedupe_store is None or not dedupe_enabled:
+        return
+    for ev in deduped:
+        try:
+            fp64_hex = getattr(ev, "fingerprint64", "") or ""
+            dedupe_store.add_event(
+                event_id=ev.event_id, canonical_url=ev.canonical_url,
+                fp64=int(fp64_hex, 16) if fp64_hex else 0,
+                published_utc=ev.published_utc, source_id=ev.source_id, ingested_utc=fetched_utc,
+            )
+        except Exception as exc:
+            logger.warning("[WARN] dedupe_store.add_event failed: %s", exc)
+
+
+def _np_daily_housekeeping(
+    fetch_state: dict, gdelt_cfg: dict, base_dir: Path, fetched_utc: str
+) -> None:
+    """Prune stale GDELT cache entries and emit housekeeping artifact."""
+    from dateutil import parser as date_parser
+
+    stale_minutes = int(gdelt_cfg.get("stale_on_error_minutes", 60))
+    prune_threshold = stale_minutes + 120
+    gdelt_state = fetch_state.get("gdelt") or {}
+    pruned = 0
+    for key in list(gdelt_state.keys()):
+        entry = gdelt_state.get(key)
+        if not isinstance(entry, dict):
+            continue
+        cached_utc = entry.get("cached_utc")
+        if not isinstance(cached_utc, str):
+            continue
+        try:
+            age = (date_parser.parse(fetched_utc) - date_parser.parse(cached_utc)).total_seconds() / 60.0
+        except Exception:
+            age = 1e9
+        if age > prune_threshold:
+            gdelt_state.pop(key, None)
+            pruned += 1
+    fetch_state["gdelt"] = gdelt_state
+    emit_json_artifact(
+        {"schema_version": "news.housekeeping.v1", "generated_utc": fetched_utc,
+         "cadence": "daily", "pruned_gdelt_cache_entries": pruned, "notes": []},
+        base_dir / "daily_housekeeping_latest.json",
+    )
+
+
 def run_news_pipeline(
     sources_path: str | Path = "configs/news/sources.yaml",
     news_path: str | Path = "configs/news/news.yaml",
@@ -141,7 +367,6 @@ def run_news_pipeline(
       - events: List[NewsEvent]
       - health: NewsHealth
     """
-    # Minimal logging setup (no custom run_id necessary for this MVP)
     setup_logging(run_id="news_v1", level="INFO")
 
     params = load_news_params(news_path)
@@ -212,280 +437,53 @@ def run_news_pipeline(
     # NEWS-DEBUG-1: Funnel counts (observability only)
     funnel_counts: Dict[str, int] = {
         "raw_items_count": len(raw_items),
-        "normalized_events_count": 0,
-        "normalized_ok_count": 0,
-        "dedupe_store_dropped_url_count": 0,
-        "dedupe_store_dropped_fp0_count": 0,
-        "post_store_kept_count": 0,
-        "normalize_exception_count": 0,
-        "normalize_none_count": 0,
-        "dropped_short_title_count": 0,
-        "deduped_events_count": 0,
-        "clusters_count": 0,
-        "clusters_with_topics_count": 0,
-        "candidate_triggers_count": 0,
-        "triggers_count": 0,
-        "triggers_severity_ge_1_count": 0,
-        "triggers_severity_ge_2_count": 0,
-        "triggers_evidence_blocked_count": 0,
-        "triggers_qc_capped_count": 0,
+        "normalized_events_count": 0, "normalized_ok_count": 0,
+        "dedupe_store_dropped_url_count": 0, "dedupe_store_dropped_fp0_count": 0,
+        "post_store_kept_count": 0, "normalize_exception_count": 0,
+        "normalize_none_count": 0, "dropped_short_title_count": 0,
+        "deduped_events_count": 0, "clusters_count": 0, "clusters_with_topics_count": 0,
+        "candidate_triggers_count": 0, "triggers_count": 0,
+        "triggers_severity_ge_1_count": 0, "triggers_severity_ge_2_count": 0,
+        "triggers_evidence_blocked_count": 0, "triggers_qc_capped_count": 0,
     }
     funnel_notes: List[str] = []
-    # NEWS-DEBUG-2: normalize failure reasons + samples (max 3 total)
-    normalize_exception_reasons: Dict[str, int] = {}
-    normalize_none_reasons: Dict[str, int] = {}
-    normalize_failure_samples: List[Dict[str, Any]] = []
-    MAX_NORMALIZE_SAMPLES = 3
 
-    events: List[NewsEvent] = []
-    dropped_short_title = 0
-    for raw in raw_items:
-        source_id = str(raw.get("source_id") or "unknown")
-        source_name = str(raw.get("source_name") or "unknown")
-        source_domain = str(raw.get("source_domain") or "")
-        raw_preview = {
-            "title": raw.get("title"),
-            "link": raw.get("link"),
-            "published": raw.get("published"),
-            "keys": sorted(list(raw.keys()))[:20],
-        }
-        try:
-            ev = normalize_raw_item(
-                {
-                    "title": raw.get("title"),
-                    "link": raw.get("link"),
-                    "published": raw.get("published"),
-                    "summary": raw.get("summary"),
-                    "raw": raw.get("raw", raw),
-                },
-                source_id=source_id,
-                source_name=source_name,
-                source_domain=source_domain,
-                fetched_utc=fetched_utc,
-            )
-        except Exception as exc:
-            funnel_counts["normalize_exception_count"] += 1
-            reason = f"{type(exc).__name__}: {str(exc)[:200]}"
-            normalize_exception_reasons[reason] = (
-                normalize_exception_reasons.get(reason, 0) + 1
-            )
-            if len(normalize_failure_samples) < MAX_NORMALIZE_SAMPLES:
-                normalize_failure_samples.append(
-                    {
-                        "kind": "exception",
-                        "reason": reason,
-                        "raw_preview": raw_preview,
-                    }
-                )
-            continue
-        if ev is None:
-            funnel_counts["normalize_none_count"] += 1
-            none_reason = "returned_none"
-            normalize_none_reasons[none_reason] = (
-                normalize_none_reasons.get(none_reason, 0) + 1
-            )
-            if len(normalize_failure_samples) < MAX_NORMALIZE_SAMPLES:
-                normalize_failure_samples.append(
-                    {
-                        "kind": "returned_none",
-                        "reason": none_reason,
-                        "raw_preview": raw_preview,
-                    }
-                )
-            dropped_short_title += 1
-            continue
-
-        funnel_counts["normalized_ok_count"] += 1
-        # Persistent dedupe: URL + fingerprint bucket (distance 0)
-        if dedupe_store is not None and dedupe_enabled:
-            try:
-                if ev.canonical_url and dedupe_store.has_url(ev.canonical_url):
-                    dropped_url += 1
-                    continue
-                fp64_hex = getattr(ev, "fingerprint64", "") or ""
-                treat_fp0 = bool(
-                    (dedupe_cfg.get("fingerprint") or {}).get(
-                        "treat_distance0_as_duplicate", True
-                    )
-                )
-                if treat_fp0 and fp64_hex:
-                    fp64_int = int(fp64_hex, 16)
-                    has_fp, _ = dedupe_store.has_fingerprint64(fp64_int)
-                    if has_fp:
-                        dropped_fp0 += 1
-                        continue
-
-                # Near-duplicate tagging (do not drop)
-                near_cfg = dedupe_cfg.get("near_duplicate") or {}
-                if fp64_hex and bool(near_cfg.get("enabled", True)):
-                    threshold = int(near_cfg.get("hamming_threshold", 3) or 3)
-                    if threshold > 0:
-                        fp64_int_nd = int(fp64_hex, 16)
-                        bucket = DedupeStoreSQLite._bucket(fp64_int_nd)
-                        candidates = dedupe_store.candidates_by_bucket(bucket)
-                        best_event_id: str | None = None
-                        best_dist: int | None = None
-                        for cand_event_id, cand_fp in candidates:
-                            dist = hamming_distance(fp64_int_nd, cand_fp)
-                            if dist == 0:
-                                # Exact duplicate already handled above
-                                continue
-                            if best_dist is None or dist < best_dist:
-                                best_dist = dist
-                                best_event_id = cand_event_id
-                        if (
-                            best_event_id is not None
-                            and best_dist is not None
-                            and best_dist <= threshold
-                        ):
-                            if not isinstance(ev.raw, dict):
-                                ev.raw = {}
-                            ev.raw["near_duplicate_of"] = best_event_id
-                            ev.raw["near_duplicate_distance"] = int(best_dist)
-                            near_dupes_tagged += 1
-            except Exception as exc:
-                # Do not break pipeline on store errors
-                logger.warning("[NewsPipeline] store/dedupe error (non-fatal): %s", exc)
-
-        events.append(ev)
-
-    funnel_counts["normalized_events_count"] = len(events)
-    funnel_counts["post_store_kept_count"] = len(events)
-    funnel_counts["dedupe_store_dropped_url_count"] = dropped_url
-    funnel_counts["dedupe_store_dropped_fp0_count"] = dropped_fp0
-    funnel_counts["dropped_short_title_count"] = dropped_short_title
+    _norm = _np_normalize_events_loop(raw_items, dedupe_store, dedupe_cfg, dedupe_enabled, source_meta, fetched_utc)
+    normalize_exception_reasons = _norm["normalize_exception_reasons"]
+    normalize_none_reasons = _norm["normalize_none_reasons"]
+    normalize_failure_samples = _norm["normalize_failure_samples"]
+    funnel_counts.update(_norm["funnel_updates"])
+    events = _norm["events"]  # consumed below in dedupe
+    dropped_url = _norm["dropped_url"]
+    dropped_fp0 = _norm["dropped_fp0"]
+    near_dupes_tagged = _norm["near_dupes_tagged"]
+    dropped_short_title = _norm["dropped_short_title"]
 
     deduped = dedupe_events(events)
     funnel_counts["deduped_events_count"] = len(deduped)
 
-    # Clustering
     clusters: List[Dict[str, Any]] = []
     if bool(clustering_cfg.get("enabled", True)):
         cfg_for_clusters = dict(clustering_cfg)
         cfg_for_clusters["generated_utc"] = fetched_utc
         clusters = build_clusters(deduped, cfg_for_clusters)
-
-    # Evidence summary per cluster
     events_by_id: Dict[str, NewsEvent] = {e.event_id: e for e in deduped}
     for clu in clusters:
-        clu["evidence"] = summarize_cluster_evidence(
-            clu, events_by_id, source_meta, fetched_utc
-        )
-
+        clu["evidence"] = summarize_cluster_evidence(clu, events_by_id, source_meta, fetched_utc)
     funnel_counts["clusters_count"] = len(clusters)
-    funnel_counts["clusters_with_topics_count"] = sum(
-        1 for c in clusters if (c.get("topics") or c.get("candidate_triggers"))
-    )
-    funnel_counts["candidate_triggers_count"] = sum(
-        len(c.get("candidate_triggers") or []) for c in clusters
-    )
+    funnel_counts["clusters_with_topics_count"] = sum(1 for c in clusters if (c.get("topics") or c.get("candidate_triggers")))
+    funnel_counts["candidate_triggers_count"] = sum(len(c.get("candidate_triggers") or []) for c in clusters)
 
-    # Baseline update (daily cadence only)
-    baseline_meta = {"version_hash": "", "days_covered": 0}
-    if cadence == "daily" and bool(burst_cfg.get("enabled", False)):
-        try:
-            cfg_for_baseline = {
-                "burst": burst_cfg,
-                "clustering": clustering_cfg,
-            }
-            baseline_dir = base_dir / "baseline"
-            baseline_meta = update_baseline(
-                clusters=clusters,
-                cfg=cfg_for_baseline,
-                now_utc=fetched_utc,
-                baseline_dir=baseline_dir,
-            )
-        except Exception as exc:
-            logger.warning("[WARN] update_baseline failed: %s", exc)
-            baseline_meta = {"version_hash": "", "days_covered": 0}
+    _burst = _np_run_burst_detection(clusters, burst_cfg, clustering_cfg, cadence, base_dir, fetched_utc)
+    baseline_meta = _burst["baseline_meta"]
+    bursts_primary = _burst["bursts_primary"]
+    bursts_windows = _burst["bursts_windows"]
+    window_hours_primary = _burst["window_hours_primary"]
+    baseline_loaded = _burst["baseline_loaded"]
+    baseline_latest = _burst["baseline_latest"]
+    windows = _burst["windows"]
 
-    # Burst detection (all cadences; baseline optional)
-    bursts_primary: List[Dict[str, Any]] = []
-    window_hours_primary = 24 if cadence == "daily" else 1
-    baseline_loaded = False
-    baseline_latest: Dict[str, Any] | None = None
-    baseline_dir = base_dir / "baseline"
-    baseline_latest_path = baseline_dir / "baseline_latest.json"
-    if baseline_latest_path.exists():
-        try:
-            import json
-
-            baseline_latest = json.loads(
-                baseline_latest_path.read_text(encoding="utf-8")
-            )
-            baseline_loaded = isinstance(baseline_latest, dict)
-        except Exception as exc:
-            logger.warning("[WARN] baseline_latest load failed: %s", exc)
-            baseline_latest = None
-            baseline_loaded = False
-
-    bursts_windows: List[Dict[str, Any]] = []
-    windows_cfg = burst_cfg.get("windows_hours") or [1, 6, 24]
-    windows: List[int] = sorted({int(w) for w in windows_cfg})
-
-    if bool(burst_cfg.get("enabled", False)):
-        cfg_for_burst = {
-            "burst": burst_cfg,
-            "clustering": clustering_cfg,
-        }
-        for wh in windows:
-            bw = compute_bursts_for_window(
-                clusters=clusters,
-                baseline=baseline_latest,
-                cfg=cfg_for_burst,
-                window_hours=wh,
-            )
-            bursts_windows.append(bw)
-
-        # Determine primary window for backward-compatible count/items
-        primary_map = (
-            (burst_cfg.get("primary_window_by_cadence") or {})
-            if isinstance(burst_cfg.get("primary_window_by_cadence"), dict)
-            else {}
-        )
-        if cadence in primary_map:
-            window_hours_primary = int(primary_map[cadence])
-        else:
-            window_hours_primary = 1 if cadence == "hourly" else 24
-        if window_hours_primary not in windows:
-            window_hours_primary = windows[0]
-
-        primary = next(
-            (
-                bw
-                for bw in bursts_windows
-                if int(bw.get("window_hours")) == window_hours_primary
-            ),
-            {"top_entities_burst": [], "top_phrases_burst": []},
-        )
-
-        # Flatten primary window bursts into legacy items list
-        items_flat: List[Dict[str, Any]] = []
-        for it in primary.get("top_entities_burst", []):
-            items_flat.append(it)
-        for it in primary.get("top_phrases_burst", []):
-            items_flat.append(it)
-        # Keep same ranking as window-level (already sorted per type, but we ensure global order)
-        items_flat.sort(key=lambda x: (-x["score"], x["kind"], x["key"]))
-        bursts_primary = items_flat
-
-    # After in-memory dedupe, persist kept events to store
-    if dedupe_store is not None and dedupe_enabled:
-        for ev in deduped:
-            try:
-                fp64_hex = getattr(ev, "fingerprint64", "") or ""
-                fp64_int = int(fp64_hex, 16) if fp64_hex else 0
-                dedupe_store.add_event(
-                    event_id=ev.event_id,
-                    canonical_url=ev.canonical_url,
-                    fp64=fp64_int,
-                    published_utc=ev.published_utc,
-                    source_id=ev.source_id,
-                    ingested_utc=fetched_utc,
-                )
-            except Exception as exc:
-                logger.warning("[WARN] dedupe_store.add_event failed: %s", exc)
-                continue
+    _np_persist_dedupe(dedupe_store, deduped, dedupe_enabled, fetched_utc)
 
     health: NewsHealth = compute_health(
         [s.source_id for s in sources],
@@ -652,43 +650,8 @@ def run_news_pipeline(
     )
     emit_json_artifact(bursts_wrapper, bursts_path)
 
-    # Daily housekeeping: prune old GDELT cache entries and emit housekeeping artifact
     if cadence == "daily":
-        from dateutil import parser as date_parser
-
-        stale_minutes = int(gdelt_cfg.get("stale_on_error_minutes", 60))
-        prune_threshold = stale_minutes + 120
-        pruned = 0
-        gdelt_state = fetch_state.get("gdelt") or {}
-        keys = list(gdelt_state.keys())
-
-        def _age_minutes(ts: str) -> float:
-            try:
-                dt = date_parser.parse(ts)
-                return (date_parser.parse(fetched_utc) - dt).total_seconds() / 60.0
-            except Exception:
-                return 1e9
-
-        for key in keys:
-            entry = gdelt_state.get(key)
-            if not isinstance(entry, dict):
-                continue
-            cached_utc = entry.get("cached_utc")
-            if not isinstance(cached_utc, str):
-                continue
-            if _age_minutes(cached_utc) > prune_threshold:
-                gdelt_state.pop(key, None)
-                pruned += 1
-
-        fetch_state["gdelt"] = gdelt_state
-        housekeeping = {
-            "schema_version": "news.housekeeping.v1",
-            "generated_utc": fetched_utc,
-            "cadence": "daily",
-            "pruned_gdelt_cache_entries": pruned,
-            "notes": [],
-        }
-        emit_json_artifact(housekeeping, base_dir / "daily_housekeeping_latest.json")
+        _np_daily_housekeeping(fetch_state, gdelt_cfg, base_dir, fetched_utc)
 
     # Fetch report
     totals = {
