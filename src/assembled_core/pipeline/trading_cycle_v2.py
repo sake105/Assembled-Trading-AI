@@ -2093,7 +2093,7 @@ def book_fills(
     try:
         kpi_cfg = policy.get("kpi_export") or {}
         if kpi_cfg.get("enabled", False):
-            from src.assembled_core.ops.metrics_exporter import export_metrics
+            from src.assembled_core.ops.metrics_exporter import export_metrics, slippage_histogram
             kpi_metrics: dict[str, float] = {
                 "assembled_orders_generated_total": float(len(result.orders_filtered)),
                 "assembled_targets_count": float(len(result.target_positions)),
@@ -2105,8 +2105,14 @@ def book_fills(
             vt_meta = result.meta.get("vol_targeting") or {}
             if "realized_vol" in vt_meta:
                 kpi_metrics["assembled_realized_vol"] = float(vt_meta["realized_vol"])
+            # Slippage histogram: use cost-annotated orders if total_cost_bps column present
+            kpi_histograms = None
+            if result.orders_filtered is not None and "total_cost_bps" in result.orders_filtered.columns:
+                _slip_obs = result.orders_filtered["total_cost_bps"].dropna().tolist()
+                if _slip_obs:
+                    kpi_histograms = {"assembled_slippage_bps": slippage_histogram(_slip_obs)}
             metrics_dir = ctx.output_dir / "metrics" if ctx.write_outputs else None
-            export_metrics(kpi_metrics, labels={"strategy": ctx.strategy_name or "unknown", "mode": ctx.mode}, path=metrics_dir / "assembled.prom" if metrics_dir else None)
+            export_metrics(kpi_metrics, histograms=kpi_histograms, labels={"strategy": ctx.strategy_name or "unknown", "mode": ctx.mode}, path=metrics_dir / "assembled.prom" if metrics_dir else None)
     except Exception as e:
         log.debug("[KPI] kpi_export skipped: %s", e)
 

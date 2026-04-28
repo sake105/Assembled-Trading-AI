@@ -378,6 +378,7 @@ class UnifiedPaperEngine:
         # evaluation in ``_run_reconciliation``.
         self._last_fills: pd.DataFrame = pd.DataFrame()
         self._last_orders_n: int = 0
+        self._last_slippage_obs: list[float] = []
 
         # B2 — batched state-save bookkeeping. Counters are days *elapsed since
         # last flush*, not absolute day indices, so they stay correct even if
@@ -560,6 +561,16 @@ class UnifiedPaperEngine:
             # B3: stored as plain attrs — not persisted via _save_state.
             self._last_orders_n = int(len(orders)) if orders is not None else 0
             self._last_fills = fills if isinstance(fills, pd.DataFrame) else pd.DataFrame()
+            # Slippage observations: (fill_price - mid_price) / mid_price * 10_000
+            if isinstance(fills, pd.DataFrame) and not fills.empty and {"fill_price", "mid_price", "status"}.issubset(fills.columns):
+                _f = fills[fills["status"].isin({"filled", "partial"})]
+                if not _f.empty:
+                    _mid = _f["mid_price"]
+                    self._last_slippage_obs = ((_f["fill_price"] - _mid) / _mid.where(_mid != 0, other=float("nan")) * 10_000).dropna().tolist()
+                else:
+                    self._last_slippage_obs = []
+            else:
+                self._last_slippage_obs = []
 
         n_fills = len(fills) if not fills.empty else 0
         logger.info("[PAPER] %s fills executed for %s", n_fills, as_of_date)
