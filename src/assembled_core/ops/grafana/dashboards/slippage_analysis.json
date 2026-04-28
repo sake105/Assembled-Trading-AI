@@ -1,0 +1,95 @@
+{
+  "title": "Assembled Trading — Slippage Analysis",
+  "uid": "assembled-slippage-analysis",
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "5m",
+  "time": { "from": "now-7d", "to": "now" },
+  "tags": ["assembled", "trading", "slippage"],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Slippage Histogram — Current",
+      "type": "histogram",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 10 },
+      "description": "Distribution of fill slippage in basis points. Positive = paid more than mid (BUY cost). Negative = received less than mid (SELL cost).",
+      "targets": [
+        {
+          "expr": "assembled_slippage_bps_bucket",
+          "legendFormat": "{{le}} bps"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Slippage Sum (bps)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 10 },
+      "targets": [
+        {
+          "expr": "assembled_slippage_bps_sum",
+          "legendFormat": "{{strategy}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Slippage Observation Count",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 10, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "assembled_slippage_bps_count",
+          "legendFormat": "{{strategy}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Average Slippage (bps)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 10, "w": 12, "h": 8 },
+      "description": "Average slippage = sum / count. Tracks execution quality trend.",
+      "targets": [
+        {
+          "expr": "assembled_slippage_bps_sum / assembled_slippage_bps_count",
+          "legendFormat": "avg slippage {{strategy}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "P95 Slippage Estimate",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 18, "w": 8, "h": 4 },
+      "description": "Histogram quantile estimate for 95th percentile slippage.",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, assembled_slippage_bps_bucket)",
+          "legendFormat": "p95 {{strategy}}"
+        }
+      ],
+      "options": {
+        "thresholds": {
+          "steps": [
+            { "value": null, "color": "green" },
+            { "value": 20, "color": "yellow" },
+            { "value": 50, "color": "red" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "P50 Slippage Estimate",
+      "type": "stat",
+      "gridPos": { "x": 8, "y": 18, "w": 8, "h": 4 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, assembled_slippage_bps_bucket)",
+          "legendFormat": "median {{strategy}}"
+        }
+      ]
+    }
+  ]
+}

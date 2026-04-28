@@ -1,0 +1,117 @@
+{
+  "title": "Assembled Trading — Order Flow",
+  "uid": "assembled-order-flow",
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "1m",
+  "time": { "from": "now-24h", "to": "now" },
+  "tags": ["assembled", "trading", "orders"],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Orders Generated",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "sum(assembled_orders_generated_total)",
+          "legendFormat": "total orders"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Signals Generated",
+      "type": "stat",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "sum(assembled_signals_count)",
+          "legendFormat": "signals"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Target Positions",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "sum(assembled_targets_count)",
+          "legendFormat": "targets"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Kill Switch Active",
+      "type": "stat",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "expr": "assembled_kill_switch_engaged",
+          "legendFormat": "{{strategy}}"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "thresholds": {
+          "steps": [
+            { "value": null, "color": "green" },
+            { "value": 0.5, "color": "red" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Orders Over Time",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 4, "w": 24, "h": 8 },
+      "targets": [
+        {
+          "expr": "assembled_orders_generated_total",
+          "legendFormat": "orders {{strategy}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Rejection Counts — UNKNOWN_ADV",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 12, "w": 8, "h": 8 },
+      "targets": [
+        {
+          "expr": "assembled_rejections_UNKNOWN_ADV_total",
+          "legendFormat": "UNKNOWN_ADV {{strategy}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Rejection Counts — MIN_FILL_QTY",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 12, "w": 8, "h": 8 },
+      "targets": [
+        {
+          "expr": "assembled_rejections_MIN_FILL_QTY_total",
+          "legendFormat": "MIN_FILL_QTY {{strategy}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Rejection Counts — All Reasons",
+      "type": "timeseries",
+      "gridPos": { "x": 16, "y": 12, "w": 8, "h": 8 },
+      "description": "All rejection metrics matching assembled_rejections_*_total pattern",
+      "targets": [
+        {
+          "expr": "{__name__=~\"assembled_rejections_.+_total\"}",
+          "legendFormat": "{{__name__}} {{strategy}}"
+        }
+      ]
+    }
+  ]
+}

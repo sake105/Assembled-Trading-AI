@@ -1,0 +1,61 @@
+## Prometheus scrape configuration example for Assembled-Trading-AI
+##
+## Use this as a starting point for prometheus.yml.
+## The .prom file written by metrics_exporter.py is read via file_sd_configs
+## or a Pushgateway depending on your deployment.
+
+global:
+  scrape_interval: 60s
+  evaluation_interval: 60s
+
+scrape_configs:
+
+  ## Option A: File-based scrape (no Pushgateway needed).
+  ## Prometheus reads the .prom file directly — works for single-host setups.
+  - job_name: assembled_trading_file
+    honor_labels: true
+    file_sd_configs:
+      - files:
+          - output/metrics/*.prom
+        refresh_interval: 60s
+
+  ## Option B: Pushgateway (multi-host / Docker / CI).
+  ## Set env var ASSEMBLED_PROM_PUSHGATEWAY_URL=http://localhost:9091
+  ## before running the trading pipeline. The metrics_exporter will push.
+  - job_name: assembled_trading_pushgateway
+    honor_labels: true
+    static_configs:
+      - targets: ["localhost:9091"]
+
+## Alerting rules (optional — save as assembled_alerts.yml, reference in rule_files)
+## rule_files:
+##   - assembled_alerts.yml
+##
+## Example rules:
+##
+##   groups:
+##     - name: assembled_trading
+##       rules:
+##         - alert: KillSwitchEngaged
+##           expr: assembled_kill_switch_engaged == 1
+##           for: 0m
+##           labels:
+##             severity: critical
+##           annotations:
+##             summary: "Kill switch engaged for {{ $labels.strategy }}"
+##
+##         - alert: HighDriftPSI
+##           expr: assembled_drift_max_psi > 0.35
+##           for: 5m
+##           labels:
+##             severity: warning
+##           annotations:
+##             summary: "Feature drift detected (PSI={{ $value }}) for {{ $labels.strategy }}"
+##
+##         - alert: HighSlippageP95
+##           expr: histogram_quantile(0.95, assembled_slippage_bps_bucket) > 50
+##           for: 5m
+##           labels:
+##             severity: warning
+##           annotations:
+##             summary: "P95 slippage > 50 bps for {{ $labels.strategy }}"

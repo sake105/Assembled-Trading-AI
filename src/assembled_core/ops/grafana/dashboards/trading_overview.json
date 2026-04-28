@@ -1,0 +1,125 @@
+{
+  "title": "Assembled Trading — Overview",
+  "uid": "assembled-trading-overview",
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "1m",
+  "time": { "from": "now-24h", "to": "now" },
+  "tags": ["assembled", "trading"],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Kill Switch Status",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 0, "w": 4, "h": 4 },
+      "targets": [
+        {
+          "expr": "assembled_kill_switch_engaged",
+          "legendFormat": "{{strategy}}"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "thresholds": {
+          "steps": [
+            { "value": null, "color": "green" },
+            { "value": 0.5, "color": "red" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Active Strategies",
+      "type": "stat",
+      "gridPos": { "x": 4, "y": 0, "w": 4, "h": 4 },
+      "targets": [
+        {
+          "expr": "count(count by (strategy) (assembled_signals_count))",
+          "legendFormat": "strategies"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Orders Generated (last 1h)",
+      "type": "stat",
+      "gridPos": { "x": 8, "y": 0, "w": 4, "h": 4 },
+      "targets": [
+        {
+          "expr": "sum(assembled_orders_generated_total)",
+          "legendFormat": "orders"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Drift Max PSI",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 0, "w": 4, "h": 4 },
+      "targets": [
+        {
+          "expr": "max(assembled_drift_max_psi)",
+          "legendFormat": "max PSI"
+        }
+      ],
+      "options": {
+        "thresholds": {
+          "steps": [
+            { "value": null, "color": "green" },
+            { "value": 0.2, "color": "yellow" },
+            { "value": 0.35, "color": "red" }
+          ]
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Orders Generated — Rate",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "assembled_orders_generated_total",
+          "legendFormat": "{{strategy}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Realized Volatility",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "assembled_realized_vol",
+          "legendFormat": "{{strategy}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Estimated Turnover",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "assembled_turnover_estimated",
+          "legendFormat": "{{strategy}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Signals Count",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "assembled_signals_count",
+          "legendFormat": "{{strategy}}"
+        }
+      ]
+    }
+  ]
+}
