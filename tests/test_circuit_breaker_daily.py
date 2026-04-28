@@ -10,7 +10,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.assembled_core.pipeline.trading_cycle import _evaluate_circuit_breaker_daily
+from src.assembled_core.pipeline.trading_cycle_shared import _evaluate_circuit_breaker_daily
 
 
 def _mk_prices(ref_closes: list[float], symbol: str = "SPY") -> pd.DataFrame:

@@ -871,10 +871,8 @@ def test_load_disclosures_triggers_missing_invalid(tmp_path: Path) -> None:
 def test_context_sets_degraded_flag(tmp_path: Path) -> None:
     """When intel.disclosures_triggers.enabled and path missing/invalid, context gets DEGRADED flag and no snapshot."""
     import pandas as pd
-    from src.assembled_core.pipeline.trading_cycle import (
-        TradingContext,
-        run_trading_cycle,
-    )
+    from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
+    from src.assembled_core.pipeline.trading_cycle_v2 import run_trading_cycle
 
     policy_with_intel = {
         "intel": {

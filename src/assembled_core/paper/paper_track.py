@@ -53,10 +53,8 @@ from src.assembled_core.features.ta_features import add_all_features
 from src.assembled_core.paper.strategy_adapters import (
     generate_signals_and_targets_for_day,
 )
-from src.assembled_core.pipeline.trading_cycle import (
-    TradingContext,
-    run_trading_cycle,
-)
+from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
+from src.assembled_core.pipeline.trading_cycle_v2 import run_trading_cycle
 
 logger = logging.getLogger(__name__)
 

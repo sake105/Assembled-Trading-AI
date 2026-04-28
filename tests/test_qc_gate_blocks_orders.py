@@ -17,7 +17,8 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.assembled_core.pipeline.trading_cycle import TradingContext, run_trading_cycle
+from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
+from src.assembled_core.pipeline.trading_cycle_v2 import run_trading_cycle
 from src.assembled_core.qa.data_qc import run_price_panel_qc
 
 

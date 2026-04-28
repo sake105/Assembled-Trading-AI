@@ -229,10 +229,8 @@ def run_paper_replay(
         ``ReplayResult`` whose ``orders_df`` is sorted by ``timestamp`` and
         carries every order emitted by the cycle across the replay window.
     """
-    from src.assembled_core.pipeline.trading_cycle import (
-        TradingContext,
-        run_trading_cycle,
-    )
+    from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
+    from src.assembled_core.pipeline.trading_cycle_v2 import run_trading_cycle
 
     if prices is None or prices.empty:
         return ReplayResult(

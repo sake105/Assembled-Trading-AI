@@ -11,7 +11,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.assembled_core.pipeline.trading_cycle import _apply_pre_trade_impact
+from src.assembled_core.pipeline.trading_cycle_shared import _apply_pre_trade_impact
 
 
 def _mk_prices(sym: str = "AAA", n: int = 80, vol: float = 1e6) -> pd.DataFrame:

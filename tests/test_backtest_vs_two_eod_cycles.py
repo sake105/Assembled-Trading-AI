@@ -20,7 +20,8 @@ from src.assembled_core.qa.backtest_engine import (
     make_cycle_fn,
     run_portfolio_backtest,
 )
-from src.assembled_core.pipeline.trading_cycle import TradingContext, run_trading_cycle
+from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
+from src.assembled_core.pipeline.trading_cycle_v2 import run_trading_cycle
 from src.assembled_core.qa.backtest_engine import _update_positions_vectorized
 from src.assembled_core.pipeline.backtest import _simulate_fills_per_order
 from src.assembled_core.signals.rules_trend import generate_trend_signals_from_prices

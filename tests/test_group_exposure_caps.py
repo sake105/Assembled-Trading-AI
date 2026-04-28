@@ -10,7 +10,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.assembled_core.pipeline.trading_cycle import _apply_group_exposure_caps
+from src.assembled_core.pipeline.trading_cycle_shared import _apply_group_exposure_caps
 
 
 def _meta() -> pd.DataFrame:

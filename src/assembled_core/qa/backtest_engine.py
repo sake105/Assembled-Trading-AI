@@ -289,7 +289,8 @@ def make_cycle_fn(
         and returns TradingCycleResult
 
     Example:
-        >>> from src.assembled_core.pipeline.trading_cycle import TradingContext, run_trading_cycle
+        >>> from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
+        >>> from src.assembled_core.pipeline.trading_cycle_v2 import run_trading_cycle
         >>> ctx_template = TradingContext(
         ...     prices=prices,
         ...     freq="1d",

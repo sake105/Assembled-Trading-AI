@@ -5,7 +5,8 @@ from typing import Any
 import pandas as pd
 import pytest
 
-from src.assembled_core.pipeline.trading_cycle import TradingContext, run_trading_cycle
+from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
+from src.assembled_core.pipeline.trading_cycle_v2 import run_trading_cycle
 from src.assembled_core.portfolio.position_sizing import compute_target_positions
 from src.assembled_core.risk.georisk_overlay import apply_exposure_multiplier_to_targets
 

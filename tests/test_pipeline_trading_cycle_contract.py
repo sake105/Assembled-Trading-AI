@@ -15,11 +15,11 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.assembled_core.pipeline.trading_cycle import (
+from src.assembled_core.pipeline.trading_cycle_shared import (
     TradingContext,
     TradingCycleResult,
-    run_trading_cycle,
 )
+from src.assembled_core.pipeline.trading_cycle_v2 import run_trading_cycle
 
 
 def test_trading_context_creation_minimal() -> None:

@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import pandas as pd
 
-from src.assembled_core.pipeline.trading_cycle import TradingContext, run_trading_cycle
+from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
+from src.assembled_core.pipeline.trading_cycle_v2 import run_trading_cycle
 from src.assembled_core.portfolio.position_sizing import (
     compute_target_positions_from_trend_signals,
 )

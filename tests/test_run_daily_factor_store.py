@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from src.assembled_core.pipeline.trading_cycle import TradingCycleResult
+from src.assembled_core.pipeline.trading_cycle_shared import TradingCycleResult
 
 pytestmark = pytest.mark.advanced
 

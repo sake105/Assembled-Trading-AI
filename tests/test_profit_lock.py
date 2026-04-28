@@ -135,10 +135,8 @@ def test_profit_lock_curve_too_short_returns_one() -> None:
 
 def test_equity_curve_in_ctx_triggers_profit_lock() -> None:
     """With equity_curve and equity_curve_index set in ctx (e.g. from backtest), profit_lock can trigger."""
-    from src.assembled_core.pipeline.trading_cycle import (
-        TradingContext,
-        run_trading_cycle,
-    )
+    from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
+    from src.assembled_core.pipeline.trading_cycle_v2 import run_trading_cycle
 
     def _signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
         ts = prices_df["timestamp"].iloc[0]
