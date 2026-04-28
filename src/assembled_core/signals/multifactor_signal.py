@@ -130,7 +130,7 @@ def _zscore_crosssectional(
 
         return pd.Series(zscores, index=group.index)
 
-    zscores = result.groupby(timestamp_col, group_keys=False).apply(zscore_group)
+    zscores = result.groupby(timestamp_col, group_keys=False).apply(zscore_group, include_groups=False)
 
     # Reindex to match original df index
     zscores = zscores.reindex(df.index)

@@ -42,6 +42,12 @@ tmp_*.py
 .env.dev
 .env.prod
 
+# Profile / Benchmark outputs
+*profile_out*.txt
+*.prof
+benchmark_output_*.txt
+profile_*.json
+
 # OS/Tools
 .DS_Store
 Thumbs.db
