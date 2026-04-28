@@ -63,3 +63,6 @@ PyYAML>=6.0
 # pip install -e ".[intermarket]"
 # pandas-datareader>=0.10.0
 
+
+pandera==0.31.1
+pandas-market-calendars==4.6.1
