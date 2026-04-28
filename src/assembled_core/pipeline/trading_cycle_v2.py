@@ -993,7 +993,216 @@ def generate_signals(
     except Exception as e:
         log.debug("[TREND-MA] rules_trend skipped: %s", e)
 
+    # --- Step 3.9: Evidence-grade gate (optional, filters news-backed signals) ---
+    try:
+        ev_cfg = policy.get("evidence_gate") or {}
+        if ev_cfg.get("enabled", False):
+            _news_ev_df = getattr(ctx, "news_events_df", None)
+            signals, _ev_audit = _apply_evidence_gate(signals, _news_ev_df, policy)
+            result_meta_ref = getattr(ctx, "_evidence_gate_audit", None)
+            ctx.__dict__["_evidence_gate_audit"] = _ev_audit
+    except Exception as e:
+        log.debug("[EVIDENCE-GATE] skipped: %s", e)
+
     return signals
+
+
+# ---------------------------------------------------------------------------
+# _apply_evidence_gate — Phase 2a helper
+# ---------------------------------------------------------------------------
+
+
+def _apply_evidence_gate(
+    signals: "pd.DataFrame",
+    news_events: "pd.DataFrame | None",
+    policy: dict,
+) -> "tuple[pd.DataFrame, dict]":
+    """Filter signals through evidence-grade gate. Returns (filtered_signals, audit_info).
+
+    Applies only to signals whose symbol appears in ``news_events`` with
+    insufficient evidence quality.  Signals for symbols not in news_events
+    (i.e. non-news-driven signals) always pass through.
+
+    Policy key: evidence_gate.require_grade (default "B").
+    """
+    import pandas as _pd
+    from src.assembled_core.events.evidence_engine.grader import grade_evidence
+    from src.assembled_core.events.evidence_engine.action_gate import check_evidence_grade_gate
+    from src.assembled_core.events.evidence_engine.misinfo_risk import compute_misinfo_risk
+
+    cfg = policy.get("evidence_gate") or {}
+
+    audit: dict = {
+        "enabled": bool(cfg.get("enabled", False)),
+        "filtered_count": 0,
+        "total_signals": len(signals),
+        "filtered_symbols": [],
+    }
+
+    if not cfg.get("enabled", False):
+        return signals, audit
+
+    if news_events is None or not isinstance(news_events, _pd.DataFrame) or news_events.empty:
+        audit["reason"] = "no_news_events"
+        return signals, audit
+
+    if signals.empty:
+        return signals, audit
+
+    require_grade = str(cfg.get("require_grade", "B")).upper()
+    if require_grade not in {"A", "B", "C", "D"}:
+        require_grade = "B"
+
+    sym_col = "symbol" if "symbol" in news_events.columns else None
+    tier_col = "source_tier" if "source_tier" in news_events.columns else None
+    if sym_col is None or tier_col is None:
+        audit["reason"] = "missing_required_columns"
+        return signals, audit
+
+    failing_symbols: set[str] = set()
+    symbol_evidence: dict[str, dict] = {}
+
+    for sym, grp in news_events.groupby(sym_col):
+        tiers = grp[tier_col].str.upper().fillna("T3")
+        n_src_a = int((tiers == "T1").sum())
+        n_src_b = int((tiers == "T2").sum())
+        n_src_b_ind = int(grp["source_id"].nunique()) if "source_id" in grp.columns else n_src_b
+        evidence_summary = {
+            "tierA_count": n_src_a,
+            "tierB_count": n_src_b,
+            "tierB_independent_count": n_src_b_ind,
+            "evidence_ok": n_src_a >= 1 or n_src_b_ind >= 2,
+        }
+        social_only = bool((tiers.isin({"T3", "SOCIAL"})).all()) if len(grp) > 0 else False
+        misinfo_score = compute_misinfo_risk(evidence_summary, social_only=social_only, event_count=len(grp))
+        grade = grade_evidence(evidence_summary, misinfo_risk_score=misinfo_score)
+        ok, reason = check_evidence_grade_gate(grade, require_for_active=require_grade)
+        symbol_evidence[str(sym)] = {"grade": grade.value, "ok": ok, "reason": reason}
+        if not ok:
+            failing_symbols.add(str(sym))
+
+    audit["symbol_evidence"] = symbol_evidence
+
+    if not failing_symbols:
+        return signals, audit
+
+    mask_keep = ~signals["symbol"].isin(failing_symbols)
+    filtered = signals[mask_keep].reset_index(drop=True)
+    audit["filtered_count"] = len(signals) - len(filtered)
+    audit["filtered_symbols"] = list(failing_symbols)
+    return filtered, audit
+
+
+# ---------------------------------------------------------------------------
+# _compute_news_triggers — Phase 2b helper
+# ---------------------------------------------------------------------------
+
+
+def _compute_news_triggers(
+    news_events: "pd.DataFrame | None",
+    policy: dict,
+    *,
+    as_of: "datetime | None" = None,
+) -> "pd.DataFrame":
+    """Convert processed news events into actionable triggers.
+
+    Pipeline (order matters):
+      1. Fingerprint deduplication (simhash64 + hamming distance — title-level)
+      2. Greedy TF-IDF cosine clustering (groups semantically similar events)
+      3. Rule-based trigger scoring (source_tier weight + burst bonus)
+
+    Note: burst detection via compute_bursts_for_window requires pre-built cluster
+    dicts and baseline counts; that integration is handled upstream by run_news_pipeline.
+    Here we apply a lightweight burst bonus: events where published_utc is within
+    ``burst_window_minutes`` of the most recent event get a +0.2 score boost.
+
+    Returns a DataFrame with columns: symbol, trigger_score, cluster_id, dedup_kept.
+    Returns empty DataFrame if news_events is None/empty or any step fails.
+    """
+    import pandas as _pd
+    from src.assembled_core.events.news.fingerprint import simhash64, hamming_distance
+    from src.assembled_core.events.news.tfidf import build_tfidf_vectors
+
+    if news_events is None or not isinstance(news_events, _pd.DataFrame) or news_events.empty:
+        return _pd.DataFrame()
+
+    cfg = policy.get("news_triggers") or {}
+    hamming_threshold = int(cfg.get("dedup_hamming_threshold", 3))
+    cosine_threshold = float(cfg.get("cluster_cosine_threshold", 0.75))
+    burst_window_minutes = int(cfg.get("burst_window_minutes", 60))
+
+    text_col = next((c for c in ("title", "headline", "text") if c in news_events.columns), None)
+    sym_col = "symbol" if "symbol" in news_events.columns else None
+
+    if text_col is None:
+        return _pd.DataFrame()
+
+    # Step 1: Fingerprint deduplication
+    try:
+        hashes = [simhash64(str(t)) for t in news_events[text_col].fillna("")]
+        keep_mask = [True] * len(news_events)
+        for i in range(len(hashes)):
+            if not keep_mask[i]:
+                continue
+            for j in range(i + 1, len(hashes)):
+                if keep_mask[j] and hamming_distance(hashes[i], hashes[j]) <= hamming_threshold:
+                    keep_mask[j] = False
+        deduped = news_events[keep_mask].copy().reset_index(drop=True)
+        deduped["dedup_kept"] = True
+    except Exception:
+        deduped = news_events.copy()
+        deduped["dedup_kept"] = True
+
+    if deduped.empty:
+        return _pd.DataFrame()
+
+    # Step 2: TF-IDF cluster grouping (greedy, O(n²) — safe for <1000 events)
+    try:
+        texts = deduped[text_col].fillna("").tolist()
+        vectors = build_tfidf_vectors(texts)
+        cluster_ids: list[int] = [-1] * len(vectors)
+        next_cid = 0
+        for i, v_i in enumerate(vectors):
+            if cluster_ids[i] >= 0:
+                continue
+            cluster_ids[i] = next_cid
+            for j in range(i + 1, len(vectors)):
+                if cluster_ids[j] >= 0:
+                    continue
+                v_j = vectors[j]
+                dot = sum(v_i.get(k, 0.0) * v_j.get(k, 0.0) for k in v_i)
+                norm_i = sum(x * x for x in v_i.values()) ** 0.5
+                norm_j = sum(x * x for x in v_j.values()) ** 0.5
+                if norm_i > 0 and norm_j > 0 and dot / (norm_i * norm_j) >= cosine_threshold:
+                    cluster_ids[j] = next_cid
+            next_cid += 1
+        deduped["cluster_id"] = cluster_ids
+    except Exception:
+        deduped["cluster_id"] = list(range(len(deduped)))
+
+    # Step 3: Rule-based trigger scoring
+    # Base score by source tier; burst bonus for events near the most-recent timestamp
+    tier_weights = {"T1": 1.0, "T2": 0.7, "T3": 0.4}
+    tier_col = "source_tier" if "source_tier" in deduped.columns else None
+    if tier_col:
+        deduped["trigger_score"] = deduped[tier_col].str.upper().map(tier_weights).fillna(0.4)
+    else:
+        deduped["trigger_score"] = 0.5
+
+    time_col = "published_utc" if "published_utc" in deduped.columns else None
+    if time_col:
+        try:
+            import pandas as _pd2
+            times = _pd2.to_datetime(deduped[time_col], utc=True, errors="coerce")
+            max_t = times.max()
+            if _pd2.notna(max_t):
+                burst_cutoff = max_t - _pd2.Timedelta(minutes=burst_window_minutes)
+                deduped["trigger_score"] = deduped["trigger_score"] + (times >= burst_cutoff).astype(float) * 0.2
+        except Exception:
+            pass
+
+    keep_cols = [c for c in (["symbol"] if sym_col else []) + ["trigger_score", "cluster_id", "dedup_kept"] if c in deduped.columns]
+    return deduped[keep_cols].reset_index(drop=True)
 
 
 # ---------------------------------------------------------------------------

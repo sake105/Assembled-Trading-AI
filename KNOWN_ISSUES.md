@@ -248,11 +248,20 @@ Erwarteter Bias: +1–2% p.a. bei US Large-Caps, **+5–10% p.a.** bei Mid-Caps.
 
 **Coverage-Befund:** `trading_cycle.py` wird in der gesamten phase12-Suite **nie importiert** — 100% toter Code im Testlauf.
 
-### Phase 2 — Keine Migration nötig
+### Phase 2 — Implementiert als neue Funktionen in trading_cycle_v2 (2026-04-28)
 
-Alle 7 vermeintlichen "Phase 2"-Integrationen (evidence_engine, news_burst, fingerprint, tfidf, trigger_scoring, misinfo_risk, news_ml_bridge) sind reine Observability-Wiring-Blöcke. Sie verwenden hardcodierte Dummy-Daten und schreiben ausschließlich `{"available": True}` in `result.meta`. Keine echte Handelslogik. → **Direkt löschen in Phase 3**.
+Entgegen dem früheren Audit-Befund (reine Dummy-Blöcke) wurden die drei Phase-2-Funktionen als
+echte Implementierungen in `trading_cycle_v2.py` neu geschrieben:
+
+- **Phase 2a** (`_apply_evidence_gate`): Filtert News-Signale nach Evidence-Grade (T1/T2/T3 Quellen → grade A/B/C/D); policy-key: `evidence_gate.enabled + require_grade`. 8 Tests in `test_evidence_gate_v2.py`.
+- **Phase 2b** (`_compute_news_triggers`): Verarbeitet News-Events → actionable Trigger-DataFrame; Pipeline: simhash-Dedupe → TF-IDF-Clustering → Burst-Bonus → Tier-Scoring. 9 Tests in `test_news_triggers_pipeline.py`.
+- **Phase 2c** (IC-Weights via `news_ml_bridge.get_event_type_ic_weights`): **Nicht migriert** — Modul liegt in `archive/observability_graveyard_2026q2/ml/news_ml_bridge.py`. Bewusstes Backlog-Item: braucht historische IC-Daten für sinnvolle Kalibrierung.
+
+### Aktueller Stand (2026-04-28)
+
+- `trading_cycle.py`: 62 Zeilen — Phasen 3+4 sind effektiv abgeschlossen.
+- `trading_cycle_v2.py`: Primärer Pfad; enthält alle aktiven Phasen + Phase 2a+2b.
 
 ### Nächste Schritte
 
-- Phase 3: 185 tote try/except-Blöcke löschen → trading_cycle.py < 500 Zeilen
-- Phase 4: trading_cycle.py archivieren, trading_cycle_v2.py → trading_cycle.py umbenennen
+- Phase 4 (optional): `trading_cycle.py` aus src/ entfernen + `trading_cycle_v2.py` → `trading_cycle.py` umbenennen. Erst nach vollständigem Import-Sweep (`rg "from.*trading_cycle import"`).
