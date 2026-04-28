@@ -1,0 +1,45 @@
+# DEV environment active strategy config
+# Points to: configs/strategies/trend_news_v1.yaml
+# On Linux/Mac, replace with symlink:  ln -sf ../strategies/trend_news_v1.yaml dev_active.yaml
+# On Windows, copy or reference the file directly.
+#
+# See 39_HYPERPARAMETER_GOVERNANCE.md §5.3
+
+strategy_id: "trend_news_v1"
+description: "Baseline trend + news composite, conservative weights"
+created: "2026-04-28"
+author: "Hans"
+
+composite_weights:
+  mtf: 0.15
+  classical_ta: 0.20
+  microstructure: 0.10
+  volume_profile: 0.10
+  chart_pattern: 0.05
+  vol_surface: 0.10
+  breadth: 0.15
+  seasonality: 0.05
+  news: 0.10
+
+thresholds:
+  buy: 0.60
+  sell: -0.60
+
+regime_multipliers:
+  bull: 1.0
+  bear: 0.70
+  neutral: 0.90
+  crisis: 0.50
+
+risk:
+  max_position_pct_of_equity: 0.05
+  max_daily_loss_pct: 0.02
+  kill_switch_loss_pct: 0.06
+
+news:
+  finbert_threshold_positive: 0.60
+  finbert_threshold_negative: 0.60
+
+model_versions:
+  news_classifier: "stub_v1"
+  regime_classifier: "stub_v1"
