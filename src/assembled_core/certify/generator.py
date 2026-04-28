@@ -25,7 +25,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from src.assembled_core.certify.schema import (
+from assembled_core.certify.schema import (
     EnvironmentFingerprint,
     InputFingerprint,
     OutputFingerprint,
