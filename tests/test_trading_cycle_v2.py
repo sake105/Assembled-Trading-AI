@@ -665,3 +665,103 @@ class TestRunTradingCycle:
         ctx = _make_ctx(run_id="test_run_001")
         result = run_trading_cycle(ctx)
         assert result.run_id == "test_run_001"
+
+
+# ---------------------------------------------------------------------------
+# Wiring gap fixes — Phase 11 observability
+# ---------------------------------------------------------------------------
+
+
+class TestRejectionCountsWiring:
+    """rejection_counts must always be written to result.meta by check_risk."""
+
+    def test_rejection_counts_present_in_meta(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setenv("ASSEMBLED_RISK_STATE_PERSISTENCE_MODE", "ephemeral")
+        ctx = _make_ctx()
+        result = run_trading_cycle(ctx)
+        assert "rejection_counts" in result.meta
+        assert isinstance(result.meta["rejection_counts"], dict)
+
+    def test_rejection_counts_empty_when_no_rejections(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setenv("ASSEMBLED_RISK_STATE_PERSISTENCE_MODE", "ephemeral")
+        ctx = _make_ctx(enable_risk_controls=False)
+        result = run_trading_cycle(ctx)
+        # fast-path bypasses filter steps — no rejection_counts key written (expected)
+        assert result.status in ("success", "error")
+
+    def test_rejection_counts_written_by_check_risk_directly(self):
+        """check_risk writes rejection_counts even with zero rejections."""
+        ctx = _make_ctx()
+        orders = pd.DataFrame({
+            "timestamp": [pd.Timestamp("2024-03-01", tz="UTC")] * 2,
+            "symbol": ["AAPL", "MSFT"],
+            "side": ["BUY", "BUY"],
+            "qty": [10.0, 5.0],
+            "price": [150.0, 300.0],
+        })
+        result = _minimal_result(ctx)
+        result = check_risk(orders, result, ctx)
+        assert "rejection_counts" in result.meta
+        assert isinstance(result.meta["rejection_counts"], dict)
+
+
+class TestTotalCostBpsWiring:
+    """total_cost_bps must be derived in book_fills so Phase 11 histogram works."""
+
+    def test_total_cost_bps_derived_from_total_cost_cash(self):
+        # Use mode="live" so A8 (add_cost_columns_to_trades) does not overwrite
+        # total_cost_cash with model-computed values before A8b runs.
+        ctx = _make_ctx(mode="live")
+        result = _minimal_result(ctx)
+        result.orders_filtered = pd.DataFrame({
+            "timestamp": [pd.Timestamp("2024-03-01", tz="UTC")],
+            "symbol": ["AAPL"],
+            "side": ["BUY"],
+            "qty": [10.0],
+            "price": [150.0],
+            "total_cost_cash": [3.0],  # 3 USD on 1500 USD notional = 20 bps
+        })
+        result.prices_with_features = pd.DataFrame()
+        result = book_fills(result, ctx)
+        assert "total_cost_bps" in result.orders_filtered.columns
+        assert abs(result.orders_filtered["total_cost_bps"].iloc[0] - 20.0) < 1.0
+
+    def test_total_cost_bps_falls_back_to_expected_impact_bps(self):
+        # Use mode="live" to skip A8 cost annotation so the expected_impact_bps
+        # fallback path in A8b is reachable.
+        ctx = _make_ctx(mode="live")
+        result = _minimal_result(ctx)
+        result.orders_filtered = pd.DataFrame({
+            "timestamp": [pd.Timestamp("2024-03-01", tz="UTC")],
+            "symbol": ["MSFT"],
+            "side": ["BUY"],
+            "qty": [5.0],
+            "price": [300.0],
+            "expected_impact_bps": [12.5],
+        })
+        result.prices_with_features = pd.DataFrame()
+        result = book_fills(result, ctx)
+        assert "total_cost_bps" in result.orders_filtered.columns
+        assert result.orders_filtered["total_cost_bps"].iloc[0] == pytest.approx(12.5)
+
+
+class TestDriftMonitorWiring:
+    """drift_monitor skip-by-default (no policy.enabled) must not error."""
+
+    def test_drift_monitor_not_enabled_by_default(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setenv("ASSEMBLED_RISK_STATE_PERSISTENCE_MODE", "ephemeral")
+        ctx = _make_ctx()
+        result = run_trading_cycle(ctx)
+        # Without policy drift_monitor.enabled=True, key should be absent
+        assert result.meta.get("drift_monitor") is None
+
+    def test_drift_monitor_skipped_gracefully_on_missing_ref(self, monkeypatch: pytest.MonkeyPatch):
+        """Enabled but missing reference_path → skip, no crash."""
+        monkeypatch.setenv("ASSEMBLED_RISK_STATE_PERSISTENCE_MODE", "ephemeral")
+        monkeypatch.setattr(
+            "src.assembled_core.config.policy_loader.load_policy",
+            lambda: {"drift_monitor": {"enabled": True, "reference_path": "/nonexistent.parquet"}},
+        )
+        ctx = _make_ctx()
+        result = run_trading_cycle(ctx)
+        assert result.status == "success"

@@ -1991,6 +1991,8 @@ def check_risk(
         log.debug("barbell_strategy skipped: %s", e)
 
     result.orders = orders
+    _n_orders_in = len(orders) if orders is not None else 0
+    _rej_counts: dict[str, int] = {}
 
     # Step 6: risk controls default
     try:
@@ -1999,6 +2001,9 @@ def check_risk(
         result.status = "error"
         result.error_message = f"Error in risk_controls: {e}"
         return result
+    _n_after_6 = len(result.orders_filtered)
+    if _n_orders_in > _n_after_6:
+        _rej_counts["risk_controls"] = _n_orders_in - _n_after_6
 
     # Step 6.35: VaR gate
     try:
@@ -2006,6 +2011,7 @@ def check_risk(
         if var_decision is not None:
             result.meta["var_gate"] = var_decision
             log.warning("[RISK] VaR gate breach: %s", var_decision.get("reason", ""))
+            _rej_counts["var_gate"] = len(result.orders_filtered)
             result.orders_filtered = result.orders_filtered.iloc[0:0].copy()
     except Exception as e:
         log.warning("[RISK] var_gate evaluation raised — gate no-op: %s", e)
@@ -2019,6 +2025,7 @@ def check_risk(
             activate_kill_switch(throttle_pct=dd_decision["throttle_allowed_pct"], reason=dd_decision["reason"], actor="trading_cycle_v2_auto_dd")
             result.meta["auto_dd_kill_switch"] = dd_decision
             if dd_decision["level"] == "kill":
+                _rej_counts["auto_dd_kill_switch"] = len(result.orders_filtered)
                 result.orders_filtered = result.orders_filtered.iloc[0:0].copy()
     except Exception as e:
         log.warning("[RISK] auto_dd_kill_switch raised — gate no-op: %s", e)
@@ -2029,6 +2036,7 @@ def check_risk(
         cb_decision = _evaluate_circuit_breaker(ctx, result, policy)
         if cb_decision is not None:
             result.meta["circuit_breaker"] = cb_decision
+            _rej_counts["circuit_breaker"] = len(result.orders_filtered)
             result.orders_filtered = result.orders_filtered.iloc[0:0].copy()
     except Exception as e:
         log.warning("[RISK] circuit_breaker raised — gate no-op: %s", e)
@@ -2060,6 +2068,7 @@ def check_risk(
             result.orders_filtered = _ffg_orders
             if n_rejected:
                 log.warning("[FAT-FINGER] Rejected %d orders: %s", n_rejected, _ffg_reasons[:3])
+                _rej_counts["fat_finger"] = n_rejected
     except Exception as e:
         log.debug("fat_finger_guard skipped: %s", e)
 
@@ -2076,6 +2085,7 @@ def check_risk(
     except Exception as e:
         log.debug("order_lifecycle tracking skipped: %s", e)
 
+    result.meta["rejection_counts"] = _rej_counts
     return result
 
 
@@ -2228,6 +2238,57 @@ def book_fills(
             )
         except Exception as _cost_err:
             log.debug("[book_fills] cost annotation skipped (mode=%s): %s", ctx.mode, _cost_err)
+
+    # A8b: Derive total_cost_bps for Phase 11 slippage histogram
+    try:
+        if result.orders_filtered is not None and not result.orders_filtered.empty:
+            if "total_cost_bps" not in result.orders_filtered.columns:
+                if "total_cost_cash" in result.orders_filtered.columns:
+                    _notional = (result.orders_filtered["qty"].abs() * result.orders_filtered["price"].abs())
+                    result.orders_filtered["total_cost_bps"] = 0.0
+                    _mask = _notional > 0
+                    result.orders_filtered.loc[_mask, "total_cost_bps"] = (
+                        result.orders_filtered.loc[_mask, "total_cost_cash"].abs() / _notional[_mask] * 10_000.0
+                    )
+                elif "expected_impact_bps" in result.orders_filtered.columns:
+                    result.orders_filtered["total_cost_bps"] = result.orders_filtered["expected_impact_bps"]
+    except Exception as _bps_err:
+        log.debug("[book_fills] total_cost_bps derivation skipped: %s", _bps_err)
+
+    # A8c: Drift monitoring (policy: drift_monitor.enabled + reference_path)
+    try:
+        dm_cfg = policy.get("drift_monitor") or {}
+        if dm_cfg.get("enabled", False):
+            ref_path = dm_cfg.get("reference_path")
+            current_features = result.prices_with_features
+            if ref_path and current_features is not None and not current_features.empty:
+                from src.assembled_core.ops.drift_monitor import DriftMonitor
+                _ref_df = (
+                    pd.read_parquet(ref_path) if str(ref_path).endswith(".parquet")
+                    else pd.read_csv(ref_path)
+                )
+                _monitor = DriftMonitor(
+                    reference=_ref_df,
+                    output_dir=ctx.output_dir if ctx.write_outputs else None,
+                    psi_warn_threshold=float(dm_cfg.get("psi_warn", 0.25)),
+                    psi_pause_threshold=float(dm_cfg.get("psi_pause", 0.35)),
+                )
+                _drift_report = _monitor.check_drift(
+                    current=current_features,
+                    report_date=ctx.as_of,
+                )
+                result.meta["drift_monitor"] = {
+                    "max_psi": float(_drift_report.max_psi),
+                    "action": _drift_report.action,
+                    "drifted_features": _drift_report.drifted_features,
+                    "n_drifted": len(_drift_report.drifted_features),
+                }
+                log.info(
+                    "[DRIFT] max_psi=%.3f action=%s drifted=%d",
+                    _drift_report.max_psi, _drift_report.action, len(_drift_report.drifted_features),
+                )
+    except Exception as _dm_err:
+        log.debug("[book_fills] drift_monitor skipped: %s", _dm_err)
 
     # Step 7: Write outputs
     try:
