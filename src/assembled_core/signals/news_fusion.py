@@ -218,6 +218,46 @@ def decide_trade(
     }
 
 
+# ---------------------------------------------------------------------------
+# Meta-features builder (Layer 2 input — spec §30 "Die 12-15 Meta-Features")
+# ---------------------------------------------------------------------------
+
+META_FEATURES = [
+    "sentiment_z", "novelty_z", "surprise_z", "event_vol_z",
+    "velocity_z", "dispersion_z",
+    "event_earnings", "event_m_and_a", "event_mgmt",
+    "event_regulatory", "event_analyst", "event_product",
+    "event_legal", "event_macro",
+    "days_since_earnings", "days_to_next_earnings",
+    "macro_shock_flag", "vix_level", "vix_regime_ord", "hy_oas",
+    "corroboration_count", "primary_strength", "news_vs_primary_agree",
+]
+
+
+def build_meta_features(
+    ticker: str,
+    news_features: dict,
+    composite_score: float,
+) -> list:
+    """Assemble the 12-15 meta-feature vector for the meta-labeling model.
+
+    Args:
+        ticker: Unused directly — reserved for per-ticker lookup enrichment.
+        news_features: Dict with news-derived floats (see META_FEATURES list).
+        composite_score: TA composite score in [-1, +1]; used for primary_strength
+                         and news_vs_primary_agree.
+
+    Returns:
+        List of floats in the META_FEATURES order. Missing keys default to 0.
+    """
+    nz = news_features.get("aggregate_z", 0.0)
+    row = {k: float(news_features.get(k, 0.0)) for k in META_FEATURES}
+    row["primary_strength"] = abs(composite_score)
+    agree = 1.0 if (composite_score * nz > 0) else (0.0 if nz == 0 else -1.0)
+    row["news_vs_primary_agree"] = agree
+    return [row[k] for k in META_FEATURES]
+
+
 __all__ = [
     "news_z_score",
     "news_score_normalized",
@@ -226,4 +266,6 @@ __all__ = [
     "bayesian_update",
     "agreement_multiplier",
     "decide_trade",
+    "META_FEATURES",
+    "build_meta_features",
 ]
