@@ -44,7 +44,7 @@ CORE_MODULES = [
     "src.assembled_core.execution.order_generation",
     "src.assembled_core.execution.risk_controls",
     # Layer 6: pipeline (top)
-    "src.assembled_core.pipeline.trading_cycle",
+    "src.assembled_core.pipeline.trading_cycle_v2",
     "src.assembled_core.pipeline.orders",
     "src.assembled_core.pipeline.backtest",
     "src.assembled_core.pipeline.portfolio",

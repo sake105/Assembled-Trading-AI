@@ -161,7 +161,7 @@ def test_backtest_features_not_recomputed_per_timestamp(monkeypatch):
         tracked_add_all_features,
     )
     monkeypatch.setattr(
-        "src.assembled_core.pipeline.trading_cycle._build_features_default",
+        "src.assembled_core.pipeline.trading_cycle_shared._build_features_default",
         tracked_build_features_default,
     )
 
