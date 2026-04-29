@@ -846,6 +846,13 @@ def generate_signals(
     except Exception as e:
         log.debug("[SIGNAL-DIAG] news_signal_bridge skipped: %s", e)
 
+    # --- Step 3.36: News IC-weights (BACKLOG — Phase 2c) ---
+    # news_ml_bridge.get_event_type_ic_weights() was archived to
+    # archive/observability_graveyard_2026q2/ml/news_ml_bridge.py.
+    # IC weights require a calibrated historical event→alpha dataset.
+    # Wire in once news_ground_truth labels (tests/news_gold/) are complete.
+    # See: autonome_weiterarbeit/MIGRATION_TRADING_CYCLE_V2.md §Phase 2c
+
     # --- Step 3.4a: Bayesian signal confidence scoring ---
     try:
         bc_cfg = (policy.get("signal_generation") or {}).get("bayesian_confidence") or {}
