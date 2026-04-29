@@ -617,6 +617,30 @@ def build_features(
     except Exception as e:
         log.debug("[FFD] fractional_diff skipped: %s", e)
 
+    # --- Step 2.15: Order-book imbalance features (optional, requires L2 snapshot data) ---
+    try:
+        ob_cfg = (policy.get("features") or {}).get("order_book_imbalance") or {}
+        if ob_cfg.get("enabled", False) and not pwf.empty:
+            snapshots = getattr(ctx, "order_book_snapshots", None)
+            if snapshots:
+                from src.assembled_core.features.order_book_imbalance import (
+                    rolling_imbalance_signal,
+                )
+                ob_signals = rolling_imbalance_signal(
+                    snapshots,
+                    lookback=int(ob_cfg.get("lookback", 10)),
+                )
+                if ob_signals:
+                    import pandas as _pd
+                    ob_df = _pd.DataFrame([
+                        {"symbol": sym, "ob_imbalance": sig.l1_imbalance, "ob_vw_imbalance": sig.vw_imbalance}
+                        for sym, sig in ob_signals.items()
+                    ])
+                    if not ob_df.empty and "symbol" in pwf.columns:
+                        pwf = pwf.merge(ob_df, on="symbol", how="left")
+    except Exception as e:
+        log.debug("[OB-IMBALANCE] order_book_imbalance skipped: %s", e)
+
     return pwf, prices_latest_update
 
 
@@ -1481,7 +1505,23 @@ def _sp_compute_final_multiplier(
         elif crisis_mode == "ELEVATED":
             crisis_alpha_multiplier = min(float(ca_cfg.get("elevated_multiplier", 0.60)), 1.0)
 
-    final_multiplier = geo_multiplier * profit_lock_mult * vol_scale_factor * ms_multiplier * crisis_alpha_multiplier
+    # Prediction-market overlay (live/paper only — never fetches live API in backtest)
+    pm_multiplier = 1.0
+    try:
+        pm_cfg = (policy.get("prediction_market_overlay") or {})
+        if pm_cfg.get("enabled", False) and getattr(ctx, "mode", "") in ("live", "paper"):
+            from src.assembled_core.risk.georisk_overlay import get_market_implied_geo_signal
+            pm_signal = get_market_implied_geo_signal(policy=policy)
+            raw_pm = float(pm_signal.get("signal", 0.0))
+            pm_threshold = float(pm_cfg.get("threshold", 0.25))
+            if raw_pm > pm_threshold:
+                reduction = float(pm_cfg.get("reduction_factor", 0.50))
+                pm_multiplier = max(0.0, 1.0 - reduction * raw_pm)
+            meta["prediction_market"] = {"signal": raw_pm, "multiplier": pm_multiplier, "n_sources": pm_signal.get("n_sources", 0)}
+    except Exception as e:
+        log.debug("prediction_market_overlay skipped: %s", e)
+
+    final_multiplier = geo_multiplier * profit_lock_mult * vol_scale_factor * ms_multiplier * crisis_alpha_multiplier * pm_multiplier
     _MIN_EXPOSURE_MULT = 0.05
     if final_multiplier < _MIN_EXPOSURE_MULT:
         log.warning("[SIZE] exposure multiplier %.4f below floor %.2f — clamping", final_multiplier, _MIN_EXPOSURE_MULT)
@@ -2449,21 +2489,53 @@ def run_trading_cycle(
     )
     hooks = hooks or {}
 
+    # Side-channel event bus — fire-and-forget, never blocks the cycle
+    _bus = None
     try:
+        from src.assembled_core.pipeline.event_bus import get_null_bus
+        _bus = get_null_bus()
+        from src.assembled_core.pipeline.event_bus import EventBus as _EventBus
+        import os as _os
+        _redis_url = _os.environ.get("REDIS_URL", "")
+        if _redis_url:
+            try:
+                _bus = _EventBus(redis_url=_redis_url, connect_timeout=0.5)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    def _pub(phase: str, **kw: object) -> None:
+        if _bus is not None:
+            try:
+                _bus.publish(phase, {"run_id": ctx.run_id, **kw})
+            except Exception:
+                pass
+
+    _pub("cycle_start", mode=getattr(ctx, "mode", "unknown"))
+
+    try:
+        _pub("ingest_start")
         prices, prices_latest = ingest_data(ctx, log=log)
         result.prices_filtered = prices
         result.prices_latest = prices_latest
+        _pub("ingest_end", n_rows=len(prices) if prices is not None else 0)
 
+        _pub("features_start")
         features, pl_update = build_features(prices, ctx, log=log)
         result.prices_with_features = features
         # Backtest snapshot mode can override prices_filtered/prices_latest
         if pl_update is not None:
             result.prices_latest = pl_update
             result.prices_filtered = pl_update
+        _pub("features_end")
 
+        _pub("signals_start")
         signals = generate_signals(features, ctx, log=log)
         result.signals = signals
+        _pub("signals_end", n_signals=len(signals) if signals is not None else 0)
 
+        _pub("sizing_start")
         targets, do_rebal, sizing_meta = size_positions(
             signals, ctx,
             prices_filtered=result.prices_filtered,
@@ -2473,7 +2545,9 @@ def run_trading_cycle(
         )
         result.target_positions = targets
         result.meta.update(sizing_meta)
+        _pub("sizing_end", n_targets=len(targets) if targets is not None else 0)
 
+        _pub("routing_start")
         orders = route_orders(
             targets, ctx,
             prices_filtered=result.prices_filtered,
@@ -2483,18 +2557,25 @@ def run_trading_cycle(
             log=log,
         )
         result.orders = orders
+        _pub("routing_end", n_orders=len(orders) if orders is not None else 0)
 
         result = check_risk(orders, result, ctx, prices_filtered=result.prices_filtered, log=log)
+        _pub("risk_checked", status=result.status)
 
         result = book_fills(result, ctx, log=log)
+        _pub("fills_booked")
 
     except ValueError as exc:
         result.status = "error"
         result.error_message = str(exc)
+        _pub("cycle_error", error=str(exc))
     except Exception as exc:
         result.status = "error"
         result.error_message = f"Unexpected error: {exc}"
         log.exception("trading_cycle_v2: unexpected error in run_trading_cycle")
+        _pub("cycle_error", error=str(exc))
+    else:
+        _pub("cycle_end", status=result.status)
     finally:
         if _ks_restore_active and _ks_state_backup is not None and not _ks_state_backup:
             try:

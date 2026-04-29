@@ -1,18 +1,25 @@
 """Walk-forward hyperparameter optimisation with Optuna TPE sampler.
 
-Extends the existing walk_forward.py with Optuna-based hyperparameter
-search per walk-forward window. Each training fold gets an independent
-Optuna study; the best parameters are then applied to the test fold.
+**Scope:** This module optimises *strategy* hyperparameters (lookback windows,
+thresholds, etc.) across walk-forward folds of a return series.  It is the
+strategy-backtest sibling of ``scripts/training/walk_forward_hpo.py``, which
+is an ML-factor CLI tool that tunes scikit-learn / LightGBM model parameters.
+They share the walk-forward concept but operate on different objects:
+  - ``walk_forward_optuna`` (this module) → strategy parameters, pure returns input
+  - ``walk_forward_hpo.py`` → ML model parameters, feature/label DataFrame input
 
-Strategy:
-  - TPE (Tree-structured Parzen Estimator) sampler — default Optuna sampler,
-    efficient for up to ~50 parameters.
+Each training fold gets an independent Optuna study; the best parameters are
+then applied to the test fold.
+
+Algorithm:
+  - TPE (Tree-structured Parzen Estimator) sampler — efficient for up to ~50
+    parameters.
   - SQLite persistence: studies survive process restarts.
   - Objective: Sharpe ratio on the training fold (in-sample).
   - Evaluation: Sharpe on the test fold (out-of-sample).
 
-When Optuna is not installed, the module gracefully falls back to a
-single-pass evaluation using the caller-provided default parameters.
+When Optuna is not installed, falls back to a single-pass evaluation using the
+caller-provided default parameters.
 """
 from __future__ import annotations
 

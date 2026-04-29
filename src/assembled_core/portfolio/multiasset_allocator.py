@@ -202,10 +202,67 @@ def allocate_by_regime(
     return final
 
 
+def allocate_by_regime_with_strategy_weights(
+    regime: str,
+    strategy_returns: dict[str, list[float]],
+    equity_weights: dict[str, float],
+    sector_weights: dict[str, float] | None = None,
+    custom_allocations: dict[str, "RegimeAllocation"] | None = None,
+    target_vol: float = 0.15,
+) -> dict[str, float]:
+    """Allocate using regime-conditional strategy weights as the equity sub-layer.
+
+    Combines the macro regime allocation (equity/bonds/gold buckets) with
+    Sharpe-proportional strategy weights from RegimeAllocator. Falls back
+    to flat equity_weights if regime_conditional_allocator is unavailable or
+    has insufficient history.
+
+    Args:
+        regime: Current regime label (bull/sideways/bear/crisis).
+        strategy_returns: {strategy_name: [daily_returns]} used to compute regime Sharpes.
+        equity_weights: Base per-symbol weights (used as fallback).
+        sector_weights: Optional sector ETF overlay.
+        custom_allocations: Override REGIME_ALLOCATIONS if provided.
+        target_vol: Target portfolio vol for vol-scaling inside regime allocator.
+
+    Returns:
+        Combined weight dict {symbol: final_weight}.
+    """
+    scaled_equity: dict[str, float] = equity_weights
+    try:
+        if strategy_returns:
+            from src.assembled_core.portfolio.regime_conditional_allocator import (
+                build_regime_allocator,
+            )
+            # Build a synthetic regime series from the regime label (all bars = current regime)
+            n_bars = max(len(v) for v in strategy_returns.values()) if strategy_returns else 1
+            import pandas as _pd
+            regime_series = _pd.Series([regime] * n_bars)
+            allocator = build_regime_allocator(
+                strategy_returns=strategy_returns,
+                regime_series=regime_series,
+                target_vol=target_vol,
+            )
+            result = allocator.allocate(regime)
+            if result.weights:
+                # Use Sharpe-proportional weights as the equity bucket weights
+                scaled_equity = dict(result.weights)
+    except Exception:
+        pass
+
+    return allocate_by_regime(
+        regime=regime,
+        equity_weights=scaled_equity,
+        sector_weights=sector_weights,
+        custom_allocations=custom_allocations,
+    )
+
+
 __all__ = [
     "RegimeAllocation",
     "RegimeDetectorConfig",
     "RegimeDetector",
     "REGIME_ALLOCATIONS",
     "allocate_by_regime",
+    "allocate_by_regime_with_strategy_weights",
 ]
