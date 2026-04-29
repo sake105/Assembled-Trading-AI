@@ -831,3 +831,89 @@ class TestComputeSampleWeights:
         })
         weights = compute_sample_weights(events, prices)
         assert abs(weights.sum() - len(events)) < 0.01
+
+
+# ---------------------------------------------------------------------------
+# TradeAnomalyDetector + detect_fat_finger
+# ---------------------------------------------------------------------------
+
+class TestTradeAnomalyDetector:
+    def _baseline(self, n=100, seed=0):
+        rng = np.random.default_rng(seed)
+        return pd.DataFrame({
+            "price": rng.normal(100, 1, n),
+            "volume": rng.normal(1_000, 50, n),
+            "spread": rng.normal(0.01, 0.001, n),
+        })
+
+    def test_fit_and_score_returns_result(self):
+        from assembled_core.qa.anomaly_detection import TradeAnomalyDetector, AnomalyResult
+        det = TradeAnomalyDetector(contamination=0.05)
+        baseline = self._baseline(200)
+        det.fit(baseline)
+        current = self._baseline(20, seed=99)
+        result = det.score(current)
+        assert isinstance(result, AnomalyResult)
+        assert len(result.scores) == 20
+        assert len(result.flags) == 20
+
+    def test_flags_are_binary(self):
+        from assembled_core.qa.anomaly_detection import TradeAnomalyDetector
+        det = TradeAnomalyDetector()
+        det.fit(self._baseline(100))
+        result = det.score(self._baseline(10))
+        assert set(result.flags.unique()).issubset({0, 1})
+
+    def test_n_anomalies_matches_flags(self):
+        from assembled_core.qa.anomaly_detection import TradeAnomalyDetector
+        det = TradeAnomalyDetector()
+        det.fit(self._baseline(100))
+        result = det.score(self._baseline(50))
+        assert result.n_anomalies == int(result.flags.sum())
+
+    def test_score_before_fit_raises(self):
+        from assembled_core.qa.anomaly_detection import TradeAnomalyDetector
+        det = TradeAnomalyDetector()
+        with pytest.raises(RuntimeError, match="fit"):
+            det.score(self._baseline(10))
+
+    def test_obvious_outlier_flagged(self):
+        from assembled_core.qa.anomaly_detection import TradeAnomalyDetector
+        baseline = self._baseline(200)
+        det = TradeAnomalyDetector(contamination=0.05)
+        det.fit(baseline)
+        # Extreme outlier row
+        outlier = pd.DataFrame({
+            "price": [100_000.0],
+            "volume": [1_000_000.0],
+            "spread": [500.0],
+        })
+        result = det.score(outlier)
+        assert result.flags.iloc[0] == 1
+
+    def test_method_set_after_fit(self):
+        from assembled_core.qa.anomaly_detection import TradeAnomalyDetector
+        det = TradeAnomalyDetector()
+        det.fit(self._baseline(100))
+        assert det._method in {"pyod_ensemble", "iqr_zscore_fallback"}
+
+
+class TestDetectFatFinger:
+    def test_normal_trades_no_flag(self):
+        from assembled_core.qa.anomaly_detection import detect_fat_finger
+        rng = np.random.default_rng(0)
+        sizes = pd.Series(rng.normal(100, 5, 50))
+        flags = detect_fat_finger(sizes, multiplier=10.0)
+        assert not flags.any()
+
+    def test_fat_finger_detected(self):
+        from assembled_core.qa.anomaly_detection import detect_fat_finger
+        sizes = pd.Series([100.0] * 49 + [50_000.0])
+        flags = detect_fat_finger(sizes, multiplier=10.0, min_samples=20)
+        assert flags.iloc[-1]
+
+    def test_too_few_samples_no_flag(self):
+        from assembled_core.qa.anomaly_detection import detect_fat_finger
+        sizes = pd.Series([100.0, 200.0, 50_000.0])
+        flags = detect_fat_finger(sizes, min_samples=20)
+        assert not flags.any()
