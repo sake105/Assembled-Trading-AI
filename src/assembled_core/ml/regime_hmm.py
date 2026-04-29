@@ -165,6 +165,71 @@ class RegimeHMM:
         return dict(zip(cols, next_proba.tolist()))
 
     # ------------------------------------------------------------------
+    # Online / incremental update
+    # ------------------------------------------------------------------
+
+    def partial_update(
+        self,
+        new_returns: pd.Series,
+        n_iter: int = 5,
+        min_samples: int = 20,
+    ) -> "RegimeHMM":
+        """Warm-start re-estimation with new observations.
+
+        Keeps the current model parameters as starting point and runs a few
+        EM iterations on the new data only — faster than a full refit and
+        prevents catastrophic forgetting when the window is small.
+
+        Requires ``hmmlearn >= 0.3.0`` (``init_params=""`` support).
+
+        Parameters
+        ----------
+        new_returns:
+            New observations to incorporate (at least ``min_samples`` long).
+        n_iter:
+            Number of EM iterations (default 5 — enough for minor updates).
+        min_samples:
+            Minimum new observations required; skips update if fewer.
+
+        Returns
+        -------
+        self
+        """
+        self._check_fitted()
+        arr = self._prepare(new_returns)
+        if len(arr) < min_samples:
+            logger.debug(
+                "[RegimeHMM] partial_update skipped — only %d new samples (min %d)",
+                len(arr), min_samples,
+            )
+            return self
+
+        # Warm-start: reuse existing model parameters, run a few EM steps
+        warm_model = GaussianHMM(
+            n_components=self.n_regimes,
+            covariance_type=self.covariance_type,
+            n_iter=n_iter,
+            random_state=self.random_state,
+            init_params="",  # do not reinitialise — warm start
+        )
+        warm_model.startprob_ = self._model.startprob_.copy()  # type: ignore[union-attr]
+        warm_model.transmat_ = self._model.transmat_.copy()  # type: ignore[union-attr]
+        warm_model.means_ = self._model.means_.copy()  # type: ignore[union-attr]
+        warm_model.covars_ = self._model.covars_.copy()  # type: ignore[union-attr]
+
+        try:
+            warm_model.fit(arr)
+            self._model = warm_model
+            self._label_map = self._build_label_map(warm_model)
+            logger.info(
+                "[RegimeHMM] partial_update applied (%d new obs, %d EM iters)", len(arr), n_iter
+            )
+        except Exception as exc:
+            logger.warning("[RegimeHMM] partial_update failed, keeping old model: %s", exc)
+
+        return self
+
+    # ------------------------------------------------------------------
     # Serialisation
     # ------------------------------------------------------------------
 

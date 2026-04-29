@@ -7,6 +7,7 @@ import time
 
 from fastapi import FastAPI
 
+from src.assembled_core.api.middleware import add_middleware
 from src.assembled_core.api.routers import (
     monitoring,
     oms,
@@ -33,6 +34,9 @@ def create_app() -> FastAPI:
         description="Trading pipeline API with read and command endpoints",
         version="2.0.0",
     )
+
+    # ── Middleware ───────────────────────────────────────────────────
+    add_middleware(app)
 
     # ── Health / Readiness / Liveness probes ────────────────────────
     @app.get("/health", tags=["ops"])
