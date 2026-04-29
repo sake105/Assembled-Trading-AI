@@ -663,3 +663,89 @@ def compute_arms_index(
     })
     logger.info("[Breadth] Arms Index (TRIN) computed for %d rows", len(result))
     return result
+
+
+def hindenburg_omen(
+    new_highs: pd.Series,
+    new_lows: pd.Series,
+    nyse_ma50: pd.Series,
+    mcclellan_osc: pd.Series,
+    total_issues: pd.Series | None = None,
+    threshold_pct: float = 0.028,
+) -> pd.Series:
+    """Compute the Hindenburg Omen composite signal.
+
+    Conditions (all must hold on same day):
+    1. New 52w highs AND new 52w lows BOTH > threshold_pct of total NYSE issues
+    2. NYSE (or index) is above its 50-day moving average
+    3. McClellan Oscillator is negative
+    4. New 52w highs ≤ 2 × new 52w lows
+
+    Returns a boolean Series: True = omen triggered.
+
+    Parameters
+    ----------
+    new_highs, new_lows:
+        Daily new 52-week high/low counts (or fractions if total_issues is None).
+    nyse_ma50:
+        NYSE/SPX index value vs. its 50-day MA ratio (> 1 means above MA).
+    mcclellan_osc:
+        McClellan Oscillator values (negative = bearish breadth).
+    total_issues:
+        Total NYSE issues. If None, new_highs/new_lows are treated as fractions.
+    threshold_pct:
+        Default 2.8% as per Miekka original definition.
+    """
+    import numpy as np  # noqa: PLC0415
+
+    if total_issues is not None:
+        nh_pct = new_highs / total_issues.replace(0, np.nan)
+        nl_pct = new_lows / total_issues.replace(0, np.nan)
+    else:
+        nh_pct = new_highs
+        nl_pct = new_lows
+
+    cond1 = (nh_pct > threshold_pct) & (nl_pct > threshold_pct)
+    cond2 = nyse_ma50 > 1.0
+    cond3 = mcclellan_osc < 0
+    cond4 = new_highs <= 2 * new_lows
+
+    omen = cond1 & cond2 & cond3 & cond4
+    omen.name = "hindenburg_omen"
+    logger.info("[Breadth] Hindenburg Omen computed: %d signals", int(omen.sum()))
+    return omen
+
+
+def compute_cbbi_composite(
+    indicators: dict[str, pd.Series],
+    weights: dict[str, float] | None = None,
+) -> pd.Series:
+    """Composite Bull-Bear Indicator (CBBI) — aggregate up to 10 breadth indicators.
+
+    Parameters
+    ----------
+    indicators:
+        Dict of name → pd.Series (all normalised 0-1 or z-scored).
+    weights:
+        Optional dict of name → weight. Defaults to equal weight.
+
+    Returns
+    -------
+    pd.Series of composite score (0-100), indexed to intersection of all series.
+    """
+    import pandas as pd  # noqa: PLC0415
+    import numpy as np  # noqa: PLC0415
+
+    if not indicators:
+        return pd.Series(dtype=float, name="cbbi")
+
+    w = weights or {k: 1.0 / len(indicators) for k in indicators}
+    aligned = pd.DataFrame(indicators).dropna()
+    if aligned.empty:
+        return pd.Series(dtype=float, name="cbbi")
+
+    score = sum(aligned[k] * w.get(k, 1.0 / len(indicators)) for k in aligned.columns)
+    normalised = (score - score.min()) / (score.max() - score.min() + 1e-9) * 100
+    normalised.name = "cbbi"
+    logger.info("[Breadth] CBBI composite computed for %d rows", len(normalised))
+    return normalised

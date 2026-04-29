@@ -299,9 +299,53 @@ def meta_label(
     return meta.rename("meta_label")
 
 
+def compute_sample_weights(
+    events: pd.DataFrame,
+    prices: pd.Series,
+    t_in_col: str = "t_in",
+    t_out_col: str = "t_out",
+) -> pd.Series:
+    """López de Prado sample weights for overlapping triple-barrier labels.
+
+    Weight_i = 1 / mean(count of concurrent events during event i's hold period).
+    Prevents double-counting when multiple events overlap in time.
+
+    Parameters
+    ----------
+    events:
+        DataFrame with columns ``t_in`` and ``t_out`` (datetime index or columns).
+    prices:
+        Price series whose index defines the time grid for overlap counting.
+    t_in_col, t_out_col:
+        Column names for entry/exit timestamps.
+
+    Returns
+    -------
+    pd.Series of float weights aligned to events.index.
+    """
+    counts = pd.Series(0, index=prices.index, dtype=float)
+    for t_in, t_out in zip(events[t_in_col], events[t_out_col]):
+        mask = (prices.index >= t_in) & (prices.index <= t_out)
+        counts.loc[mask] += 1
+
+    weights = pd.Series(0.0, index=events.index)
+    for i, (t_in, t_out) in enumerate(zip(events[t_in_col], events[t_out_col])):
+        overlap = counts.loc[(prices.index >= t_in) & (prices.index <= t_out)]
+        if len(overlap) == 0 or overlap.sum() == 0:
+            weights.iloc[i] = 1.0
+        else:
+            weights.iloc[i] = float((1.0 / overlap).mean())
+
+    total = weights.sum()
+    if total > 0:
+        weights = weights / total * len(weights)
+    return weights
+
+
 __all__ = [
     "cusum_filter",
     "triple_barrier_labels",
     "fractional_diff",
     "meta_label",
+    "compute_sample_weights",
 ]

@@ -750,3 +750,84 @@ class TestLPPLSCrashDetector:
         det = LPPLSCrashDetector(fit_window=50, max_searches=5)
         result = det.fit_and_score(self._prices(80))
         assert "numpy" in result["method"]
+
+
+# ---------------------------------------------------------------------------
+# HindenburgOmen + CBBI
+# ---------------------------------------------------------------------------
+
+class TestHindenburgOmen:
+    def test_triggers_when_all_conditions_met(self):
+        from assembled_core.features.market_breadth import hindenburg_omen
+        n = 10
+        idx = pd.date_range("2024-01-01", periods=n)
+        new_highs = pd.Series([0.03] * n, index=idx)
+        new_lows = pd.Series([0.03] * n, index=idx)
+        nyse_ma50 = pd.Series([1.05] * n, index=idx)   # above MA
+        mcclellan = pd.Series([-5.0] * n, index=idx)   # negative
+        result = hindenburg_omen(new_highs, new_lows, nyse_ma50, mcclellan)
+        assert result.all()
+
+    def test_no_trigger_below_ma(self):
+        from assembled_core.features.market_breadth import hindenburg_omen
+        n = 5
+        idx = pd.date_range("2024-01-01", periods=n)
+        new_highs = pd.Series([0.03] * n, index=idx)
+        new_lows = pd.Series([0.03] * n, index=idx)
+        nyse_ma50 = pd.Series([0.95] * n, index=idx)   # BELOW MA
+        mcclellan = pd.Series([-5.0] * n, index=idx)
+        result = hindenburg_omen(new_highs, new_lows, nyse_ma50, mcclellan)
+        assert not result.any()
+
+    def test_cbbi_in_range(self):
+        from assembled_core.features.market_breadth import compute_cbbi_composite
+        idx = pd.date_range("2024-01-01", periods=20)
+        indicators = {
+            "ad_line": pd.Series(np.random.default_rng(0).uniform(0, 1, 20), index=idx),
+            "mcclellan": pd.Series(np.random.default_rng(1).uniform(0, 1, 20), index=idx),
+        }
+        result = compute_cbbi_composite(indicators)
+        assert isinstance(result, pd.Series)
+        assert (result >= 0).all() and (result <= 100).all()
+
+    def test_cbbi_empty_returns_empty(self):
+        from assembled_core.features.market_breadth import compute_cbbi_composite
+        result = compute_cbbi_composite({})
+        assert len(result) == 0
+
+
+class TestComputeSampleWeights:
+    def test_basic_overlap(self):
+        from assembled_core.features.triple_barrier import compute_sample_weights
+        idx = pd.date_range("2024-01-01", periods=20)
+        prices = pd.Series(np.ones(20), index=idx)
+        events = pd.DataFrame({
+            "t_in": [idx[0], idx[5]],
+            "t_out": [idx[9], idx[14]],
+        })
+        weights = compute_sample_weights(events, prices)
+        assert len(weights) == 2
+        assert (weights > 0).all()
+
+    def test_non_overlapping_equal_weights(self):
+        from assembled_core.features.triple_barrier import compute_sample_weights
+        idx = pd.date_range("2024-01-01", periods=20)
+        prices = pd.Series(np.ones(20), index=idx)
+        events = pd.DataFrame({
+            "t_in": [idx[0], idx[10]],
+            "t_out": [idx[4], idx[14]],
+        })
+        weights = compute_sample_weights(events, prices)
+        # Non-overlapping events should have equal weights
+        assert abs(weights.iloc[0] - weights.iloc[1]) < 0.1
+
+    def test_weights_sum_to_n(self):
+        from assembled_core.features.triple_barrier import compute_sample_weights
+        idx = pd.date_range("2024-01-01", periods=30)
+        prices = pd.Series(np.ones(30), index=idx)
+        events = pd.DataFrame({
+            "t_in": [idx[0], idx[5], idx[10]],
+            "t_out": [idx[8], idx[12], idx[18]],
+        })
+        weights = compute_sample_weights(events, prices)
+        assert abs(weights.sum() - len(events)) < 0.01
