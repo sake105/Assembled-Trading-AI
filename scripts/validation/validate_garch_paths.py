@@ -28,21 +28,44 @@ import numpy as np
 import pandas as pd
 
 # ---------------------------------------------------------------------------
-# Step 1: Download real SPX returns
+# Step 1: Load SPX returns — local parquet first, yfinance fallback, then synthetic
 # ---------------------------------------------------------------------------
-print("[1/5] Downloading SPX 2020-01-01 to 2024-12-31 ...")
-try:
-    import yfinance as yf
-    raw = yf.download("^SPX", start="2020-01-01", end="2024-12-31",
-                      progress=False, auto_adjust=True)
-    spx_close = raw["Close"].squeeze().dropna()
-    spx_returns = spx_close.pct_change().dropna()
-    print(f"    {len(spx_returns)} daily returns ({spx_returns.index[0].date()} → "
-          f"{spx_returns.index[-1].date()})")
-except Exception as e:
-    print(f"    [WARN] yfinance failed ({e}). Using cached synthetic stand-in.")
-    rng = np.random.default_rng(0)
-    spx_returns = pd.Series(rng.normal(0.0004, 0.013, 1257))
+_REPO_ROOT = Path(__file__).parents[2]
+_LOCAL_PARQUET = _REPO_ROOT / "output" / "aggregates" / "eod_1d.parquet"
+
+print("[1/5] Loading SPX returns ...")
+spx_returns: pd.Series | None = None
+
+if _LOCAL_PARQUET.exists():
+    try:
+        _df = pd.read_parquet(_LOCAL_PARQUET)
+        # Try common column layouts produced by the EOD pipeline
+        for _col in ("^SPX", "SPX", "spx"):
+            if _col in _df.columns:
+                spx_returns = _df[_col].dropna().pct_change().dropna()
+                break
+        if spx_returns is None and "close" in _df.columns:
+            spx_returns = _df["close"].dropna().pct_change().dropna()
+        if spx_returns is not None:
+            print(f"    [local] {len(spx_returns)} daily returns from {_LOCAL_PARQUET.name}")
+    except Exception as _e:
+        print(f"    [WARN] local parquet failed ({_e}), trying yfinance ...")
+
+if spx_returns is None:
+    try:
+        import yfinance as yf
+        raw = yf.download("^SPX", start="2020-01-01", end="2024-12-31",
+                          progress=False, auto_adjust=True)
+        spx_close = raw["Close"].squeeze().dropna()
+        spx_returns = spx_close.pct_change().dropna()
+        print(f"    [yfinance] {len(spx_returns)} daily returns "
+              f"({spx_returns.index[0].date()} to {spx_returns.index[-1].date()})")
+    except Exception as e:
+        print(f"    [WARN] yfinance failed ({e}). Using synthetic stand-in.")
+
+if spx_returns is None or len(spx_returns) < 100:
+    print("    [synthetic] no real data available — results are illustrative only")
+    spx_returns = pd.Series(np.random.default_rng(0).normal(0.0004, 0.013, 1257))
 
 # ---------------------------------------------------------------------------
 # Step 2: Fit GARCH(1,1)

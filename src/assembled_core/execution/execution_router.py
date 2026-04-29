@@ -184,24 +184,31 @@ class AdaptiveACState:
         side: str,
         sigma_daily: float = 0.015,
     ) -> None:
-        """Update η from one observed fill.
+        """Update eta from one observed fill via EWMA.
 
-        Implied η = |slippage_bps| * price / (qty * sigma²).
-        Slippage  = (actual - expected) for BUY, (expected - actual) for SELL.
+        Impact convention (consistent with AC cost function):
+            slippage_frac = eta * qty * sigma_daily^2 / price
+
+        Rearranged to back out implied eta from an observed fill:
+            implied_eta = slippage_frac * price / (qty * sigma_daily^2)
+
+        Only cost fills (positive slippage in the direction of the trade)
+        update the estimate; adverse fills are discarded to avoid noise.
 
         Args:
             qty_filled: Shares filled in this child order.
-            expected_price: Reference price at order submission (e.g. arrival price).
+            expected_price: Arrival/benchmark price at order submission.
             actual_price: Observed fill price.
-            sigma_daily: Estimated daily vol used in the AC model (annualised / sqrt(252)).
+            side: "BUY" or "SELL".
+            sigma_daily: Daily return volatility (decimal, e.g. 0.013 for 1.3%).
         """
         if expected_price <= 0 or qty_filled <= 0:
             return
         sign = 1.0 if side.upper() == "BUY" else -1.0
         slippage = sign * (actual_price - expected_price) / expected_price
-        slippage = max(slippage, 0.0)  # only cost (positive) fills update η
+        slippage = max(slippage, 0.0)  # only cost (positive) fills update eta
 
-        # η relates slippage to trade rate: slippage ≈ η * (qty / sigma)
+        # Invert: slippage_frac = eta * qty * sigma^2 / price
         var_daily = sigma_daily ** 2
         implied_eta = slippage * expected_price / max(qty_filled * var_daily, 1e-10)
         implied_eta = max(implied_eta, 1e-6)
