@@ -126,18 +126,74 @@ class LeakageAnalyzer:
                 )
         return reports
 
+    def check_primary_meta_split(
+        self,
+        primary_train_index: pd.Index,
+        primary_val_index: pd.Index,
+        meta_train_index: pd.Index,
+    ) -> list[LeakageReport]:
+        """Detect Primary↔Meta train/val split contamination (A6 critical check).
+
+        In stacked/ensemble pipelines the meta-model must be trained ONLY on
+        out-of-sample predictions from the primary model. If meta_train_index
+        overlaps primary_train_index, the primary's in-sample (memorised)
+        predictions leak into meta training → meta model is overfit on noise.
+
+        Correct workflow:
+            primary trains on [t0, t1)
+            primary generates OOS predictions on [t1, t2)   ← meta trains here
+        Leaked workflow:
+            primary trains on [t0, t1)
+            meta trains on [t0, t1) using IS primary predictions ← contaminated
+        """
+        overlap = len(primary_train_index.intersection(meta_train_index))
+        total_meta = len(meta_train_index)
+        if overlap == 0:
+            return []
+
+        contamination_pct = overlap / total_meta * 100.0
+        return [
+            LeakageReport(
+                feature="meta_model_training_set",
+                leakage_type="primary_meta_split",
+                evidence=(
+                    f"{overlap}/{total_meta} ({contamination_pct:.1f}%) meta-train rows overlap "
+                    "with primary-train set — meta model trained on in-sample primary predictions"
+                ),
+                severity="high" if contamination_pct > 50.0 else "medium",
+                details={
+                    "primary_train_size": len(primary_train_index),
+                    "primary_val_size": len(primary_val_index),
+                    "meta_train_size": total_meta,
+                    "overlap_size": overlap,
+                    "contamination_pct": round(contamination_pct, 2),
+                },
+            )
+        ]
+
     def full_check(
         self,
         features: pd.DataFrame,
         target: pd.Series,
         train_features: pd.DataFrame | None = None,
         test_features: pd.DataFrame | None = None,
+        primary_train_index: pd.Index | None = None,
+        primary_val_index: pd.Index | None = None,
+        meta_train_index: pd.Index | None = None,
     ) -> list[LeakageReport]:
         """Run all available checks and return combined report."""
         reports = self.check_lookahead(features, target)
         reports += self.check_recursive(features, target)
         if train_features is not None and test_features is not None:
             reports += self.check_normalization_leakage(train_features, test_features)
+        if (
+            primary_train_index is not None
+            and primary_val_index is not None
+            and meta_train_index is not None
+        ):
+            reports += self.check_primary_meta_split(
+                primary_train_index, primary_val_index, meta_train_index
+            )
         return reports
 
     @staticmethod

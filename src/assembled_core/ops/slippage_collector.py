@@ -1,4 +1,11 @@
-"""Thread-safe slippage observation accumulator for Prometheus histogram export."""
+"""Thread-safe slippage observation accumulator for Prometheus histogram export.
+
+NOTE: This singleton-based collector is currently NOT wired into the production
+path. The trading cycle uses result.meta["total_cost_bps"] (derived in
+book_fills A8b) for Phase 11 slippage histograms instead. This module is
+retained for potential future use where a run-persistent singleton accumulator
+is needed (e.g. multi-bar intraday contexts).
+"""
 from __future__ import annotations
 
 import threading

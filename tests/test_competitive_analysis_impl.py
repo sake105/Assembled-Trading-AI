@@ -405,6 +405,66 @@ class TestLeakageAnalyzer:
         reports = analyzer.full_check(features, target)
         assert isinstance(reports, list)
 
+    # --- check_primary_meta_split ---
+
+    def test_clean_split_no_leakage(self):
+        """Non-overlapping train/meta indices → empty report."""
+        primary_train = pd.date_range("2022-01-01", periods=200, freq="D")
+        primary_val = pd.date_range("2022-07-21", periods=100, freq="D")
+        meta_train = primary_val  # meta trained on OOS predictions → correct
+        analyzer = self._analyzer()
+        reports = analyzer.check_primary_meta_split(primary_train, primary_val, meta_train)
+        assert reports == []
+
+    def test_partial_overlap_medium_severity(self):
+        """<50% overlap → LeakageReport with severity='medium'."""
+        primary_train = pd.date_range("2022-01-01", periods=200, freq="D")
+        # meta_train overlaps 40 rows with primary_train (20%)
+        meta_train = pd.date_range("2022-06-20", periods=100, freq="D")
+        primary_val = pd.date_range("2022-07-21", periods=50, freq="D")
+        analyzer = self._analyzer()
+        reports = analyzer.check_primary_meta_split(primary_train, primary_val, meta_train)
+        assert len(reports) == 1
+        r = reports[0]
+        assert r.leakage_type == "primary_meta_split"
+        assert r.severity == "medium"
+        assert r.details["overlap_size"] > 0
+        assert r.details["contamination_pct"] <= 50.0
+
+    def test_heavy_overlap_high_severity(self):
+        """>50% overlap → LeakageReport with severity='high'."""
+        primary_train = pd.date_range("2022-01-01", periods=300, freq="D")
+        # meta_train is identical to primary_train → 100% contamination
+        meta_train = primary_train
+        primary_val = pd.date_range("2022-10-29", periods=60, freq="D")
+        analyzer = self._analyzer()
+        reports = analyzer.check_primary_meta_split(primary_train, primary_val, meta_train)
+        assert len(reports) == 1
+        r = reports[0]
+        assert r.severity == "high"
+        assert r.details["contamination_pct"] > 50.0
+        assert r.feature == "meta_model_training_set"
+
+    def test_full_check_includes_primary_meta_split(self):
+        """full_check with index params runs primary_meta_split and returns report."""
+        rng = np.random.default_rng(99)
+        n = 80
+        idx = pd.date_range("2024-01-01", periods=n)
+        features = pd.DataFrame({"f": rng.normal(size=n)}, index=idx)
+        target = pd.Series(rng.normal(size=n), index=idx)
+        primary_train = idx[:60]
+        primary_val = idx[60:]
+        meta_train = idx[:40]  # overlaps primary_train → contaminated
+        analyzer = self._analyzer()
+        reports = analyzer.full_check(
+            features, target,
+            primary_train_index=primary_train,
+            primary_val_index=primary_val,
+            meta_train_index=meta_train,
+        )
+        types = [r.leakage_type for r in reports]
+        assert "primary_meta_split" in types
+
 
 # ---------------------------------------------------------------------------
 # ExecutionRouter

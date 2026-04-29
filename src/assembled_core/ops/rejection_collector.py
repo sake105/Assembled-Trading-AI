@@ -1,4 +1,11 @@
-"""Thread-safe rejection reason counter for Prometheus export."""
+"""Thread-safe rejection reason counter for Prometheus export.
+
+NOTE: This singleton-based collector is currently NOT wired into the production
+path. The trading cycle writes rejection counts into result.meta["rejection_counts"]
+(accumulated in check_risk()) for Phase 11 KPI export instead. This module is
+retained for potential future use in multi-process or long-running contexts
+where a persistent singleton accumulator across trading bars is needed.
+"""
 from __future__ import annotations
 
 import threading
