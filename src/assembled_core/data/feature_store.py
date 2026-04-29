@@ -20,9 +20,26 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+_SAFE_VIEW_RE = re.compile(r"^[a-zA-Z][a-zA-Z0-9_]{0,63}$")
+_SAFE_TICKER_RE = re.compile(r"^[A-Z0-9.\-]{1,16}$")
+
+
+def _validate_view(view: str) -> str:
+    if not _SAFE_VIEW_RE.match(view):
+        raise ValueError(f"Invalid feature view name: {view!r} — must match [a-zA-Z][a-zA-Z0-9_]{{0,63}}")
+    return view
+
+
+def _sanitize_tickers(tickers: list[str]) -> list[str]:
+    bad = [t for t in tickers if not _SAFE_TICKER_RE.match(t)]
+    if bad:
+        raise ValueError(f"Invalid ticker(s): {bad!r} — must match [A-Z0-9.-]{{1,16}}")
+    return tickers
 
 import pandas as pd
 
@@ -134,6 +151,7 @@ def read_features_asof(
     Returns:
         Merged DataFrame with feature columns, or None on failure.
     """
+    _validate_view(view)
     duckdb = _try_duckdb()
     if duckdb is None:
         return None
@@ -185,6 +203,8 @@ def read_features_latest(
     Returns:
         DataFrame with latest features per ticker, or None on failure.
     """
+    _validate_view(view)
+    _sanitize_tickers(tickers)
     duckdb = _try_duckdb()
     if duckdb is None:
         return None

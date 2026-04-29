@@ -11,11 +11,16 @@ independent liquidity, allowing cross-venue probability comparison.
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 _KALSHI_BASE = "https://trading-api.kalshi.com/trade-api/v2"
+
+_GEO_SIGNAL_CACHE: dict[str, Any] | None = None
+_GEO_SIGNAL_CACHE_TS: float = 0.0
+_GEO_SIGNAL_TTL: float = 300.0  # 5 minutes — avoids 240+ calls/hour in fast cycles
 
 GEO_SERIES_TAGS = frozenset({
     "GEOPOLITICS", "ECONOMICS", "ELECTIONS", "ENERGY", "FED", "RATES",
@@ -95,11 +100,19 @@ def get_market_implied_geo_signal(
 ) -> dict[str, Any]:
     """Aggregate Kalshi market probabilities into a geo-risk signal.
 
+    Result is cached for 5 minutes to avoid 240+ API calls/hour in fast cycles.
+
     Returns:
         Dict with signal [0,1], n_markets, avg_mid, volume_weighted_mid, source.
     """
+    global _GEO_SIGNAL_CACHE, _GEO_SIGNAL_CACHE_TS
+    now = time.monotonic()
+    if _GEO_SIGNAL_CACHE is not None and (now - _GEO_SIGNAL_CACHE_TS) < _GEO_SIGNAL_TTL:
+        return _GEO_SIGNAL_CACHE
+
     markets = fetch_active_markets(limit=limit, series_tags=series_tags)
     if not markets:
+        # Do not cache empty results — allow retry on next call
         return {
             "signal": 0.0,
             "n_markets": 0,
@@ -121,13 +134,16 @@ def get_market_implied_geo_signal(
 
     signal = min(1.0, max(0.0, (avg_mid - 0.40) / 0.40))
 
-    return {
+    result = {
         "signal":               round(signal, 4),
         "n_markets":            len(markets),
         "avg_mid":              round(avg_mid, 4),
         "volume_weighted_mid":  round(vol_weighted, 4),
         "source":               "kalshi",
     }
+    _GEO_SIGNAL_CACHE = result
+    _GEO_SIGNAL_CACHE_TS = now
+    return result
 
 
 def fetch_combined_prediction_signal(

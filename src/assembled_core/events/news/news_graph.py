@@ -182,7 +182,8 @@ class NewsGraph:
         if self._driver:
             self._neo4j_add_event(node)
         else:
-            assert self._mem is not None
+            if self._mem is None:
+                raise RuntimeError("NewsGraph: no backend — both _driver and _mem are None")
             self._mem.add_event(node)
 
     def add_entity(self, name: str, entity_type: str = "unknown") -> None:
@@ -194,7 +195,8 @@ class NewsGraph:
                     name=name, etype=entity_type,
                 )
         else:
-            assert self._mem is not None
+            if self._mem is None:
+                raise RuntimeError("NewsGraph: no backend — both _driver and _mem are None")
             self._mem.add_entity(name, entity_type)
 
     def add_related(
@@ -213,7 +215,8 @@ class NewsGraph:
                     id_a=event_id_a, id_b=event_id_b, w=weight,
                 )
         else:
-            assert self._mem is not None
+            if self._mem is None:
+                raise RuntimeError("NewsGraph: no backend — both _driver and _mem are None")
             self._mem.add_related(event_id_a, event_id_b, weight)
 
     def entity_neighbors(self, entity_name: str) -> list[str]:
@@ -228,7 +231,8 @@ class NewsGraph:
                     name=entity_name,
                 )
                 return [r["eid"] for r in result]
-        assert self._mem is not None
+        if self._mem is None:
+            raise RuntimeError("NewsGraph: no backend — both _driver and _mem are None")
         return self._mem.entity_neighbors(entity_name)
 
     def find_related_symbols(self, ticker: str, max_hops: int = 2) -> list[str]:
@@ -260,7 +264,8 @@ class NewsGraph:
                     )
                     return [r["ticker"] for r in result]
 
-        assert self._mem is not None
+        if self._mem is None:
+            raise RuntimeError("NewsGraph: no backend — both _driver and _mem are None")
         return self._mem.related_symbols(ticker, max_hops)
 
     def stats(self) -> GraphStats:
@@ -276,7 +281,8 @@ class NewsGraph:
                 n_mentions=men, n_related=rel,
                 backend="neo4j",
             )
-        assert self._mem is not None
+        if self._mem is None:
+            raise RuntimeError("NewsGraph: no backend — both _driver and _mem are None")
         return self._mem.stats()
 
     def close(self) -> None:

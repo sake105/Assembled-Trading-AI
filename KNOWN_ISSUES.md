@@ -270,3 +270,34 @@ echte Implementierungen in `trading_cycle_v2.py` neu geschrieben:
 - `trading_cycle_v2.py` → Umbenennung zu `trading_cycle.py` bewusst verschoben: 24 Stellen importieren `trading_cycle_v2`; Rename bringt keinen Funktionsgewinn und erzeugt großen Diff.
 
 **Abgeschlossen:** Alle 4 Migrationsphasen für `trading_cycle.py → trading_cycle_v2.py` sind done.
+
+---
+
+## 6. Strategische Deferred Items (2026-04-29)
+
+Bewusst vertagt. Hier tracken für spätere Planung.
+
+### 6.1 PIT-Universe Wiring (vollständig)
+
+**Status:** `get_universe_members_pit(as_of)` implementiert, aber kein produktiver Aufrufer (Details: §0.1)  
+**Action:** PIT-Funktion in Pipeline-/Backtest-Universe-Selektion verdrahten  
+**Prerequisite:** Historische Mitgliedschaftsdaten (Sharadar, Norgate, oder Open-S&P-CSVs)
+
+### 6.2 regime_analysis.py — 6 offene TODOs
+
+**Datei:** `src/assembled_core/signals/regime_analysis.py`  
+**Status:** 6 inline TODOs — Entscheidung ausstehend: implementieren oder archivieren  
+**Action:** In einer Session reviewen; entweder fertigstellen oder nach `archive/` verschieben
+
+### 6.3 Dead-Module-Audit — ~26 Kandidaten
+
+**Status:** Identifiziert im Competitive-Analysis-Audit 2026-04-29 — keine aktiven Aufrufer  
+**Action:** Liste sichten; Module entweder verdrahten, dokumentieren oder löschen  
+**Risiko:** Totes Code erzeugt Verwirrung darüber, was produktionsreif ist
+
+### 6.4 trading_cycle_v2.py Package-Split
+
+**Datei:** `src/assembled_core/pipeline/trading_cycle_v2.py`  
+**Stand:** ~2673 LOC (2026-04-29); wächst mit jeder Wiring-Welle weiter  
+**Action:** In 5–6 fokussierte Module aufteilen (z.B. steps, risk, execution, features, signals)  
+**Risiko bei weiterem Aufschub:** Datei überschreitet Wartbarkeitsschwelle; Diffs werden unlesbar

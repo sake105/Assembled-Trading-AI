@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 from collections import deque
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -28,17 +28,17 @@ class PDTMigrationDetector:
         self.fourth_day_trade_attempts: deque[datetime] = deque(maxlen=100)
 
     def record_pdt_block(self, timestamp: datetime | None = None) -> None:
-        self.pdt_blocks.append(timestamp or datetime.utcnow())
+        self.pdt_blocks.append(timestamp or datetime.now(timezone.utc))
 
     def record_fourth_day_trade_attempt(self, timestamp: datetime | None = None) -> None:
         """Record an order that would have been a 4th day-trade.
 
         If broker allowed it without a 403, migration has occurred.
         """
-        self.fourth_day_trade_attempts.append(timestamp or datetime.utcnow())
+        self.fourth_day_trade_attempts.append(timestamp or datetime.now(timezone.utc))
 
     def likely_migrated(self) -> bool:
-        cutoff = datetime.utcnow() - self.observation_window
+        cutoff = datetime.now(timezone.utc) - self.observation_window
         recent_attempts = sum(1 for ts in self.fourth_day_trade_attempts if ts > cutoff)
         recent_blocks = sum(1 for ts in self.pdt_blocks if ts > cutoff)
         if recent_attempts >= 3 and recent_blocks == 0:

@@ -13,12 +13,17 @@ route the data without pulling in pandas at import time.
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
 _GAMMA_BASE = "https://gamma-api.polymarket.com"
 _CLOB_BASE = "https://clob.polymarket.com"
+
+_GEO_SIGNAL_CACHE: dict[str, Any] | None = None
+_GEO_SIGNAL_CACHE_TS: float = 0.0
+_GEO_SIGNAL_TTL: float = 300.0  # 5 minutes — avoids 240+ calls/hour in fast cycles
 
 # Topics that map well to geo-risk signals
 GEO_KEYWORDS = frozenset({
@@ -108,6 +113,8 @@ def get_market_implied_geo_signal(
     Aggregates market-implied probabilities for geo/macro risk events into
     a scalar signal suitable for use in the georisk_overlay.
 
+    Result is cached for 5 minutes to avoid 240+ API calls/hour in fast cycles.
+
     Args:
         policy: Optional policy dict (unused, kept for interface parity with overlay callers).
         limit: Number of active markets to consider.
@@ -120,8 +127,14 @@ def get_market_implied_geo_signal(
           volume_weighted_prob: float — volume-weighted probability
           source:        "polymarket"
     """
+    global _GEO_SIGNAL_CACHE, _GEO_SIGNAL_CACHE_TS
+    now = time.monotonic()
+    if _GEO_SIGNAL_CACHE is not None and (now - _GEO_SIGNAL_CACHE_TS) < _GEO_SIGNAL_TTL:
+        return _GEO_SIGNAL_CACHE
+
     markets = fetch_active_markets(limit=limit, geo_filter=True)
     if not markets:
+        # Do not cache empty results — allow retry on next call
         return {
             "signal": 0.0,
             "n_markets": 0,
@@ -144,10 +157,13 @@ def get_market_implied_geo_signal(
     # Most binary markets hover near 0.5; elevation above 0.55 is notable
     signal = min(1.0, max(0.0, (avg_prob - 0.40) / 0.40))
 
-    return {
+    result = {
         "signal":               round(signal, 4),
         "n_markets":            len(markets),
         "avg_prob":             round(avg_prob, 4),
         "volume_weighted_prob": round(vol_weighted, 4),
         "source":               "polymarket",
     }
+    _GEO_SIGNAL_CACHE = result
+    _GEO_SIGNAL_CACHE_TS = now
+    return result
