@@ -18,18 +18,20 @@ logger = logging.getLogger(__name__)
 
 # Source tier reliability priors (P(E|H) — likelihood of seeing this evidence given trigger is real)
 SOURCE_RELIABILITY: dict[str, float] = {
-    "T0": 0.95,   # Government sanctions lists — very reliable
-    "T1": 0.85,   # Licensed newswires (AP, Reuters)
-    "T2": 0.65,   # Open/aggregator (GDELT, ACLED, World Bank)
-    "T3": 0.35,   # Scrapes/social — low reliability
+    "T0":  0.95,   # Government sanctions lists — very reliable
+    "T1":  0.85,   # Licensed newswires (AP, Reuters)
+    "T1.5": 0.75,  # CFTC-regulated prediction markets (Polymarket, Kalshi) — crowd-sourced, liquid
+    "T2":  0.65,   # Open/aggregator (GDELT, ACLED, World Bank)
+    "T3":  0.35,   # Scrapes/social — low reliability
 }
 
 # False positive rate per source tier (P(E|~H) — probability of seeing evidence even if trigger is false)
 FALSE_POSITIVE_RATE: dict[str, float] = {
-    "T0": 0.02,
-    "T1": 0.10,
-    "T2": 0.20,
-    "T3": 0.40,
+    "T0":  0.02,
+    "T1":  0.10,
+    "T1.5": 0.15,  # Prediction markets occasionally price in noise; slightly higher FPR than newswires
+    "T2":  0.20,
+    "T3":  0.40,
 }
 
 # Initial priors per TriggerType (baseline probability before any evidence)

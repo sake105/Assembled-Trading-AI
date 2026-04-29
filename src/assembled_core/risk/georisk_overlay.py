@@ -165,4 +165,62 @@ def apply_exposure_multiplier_to_targets(
     return df
 
 
-__all__ = ["compute_exposure_multiplier", "apply_exposure_multiplier_to_targets"]
+def get_market_implied_geo_signal(
+    policy: dict | None = None,
+    use_polymarket: bool = True,
+    use_kalshi: bool = True,
+    poly_weight: float = 0.6,
+) -> dict:
+    """Aggregate prediction-market geo-risk signals from Polymarket and/or Kalshi.
+
+    Fetches live market probabilities from CFTC-regulated prediction markets and
+    returns a blended geo-risk signal dict suitable for use in exposure calculations.
+
+    Args:
+        policy: Policy dict (unused, kept for interface parity).
+        use_polymarket: Include Polymarket (T1.5 source).
+        use_kalshi: Include Kalshi (T1.5 source).
+        poly_weight: Polymarket weight in blended signal (Kalshi = 1 - poly_weight).
+
+    Returns:
+        Dict with keys: signal [0,1], source, n_sources, poly_signal, kals_signal.
+    """
+    poly_sig = None
+    kals_sig = None
+
+    if use_polymarket:
+        try:
+            from assembled_core.data.sources.polymarket_source import (
+                get_market_implied_geo_signal as _poly_signal,
+            )
+            poly_sig = _poly_signal(policy=policy)
+        except Exception:
+            pass
+
+    if use_kalshi:
+        try:
+            from assembled_core.data.sources.kalshi_source import (
+                get_market_implied_geo_signal as _kals_signal,
+                fetch_combined_prediction_signal,
+            )
+            kals_sig = _kals_signal()
+        except Exception:
+            pass
+
+    if poly_sig is None and kals_sig is None:
+        return {"signal": 0.0, "source": "prediction_markets_combined", "n_sources": 0}
+
+    try:
+        from assembled_core.data.sources.kalshi_source import fetch_combined_prediction_signal
+        return fetch_combined_prediction_signal(poly_sig, kals_sig, poly_weight)
+    except Exception:
+        # Fallback: use whichever signal is available
+        available = poly_sig or kals_sig
+        return available or {"signal": 0.0, "source": "prediction_markets_combined", "n_sources": 0}
+
+
+__all__ = [
+    "compute_exposure_multiplier",
+    "apply_exposure_multiplier_to_targets",
+    "get_market_implied_geo_signal",
+]
