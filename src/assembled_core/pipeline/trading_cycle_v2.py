@@ -1035,6 +1035,31 @@ def generate_signals(
     except Exception as e:
         log.debug("[EVIDENCE-GATE] skipped: %s", e)
 
+    # --- Step 3.95: GNN graph signal blend (degrades to zero scores without PyG) ---
+    try:
+        gnn_cfg = (policy.get("signals") or {}).get("gnn_signal") or {}
+        if gnn_cfg.get("enabled", False) and not signals.empty and "symbol" in signals.columns:
+            from src.assembled_core.ml.gnn_signal import GNNConfig, GNNSignalModel
+            _gnn_model_cfg = GNNConfig(
+                n_node_features=int(gnn_cfg.get("n_node_features", 16)),
+                hidden_dim=int(gnn_cfg.get("hidden_dim", 64)),
+            )
+            _gnn_model = GNNSignalModel(_gnn_model_cfg)
+            _prices_for_gnn = getattr(ctx, "prices", None)
+            if _prices_for_gnn is not None and not _prices_for_gnn.empty:
+                _gnn_symbols = signals["symbol"].tolist()
+                _gnn_result = _gnn_model.predict(_prices_for_gnn, symbols=_gnn_symbols)
+                if _gnn_result.scores is not None and len(_gnn_result.scores) == len(_gnn_symbols):
+                    _gnn_weight = float(gnn_cfg.get("blend_weight", 0.20))
+                    _gnn_map = dict(zip(_gnn_result.symbols, _gnn_result.scores.tolist()))
+                    if "score" in signals.columns:
+                        signals = signals.copy()
+                        signals["gnn_score"] = signals["symbol"].map(_gnn_map).fillna(0.0)
+                        signals["score"] = signals["score"] * (1.0 - _gnn_weight) + signals["gnn_score"] * _gnn_weight
+                        log.debug("[GNN] blended gnn_score into score (weight=%.2f, backend=%s)", _gnn_weight, _gnn_result.backend)
+    except Exception as e:
+        log.debug("[GNN] gnn_signal skipped: %s", e)
+
     return signals
 
 
@@ -2217,6 +2242,35 @@ def route_orders(
         orders = orders.copy()
         orders["qty"] = orders["qty"].abs()
 
+    # Phase 17.85: RL execution quality annotation (live/paper only, never blocks)
+    try:
+        rl_cfg = (policy.get("execution") or {}).get("rl_executor") or {}
+        if rl_cfg.get("enabled", False) and getattr(ctx, "mode", "") in ("live", "paper") and not orders.empty:
+            from src.assembled_core.execution.rl_environment import ExecutionEnvConfig
+            from src.assembled_core.execution.rl_execution import RLExecutor, RuleBasedExecutor
+            _rl_model_path = rl_cfg.get("model_path", "")
+            _rl_n_steps = int(rl_cfg.get("n_steps", 20))
+            _rl_min_qty = int(rl_cfg.get("min_qty_for_annotation", 100))
+            _rl_shortfall_bps: list[float] = []
+            for _rl_idx, _rl_row in orders.iterrows():
+                _rl_qty = abs(int(_rl_row.get("qty", 0) or 0))
+                _rl_price = float(_rl_row.get("price", 100.0) or 100.0)
+                if _rl_qty >= _rl_min_qty and _rl_price > 0:
+                    _rl_env_cfg = ExecutionEnvConfig(total_shares=_rl_qty, arrival_price=_rl_price, n_steps=_rl_n_steps)
+                    if _rl_model_path:
+                        _rl_exec: RLExecutor | RuleBasedExecutor = RLExecutor(config=_rl_env_cfg, model_path=_rl_model_path)
+                        _rl_exec.load(_rl_model_path)
+                    else:
+                        _rl_exec = RuleBasedExecutor(config=_rl_env_cfg)
+                    _rl_res = _rl_exec.execute(n_steps=_rl_n_steps)
+                    orders.at[_rl_idx, "rl_avg_exec_price"] = _rl_res.get("avg_execution_price", _rl_price)
+                    orders.at[_rl_idx, "rl_est_shortfall_bps"] = _rl_res.get("shortfall_bps", 0.0)
+                    _rl_shortfall_bps.append(float(_rl_res.get("shortfall_bps", 0.0)))
+            if _rl_shortfall_bps:
+                log.debug("[RL-EXEC] annotated %d orders; avg shortfall %.1f bps", len(_rl_shortfall_bps), sum(_rl_shortfall_bps) / len(_rl_shortfall_bps))
+    except Exception as e:
+        log.debug("[RL-EXEC] rl_executor skipped: %s", e)
+
     return orders
 
 
@@ -2447,6 +2501,30 @@ def book_fills(
             export_metrics(kpi_metrics, histograms=kpi_histograms, labels={"strategy": ctx.strategy_name or "unknown", "mode": ctx.mode}, path=metrics_dir / "assembled.prom" if metrics_dir else None)
     except Exception as e:
         log.debug("[KPI] kpi_export skipped: %s", e)
+
+    # Step 7.70: QuestDB write-through of fill prices (optional, never blocks cycle)
+    try:
+        qs_cfg = (policy.get("questdb") or {}).get("write_through") or {}
+        if qs_cfg.get("enabled", False) and result.orders_filtered is not None and not result.orders_filtered.empty:
+            from src.assembled_core.data.tick_store import OHLCVTick, TickStore
+            _qs_store = TickStore(url=qs_cfg.get("url", ""))
+            if _qs_store.ping():
+                _qs_ts = pd.Timestamp.now("UTC")
+                _qs_ticks: list[OHLCVTick] = []
+                for _, _qs_row in result.orders_filtered.iterrows():
+                    _qs_p = float(_qs_row.get("price", 0) or 0)
+                    if _qs_p > 0:
+                        _qs_ticks.append(OHLCVTick(
+                            symbol=str(_qs_row["symbol"]),
+                            ts=_qs_ts,
+                            open=_qs_p, high=_qs_p, low=_qs_p, close=_qs_p,
+                            volume=abs(float(_qs_row.get("qty", 0) or 0)),
+                        ))
+                if _qs_ticks:
+                    written = _qs_store.write_ticks(_qs_ticks)
+                    log.debug("[QUESTDB] wrote %d fill ticks", written)
+    except Exception as e:
+        log.debug("[QUESTDB] write_through skipped: %s", e)
 
     result.status = "success"
     return result

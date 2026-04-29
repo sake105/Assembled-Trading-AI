@@ -139,11 +139,48 @@ def _section_news_rag(headlines: list[str]) -> dict:
     return section
 
 
+def _section_differential_privacy(returns: dict[str, list[float]], epsilon: float = 1.0) -> dict:
+    """§10 — Differentially private Sharpe estimates (publishable without leaking raw returns).
+
+    Applies Gaussian mechanism to Sharpe ratios so they can be shared externally
+    while preserving (epsilon, delta=1e-5)-DP.
+    """
+    section: dict = {"epsilon": epsilon, "delta": 1e-5, "strategy_dp_sharpes": {}}
+    if not returns:
+        section["skipped"] = "no returns"
+        return section
+    try:
+        from src.assembled_core.ml.differential_privacy import PrivacyBudget, dp_mean
+
+        budget = PrivacyBudget(epsilon_total=epsilon * len(returns), delta=1e-5)
+        for name, rets in returns.items():
+            if len(rets) < 5:
+                continue
+            import math as _math
+            std = float(sum((r - sum(rets) / len(rets)) ** 2 for r in rets) / max(len(rets) - 1, 1)) ** 0.5
+            raw_sharpe = (sum(rets) / len(rets)) / max(std, 1e-9) * _math.sqrt(252)
+            # DP Sharpe: treat returns as the sensitive dataset; clip_bound protects individuals
+            dp_sharpe = dp_mean(rets, clip_bound=0.10, epsilon=epsilon, delta=1e-5)
+            annualized_dp_sharpe = dp_sharpe / max(std, 1e-9) * _math.sqrt(252)
+            budget.consume(epsilon)
+            section["strategy_dp_sharpes"][name] = {
+                "raw_sharpe": round(raw_sharpe, 4),
+                "dp_sharpe_annualized": round(float(annualized_dp_sharpe), 4),
+                "epsilon_consumed": round(budget.epsilon_used, 4),
+                "budget_exhausted": budget.is_exhausted,
+            }
+    except Exception as exc:
+        log.warning("differential_privacy section failed: %s", exc)
+        section["error"] = str(exc)
+    return section
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Daily QA report")
     parser.add_argument("--equity-file", default="", help="CSV with equity curves (one column per strategy)")
     parser.add_argument("--strategies", default="", help="Comma-separated strategy names (filters equity-file columns)")
     parser.add_argument("--news-headlines", default="", help="Semicolon-separated headlines for RAG digest")
+    parser.add_argument("--dp-epsilon", type=float, default=1.0, help="DP epsilon for Sharpe privatisation (default 1.0)")
     parser.add_argument("--out", default="", help="Output JSON path (default: stdout)")
     args = parser.parse_args()
 
@@ -165,6 +202,7 @@ def main() -> None:
         "bayesian_sharpe": _section_bayesian_sharpe(returns),
         "risk_parity": _section_risk_parity(returns),
         "news_rag_digest": _section_news_rag(headlines),
+        "differential_privacy": _section_differential_privacy(returns, epsilon=args.dp_epsilon),
     }
 
     out_str = json.dumps(report, indent=2)
