@@ -27,6 +27,7 @@ class SignalRegistry:
 
     def __init__(self) -> None:
         self._signals: dict[str, BaseSignal] = {}
+        self._load_errors: dict[str, str] = {}
 
     def load_all(self) -> int:
         """Load all entry-point signals.  Returns count of loaded signals."""
@@ -48,6 +49,7 @@ class SignalRegistry:
                 logger.info("Loaded signal: %s v%s", inst.name, inst.version)
                 loaded += 1
             except Exception as exc:
+                self._load_errors[ep.name] = str(exc)
                 logger.error("Failed to load signal %s: %s", ep.name, exc)
         return loaded
 
@@ -65,6 +67,10 @@ class SignalRegistry:
 
     def names(self) -> list[str]:
         return sorted(self._signals.keys())
+
+    def errors(self) -> dict[str, str]:
+        """Return load errors from the last load_all() call."""
+        return dict(self._load_errors)
 
     def __iter__(self) -> Iterator[BaseSignal]:
         return iter(self._signals.values())
