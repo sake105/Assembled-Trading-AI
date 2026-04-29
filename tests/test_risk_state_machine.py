@@ -24,7 +24,7 @@ from src.assembled_core.intel.disclosures_triggers_loader import (
     DisclosuresTriggerSnapshot,
 )
 
-import src.assembled_core.pipeline.trading_cycle  # noqa: F401 - ensure submodule is loaded for monkeypatch
+import src.assembled_core.pipeline.trading_cycle_v2  # noqa: F401 - ensure submodule is loaded for monkeypatch
 import src.assembled_core.risk.state_machine  # noqa: F401 - ensure submodule is loaded for monkeypatch
 
 
@@ -274,7 +274,7 @@ def test_run_trading_cycle_fills_risk_state(monkeypatch: Any) -> None:
             }
         }
         for _mod in (
-            "src.assembled_core.pipeline.trading_cycle",
+            "src.assembled_core.pipeline.trading_cycle_shared",
             "src.assembled_core.pipeline.trading_cycle_v2",
         ):
             monkeypatch.setattr(f"{_mod}.get_base_dir", lambda: base)
@@ -317,10 +317,10 @@ def test_ephemeral_mode_does_not_write_file(monkeypatch: Any) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         base = Path(tmp)
         monkeypatch.setattr(
-            "src.assembled_core.pipeline.trading_cycle.get_base_dir", lambda: base
+            "src.assembled_core.pipeline.trading_cycle_v2.get_base_dir", lambda: base
         )
         monkeypatch.setattr(
-            "src.assembled_core.pipeline.trading_cycle.load_policy",
+            "src.assembled_core.pipeline.trading_cycle_v2.load_policy",
             lambda: {
                 "risk_state_machine": {
                     "enabled": True,
@@ -375,7 +375,7 @@ def test_per_run_mode_writes_to_unique_path(monkeypatch: Any) -> None:
             }
         }
         for _mod in (
-            "src.assembled_core.pipeline.trading_cycle",
+            "src.assembled_core.pipeline.trading_cycle_shared",
             "src.assembled_core.pipeline.trading_cycle_v2",
         ):
             monkeypatch.setattr(f"{_mod}.get_base_dir", lambda: base)

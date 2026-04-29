@@ -262,6 +262,11 @@ echte Implementierungen in `trading_cycle_v2.py` neu geschrieben:
 - `trading_cycle.py`: 62 Zeilen — Phasen 3+4 sind effektiv abgeschlossen.
 - `trading_cycle_v2.py`: Primärer Pfad; enthält alle aktiven Phasen + Phase 2a+2b.
 
-### Nächste Schritte
+### Phase 4 — Archiviert (2026-04-29)
 
-- Phase 4 (optional): `trading_cycle.py` aus src/ entfernen + `trading_cycle_v2.py` → `trading_cycle.py` umbenennen. Erst nach vollständigem Import-Sweep (`rg "from.*trading_cycle import"`).
+- `src/assembled_core/pipeline/trading_cycle.py` (62-Zeilen-Shim) nach `archive/pipeline_legacy_2026q2/trading_cycle.py` verschoben (`git mv`).
+- Import-Sweep bestätigt: 0 verbleibende `trading_cycle`-Imports außerhalb der kanonischen Module.
+- `filterwarnings = ["error::DeprecationWarning:src.assembled_core.pipeline.*"]` aktiv in `pyproject.toml`.
+- `trading_cycle_v2.py` → Umbenennung zu `trading_cycle.py` bewusst verschoben: 24 Stellen importieren `trading_cycle_v2`; Rename bringt keinen Funktionsgewinn und erzeugt großen Diff.
+
+**Abgeschlossen:** Alle 4 Migrationsphasen für `trading_cycle.py → trading_cycle_v2.py` sind done.
