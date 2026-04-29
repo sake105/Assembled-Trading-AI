@@ -560,3 +560,71 @@ def generate_qa_report_from_files(
         config_info=config_info,
         output_dir=reports_dir,
     )
+
+
+# ---------------------------------------------------------------------------
+# quantstats HTML tearsheet (soft-optional)
+# ---------------------------------------------------------------------------
+
+
+def generate_quantstats_tearsheet(
+    equity_curve: pd.Series,
+    output_path: Path | str,
+    benchmark: str | None = None,
+    title: str = "Strategy Tearsheet",
+    rf: float = 0.0,
+) -> Path | None:
+    """Generate a professional HTML tearsheet using quantstats.
+
+    Falls back gracefully if quantstats is not installed.
+
+    Parameters
+    ----------
+    equity_curve:
+        Equity (NAV) series with DatetimeIndex. Will be converted to daily
+        simple returns internally.
+    output_path:
+        Directory or full .html file path. If directory, a file named
+        ``tearsheet.html`` is created inside it.
+    benchmark:
+        Ticker symbol for benchmark (e.g. ``"SPY"``). Requires internet and
+        yfinance/pandas_datareader. Pass ``None`` to skip.
+    title:
+        Report title shown in the HTML header.
+    rf:
+        Risk-free rate (annual, decimal) for Sharpe computation.
+
+    Returns
+    -------
+    Path | None
+        Resolved path to the written HTML file, or ``None`` if quantstats is
+        not installed.
+    """
+    try:
+        import quantstats as qs  # noqa: PLC0415
+    except ImportError:
+        logger.warning("[QS] quantstats not installed — pip install quantstats. Tearsheet skipped.")
+        return None
+
+    output_path = Path(output_path)
+    if output_path.is_dir():
+        output_path = output_path / "tearsheet.html"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Convert NAV to returns
+    returns = equity_curve.pct_change().dropna()
+
+    try:
+        qs.reports.html(
+            returns,
+            benchmark=benchmark,
+            output=str(output_path),
+            title=title,
+            rf=rf,
+            download_filename=output_path.name,
+        )
+        logger.info("[QS] Tearsheet written to %s", output_path)
+        return output_path
+    except Exception as exc:
+        logger.warning("[QS] quantstats HTML generation failed: %s", exc)
+        return None
