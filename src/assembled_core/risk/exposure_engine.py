@@ -105,8 +105,8 @@ def compute_target_positions(
     )
 
     # Fill NaN values (symbols only in orders have NaN current_qty, symbols only in current have NaN order_delta)
-    target_df["qty"] = target_df["qty"].fillna(0.0)
-    target_df["order_delta"] = target_df["order_delta"].fillna(0.0)
+    target_df["qty"] = target_df["qty"].astype(float).fillna(0.0)
+    target_df["order_delta"] = target_df["order_delta"].astype(float).fillna(0.0)
 
     # Compute target_qty = current_qty + order_delta
     target_df["target_qty"] = target_df["qty"] + target_df["order_delta"]

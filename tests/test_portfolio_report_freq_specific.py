@@ -108,6 +108,7 @@ def test_portfolio_report_prefers_freq_specific(
         monkeypatch.setattr(config_module, "OUTPUT_DIR", original_output_dir)
 
 
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_portfolio_report_fallback_to_legacy(
     tmp_path: Path, monkeypatch, client: TestClient
 ):
