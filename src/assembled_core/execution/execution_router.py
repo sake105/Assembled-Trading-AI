@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 
@@ -65,7 +65,7 @@ def twap_split(
         return [ChildOrder.from_parent(order, "twap")]
     base_qty = order.quantity // n_slices
     remainder = order.quantity % n_slices
-    start = start_time or datetime.utcnow()
+    start = start_time or datetime.now(timezone.utc)
     interval = timedelta(minutes=duration_minutes / n_slices)
     slices: list[ChildOrder] = []
     for i in range(n_slices):
