@@ -1146,3 +1146,54 @@ def bayesian_sharpe_credible_interval(
         "ci_upper": round(post_mean + z * post_std, 4),
         "posterior_std": round(post_std, 4),
     }
+
+
+# ---------------------------------------------------------------------------
+# PSI and PBO (from 32_VALIDIERUNG.md §32.8 and §32.3)
+# ---------------------------------------------------------------------------
+
+def psi(reference: "np.ndarray | pd.Series", current: "np.ndarray | pd.Series", bins: int = 10) -> float:
+    """Population Stability Index between reference and current distributions.
+
+    Interpretation:
+        < 0.10 — stable
+        0.10–0.20 — moderate drift
+        > 0.20 — significant drift (review)
+        > 0.30 — auto-pause recommended
+    """
+    ref_hist, _ = np.histogram(reference, bins=bins)
+    cur_hist, _ = np.histogram(current, bins=ref_hist.shape[0])
+
+    ref_pct = ref_hist / ref_hist.sum()
+    cur_pct = cur_hist / cur_hist.sum()
+
+    ref_pct = np.where(ref_pct == 0, 1e-6, ref_pct)
+    cur_pct = np.where(cur_pct == 0, 1e-6, cur_pct)
+
+    return float(np.sum((cur_pct - ref_pct) * np.log(cur_pct / ref_pct)))
+
+
+def probability_backtest_overfitting(
+    is_returns_matrix: "np.ndarray",
+    oos_returns_matrix: "np.ndarray",
+) -> float:
+    """Probability of Backtest Overfitting (Bailey / López de Prado 2014).
+
+    Args:
+        is_returns_matrix: (n_strategies, n_periods_is) array of IS returns.
+        oos_returns_matrix: (n_strategies, n_periods_oos) array of OOS returns.
+
+    Returns:
+        PBO in [0, 1]. Lower is better.
+        Target: < 0.5 for paper reports, < 0.3 for live deployment.
+    """
+    is_matrix = np.asarray(is_returns_matrix)
+    oos_matrix = np.asarray(oos_returns_matrix)
+
+    ranks_is = np.argsort(is_matrix.mean(axis=1))[::-1]
+    best_strategy_is = ranks_is[0]
+
+    ranks_oos = np.argsort(oos_matrix.mean(axis=1))[::-1]
+    oos_rank = int(np.where(ranks_oos == best_strategy_is)[0][0])
+
+    return oos_rank / len(ranks_oos)
