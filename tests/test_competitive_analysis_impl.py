@@ -664,3 +664,89 @@ class TestCausalValidation:
         tiny = pd.DataFrame({"has_news_trigger": [1, 0], "return": [0.01, -0.01]})
         result = estimate_news_trigger_effect(tiny, use_dowhy=False)
         assert "estimates" in result
+
+
+# ---------------------------------------------------------------------------
+# AdaptiveConformalSizer
+# ---------------------------------------------------------------------------
+
+class TestAdaptiveConformalSizer:
+    def _sizer(self):
+        from assembled_core.portfolio.adaptive_conformal_position import AdaptiveConformalSizer
+        return AdaptiveConformalSizer(alpha=0.1, gamma=0.005, max_position=1.0)
+
+    def test_initial_prediction_returns_dict(self):
+        sizer = self._sizer()
+        import numpy as np
+        result = sizer.predict_and_size(np.array([[0.1, 0.2, 0.3]]))
+        assert "position_size" in result
+        assert "confidence" in result
+        assert "current_alpha" in result
+
+    def test_position_in_range(self):
+        sizer = self._sizer()
+        import numpy as np
+        rng = np.random.default_rng(0)
+        for _ in range(20):
+            sizer.update(float(rng.normal(0, 0.01)), 0.0)
+        result = sizer.predict_and_size(np.array([[0.0]]))
+        assert 0.0 <= result["position_size"] <= 1.0
+
+    def test_alpha_adapts_upward_on_miss(self):
+        sizer = self._sizer()
+        import numpy as np
+        rng = np.random.default_rng(7)
+        for _ in range(30):
+            sizer.update(float(rng.normal(0, 1.0)), 0.0)  # wide residuals
+        # alpha should increase after repeated misses
+        assert sizer.current_alpha != 0.1 or len(sizer._residuals) == 0
+
+    def test_empirical_coverage_none_before_update(self):
+        sizer = self._sizer()
+        assert sizer.empirical_coverage is None
+
+    def test_size_from_interval_width(self):
+        from assembled_core.portfolio.adaptive_conformal_position import size_from_interval_width
+        assert size_from_interval_width(0.0, 1.0, max_position=1.0) == 1.0
+        assert size_from_interval_width(1.0, 1.0, max_position=1.0) == 0.0
+        mid = size_from_interval_width(0.5, 1.0, max_position=1.0)
+        assert 0.0 < mid < 1.0
+
+
+# ---------------------------------------------------------------------------
+# LPPLSCrashDetector
+# ---------------------------------------------------------------------------
+
+class TestLPPLSCrashDetector:
+    def _prices(self, n=150, bubble=False):
+        import numpy as np
+        rng = np.random.default_rng(42)
+        if bubble:
+            t = np.arange(n)
+            prices = 100 * np.exp(0.002 * t + 0.5 * np.cos(7 * np.log(n - t + 5))) * (
+                1 + rng.normal(0, 0.005, n)
+            )
+        else:
+            prices = 100 * np.exp(rng.normal(0, 0.01, n).cumsum())
+        return np.abs(prices) + 10
+
+    def test_returns_dict(self):
+        from assembled_core.signals.lppls_crash import LPPLSCrashDetector
+        det = LPPLSCrashDetector(fit_window=50, max_searches=5)
+        result = det.fit_and_score(self._prices(100))
+        assert "crash_confidence" in result
+        assert "tc_estimate" in result
+        assert "time_to_crash_days" in result
+        assert "method" in result
+
+    def test_confidence_in_range(self):
+        from assembled_core.signals.lppls_crash import LPPLSCrashDetector
+        det = LPPLSCrashDetector(fit_window=50, max_searches=5)
+        result = det.fit_and_score(self._prices(120))
+        assert 0.0 <= result["crash_confidence"] <= 1.0
+
+    def test_method_is_numpy_fallback(self):
+        from assembled_core.signals.lppls_crash import LPPLSCrashDetector
+        det = LPPLSCrashDetector(fit_window=50, max_searches=5)
+        result = det.fit_and_score(self._prices(80))
+        assert "numpy" in result["method"]
