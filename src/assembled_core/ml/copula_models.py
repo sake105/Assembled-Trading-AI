@@ -274,8 +274,184 @@ def compute_portfolio_tail_risk(
     }
 
 
+# ---------------------------------------------------------------------------
+# D-vine copula (3-asset)
+# ---------------------------------------------------------------------------
+# A D-vine for d=3 variables (X1, X2, X3) uses a 2-layer tree:
+#   Tree 1: C12 (X1, X2),  C23 (X2, X3)
+#   Tree 2: C13|2 (F(X1|X2), F(X3|X2))   — conditioned on X2
+#
+# Log-likelihood = loglik(C12) + loglik(C23) + loglik(C13|2)
+# h-functions   = conditional CDFs needed to compute Tree-2 pseudo-obs.
+# ---------------------------------------------------------------------------
+
+from dataclasses import dataclass as _dc_dvine
+
+@_dc_dvine
+class DVineResult:
+    """Fitted D-vine copula for a triple of assets."""
+    symbols: tuple[str, str, str]
+    copula_12: str      # "clayton" | "gumbel" | "gaussian"
+    theta_12: float
+    copula_23: str
+    theta_23: float
+    copula_13_2: str   # C(1,3|2) — conditional copula
+    theta_13_2: float
+    log_likelihood: float
+    n_obs: int
+
+
+# -- h-functions (conditional CDFs) -----------------------------------------
+
+def _h_clayton(u: np.ndarray, v: np.ndarray, theta: float) -> np.ndarray:
+    """h(u|v; Clayton) = P(U1 <= u | U2 = v)."""
+    eps = 1e-8
+    u = np.clip(u, eps, 1 - eps)
+    v = np.clip(v, eps, 1 - eps)
+    # h(u|v) = (u^{-theta} + v^{-theta} - 1)^{-(1+1/theta)} * v^{-(theta+1)}
+    inner = np.maximum(u ** (-theta) + v ** (-theta) - 1.0, eps)
+    return inner ** (-(1.0 + 1.0 / theta)) * v ** (-(theta + 1.0))
+
+
+def _h_gumbel(u: np.ndarray, v: np.ndarray, theta: float) -> np.ndarray:
+    """h(u|v; Gumbel) via numerical finite difference (width=1e-5)."""
+    eps = 1e-5
+    v_lo = np.clip(v - eps, 1e-8, 1 - 1e-8)
+    v_hi = np.clip(v + eps, 1e-8, 1 - 1e-8)
+
+    def _gumbel_cdf(uu: np.ndarray, vv: np.ndarray) -> np.ndarray:
+        lu = (-np.log(np.clip(uu, 1e-8, 1 - 1e-8))) ** theta
+        lv = (-np.log(np.clip(vv, 1e-8, 1 - 1e-8))) ** theta
+        return np.exp(-((lu + lv) ** (1.0 / theta)))
+
+    return (_gumbel_cdf(u, v_hi) - _gumbel_cdf(u, v_lo)) / (2.0 * eps)
+
+
+def _h_gaussian(u: np.ndarray, v: np.ndarray, rho: float) -> np.ndarray:
+    """h(u|v; Gaussian) = Phi((Phi^{-1}(u) - rho*Phi^{-1}(v)) / sqrt(1-rho^2))."""
+    if not SCIPY_AVAILABLE:
+        return np.full_like(u, 0.5)
+    eps = 1e-8
+    u = np.clip(u, eps, 1 - eps)
+    v = np.clip(v, eps, 1 - eps)
+    xu = sp_stats.norm.ppf(u)
+    xv = sp_stats.norm.ppf(v)
+    denom = max(np.sqrt(1.0 - rho ** 2), 1e-8)
+    return sp_stats.norm.cdf((xu - rho * xv) / denom)
+
+
+def _h(u: np.ndarray, v: np.ndarray, copula: str, theta: float) -> np.ndarray:
+    """Dispatch h-function by copula name."""
+    if copula == "clayton":
+        return np.clip(_h_clayton(u, v, theta), 1e-8, 1 - 1e-8)
+    if copula == "gumbel":
+        return np.clip(_h_gumbel(u, v, theta), 1e-8, 1 - 1e-8)
+    # gaussian
+    return np.clip(_h_gaussian(u, v, float(theta)), 1e-8, 1 - 1e-8)
+
+
+def _logpdf(u: np.ndarray, v: np.ndarray, copula: str, theta: float) -> float:
+    """Dispatch bivariate copula log-likelihood."""
+    if copula == "clayton":
+        return _clayton_logpdf(u, v, theta)
+    if copula == "gumbel":
+        return _gumbel_logpdf(u, v, theta)
+    return _gaussian_logpdf(u, v, theta)
+
+
+def _fit_pair(
+    u: np.ndarray, v: np.ndarray
+) -> tuple[str, float, float]:
+    """Return (best_copula, theta, loglik) for a pseudo-uniform pair."""
+    if not SCIPY_AVAILABLE:
+        return ("gaussian", 0.0, 0.0)
+
+    results = []
+    for name, bounds, neg_ll in [
+        ("clayton", (0.01, 20.0),  lambda t: -_clayton_logpdf(u, v, t)),
+        ("gumbel",  (1.01, 20.0),  lambda t: -_gumbel_logpdf(u, v, t)),
+        ("gaussian", (-0.99, 0.99), lambda t: -_gaussian_logpdf(u, v, t)),
+    ]:
+        try:
+            res = sp_opt.minimize_scalar(neg_ll, bounds=bounds, method="bounded")
+            if res.success:
+                results.append((name, float(res.x), -float(res.fun)))
+        except Exception:
+            pass
+
+    if not results:
+        return ("gaussian", 0.0, -np.inf)
+    best = max(results, key=lambda x: x[2])
+    return best
+
+
+def fit_dvine_trio(
+    returns_a: np.ndarray,
+    returns_b: np.ndarray,
+    returns_c: np.ndarray,
+    symbol_a: str = "A",
+    symbol_b: str = "B",
+    symbol_c: str = "C",
+) -> DVineResult | None:
+    """Fit a D-vine copula to three return series.
+
+    The vine structure is:
+        Tree 1: C(A,B) and C(B,C)
+        Tree 2: C(A,C | B)  — conditional copula
+
+    Args:
+        returns_a/b/c: Daily returns for assets A, B, C.
+        symbol_a/b/c: Labels.
+
+    Returns:
+        :class:`DVineResult` or ``None`` when fewer than 50 observations or
+        scipy unavailable.
+    """
+    if not SCIPY_AVAILABLE:
+        return None
+
+    # Align on finite observations
+    mask = np.isfinite(returns_a) & np.isfinite(returns_b) & np.isfinite(returns_c)
+    ra, rb, rc = returns_a[mask], returns_b[mask], returns_c[mask]
+    if len(ra) < 50:
+        return None
+
+    ua = _rank_transform(ra)
+    ub = _rank_transform(rb)
+    uc = _rank_transform(rc)
+
+    # -- Tree 1 -----------------------------------------------------------
+    cop12, theta12, ll12 = _fit_pair(ua, ub)
+    cop23, theta23, ll23 = _fit_pair(ub, uc)
+
+    # -- Conditional pseudo-observations for Tree 2 -----------------------
+    # v1_2 = h(ua | ub; C12)  i.e. F(A | B)
+    # v3_2 = h(uc | ub; C23)  i.e. F(C | B)
+    v1_2 = _h(ua, ub, cop12, theta12)
+    v3_2 = _h(uc, ub, cop23, theta23)
+
+    # -- Tree 2 -----------------------------------------------------------
+    cop132, theta132, ll132 = _fit_pair(v1_2, v3_2)
+
+    total_ll = ll12 + ll23 + ll132
+
+    return DVineResult(
+        symbols=(symbol_a, symbol_b, symbol_c),
+        copula_12=cop12,
+        theta_12=round(theta12, 4),
+        copula_23=cop23,
+        theta_23=round(theta23, 4),
+        copula_13_2=cop132,
+        theta_13_2=round(theta132, 4),
+        log_likelihood=round(total_ll, 2),
+        n_obs=int(len(ra)),
+    )
+
+
 __all__ = [
     "CopulaResult",
+    "DVineResult",
     "compute_portfolio_tail_risk",
     "fit_copula_pair",
+    "fit_dvine_trio",
 ]

@@ -141,6 +141,162 @@ def ac_split(order: Order, config: ExecutionConfig) -> list[ChildOrder]:
     return slices
 
 
+# ---------------------------------------------------------------------------
+# Adaptive Almgren-Chriss (B10)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class AdaptiveACState:
+    """Mutable state for the adaptive AC executor.
+
+    Maintains an EWMA estimate of the temporary market-impact coefficient η
+    updated after each observed fill.  Start with the prior from
+    :class:`ExecutionConfig`.
+
+    Parameters
+    ----------
+    eta_prior:
+        Initial η (temporary impact coefficient) — copied from config.
+    ewma_alpha:
+        Learning rate in (0, 1].  Higher = faster adaptation to new fills.
+        Typical range: 0.05–0.20.
+    min_obs_before_update:
+        Minimum number of observed fills before the prior is overridden.
+    """
+
+    eta_hat: float
+    ewma_alpha: float = 0.10
+    min_obs_before_update: int = 3
+    obs_count: int = 0
+    _cum_implied_eta: float = 0.0  # weighted accumulator (internal)
+
+    @classmethod
+    def from_config(
+        cls, config: ExecutionConfig, ewma_alpha: float = 0.10
+    ) -> "AdaptiveACState":
+        return cls(eta_hat=config.almgren_eta, ewma_alpha=ewma_alpha)
+
+    def update(
+        self,
+        qty_filled: float,
+        expected_price: float,
+        actual_price: float,
+        side: str,
+        sigma_daily: float = 0.015,
+    ) -> None:
+        """Update η from one observed fill.
+
+        Implied η = |slippage_bps| * price / (qty * sigma²).
+        Slippage  = (actual - expected) for BUY, (expected - actual) for SELL.
+
+        Args:
+            qty_filled: Shares filled in this child order.
+            expected_price: Reference price at order submission (e.g. arrival price).
+            actual_price: Observed fill price.
+            sigma_daily: Estimated daily vol used in the AC model (annualised / sqrt(252)).
+        """
+        if expected_price <= 0 or qty_filled <= 0:
+            return
+        sign = 1.0 if side.upper() == "BUY" else -1.0
+        slippage = sign * (actual_price - expected_price) / expected_price
+        slippage = max(slippage, 0.0)  # only cost (positive) fills update η
+
+        # η relates slippage to trade rate: slippage ≈ η * (qty / sigma)
+        var_daily = sigma_daily ** 2
+        implied_eta = slippage * expected_price / max(qty_filled * var_daily, 1e-10)
+        implied_eta = max(implied_eta, 1e-6)
+
+        self.obs_count += 1
+        if self.obs_count < self.min_obs_before_update:
+            return
+
+        # EWMA update
+        self.eta_hat = (
+            self.ewma_alpha * implied_eta
+            + (1.0 - self.ewma_alpha) * self.eta_hat
+        )
+        self.eta_hat = max(self.eta_hat, 1e-6)
+
+
+def adaptive_ac_split(
+    order: Order,
+    config: ExecutionConfig,
+    state: AdaptiveACState,
+    remaining_qty: int | None = None,
+    remaining_slices: int | None = None,
+) -> list[ChildOrder]:
+    """Almgren-Chriss split using live-updated market-impact parameters.
+
+    Accepts a partially executed order by passing *remaining_qty* and
+    *remaining_slices* — the schedule is re-optimised for the remainder
+    using the current ``state.eta_hat``.
+
+    Args:
+        order: The parent (or residual) order to execute.
+        config: Execution configuration (gamma, lambda_risk, slices).
+        state: Adaptive state carrying the current η estimate.
+        remaining_qty: Shares still to execute; defaults to order.quantity.
+        remaining_slices: Time intervals remaining; defaults to config.twap_slices.
+
+    Returns:
+        List of :class:`ChildOrder` slices.
+    """
+    import math
+
+    qty = remaining_qty if remaining_qty is not None else order.quantity
+    n = remaining_slices if remaining_slices is not None else config.twap_slices
+    if n <= 0 or qty <= 0:
+        return []
+
+    eta = state.eta_hat
+    gamma = config.almgren_gamma
+    lam = config.almgren_lambda
+
+    denom = max(eta - 0.5 * gamma, 1e-9)
+    kappa = math.sqrt(2 * lam / denom)
+    T = float(n)
+
+    if kappa * T < 1e-6:
+        # Near-linear (low risk aversion) → uniform split
+        base = qty // n
+        rem = qty % n
+        slices = []
+        for i in range(n):
+            q = base + (1 if i < rem else 0)
+            if q > 0:
+                slices.append(ChildOrder(
+                    symbol=order.symbol, side=order.side,
+                    quantity=q, price=order.price,
+                    algo="almgren_chriss",
+                    slice_idx=i, total_slices=n,
+                    parent_order_id=order.order_id,
+                ))
+        return slices
+
+    slices = []
+    prev_remaining = qty
+    for i in range(n):
+        t = float(i)
+        t_next = float(i + 1)
+        holding_t = math.sinh(kappa * (T - t)) / math.sinh(kappa * T)
+        holding_tn = math.sinh(kappa * (T - t_next)) / math.sinh(kappa * T) if t_next <= T else 0.0
+        child_qty = max(0, round(qty * (holding_t - holding_tn)))
+        if i == n - 1:
+            child_qty = prev_remaining
+        child_qty = min(child_qty, prev_remaining)
+        if child_qty <= 0:
+            continue
+        prev_remaining -= child_qty
+        slices.append(ChildOrder(
+            symbol=order.symbol, side=order.side,
+            quantity=child_qty, price=order.price,
+            algo="almgren_chriss",
+            slice_idx=i, total_slices=n,
+            parent_order_id=order.order_id,
+        ))
+    return slices
+
+
 def route_order(
     order: Order,
     avg_daily_volume: float,
