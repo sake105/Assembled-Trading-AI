@@ -96,7 +96,9 @@ def _section_risk_parity(returns: dict[str, list[float]]) -> dict:
     """§8 — Inverse-vol risk-parity weights."""
     section: dict = {"weights": {}, "vol_scale": 1.0, "strategy_vols": {}}
     try:
-        from src.assembled_core.portfolio.strategy_allocator import allocate_from_returns_dict
+        from src.assembled_core.portfolio.strategy_allocator import (
+            allocate_from_returns_dict,
+        )
 
         result = allocate_from_returns_dict(returns, target_vol=0.15)
         section["weights"] = {k: round(v, 6) for k, v in result.weights.items()}

@@ -29,7 +29,6 @@ import math
 from dataclasses import dataclass
 from typing import Literal
 
-
 DecayKind = Literal["exponential", "linear"]
 
 

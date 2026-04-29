@@ -15,7 +15,6 @@ Install: pip install mlfinpy==0.1.2
 from __future__ import annotations
 
 import logging
-from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -119,8 +118,8 @@ def triple_barrier_labels(
         try:
             from mlfinpy.labeling.labeling import (
                 add_vertical_barrier,
-                get_events,
                 get_bins,
+                get_events,
             )
             if vol is None:
                 log_ret = np.log(prices).diff()

@@ -183,8 +183,8 @@ class EarningsCalendarSource:
         end_date: datetime,
     ) -> list[dict]:
         """Fetch earnings via Finnhub API."""
-        import urllib.request
         import json
+        import urllib.request
 
         url = (
             f"https://finnhub.io/api/v1/calendar/earnings"

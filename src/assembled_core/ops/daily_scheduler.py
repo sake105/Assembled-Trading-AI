@@ -36,8 +36,11 @@ def _ingest_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerResul
         return WorkerResult(worker_name="ingest_worker", status="skip",
                             duration_s=time.monotonic() - t0)
     try:
-        from src.assembled_core.data.universe_etf import load_etf_universe, get_all_symbols  # type: ignore
         import yfinance as yf  # type: ignore
+        from src.assembled_core.data.universe_etf import (  # type: ignore
+            get_all_symbols,
+            load_etf_universe,
+        )
 
         universe = load_etf_universe()
         symbols = get_all_symbols(universe)
@@ -126,15 +129,15 @@ def _feedback_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerRes
         return WorkerResult(worker_name="feedback_worker", status="skip",
                             duration_s=time.monotonic() - t0)
     try:
+        import pandas as pd
         from src.assembled_core.ml.feedback_loop import (  # type: ignore
-            FeedbackLoopController,
             FeedbackLoopConfig,
+            FeedbackLoopController,
         )
         from src.assembled_core.qa.learning_store import (  # type: ignore
-            load_learning_records_as_dataframe,
             DEFAULT_LEARNING_STORE_PATH,
+            load_learning_records_as_dataframe,
         )
-        import pandas as pd
 
         out_path = Path(output_dir)
 
@@ -308,8 +311,11 @@ def _retrain_scheduler_worker(date_str: str, output_dir: str, dry_run: bool) -> 
             duration_s=time.monotonic() - t0,
         )
     try:
-        from src.assembled_core.ml.retraining_scheduler import RetrainingScheduler  # type: ignore
         import json
+
+        from src.assembled_core.ml.retraining_scheduler import (
+            RetrainingScheduler,  # type: ignore
+        )
 
         out_path = Path(output_dir)
         scheduler = RetrainingScheduler()
@@ -447,12 +453,13 @@ def _factor_curation_worker(date_str: str, output_dir: str, dry_run: bool) -> Wo
                             duration_s=time.monotonic() - t0)
 
     try:
-        from src.assembled_core.qa.factor_analysis import (  # type: ignore
-            compute_ic_decay_curve,
-            compute_factor_half_life,
-        )
-        import pandas as pd
         import json
+
+        import pandas as pd
+        from src.assembled_core.qa.factor_analysis import (  # type: ignore
+            compute_factor_half_life,
+            compute_ic_decay_curve,
+        )
 
         out_path = Path(output_dir)
         # Find most recent factor scores file
@@ -546,7 +553,9 @@ def _alert_health_worker(date_str: str, output_dir: str, dry_run: bool) -> Worke
 
         # CRITICAL: Kill-switch state
         try:
-            from src.assembled_core.execution.kill_switch import is_kill_switch_engaged  # type: ignore
+            from src.assembled_core.execution.kill_switch import (
+                is_kill_switch_engaged,  # type: ignore
+            )
             if is_kill_switch_engaged():
                 mgr.alert("CRITICAL", "kill_switch", "Kill switch is currently engaged",
                           details={"date": date_str})
@@ -630,6 +639,7 @@ def _kpi_export_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerR
                             duration_s=time.monotonic() - t0)
     try:
         import json
+
         from src.assembled_core.ops.metrics_exporter import export_metrics
 
         out_path = Path(output_dir)

@@ -5,9 +5,7 @@ from io import StringIO
 from pathlib import Path
 
 import pandas as pd
-
 from common.io_utils import http_get_text, to_parquet
-
 
 # SDW CSV Example (EUR->USD Daily):
 # https://sdw.ecb.europa.eu/quickviewexport.do?trans=N&node=2018794&SERIES_KEY=120.EXR.D.USD.EUR.SP00.A&type=csv

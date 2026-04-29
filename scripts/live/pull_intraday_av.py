@@ -1,11 +1,13 @@
 # scripts/live/pull_intraday_av.py
 from __future__ import annotations
+
 import argparse
 import os
+import pathlib as pl
+import random
 import sys
 import time
-import random
-import pathlib as pl
+
 import pandas as pd
 import requests
 

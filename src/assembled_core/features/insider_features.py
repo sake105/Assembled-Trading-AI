@@ -15,7 +15,6 @@ Zukünftige Integration:
 from __future__ import annotations
 
 import pandas as pd
-
 from src.assembled_core.data.latency import (
     apply_source_latency,
     ensure_event_schema,

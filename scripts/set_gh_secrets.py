@@ -21,7 +21,6 @@ from pathlib import Path
 
 from nacl import encoding, public
 
-
 REPO = "sake105/Assembled-Trading-AI"
 
 

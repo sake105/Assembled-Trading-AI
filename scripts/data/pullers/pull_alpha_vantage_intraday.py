@@ -7,10 +7,12 @@ Usage:
   python pull_alpha_intraday.py --symbols "AAPL,MSFT" --interval 5m --days 5 --out data/raw/intraday/alphavantage/5min
 """
 from __future__ import annotations
+
 import argparse
 import sys
 import time
 from pathlib import Path
+
 import pandas as pd
 import yfinance as yf
 

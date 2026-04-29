@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
-
 from src.assembled_core.config import get_base_dir
 from src.assembled_core.config.policy_loader import load_policy
 from src.assembled_core.pipeline.trading_cycle_shared import (
@@ -27,11 +26,11 @@ from src.assembled_core.pipeline.trading_cycle_shared import (
     _apply_pre_trade_impact,
     _apply_risk_controls_default,
     _build_features_default,
+    _estimate_symbol_volatilities,
     _evaluate_auto_dd_kill_switch,
     _evaluate_circuit_breaker,
     _evaluate_circuit_breaker_daily,
     _evaluate_var_gate,
-    _estimate_symbol_volatilities,
     _filter_prices_for_as_of,
     _generate_orders_default,
     should_rebalance,
@@ -288,7 +287,9 @@ def _load_intel(
 
     # Disclosures confirm (boosts geo_confidence when disclosure triggers sev >= 1)
     try:
-        from src.assembled_core.risk.disclosures_confirm import apply_disclosures_confirm
+        from src.assembled_core.risk.disclosures_confirm import (
+            apply_disclosures_confirm,
+        )
 
         apply_disclosures_confirm(ctx, policy)
     except Exception as e:
@@ -444,13 +445,17 @@ def build_features(
         enh_cfg = (policy.get("features") or {}).get("enhanced_factors") or {}
         if enh_cfg.get("enabled", False) and not pwf.empty:
             if enh_cfg.get("ta_factors_core", True):
-                from src.assembled_core.features.ta_factors_core import build_core_ta_factors
+                from src.assembled_core.features.ta_factors_core import (
+                    build_core_ta_factors,
+                )
 
                 pwf = build_core_ta_factors(
                     pwf, price_col="close", group_col="symbol", timestamp_col="timestamp"
                 )
             if enh_cfg.get("cross_sectional_rank", True):
-                from src.assembled_core.features.cross_sectional import rank_cross_sectional
+                from src.assembled_core.features.cross_sectional import (
+                    rank_cross_sectional,
+                )
 
                 rank_cols = [
                     c
@@ -515,7 +520,9 @@ def build_features(
     try:
         seas_cfg = (policy.get("features") or {}).get("seasonal_features") or {}
         if seas_cfg.get("enabled", False) and not pwf.empty and "timestamp" in pwf.columns:
-            from src.assembled_core.features.seasonal_features import build_seasonal_features
+            from src.assembled_core.features.seasonal_features import (
+                build_seasonal_features,
+            )
 
             _seas_ts = pd.DatetimeIndex(pwf["timestamp"])
             _seas_df = build_seasonal_features(_seas_ts)
@@ -566,7 +573,9 @@ def build_features(
         if wa_cfg.get("enabled", False) and not pwf.empty:
             _req = {"close", "symbol", "timestamp"}
             if _req.issubset(pwf.columns):
-                from src.assembled_core.features.weekly_alignment import add_weekly_alignment
+                from src.assembled_core.features.weekly_alignment import (
+                    add_weekly_alignment,
+                )
 
                 _trend_col = next(
                     (
@@ -607,7 +616,9 @@ def build_features(
         if ffd_cfg.get("enabled", False) and not pwf.empty:
             _req = {"close", "symbol", "timestamp"}
             if _req.issubset(pwf.columns):
-                from src.assembled_core.features.fractional_diff import apply_ffd_to_panel
+                from src.assembled_core.features.fractional_diff import (
+                    apply_ffd_to_panel,
+                )
 
                 pwf = apply_ffd_to_panel(
                     pwf,
@@ -724,7 +735,10 @@ def generate_signals(
             now_utc = pd.Timestamp.now("UTC").to_pydatetime()
             zombies = get_zombie_positions(ctx.current_positions.to_dict("records"), now_utc, policy)
             if zombies:
-                from src.assembled_core.ops.shadow_recorder import is_shadow_only, record_shadow
+                from src.assembled_core.ops.shadow_recorder import (
+                    is_shadow_only,
+                    record_shadow,
+                )
 
                 zk_shadow = is_shadow_only(policy, "zombie_killer")
                 zombie_symbols = {pos["symbol"] for pos, _reason in zombies}
@@ -841,7 +855,9 @@ def generate_signals(
     try:
         eg_cfg = (policy.get("signal_generation") or {}).get("earnings_guard") or {}
         if eg_cfg.get("enabled", False) and not signals.empty:
-            from src.assembled_core.signals.earnings_integration import apply_earnings_integration
+            from src.assembled_core.signals.earnings_integration import (
+                apply_earnings_integration,
+            )
 
             earnings_calendar = getattr(ctx, "earnings_calendar", None)
             earnings_events = getattr(ctx, "earnings_events", None)
@@ -861,7 +877,9 @@ def generate_signals(
 
     # --- Step 3.35: News→Signal bridge ---
     try:
-        from src.assembled_core.signals.news_signal_bridge import load_and_apply_news_signals
+        from src.assembled_core.signals.news_signal_bridge import (
+            load_and_apply_news_signals,
+        )
 
         root_for_news = Path(ctx.data_root) if getattr(ctx, "data_root", None) else Path.cwd()
         signals, _nsb_meta = load_and_apply_news_signals(
@@ -909,9 +927,11 @@ def generate_signals(
     try:
         shorts_policy = policy.get("shorts", {})
         if shorts_policy.get("enabled", False):
-            from src.assembled_core.signals.crash_prediction import CrashPredictionEngine
-            from src.assembled_core.signals.short_signals import ShortSignalGenerator
             from src.assembled_core.risk.short_risk import ShortRiskManager
+            from src.assembled_core.signals.crash_prediction import (
+                CrashPredictionEngine,
+            )
+            from src.assembled_core.signals.short_signals import ShortSignalGenerator
 
             macro_data: dict = {}
             if ctx.prices is not None and not ctx.prices.empty and "VIX" in ctx.prices.columns:
@@ -953,7 +973,9 @@ def generate_signals(
     try:
         mr_cfg = (policy.get("signals") or {}).get("mean_reversion") or {}
         if mr_cfg.get("enabled", False) and not features.empty:
-            from src.assembled_core.signals.mean_reversion import compute_mean_reversion_signals
+            from src.assembled_core.signals.mean_reversion import (
+                compute_mean_reversion_signals,
+            )
 
             _mr_signals = compute_mean_reversion_signals(features, regime=str(getattr(ctx, "regime_state", "bull") or "bull"))
             if not _mr_signals.empty and not signals.empty:
@@ -970,7 +992,9 @@ def generate_signals(
             import pathlib as _pl
 
             from src.assembled_core.config.factor_bundles import load_factor_bundle
-            from src.assembled_core.signals.multifactor_signal import build_multifactor_signal
+            from src.assembled_core.signals.multifactor_signal import (
+                build_multifactor_signal,
+            )
 
             _bundle_path = _pl.Path(mf_cfg.get("bundle_path", "configs/factor_bundles/macro_world_etfs_core_bundle.yaml"))
             if _bundle_path.exists():
@@ -990,7 +1014,9 @@ def generate_signals(
     try:
         anti_churn_cfg = policy.get("anti_churn") or {}
         if anti_churn_cfg.get("ranking_hysteresis_enabled", False) and not signals.empty:
-            from src.assembled_core.paper.ranking_hysteresis import apply_ranking_hysteresis
+            from src.assembled_core.paper.ranking_hysteresis import (
+                apply_ranking_hysteresis,
+            )
 
             held_symbols: set[str] = set()
             if (ctx.current_positions is not None and not ctx.current_positions.empty
@@ -1009,7 +1035,9 @@ def generate_signals(
         if not features.empty and not signals.empty:
             _req = {"timestamp", "symbol", "close"}
             if _req.issubset(set(features.columns)):
-                from src.assembled_core.signals.rules_trend import generate_trend_signals
+                from src.assembled_core.signals.rules_trend import (
+                    generate_trend_signals,
+                )
 
                 _ts_signals = generate_trend_signals(features, ma_fast=20, ma_slow=50)
                 if not _ts_signals.empty and "symbol" in _ts_signals.columns:
@@ -1082,9 +1110,13 @@ def _apply_evidence_gate(
     Policy key: evidence_gate.require_grade (default "B").
     """
     import pandas as _pd
+    from src.assembled_core.events.evidence_engine.action_gate import (
+        check_evidence_grade_gate,
+    )
     from src.assembled_core.events.evidence_engine.grader import grade_evidence
-    from src.assembled_core.events.evidence_engine.action_gate import check_evidence_grade_gate
-    from src.assembled_core.events.evidence_engine.misinfo_risk import compute_misinfo_risk
+    from src.assembled_core.events.evidence_engine.misinfo_risk import (
+        compute_misinfo_risk,
+    )
 
     cfg = policy.get("evidence_gate") or {}
 
@@ -1176,7 +1208,7 @@ def _compute_news_triggers(
     Returns empty DataFrame if news_events is None/empty or any step fails.
     """
     import pandas as _pd
-    from src.assembled_core.events.news.fingerprint import simhash64, hamming_distance
+    from src.assembled_core.events.news.fingerprint import hamming_distance, simhash64
     from src.assembled_core.events.news.tfidf import build_tfidf_vectors
 
     if news_events is None or not isinstance(news_events, _pd.DataFrame) or news_events.empty:
@@ -1278,7 +1310,9 @@ def _sp_dispatch_sizing(
     target_positions: pd.DataFrame = pd.DataFrame()
     try:
         if sizing_method == "kelly":
-            from src.assembled_core.portfolio.position_sizing import compute_kelly_weights
+            from src.assembled_core.portfolio.position_sizing import (
+                compute_kelly_weights,
+            )
             target_positions = compute_kelly_weights(
                 signals,
                 fraction=float(sizing_cfg.get("kelly_fraction", 0.5)),
@@ -1287,7 +1321,9 @@ def _sp_dispatch_sizing(
                 top_n=sizing_cfg.get("top_n"),
             )
         elif sizing_method == "risk_parity":
-            from src.assembled_core.portfolio.position_sizing import compute_risk_parity_weights
+            from src.assembled_core.portfolio.position_sizing import (
+                compute_risk_parity_weights,
+            )
             vols = _estimate_symbol_volatilities(prices_for_sizing, lookback=int(sizing_cfg.get("vol_lookback_days", 60)))
             target_positions = compute_risk_parity_weights(
                 signals, vols, total_capital=ctx.capital,
@@ -1295,7 +1331,9 @@ def _sp_dispatch_sizing(
                 top_n=sizing_cfg.get("top_n"),
             )
         elif sizing_method == "vol_scaled":
-            from src.assembled_core.portfolio.position_sizing import compute_vol_scaled_weights
+            from src.assembled_core.portfolio.position_sizing import (
+                compute_vol_scaled_weights,
+            )
             vols = _estimate_symbol_volatilities(prices_for_sizing, lookback=int(sizing_cfg.get("vol_lookback_days", 60)))
             target_positions = compute_vol_scaled_weights(
                 signals, vols,
@@ -1306,7 +1344,9 @@ def _sp_dispatch_sizing(
             )
         elif sizing_method == "black_litterman":
             try:
-                from src.assembled_core.portfolio.black_litterman import BlackLittermanOptimizer
+                from src.assembled_core.portfolio.black_litterman import (
+                    BlackLittermanOptimizer,
+                )
                 from src.assembled_core.portfolio.covariance import estimate_covariance
                 bl = BlackLittermanOptimizer(
                     risk_aversion=float(sizing_cfg.get("risk_aversion", 2.5)),
@@ -1340,7 +1380,10 @@ def _sp_dispatch_sizing(
                 target_positions = ctx.position_sizing_fn(signals, ctx.capital)
         elif sizing_method == "cost_aware":
             try:
-                from src.assembled_core.portfolio.cost_aware_optimizer import OptimizerConfig, optimize_portfolio
+                from src.assembled_core.portfolio.cost_aware_optimizer import (
+                    OptimizerConfig,
+                    optimize_portfolio,
+                )
                 from src.assembled_core.portfolio.covariance import estimate_covariance
                 if prices_for_sizing is not None and not prices_for_sizing.empty and not signals.empty and "close" in prices_for_sizing.columns and "symbol" in prices_for_sizing.columns:
                     _pivot_cao = prices_for_sizing.pivot_table(index="timestamp", columns="symbol", values="close")
@@ -1368,8 +1411,10 @@ def _sp_dispatch_sizing(
                 target_positions = ctx.position_sizing_fn(signals, ctx.capital)
         elif sizing_method == "erc":
             try:
-                from src.assembled_core.portfolio.risk_budgeting import compute_erc_weights
                 from src.assembled_core.portfolio.covariance import estimate_covariance
+                from src.assembled_core.portfolio.risk_budgeting import (
+                    compute_erc_weights,
+                )
                 if prices_for_sizing is not None and not prices_for_sizing.empty and not signals.empty and "close" in prices_for_sizing.columns and "symbol" in prices_for_sizing.columns:
                     _sig_syms = [s for s in signals["symbol"].tolist() if s in prices_for_sizing["symbol"].unique()]
                     if len(_sig_syms) >= 2:
@@ -1422,8 +1467,10 @@ def _sp_dispatch_sizing(
         elif sizing_method == "mvo":
             try:
                 import numpy as _np
-                from src.assembled_core.portfolio.mvo_optimizer import mvo_with_cardinality
                 from src.assembled_core.portfolio.covariance import estimate_covariance
+                from src.assembled_core.portfolio.mvo_optimizer import (
+                    mvo_with_cardinality,
+                )
                 if prices_for_sizing is not None and not prices_for_sizing.empty and not signals.empty and "close" in prices_for_sizing.columns and "symbol" in prices_for_sizing.columns:
                     _sig_syms_mvo = [s for s in signals["symbol"].tolist() if s in prices_for_sizing["symbol"].unique()]
                     if len(_sig_syms_mvo) >= 2:
@@ -1467,7 +1514,10 @@ def _sp_apply_liquidity(
     try:
         liq_cfg = policy.get("liquidity_scoring") or {}
         if liq_cfg.get("enabled", False) and not target_positions.empty and "target_weight" in target_positions.columns and prices_for_sizing is not None and not prices_for_sizing.empty:
-            from src.assembled_core.risk.liquidity_scoring import apply_liquidity_adjusted_sizing, compute_liquidity_scores
+            from src.assembled_core.risk.liquidity_scoring import (
+                apply_liquidity_adjusted_sizing,
+                compute_liquidity_scores,
+            )
             liq_scores = compute_liquidity_scores(prices_for_sizing, lookback_days=int(liq_cfg.get("lookback_days", 60)))
             if liq_scores:
                 tw_map = {str(k).upper(): float(v) for k, v in target_positions.set_index("symbol")["target_weight"].items()}
@@ -1535,7 +1585,9 @@ def _sp_compute_final_multiplier(
     try:
         pm_cfg = (policy.get("prediction_market_overlay") or {})
         if pm_cfg.get("enabled", False) and getattr(ctx, "mode", "") in ("live", "paper"):
-            from src.assembled_core.risk.georisk_overlay import get_market_implied_geo_signal
+            from src.assembled_core.risk.georisk_overlay import (
+                get_market_implied_geo_signal,
+            )
             pm_signal = get_market_implied_geo_signal(policy=policy)
             raw_pm = float(pm_signal.get("signal", 0.0))
             pm_threshold = float(pm_cfg.get("threshold", 0.25))
@@ -1594,7 +1646,10 @@ def _sp_apply_trailing_stops(
         if ts_cfg.get("enabled", False) and not target_positions.empty:
             current_positions_df = ctx.current_positions
             if current_positions_df is not None and not current_positions_df.empty:
-                from src.assembled_core.risk.trailing_stops import apply_stop_reductions_to_weights, compute_trailing_stops
+                from src.assembled_core.risk.trailing_stops import (
+                    apply_stop_reductions_to_weights,
+                    compute_trailing_stops,
+                )
                 pos_map: dict[str, dict] = {}
                 for _, row in current_positions_df.iterrows():
                     sym = str(row.get("symbol", "")).upper()
@@ -1666,7 +1721,10 @@ def _sp_apply_correlation_guard(
             corr_prices = prices_for_sizing
             adjusted_weights, corr_reasons = apply_correlation_guard(tw_dict_cg, corr_prices, policy)
             if corr_reasons:
-                from src.assembled_core.ops.shadow_recorder import is_shadow_only, record_shadow
+                from src.assembled_core.ops.shadow_recorder import (
+                    is_shadow_only,
+                    record_shadow,
+                )
                 cg_shadow = is_shadow_only(policy, "correlation_guard")
                 record_shadow("correlation_guard", {"adjusted_weights": adjusted_weights}, as_of=str(ctx.as_of) if ctx.as_of else None, meta={"applied": not cg_shadow})
                 if not cg_shadow:
@@ -1700,7 +1758,10 @@ def _sp_apply_crash_cap(
         if cp_cfg.get("equity_cap_enabled", False) and not target_positions.empty and "target_weight" in target_positions.columns:
             threshold = float(cp_cfg.get("equity_cap_threshold", 0.4))
             if crash_prob > threshold:
-                from src.assembled_core.ops.shadow_recorder import is_shadow_only, record_shadow
+                from src.assembled_core.ops.shadow_recorder import (
+                    is_shadow_only,
+                    record_shadow,
+                )
                 base_long_gross = float(cp_cfg.get("base_long_gross", 1.0))
                 cap_val = max(0.5 - crash_prob, 0.0) * base_long_gross
                 long_mask = target_positions["target_weight"] > 0
@@ -1736,8 +1797,13 @@ def _sp_apply_inverse_etf(
                 except Exception:
                     pass
             if vix_val is not None and vix_val > float(ie_cfg.get("vix_threshold", 25.0)) and crash_prob > float(ie_cfg.get("crash_prob_threshold", 0.4)):
-                from src.assembled_core.ops.shadow_recorder import is_shadow_only, record_shadow
-                from src.assembled_core.portfolio.inverse_etf_selector import InverseETFSelector
+                from src.assembled_core.ops.shadow_recorder import (
+                    is_shadow_only,
+                    record_shadow,
+                )
+                from src.assembled_core.portfolio.inverse_etf_selector import (
+                    InverseETFSelector,
+                )
                 selector = InverseETFSelector(allow_2x=False, allow_3x=False)
                 hedge_sym = selector.select_best_short_instrument("BROAD", severity=float(cp_meta.get("severity", 0.5) or 0.5), holding_period_days=int(ie_cfg.get("max_holding_days", 5)))
                 hedge_ratio = float(ie_cfg.get("hedge_ratio", 0.1))
@@ -1812,8 +1878,10 @@ def _sp_apply_crisis_alpha_cap(
     if not (policy or {}).get("intel", {}).get("crisis_alpha", {}).get("enabled", False):
         return target_positions
     try:
-        from src.assembled_core.events.crisis_alpha.pipeline import run_crisis_alpha_pipeline
         from src.assembled_core.events.crisis_alpha.context import CrisisAlphaContext
+        from src.assembled_core.events.crisis_alpha.pipeline import (
+            run_crisis_alpha_pipeline,
+        )
         _ca_ctx = ctx.meta.get("crisis_alpha_ctx") if hasattr(ctx, "meta") else None
         if _ca_ctx is None:
             _as_of_dt = pd.to_datetime(ctx.as_of, utc=True).to_pydatetime() if getattr(ctx, "as_of", None) is not None else None
@@ -1871,7 +1939,9 @@ def _sp_apply_cost_aware(
     try:
         caw_cfg = policy.get("cost_aware_wrapper") or {}
         if caw_cfg.get("enabled", False) and not target_positions.empty:
-            from src.assembled_core.portfolio.cost_aware_wrapper import apply_cost_aware_from_policy
+            from src.assembled_core.portfolio.cost_aware_wrapper import (
+                apply_cost_aware_from_policy,
+            )
             w_col = next((c for c in ("target_weight", "weight", "target_pct") if c in target_positions.columns), None)
             if w_col and "symbol" in target_positions.columns:
                 _target_w = {str(k): float(v) for k, v in target_positions.dropna(subset=[w_col]).set_index("symbol")[w_col].items()}
@@ -2001,8 +2071,8 @@ def check_risk(
     try:
         prices_for_evt = prices_filtered if prices_filtered is not None else ctx.prices
         if not orders.empty and prices_for_evt is not None and not prices_for_evt.empty and "close" in prices_for_evt.columns:
-            from src.assembled_core.risk.evt_tail_var import evt_var
             import numpy as _np_evt
+            from src.assembled_core.risk.evt_tail_var import evt_var
             _pivot_evt = prices_for_evt.pivot_table(index="timestamp" if "timestamp" in prices_for_evt.columns else prices_for_evt.columns[0], columns="symbol" if "symbol" in prices_for_evt.columns else None, values="close")
             _rets_evt = _pivot_evt.pct_change().dropna(how="all")
             if len(_rets_evt) >= 60:
@@ -2038,7 +2108,10 @@ def check_risk(
 
     # Barbell strategy
     try:
-        from src.assembled_core.portfolio.barbell_strategy import build_barbell_allocation, compute_tail_risk_score
+        from src.assembled_core.portfolio.barbell_strategy import (
+            build_barbell_allocation,
+            compute_tail_risk_score,
+        )
         _evt_var_meta = result.meta.get("evt_var_99", 0.0) or 0.0
         _hist_var_meta = result.meta.get("hist_var_99", 0.0) or 0.0
         _cop_ltd_meta = float((result.meta.get("copula_tail_risk") or {}).get("avg_lower_tail_dep", 0.0))
@@ -2086,7 +2159,9 @@ def check_risk(
     try:
         dd_decision = _evaluate_auto_dd_kill_switch(ctx, result, policy)
         if dd_decision is not None:
-            from src.assembled_core.execution.kill_switch import activate_kill_switch, is_kill_switch_engaged
+            from src.assembled_core.execution.kill_switch import (
+                activate_kill_switch,
+            )
             activate_kill_switch(throttle_pct=dd_decision["throttle_allowed_pct"], reason=dd_decision["reason"], actor="trading_cycle_v2_auto_dd")
             result.meta["auto_dd_kill_switch"] = dd_decision
             if dd_decision["level"] == "kill":
@@ -2112,12 +2187,16 @@ def check_risk(
         anti_churn_cfg = policy.get("anti_churn") or {}
         if not result.orders_filtered.empty:
             if anti_churn_cfg.get("deadzone_enabled", False):
-                from src.assembled_core.paper.deadzone_rebalance import filter_deadzone_orders
+                from src.assembled_core.paper.deadzone_rebalance import (
+                    filter_deadzone_orders,
+                )
                 _dz_pos = ctx.current_positions[["symbol", "qty"]].copy() if ctx.current_positions is not None and not ctx.current_positions.empty and "qty" in ctx.current_positions.columns else None
                 result.orders_filtered, _dz_meta = filter_deadzone_orders(result.orders_filtered, _dz_pos, deadzone_pct=float(anti_churn_cfg.get("deadzone_pct", 0.05)))
                 result.meta["deadzone_rebalance"] = _dz_meta
             if anti_churn_cfg.get("rebalance_filter_enabled", False) and not result.orders_filtered.empty:
-                from src.assembled_core.paper.rebalance_filter import filter_small_rebalances
+                from src.assembled_core.paper.rebalance_filter import (
+                    filter_small_rebalances,
+                )
                 result.orders_filtered, _rf_meta = filter_small_rebalances(result.orders_filtered, min_notional=float(anti_churn_cfg.get("min_notional", 500.0)), prices=prices_filtered if prices_filtered is not None else ctx.prices)
                 result.meta["rebalance_filter"] = _rf_meta
     except Exception as e:
@@ -2127,7 +2206,9 @@ def check_risk(
     try:
         ffg_cfg = policy.get("fat_finger_guard") or {}
         if ffg_cfg.get("enabled", False) and not result.orders_filtered.empty:
-            from src.assembled_core.execution.fat_finger_guard import apply_fat_finger_guard_from_policy
+            from src.assembled_core.execution.fat_finger_guard import (
+                apply_fat_finger_guard_from_policy,
+            )
             _ffg_orders, _ffg_reasons = apply_fat_finger_guard_from_policy(result.orders_filtered, policy)
             n_rejected = len(result.orders_filtered) - len(_ffg_orders)
             result.orders_filtered = _ffg_orders
@@ -2140,7 +2221,10 @@ def check_risk(
     # Step 6.9: Order lifecycle tracking
     try:
         if not result.orders_filtered.empty:
-            from src.assembled_core.execution.order_lifecycle import OrderLifecycleTracker, OrderState
+            from src.assembled_core.execution.order_lifecycle import (
+                OrderLifecycleTracker,
+                OrderState,
+            )
             _olt = OrderLifecycleTracker()
             for _, _ord_row in result.orders_filtered.iterrows():
                 _oid = _olt.create(symbol=str(_ord_row.get("symbol", "")), side=str(_ord_row.get("side", "buy")), quantity=float(_ord_row.get("qty", 0)), price=float(_ord_row.get("price", 0)) or None, source="trading_cycle_v2")
@@ -2247,7 +2331,10 @@ def route_orders(
         rl_cfg = (policy.get("execution") or {}).get("rl_executor") or {}
         if rl_cfg.get("enabled", False) and getattr(ctx, "mode", "") in ("live", "paper") and not orders.empty:
             from src.assembled_core.execution.rl_environment import ExecutionEnvConfig
-            from src.assembled_core.execution.rl_execution import RLExecutor, RuleBasedExecutor
+            from src.assembled_core.execution.rl_execution import (
+                RLExecutor,
+                RuleBasedExecutor,
+            )
             _rl_model_path = rl_cfg.get("model_path", "")
             _rl_n_steps = int(rl_cfg.get("n_steps", 20))
             _rl_min_qty = int(rl_cfg.get("min_qty_for_annotation", 100))
@@ -2317,11 +2404,11 @@ def book_fills(
     # A8: Apply cost annotation for backtest/paper modes
     if ctx.mode in ("backtest", "paper") and result.orders_filtered is not None and not result.orders_filtered.empty:
         try:
-            from src.assembled_core.execution.transaction_costs import (
-                add_cost_columns_to_trades,
-                CommissionModel,
-            )
             from src.assembled_core.costs import get_default_cost_model
+            from src.assembled_core.execution.transaction_costs import (
+                CommissionModel,
+                add_cost_columns_to_trades,
+            )
             cost_model = get_default_cost_model()
             commission_model = CommissionModel(commission_bps=cost_model.commission_bps)
             prices = getattr(ctx, "prices", None)
@@ -2388,7 +2475,9 @@ def book_fills(
     try:
         if ctx.write_outputs:
             if ctx.output_format == "safe_csv":
-                from src.assembled_core.execution.safe_bridge import write_safe_orders_csv
+                from src.assembled_core.execution.safe_bridge import (
+                    write_safe_orders_csv,
+                )
                 ctx.output_dir.mkdir(parents=True, exist_ok=True)
                 out_path = write_safe_orders_csv(result.orders_filtered, output_path=ctx.output_dir / "orders_latest.csv")
                 result.output_paths = {"safe_csv": out_path}
@@ -2427,7 +2516,9 @@ def book_fills(
     # Step 7.66: Trade journal
     try:
         if ctx.write_outputs and not result.orders_filtered.empty and ctx.as_of is not None:
-            from src.assembled_core.ops.trade_journal import append_trade_journal_entries
+            from src.assembled_core.ops.trade_journal import (
+                append_trade_journal_entries,
+            )
             _of = result.orders_filtered
             _qty_col = "quantity" if "quantity" in _of.columns else "qty"
             _price_col = "price" if "price" in _of.columns else "limit_price"
@@ -2449,7 +2540,11 @@ def book_fills(
     try:
         sd_cfg = (policy.get("signal_generation") or {}).get("signal_diagnostics") or {}
         if sd_cfg.get("enabled", False) and result.prices_with_features is not None and not result.prices_with_features.empty:
-            from src.assembled_core.signals.signal_diagnostics import compute_signal_health, generate_signal_health_alerts, save_signal_health_artifact
+            from src.assembled_core.signals.signal_diagnostics import (
+                compute_signal_health,
+                generate_signal_health_alerts,
+                save_signal_health_artifact,
+            )
             fwd_col = sd_cfg.get("forward_returns_col", "return_1d")
             if fwd_col in result.prices_with_features.columns and "timestamp" in result.prices_with_features.columns:
                 factor_cols = [c for c in result.prices_with_features.columns if c not in {"timestamp", "symbol", "open", "high", "low", "close", "volume", fwd_col} and result.prices_with_features[c].dtype in ("float64", "float32")][:20]
@@ -2464,7 +2559,10 @@ def book_fills(
     try:
         kpi_cfg = policy.get("kpi_export") or {}
         if kpi_cfg.get("enabled", False):
-            from src.assembled_core.ops.metrics_exporter import export_metrics, slippage_histogram
+            from src.assembled_core.ops.metrics_exporter import (
+                export_metrics,
+                slippage_histogram,
+            )
             kpi_metrics: dict[str, float] = {
                 "assembled_orders_generated_total": float(len(result.orders_filtered)),
                 "assembled_targets_count": float(len(result.target_positions)),
@@ -2484,7 +2582,9 @@ def book_fills(
                     kpi_histograms = {"assembled_slippage_bps": slippage_histogram(_slip_obs)}
             # Kill-switch state gauge (1 = engaged, 0 = inactive)
             try:
-                from src.assembled_core.execution.kill_switch import is_kill_switch_engaged
+                from src.assembled_core.execution.kill_switch import (
+                    is_kill_switch_engaged,
+                )
                 kpi_metrics["assembled_kill_switch_engaged"] = 1.0 if is_kill_switch_engaged() else 0.0
             except Exception:
                 pass
@@ -2567,13 +2667,15 @@ def run_trading_cycle(
     )
     hooks = hooks or {}
 
-    # Side-channel event bus — fire-and-forget, never blocks the cycle
+    # Side-channel event bus — bus stays null (no-op) if REDIS_URL not set in env;
+    # publish() calls are fire-and-forget and never block the trading cycle.
     _bus = None
     try:
         from src.assembled_core.pipeline.event_bus import get_null_bus
         _bus = get_null_bus()
-        from src.assembled_core.pipeline.event_bus import EventBus as _EventBus
         import os as _os
+
+        from src.assembled_core.pipeline.event_bus import EventBus as _EventBus
         _redis_url = _os.environ.get("REDIS_URL", "")
         if _redis_url:
             try:

@@ -42,12 +42,16 @@ from src.assembled_core.intel import (  # noqa: E402
 )
 from src.assembled_core.intel.dependency_graph import load_graph  # noqa: E402
 from src.assembled_core.intel.health_monitor import HealthMonitor  # noqa: E402
-from src.assembled_core.intel.market_confirmation import compute_market_confirmation  # noqa: E402
+from src.assembled_core.intel.market_confirmation import (
+    compute_market_confirmation,  # noqa: E402
+)
 from src.assembled_core.intel.models import CrisisMode, CrisisState  # noqa: E402
 from src.assembled_core.intel.news_cluster import ClusterManager  # noqa: E402
 from src.assembled_core.intel.news_dedupe import NewsDedupeIndex  # noqa: E402
 from src.assembled_core.intel.news_ingest import GdeltFetcher  # noqa: E402
-from src.assembled_core.intel.news_signal_aggregator import aggregate_signals  # noqa: E402
+from src.assembled_core.intel.news_signal_aggregator import (
+    aggregate_signals,  # noqa: E402
+)
 
 logger = logging.getLogger(__name__)
 
@@ -238,7 +242,9 @@ def run_single_cycle(config: dict) -> dict:
     sentiment_tracker = config.setdefault("_sentiment_tracker", None)
     if sentiment_tracker is None:
         try:
-            from src.assembled_core.intel.news_sentiment_drift import SentimentDriftTracker
+            from src.assembled_core.intel.news_sentiment_drift import (
+                SentimentDriftTracker,
+            )
             sentiment_tracker = SentimentDriftTracker(window_min=60, min_events=3)
             config["_sentiment_tracker"] = sentiment_tracker
         except Exception as exc:
@@ -247,7 +253,9 @@ def run_single_cycle(config: dict) -> dict:
     ticker_velocity = config.setdefault("_ticker_velocity", None)
     if ticker_velocity is None:
         try:
-            from src.assembled_core.intel.news_ticker_velocity import TickerVelocityTracker
+            from src.assembled_core.intel.news_ticker_velocity import (
+                TickerVelocityTracker,
+            )
             ticker_velocity = TickerVelocityTracker(
                 short_window_min=15, long_window_min=60, surge_threshold=3.0
             )
@@ -387,7 +395,9 @@ def run_single_cycle(config: dict) -> dict:
 
         # Contradiction detection (stateless per cycle)
         try:
-            from src.assembled_core.intel.news_contradiction import ContradictionDetector
+            from src.assembled_core.intel.news_contradiction import (
+                ContradictionDetector,
+            )
             _contra_report = ContradictionDetector().analyse(new_events)
             _contra_hits = [v for v in _contra_report.values() if v.contradicts]
             contradiction_count = len(_contra_hits)
@@ -734,8 +744,10 @@ def _build_config(args: argparse.Namespace) -> dict:
         logger.debug("[SKIP] RSS/NLP policy check failed: %s", exc)
 
     if rss_enabled:
+        from src.assembled_core.intel.news_entity_mapper import (
+            SimpleEntityLinker,  # noqa: PLC0415
+        )
         from src.assembled_core.intel.rss_fetcher import RSSFetcher  # noqa: PLC0415
-        from src.assembled_core.intel.news_entity_mapper import SimpleEntityLinker  # noqa: PLC0415
         rss_fetcher = RSSFetcher(
             timeout=10,
             retries=1,

@@ -15,8 +15,8 @@ import json
 import logging
 import sqlite3
 import uuid
-from dataclasses import asdict, dataclass, field
-from datetime import date, datetime, timezone
+from dataclasses import asdict, dataclass
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 

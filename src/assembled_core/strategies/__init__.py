@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from src.assembled_core.strategies.ema_trend_v0 import (
     compute_signals as ema_compute_signals,
+)
+from src.assembled_core.strategies.ema_trend_v0 import (
     compute_target_positions as ema_compute_target_positions,
 )
 from src.assembled_core.strategies.multifactor_long_short import (

@@ -20,6 +20,12 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+# Import strategy functions from run_backtest_strategy
+from scripts.run_backtest_strategy import (
+    create_event_insider_shipping_signal_fn,
+    create_position_sizing_fn,
+    create_trend_baseline_signal_fn,
+)
 from src.assembled_core.config import OUTPUT_DIR, SUPPORTED_FREQS
 from src.assembled_core.costs import CostModel, get_default_cost_model
 from src.assembled_core.data.prices_ingest import load_eod_prices
@@ -27,13 +33,6 @@ from src.assembled_core.ema_config import get_default_ema_config
 from src.assembled_core.logging_utils import setup_logging
 from src.assembled_core.qa.backtest_engine import BacktestResult, run_portfolio_backtest
 from src.assembled_core.qa.metrics import PerformanceMetrics, compute_all_metrics
-
-# Import strategy functions from run_backtest_strategy
-from scripts.run_backtest_strategy import (
-    create_event_insider_shipping_signal_fn,
-    create_position_sizing_fn,
-    create_trend_baseline_signal_fn,
-)
 
 logger = setup_logging(level="INFO")
 

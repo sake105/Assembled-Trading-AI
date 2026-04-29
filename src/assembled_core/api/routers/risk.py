@@ -3,11 +3,9 @@
 
 from __future__ import annotations
 
-
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, HTTPException
-
 from src.assembled_core.api.models import Frequency, RiskMetrics
 from src.assembled_core.config import OUTPUT_DIR
 

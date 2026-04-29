@@ -16,12 +16,12 @@ Example:
 
 from __future__ import annotations
 
-import yaml
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
-import sys
+import yaml
 
 # Add project root to path if needed
 ROOT = Path(__file__).resolve().parents[3]

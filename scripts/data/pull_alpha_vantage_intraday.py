@@ -5,8 +5,7 @@ import sys
 from pathlib import Path
 
 import pandas as pd
-
-from common.io_utils import http_get_json, to_parquet, normalize_ohlc, RateBucket
+from common.io_utils import RateBucket, http_get_json, normalize_ohlc, to_parquet
 
 API = (
     "https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY"

@@ -19,7 +19,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
-
 from src.assembled_core.logging_utils import get_logger
 from src.assembled_core.qa.labeling import label_trades
 
@@ -361,11 +360,11 @@ def build_ml_dataset_for_strategy(
     )
 
     # Load price data
+    from src.assembled_core.config.settings import get_settings
     from src.assembled_core.data.prices_ingest import (
         load_eod_prices,
         load_eod_prices_for_universe,
     )
-    from src.assembled_core.config.settings import get_settings
 
     settings = get_settings()
 
@@ -433,10 +432,10 @@ def build_ml_dataset_for_strategy(
     # Add event features if event strategy
     if strategy_name == "event_insider_shipping":
         logger.info("Adding event features (insider, shipping)...")
-        from src.assembled_core.features.insider_features import add_insider_features
-        from src.assembled_core.features.shipping_features import add_shipping_features
         from src.assembled_core.data.insider_ingest import load_insider_sample
         from src.assembled_core.data.shipping_routes_ingest import load_shipping_sample
+        from src.assembled_core.features.insider_features import add_insider_features
+        from src.assembled_core.features.shipping_features import add_shipping_features
 
         insider_events = load_insider_sample()
         shipping_events = load_shipping_sample()
@@ -452,10 +451,10 @@ def build_ml_dataset_for_strategy(
     logger.info(f"Generating signals for strategy: {strategy_name}")
 
     if strategy_name == "trend_baseline":
+        from src.assembled_core.ema_config import get_default_ema_config
         from src.assembled_core.signals.rules_trend import (
             generate_trend_signals_from_prices,
         )
-        from src.assembled_core.ema_config import get_default_ema_config
 
         ema_config = get_default_ema_config(freq)
         signals = generate_trend_signals_from_prices(

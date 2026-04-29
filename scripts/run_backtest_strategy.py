@@ -27,6 +27,8 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+import logging
+
 from src.assembled_core.config import SUPPORTED_FREQS
 from src.assembled_core.config.settings import get_settings
 from src.assembled_core.costs import CostModel, get_default_cost_model
@@ -34,7 +36,12 @@ from src.assembled_core.data.prices_ingest import (
     load_eod_prices,
     load_eod_prices_for_universe,
 )
+from src.assembled_core.data.security_master import (
+    get_default_security_master_path,
+    load_security_master,
+)
 from src.assembled_core.ema_config import get_default_ema_config
+from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
 from src.assembled_core.portfolio.position_sizing import (
     compute_target_positions_from_trend_signals,
 )
@@ -43,27 +50,20 @@ from src.assembled_core.qa.backtest_engine import (
     make_cycle_fn,
     run_portfolio_backtest,
 )
-from src.assembled_core.data.security_master import (
-    get_default_security_master_path,
-    load_security_master,
-)
-from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
 from src.assembled_core.qa.metrics import compute_all_metrics
 from src.assembled_core.qa.qa_gates import QAResult, evaluate_all_gates
 from src.assembled_core.reports.daily_qa_report import generate_qa_report
 from src.assembled_core.reports.metrics_export import export_metrics_json
-from src.assembled_core.signals.rules_trend import generate_trend_signals_from_prices
-from src.assembled_core.utils.timing import timed_step, write_timings_json
 from src.assembled_core.signals.rules_event_insider_shipping import (
     generate_event_signals,
 )
+from src.assembled_core.signals.rules_trend import generate_trend_signals_from_prices
 from src.assembled_core.strategies.multifactor_long_short import (
     MultiFactorStrategyConfig,
-    generate_multifactor_long_short_signals,
     compute_multifactor_long_short_positions,
+    generate_multifactor_long_short_signals,
 )
-
-import logging
+from src.assembled_core.utils.timing import timed_step, write_timings_json
 
 logger = logging.getLogger(__name__)
 
@@ -376,10 +376,10 @@ def create_event_insider_shipping_signal_fn(
 
     def signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
         """Generate event signals from prices with features."""
-        from src.assembled_core.features.insider_features import add_insider_features
-        from src.assembled_core.features.shipping_features import add_shipping_features
         from src.assembled_core.data.insider_ingest import load_insider_sample
         from src.assembled_core.data.shipping_routes_ingest import load_shipping_sample
+        from src.assembled_core.features.insider_features import add_insider_features
+        from src.assembled_core.features.shipping_features import add_shipping_features
 
         # Try to load sample event data if available (matches price sample)
         # Otherwise fall back to default dummy data
@@ -1442,8 +1442,9 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
 
                 # Try to load regime config from file if provided
                 if args.regime_config_file is not None:
-                    import yaml
                     import json
+
+                    import yaml
 
                     config_file = Path(args.regime_config_file)
                     if not config_file.is_absolute():
@@ -1622,11 +1623,11 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         # This is a performance optimization: compute features once upfront instead of per timestamp
         precomputed_prices_with_features = None
         if not prices.empty:
-            from src.assembled_core.features.ta_features import add_all_features
+            from src.assembled_core.data.factor_store import compute_universe_key
             from src.assembled_core.features.factor_store_integration import (
                 build_or_load_factors,
             )
-            from src.assembled_core.data.factor_store import compute_universe_key
+            from src.assembled_core.features.ta_features import add_all_features
 
             # Check if we have required columns for features (ATR needs high/low)
             has_ohlc = all(col in prices.columns for col in ["high", "low", "open"])
@@ -1889,8 +1890,8 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             run_id = None
             if not args.no_ledger:
                 # Generate deterministic run_id from strategy, freq, and timestamp
-                from datetime import datetime
                 import hashlib
+                from datetime import datetime
 
                 run_id_base = f"{args.strategy}_{args.freq}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
                 run_id = (

@@ -12,14 +12,13 @@ Note:
 
 from __future__ import annotations
 
+import logging
 import os
 import random
 from contextlib import contextmanager
 from typing import Iterator
 
 import numpy as np
-
-import logging
 
 logger = logging.getLogger(__name__)
 

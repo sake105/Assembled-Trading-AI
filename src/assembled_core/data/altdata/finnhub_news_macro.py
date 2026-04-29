@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import logging
 from datetime import date
-import pandas as pd
 
+import pandas as pd
 from src.assembled_core.data.altdata.finnhub_common import (
     FINNHUB_BASE_URL,
     get_finnhub_session,

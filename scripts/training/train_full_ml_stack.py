@@ -23,7 +23,6 @@ Verwendung:
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import sys
 from pathlib import Path
@@ -134,7 +133,9 @@ def main() -> int:
         logger.info("=" * 60)
         logger.info("Step 4: Adversarial validation (train vs test)")
         try:
-            from src.assembled_core.ml.adversarial_validation import run_adversarial_validation
+            from src.assembled_core.ml.adversarial_validation import (
+                run_adversarial_validation,
+            )
             adv = run_adversarial_validation(
                 X_train=train_df, X_test=test_df, feature_cols=selected_features,
             )
@@ -164,7 +165,10 @@ def main() -> int:
     logger.info("=" * 60)
     logger.info("Step 6: Stacking ensemble training")
     try:
-        from src.assembled_core.ml.stacking_ensemble import StackingConfig, run_stacking_cv
+        from src.assembled_core.ml.stacking_ensemble import (
+            StackingConfig,
+            run_stacking_cv,
+        )
         cfg = StackingConfig(
             base_models=["ridge", "random_forest", "gradient_boosting"],
             meta_model="ridge",

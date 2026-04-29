@@ -53,6 +53,7 @@ dependencies = [
     "pandera>=0.21.0",
     "pandas-market-calendars>=4.6.0",
     "arch>=6.0.0",
+    "PyYAML>=6.0",
 ]
 
 [project.optional-dependencies]
@@ -119,7 +120,6 @@ all = [
 ]
 system_check = [
   "anthropic>=0.45.0",
-  "PyYAML>=6.0",
 ]
 
 [project.scripts]

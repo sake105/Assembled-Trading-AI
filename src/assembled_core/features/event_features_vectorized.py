@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-
 from src.assembled_core.data.altdata.contract import (
     filter_events_pit,
     normalize_alt_events,

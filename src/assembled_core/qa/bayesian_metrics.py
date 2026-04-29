@@ -18,7 +18,6 @@ import logging
 import math
 import warnings
 from dataclasses import dataclass
-from typing import Any
 
 import numpy as np
 
@@ -163,7 +162,6 @@ def _pymc_sharpe_posterior(
 ) -> SharpePosterior:
     """PyMC-based Bayesian Sharpe using Student-t likelihood."""
     import pymc as pm
-    import pytensor.tensor as pt
 
     obs_std = float(np.std(arr, ddof=1))
     with pm.Model():

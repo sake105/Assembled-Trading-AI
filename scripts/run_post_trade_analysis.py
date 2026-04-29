@@ -22,15 +22,14 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 import pandas as pd
-
+from src.assembled_core.qa.learning_store import (
+    append_learning_record,
+    summarize_learning_store,
+)
 from src.assembled_core.qa.post_trade_analyzer import (
     build_learning_record,
     compute_forward_returns,
     compute_signal_hit_rate,
-)
-from src.assembled_core.qa.learning_store import (
-    append_learning_record,
-    summarize_learning_store,
 )
 
 logging.basicConfig(

@@ -34,14 +34,14 @@ logger = logging.getLogger(__name__)
 __version__ = "0.0.1"
 
 # Import all command modules
-from scripts.commands import info as _info_mod
-from scripts.commands import run_daily as _run_daily_mod
-from scripts.commands import ml as _ml_mod
 from scripts.commands import backtest as _backtest_mod
+from scripts.commands import info as _info_mod
+from scripts.commands import ml as _ml_mod
 from scripts.commands import news as _news_mod
-from scripts.commands import reports as _reports_mod
-from scripts.commands import paper as _paper_mod
 from scripts.commands import ops as _ops_mod
+from scripts.commands import paper as _paper_mod
+from scripts.commands import reports as _reports_mod
+from scripts.commands import run_daily as _run_daily_mod
 
 _COMMAND_MODULES = [
     _info_mod,
@@ -55,42 +55,7 @@ _COMMAND_MODULES = [
 ]
 
 # Re-export handler functions for backward-compatible imports (e.g., tests)
-from scripts.commands.info import get_git_branch, print_version, info_subcommand
-from scripts.commands.run_daily import run_daily_subcommand
-from scripts.commands.ml import (
-    build_ml_dataset_subcommand,
-    train_meta_model_subcommand,
-    analyze_factors_subcommand,
-    ml_validate_factors_subcommand,
-    ml_model_zoo_subcommand,
-    factor_report_subcommand,
-    _run_backtest_for_ml_dataset,
-)
-from scripts.commands.backtest import (
-    run_backtest_subcommand,
-    batch_backtest_subcommand,
-    batch_run_subcommand,
-    leaderboard_subcommand,
-)
-from scripts.commands.news import (
-    run_news_pipeline_subcommand,
-    run_disclosures_pipeline_subcommand,
-)
-from scripts.commands.reports import risk_report_subcommand, tca_report_subcommand
-from scripts.commands.paper import (
-    run_paper_daily_subcommand,
-    run_paper_range_subcommand,
-    run_paper_experiment_subcommand,
-    compare_paper_experiments_subcommand,
-    summarize_intel_activity_subcommand,
-    inspect_eod_range_subcommand,
-)
-from scripts.commands.ops import (
-    check_health_subcommand,
-    paper_track_subcommand,
-    walk_forward_subcommand,
-    run_phase4_tests_subcommand,
-)
+from scripts.commands.info import print_version
 
 
 def create_parser() -> argparse.ArgumentParser:

@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, List
-
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from src.assembled_core.logging_config import setup_logging
 
@@ -19,8 +18,8 @@ from .emit import emit_json_artifact
 from .evidence import summarize_cluster_evidence
 from .fetch_gdelt import fetch_gdelt_events
 from .fetch_rss import fetch_rss_feed
-from .health import compute_health
 from .fingerprint import hamming_distance
+from .health import compute_health
 from .models import NewsEvent, NewsHealth
 from .normalize import normalize_raw_item, now_utc_iso
 from .sources import NewsSource, load_news_params, load_sources_registry

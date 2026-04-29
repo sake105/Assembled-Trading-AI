@@ -11,7 +11,6 @@ from typing import Literal
 
 import numpy as np
 import pandas as pd
-
 from src.assembled_core.accounting.ledger import (
     EVENT_TYPE_CASH_MOVEMENT,
     EVENT_TYPE_FILL,

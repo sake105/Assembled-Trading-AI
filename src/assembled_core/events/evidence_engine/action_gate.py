@@ -1,6 +1,7 @@
 """Action gate: controls which Crisis Alpha actions are permitted based on evidence grade."""
 
 from __future__ import annotations
+
 from .grades import EvidenceGrade
 
 

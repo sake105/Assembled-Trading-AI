@@ -17,7 +17,6 @@ from typing import Literal
 
 import numpy as np
 import pandas as pd
-
 from src.assembled_core.qa.metrics import (
     PERIODS_PER_YEAR_1D,
     PERIODS_PER_YEAR_5MIN,

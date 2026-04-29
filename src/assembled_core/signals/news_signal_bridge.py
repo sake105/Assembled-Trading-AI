@@ -22,7 +22,6 @@ from __future__ import annotations
 import logging
 
 import pandas as pd
-
 from src.assembled_core.signals.intel_signal_adapter import IntelOverlay
 
 logger = logging.getLogger(__name__)

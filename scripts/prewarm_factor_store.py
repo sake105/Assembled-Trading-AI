@@ -112,7 +112,9 @@ def _load_real_prices(
     """Best-effort load via project data-layer. Returns None on any import
     or data-shape failure so the caller can fall back to synthetic prices."""
     try:
-        from src.assembled_core.data.loaders import load_prices  # type: ignore[import-not-found]
+        from src.assembled_core.data.loaders import (
+            load_prices,  # type: ignore[import-not-found]
+        )
     except Exception:
         return None
     try:

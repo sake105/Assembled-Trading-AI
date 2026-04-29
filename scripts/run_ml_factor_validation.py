@@ -27,6 +27,10 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from src.assembled_core.ml.explainability import (
+    compute_model_feature_importance,
+    compute_permutation_importance,
+)
 from src.assembled_core.ml.factor_models import (
     MLExperimentConfig,
     MLModelConfig,
@@ -34,10 +38,6 @@ from src.assembled_core.ml.factor_models import (
     run_time_series_cv,
 )
 from src.assembled_core.qa.metrics import deflated_sharpe_ratio
-from src.assembled_core.ml.explainability import (
-    compute_model_feature_importance,
-    compute_permutation_importance,
-)
 
 logging.basicConfig(
     level=logging.INFO,

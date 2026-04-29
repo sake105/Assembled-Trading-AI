@@ -24,34 +24,34 @@ except Exception:
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+import logging
+
 from src.assembled_core.config.settings import get_settings
 from src.assembled_core.data.data_source import get_price_data_source
-from src.assembled_core.features.ta_factors_core import build_core_ta_factors
-from src.assembled_core.features.ta_liquidity_vol_factors import (
-    add_realized_volatility,
-    add_turnover_and_liquidity_proxies,
-)
 from src.assembled_core.features.altdata_earnings_insider_factors import (
     build_earnings_surprise_factors,
     build_insider_activity_factors,
 )
 from src.assembled_core.features.altdata_news_macro_factors import (
-    build_news_sentiment_factors,
     build_macro_regime_factors,
+    build_news_sentiment_factors,
+)
+from src.assembled_core.features.ta_factors_core import build_core_ta_factors
+from src.assembled_core.features.ta_liquidity_vol_factors import (
+    add_realized_volatility,
+    add_turnover_and_liquidity_proxies,
 )
 from src.assembled_core.logging_config import setup_logging
 from src.assembled_core.qa.factor_analysis import (
     add_forward_returns,
-    compute_ic,
-    compute_rank_ic,
-    summarize_ic_series,
     build_factor_portfolio_returns,
     build_long_short_portfolio_returns,
-    summarize_factor_portfolios,
     compute_deflated_sharpe_ratio,
+    compute_ic,
+    compute_rank_ic,
+    summarize_factor_portfolios,
+    summarize_ic_series,
 )
-
-import logging
 
 logger = logging.getLogger(__name__)
 

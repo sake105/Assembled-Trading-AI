@@ -8,13 +8,14 @@ Exit codes:
   2 = alles fehlgeschlagen/leer
 """
 from __future__ import annotations
+
 import argparse
+import io
+import random
 import sys
 import time
-import random
-import io
 from pathlib import Path
-from typing import Optional, List
+from typing import List, Optional
 
 import pandas as pd
 import requests

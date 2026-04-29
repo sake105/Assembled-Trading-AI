@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from datetime import timedelta
 from pathlib import Path
@@ -30,7 +29,10 @@ def _prd_load_paper_state(
         empty_pos = pd.DataFrame(columns=["symbol", "qty", "target_qty"])
         return None, None, start_capital, empty_pos, None, None
 
-    from src.assembled_core.ops.paper_ledger import load_ledger_state, mark_to_market_equity
+    from src.assembled_core.ops.paper_ledger import (
+        load_ledger_state,
+        mark_to_market_equity,
+    )
 
     paper_cfg = app_cfg.get("paper_runner") or {}
     ledger_path_str = (
@@ -98,7 +100,11 @@ def _prd_make_strategy_fns(
     if strategy_name == "ema_trend_v0":
         from src.assembled_core.strategies.ema_trend_v0 import (
             check_exit_signals as ema_check_exits,
+        )
+        from src.assembled_core.strategies.ema_trend_v0 import (
             compute_signals as ema_compute_signals,
+        )
+        from src.assembled_core.strategies.ema_trend_v0 import (
             compute_target_positions as ema_compute_targets,
         )
 
@@ -145,14 +151,22 @@ def _prd_make_strategy_fns(
         if strategy_name == "multifactor_v2":
             from src.assembled_core.strategies.multifactor_v2 import (
                 check_exit_signals as mf_check_exits,
+            )
+            from src.assembled_core.strategies.multifactor_v2 import (
                 compute_signals as mf_compute_signals,
+            )
+            from src.assembled_core.strategies.multifactor_v2 import (
                 compute_target_positions as mf_compute_targets,
             )
             _mf_tag = "[MF-V2]"
         else:
             from src.assembled_core.strategies.multifactor_v1 import (
                 check_exit_signals as mf_check_exits,
+            )
+            from src.assembled_core.strategies.multifactor_v1 import (
                 compute_signals as mf_compute_signals,
+            )
+            from src.assembled_core.strategies.multifactor_v1 import (
                 compute_target_positions as mf_compute_targets,
             )
             _mf_tag = "[MF-V1]"
@@ -218,7 +232,10 @@ def _prd_intel_summaries(
     ) / "triggers_latest.json"
 
     try:
-        from src.assembled_core.intel import load_disclosures_triggers, load_news_triggers
+        from src.assembled_core.intel import (
+            load_disclosures_triggers,
+            load_news_triggers,
+        )
         news_snap = load_news_triggers(news_path)
         result.meta["news_triggers_summary"] = {
             "count": len(news_snap.triggers),
@@ -289,7 +306,10 @@ def _prd_paper_fills_and_ledger(
         simulate_fills,
         write_ledger_snapshot,
     )
-    from src.assembled_core.ops.reconcile import build_reconcile_report, write_reconcile_artifact
+    from src.assembled_core.ops.reconcile import (
+        build_reconcile_report,
+        write_reconcile_artifact,
+    )
 
     orders_for_fills = (
         result.orders_filtered if not result.orders_filtered.empty else result.orders
@@ -346,7 +366,10 @@ def _prd_paper_fills_and_ledger(
         partial_cfg = (cost_cfg or {}).get("partial_fill") or {}
         if partial_cfg.get("enabled", False) and not orders_for_fills.empty:
             try:
-                from src.assembled_core.execution.fill_model import PartialFillModel, apply_partial_fills
+                from src.assembled_core.execution.fill_model import (
+                    PartialFillModel,
+                    apply_partial_fills,
+                )
 
                 pfm = PartialFillModel(
                     participation_cap=float(partial_cfg.get("participation_cap", 0.1)),
@@ -435,10 +458,12 @@ def _prd_paper_fills_and_ledger(
             log.debug("[PaperRunner] TCA IS compute failed: %s", exc)
 
         try:
-            from src.assembled_core.qa.post_trade_analyzer import (
-                build_learning_record, compute_forward_returns, compute_signal_hit_rate,
-            )
             from src.assembled_core.qa.learning_store import append_learning_record
+            from src.assembled_core.qa.post_trade_analyzer import (
+                build_learning_record,
+                compute_forward_returns,
+                compute_signal_hit_rate,
+            )
 
             prices_for_analysis = result.prices_with_features
             if not prices_for_analysis.empty and "close" in prices_for_analysis.columns:
@@ -482,7 +507,11 @@ def _prd_write_artifacts(
     import json as _json
 
     from src.assembled_core.config.policy_loader import load_policy
-    from src.assembled_core.ops.alerts import compute_alerts, make_reconcile_fail_alert, write_alerts_artifact
+    from src.assembled_core.ops.alerts import (
+        compute_alerts,
+        make_reconcile_fail_alert,
+        write_alerts_artifact,
+    )
     from src.assembled_core.ops.kpi_artifacts import (
         maybe_execute_orders,
         write_diff_vs_prev,

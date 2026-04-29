@@ -30,7 +30,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
-
 from src.assembled_core.execution.kill_switch import (
     check_drawdown_kill_switch,
     guard_orders_with_kill_switch,
@@ -249,7 +248,9 @@ def filter_orders_with_risk_controls(
     if current_equity is not None and peak_equity is not None and peak_equity > 0:
         current_dd_pct = ((current_equity / peak_equity) - 1.0) * 100.0  # e.g. -8.0
         try:
-            from src.assembled_core.risk.state_machine import compute_drawdown_risk_level
+            from src.assembled_core.risk.state_machine import (
+                compute_drawdown_risk_level,
+            )
 
             risk_level, exposure_cap = compute_drawdown_risk_level(current_dd_pct)
         except ImportError:

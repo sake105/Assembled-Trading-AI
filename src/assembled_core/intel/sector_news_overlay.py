@@ -16,8 +16,8 @@ Usage:
 
 from __future__ import annotations
 
-import math
 import logging
+import math
 from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)

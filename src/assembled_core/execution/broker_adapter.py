@@ -425,8 +425,9 @@ class AlpacaAdapter(BrokerAdapter):
         from src.assembled_core.execution.api_resilience import MarketClosedError
 
         try:
-            from src.assembled_core.data.calendar import is_trading_day_safe
             import datetime
+
+            from src.assembled_core.data.calendar import is_trading_day_safe
 
             # Use proper US/Eastern timezone (handles EST/EDT automatically)
             try:
@@ -496,8 +497,10 @@ class AlpacaAdapter(BrokerAdapter):
 
         # Try alpaca-py style
         try:
-            from alpaca.data.requests import StockLatestTradeRequest  # type: ignore[import]
             from alpaca.data import StockHistoricalDataClient  # type: ignore[import]
+            from alpaca.data.requests import (
+                StockLatestTradeRequest,  # type: ignore[import]
+            )
 
             data_client = StockHistoricalDataClient(
                 api_key=api._api_key if hasattr(api, "_api_key") else None,
@@ -552,8 +555,13 @@ class AlpacaAdapter(BrokerAdapter):
 
         api = self._get_api()
         try:
-            from alpaca.trading.enums import OrderSide, TimeInForce  # type: ignore[import]
-            from alpaca.trading.requests import MarketOrderRequest  # type: ignore[import]
+            from alpaca.trading.enums import (  # type: ignore[import]
+                OrderSide,
+                TimeInForce,
+            )
+            from alpaca.trading.requests import (
+                MarketOrderRequest,  # type: ignore[import]
+            )
 
             order_side = OrderSide.BUY if side_lower == "buy" else OrderSide.SELL
             tif = TimeInForce.DAY if time_in_force == "day" else TimeInForce.GTC
@@ -623,8 +631,13 @@ class AlpacaAdapter(BrokerAdapter):
 
         api = self._get_api()
         try:
-            from alpaca.trading.enums import OrderSide, TimeInForce  # type: ignore[import]
-            from alpaca.trading.requests import LimitOrderRequest  # type: ignore[import]
+            from alpaca.trading.enums import (  # type: ignore[import]
+                OrderSide,
+                TimeInForce,
+            )
+            from alpaca.trading.requests import (
+                LimitOrderRequest,  # type: ignore[import]
+            )
 
             order_side = OrderSide.BUY if side_lower == "buy" else OrderSide.SELL
             tif_map = {"day": TimeInForce.DAY, "gtc": TimeInForce.GTC, "cls": TimeInForce.CLS}
@@ -678,7 +691,10 @@ class AlpacaAdapter(BrokerAdapter):
         api = self._get_api()
 
         try:
-            from alpaca.trading.enums import OrderSide, TimeInForce  # type: ignore[import]
+            from alpaca.trading.enums import (  # type: ignore[import]
+                OrderSide,
+                TimeInForce,
+            )
             from alpaca.trading.requests import (  # type: ignore[import]
                 StopLimitOrderRequest,
                 StopOrderRequest,

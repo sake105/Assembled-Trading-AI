@@ -18,7 +18,6 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-
 DEFAULT_WEEKLY_EMA_SPAN = 10  # ~10 weekly bars ≈ 2 months
 
 

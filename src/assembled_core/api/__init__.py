@@ -8,8 +8,8 @@ This package provides:
 
 from __future__ import annotations
 
-from src.assembled_core.api.app import create_app
 from src.assembled_core.api import models  # noqa: F401 - registers the models module
+from src.assembled_core.api.app import create_app
 
 __all__ = [
     "create_app",

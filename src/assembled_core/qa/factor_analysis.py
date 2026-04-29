@@ -636,8 +636,8 @@ def run_factor_report(
         logger.info("Computing volatility and liquidity factors...")
         from src.assembled_core.features.ta_liquidity_vol_factors import (
             add_realized_volatility,
-            add_vol_of_vol,
             add_turnover_and_liquidity_proxies,
+            add_vol_of_vol,
         )
 
         # Add realized volatility

@@ -74,8 +74,9 @@ def run_backtest_medium(output_dir: Path) -> int:
     Returns:
         Exit code (0 for success, 1 for failure)
     """
-    from scripts.run_backtest_strategy import run_backtest_from_args
     import argparse
+
+    from scripts.run_backtest_strategy import run_backtest_from_args
 
     # Create args namespace
     args = argparse.Namespace()
@@ -130,8 +131,9 @@ def run_ml_job(output_dir: Path) -> int:
     Returns:
         Exit code (0 for success, 1 for failure)
     """
-    from scripts.cli import build_ml_dataset_subcommand, train_meta_model_subcommand
     import argparse
+
+    from scripts.cli import build_ml_dataset_subcommand, train_meta_model_subcommand
 
     # Step 1: Build ML dataset
     args_build = argparse.Namespace()

@@ -18,8 +18,8 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 
+from src.assembled_core.intel.news_classifier import get_source_bias, is_state_media
 from src.assembled_core.intel.news_dedupe import content_fingerprint
-from src.assembled_core.intel.news_classifier import is_state_media, get_source_bias
 
 logger = logging.getLogger(__name__)
 

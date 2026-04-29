@@ -28,6 +28,11 @@ sys.path.insert(0, str(ROOT))
 from src.assembled_core.config.settings import get_settings
 from src.assembled_core.data.prices_ingest import load_eod_prices
 from src.assembled_core.qa.metrics import _compute_returns
+from src.assembled_core.risk.factor_exposures import (
+    FactorExposureConfig,
+    compute_factor_exposures,
+    summarize_factor_exposures,
+)
 from src.assembled_core.risk.regime_analysis import (
     RegimeConfig,
     classify_regimes_from_index,
@@ -38,11 +43,6 @@ from src.assembled_core.risk.risk_metrics import (
     compute_exposure_timeseries,
     compute_risk_by_factor_group,
     compute_risk_by_regime,
-)
-from src.assembled_core.risk.factor_exposures import (
-    FactorExposureConfig,
-    compute_factor_exposures,
-    summarize_factor_exposures,
 )
 
 logging.basicConfig(

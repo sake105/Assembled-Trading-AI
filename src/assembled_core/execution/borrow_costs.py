@@ -22,7 +22,6 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 
-
 EASY_TO_BORROW_BPS = 50.0
 HARD_TO_BORROW_BPS = 500.0
 

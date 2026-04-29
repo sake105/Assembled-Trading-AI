@@ -11,7 +11,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 import uvicorn
-
 from src.assembled_core.api.app import create_app
 
 if __name__ == "__main__":

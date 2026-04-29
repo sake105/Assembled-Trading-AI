@@ -13,7 +13,6 @@ from datetime import datetime
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
-
 from src.assembled_core.api.models import (
     DriftStatusSummary,
     FeatureDriftItem,
@@ -391,6 +390,7 @@ def get_portfolio_status(
     """
     try:
         from pathlib import Path as _Path
+
         from src.assembled_core.data.ledger_store import LedgerStore  # type: ignore
 
         if not _Path(db_path).exists():
@@ -431,8 +431,8 @@ def get_regime_status(
     a default 'unknown' state if no regime data is available.
     """
     try:
-        from pathlib import Path as _Path
         import json as _json
+        from pathlib import Path as _Path
 
         # Look for most recent regime state file
         out_path = _Path(output_dir)
@@ -482,8 +482,8 @@ def get_active_alerts(
 
     # Zombie positions
     try:
-        from pathlib import Path as _Path
         import json as _json
+        from pathlib import Path as _Path
         out_path = _Path(output_dir)
         zombie_files = sorted(out_path.glob("zombie_report_*.json"), reverse=True)
         if zombie_files:
@@ -514,8 +514,8 @@ def get_active_alerts(
 
     # Correlation guard
     try:
-        from pathlib import Path as _Path
         import json as _json
+        from pathlib import Path as _Path
         out_path = _Path(output_dir)
         corr_files = sorted(out_path.glob("correlation_guard_*.json"), reverse=True)
         if corr_files:
@@ -547,8 +547,8 @@ def get_signal_scores(
     Reads from the most recent signal scores file in output_dir.
     """
     try:
-        from pathlib import Path as _Path
         import json as _json
+        from pathlib import Path as _Path
 
         out_path = _Path(output_dir)
         score_files = sorted(out_path.glob("signal_scores_*.json"), reverse=True)
@@ -590,9 +590,9 @@ def get_data_quality(
     Reads from the most recent price data file and reports staleness.
     """
     try:
-        from pathlib import Path as _Path
         import os as _os
         from datetime import datetime as _dt
+        from pathlib import Path as _Path
 
         out_path = _Path(output_dir)
         price_files = sorted(out_path.glob("prices_*.parquet"), reverse=True)

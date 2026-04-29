@@ -59,7 +59,6 @@ class LPPLSCrashDetector:
     # ------------------------------------------------------------------
 
     def _fit_lppls_lib(self, prices: np.ndarray) -> dict[str, Any]:
-        import lppls  # type: ignore[import]  # noqa: PLC0415
         from lppls import lppls as lppls_model  # noqa: PLC0415
 
         window = prices[-self.fit_window:]

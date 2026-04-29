@@ -51,8 +51,6 @@ Example:
 
 from __future__ import annotations
 
-import numpy as np
-
 import json
 import logging
 import math
@@ -61,8 +59,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+import numpy as np
 import pandas as pd
-
 from src.assembled_core.qa.backtest_engine import BacktestResult, run_portfolio_backtest
 
 logger = logging.getLogger(__name__)

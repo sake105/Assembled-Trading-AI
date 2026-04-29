@@ -1,21 +1,24 @@
 """1-Year Backtest Analysis using V1-V20 Improvements (Phase 6)."""
 from __future__ import annotations
 
-import sys
-import os
 import json
+import os
+import sys
 
 sys.path.insert(0, str(os.path.join(os.path.dirname(__file__), "..")))
 
 import numpy as np
 import pandas as pd
 
-from assembled_core.signals.rules_trend import generate_trend_signals_from_prices
-from assembled_core.features.ta_features import add_all_features
-from assembled_core.qa.benchmark_metrics import compute_benchmark_metrics
-from assembled_core.ml.cpcv import generate_cpcv_splits, compute_cpcv_sharpe_distribution
-from assembled_core.risk.liquidity_scoring import compute_liquidity_scores
 from assembled_core.data.cost_model_policy import get_per_symbol_costs
+from assembled_core.features.ta_features import add_all_features
+from assembled_core.ml.cpcv import (
+    compute_cpcv_sharpe_distribution,
+    generate_cpcv_splits,
+)
+from assembled_core.qa.benchmark_metrics import compute_benchmark_metrics
+from assembled_core.risk.liquidity_scoring import compute_liquidity_scores
+from assembled_core.signals.rules_trend import generate_trend_signals_from_prices
 
 
 def main():

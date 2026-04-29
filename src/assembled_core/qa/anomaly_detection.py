@@ -71,9 +71,9 @@ class TradeAnomalyDetector:
 
     def _try_fit_pyod(self, X: np.ndarray) -> bool:
         try:
-            from pyod.models.iforest import IForest  # noqa: PLC0415
             from pyod.models.copod import COPOD  # noqa: PLC0415
             from pyod.models.ecod import ECOD  # noqa: PLC0415
+            from pyod.models.iforest import IForest  # noqa: PLC0415
 
             self._detectors = {
                 "iforest": IForest(contamination=self.contamination),

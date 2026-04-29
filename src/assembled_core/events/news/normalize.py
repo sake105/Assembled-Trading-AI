@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 from datetime import datetime, timezone
 from typing import Any, Dict
-from urllib.parse import urlparse, urlunparse, parse_qsl
+from urllib.parse import parse_qsl, urlparse, urlunparse
 
 from dateutil import parser as date_parser
 

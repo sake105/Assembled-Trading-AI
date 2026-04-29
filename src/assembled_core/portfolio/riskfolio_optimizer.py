@@ -9,10 +9,8 @@ Install: pip install riskfolio-lib==7.2.1 cvxpy==1.8.2
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
-from typing import Literal
+from dataclasses import dataclass
 
-import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)

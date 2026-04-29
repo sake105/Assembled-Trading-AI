@@ -11,7 +11,7 @@ import time
 from collections import OrderedDict
 from datetime import timedelta
 from pathlib import Path
-from urllib.parse import urlencode, urlparse, urlunparse, parse_qs
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 from src.assembled_core.intel.models import NewsEvent
 

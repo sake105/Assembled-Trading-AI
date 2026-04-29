@@ -32,7 +32,6 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-
 from src.assembled_core.risk.state_machine import atomic_write_json_with_retry
 
 logger = logging.getLogger(__name__)

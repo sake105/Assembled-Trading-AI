@@ -34,7 +34,6 @@ import math
 import numpy as np
 import pandas as pd
 
-
 # Hand-table of z_alpha (one-sided, standard normal inverse CDF).
 # Keys are the confidence level alpha in (0, 1).
 _Z_TABLE: dict[float, float] = {

@@ -16,7 +16,6 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
-
 from src.assembled_core.portfolio.position_sizing import compute_target_positions
 
 logger = logging.getLogger(__name__)

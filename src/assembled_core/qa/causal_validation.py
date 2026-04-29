@@ -139,7 +139,6 @@ def _estimate_dowhy(
     confounders: list[str],
 ) -> dict[str, Any]:
     """dowhy-based causal estimation."""
-    import dowhy  # noqa: PLC0415
     from dowhy import CausalModel  # noqa: PLC0415
 
     model = CausalModel(

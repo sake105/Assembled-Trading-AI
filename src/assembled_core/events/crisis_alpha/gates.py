@@ -14,7 +14,6 @@ Guard hierarchy (highest priority first):
 
 from __future__ import annotations
 
-
 from src.assembled_core.events.crisis_alpha.context import CrisisAlphaContext
 
 

@@ -15,8 +15,6 @@ from __future__ import annotations
 import logging
 import re
 
-import pandas as pd
-
 logger = logging.getLogger(__name__)
 
 # Regex for extracting USD buyback amounts from 8-K text

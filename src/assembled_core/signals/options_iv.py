@@ -22,8 +22,8 @@ OptionType = Literal["c", "p"]
 
 def _try_py_vollib():
     try:
-        import py_vollib.black_scholes.implied_volatility as bsiv
         import py_vollib.black_scholes as bs
+        import py_vollib.black_scholes.implied_volatility as bsiv
         return bsiv, bs
     except ImportError:
         logger.warning("py_vollib not installed — pip install py_vollib==1.0.1")

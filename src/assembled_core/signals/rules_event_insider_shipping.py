@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-
 from src.assembled_core.logging_utils import get_logger
 
 logger = get_logger("assembled_core.signals.event")

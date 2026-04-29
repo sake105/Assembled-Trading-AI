@@ -350,10 +350,10 @@ def run_sweep(
 ) -> list[dict]:
     """EMA parameter sweep on 1y slice only. Return list of sweep rows."""
     import pandas as pd
-    from src.assembled_core.qa.backtest_engine import run_portfolio_backtest
     from src.assembled_core.portfolio.position_sizing import (
         compute_target_positions_from_trend_signals,
     )
+    from src.assembled_core.qa.backtest_engine import run_portfolio_backtest
     from src.assembled_core.qa.metrics import compute_all_metrics
 
     sweep_dir = output_root / "sweep"

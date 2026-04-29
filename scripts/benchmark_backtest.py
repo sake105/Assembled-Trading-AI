@@ -20,8 +20,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
+from scripts.profile_jobs import JOB_MAP, REFERENCE_JOBS, run_job_without_profiling
 from src.assembled_core.config import OUTPUT_DIR
-from scripts.profile_jobs import REFERENCE_JOBS, JOB_MAP, run_job_without_profiling
 
 
 def run_benchmark_harness(

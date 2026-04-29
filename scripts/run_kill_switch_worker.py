@@ -42,7 +42,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 import pandas as pd
-
 from src.assembled_core.execution.intent_store import (
     has_intent,
     make_daily_key,

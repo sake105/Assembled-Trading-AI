@@ -7,7 +7,6 @@ import logging
 from pathlib import Path
 
 import pandas as pd
-
 from src.assembled_core.config import OUTPUT_DIR
 from src.assembled_core.utils.dataframe import coerce_price_types, ensure_cols
 from src.assembled_core.utils.paths import get_default_price_path

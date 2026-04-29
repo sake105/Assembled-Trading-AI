@@ -16,8 +16,8 @@ Exit codes: 0 OK, 1 schema error, 2 generator error
 """
 from __future__ import annotations
 
-import ast
 import argparse
+import ast
 import json
 import math
 import re

@@ -17,7 +17,6 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-
 # ---------------------------------------------------------------------------
 # Event-type base impact table (in BPS on affected assets)
 # ---------------------------------------------------------------------------

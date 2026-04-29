@@ -141,7 +141,9 @@ def _try_compute_volatility_features(prices: pd.DataFrame) -> pd.DataFrame | Non
 def _try_compute_correlation_features(prices: pd.DataFrame) -> pd.DataFrame | None:
     """src/assembled_core/features/correlation_features -> build_correlation_features_panel"""
     try:
-        from src.assembled_core.features.correlation_features import build_correlation_features_panel
+        from src.assembled_core.features.correlation_features import (
+            build_correlation_features_panel,
+        )
         result = build_correlation_features_panel(prices.copy())
         return result
     except ImportError as exc:
@@ -173,7 +175,9 @@ def _try_compute_macro_features(prices: pd.DataFrame) -> pd.DataFrame | None:
 def _try_compute_mean_reversion_factors(prices: pd.DataFrame) -> pd.DataFrame | None:
     """src/assembled_core/features/mean_reversion_factors -> compute_mean_reversion_factors"""
     try:
-        from src.assembled_core.features.mean_reversion_factors import compute_mean_reversion_factors
+        from src.assembled_core.features.mean_reversion_factors import (
+            compute_mean_reversion_factors,
+        )
         result = compute_mean_reversion_factors(prices.copy())
         return result
     except ImportError as exc:
@@ -192,10 +196,10 @@ def _try_compute_liquidity_vol_factors(prices: pd.DataFrame) -> pd.DataFrame | N
     """
     try:
         from src.assembled_core.features.ta_liquidity_vol_factors import (
-            add_realized_volatility,
-            add_vol_of_vol,
-            add_turnover_and_liquidity_proxies,
             add_amihud_illiquidity,
+            add_realized_volatility,
+            add_turnover_and_liquidity_proxies,
+            add_vol_of_vol,
         )
         df = prices.copy()
         df = add_realized_volatility(df)
@@ -263,7 +267,9 @@ def _try_compute_altdata_factors(prices: pd.DataFrame) -> pd.DataFrame | None:
 def _try_compute_supply_chain_features(prices: pd.DataFrame) -> pd.DataFrame | None:
     """src/assembled_core/features/supply_chain_features -> build_supply_chain_features"""
     try:
-        from src.assembled_core.features.supply_chain_features import build_supply_chain_features
+        from src.assembled_core.features.supply_chain_features import (
+            build_supply_chain_features,
+        )
         result = build_supply_chain_features(prices.copy())
         return result
     except ImportError as exc:
@@ -277,11 +283,12 @@ def _try_compute_supply_chain_features(prices: pd.DataFrame) -> pd.DataFrame | N
 def _try_compute_intermarket_factors(prices: pd.DataFrame) -> pd.DataFrame | None:
     """src/assembled_core/features/intermarket_factors -> build_intermarket_factors + align."""
     try:
-        from src.assembled_core.features.intermarket_factors import (
-            build_intermarket_factors,
-            align_intermarket_factors_to_panel,
-        )
         import concurrent.futures
+
+        from src.assembled_core.features.intermarket_factors import (
+            align_intermarket_factors_to_panel,
+            build_intermarket_factors,
+        )
         date_min = prices["timestamp"].min().strftime("%Y-%m-%d")
         date_max = prices["timestamp"].max().strftime("%Y-%m-%d")
         def _run():

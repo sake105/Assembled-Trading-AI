@@ -5,7 +5,6 @@ the source file exists under src/ or has been archived. Outputs a CSV.
 """
 from __future__ import annotations
 
-import ast
 import csv
 import re
 import sys

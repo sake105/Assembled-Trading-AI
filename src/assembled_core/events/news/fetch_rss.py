@@ -24,8 +24,9 @@ def fetch_rss_feed(
       - stats: dict for fetch_report (http_status, duration_ms, items, not_modified, cached, error)
     """
     import time
-    import requests
+
     import feedparser  # type: ignore[import]
+    import requests
 
     rss_state = fetch_state.setdefault("rss", {}).setdefault(source_id, {})
     headers: Dict[str, str] = {

@@ -5,9 +5,7 @@ from io import StringIO
 from pathlib import Path
 
 import pandas as pd
-
-from common.io_utils import http_get_text, to_parquet, normalize_ohlc
-
+from common.io_utils import http_get_text, normalize_ohlc, to_parquet
 
 """
 Stooq CSV EoD Download.

@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from src.assembled_core.config.settings import RuntimeProfile, get_runtime_profile
+from src.assembled_core.config.settings import get_runtime_profile
 from src.assembled_core.logging_config import generate_run_id, setup_logging
 
 
@@ -37,8 +37,8 @@ def run_daily_subcommand(args: argparse.Namespace) -> int:
             logger.error("--experiment-name is required when --track-experiment is set")
             return 1
 
-        from src.assembled_core.qa.experiment_tracking import ExperimentTracker
         from src.assembled_core.config.settings import get_settings
+        from src.assembled_core.qa.experiment_tracking import ExperimentTracker
 
         settings = get_settings()
         tracker = ExperimentTracker(settings.experiments_dir)
@@ -80,8 +80,8 @@ def run_daily_subcommand(args: argparse.Namespace) -> int:
         manifest = run_eod_from_args(args)
 
         if experiment_run and manifest:
-            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
             from src.assembled_core.config.settings import get_settings
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
 
             settings = get_settings()
             tracker = ExperimentTracker(settings.experiments_dir)
@@ -121,8 +121,8 @@ def run_daily_subcommand(args: argparse.Namespace) -> int:
         return 0
     except RuntimeError:
         if experiment_run:
-            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
             from src.assembled_core.config.settings import get_settings
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
 
             settings = get_settings()
             tracker = ExperimentTracker(settings.experiments_dir)
@@ -131,8 +131,8 @@ def run_daily_subcommand(args: argparse.Namespace) -> int:
     except Exception as e:
         logger.error(f"EOD pipeline failed: {e}", exc_info=True)
         if experiment_run:
-            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
             from src.assembled_core.config.settings import get_settings
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
 
             settings = get_settings()
             tracker = ExperimentTracker(settings.experiments_dir)

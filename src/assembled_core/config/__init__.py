@@ -61,10 +61,10 @@ except ImportError:
 try:
     from src.assembled_core.config.factor_bundles import (
         FactorBundleConfig,
-        FactorConfig,
         FactorBundleOptions,
-        load_factor_bundle,
+        FactorConfig,
         list_available_factor_bundles,
+        load_factor_bundle,
     )
     __all__.extend([
         "FactorBundleConfig",

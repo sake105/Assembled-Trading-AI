@@ -32,7 +32,6 @@ from system_check.runner.judge import parse_judge_output  # noqa: E402
 from system_check.runner.report import write_run_artifacts  # noqa: E402
 from system_check.runner.tournament import run_tournament  # noqa: E402
 
-
 SYSTEM_CHECK_DIR = REPO_ROOT / "system_check"
 DEFAULT_CONFIG = SYSTEM_CHECK_DIR / "config" / "tournament_default.yaml"
 DEFAULT_DEFENDERS = SYSTEM_CHECK_DIR / "personas" / "defenders.yaml"

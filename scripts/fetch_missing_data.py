@@ -9,9 +9,9 @@ These instruments are referenced by existing modules but not yet in local data:
 """
 from __future__ import annotations
 
+import logging
 import os
 import sys
-import logging
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 

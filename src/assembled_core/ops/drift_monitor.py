@@ -43,8 +43,8 @@ class DriftReport:
 
 def _try_evidently():
     try:
-        from evidently.report import Report
         from evidently.metric_preset import DataDriftPreset
+        from evidently.report import Report
         return Report, DataDriftPreset
     except ImportError:
         logger.warning("evidently not installed — pip install evidently")

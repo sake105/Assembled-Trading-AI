@@ -63,7 +63,6 @@ import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
-
 _EULER_MASCHERONI = 0.5772156649015329
 
 

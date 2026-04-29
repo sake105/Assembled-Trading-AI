@@ -287,6 +287,7 @@ def compute_portfolio_tail_risk(
 
 from dataclasses import dataclass as _dc_dvine
 
+
 @_dc_dvine
 class DVineResult:
     """Fitted D-vine copula for a triple of assets."""

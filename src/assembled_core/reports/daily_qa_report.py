@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-
 from src.assembled_core.config import OUTPUT_DIR
 from src.assembled_core.qa.metrics import PerformanceMetrics
 from src.assembled_core.qa.qa_gates import QAGatesSummary

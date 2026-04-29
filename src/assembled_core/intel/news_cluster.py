@@ -148,7 +148,9 @@ class ClusterManager:
         cluster.max_tier = current_max
 
         # T2.8: Bayesian confidence (flipped from shadow to production)
-        from src.assembled_core.intel.bayesian_confidence import compute_cluster_confidence
+        from src.assembled_core.intel.bayesian_confidence import (
+            compute_cluster_confidence,
+        )
         source_tiers = [evt.source_tier.value for evt in new_events]
         n_independent = max(1, len(set(evt.source_id for evt in new_events)))
         cluster.confidence = compute_cluster_confidence(

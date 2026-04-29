@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Any, Callable
 
 import pandas as pd
-
 from src.assembled_core.data.factor_store import (
     compute_universe_key,
     load_factors,

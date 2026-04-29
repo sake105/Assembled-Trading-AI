@@ -99,7 +99,8 @@ def log_certificate_to_mlflow(
         # --- Artifact: full certificate JSON ---
         cert_json = _certificate_to_json(certificate)
         if cert_json:
-            import tempfile, os  # noqa: E401
+            import os
+            import tempfile  # noqa: E401
             with tempfile.NamedTemporaryFile(
                 mode="w", suffix=".json", delete=False, prefix="certificate_"
             ) as f:

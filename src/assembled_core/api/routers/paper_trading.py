@@ -17,7 +17,6 @@ from typing import Union
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException
-
 from src.assembled_core.api.models import (
     PaperOrderRequest,
     PaperOrderResponse,

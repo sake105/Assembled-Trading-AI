@@ -33,7 +33,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 import yaml
-
 from src.assembled_core.events.crisis_alpha.context import CrisisAlphaContext
 from src.assembled_core.events.crisis_alpha.pipeline import run_crisis_alpha_pipeline
 

@@ -4,9 +4,7 @@ import sys
 from pathlib import Path
 
 import pandas as pd
-
-from common.io_utils import http_get_json, to_parquet, normalize_ohlc
-
+from common.io_utils import http_get_json, normalize_ohlc, to_parquet
 
 # OHLC endpoint: /coins/{id}/ohlc?vs_currency=usd&days=1/7/30/90/180/365/max
 BASE = "https://api.coingecko.com/api/v3/coins/{cid}/ohlc?vs_currency={ccy}&days={days}"

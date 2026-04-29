@@ -183,6 +183,7 @@ class NewsEventStore:
         Designed for worker restarts: fresh process -> warm store in one call.
         """
         from datetime import datetime, timedelta, timezone
+
         from src.assembled_core.intel.news_archive import NewsArchiveReader
 
         reader = NewsArchiveReader(path)

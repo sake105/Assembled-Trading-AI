@@ -94,26 +94,27 @@ def test_lci_exposure_multiplier():
 
 
 def test_regime_hmm_import():
-    from src.assembled_core.risk.regime_hmm import HMMRegimeConfig, fit_regime_hmm
-    assert HMMRegimeConfig().n_states == 3
+    pytest.importorskip("hmmlearn", reason="hmmlearn not installed")
+    from src.assembled_core.ml.regime_hmm import RegimeHMM
+    assert RegimeHMM().n_regimes == 3
 
 
 def test_regime_hmm_fit_without_hmmlearn():
-    """When hmmlearn is absent, fit_regime_hmm returns (None, empty)."""
-    from src.assembled_core.risk import regime_hmm as mod
-    original = mod._try_import_hmm
-
-    mod._try_import_hmm = lambda: None
+    """When hmmlearn is absent, predict_regime returns a Series of fallback labels."""
+    pytest.importorskip("hmmlearn", reason="hmmlearn not installed")
+    from src.assembled_core.ml import regime_hmm as mod
+    original = mod.HMMLEARN_AVAILABLE
+    mod.HMMLEARN_AVAILABLE = False
     try:
         n = 100
         idx = pd.date_range("2020-01-01", periods=n, freq="B")
         rets = pd.Series(np.random.randn(n) * 0.01, index=idx)
-        vols = pd.Series(np.abs(np.random.randn(n)) * 0.02 + 0.15, index=idx)
-        model, states = mod.fit_regime_hmm(rets, vols)
-        assert model is None
-        assert isinstance(states, pd.Series) and states.empty
+        model = mod.RegimeHMM(n_regimes=3)
+        states = model.predict_regime(rets)
+        assert isinstance(states, pd.Series)
+        assert len(states) == n
     finally:
-        mod._try_import_hmm = original
+        mod.HMMLEARN_AVAILABLE = original
 
 
 # ---------------------------------------------------------------------------

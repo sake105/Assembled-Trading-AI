@@ -7,9 +7,11 @@ Usage:
   python pull_ecb_fxref.py --pairs "EURUSD,EURGBP" --out data/raw/fx/ecb
 """
 from __future__ import annotations
+
 import argparse
 import sys
 from pathlib import Path
+
 import pandas as pd
 
 ECB_URL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.csv"

@@ -3,9 +3,7 @@
 
 from __future__ import annotations
 
-
 from fastapi import APIRouter, HTTPException
-
 from src.assembled_core.api.models import Frequency, OrderPreview, OrdersResponse
 from src.assembled_core.config import OUTPUT_DIR
 from src.assembled_core.config.constants import MAX_ORDERS_PER_RESPONSE

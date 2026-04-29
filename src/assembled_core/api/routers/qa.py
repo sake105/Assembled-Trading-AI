@@ -8,14 +8,13 @@ from datetime import datetime, timezone
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
-
 from src.assembled_core.api.models import (
+    PerformanceMetricsResponse,
+    QaCheck,
     QAGateResultModel,
     QAGatesSummaryResponse,
-    QaCheck,
     QaStatus,
     QaStatusEnum,
-    PerformanceMetricsResponse,
 )
 from src.assembled_core.config import OUTPUT_DIR, SUPPORTED_FREQS
 from src.assembled_core.logging_utils import get_logger

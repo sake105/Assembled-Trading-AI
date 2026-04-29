@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-
 from src.assembled_core.data.macro.contract import (
     filter_macro_pit,
     normalize_macro_releases,

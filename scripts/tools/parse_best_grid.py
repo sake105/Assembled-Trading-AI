@@ -5,8 +5,8 @@
 # See: docs/BATCH_RUNNER_P4.md
 
 import json
-import re
 import math
+import re
 import sys
 from pathlib import Path
 

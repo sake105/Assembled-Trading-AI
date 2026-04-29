@@ -139,7 +139,10 @@ def _ptc_check_max_weight(
         return filtered_orders, orders_with_notional
 
     try:
-        from src.assembled_core.risk.exposure_engine import compute_exposures, compute_target_positions
+        from src.assembled_core.risk.exposure_engine import (
+            compute_exposures,
+            compute_target_positions,
+        )
     except ImportError as e:
         logger.error(
             "PRE_TRADE: max_weight_per_symbol check skipped — cannot import exposure_engine: %s. "
@@ -255,7 +258,10 @@ def _ptc_check_group_exposures(
         return filtered_orders, orders_with_notional
 
     try:
-        from src.assembled_core.risk.exposure_engine import compute_exposures, compute_target_positions
+        from src.assembled_core.risk.exposure_engine import (
+            compute_exposures,
+            compute_target_positions,
+        )
         from src.assembled_core.risk.group_exposures import compute_group_exposures
     except ImportError as e:
         logger.error("PRE_TRADE: group exposure check skipped — cannot import modules: %s. Blocking all orders.", e)

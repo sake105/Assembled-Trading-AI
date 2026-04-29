@@ -58,7 +58,6 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from contextlib import nullcontext
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -68,7 +67,11 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
+# Type-only imports to avoid circular dependency
+from typing import TYPE_CHECKING
+
 from src.assembled_core.costs import CostModel, get_default_cost_model
+from src.assembled_core.data.factor_store import compute_universe_key
 from src.assembled_core.execution.order_generation import generate_orders_from_targets
 from src.assembled_core.execution.transaction_costs import (
     SlippageModel,
@@ -76,26 +79,22 @@ from src.assembled_core.execution.transaction_costs import (
     add_cost_columns_to_trades,
     commission_model_from_cost_params,
 )
+from src.assembled_core.features.factor_store_integration import build_or_load_factors
 from src.assembled_core.features.ta_features import (
     add_all_features,
     add_log_returns,
     add_moving_averages,
 )
-from src.assembled_core.features.factor_store_integration import build_or_load_factors
-from src.assembled_core.data.factor_store import compute_universe_key
 from src.assembled_core.pipeline.backtest import compute_metrics, simulate_equity
 from src.assembled_core.pipeline.portfolio import simulate_with_costs
-
-# Type-only imports to avoid circular dependency
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from src.assembled_core.pipeline.trading_cycle_shared import (
         TradingContext,
         TradingCycleResult,
     )
-from src.assembled_core.utils.timing import timed_step
 from src.assembled_core.config.settings import get_settings
+from src.assembled_core.utils.timing import timed_step
 
 logger = logging.getLogger(__name__)
 
@@ -173,8 +172,8 @@ def _update_positions_vectorized(
         try:
             from src.assembled_core.qa.backtest_engine_numba import (
                 NUMBA_AVAILABLE,
-                compute_position_deltas_numba,
                 aggregate_position_deltas_numba,
+                compute_position_deltas_numba,
             )
 
             if NUMBA_AVAILABLE:
@@ -618,7 +617,10 @@ def _pb_generate_signals(
             features_subset[feat] = 0.0
         features_subset = features_subset[_mm.feature_names]
 
-    from src.assembled_core.signals.ensemble import apply_meta_filter, apply_meta_scaling
+    from src.assembled_core.signals.ensemble import (
+        apply_meta_filter,
+        apply_meta_scaling,
+    )
 
     original_signal_count = len(signals_with_features)
     original_long_count = (signals_with_features["direction"] == "LONG").sum()
@@ -1014,7 +1016,9 @@ def _pb_build_ledger(
     if not (include_ledger and run_id and output_dir):
         return None
     try:
-        from src.assembled_core.accounting.ledger_integration import build_ledger_from_trades
+        from src.assembled_core.accounting.ledger_integration import (
+            build_ledger_from_trades,
+        )
         trades_for_ledger = orders_df.copy()
         if include_costs and not trades_df.empty:
             trades_for_ledger = trades_df.copy()
@@ -1234,8 +1238,10 @@ def run_portfolio_backtest(
         )
     elif corporate_actions_path is not None:
         try:
-            from src.assembled_core.data.corporate_actions import adjust_prices_for_splits
             import pandas as _pd_ca
+            from src.assembled_core.data.corporate_actions import (
+                adjust_prices_for_splits,
+            )
             splits = _pd_ca.read_csv(corporate_actions_path)
             prices = adjust_prices_for_splits(prices, splits)
             logger.info("[BACKTEST] Corporate actions applied from %s", corporate_actions_path)

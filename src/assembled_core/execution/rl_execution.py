@@ -20,7 +20,9 @@ from typing import Any
 import numpy as np
 
 from assembled_core.execution.rl_environment import (
-    ExecutionEnvConfig, OrderExecutionEnv, GYM_AVAILABLE,
+    GYM_AVAILABLE,
+    ExecutionEnvConfig,
+    OrderExecutionEnv,
 )
 
 logger = logging.getLogger(__name__)

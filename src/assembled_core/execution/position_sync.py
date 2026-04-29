@@ -13,7 +13,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import pandas as pd
-
 from src.assembled_core.execution.broker_adapter import BrokerAdapter
 
 logger = logging.getLogger(__name__)

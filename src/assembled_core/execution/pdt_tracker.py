@@ -7,7 +7,7 @@ Set enabled=False after Alpaca migrates to intraday-margin (expected 4 June 2026
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime
 from typing import List
 

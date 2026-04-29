@@ -27,8 +27,6 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import math
-import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -50,7 +48,11 @@ except ImportError:
 
 try:
     from qdrant_client import QdrantClient  # type: ignore[import]
-    from qdrant_client.models import Distance, VectorParams, PointStruct  # type: ignore[import]
+    from qdrant_client.models import (  # type: ignore[import]
+        Distance,
+        PointStruct,
+        VectorParams,
+    )
     _QDRANT = True
 except ImportError:
     pass
@@ -387,7 +389,6 @@ class NewsRAG:
         )
 
         try:
-            import anthropic
             msg = self._anthropic_client.messages.create(
                 model=self._anthropic_model,
                 max_tokens=200,

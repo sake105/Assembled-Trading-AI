@@ -196,7 +196,7 @@ def _add_trend_strength_factors(
     Computes normalized trend strength using moving averages and ATR
     for different lookback windows (20, 50, 200 days).
     """
-    from src.assembled_core.features.ta_features import add_moving_averages, add_atr
+    from src.assembled_core.features.ta_features import add_atr, add_moving_averages
 
     result = df.copy()
 

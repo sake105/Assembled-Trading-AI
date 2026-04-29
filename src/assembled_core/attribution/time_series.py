@@ -17,7 +17,6 @@ import pandas as pd
 
 from assembled_core.attribution.schemas import CompositeAttribution
 
-
 # ---------------------------------------------------------------------------
 # IC aggregation
 # ---------------------------------------------------------------------------

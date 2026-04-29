@@ -18,7 +18,6 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-
 # Constants for annualization
 PERIODS_PER_YEAR_1D = 252  # Trading days per year
 PERIODS_PER_YEAR_5MIN = 252 * 78  # 78 five-minute periods per trading day

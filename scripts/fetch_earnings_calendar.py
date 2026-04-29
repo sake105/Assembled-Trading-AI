@@ -56,7 +56,9 @@ def main(argv: list[str] | None = None) -> int:
 
     log.info("Fetching earnings for %d symbols, days_ahead=%d", len(symbols), args.days_ahead)
 
-    from src.assembled_core.data.sources.earnings_calendar_source import EarningsCalendarSource
+    from src.assembled_core.data.sources.earnings_calendar_source import (
+        EarningsCalendarSource,
+    )
 
     source = EarningsCalendarSource()
     cal = source.fetch_calendar(symbols=symbols, days_ahead=args.days_ahead)

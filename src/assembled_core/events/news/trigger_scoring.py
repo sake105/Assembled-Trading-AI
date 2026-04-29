@@ -10,7 +10,6 @@ from __future__ import annotations
 from hashlib import sha256
 from typing import Any, Dict, List
 
-
 TOPIC_RULES: List[Dict[str, Any]] = [
     {
         "topic_id": "geopolitical_conflict",

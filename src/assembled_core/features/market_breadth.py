@@ -734,7 +734,6 @@ def compute_cbbi_composite(
     pd.Series of composite score (0-100), indexed to intersection of all series.
     """
     import pandas as pd  # noqa: PLC0415
-    import numpy as np  # noqa: PLC0415
 
     if not indicators:
         return pd.Series(dtype=float, name="cbbi")

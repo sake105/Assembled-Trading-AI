@@ -19,7 +19,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-
 ABGELTUNGSTEUER_RATE: float = 0.25
 SOLIDARITAETSZUSCHLAG_RATE: float = 0.055
 EFFECTIVE_TAX_RATE: float = ABGELTUNGSTEUER_RATE * (1 + SOLIDARITAETSZUSCHLAG_RATE)  # 0.26375

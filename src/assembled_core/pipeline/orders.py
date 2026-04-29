@@ -7,7 +7,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
 from src.assembled_core.config import OUTPUT_DIR
 from src.assembled_core.utils.dataframe import ensure_cols
 

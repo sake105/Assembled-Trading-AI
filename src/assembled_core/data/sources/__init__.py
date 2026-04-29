@@ -15,7 +15,9 @@ All functions return an empty :class:`pandas.DataFrame` on failure rather than
 raising, to allow graceful degradation in pipeline contexts.
 """
 
-from src.assembled_core.data.sources.alphavantage_source import fetch_prices_alphavantage
+from src.assembled_core.data.sources.alphavantage_source import (
+    fetch_prices_alphavantage,
+)
 from src.assembled_core.data.sources.bls_source import fetch_bls_series
 from src.assembled_core.data.sources.edgar_source import fetch_insider_trades
 from src.assembled_core.data.sources.fred_source import fetch_fred_series

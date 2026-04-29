@@ -12,7 +12,6 @@ Sprint 11.E1: Added vectorized implementation option via method parameter.
 from __future__ import annotations
 
 import pandas as pd
-
 from src.assembled_core.data.altdata.contract import (
     filter_events_pit,
     normalize_alt_events,

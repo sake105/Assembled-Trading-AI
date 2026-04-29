@@ -313,7 +313,7 @@ def fetch_house_ptr_filings(
     # Cache hit (fresh within TTL)
     if _cached_items is not None and _cached_utc:
         try:
-            from datetime import datetime, timezone, timedelta
+            from datetime import datetime, timedelta, timezone
 
             then = datetime.fromisoformat(_cached_utc.replace("Z", "+00:00"))
             now = datetime.now(timezone.utc)
@@ -335,7 +335,7 @@ def fetch_house_ptr_filings(
         # Stale-on-error: serve cached if within window
         if _cached_items is not None and _cached_utc:
             try:
-                from datetime import datetime, timezone, timedelta
+                from datetime import datetime, timedelta, timezone
 
                 then = datetime.fromisoformat(_cached_utc.replace("Z", "+00:00"))
                 now = datetime.now(timezone.utc)
@@ -376,7 +376,7 @@ def fetch_house_ptr_filings(
             # Stale-on-error
             if _cached_items is not None and _cached_utc:
                 try:
-                    from datetime import datetime, timezone, timedelta
+                    from datetime import datetime, timedelta, timezone
 
                     then = datetime.fromisoformat(_cached_utc.replace("Z", "+00:00"))
                     now = datetime.now(timezone.utc)
@@ -464,7 +464,7 @@ def fetch_house_ptr_filings(
             cached_utc = fetch_state.get("cached_utc")
             if cached_items is not None and cached_utc:
                 try:
-                    from datetime import datetime, timezone, timedelta
+                    from datetime import datetime, timedelta, timezone
 
                     then = datetime.fromisoformat(cached_utc.replace("Z", "+00:00"))
                     now = datetime.now(timezone.utc)
@@ -487,7 +487,7 @@ def fetch_house_ptr_filings(
             cached_utc = fetch_state.get("cached_utc")
             if cached_items is not None and cached_utc:
                 try:
-                    from datetime import datetime, timezone, timedelta
+                    from datetime import datetime, timedelta, timezone
 
                     then = datetime.fromisoformat(cached_utc.replace("Z", "+00:00"))
                     now = datetime.now(timezone.utc)

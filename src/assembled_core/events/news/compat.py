@@ -21,8 +21,9 @@ def events_to_intel(ev: "EvNewsEvent") -> "IntelNewsEvent":
 
     Fields not present in the events schema default to intel schema defaults.
     """
-    from src.assembled_core.intel.models import NewsEvent as IntelNewsEvent
     from datetime import datetime, timezone
+
+    from src.assembled_core.intel.models import NewsEvent as IntelNewsEvent
 
     def _parse_utc(s: str | None) -> datetime:
         if not s:

@@ -240,6 +240,7 @@ def run_paper_experiment_subcommand(args: argparse.Namespace) -> int:
 def compare_paper_experiments_subcommand(args: argparse.Namespace) -> int:
     """Compare two paper experiment summaries (A vs B) and write compare.json."""
     import json
+
     from src.assembled_core.ops.compare import compare_summaries
 
     logger = logging.getLogger(__name__)

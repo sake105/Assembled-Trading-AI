@@ -9,7 +9,6 @@ can be self-contained without importing from the legacy monolith.
 from __future__ import annotations
 
 import logging
-import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -23,8 +22,6 @@ from src.assembled_core.config.models import (
     ensure_feature_config,
 )
 from src.assembled_core.config.policy_loader import load_policy
-from src.assembled_core.config import get_base_dir
-from src.assembled_core.config.settings import get_settings
 
 if TYPE_CHECKING:
     from src.assembled_core.config.models import RiskConfig, SignalConfig
@@ -36,27 +33,6 @@ from src.assembled_core.features.factor_store_integration import build_or_load_f
 from src.assembled_core.features.ta_features import (
     add_all_features,
     add_moving_averages,
-)
-from src.assembled_core.risk.correlation_guard import (
-    apply_correlation_guard,
-    detect_correlation_regime_shift,
-)
-from src.assembled_core.risk.georisk_overlay import (
-    apply_exposure_multiplier_to_targets,
-    compute_exposure_multiplier,
-)
-from src.assembled_core.risk.zombie_killer import get_zombie_positions
-from src.assembled_core.risk.state_machine import (
-    compute_next_state,
-    load_risk_state,
-    save_risk_state,
-)
-from src.assembled_core.risk.market_stress import compute_market_stress
-from src.assembled_core.risk.profit_lock import compute_profit_lock_multiplier
-from src.assembled_core.risk.vol_targeting import compute_vol_targeting_result
-from src.assembled_core.risk.turnover_budget import (
-    apply_turnover_gate,
-    estimate_turnover,
 )
 
 logger = logging.getLogger(__name__)
@@ -576,7 +552,9 @@ def _build_features_default(
                 c in prices_with_features.columns for c in ["open", "high", "low", "close"]
             )
             if has_ohlc_for_candles:
-                from src.assembled_core.features.ta_candlestick import build_candlestick_features
+                from src.assembled_core.features.ta_candlestick import (
+                    build_candlestick_features,
+                )
                 prices_with_features = build_candlestick_features(prices_with_features)
                 logger.debug("[Features] Candlestick patterns merged")
         except Exception as e:
@@ -612,8 +590,12 @@ def _build_features_default(
     # ---------------------------------------------------------------
     if feature_cfg_obj is not None and getattr(feature_cfg_obj, "include_congress", False):
         try:
-            from src.assembled_core.data.congress_trades_ingest import load_congress_sample
-            from src.assembled_core.features.congress_features import add_congress_features
+            from src.assembled_core.data.congress_trades_ingest import (
+                load_congress_sample,
+            )
+            from src.assembled_core.features.congress_features import (
+                add_congress_features,
+            )
 
             congress_path = getattr(feature_cfg_obj, "congress_data_path", None)
             congress_events = load_congress_sample(path=congress_path)
@@ -1049,7 +1031,6 @@ def _apply_pre_trade_impact(
     proportionally (``qty *= max_bps / total_cost_bps``).
     """
     import numpy as np
-
     from src.assembled_core.execution.algo_execution import (
         ImplementationShortfallModel,
     )

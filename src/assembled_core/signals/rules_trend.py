@@ -14,7 +14,6 @@ import logging
 
 import numpy as np
 import pandas as pd
-
 from src.assembled_core.features.ta_features import add_moving_averages
 
 logger = logging.getLogger(__name__)

@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import pandas as pd
-
 from src.assembled_core.execution.fill_model import (
     PartialFillModel,
     _ensure_reject_reason_filled,

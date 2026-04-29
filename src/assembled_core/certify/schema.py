@@ -9,9 +9,9 @@ environment should produce bit-identical outputs and thus identical hashes.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, timezone
 import json
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 
 
 @dataclass

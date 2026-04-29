@@ -200,8 +200,10 @@ def get_market_implied_geo_signal(
     if use_kalshi:
         try:
             from assembled_core.data.sources.kalshi_source import (
-                get_market_implied_geo_signal as _kals_signal,
                 fetch_combined_prediction_signal,
+            )
+            from assembled_core.data.sources.kalshi_source import (
+                get_market_implied_geo_signal as _kals_signal,
             )
             kals_sig = _kals_signal()
         except Exception:
@@ -211,7 +213,9 @@ def get_market_implied_geo_signal(
         return {"signal": 0.0, "source": "prediction_markets_combined", "n_sources": 0}
 
     try:
-        from assembled_core.data.sources.kalshi_source import fetch_combined_prediction_signal
+        from assembled_core.data.sources.kalshi_source import (
+            fetch_combined_prediction_signal,
+        )
         return fetch_combined_prediction_signal(poly_sig, kals_sig, poly_weight)
     except Exception:
         # Fallback: use whichever signal is available

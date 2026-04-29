@@ -13,8 +13,8 @@ import zipfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-import requests
 
+import requests
 from src.assembled_core.intel.models import NewsEvent, SourceTier
 
 logger = logging.getLogger(__name__)

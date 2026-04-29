@@ -100,8 +100,8 @@ def run_feature_selection(
     Returns (selected_features, diagnostics_dict).
     """
     from src.assembled_core.ml.feature_selection import (
-        ic_prescreen,
         collinearity_filter,
+        ic_prescreen,
     )
 
     meta_cols = {"timestamp", "date", "symbol", "label",
@@ -212,7 +212,7 @@ def train_with_purged_cv(
 
     try:
         from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
-        from sklearn.metrics import roc_auc_score, log_loss, brier_score_loss
+        from sklearn.metrics import brier_score_loss, log_loss, roc_auc_score
     except ImportError:
         raise ImportError("scikit-learn required: pip install scikit-learn")
 
@@ -412,7 +412,10 @@ def run_cpcv_check(
     Returns dict with prob_positive_sharpe, deflated_sharpe, is_likely_overfit.
     """
     try:
-        from src.assembled_core.ml.cpcv import generate_cpcv_splits, compute_cpcv_sharpe_distribution  # noqa: F401
+        from src.assembled_core.ml.cpcv import (  # noqa: F401
+            compute_cpcv_sharpe_distribution,
+            generate_cpcv_splits,
+        )
     except ImportError:
         log.warning("CPCV module not importable -- skipping overfitting check")
         return {"prob_positive_sharpe": None, "deflated_sharpe": None, "is_likely_overfit": None}
@@ -631,8 +634,8 @@ def train_meta_model_pipeline(
     if use_stacking:
         log.info("STEP 3: Stacking Ensemble with Purged CV")
         try:
-            from src.assembled_core.ml.stacking import build_default_stack
             from src.assembled_core.ml.factor_models import MLExperimentConfig
+            from src.assembled_core.ml.stacking import build_default_stack
 
             stack = build_default_stack()
             experiment_cfg = MLExperimentConfig(

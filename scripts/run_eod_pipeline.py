@@ -11,12 +11,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+import logging
+
 from src.assembled_core.config import OUTPUT_DIR, SUPPORTED_FREQS
 from src.assembled_core.costs import get_default_cost_model
 from src.assembled_core.logging_config import generate_run_id, setup_logging
 from src.assembled_core.pipeline.orchestrator import run_eod_pipeline
-
-import logging
 
 
 def parse_eod_args() -> argparse.Namespace:

@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from src.assembled_core.config.settings import RuntimeProfile, get_runtime_profile
+from src.assembled_core.config.settings import RuntimeProfile
 from src.assembled_core.logging_config import generate_run_id, setup_logging
 
 
@@ -97,7 +97,7 @@ def run_backtest_subcommand(args: argparse.Namespace) -> int:
 
 def batch_run_subcommand(args: argparse.Namespace) -> int:
     """Run batch backtests with resume support (MVP)."""
-    from scripts.batch_runner import load_batch_config, run_batch, _setup_logging
+    from scripts.batch_runner import _setup_logging, load_batch_config, run_batch
 
     logger = logging.getLogger(__name__)
 

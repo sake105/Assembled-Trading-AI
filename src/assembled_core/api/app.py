@@ -6,7 +6,6 @@ from __future__ import annotations
 import time
 
 from fastapi import FastAPI
-
 from src.assembled_core.api.middleware import add_middleware
 from src.assembled_core.api.routers import (
     monitoring,

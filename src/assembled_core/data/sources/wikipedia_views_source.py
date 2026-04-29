@@ -17,7 +17,6 @@ import logging
 from datetime import date, timedelta
 
 import pandas as pd
-import numpy as np
 
 logger = logging.getLogger(__name__)
 

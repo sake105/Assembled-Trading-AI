@@ -29,7 +29,6 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-
 from src.assembled_core import __version__ as CORE_VERSION
 
 

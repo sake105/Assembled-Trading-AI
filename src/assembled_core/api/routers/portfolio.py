@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException
-
 from src.assembled_core.api.models import (
     EquityCurveResponse,
     EquityPoint,

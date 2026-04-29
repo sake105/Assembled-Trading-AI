@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-
 from src.assembled_core.ops.paper_ledger import mark_to_market_equity
 
 SCHEMA_VERSION = "run.reconcile.v1"

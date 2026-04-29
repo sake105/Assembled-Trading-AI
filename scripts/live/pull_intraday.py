@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 import argparse
+import pathlib as pl
+import random
 import sys
 import time
-import random
-import pathlib as pl
-from typing import List, Dict
+from typing import Dict, List
 
 import pandas as pd
 

@@ -3,12 +3,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Literal
 
 import pandas as pd
-
 from src.assembled_core.config import OUTPUT_DIR
 
 

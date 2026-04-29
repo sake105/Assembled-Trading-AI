@@ -38,8 +38,15 @@ def main() -> None:
     parser.add_argument("--eval-episodes", type=int, default=10, help="Episodes to evaluate after training")
     args = parser.parse_args()
 
-    from src.assembled_core.execution.rl_environment import ExecutionEnvConfig, GYM_AVAILABLE
-    from src.assembled_core.execution.rl_execution import RLExecutor, RuleBasedExecutor, SB3_AVAILABLE
+    from src.assembled_core.execution.rl_environment import (
+        GYM_AVAILABLE,
+        ExecutionEnvConfig,
+    )
+    from src.assembled_core.execution.rl_execution import (
+        SB3_AVAILABLE,
+        RLExecutor,
+        RuleBasedExecutor,
+    )
 
     env_cfg = ExecutionEnvConfig(
         total_shares=args.total_shares,

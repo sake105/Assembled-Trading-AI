@@ -16,7 +16,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
-
 from src.assembled_core.config import OUTPUT_DIR
 
 

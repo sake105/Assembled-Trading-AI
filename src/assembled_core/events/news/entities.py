@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from typing import Dict, List, Set
-
 import re
-
+from typing import Dict, List, Set
 
 # Alias (lowercase) -> ISO2 country code
 COUNTRY_ALIASES: Dict[str, str] = {

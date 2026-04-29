@@ -12,13 +12,11 @@ Zukünftige Integration:
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Literal
 
 import pandas as pd
-
-import logging
-
 from src.assembled_core.config import OUTPUT_DIR, get_base_dir
 from src.assembled_core.utils.dataframe import coerce_price_types, ensure_cols
 from src.assembled_core.utils.paths import get_default_price_path

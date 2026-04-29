@@ -26,6 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from dotenv import load_dotenv
+
 load_dotenv(ROOT / ".env")
 
 from src.assembled_core.logging_config import generate_run_id, setup_logging
@@ -305,7 +306,6 @@ def _preflight_checks(adapter, app_cfg: dict) -> bool:
 def cmd_once(args):
     """Single execution cycle."""
     import pandas as pd
-
     from src.assembled_core.ops.paper_runner import run_paper_daily_one
 
     app_cfg = _load_app_cfg()

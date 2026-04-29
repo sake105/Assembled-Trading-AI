@@ -25,7 +25,7 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 try:
-    from scipy.cluster.hierarchy import linkage, leaves_list
+    from scipy.cluster.hierarchy import leaves_list, linkage
     from scipy.spatial.distance import squareform
 
     SCIPY_AVAILABLE = True

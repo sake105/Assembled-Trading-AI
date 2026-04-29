@@ -73,7 +73,11 @@ def main() -> None:
         if col not in df.columns:
             df[col] = df["close"] if col != "volume" else 0.0
 
-    from src.assembled_core.data.tick_store import OHLCVTick, TickStore, QUESTDB_DRIVER_AVAILABLE
+    from src.assembled_core.data.tick_store import (
+        QUESTDB_DRIVER_AVAILABLE,
+        OHLCVTick,
+        TickStore,
+    )
 
     if not QUESTDB_DRIVER_AVAILABLE:
         log.warning("QuestDB driver not installed (psycopg2/pg8000). Install one to connect.")

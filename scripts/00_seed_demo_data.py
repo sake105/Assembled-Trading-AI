@@ -12,9 +12,11 @@ Outputs
 """
 
 from __future__ import annotations
+
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RAW_1M = ROOT / "data" / "raw" / "1min"

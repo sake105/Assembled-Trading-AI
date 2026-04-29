@@ -43,8 +43,8 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-
 from src.assembled_core.strategies.multifactor_v1 import (
+    REGIME_EXPOSURE,
     _abnormal_volume_score,
     _bollinger_score,
     _compute_breadth_score,
@@ -60,7 +60,6 @@ from src.assembled_core.strategies.multifactor_v1 import (
     _vov_penalty,
 )
 from src.assembled_core.strategies.multifactor_v1 import (
-    REGIME_EXPOSURE,
     compute_target_positions as _v1_compute_target_positions,
 )
 
@@ -280,9 +279,9 @@ def _compute_sector_rotation_bias(
         sym_to_sector = dict(zip(meta["symbol"], meta["sector"]))
 
         from src.assembled_core.signals.sector_rotation import (
-            compute_sector_scores,
             SECTOR_ETFS,
             SECTOR_NAMES,
+            compute_sector_scores,
         )
 
         # Extract sector ETF prices from df if available

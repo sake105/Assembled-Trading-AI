@@ -146,7 +146,10 @@ class NewsEventEnricher:
 
     def _run_classification(self, events: list) -> list:
         try:
-            from src.assembled_core.intel.news_classifier import classify_news_event, apply_source_bias_discount
+            from src.assembled_core.intel.news_classifier import (
+                apply_source_bias_discount,
+                classify_news_event,
+            )
         except ImportError:
             return events
 
@@ -189,7 +192,9 @@ class NewsEventEnricher:
     def _run_impact_estimation(self, events: list) -> list:
         if self._impact_estimator is None:
             try:
-                from src.assembled_core.intel.news_impact_estimator import NewsImpactEstimator
+                from src.assembled_core.intel.news_impact_estimator import (
+                    NewsImpactEstimator,
+                )
                 self._impact_estimator = NewsImpactEstimator()
             except ImportError:
                 return events
@@ -217,7 +222,9 @@ class NewsEventEnricher:
     def _run_corroboration(self, events: list) -> list:
         if self._corroboration is None:
             try:
-                from src.assembled_core.intel.news_corroboration import CorroborationTracker
+                from src.assembled_core.intel.news_corroboration import (
+                    CorroborationTracker,
+                )
                 self._corroboration = CorroborationTracker()
             except ImportError:
                 return events
@@ -247,8 +254,8 @@ class NewsEventEnricher:
         Low-margin votes (contested stories) get a stronger discount.
         """
         try:
-            from src.assembled_core.intel.news_source_voting import vote_direction
             from src.assembled_core.intel.news_dedupe import content_fingerprint
+            from src.assembled_core.intel.news_source_voting import vote_direction
         except ImportError:
             return events
 

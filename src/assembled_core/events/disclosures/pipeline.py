@@ -17,7 +17,7 @@ from .health import compute_health
 from .models import DisclosureEvent, DisclosuresHealth
 from .normalize import normalize_raw_item, now_utc_iso
 from .sources import DisclosureSource, load_disclosures_params, load_sources_registry
-from .triggers import score_disclosure_triggers, apply_qc_caps
+from .triggers import apply_qc_caps, score_disclosure_triggers
 
 
 def _collect_raw_items(

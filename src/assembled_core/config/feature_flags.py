@@ -10,7 +10,7 @@ Golden rule: new features in prod always start as 'shadow', then 'canary', then 
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Literal
 
 logger = logging.getLogger(__name__)

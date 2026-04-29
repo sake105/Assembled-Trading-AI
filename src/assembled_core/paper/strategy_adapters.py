@@ -11,17 +11,16 @@ import logging
 from typing import Any, Tuple
 
 import pandas as pd
-
-from src.assembled_core.strategies import (
-    MultiFactorStrategyConfig,
-    compute_multifactor_long_short_positions,
-    generate_multifactor_long_short_signals,
-)
 from src.assembled_core.portfolio.position_sizing import (
     compute_target_positions_from_trend_signals,
 )
 from src.assembled_core.signals.rules_trend import (
     generate_trend_signals_from_prices,
+)
+from src.assembled_core.strategies import (
+    MultiFactorStrategyConfig,
+    compute_multifactor_long_short_positions,
+    generate_multifactor_long_short_signals,
 )
 
 logger = logging.getLogger(__name__)

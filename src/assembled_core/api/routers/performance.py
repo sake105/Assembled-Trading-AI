@@ -3,10 +3,8 @@
 
 from __future__ import annotations
 
-
 import pandas as pd
 from fastapi import APIRouter, HTTPException
-
 from src.assembled_core.api.models import EquityCurveResponse, EquityPoint, Frequency
 from src.assembled_core.config import OUTPUT_DIR
 from src.assembled_core.pipeline.backtest import compute_metrics

@@ -5,6 +5,24 @@ This module provides regime detection, risk overlay, and advanced risk metrics f
 
 from __future__ import annotations
 
+from src.assembled_core.risk.factor_exposures import (
+    FactorExposureConfig,
+    compute_factor_exposures,
+    summarize_factor_exposures,
+)
+from src.assembled_core.risk.profit_targets import (  # noqa: F401
+    PositionRecord,
+    ProfitTargetConfig,
+    build_position_records,
+    check_profit_targets,
+)
+from src.assembled_core.risk.regime_analysis import (
+    RegimeConfig,
+    classify_regimes_from_index,
+    compute_regime_transitions,
+    summarize_factor_ic_by_regime,
+    summarize_metrics_by_regime,
+)
 from src.assembled_core.risk.regime_models import (
     RegimeStateConfig,
     build_regime_state,
@@ -17,31 +35,13 @@ from src.assembled_core.risk.risk_metrics import (
     compute_risk_by_factor_group,
     compute_risk_by_regime,
 )
-from src.assembled_core.risk.regime_analysis import (
-    RegimeConfig,
-    classify_regimes_from_index,
-    compute_regime_transitions,
-    summarize_factor_ic_by_regime,
-    summarize_metrics_by_regime,
-)
 from src.assembled_core.risk.transaction_costs import (
     compute_cost_adjusted_risk_metrics,
     compute_tca_for_trades,
     estimate_per_trade_cost,
     summarize_tca,
 )
-from src.assembled_core.risk.factor_exposures import (
-    FactorExposureConfig,
-    compute_factor_exposures,
-    summarize_factor_exposures,
-)
 
-from src.assembled_core.risk.profit_targets import (  # noqa: F401
-    PositionRecord,
-    ProfitTargetConfig,
-    build_position_records,
-    check_profit_targets,
-)
 __all__ = [
     # Regime Models (D1)
     "RegimeStateConfig",

@@ -22,7 +22,6 @@ from pathlib import Path
 from typing import Any
 
 import requests
-
 from src.assembled_core.intel.models import NewsEvent, SourceTier
 
 logger = logging.getLogger(__name__)
@@ -233,8 +232,10 @@ def _entry_to_news_event(
     # Step 6: Wire classifier + source bias discount
     try:
         from src.assembled_core.intel.news_classifier import (
-            classify_news_event as _classify,
             apply_source_bias_discount as _bias_discount,
+        )
+        from src.assembled_core.intel.news_classifier import (
+            classify_news_event as _classify,
         )
         classification = _classify(title, geo_tags=geo_tags, source_tier=feed_cfg.tier.value, tickers=tickers)
         event.event_types = classification.event_types

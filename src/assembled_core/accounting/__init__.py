@@ -24,12 +24,13 @@ If FIFO behaviour diverges between these three, ``position_engine`` wins.
 """
 
 from src.assembled_core.accounting.ledger import (
-    REQUIRED_COLUMNS,
     OPTIONAL_COLUMNS,
+    REQUIRED_COLUMNS,
     events_from_orders,
     events_from_trades,
     generate_event_id,
 )
+from src.assembled_core.accounting.ledger_integration import build_ledger_from_trades
 from src.assembled_core.accounting.ledger_store import (
     ledger_base_path,
     list_ledger_runs,
@@ -44,7 +45,6 @@ from src.assembled_core.accounting.reconciliation_report import (
     write_reconcile_report_json,
     write_reconcile_report_md,
 )
-from src.assembled_core.accounting.ledger_integration import build_ledger_from_trades
 
 __all__ = [
     # Contract

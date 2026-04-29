@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 from typing import Any, Dict
 
-
 SCHEMA_VERSION = "paper.compare.v1"
 
 

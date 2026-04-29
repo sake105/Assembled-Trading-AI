@@ -21,7 +21,6 @@ from dataclasses import dataclass
 from enum import Enum
 
 import pandas as pd
-
 from src.assembled_core.qa.metrics import PerformanceMetrics
 
 
@@ -532,7 +531,9 @@ def check_leakage(
         )
 
     try:
-        from src.assembled_core.qa.leakage_tests import assert_feature_zero_before_disclosure
+        from src.assembled_core.qa.leakage_tests import (
+            assert_feature_zero_before_disclosure,
+        )
 
         # This raises AssertionError if leakage is found
         assert_feature_zero_before_disclosure(

@@ -196,6 +196,7 @@ def download_fred_data(out_dir: Path) -> None:
     """
     try:
         import os
+
         from fredapi import Fred  # type: ignore
         fred = Fred(api_key=os.environ.get("FRED_API_KEY", ""))
     except ImportError:

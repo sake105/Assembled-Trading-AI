@@ -4,8 +4,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
-
-from src.assembled_core.api.models import Frequency, Signal, SignalType, SignalsResponse
+from src.assembled_core.api.models import Frequency, Signal, SignalsResponse, SignalType
 from src.assembled_core.config import OUTPUT_DIR, SUPPORTED_FREQS
 from src.assembled_core.ema_config import get_default_ema_config
 from src.assembled_core.pipeline.io import load_prices

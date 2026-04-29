@@ -276,8 +276,8 @@ def run_ab_experiment(
 ) -> int:
     """Run gate_off and gate_on arms, write summaries and compare."""
     from scripts.run_paper_track import (
-        run_paper_track_from_cli,
         load_paper_track_config,
+        run_paper_track_from_cli,
     )
 
     output_root.mkdir(parents=True, exist_ok=True)

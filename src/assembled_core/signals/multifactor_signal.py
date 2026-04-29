@@ -32,7 +32,6 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
-
 from src.assembled_core.config.factor_bundles import FactorBundleConfig
 
 logger = logging.getLogger(__name__)

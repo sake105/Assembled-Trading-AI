@@ -13,7 +13,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from src.assembled_core.config.settings import RuntimeProfile, get_runtime_profile
+from src.assembled_core.config.settings import RuntimeProfile
 from src.assembled_core.logging_config import generate_run_id, setup_logging
 
 
@@ -31,6 +31,13 @@ def _run_backtest_for_ml_dataset(
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Run backtest and return prices_with_features and trades for ML dataset building."""
     import pandas as pd
+    from scripts.run_backtest_strategy import (
+        create_event_insider_shipping_signal_fn,
+        create_event_position_sizing_fn,
+        create_position_sizing_fn,
+        create_trend_baseline_signal_fn,
+        get_cost_model,
+    )
     from src.assembled_core.config import OUTPUT_DIR
     from src.assembled_core.data.prices_ingest import (
         load_eod_prices,
@@ -38,13 +45,6 @@ def _run_backtest_for_ml_dataset(
     )
     from src.assembled_core.ema_config import get_default_ema_config
     from src.assembled_core.qa.backtest_engine import run_portfolio_backtest
-    from scripts.run_backtest_strategy import (
-        create_trend_baseline_signal_fn,
-        create_position_sizing_fn,
-        create_event_insider_shipping_signal_fn,
-        create_event_position_sizing_fn,
-        get_cost_model,
-    )
 
     if output_dir is None:
         output_dir = OUTPUT_DIR
@@ -103,11 +103,12 @@ def _run_backtest_for_ml_dataset(
         )
 
     if strategy == "event_insider_shipping":
-        from src.assembled_core.features.insider_features import add_insider_features
-        from src.assembled_core.features.shipping_features import add_shipping_features
+        from pathlib import Path as P
+
         from src.assembled_core.data.insider_ingest import load_insider_sample
         from src.assembled_core.data.shipping_routes_ingest import load_shipping_sample
-        from pathlib import Path as P
+        from src.assembled_core.features.insider_features import add_insider_features
+        from src.assembled_core.features.shipping_features import add_shipping_features
 
         _ROOT = P(__file__).resolve().parents[2]
         EVENT_DIR = _ROOT / "data" / "sample" / "events"
@@ -594,8 +595,8 @@ def train_meta_model_subcommand(args: argparse.Namespace) -> int:
     except FileNotFoundError as e:
         logger.error(f"File not found: {e}")
         if experiment_run:
-            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
             from src.assembled_core.config.settings import get_settings
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
 
             settings = get_settings()
             tracker = ExperimentTracker(settings.experiments_dir)
@@ -604,8 +605,8 @@ def train_meta_model_subcommand(args: argparse.Namespace) -> int:
     except ValueError as e:
         logger.error(f"Invalid input: {e}")
         if experiment_run:
-            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
             from src.assembled_core.config.settings import get_settings
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
 
             settings = get_settings()
             tracker = ExperimentTracker(settings.experiments_dir)
@@ -615,8 +616,8 @@ def train_meta_model_subcommand(args: argparse.Namespace) -> int:
         logger.error(f"Missing dependency: {e}")
         logger.error("Install scikit-learn with: pip install scikit-learn")
         if experiment_run:
-            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
             from src.assembled_core.config.settings import get_settings
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
 
             settings = get_settings()
             tracker = ExperimentTracker(settings.experiments_dir)
@@ -625,8 +626,8 @@ def train_meta_model_subcommand(args: argparse.Namespace) -> int:
     except KeyboardInterrupt:
         logger.warning("Interrupted by user")
         if experiment_run:
-            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
             from src.assembled_core.config.settings import get_settings
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
 
             settings = get_settings()
             tracker = ExperimentTracker(settings.experiments_dir)
@@ -635,8 +636,8 @@ def train_meta_model_subcommand(args: argparse.Namespace) -> int:
     except Exception as e:
         logger.error(f"Unexpected error: {e}", exc_info=True)
         if experiment_run:
-            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
             from src.assembled_core.config.settings import get_settings
+            from src.assembled_core.qa.experiment_tracking import ExperimentTracker
 
             settings = get_settings()
             tracker = ExperimentTracker(settings.experiments_dir)

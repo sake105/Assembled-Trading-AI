@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
-
 from hashlib import sha256
+from typing import Any, Dict, List, Tuple
 
 from .normalize import now_utc_iso
 
@@ -63,6 +62,7 @@ def fetch_gdelt_events(
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Any] | None, Dict[str, Any]]:
     """Fetch events from GDELT Doc API with simple caching and rate limiting."""
     import time
+
     import requests
     from dateutil import parser as date_parser
 

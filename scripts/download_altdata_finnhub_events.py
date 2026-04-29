@@ -33,7 +33,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 import pandas as pd
-
 from src.assembled_core.config.settings import get_settings
 from src.assembled_core.data.altdata.finnhub_events import (
     fetch_earnings_events,

@@ -144,6 +144,8 @@ def us_energy_demand_signal(
     """
     all_hdd: list[float] = []
     all_cdd: list[float] = []
+    all_baseline_hdd: list[float] = []
+    all_baseline_cdd: list[float] = []
 
     for city, coords in US_ENERGY_CITIES.items():
         temps = fetch_temperature_openmeteo(
@@ -163,18 +165,22 @@ def us_energy_demand_signal(
 
         all_hdd.append(float(hdd.mean()))
         all_cdd.append(float(cdd.mean()))
+        all_baseline_hdd.append(float(baseline_hdd.mean()))
+        all_baseline_cdd.append(float(baseline_cdd.mean()))
 
     if not all_hdd:
         return {"avg_hdd": 0.0, "avg_cdd": 0.0, "hdd_anomaly": 0.0, "cdd_anomaly": 0.0}
 
     avg_hdd = float(np.mean(all_hdd))
     avg_cdd = float(np.mean(all_cdd))
+    baseline_avg_hdd = float(np.mean(all_baseline_hdd))
+    baseline_avg_cdd = float(np.mean(all_baseline_cdd))
 
     return {
         "avg_hdd": avg_hdd,
         "avg_cdd": avg_cdd,
-        "hdd_anomaly": avg_hdd,
-        "cdd_anomaly": avg_cdd,
+        "hdd_anomaly": avg_hdd - baseline_avg_hdd,
+        "cdd_anomaly": avg_cdd - baseline_avg_cdd,
     }
 
 

@@ -78,7 +78,7 @@ def fetch_edgar_form4(
     # Optional cache hit (fresh within TTL)
     if _cached_entries is not None and _cached_utc:
         try:
-            from datetime import datetime, timezone, timedelta
+            from datetime import datetime, timedelta, timezone
 
             then = datetime.fromisoformat(_cached_utc.replace("Z", "+00:00"))
             now = datetime.now(timezone.utc)

@@ -320,7 +320,10 @@ class PaperTradingEngine:
         Returns:
             List of filled PaperOrder objects (one per slice).
         """
-        from src.assembled_core.execution.algo_execution import TWAPScheduler, VWAPScheduler
+        from src.assembled_core.execution.algo_execution import (
+            TWAPScheduler,
+            VWAPScheduler,
+        )
 
         if algo.upper() == "VWAP":
             scheduler = VWAPScheduler(n_slices=n_slices, participation_rate=participation_rate)

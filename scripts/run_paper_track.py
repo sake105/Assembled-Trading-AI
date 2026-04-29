@@ -761,10 +761,10 @@ def run_paper_track_from_cli(
 
         if config.intel_mode == "real":
             from src.assembled_core.paper.intel_runner import (
-                run_real_intel_once,
-                load_intel_summaries,
-                compute_news_geo,
                 build_intel_summary,
+                compute_news_geo,
+                load_intel_summaries,
+                run_real_intel_once,
             )
 
             logger.info("Intel mode=real: running NEWS pipeline before trading loop")

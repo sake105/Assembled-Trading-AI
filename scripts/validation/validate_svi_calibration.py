@@ -15,10 +15,10 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parents[2] / "src"))
 
 import numpy as np
-from scipy.stats import norm
 
 # ---------------------------------------------------------------------------
 # Step 1: Build a realistic SPX option smile
@@ -51,8 +51,10 @@ w_market = iv_market ** 2 * T
 # Step 2: Fit SVI
 # ---------------------------------------------------------------------------
 from assembled_core.risk.vol_surface_svi import (
-    fit_svi, svi_implied_vol, svi_total_variance,
-    butterfly_arbitrage_free, surface_summary,
+    butterfly_arbitrage_free,
+    fit_svi,
+    surface_summary,
+    svi_implied_vol,
 )
 
 params = fit_svi(k, w_market, T)

@@ -13,8 +13,8 @@ from pathlib import Path
 repo_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(repo_root))
 
-from src.assembled_core.data.data_source import get_price_data_source
 from src.assembled_core.config.settings import Settings
+from src.assembled_core.data.data_source import get_price_data_source
 
 
 def test_data_loading():

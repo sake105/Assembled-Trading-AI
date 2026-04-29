@@ -21,7 +21,6 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-
 from src.assembled_core.config import OUTPUT_DIR, SUPPORTED_FREQS
 from src.assembled_core.costs import get_default_cost_model
 from src.assembled_core.ema_config import get_default_ema_config
@@ -508,10 +507,10 @@ def run_execute_step(
 
     # Annotate orders with cost columns (slippage, commission, spread)
     try:
+        from src.assembled_core.costs import get_default_cost_model
         from src.assembled_core.execution.transaction_costs import (
             add_cost_columns_to_trades,
         )
-        from src.assembled_core.costs import get_default_cost_model
         cost_model = get_default_cost_model()
         orders = add_cost_columns_to_trades(orders, prices=prices, cost_model=cost_model)
     except Exception as _e:  # noqa: BLE001
@@ -715,7 +714,9 @@ def _eo_step_ledger(
     snapshot_run_id = broker_snapshot_run_id if broker_snapshot_run_id is not None else run_id
 
     try:
-        from src.assembled_core.accounting.ledger_integration import build_ledger_from_trades
+        from src.assembled_core.accounting.ledger_integration import (
+            build_ledger_from_trades,
+        )
 
         orders_df = load_orders(freq, output_dir=base, strict=False)
 
@@ -728,7 +729,9 @@ def _eo_step_ledger(
         if broker_snapshot_file:
             try:
                 logger.info("Importing external broker snapshot from: %s", broker_snapshot_file)
-                from src.assembled_core.accounting.broker_snapshot_importer import import_broker_snapshot
+                from src.assembled_core.accounting.broker_snapshot_importer import (
+                    import_broker_snapshot,
+                )
 
                 if broker_snapshot_date is not None:
                     snapshot_date = pd.to_datetime(broker_snapshot_date, utc=True)
@@ -1018,7 +1021,9 @@ def _eo_build_manifest(
 def _eo_post_steps(base: Path) -> None:
     """Run non-blocking post-pipeline steps: feedback loop, news attribution, TCA."""
     try:
-        from src.assembled_core.ml.feedback_loop import FeedbackLoopController  # type: ignore
+        from src.assembled_core.ml.feedback_loop import (
+            FeedbackLoopController,  # type: ignore
+        )
 
         _fl = FeedbackLoopController()
         _fl_result = _fl.run_feedback_check(
@@ -1036,7 +1041,9 @@ def _eo_post_steps(base: Path) -> None:
         logger.warning("[EOD][Feedback] Non-blocking Fehler (ignoriert): %s", _fl_exc)
 
     try:
-        from src.assembled_core.intel.news_trade_attribution import NewsTradeAttributor  # type: ignore
+        from src.assembled_core.intel.news_trade_attribution import (
+            NewsTradeAttributor,  # type: ignore
+        )
 
         _ls_path = base / "ops" / "learning_store.jsonl"
         _news_path = base / "intel" / "news_event_store.jsonl"
@@ -1053,7 +1060,9 @@ def _eo_post_steps(base: Path) -> None:
     try:
         import json as _json
 
-        from src.assembled_core.qa.trade_tca import run_tca_from_learning_store  # type: ignore
+        from src.assembled_core.qa.trade_tca import (
+            run_tca_from_learning_store,  # type: ignore
+        )
 
         _ls_path = base / "ops" / "learning_store.jsonl"
         _tca_date_str: str | None = None
@@ -1099,7 +1108,9 @@ def _eo_post_steps(base: Path) -> None:
                     _tca_result.get("mean_impact_bps", 0.0),
                 )
             try:
-                from src.assembled_core.ops.report_retention import purge_old_dated_reports
+                from src.assembled_core.ops.report_retention import (
+                    purge_old_dated_reports,
+                )
                 purge_old_dated_reports(_tca_out.parent, "tca_report_", ".json", keep_last_n=60)
             except OSError as _ret_exc:
                 logger.debug("[EOD][TCA] Retention-Purge IO-Fehler: %s", _ret_exc)

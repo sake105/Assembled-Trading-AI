@@ -28,7 +28,6 @@ from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
-
 from src.assembled_core.config.constants import (
     DEFAULT_ATR_WINDOW,
     DEFAULT_MA_WINDOWS,
@@ -39,22 +38,22 @@ from src.assembled_core.config.constants import (
 from src.assembled_core.data.prices_ingest import (
     load_eod_prices_for_universe,
 )
-from src.assembled_core.qa.backtest_engine import _update_positions_vectorized
-from src.assembled_core.qa.metrics import (
-    compute_drawdown,
-    compute_turnover,
-    deflated_sharpe_ratio_from_returns,
-    compute_sharpe_ratio,
-)
-from src.assembled_core.qa.point_in_time_checks import (
-    check_features_pit_safe,
-)
 from src.assembled_core.features.ta_features import add_all_features
 from src.assembled_core.paper.strategy_adapters import (
     generate_signals_and_targets_for_day,
 )
 from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
 from src.assembled_core.pipeline.trading_cycle_v2 import run_trading_cycle
+from src.assembled_core.qa.backtest_engine import _update_positions_vectorized
+from src.assembled_core.qa.metrics import (
+    compute_drawdown,
+    compute_sharpe_ratio,
+    compute_turnover,
+    deflated_sharpe_ratio_from_returns,
+)
+from src.assembled_core.qa.point_in_time_checks import (
+    check_features_pit_safe,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1205,7 +1204,9 @@ def run_paper_day(
                     signals.sort_values("timestamp").groupby("symbol", group_keys=False).last().reset_index()
                 )
             if config.ranking_hysteresis_enabled and not signals.empty:
-                from src.assembled_core.paper.ranking_hysteresis import apply_ranking_hysteresis
+                from src.assembled_core.paper.ranking_hysteresis import (
+                    apply_ranking_hysteresis,
+                )
                 held = set(current_positions["symbol"].tolist()) if not current_positions.empty else set()
                 signals, hyst_meta = apply_ranking_hysteresis(
                     signals, held, entry_n=config.ranking_entry_n, hold_n=config.ranking_hold_n,
@@ -1220,7 +1221,9 @@ def run_paper_day(
 
         def sizing_fn(signals: pd.DataFrame, capital: float) -> pd.DataFrame:
             if config.strategy_type == "trend_baseline":
-                from src.assembled_core.portfolio.position_sizing import compute_target_positions_from_trend_signals
+                from src.assembled_core.portfolio.position_sizing import (
+                    compute_target_positions_from_trend_signals,
+                )
                 params = config.strategy_params or {}
                 return compute_target_positions_from_trend_signals(
                     signals, total_capital=capital,
@@ -1297,6 +1300,47 @@ def run_paper_day(
         return result
     except Exception as e:
         return _ptd_make_error_result(config, state_before, as_of, e)
+
+
+def _compute_rolling_sharpe(output_dir: Path, config: "PaperTrackConfig | None") -> float | None:
+    """Compute annualised Sharpe from the aggregated equity curve. Returns None on error."""
+    import math as _math
+    try:
+        fmt = getattr(config, "output_format", "csv") if config else "csv"
+        ec_path = output_dir / "aggregates" / f"equity_curve.{fmt}"
+        if not ec_path.exists():
+            return None
+        ec = pd.read_parquet(ec_path) if fmt == "parquet" else pd.read_csv(ec_path)
+        if "equity" not in ec.columns or len(ec) < 2:
+            return None
+        rets = ec["equity"].pct_change().dropna()
+        if len(rets) < 2:
+            return None
+        std = float(rets.std(ddof=1))
+        if std < 1e-12:
+            return None
+        return round(float(rets.mean()) / std * _math.sqrt(252), 4)
+    except Exception:
+        return None
+
+
+def _compute_rolling_max_drawdown(output_dir: Path, config: "PaperTrackConfig | None") -> float | None:
+    """Compute max drawdown (as negative fraction) from aggregated equity curve. Returns None on error."""
+    try:
+        fmt = getattr(config, "output_format", "csv") if config else "csv"
+        ec_path = output_dir / "aggregates" / f"equity_curve.{fmt}"
+        if not ec_path.exists():
+            return None
+        ec = pd.read_parquet(ec_path) if fmt == "parquet" else pd.read_csv(ec_path)
+        if "equity" not in ec.columns or len(ec) < 2:
+            return None
+        eq = ec["equity"].astype(float)
+        peak = eq.cummax()
+        drawdown = (eq - peak) / peak.replace(0, float("nan"))
+        mdd = float(drawdown.min())
+        return round(mdd, 6)
+    except Exception:
+        return None
 
 
 def write_paper_day_outputs(
@@ -1395,8 +1439,8 @@ def write_paper_day_outputs(
         "n_symbols_requested": result.n_symbols_requested,
         "n_tradeable": result.n_tradeable,
         "n_missing": result.n_missing,
-        "sharpe_daily": None,  # TODO(#future): Compute from equity curve history
-        "max_drawdown": None,  # TODO(#future): Compute from equity curve history
+        "sharpe_daily": _compute_rolling_sharpe(output_dir, config),
+        "max_drawdown": _compute_rolling_max_drawdown(output_dir, config),
         "positions_count": len(state.positions),
         "status": result.status,
         "error_message": result.error_message,

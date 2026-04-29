@@ -50,13 +50,14 @@ def _signal_handler(signum, frame):
 def _get_eastern_now() -> datetime:
     """Get current time in US/Eastern (handles EST/EDT)."""
     try:
-        from zoneinfo import ZoneInfo
         from datetime import timezone as tz
+        from zoneinfo import ZoneInfo
 
         utc_now = datetime.now(tz.utc)
         return utc_now.astimezone(ZoneInfo("America/New_York"))
     except ImportError:
-        from datetime import timedelta, timezone as tz
+        from datetime import timedelta
+        from datetime import timezone as tz
 
         utc_now = datetime.now(tz.utc)
         return utc_now.astimezone(tz(timedelta(hours=-5)))

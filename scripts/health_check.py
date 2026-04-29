@@ -41,7 +41,10 @@ def check_config() -> list[str]:
     issues = []
     try:
         from src.assembled_core.config.policy_loader import load_policy
-        from src.assembled_core.config.policy_schema import validate_policy, validate_policy_consistency
+        from src.assembled_core.config.policy_schema import (
+            validate_policy,
+            validate_policy_consistency,
+        )
 
         policy = load_policy()
         _, warnings = validate_policy(policy)

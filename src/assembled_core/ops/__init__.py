@@ -4,6 +4,14 @@ This module provides operations and monitoring capabilities for the backend,
 including health checks, status reporting, and operational insights.
 """
 
+# Wired 2026-04-22: previously orphan ops modules
+from src.assembled_core.ops.compare import compare_summaries  # noqa: F401
+from src.assembled_core.ops.daily_scheduler import (
+    DailyScheduler,
+    WorkerResult,
+    build_cycle_summary,
+    run_daily_cycle,
+)
 from src.assembled_core.ops.health_check import (
     HealthCheck,
     HealthCheckResult,
@@ -13,15 +21,6 @@ from src.assembled_core.ops.health_check import (
     health_result_to_dict,
     render_health_summary_text,
 )
-from src.assembled_core.ops.daily_scheduler import (
-    DailyScheduler,
-    WorkerResult,
-    run_daily_cycle,
-    build_cycle_summary,
-)
-
-# Wired 2026-04-22: previously orphan ops modules
-from src.assembled_core.ops.compare import compare_summaries  # noqa: F401
 from src.assembled_core.ops.heartbeat import (  # noqa: F401
     check_liveness,
     heartbeat_age_seconds,
@@ -29,7 +28,9 @@ from src.assembled_core.ops.heartbeat import (  # noqa: F401
     write_heartbeat,
 )
 from src.assembled_core.ops.inspect_data import inspect_eod_prices  # noqa: F401
-from src.assembled_core.ops.intel_activity_summary import build_intel_activity_summary  # noqa: F401
+from src.assembled_core.ops.intel_activity_summary import (
+    build_intel_activity_summary,  # noqa: F401
+)
 
 __all__ = [
     "HealthCheck",

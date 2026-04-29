@@ -353,8 +353,9 @@ def build_regime_state_hmm(
             timestamp, regime_label, regime_confidence, hmm_bull_prob,
             hmm_bear_prob, hmm_sideways_prob
     """
-    from src.assembled_core.ml.regime_hmm import RegimeHMM, HMMLEARN_AVAILABLE
     import logging
+
+    from src.assembled_core.ml.regime_hmm import HMMLEARN_AVAILABLE, RegimeHMM
     _log = logging.getLogger(__name__)
 
     if not HMMLEARN_AVAILABLE:

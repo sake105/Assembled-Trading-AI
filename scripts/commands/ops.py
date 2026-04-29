@@ -11,7 +11,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from src.assembled_core.logging_config import generate_run_id, setup_logging
 
 
 def check_health_subcommand(args: argparse.Namespace) -> int:

@@ -4,8 +4,9 @@
 # but new sweeps should use the batch runner with its built-in summary artifacts.
 # See: docs/BATCH_RUNNER_P4.md
 
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "output"

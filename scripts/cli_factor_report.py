@@ -20,11 +20,11 @@ from tabulate import tabulate
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+import logging
+
 from src.assembled_core.config.settings import get_settings
 from src.assembled_core.data.data_source import get_price_data_source
 from src.assembled_core.qa.factor_analysis import run_factor_report
-
-import logging
 
 logger = logging.getLogger(__name__)
 
