@@ -9,8 +9,16 @@ import pytest
 from assembled_core.execution.order_management import (
     BarSnapshot,
     ExecutionCostModel,
+    ExitManager,
+    ExitSignal,
+    OrderStatusStream,
     PartialFillPolicy,
+    PositionRecord,
+    handle_rejection,
+    has_recent_loss_close,
     position_reconcile_before_signal,
+    reconcile_cash,
+    reconcile_positions,
     submit_with_idempotency,
 )
 
@@ -163,3 +171,222 @@ class TestExecutionCostModel:
         bar = BarSnapshot(close=100.0, realized_vol_20d=0.0, adv=1_000_000)
         spread = ExecutionCostModel._get_spread("X", bar)
         assert abs(spread - 10.0) < 0.01
+
+
+# ---------------------------------------------------------------------------
+# handle_rejection
+# ---------------------------------------------------------------------------
+
+class TestHandleRejection:
+    def test_known_reason_returns_action(self):
+        result = handle_rejection("insufficient_buying_power", "AAPL")
+        assert result["action"] == "pause_symbol_30min"
+        assert result["symbol"] == "AAPL"
+
+    def test_unknown_reason_log_and_skip(self):
+        result = handle_rejection("unknown_reason", "MSFT")
+        assert result["action"] == "log_and_skip"
+
+    def test_wash_sale_action(self):
+        result = handle_rejection("wash_sale_block", "TSLA")
+        assert result["action"] == "mark_wash_sale"
+
+    def test_pdt_action(self):
+        result = handle_rejection("pdt_restriction", "AAPL")
+        assert result["action"] == "alert_pdt_counter_bug"
+
+    def test_short_not_available(self):
+        result = handle_rejection("short_not_available", "GME")
+        assert result["action"] == "cache_unshortable_24h"
+
+
+# ---------------------------------------------------------------------------
+# has_recent_loss_close
+# ---------------------------------------------------------------------------
+
+class TestHasRecentLossClose:
+    def _closed(self, symbol, days_ago, pnl):
+        return {
+            "symbol": symbol,
+            "closed_at": datetime.now(timezone.utc) - timedelta(days=days_ago),
+            "realized_pnl": pnl,
+        }
+
+    def test_recent_loss_detected(self):
+        rows = [self._closed("AAPL", 10, -500.0)]
+        assert has_recent_loss_close("AAPL", rows, days=30) is True
+
+    def test_old_loss_not_detected(self):
+        rows = [self._closed("AAPL", 40, -500.0)]
+        assert has_recent_loss_close("AAPL", rows, days=30) is False
+
+    def test_recent_gain_not_detected(self):
+        rows = [self._closed("AAPL", 5, 200.0)]
+        assert has_recent_loss_close("AAPL", rows, days=30) is False
+
+    def test_different_symbol_not_detected(self):
+        rows = [self._closed("MSFT", 5, -100.0)]
+        assert has_recent_loss_close("AAPL", rows, days=30) is False
+
+    def test_empty_positions(self):
+        assert has_recent_loss_close("AAPL", [], days=30) is False
+
+
+# ---------------------------------------------------------------------------
+# reconcile_positions / reconcile_cash
+# ---------------------------------------------------------------------------
+
+class TestReconcilePositions:
+    def test_no_drift(self):
+        broker = [{"symbol": "AAPL", "qty": 100}]
+        internal = [{"symbol": "AAPL", "qty": 100}]
+        assert reconcile_positions(broker, internal) == []
+
+    def test_drift_detected(self):
+        broker = [{"symbol": "AAPL", "qty": 100}]
+        internal = [{"symbol": "AAPL", "qty": 90}]
+        drifts = reconcile_positions(broker, internal)
+        assert len(drifts) == 1
+        assert drifts[0]["symbol"] == "AAPL"
+        assert abs(drifts[0]["delta"] - 10) < 1e-6
+
+    def test_broker_has_extra_position(self):
+        broker = [{"symbol": "AAPL", "qty": 100}, {"symbol": "MSFT", "qty": 50}]
+        internal = [{"symbol": "AAPL", "qty": 100}]
+        drifts = reconcile_positions(broker, internal)
+        assert any(d["symbol"] == "MSFT" for d in drifts)
+
+    def test_internal_has_ghost_position(self):
+        broker = [{"symbol": "AAPL", "qty": 100}]
+        internal = [{"symbol": "AAPL", "qty": 100}, {"symbol": "GOOG", "qty": 30}]
+        drifts = reconcile_positions(broker, internal)
+        assert any(d["symbol"] == "GOOG" for d in drifts)
+
+
+class TestReconcileCash:
+    def test_no_drift(self):
+        assert reconcile_cash(10000.0, 10000.0) is None
+
+    def test_small_drift_within_tolerance(self):
+        assert reconcile_cash(10000.50, 10000.0) is None
+
+    def test_large_drift_detected(self):
+        result = reconcile_cash(10050.0, 10000.0)
+        assert result is not None
+        assert abs(result["delta"] - 50.0) < 1e-6
+
+    def test_negative_drift(self):
+        result = reconcile_cash(9990.0, 10000.0)
+        assert result is not None
+        assert result["delta"] < 0
+
+
+# ---------------------------------------------------------------------------
+# ExitManager
+# ---------------------------------------------------------------------------
+
+def _pos(symbol, entry, stop=None, pt=None, days=None,
+         opened_days_ago=0, side="long"):
+    return PositionRecord(
+        symbol=symbol,
+        qty=100,
+        avg_entry_price=entry,
+        stop_price=stop,
+        profit_target_price=pt,
+        max_holding_days=days,
+        opened_at=datetime.now(timezone.utc) - timedelta(days=opened_days_ago),
+        side=side,
+    )
+
+
+class TestExitManager:
+    def test_stop_hit_long(self):
+        mgr = ExitManager()
+        signals = mgr.check_exits([_pos("AAPL", entry=100, stop=90)], {"AAPL": 85.0})
+        assert len(signals) == 1
+        assert signals[0].exit_reason == "stop_hit"
+
+    def test_stop_not_hit(self):
+        mgr = ExitManager()
+        signals = mgr.check_exits([_pos("AAPL", entry=100, stop=90)], {"AAPL": 95.0})
+        assert signals == []
+
+    def test_profit_target_hit(self):
+        mgr = ExitManager()
+        signals = mgr.check_exits([_pos("AAPL", entry=100, pt=120)], {"AAPL": 125.0})
+        assert len(signals) == 1
+        assert signals[0].exit_reason == "pt_hit"
+
+    def test_vertical_barrier_hit(self):
+        mgr = ExitManager()
+        signals = mgr.check_exits(
+            [_pos("AAPL", entry=100, days=10, opened_days_ago=11)], {"AAPL": 102.0}
+        )
+        assert len(signals) == 1
+        assert signals[0].exit_reason == "vertical_barrier"
+
+    def test_vertical_barrier_not_yet(self):
+        mgr = ExitManager()
+        signals = mgr.check_exits(
+            [_pos("AAPL", entry=100, days=10, opened_days_ago=5)], {"AAPL": 102.0}
+        )
+        assert signals == []
+
+    def test_no_price_skipped(self):
+        mgr = ExitManager()
+        signals = mgr.check_exits([_pos("AAPL", entry=100, stop=90)], {})
+        assert signals == []
+
+    def test_short_stop_hit(self):
+        mgr = ExitManager()
+        signals = mgr.check_exits(
+            [_pos("AAPL", entry=100, stop=110, side="short")], {"AAPL": 115.0}
+        )
+        assert len(signals) == 1
+        assert signals[0].exit_reason == "stop_hit"
+
+    def test_multiple_positions(self):
+        mgr = ExitManager()
+        positions = [
+            _pos("AAPL", entry=100, stop=90),
+            _pos("MSFT", entry=200, pt=250),
+            _pos("GOOG", entry=150, days=5, opened_days_ago=3),
+        ]
+        prices = {"AAPL": 88.0, "MSFT": 260.0, "GOOG": 155.0}
+        signals = mgr.check_exits(positions, prices)
+        assert len(signals) == 2
+        reasons = {s.exit_reason for s in signals}
+        assert "stop_hit" in reasons
+        assert "pt_hit" in reasons
+
+
+# ---------------------------------------------------------------------------
+# OrderStatusStream
+# ---------------------------------------------------------------------------
+
+class TestOrderStatusStream:
+    def test_is_not_running_by_default(self):
+        stream = OrderStatusStream()
+        assert stream.is_running() is False
+
+    def test_apply_known_event(self):
+        stream = OrderStatusStream()
+        event = {"event": "fill", "order": {"symbol": "AAPL", "status": "filled"}}
+        result = stream.apply_event(event)
+        assert result == "fill"
+
+    def test_apply_unknown_event_returns_none(self):
+        stream = OrderStatusStream()
+        result = stream.apply_event({"event": "something_new", "order": {}})
+        assert result is None
+
+    def test_apply_partial_fill(self):
+        stream = OrderStatusStream()
+        result = stream.apply_event({"event": "partial_fill", "order": {}})
+        assert result == "partial_fill"
+
+    def test_poll_interval_constant(self):
+        assert OrderStatusStream.POLL_INTERVAL_SECONDS == 30
+
+    def test_reconcile_interval_constant(self):
+        assert OrderStatusStream.RECONCILE_INTERVAL_SECONDS == 300

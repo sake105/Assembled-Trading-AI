@@ -422,3 +422,136 @@ def gate_summary(
         mark = "✓" if v else "✗"
         lines.append(f"  {mark} {k}")
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Model inference helpers (34_NEWS_GROUND_TRUTH.md §5 — optional deps)
+# ---------------------------------------------------------------------------
+
+def run_finbert_tone(texts: list[str]) -> list[str]:
+    """Run FinBERT-tone classification on a list of texts.
+
+    Requires: pip install transformers torch (or transformers[torch]).
+    Returns list of 'positive' | 'negative' | 'neutral' labels.
+    Falls back to ['neutral'] * len(texts) if transformers not available.
+    """
+    try:
+        from transformers import pipeline as hf_pipeline  # type: ignore[import]
+    except ImportError:
+        import logging
+        logging.getLogger(__name__).warning(
+            "transformers not installed — run_finbert_tone returns neutral for all texts"
+        )
+        return ["neutral"] * len(texts)
+
+    pipe = hf_pipeline(
+        "text-classification",
+        model="yiyanghkust/finbert-tone",
+        tokenizer="yiyanghkust/finbert-tone",
+        max_length=128,
+        truncation=True,
+    )
+    return [pipe(t)[0]["label"].lower() for t in texts]
+
+
+def run_haiku_zeroshot(texts: list[str], anthropic_client: Any) -> list[str]:
+    """3-class zero-shot sentiment via claude-haiku-4-5-20251001.
+
+    Args:
+        texts: Headlines or short news snippets.
+        anthropic_client: Instantiated anthropic.Anthropic() client.
+
+    Returns list of 'positive' | 'negative' | 'neutral'.
+    Falls back to 'neutral' on any API error.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    results: list[str] = []
+    for text in texts:
+        try:
+            msg = anthropic_client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=5,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": (
+                            "Classify the sentiment of this financial headline as exactly one of: "
+                            "positive, negative, neutral.\n\nHeadline: " + text
+                        ),
+                    }
+                ],
+            )
+            label = msg.content[0].text.strip().lower()
+            if label not in {"positive", "negative", "neutral"}:
+                label = "neutral"
+            results.append(label)
+        except Exception as exc:
+            logger.warning("run_haiku_zeroshot error for text %r: %s", text[:40], exc)
+            results.append("neutral")
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Text utilities
+# ---------------------------------------------------------------------------
+
+def entity_anonymize(headline: str, ticker: str, company_name: str) -> str:
+    """Replace ticker symbol and company name with neutral placeholders.
+
+    Prevents the model from learning a spurious ticker-sentiment association.
+    Replacement is case-sensitive for the ticker (tickers are typically uppercase)
+    and case-insensitive for the company name.
+
+    Args:
+        headline: Raw news headline.
+        ticker: Ticker symbol (e.g. 'AAPL').
+        company_name: Full company name (e.g. 'Apple Inc.').
+
+    Returns:
+        Anonymized headline with ticker → 'XYZ' and company → 'Company XYZ'.
+    """
+    import re
+    result = re.sub(r'\b' + re.escape(ticker) + r'\b', "XYZ", headline)
+    result = re.sub(re.escape(company_name), "Company XYZ", result, flags=re.IGNORECASE)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Factor series builder (34_NEWS_GROUND_TRUTH.md §8 — Alphalens integration)
+# ---------------------------------------------------------------------------
+
+def build_factor_series(
+    news_events_df: "pd.DataFrame",
+    tickers_universe: list[str],
+    dates: "pd.DatetimeIndex",
+) -> "pd.Series":
+    """Build a MultiIndex (date, asset) → factor_value Series for Alphalens.
+
+    Args:
+        news_events_df: DataFrame with columns ['ticker', 'date', 'sentiment_numeric'].
+                        sentiment_numeric in [-1, +1]; multiple events per day are averaged.
+        tickers_universe: Full list of tickers in the universe.
+        dates: All trading dates to include (missing values filled with 0.0).
+
+    Returns:
+        pd.Series with MultiIndex (date, asset) named 'news_sentiment_factor'.
+        Missing (date, ticker) combinations are filled with 0.0 (no news = neutral).
+    """
+    df = news_events_df.copy()
+    df["date"] = pd.to_datetime(df["date"]).dt.normalize()
+
+    grouped = (
+        df.groupby(["date", "ticker"])["sentiment_numeric"]
+        .mean()
+    )
+
+    full_index = pd.MultiIndex.from_product(
+        [pd.DatetimeIndex(dates).normalize(), tickers_universe],
+        names=["date", "asset"],
+    )
+
+    grouped.index.names = ["date", "asset"]
+    factor = grouped.reindex(full_index, fill_value=0.0)
+    factor.name = "news_sentiment_factor"
+    return factor

@@ -83,4 +83,49 @@ class StrategyConfig(BaseModel):
         return self.model_dump()
 
 
-__all__ = ["CompositeWeights", "Thresholds", "RiskParams", "StrategyConfig"]
+_ACTIVE_CONFIG_DIR = Path("config/strategies")
+
+
+def load_strategy_config(path: Path | str) -> StrategyConfig:
+    """Load a StrategyConfig from a YAML or JSON file path.
+
+    Convenience wrapper for StrategyConfig.from_yaml() — preferred over
+    calling from_yaml() directly so callers don't need to import the class.
+    """
+    return StrategyConfig.from_yaml(path)
+
+
+def load_active_config(environment: str = "paper") -> StrategyConfig:
+    """Load the active strategy config for the given environment.
+
+    Looks for ``config/strategies/<environment>.yaml`` (or .json fallback).
+    Falls back to a default StrategyConfig if the file does not exist.
+
+    Args:
+        environment: 'paper', 'live', or 'backtest'.
+
+    Returns:
+        Validated StrategyConfig.
+    """
+    for suffix in (".yaml", ".yml", ".json"):
+        candidate = _ACTIVE_CONFIG_DIR / f"{environment}{suffix}"
+        if candidate.exists():
+            logger.info("Loading active config: %s", candidate)
+            return StrategyConfig.from_yaml(candidate)
+
+    logger.warning(
+        "No active config found for environment '%s' in %s — using defaults",
+        environment,
+        _ACTIVE_CONFIG_DIR,
+    )
+    return StrategyConfig(strategy_id=f"default_{environment}")
+
+
+__all__ = [
+    "CompositeWeights",
+    "Thresholds",
+    "RiskParams",
+    "StrategyConfig",
+    "load_strategy_config",
+    "load_active_config",
+]

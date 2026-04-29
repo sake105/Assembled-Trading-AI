@@ -12,6 +12,7 @@ import pytest
 
 from assembled_core.signals.news_validation import (
     GATE_THRESHOLDS,
+    build_factor_series,
     car_significance_report,
     check_level_a,
     classification_metrics,
@@ -19,11 +20,14 @@ from assembled_core.signals.news_validation import (
     compute_ic,
     compute_market_model,
     compute_quantile_returns,
+    entity_anonymize,
     event_study,
     gate_summary,
     load_gold_dataset,
     net_edge_after_costs,
     news_feature_production_ready,
+    run_finbert_tone,
+    run_haiku_zeroshot,
 )
 
 
@@ -348,3 +352,165 @@ class TestProductionGate:
 
     def test_gate_thresholds_complete(self):
         assert len(GATE_THRESHOLDS) == 8
+
+
+# ---------------------------------------------------------------------------
+# run_finbert_tone (transformers optional dep)
+# ---------------------------------------------------------------------------
+
+class TestRunFinbertTone:
+    def test_fallback_without_transformers(self, monkeypatch):
+        import sys
+        # Force ImportError for transformers
+        monkeypatch.setitem(sys.modules, "transformers", None)
+        result = run_finbert_tone(["Market rallied sharply.", "Stock fell 10%."])
+        assert result == ["neutral", "neutral"]
+
+    def test_returns_list_length_matches(self, monkeypatch):
+        import sys
+        monkeypatch.setitem(sys.modules, "transformers", None)
+        texts = ["a", "b", "c"]
+        assert len(run_finbert_tone(texts)) == len(texts)
+
+    def test_mock_pipeline_positive(self, monkeypatch):
+        fake_result = [{"label": "Positive", "score": 0.9}]
+        fake_pipe = lambda text: fake_result  # noqa: E731
+
+        import types
+        fake_transformers = types.SimpleNamespace(pipeline=lambda *a, **kw: fake_pipe)
+        monkeypatch.setitem(__import__("sys").modules, "transformers", fake_transformers)
+
+        # Direct call with mock
+        import importlib
+        import assembled_core.signals.news_validation as nv
+        original = nv.run_finbert_tone
+
+        def patched(texts):
+            return [fake_pipe(t)[0]["label"].lower() for t in texts]
+
+        monkeypatch.setattr(nv, "run_finbert_tone", patched)
+        assert nv.run_finbert_tone(["good news"]) == ["positive"]
+
+
+# ---------------------------------------------------------------------------
+# run_haiku_zeroshot
+# ---------------------------------------------------------------------------
+
+class TestRunHaikuZeroshot:
+    def _mock_client(self, label="positive"):
+        from unittest.mock import MagicMock
+        client = MagicMock()
+        msg = MagicMock()
+        msg.content = [MagicMock(text=label)]
+        client.messages.create.return_value = msg
+        return client
+
+    def test_positive_label(self):
+        client = self._mock_client("positive")
+        result = run_haiku_zeroshot(["Stocks surge on strong earnings."], client)
+        assert result == ["positive"]
+
+    def test_negative_label(self):
+        client = self._mock_client("negative")
+        result = run_haiku_zeroshot(["Company files for bankruptcy."], client)
+        assert result == ["negative"]
+
+    def test_unknown_label_defaults_neutral(self):
+        client = self._mock_client("bullish")  # not in valid set
+        result = run_haiku_zeroshot(["Some text."], client)
+        assert result == ["neutral"]
+
+    def test_api_error_returns_neutral(self):
+        from unittest.mock import MagicMock
+        client = MagicMock()
+        client.messages.create.side_effect = Exception("API error")
+        result = run_haiku_zeroshot(["text"], client)
+        assert result == ["neutral"]
+
+    def test_multiple_texts(self):
+        client = self._mock_client("negative")
+        result = run_haiku_zeroshot(["a", "b", "c"], client)
+        assert len(result) == 3
+        assert all(r == "negative" for r in result)
+
+
+# ---------------------------------------------------------------------------
+# entity_anonymize
+# ---------------------------------------------------------------------------
+
+class TestEntityAnonymize:
+    def test_ticker_replaced(self):
+        result = entity_anonymize("AAPL surges 5%", "AAPL", "Apple Inc.")
+        assert "AAPL" not in result
+        assert "XYZ" in result
+
+    def test_company_replaced(self):
+        result = entity_anonymize("Apple Inc. beats estimates", "AAPL", "Apple Inc.")
+        assert "Apple Inc." not in result
+        assert "Company XYZ" in result
+
+    def test_both_replaced(self):
+        result = entity_anonymize("AAPL (Apple Inc.) gains", "AAPL", "Apple Inc.")
+        assert "AAPL" not in result
+        assert "Apple Inc." not in result
+
+    def test_company_case_insensitive(self):
+        result = entity_anonymize("apple inc. reported earnings", "AAPL", "Apple Inc.")
+        assert "apple inc." not in result.lower()
+
+    def test_no_match_unchanged(self):
+        original = "MSFT rises on cloud growth"
+        result = entity_anonymize(original, "AAPL", "Apple Inc.")
+        assert result == original
+
+    def test_ticker_word_boundary(self):
+        # 'AAPLS' should NOT be replaced for ticker 'AAPL'
+        result = entity_anonymize("AAPLS is not AAPL", "AAPL", "Apple Inc.")
+        assert "AAPLS" in result  # not replaced (word boundary)
+        assert "XYZ" in result     # AAPL replaced
+
+
+# ---------------------------------------------------------------------------
+# build_factor_series
+# ---------------------------------------------------------------------------
+
+class TestBuildFactorSeries:
+    def _events(self):
+        return pd.DataFrame({
+            "ticker": ["AAPL", "AAPL", "MSFT"],
+            "date": ["2024-01-02", "2024-01-03", "2024-01-02"],
+            "sentiment_numeric": [0.5, -0.3, 0.8],
+        })
+
+    def _dates(self):
+        return pd.date_range("2024-01-02", periods=3, freq="B")
+
+    def test_returns_series(self):
+        s = build_factor_series(self._events(), ["AAPL", "MSFT", "GOOG"], self._dates())
+        assert isinstance(s, pd.Series)
+
+    def test_multiindex_names(self):
+        s = build_factor_series(self._events(), ["AAPL", "MSFT"], self._dates())
+        assert s.index.names == ["date", "asset"]
+
+    def test_sentiment_averaged(self):
+        # AAPL on 2024-01-02 has one event with 0.5
+        s = build_factor_series(self._events(), ["AAPL", "MSFT"], self._dates())
+        val = s.loc[(pd.Timestamp("2024-01-02"), "AAPL")]
+        assert abs(val - 0.5) < 1e-9
+
+    def test_missing_fills_zero(self):
+        s = build_factor_series(self._events(), ["AAPL", "MSFT", "GOOG"], self._dates())
+        # GOOG has no events → should be 0.0
+        goog_vals = s.xs("GOOG", level="asset")
+        assert (goog_vals == 0.0).all()
+
+    def test_factor_name(self):
+        s = build_factor_series(self._events(), ["AAPL"], self._dates())
+        assert s.name == "news_sentiment_factor"
+
+    def test_length(self):
+        tickers = ["AAPL", "MSFT", "GOOG"]
+        dates = self._dates()
+        s = build_factor_series(self._events(), tickers, dates)
+        assert len(s) == len(tickers) * len(dates)
