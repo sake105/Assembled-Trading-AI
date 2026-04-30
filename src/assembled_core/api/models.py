@@ -1,8 +1,7 @@
 # src/assembled_core/api/models.py
-"""Pydantic models for FastAPI endpoints (future implementation).
+"""Pydantic models for FastAPI endpoints.
 
-These models represent the data structures that will be exposed via the FastAPI backend,
-derived from the current file-based Sprint-9 pipeline outputs.
+Defines request/response schemas used by the assembled_core API routers.
 """
 
 from __future__ import annotations

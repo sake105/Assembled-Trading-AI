@@ -602,8 +602,6 @@ def make_engine_backtest_fn(
     If signal_fn or position_sizing_fn need training data, they should be wrapped
     in a factory that creates trained functions per split.
 
-    TODO: Future enhancement: Integrate with PortfolioBacktestConfig if/when available.
-
     Args:
         prices: Price panel DataFrame with columns: timestamp_col, group_col, price_col
         signal_fn: Signal generation function

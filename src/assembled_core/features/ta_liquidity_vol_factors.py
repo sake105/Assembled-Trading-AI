@@ -488,25 +488,55 @@ def add_abnormal_volume(
     return result
 
 
-# TODO: Implement add_intraday_noise_proxy() if intraday data aggregation is available
-# This would require access to intraday price data (e.g., 1-minute bars) that has been
-# aggregated to daily statistics. The function would compute proxies for intraday volatility
-# and noise that aren't captured in daily OHLC data alone.
-#
-# def add_intraday_noise_proxy(
-#     prices: pd.DataFrame,
-#     intraday_stats_cols: list[str] | None = None,
-#     group_col: str = "symbol",
-#     timestamp_col: str = "timestamp",
-# ) -> pd.DataFrame:
-#     """
-#     Add intraday noise/volatility proxies based on aggregated intraday statistics.
-#
-#     This function requires pre-aggregated intraday statistics (e.g., from 1-minute data
-#     resampled to daily). Potential factors:
-#     - Intraday realized volatility (separate from daily RV)
-#     - Number of price changes per day
-#     - Average bid-ask spread (if available)
-#     - Tick-level volatility
-#     """
-#     pass
+def add_intraday_noise_proxy(
+    prices: pd.DataFrame,
+    intraday_stats_cols: list[str] | None = None,
+    group_col: str = "symbol",
+    timestamp_col: str = "timestamp",
+) -> pd.DataFrame:
+    """Add intraday noise/volatility proxies derived from OHLC data.
+
+    Computes three proxies that capture intraday dispersion beyond daily close-to-close returns:
+
+    - ``intraday_hl_ratio``: (high - low) / close — relative intraday range; higher = more noise
+    - ``intraday_oc_return``: (close - open) / open — intraday directional drift
+    - ``intraday_gk_vol``: Garman-Klass volatility estimator using OHLC; more efficient than
+      close-to-close vol for measuring realised intraday variance
+
+    If ``intraday_stats_cols`` is provided, those columns are passed through unchanged
+    (assumed to be pre-aggregated statistics, e.g., realised vol from 1-minute bars).
+
+    Args:
+        prices: DataFrame with OHLC columns (``open``, ``high``, ``low``, ``close``).
+            Must also contain ``group_col`` and ``timestamp_col``.
+        intraday_stats_cols: Optional list of pre-aggregated intraday stats columns already
+            present in ``prices`` to preserve. No transformation is applied to these.
+        group_col: Symbol grouping column (default ``"symbol"``).
+        timestamp_col: Timestamp column name (default ``"timestamp"``).
+
+    Returns:
+        Copy of ``prices`` with additional columns (if OHLC available):
+        ``intraday_hl_ratio``, ``intraday_oc_return``, ``intraday_gk_vol``.
+    """
+    result = prices.copy()
+    has_ohlc = all(c in result.columns for c in ("open", "high", "low", "close"))
+
+    if has_ohlc:
+        close = result["close"].replace(0, np.nan)
+        open_ = result["open"].replace(0, np.nan)
+        high = result["high"]
+        low = result["low"]
+
+        # Relative intraday range — higher means more intraday noise
+        result["intraday_hl_ratio"] = ((high - low) / close).astype("float64")
+
+        # Intraday directional drift (open → close)
+        result["intraday_oc_return"] = ((close - open_) / open_).astype("float64")
+
+        # Garman-Klass estimator: 0.5*(ln(H/L))^2 - (2*ln2-1)*(ln(C/O))^2
+        log_hl = np.log((high / low).replace(0, np.nan))
+        log_co = np.log((close / open_).replace(0, np.nan))
+        gk = 0.5 * log_hl ** 2 - (2.0 * np.log(2) - 1.0) * log_co ** 2
+        result["intraday_gk_vol"] = np.sqrt(gk.clip(lower=0)).astype("float64")
+
+    return result

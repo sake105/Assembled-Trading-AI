@@ -261,11 +261,38 @@ def _check_missing_sessions(
     Returns:
         Updated list of issues
     """
-    if freq != "1d":
-        # TODO: Implement for intraday (5min) later
+    if "symbol" not in prices.columns or "timestamp" not in prices.columns:
         return issues
 
-    if "symbol" not in prices.columns or "timestamp" not in prices.columns:
+    if freq != "1d":
+        # Intraday gap check: flag per-symbol days that have large within-day gaps (> 10 min)
+        max_gap_minutes = thresholds.get("intraday_max_gap_minutes", 10)
+        ts = pd.to_datetime(prices["timestamp"], utc=True)
+        prices_copy = prices.copy()
+        prices_copy["_ts"] = ts
+        prices_copy["_date"] = ts.dt.normalize()
+        for sym, sym_df in prices_copy.groupby("symbol", sort=False):
+            for day, day_df in sym_df.groupby("_date", sort=False):
+                day_sorted = day_df.sort_values("_ts")
+                if len(day_sorted) < 2:
+                    continue
+                gaps = day_sorted["_ts"].diff().dt.total_seconds() / 60.0
+                large = gaps[gaps > max_gap_minutes].dropna()
+                if not large.empty:
+                    issues.append(
+                        QcIssue(
+                            check="missing_sessions",
+                            severity="WARN",
+                            symbol=str(sym),
+                            timestamp=pd.Timestamp(day),
+                            message=f"Intraday gap: {len(large)} bar(s) with >{max_gap_minutes}min gap on {day.date()}",
+                            details={
+                                "max_gap_minutes": float(large.max()),
+                                "n_gaps": int(len(large)),
+                                "date": str(day.date()),
+                            },
+                        )
+                    )
         return issues
 
     try:
@@ -547,10 +574,45 @@ def _check_zero_volume(
         return issues
 
     if freq != "1d":
-        # TODO: Implement for intraday (5min) later
+        # Intraday zero-volume: flag symbols where > threshold % of bars have zero volume per day
+        intraday_zero_vol_warn = thresholds.get("intraday_zero_vol_warn_pct", 20.0)
+        intraday_zero_vol_fail = thresholds.get("intraday_zero_vol_fail_pct", 50.0)
+        ts = pd.to_datetime(prices["timestamp"], utc=True) if "timestamp" in prices.columns else None
+        if ts is not None:
+            prices_copy = prices.copy()
+            prices_copy["_date"] = ts.dt.normalize()
+            for sym, sym_df in prices_copy.groupby("symbol", sort=False):
+                for day, day_df in sym_df.groupby("_date", sort=False):
+                    total = len(day_df)
+                    zero_mask = (day_df["volume"] == 0) | day_df["volume"].isna()
+                    n_zero = int(zero_mask.sum())
+                    if n_zero == 0:
+                        continue
+                    zero_pct = (n_zero / total) * 100.0
+                    if zero_pct >= intraday_zero_vol_fail:
+                        severity: str = "FAIL"
+                    elif zero_pct >= intraday_zero_vol_warn:
+                        severity = "WARN"
+                    else:
+                        continue
+                    issues.append(
+                        QcIssue(
+                            check="zero_volume",
+                            severity=severity,
+                            symbol=str(sym),
+                            timestamp=pd.Timestamp(day),
+                            message=f"Zero-volume bars: {n_zero}/{total} ({zero_pct:.1f}%) on {day.date()}",
+                            details={
+                                "zero_count": n_zero,
+                                "total_bars": total,
+                                "zero_pct": float(zero_pct),
+                                "date": str(day.date()),
+                            },
+                        )
+                    )
         return issues
 
-    # Check each symbol
+    # Check each symbol (daily path)
     for symbol in prices["symbol"].unique():
         symbol_data = prices[prices["symbol"] == symbol].copy()
         if symbol_data.empty:

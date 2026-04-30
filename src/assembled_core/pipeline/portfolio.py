@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from src.assembled_core.config import OUTPUT_DIR
+from src.assembled_core.execution.fill_model_pipeline import PartialFillModel
 from src.assembled_core.execution.transaction_costs import (
     SlippageModel,
     SpreadModel,
@@ -27,6 +28,7 @@ def simulate_with_costs(
     spread_model: SpreadModel | None = None,
     slippage_model: SlippageModel | None = None,
     strict_session_gate: bool = True,
+    partial_fill_model: PartialFillModel | None = None,
 ) -> tuple[pd.DataFrame, dict[str, float | int], pd.DataFrame]:
     """Simulate portfolio equity with transaction costs.
 
@@ -94,11 +96,6 @@ def simulate_with_costs(
         from src.assembled_core.execution.fill_model_pipeline import (
             apply_fill_model_pipeline,
         )
-
-        # Apply fill model pipeline
-        # For now, use default partial fill model (can be made configurable later)
-        partial_fill_model = None  # Default: full fills (no ADV cap)
-        # TODO: Make partial_fill_model configurable via cost_model or separate parameter
 
         orders = apply_fill_model_pipeline(
             orders,
