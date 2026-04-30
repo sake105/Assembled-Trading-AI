@@ -441,13 +441,25 @@ def generate_signals(
     except Exception as e:
         log.debug("[GNN] gnn_signal skipped: %s", e)
 
-    # --- Step 3.96: Meta-model score overlay (trained LightGBM on factor panel) ---
+    # --- Step 3.96: Meta-model score overlay (LightGBM v2, AUC=0.649, Prec@10%=44%) ---
     try:
         meta_cfg = (policy.get("signals") or {}).get("meta_model") or {}
         if meta_cfg.get("enabled", False) and not signals.empty:
+            import joblib as _jl
+            from pathlib import Path as _Path
             from src.assembled_core.signals.multifactor_signal import apply_meta_model_filter
-            _model_path = str(meta_cfg.get("model_path", "models/meta/meta_model_latest.joblib"))
-            _threshold = float(meta_cfg.get("confidence_threshold", 0.55))
+            _model_path = str(meta_cfg.get("model_path", "models/meta_model_lgbm_v2.joblib"))
+            # Use bundle's calibrated threshold if policy doesn't override
+            _policy_threshold = meta_cfg.get("confidence_threshold")
+            if _policy_threshold is None:
+                _bundle_path = _Path(__file__).parents[4] / _model_path
+                try:
+                    _bundle = _jl.load(_bundle_path)
+                    _threshold = float(_bundle.get("decision_threshold", 0.58))
+                except Exception:
+                    _threshold = 0.58
+            else:
+                _threshold = float(_policy_threshold)
             _scale = bool(meta_cfg.get("scale_by_confidence", True))
             signals = apply_meta_model_filter(
                 signals,

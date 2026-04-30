@@ -345,10 +345,10 @@ position_sizing:
     vol_lookback_days: 60
     reference_half_width: null   # null → no uncertainty discount until calibrated
     normalize: true
-  # Quantile-interval sizing overlay (LightGBM q10/q90, ~78% coverage @80% target)
+  # Quantile-interval sizing overlay (LightGBM q05/q95, ~87% coverage)
   conformal:
     enabled: false                 # enable to scale positions by prediction interval width
-    model_path: "models/conformal_position_v1.joblib"
+    model_path: "models/conformal_position_v2.joblib"
 
 # ---------------------------------------------------------------------------
 # HMM Regime Overlay — portfolio exposure multiplier based on detected regime
@@ -447,11 +447,11 @@ signals:
   meta_model_scoring:
     enabled: false                 # legacy path — use meta_model below
     model_path: "output/models/meta/meta_model.joblib"
-  # Step 3.96: LightGBM meta-model filter (triple-barrier labels, AUC=0.622)
+  # Step 3.96: LightGBM meta-model filter v2 (AUC=0.649, Precision@top10%=44% vs 30% base)
   meta_model:
     enabled: false                 # enable to filter signals by meta-model confidence
-    model_path: "models/meta/meta_model_latest.joblib"
-    confidence_threshold: 0.55    # signals below this threshold are dropped
+    model_path: "models/meta_model_lgbm_v2.joblib"
+    confidence_threshold: 0.58    # optimal threshold calibrated on val set
     scale_by_confidence: true     # multiply mf_score by confidence_score
 
 # ---------------------------------------------------------------------------

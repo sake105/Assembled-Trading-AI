@@ -775,7 +775,11 @@ def size_positions(
         if conf_cfg.get("enabled", False) and not target_positions.empty and prices_with_features is not None:
             import joblib as _jl
             from pathlib import Path as _Path
-            _conf_path = _Path(__file__).parents[4] / "models" / "conformal_position_v1.joblib"
+            _default_conf = "models/conformal_position_v2.joblib"
+            _conf_rel = conf_cfg.get("model_path", _default_conf)
+            _conf_path = _Path(__file__).parents[4] / _conf_rel
+            if not _conf_path.exists():
+                _conf_path = _Path(__file__).parents[4] / "models" / "conformal_position_v2.joblib"
             if _conf_path.exists():
                 _conf_bundle = _jl.load(_conf_path)
                 _conf_feat_cols = _conf_bundle["feature_cols"]
@@ -789,10 +793,17 @@ def size_positions(
                     _X_conf = _latest_f.set_index("symbol")[_avail].reindex(
                         columns=_conf_feat_cols, fill_value=0.0
                     ).values.astype(float)
-                    if _conf_bundle.get("model_type") == "QuantileRegressionInterval":
-                        _q10 = _conf_bundle["q10_model"].predict(_X_conf)
-                        _q90 = _conf_bundle["q90_model"].predict(_X_conf)
-                        _widths = (_q90 - _q10).clip(1e-8)
+                    _mtype = _conf_bundle.get("model_type", "")
+                    if _mtype == "QuantileRegressionInterval_v2":
+                        # v2: q05/q95 models for ~87% coverage
+                        _q_lo = _conf_bundle["q05_model"].predict(_X_conf)
+                        _q_hi = _conf_bundle["q95_model"].predict(_X_conf)
+                        _widths = (_q_hi - _q_lo).clip(1e-8)
+                    elif _mtype == "QuantileRegressionInterval":
+                        # v1 legacy: q10/q90 models
+                        _q_lo = _conf_bundle["q10_model"].predict(_X_conf)
+                        _q_hi = _conf_bundle["q90_model"].predict(_X_conf)
+                        _widths = (_q_hi - _q_lo).clip(1e-8)
                     else:
                         _, _intervals = _conf_bundle["model"].predict_interval(_X_conf)
                         _widths = (_intervals[:, 1, 0] - _intervals[:, 0, 0]).clip(1e-8)
