@@ -441,6 +441,24 @@ def generate_signals(
     except Exception as e:
         log.debug("[GNN] gnn_signal skipped: %s", e)
 
+    # --- Step 3.96: Meta-model score overlay (trained LightGBM on factor panel) ---
+    try:
+        meta_cfg = (policy.get("signals") or {}).get("meta_model") or {}
+        if meta_cfg.get("enabled", False) and not signals.empty:
+            from src.assembled_core.signals.multifactor_signal import apply_meta_model_filter
+            _model_path = str(meta_cfg.get("model_path", "models/meta/meta_model_latest.joblib"))
+            _threshold = float(meta_cfg.get("confidence_threshold", 0.55))
+            _scale = bool(meta_cfg.get("scale_by_confidence", True))
+            signals = apply_meta_model_filter(
+                signals,
+                model_path=_model_path,
+                confidence_threshold=_threshold,
+                scale_by_confidence=_scale,
+            )
+            log.debug("[META-MODEL] apply_meta_model_filter done (threshold=%.2f)", _threshold)
+    except Exception as e:
+        log.debug("[META-MODEL] meta_model skipped: %s", e)
+
     return signals
 
 

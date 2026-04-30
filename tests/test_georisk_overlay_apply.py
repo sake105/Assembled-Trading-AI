@@ -127,9 +127,11 @@ def test_georisk_overlay_applied_in_trading_cycle(monkeypatch: Any) -> None:
     def fake_compute_exposure_multiplier(_ctx: TradingContext, _policy: dict) -> float:
         return 0.5
 
+    import src.assembled_core.pipeline._tc_sizing as _tc_sz
     monkeypatch.setattr(tc, "load_policy", fake_load_policy)
+    monkeypatch.setattr(_tc_sz, "load_policy", fake_load_policy)
     monkeypatch.setattr(
-        tc, "compute_exposure_multiplier", fake_compute_exposure_multiplier
+        _tc_sz, "compute_exposure_multiplier", fake_compute_exposure_multiplier
     )
 
     result = run_trading_cycle(ctx)

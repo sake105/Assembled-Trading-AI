@@ -39,8 +39,12 @@ class PDTMigrationDetector:
 
     def likely_migrated(self) -> bool:
         cutoff = datetime.now(timezone.utc) - self.observation_window
-        recent_attempts = sum(1 for ts in self.fourth_day_trade_attempts if ts > cutoff)
-        recent_blocks = sum(1 for ts in self.pdt_blocks if ts > cutoff)
+
+        def _tz_aware(ts: datetime) -> datetime:
+            return ts if ts.tzinfo is not None else ts.replace(tzinfo=timezone.utc)
+
+        recent_attempts = sum(1 for ts in self.fourth_day_trade_attempts if _tz_aware(ts) > cutoff)
+        recent_blocks = sum(1 for ts in self.pdt_blocks if _tz_aware(ts) > cutoff)
         if recent_attempts >= 3 and recent_blocks == 0:
             logger.warning(
                 "PDT migration likely: %d 4th-day-trade attempts in last %dd, 0 PDT blocks. "

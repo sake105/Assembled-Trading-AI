@@ -168,6 +168,31 @@ def _get_weights_for_regime(
 
 def _detect_regime(df: pd.DataFrame, cfg: dict[str, Any]) -> str:
     """Detect current market regime label."""
+    # Try pre-trained HMM model first (trained on SPY 2008-2026, 2D: return+vol)
+    try:
+        import joblib
+        from pathlib import Path as _Path
+        _hmm_path = _Path(__file__).parents[3] / "models" / "regime_hmm_4state_spy.joblib"
+        if _hmm_path.exists() and "close" in df.columns and "timestamp" in df.columns:
+            _wrapper = joblib.load(_hmm_path)
+            _model_raw = _wrapper._model
+            _label_map = _wrapper._label_map
+            if "symbol" in df.columns:
+                _px = df.pivot_table(index="timestamp", columns="symbol", values="close", aggfunc="last")
+                _mkt = _px.mean(axis=1)
+            else:
+                _mkt = df.set_index("timestamp")["close"]
+            _mkt = _mkt.sort_index().dropna()
+            _log_ret = np.log(_mkt / _mkt.shift(1)).dropna()
+            _vol_20d = _log_ret.rolling(20).std().dropna()
+            _log_ret = _log_ret.loc[_vol_20d.index]
+            if len(_log_ret) >= 20:
+                _X = np.column_stack([_log_ret.values, _vol_20d.values])
+                _state = int(_model_raw.predict(_X)[-1])
+                return _label_map.get(_state, "sideways")
+    except Exception:
+        pass
+
     try:
         from src.assembled_core.risk.regime_models import build_regime_state
 
