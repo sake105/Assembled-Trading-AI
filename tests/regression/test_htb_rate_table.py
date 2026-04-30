@@ -17,7 +17,7 @@ from src.assembled_core.execution.borrow_costs import (  # noqa: E402
 )
 
 _ROOT = Path(__file__).resolve().parents[2]
-_HTB_CONFIG = _ROOT / "config" / "htb_symbols.yaml"
+_HTB_CONFIG = _ROOT / "configs" / "htb_symbols.yaml"
 
 
 def test_seed_list_loads_and_applies_overrides() -> None:
