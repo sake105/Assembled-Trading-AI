@@ -219,8 +219,12 @@ def reconcile_ledger_vs_broker(
     # Compare common symbols
     common_symbols = sorted(list(ledger_symbols & broker_symbols))
     for symbol in common_symbols:
-        ledger_row = ledger_normalized[ledger_normalized["symbol"] == symbol].iloc[0]
-        broker_row = broker_normalized[broker_normalized["symbol"] == symbol].iloc[0]
+        ledger_filtered = ledger_normalized[ledger_normalized["symbol"] == symbol]
+        broker_filtered = broker_normalized[broker_normalized["symbol"] == symbol]
+        if ledger_filtered.empty or broker_filtered.empty:
+            continue
+        ledger_row = ledger_filtered.iloc[0]
+        broker_row = broker_filtered.iloc[0]
 
         ledger_qty = float(ledger_row["qty"])
         broker_qty = float(broker_row["qty"])

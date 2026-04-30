@@ -92,6 +92,10 @@ def write_features(
     Returns:
         Path to written Parquet file, or None on failure.
     """
+    if df.empty:
+        logger.warning("write_features: empty DataFrame for view=%s ticker=%s — skipping", view, ticker)
+        return None
+
     pa = _try_pyarrow()
     if pa is None:
         return None
