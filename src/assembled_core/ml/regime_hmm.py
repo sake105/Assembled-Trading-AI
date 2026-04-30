@@ -58,10 +58,6 @@ class RegimeHMM:
         n_iter: int = 100,
         random_state: int = 42,
     ) -> None:
-        if not HMMLEARN_AVAILABLE:
-            raise ImportError(
-                "hmmlearn is required. Install with: pip install 'hmmlearn>=0.3.0'"
-            )
         self.n_regimes = n_regimes
         self.covariance_type = covariance_type
         self.n_iter = n_iter
@@ -116,7 +112,14 @@ class RegimeHMM:
             Series of regime labels ("bull", "bear", "sideways") with same index
             as input.
         """
-        self._check_fitted()
+        if not self._is_fitted or self._model is None:
+            if not HMMLEARN_AVAILABLE:
+                # Graceful fallback: vol-threshold labels when hmmlearn is not installed
+                vol = returns.rolling(20, min_periods=5).std()
+                vol_pct = vol.rank(pct=True).fillna(0.5)
+                labels = vol_pct.map(lambda v: "bear" if v > 0.7 else ("bull" if v < 0.3 else "sideways"))
+                return labels.rename("regime")
+            raise RuntimeError("RegimeHMM must be fitted before calling predict_regime")
         arr = self._prepare(returns)
         raw_states = self._model.predict(arr)  # type: ignore[union-attr]
         labels = pd.Series(
@@ -196,6 +199,12 @@ class RegimeHMM:
         self
         """
         self._check_fitted()
+        if len(new_returns.dropna()) < min_samples:
+            logger.debug(
+                "[RegimeHMM] partial_update skipped — only %d new samples (min %d)",
+                len(new_returns.dropna()), min_samples,
+            )
+            return self
         arr = self._prepare(new_returns)
         if len(arr) < min_samples:
             logger.debug(
@@ -388,25 +397,75 @@ class MultiFeatureRegimeHMM:
             return pd.DataFrame()
 
         try:
-            proba = self._model.predict_proba(clean.values)
+            # hmmlearn uses score_samples() for smoothed posteriors, not predict_proba()
+            _, posteriors = self._model.score_samples(clean.values)
         except Exception:
             return self._fallback_proba(features_df)
 
         result = pd.DataFrame(index=clean.index)
         for state_idx, label in self._label_map.items():
-            if state_idx < proba.shape[1]:
-                result[f"p_{label}"] = proba[:, state_idx]
+            if state_idx < posteriors.shape[1]:
+                result[f"p_{label}"] = posteriors[:, state_idx]
 
         return result
 
     def predict_regime(self, features_df: pd.DataFrame) -> pd.Series:
-        """Predict most likely regime for each row."""
-        proba = self.predict_proba(features_df)
-        if proba.empty:
+        """Predict most likely regime for each row (Viterbi hard assignment)."""
+        if not self._fitted or self._model is None:
             return pd.Series(dtype=str)
 
-        regime_cols = [c for c in proba.columns if c.startswith("p_")]
-        return proba[regime_cols].idxmax(axis=1).str.replace("p_", "", regex=False)
+        clean = features_df.dropna()
+        if clean.empty:
+            return pd.Series(dtype=str)
+
+        try:
+            states = self._model.predict(clean.values)
+            return pd.Series(
+                [self._label_map.get(int(s), f"state_{s}") for s in states],
+                index=clean.index,
+                name="regime",
+            )
+        except Exception:
+            proba = self.predict_proba(features_df)
+            if proba.empty:
+                return pd.Series(dtype=str)
+            regime_cols = [c for c in proba.columns if c.startswith("p_")]
+            return proba[regime_cols].idxmax(axis=1).str.replace("p_", "", regex=False)
+
+    def save(self, path: str | "Path") -> None:
+        """Persist the fitted model to disk."""
+        import joblib
+        from pathlib import Path as _Path
+        _path = _Path(path)
+        _path.parent.mkdir(parents=True, exist_ok=True)
+        joblib.dump(
+            {
+                "model": self._model,
+                "label_map": self._label_map,
+                "n_regimes": self.n_regimes,
+                "n_iter": self.n_iter,
+                "random_state": self.random_state,
+                "class": "MultiFeatureRegimeHMM",
+            },
+            _path,
+        )
+        logger.info("[MultiHMM] Saved to %s", _path)
+
+    @classmethod
+    def load(cls, path: str | "Path") -> "MultiFeatureRegimeHMM":
+        """Load a previously saved MultiFeatureRegimeHMM."""
+        import joblib
+        from pathlib import Path as _Path
+        data = joblib.load(_Path(path))
+        obj = cls(
+            n_regimes=data.get("n_regimes", 4),
+            n_iter=data.get("n_iter", 100),
+            random_state=data.get("random_state", 42),
+        )
+        obj._model = data["model"]
+        obj._label_map = data["label_map"]
+        obj._fitted = True
+        return obj
 
     def crisis_alert(self, features_df: pd.DataFrame, threshold: float = 0.3) -> dict:
         """Check if crisis probability is rising above threshold.

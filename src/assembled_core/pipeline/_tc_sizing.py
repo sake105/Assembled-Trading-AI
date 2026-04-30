@@ -741,7 +741,7 @@ def size_positions(
 
     target_positions = _sp_apply_cost_aware(target_positions, ctx, policy, log)
 
-    # --- Conformal position sizing overlay (trained SplitConformalRegressor) ---
+    # --- Quantile-interval position sizing overlay (LightGBM q10/q90 models) ---
     try:
         conf_cfg = (policy.get("position_sizing") or {}).get("conformal") or {}
         if conf_cfg.get("enabled", False) and not target_positions.empty and prices_with_features is not None:
@@ -750,9 +750,8 @@ def size_positions(
             _conf_path = _Path(__file__).parents[4] / "models" / "conformal_position_v1.joblib"
             if _conf_path.exists():
                 _conf_bundle = _jl.load(_conf_path)
-                _conf_model = _conf_bundle["model"]
                 _conf_feat_cols = _conf_bundle["feature_cols"]
-                _med_width = float(_conf_bundle.get("median_interval_width", 0.08))
+                _med_width = float(_conf_bundle.get("median_interval_width", 0.05))
                 _latest_f = (
                     prices_with_features.sort_values("timestamp")
                     .groupby("symbol").last().reset_index()
@@ -761,10 +760,15 @@ def size_positions(
                 if len(_avail) >= 5 and "symbol" in _latest_f.columns:
                     _X_conf = _latest_f.set_index("symbol")[_avail].reindex(
                         columns=_conf_feat_cols, fill_value=0.0
-                    )
-                    _, _intervals = _conf_model.predict_interval(_X_conf.values)
-                    _widths = _intervals[:, 1, 0] - _intervals[:, 0, 0]
-                    _size_mult = (_med_width / _widths.clip(1e-8)).clip(0.25, 2.0)
+                    ).values.astype(float)
+                    if _conf_bundle.get("model_type") == "QuantileRegressionInterval":
+                        _q10 = _conf_bundle["q10_model"].predict(_X_conf)
+                        _q90 = _conf_bundle["q90_model"].predict(_X_conf)
+                        _widths = (_q90 - _q10).clip(1e-8)
+                    else:
+                        _, _intervals = _conf_bundle["model"].predict_interval(_X_conf)
+                        _widths = (_intervals[:, 1, 0] - _intervals[:, 0, 0]).clip(1e-8)
+                    _size_mult = (_med_width / _widths).clip(0.25, 2.0)
                     _mult_map = dict(zip(_latest_f["symbol"].values, _size_mult.tolist()))
                     if "target_pct" in target_positions.columns and "symbol" in target_positions.columns:
                         target_positions = target_positions.copy()
@@ -772,8 +776,8 @@ def size_positions(
                         target_positions["target_pct"] = (
                             target_positions["target_pct"] * _sym_mult
                         ).clip(-1.0, 1.0)
-                        log.debug("[CONFORMAL] Applied conformal size multipliers to %d positions", len(target_positions))
+                        log.debug("[CONFORMAL] Applied quantile-interval size multipliers to %d positions", len(target_positions))
     except Exception as e:
-        log.debug("[CONFORMAL] conformal sizing skipped: %s", e)
+        log.debug("[CONFORMAL] quantile sizing skipped: %s", e)
 
     return target_positions, do_rebal, meta

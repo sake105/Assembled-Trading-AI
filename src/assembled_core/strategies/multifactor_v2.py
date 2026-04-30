@@ -168,15 +168,13 @@ def _get_weights_for_regime(
 
 def _detect_regime(df: pd.DataFrame, cfg: dict[str, Any]) -> str:
     """Detect current market regime label."""
-    # Try pre-trained HMM model first (trained on SPY 2008-2026, 2D: return+vol)
+    # Try pre-trained HMM model first (MultiFeatureRegimeHMM, 2D: return+vol_20d)
     try:
-        import joblib
         from pathlib import Path as _Path
+        from src.assembled_core.ml.regime_hmm import MultiFeatureRegimeHMM
         _hmm_path = _Path(__file__).parents[3] / "models" / "regime_hmm_4state_spy.joblib"
         if _hmm_path.exists() and "close" in df.columns and "timestamp" in df.columns:
-            _wrapper = joblib.load(_hmm_path)
-            _model_raw = _wrapper._model
-            _label_map = _wrapper._label_map
+            _hmm = MultiFeatureRegimeHMM.load(_hmm_path)
             if "symbol" in df.columns:
                 _px = df.pivot_table(index="timestamp", columns="symbol", values="close", aggfunc="last")
                 _mkt = _px.mean(axis=1)
@@ -187,9 +185,10 @@ def _detect_regime(df: pd.DataFrame, cfg: dict[str, Any]) -> str:
             _vol_20d = _log_ret.rolling(20).std().dropna()
             _log_ret = _log_ret.loc[_vol_20d.index]
             if len(_log_ret) >= 20:
-                _X = np.column_stack([_log_ret.values, _vol_20d.values])
-                _state = int(_model_raw.predict(_X)[-1])
-                return _label_map.get(_state, "sideways")
+                _feat = pd.DataFrame({"daily_return": _log_ret.values, "realized_vol": _vol_20d.values}, index=_log_ret.index)
+                _regimes = _hmm.predict_regime(_feat)
+                if len(_regimes) > 0:
+                    return str(_regimes.iloc[-1])
     except Exception:
         pass
 
