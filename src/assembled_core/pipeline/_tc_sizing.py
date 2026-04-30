@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+import numpy as np
 import pandas as pd
 from src.assembled_core.config.policy_loader import load_policy
 from src.assembled_core.pipeline.trading_cycle_shared import (
@@ -330,7 +331,34 @@ def _sp_compute_final_multiplier(
     except Exception as e:
         log.debug("prediction_market_overlay skipped: %s", e)
 
-    final_multiplier = geo_multiplier * profit_lock_mult * vol_scale_factor * ms_multiplier * crisis_alpha_multiplier * pm_multiplier
+    # HMM regime overlay — reduce/increase exposure based on detected market regime
+    hmm_regime_multiplier = 1.0
+    try:
+        hmm_cfg = (policy.get("hmm_regime_overlay") or {})
+        if hmm_cfg.get("enabled", False) and getattr(ctx, "prices", None) is not None:
+            from pathlib import Path as _Path
+            from src.assembled_core.ml.regime_hmm import MultiFeatureRegimeHMM
+            _hmm_path = _Path(__file__).parents[4] / "models" / "regime_hmm_4state_spy.joblib"
+            if _hmm_path.exists():
+                _hmm = MultiFeatureRegimeHMM.load(_hmm_path)
+                _prices = ctx.prices
+                if "close" in _prices.columns and "symbol" in _prices.columns and "timestamp" in _prices.columns:
+                    _px = _prices.pivot_table(index="timestamp", columns="symbol", values="close", aggfunc="last")
+                    _mkt_ret = np.log(_px.mean(axis=1) / _px.mean(axis=1).shift(1)).dropna()
+                    _mkt_vol = _mkt_ret.rolling(20).std().dropna()
+                    _mkt_ret = _mkt_ret.loc[_mkt_vol.index]
+                    if len(_mkt_ret) >= 20:
+                        _feat = pd.DataFrame({"daily_return": _mkt_ret.values, "realized_vol": _mkt_vol.values}, index=_mkt_ret.index)
+                        _regimes = _hmm.predict_regime(_feat)
+                        _regime = str(_regimes.iloc[-1]) if len(_regimes) > 0 else "sideways"
+                        _mult_map = hmm_cfg.get("multipliers") or {"bull": 1.15, "sideways": 1.0, "bear": 0.75, "crisis": 0.40}
+                        hmm_regime_multiplier = float(_mult_map.get(_regime, 1.0))
+                        meta["hmm_regime"] = {"regime": _regime, "multiplier": hmm_regime_multiplier}
+                        log.debug("[HMM-REGIME] regime=%s multiplier=%.3f", _regime, hmm_regime_multiplier)
+    except Exception as e:
+        log.debug("hmm_regime_overlay skipped: %s", e)
+
+    final_multiplier = geo_multiplier * profit_lock_mult * vol_scale_factor * ms_multiplier * crisis_alpha_multiplier * pm_multiplier * hmm_regime_multiplier
     _MIN_EXPOSURE_MULT = 0.05
     if final_multiplier < _MIN_EXPOSURE_MULT:
         log.warning("[SIZE] exposure multiplier %.4f below floor %.2f — clamping", final_multiplier, _MIN_EXPOSURE_MULT)

@@ -345,6 +345,22 @@ position_sizing:
     vol_lookback_days: 60
     reference_half_width: null   # null → no uncertainty discount until calibrated
     normalize: true
+  # Quantile-interval sizing overlay (LightGBM q10/q90, ~78% coverage @80% target)
+  conformal:
+    enabled: false                 # enable to scale positions by prediction interval width
+    model_path: "models/conformal_position_v1.joblib"
+
+# ---------------------------------------------------------------------------
+# HMM Regime Overlay — portfolio exposure multiplier based on detected regime
+# ---------------------------------------------------------------------------
+hmm_regime_overlay:
+  enabled: false                   # enable to scale all positions by regime
+  model_path: "models/regime_hmm_4state_spy.joblib"
+  multipliers:
+    bull: 1.15                     # slightly more aggressive in bull
+    sideways: 1.00                 # neutral
+    bear: 0.75                     # reduce exposure in bear
+    crisis: 0.40                   # significant reduction in crisis
 
 # ---------------------------------------------------------------------------
 # Anti-churn / hysteresis (Phase 0D)
@@ -429,8 +445,14 @@ ml:
 # ---------------------------------------------------------------------------
 signals:
   meta_model_scoring:
-    enabled: false                 # disabled until model file exists at model_path
+    enabled: false                 # legacy path — use meta_model below
     model_path: "output/models/meta/meta_model.joblib"
+  # Step 3.96: LightGBM meta-model filter (triple-barrier labels, AUC=0.622)
+  meta_model:
+    enabled: false                 # enable to filter signals by meta-model confidence
+    model_path: "models/meta/meta_model_latest.joblib"
+    confidence_threshold: 0.55    # signals below this threshold are dropped
+    scale_by_confidence: true     # multiply mf_score by confidence_score
 
 # ---------------------------------------------------------------------------
 # Multi-factor composite signal (Step 3.55 — shadow mf_score on signals)
