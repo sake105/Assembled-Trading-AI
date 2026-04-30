@@ -1,6 +1,6 @@
 # Known Issues & Open Topics
 
-**Letzte Aktualisierung:** 2026-04-26 (A10 survivorship-bias entry added)
+**Letzte Aktualisierung:** 2026-04-30
 
 Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante Erweiterungen im Backend von Assembled Trading AI.
 
@@ -35,39 +35,23 @@ Erwarteter Bias: +1–2% p.a. bei US Large-Caps, **+5–10% p.a.** bei Mid-Caps.
 
 ### 1.1 Labeling-Schemata (ML)
 
-- [ ] **[enhancement]** `binary_outperformance` Labeling nicht vollständig implementiert  
-  **Datei:** `src/assembled_core/qa/labeling.py` (Zeile ~277)  
-  **Beschreibung:** Die Funktion `generate_trade_labels()` unterstützt aktuell nur `binary_absolute`. `binary_outperformance` (Vergleich mit Benchmark) und `multi_class` sind als TODO markiert.
-
-- [ ] **[enhancement]** Multi-Class-Labeling für ML-Datasets  
-  **Datei:** `src/assembled_core/qa/labeling.py` (Zeile ~359)  
-  **Beschreibung:** Multi-Class-Labeling (z.B. 0=loss, 1=small_gain, 2=large_gain) ist geplant, aber noch nicht implementiert.
+- [x] **[DONE 2026-04-30]** `binary_outperformance` und `multi_class` Labeling vollständig implementiert  
+  **Datei:** `src/assembled_core/qa/labeling.py` (Zeilen 574–591)
 
 ### 1.2 Trade-Level-Metriken
 
-- [ ] **[enhancement]** Position-Tracking für präzise Trade-Level-Metriken  
-  **Datei:** `src/assembled_core/qa/metrics.py` (Zeile ~369-375)  
-  **Beschreibung:** Metriken wie `hit_rate`, `profit_factor`, `avg_win`, `avg_loss` sind als TODO markiert und benötigen Position-Tracking für genaue Berechnung.
+- [x] **[DONE 2026-04-30]** `hit_rate`, `profit_factor`, `avg_win`, `avg_loss` implementiert  
+  **Datei:** `src/assembled_core/qa/metrics.py` (`compute_hit_rate_and_profit_factor`, Zeile 1030)
 
 ### 1.3 Pre-Trade-Checks
 
-- [ ] **[enhancement]** Weight-Checking in Pre-Trade-Checks  
-  **Datei:** `src/assembled_core/execution/pre_trade_checks.py` (Zeile ~215)  
-  **Beschreibung:** Weight-Checking (Position-Größe relativ zum Portfolio) ist als TODO markiert und wartet auf Portfolio + Capital-Info.
-
-- [ ] **[enhancement]** Sector-Exposure-Checks  
-  **Datei:** `src/assembled_core/execution/pre_trade_checks.py` (Zeile ~243)  
-  **Beschreibung:** Sector-Exposure-Limits sind geplant, aber noch nicht implementiert (benötigt Sector-Daten).
-
-- [ ] **[enhancement]** Region-Exposure-Checks  
-  **Datei:** `src/assembled_core/execution/pre_trade_checks.py` (Zeile ~247)  
-  **Beschreibung:** Region-Exposure-Limits sind geplant, aber noch nicht implementiert (benötigt Region-Daten).
+- [x] **[DONE 2026-04-30]** Weight/Sector/Region-Exposure-Checks implementiert  
+  **Datei:** `src/assembled_core/execution/pre_trade_checks.py` — `_ptc_check_max_weight()` aktiv
 
 ### 1.4 Monitoring-API
 
-- [ ] **[enhancement]** Persistierte Drift-Analyse-Ergebnisse  
-  **Datei:** `src/assembled_core/api/routers/monitoring.py` (Zeile ~291)  
-  **Beschreibung:** Monitoring-API liefert aktuell Dummy-Daten für Drift-Status. Persistierung von Drift-Analyse-Ergebnissen ist geplant.
+- [x] **[DONE 2026-04-30]** Drift-Persistierung implementiert  
+  **Datei:** `src/assembled_core/qa/drift_detection.py` — `save_drift_results()` schreibt `output/drift_analysis_{freq}.parquet`; API liest daraus
 
 ### 1.5 Live-Trading-Mode
 
@@ -91,9 +75,8 @@ Erwarteter Bias: +1–2% p.a. bei US Large-Caps, **+5–10% p.a.** bei Mid-Caps.
 
 ### 2.2 Meta-Model-Training
 
-- [ ] **[tech-debt]** Validation-Split für Meta-Model-Training  
-  **Datei:** `src/assembled_core/signals/meta_model.py` (Zeile ~198)  
-  **Beschreibung:** Aktuell wird auf allen Daten trainiert. Ein Validation-Split für Out-of-Sample-Validierung wäre wünschenswert.
+- [x] **[DONE 2026-04-30]** Chronologischer OOS-Validation-Split implementiert  
+  **Datei:** `src/assembled_core/signals/meta_model.py` — `train_meta_model()` evaluiert auf letzten `test_size`-Anteil, loggt OOS-Accuracy, trainiert Final-Modell auf allen Daten
 
 ### 2.3 API-Models
 
@@ -283,17 +266,21 @@ Bewusst vertagt. Hier tracken für spätere Planung.
 **Action:** PIT-Funktion in Pipeline-/Backtest-Universe-Selektion verdrahten  
 **Prerequisite:** Historische Mitgliedschaftsdaten (Sharadar, Norgate, oder Open-S&P-CSVs)
 
-### 6.2 regime_analysis.py — 6 offene TODOs
+### 6.2 regime_analysis.py — TODOs
 
-**Datei:** `src/assembled_core/signals/regime_analysis.py`  
-**Status:** 6 inline TODOs — Entscheidung ausstehend: implementieren oder archivieren  
-**Action:** In einer Session reviewen; entweder fertigstellen oder nach `archive/` verschieben
+- [x] **[DONE 2026-04-30]** Alle 6 TODOs implementiert  
+  **Datei:** `src/assembled_core/risk/regime_analysis.py`  
+  - `win_rate` = Anteil positiver Renditetage im Regime  
+  - `avg_trade_duration` = BUY/SELL-Pairing per Symbol  
+  - `avg_profit_per_trade` = BUY/SELL-P&L per Round-Trip  
+  - `factor_ic_mean` = Correlation factor→next-period-return per Regime  
+  - `compute_regime_transitions()` = vollständige Transitionsmatrix mit Wahrscheinlichkeiten
 
-### 6.3 Dead-Module-Audit — ~26 Kandidaten
+### 6.3 Dead-Module-Audit
 
-**Status:** Identifiziert im Competitive-Analysis-Audit 2026-04-29 — keine aktiven Aufrufer  
-**Action:** Liste sichten; Module entweder verdrahten, dokumentieren oder löschen  
-**Risiko:** Totes Code erzeugt Verwirrung darüber, was produktionsreif ist
+**Status:** Import-basierter Grep (2026-04-30) zeigt 311 "unreferenced" Module — fast alle false positives.  
+API-Routers (FastAPI dynamic registration), Feature-Module (config-driven), Data-Sources (factory) erscheinen als "unreferenced", sind aber aktiv.  
+**Echter Handlungsbedarf:** Klein — kein breiter Audit nötig. Bei konkretem Verdacht einzelne Module prüfen.
 
 ### 6.4 trading_cycle_v2.py Package-Split
 

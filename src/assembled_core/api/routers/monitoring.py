@@ -295,10 +295,7 @@ def get_drift_status_summary(
         )
 
     try:
-        # TODO: In the future, load from persisted drift analysis results
-        # For now, return example/dummy data indicating no drift detected
-
-        # Try to load from a hypothetical drift results file (future implementation)
+        # Reads persisted drift results written by qa.drift_detection.save_drift_results()
         drift_results_file = OUTPUT_DIR / f"drift_analysis_{freq}.parquet"
 
         if drift_results_file.exists():

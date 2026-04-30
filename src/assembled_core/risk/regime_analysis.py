@@ -328,27 +328,48 @@ def summarize_metrics_by_regime(
             result_row["cagr"] = None
 
         # Trade-level metrics (if trades provided)
-        if trades is not None and not trades.empty:
-            if timestamp_col in trades.columns:
-                # Filter trades for this regime
-                regime_trades = trades[trades[timestamp_col].isin(regime_equity.index)]
-
-                if not regime_trades.empty:
-                    # Simple win rate: count BUY vs SELL (simplified)
-                    # TODO: More sophisticated trade PnL calculation
-                    result_row["n_trades"] = len(regime_trades)
-                    result_row["win_rate"] = (
-                        None  # TODO: Implement with position tracking
-                    )
-                    result_row["avg_trade_duration"] = None  # TODO: Implement
-                    result_row["avg_profit_per_trade"] = None  # TODO: Implement
+        if trades is not None and not trades.empty and timestamp_col in trades.columns:
+            regime_trades = trades[trades[timestamp_col].isin(regime_equity.index)]
+            if not regime_trades.empty:
+                result_row["n_trades"] = len(regime_trades)
+                # Win rate: fraction of positive-return days in this regime
+                result_row["win_rate"] = (
+                    float((regime_returns > 0).mean()) if len(regime_returns) > 0 else None
+                )
+                # Pair BUY/SELL per symbol to compute duration and P&L
+                has_side = "side" in regime_trades.columns
+                has_sym = "symbol" in regime_trades.columns
+                has_price = "price" in regime_trades.columns
+                if has_side and has_sym:
+                    durations: list[float] = []
+                    pnls: list[float] = []
+                    for sym, sym_trades in regime_trades.groupby("symbol"):
+                        sym_trades = sym_trades.sort_values(timestamp_col)
+                        buys = sym_trades[sym_trades["side"].str.upper() == "BUY"]
+                        sells = sym_trades[sym_trades["side"].str.upper() == "SELL"]
+                        for _, buy_row in buys.iterrows():
+                            next_sells = sells[sells[timestamp_col] > buy_row[timestamp_col]]
+                            if next_sells.empty:
+                                continue
+                            sell_row = next_sells.iloc[0]
+                            try:
+                                d = (pd.Timestamp(sell_row[timestamp_col]) - pd.Timestamp(buy_row[timestamp_col])).days
+                                durations.append(float(d))
+                            except Exception:
+                                pass
+                            if has_price:
+                                bp = float(buy_row.get("price") or 0)
+                                sp = float(sell_row.get("price") or 0)
+                                qty = float(buy_row.get("qty") or 1)
+                                if bp > 0:
+                                    pnls.append((sp - bp) / bp * qty)
+                    result_row["avg_trade_duration"] = float(np.mean(durations)) if durations else None
+                    result_row["avg_profit_per_trade"] = float(np.mean(pnls)) if pnls else None
                 else:
-                    result_row["n_trades"] = 0
-                    result_row["win_rate"] = None
                     result_row["avg_trade_duration"] = None
                     result_row["avg_profit_per_trade"] = None
             else:
-                result_row["n_trades"] = None
+                result_row["n_trades"] = 0
                 result_row["win_rate"] = None
                 result_row["avg_trade_duration"] = None
                 result_row["avg_profit_per_trade"] = None
@@ -358,10 +379,31 @@ def summarize_metrics_by_regime(
             result_row["avg_trade_duration"] = None
             result_row["avg_profit_per_trade"] = None
 
-        # Factor IC (if factor_panel provided)
-        if factor_panel is not None and not factor_panel.empty:
-            # TODO: Implement factor IC by regime
-            result_row["factor_ic_mean"] = None
+        # Factor IC by regime: correlation between factor values and next-period returns
+        if factor_panel is not None and not factor_panel.empty and len(regime_returns) > 2:
+            try:
+                if timestamp_col in factor_panel.columns:
+                    regime_factors = factor_panel[factor_panel[timestamp_col].isin(regime_equity.index)]
+                else:
+                    regime_factors = factor_panel.loc[factor_panel.index.intersection(regime_equity.index)]
+                if not regime_factors.empty:
+                    numeric_cols = regime_factors.select_dtypes(include="number").columns.tolist()
+                    ics: list[float] = []
+                    for col in numeric_cols:
+                        fv = regime_factors[col].dropna()
+                        rv = regime_returns.reindex(fv.index).dropna()
+                        fv = fv.reindex(rv.index).dropna()
+                        rv = rv.reindex(fv.index)
+                        if len(fv) > 2:
+                            ic = float(fv.corr(rv))
+                            if not np.isnan(ic):
+                                ics.append(ic)
+                    result_row["factor_ic_mean"] = float(np.mean(ics)) if ics else None
+                else:
+                    result_row["factor_ic_mean"] = None
+            except Exception as exc:
+                logger.warning("[regime_analysis] factor_ic_mean failed: %s", exc)
+                result_row["factor_ic_mean"] = None
         else:
             result_row["factor_ic_mean"] = None
 
@@ -405,17 +447,62 @@ def compute_regime_transitions(
         - avg_duration_days: Average duration of source regime before transition
         - Additional transition statistics
 
-    TODO: Implement transition analysis
     """
-    # TODO: Implement transition analysis
-    # 1. Identify regime changes (where regime_col changes)
-    # 2. Build transition matrix
-    # 3. Compute transition probabilities
-    # 4. Compute average regime durations
-    # 5. Return DataFrame with transition statistics
+    if regime_state.empty or regime_col not in regime_state.columns:
+        return pd.DataFrame(
+            columns=["from_regime", "to_regime", "transition_count", "transition_probability", "avg_duration_days"]
+        )
 
-    logger.warning("compute_regime_transitions() not yet implemented")
-    return pd.DataFrame(columns=["from_regime", "to_regime", "transition_count"])
+    df = regime_state.copy()
+    if timestamp_col in df.columns:
+        df = df.sort_values(timestamp_col).reset_index(drop=True)
+
+    regimes = df[regime_col].tolist()
+    if len(regimes) < 2:
+        return pd.DataFrame(
+            columns=["from_regime", "to_regime", "transition_count", "transition_probability", "avg_duration_days"]
+        )
+
+    # Identify consecutive regime runs and transitions between them
+    transitions: list[dict] = []
+    current = regimes[0]
+    run_start = 0
+
+    for i in range(1, len(regimes)):
+        if regimes[i] != current:
+            transitions.append({
+                "from_regime": current,
+                "to_regime": regimes[i],
+                "duration_before": i - run_start,
+            })
+            current = regimes[i]
+            run_start = i
+
+    if not transitions:
+        return pd.DataFrame(
+            columns=["from_regime", "to_regime", "transition_count", "transition_probability", "avg_duration_days"]
+        )
+
+    trans_df = pd.DataFrame(transitions)
+    counts = (
+        trans_df.groupby(["from_regime", "to_regime"])
+        .agg(
+            transition_count=("duration_before", "count"),
+            avg_duration_days=("duration_before", "mean"),
+        )
+        .reset_index()
+    )
+
+    totals = counts.groupby("from_regime")["transition_count"].sum().rename("_total")
+    counts = counts.join(totals, on="from_regime")
+    counts["transition_probability"] = counts["transition_count"] / counts["_total"]
+    counts = counts.drop(columns=["_total"])
+
+    return (
+        counts
+        .sort_values(["from_regime", "transition_probability"], ascending=[True, False])
+        .reset_index(drop=True)
+    )
 
 
 def summarize_factor_ic_by_regime(

@@ -439,3 +439,26 @@ def compute_performance_drift(equity: pd.Series, window: int = 63) -> dict[str, 
         "performance_degrading": performance_degrading,
         "sharpe_degradation": sharpe_degradation,
     }
+
+
+def save_drift_results(
+    drift_df: pd.DataFrame,
+    output_dir: str | None = None,
+    freq: str = "1d",
+) -> None:
+    """Persist drift analysis results to Parquet so the monitoring API can serve them.
+
+    Args:
+        drift_df: Output of :func:`detect_feature_drift` — columns: feature, psi, drift_flag.
+        output_dir: Directory to write into. Defaults to ``output/``.
+        freq: Trading frequency tag appended to the filename (e.g. "1d" or "5min").
+    """
+    import logging
+    from pathlib import Path
+
+    logger = logging.getLogger(__name__)
+    out_dir = Path(output_dir) if output_dir else Path("output")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / f"drift_analysis_{freq}.parquet"
+    drift_df.to_parquet(path, index=False)
+    logger.info("[drift_detection] saved drift results → %s (%d features)", path, len(drift_df))

@@ -353,10 +353,30 @@ def train_meta_model(
             f"Need at least 2 classes for binary classification. Found: {label_counts.to_dict()}"
         )
 
-    # Split data (optional, for validation - not used for training)
-    # For now, we train on all data. In future, could add validation split.
+    # Chronological validation split — evaluate OOS before training on full data
     X_train = X
     y_train = y
+    if 0.0 < test_size < 1.0 and len(X) >= 10:
+        split_idx = int(len(X) * (1.0 - test_size))
+        X_val, y_val = X.iloc[split_idx:], y.iloc[split_idx:]
+        X_tr, y_tr = X.iloc[:split_idx], y.iloc[:split_idx]
+        if len(X_tr) >= 2 and len(y_tr.unique()) >= 2:
+            try:
+                val_model_type = model_type  # same type for quick val run
+                if val_model_type == "gradient_boosting":
+                    from sklearn.ensemble import GradientBoostingClassifier as _GBC
+                    _vm = _GBC(n_estimators=50, max_depth=3, random_state=random_state)
+                else:
+                    from sklearn.ensemble import RandomForestClassifier as _RFC
+                    _vm = _RFC(n_estimators=50, max_depth=5, random_state=random_state, n_jobs=-1)
+                _vm.fit(X_tr, y_tr)
+                val_acc = float((_vm.predict(X_val) == y_val).mean())
+                logger.info(
+                    "[MetaModel] OOS validation: n_train=%d n_val=%d accuracy=%.4f",
+                    len(X_tr), len(X_val), val_acc,
+                )
+            except Exception as exc:
+                logger.warning("[MetaModel] Validation split failed: %s", exc)
 
     # Initialize model
     if model_type == "gradient_boosting":
