@@ -174,7 +174,7 @@ def load_cost_tiers(yaml_path: str | Path | None = None) -> dict[str, dict]:
         if yaml_path.exists():
             try:
                 import yaml
-                with open(yaml_path) as f:
+                with open(yaml_path, encoding="utf-8") as f:
                     cfg = yaml.safe_load(f)
                 return cfg.get("tiers", _DEFAULT_TIERS)
             except Exception as exc:

@@ -383,7 +383,7 @@ def collect_evidence_files(
     # First preference: Evidence Index JSON
     if evidence_index_path.exists():
         try:
-            with open(evidence_index_path) as f:
+            with open(evidence_index_path, encoding="utf-8") as f:
                 evidence = json.load(f)
             evidence_index_used = True
             paths = evidence.get("paths", {})
@@ -416,7 +416,7 @@ def collect_evidence_files(
                 "source_path": None,
             }
         try:
-            with open(manifest_path) as f:
+            with open(manifest_path, encoding="utf-8") as f:
                 manifest = json.load(f)
         except Exception as exc:
             logger.error(f"Failed to read manifest {manifest_path}: {exc}")

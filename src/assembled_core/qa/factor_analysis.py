@@ -1284,7 +1284,7 @@ def compute_rolling_ic(
 def example_factor_analysis_workflow(
     prices_df: pd.DataFrame,
     factor_df: pd.DataFrame | None = None,
-    horizons: list[int] = [20],
+    horizons: list[int] | None = None,
     price_col: str = "close",
     group_col: str = "symbol",
     timestamp_col: str = "timestamp",
@@ -1355,6 +1355,8 @@ def example_factor_analysis_workflow(
     else:
         data_df = prices_df.copy()
 
+    if horizons is None:
+        horizons = [20]
     # Step 1: Add forward returns
     logger.info(f"Adding forward returns for horizons: {horizons}")
     data_with_returns = add_forward_returns(

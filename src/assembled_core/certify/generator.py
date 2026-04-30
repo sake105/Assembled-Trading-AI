@@ -144,7 +144,7 @@ def build_output_fingerprint(output_dir: Path | str) -> OutputFingerprint:
     summary_file = d / "summary.json"
     if summary_file.exists():
         try:
-            with open(summary_file) as f:
+            with open(summary_file, encoding="utf-8") as f:
                 summary = json.load(f)
         except Exception:
             pass
@@ -217,7 +217,7 @@ def verify_certificate(
     Returns:
         Dict mapping artefact name → hash_match (bool).
     """
-    with open(cert_path) as f:
+    with open(cert_path, encoding="utf-8") as f:
         cert = ReproducibilityCertificate.from_dict(json.load(f))
 
     new_out = build_output_fingerprint(output_dir)

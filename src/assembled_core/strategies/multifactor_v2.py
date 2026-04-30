@@ -136,7 +136,7 @@ def _load_regime_weights(cfg: dict[str, Any]) -> dict[str, dict[str, float]] | N
         logger.debug("[MF-V2] Regime weights file not found: %s", path)
         return None
     try:
-        with open(path) as fh:
+        with open(path, encoding="utf-8") as fh:
             data = json.load(fh)
         # Validate: must have at least one regime key with a dict value
         regimes = {k: v for k, v in data.items() if isinstance(v, dict) and not k.startswith("_")}

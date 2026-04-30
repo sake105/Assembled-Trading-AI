@@ -200,7 +200,7 @@ class LedgerStore:
         quantity = float(fill["quantity"])
         price = float(fill["price"])
         commission = float(fill.get("commission", 0.0))
-        filled_at = fill.get("filled_at", datetime.now(timezone.utc).replace(tzinfo=None).isoformat())
+        filled_at = fill.get("filled_at", datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f"))
         fill_id = fill.get("fill_id", f"{symbol}_{filled_at}")
         order_id = fill.get("order_id")
         strategy = fill.get("strategy")

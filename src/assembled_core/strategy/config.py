@@ -66,11 +66,11 @@ class StrategyConfig(BaseModel):
         """Load and validate a strategy config YAML file."""
         try:
             import yaml
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 data = yaml.safe_load(f)
         except ImportError:
             import json as _json
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 data = _json.load(f)
         return cls.model_validate(data)
 
