@@ -68,6 +68,7 @@ from src.assembled_core.pipeline._tc_sizing import (
 )
 from src.assembled_core.pipeline._tc_risk import check_risk
 from src.assembled_core.pipeline._tc_execution import book_fills, route_orders
+from src.assembled_core.execution.transaction_costs import add_cost_columns_to_trades  # A8 wiring — re-export for tests
 from src.assembled_core.risk.georisk_overlay import compute_exposure_multiplier  # re-export for tests
 
 if TYPE_CHECKING:

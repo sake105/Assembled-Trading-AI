@@ -56,6 +56,9 @@ _COMMAND_MODULES = [
 
 # Re-export handler functions for backward-compatible imports (e.g., tests)
 from scripts.commands.info import print_version
+from scripts.commands.ml import _run_backtest_for_ml_dataset
+from scripts.commands.paper import run_paper_experiment_subcommand, summarize_intel_activity_subcommand
+from scripts.commands.backtest import batch_backtest_subcommand
 
 
 def create_parser() -> argparse.ArgumentParser:
