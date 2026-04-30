@@ -199,7 +199,7 @@ def save_certificate(cert: ReproducibilityCertificate, path: Path | str) -> None
     """Write certificate JSON to *path*."""
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
-    with open(p, "w") as f:
+    with open(p, "w", encoding="utf-8") as f:
         f.write(cert.to_json(indent=2))
     logger.info("Certificate saved → %s", p)
 

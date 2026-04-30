@@ -123,7 +123,7 @@ class IncidentTracker:
         path = self._path(incident_id)
         if not path.exists():
             raise FileNotFoundError(f"Incident {incident_id!r} not found at {path}")
-        return IncidentRecord.from_dict(json.loads(path.read_text()))
+        return IncidentRecord.from_dict(json.loads(path.read_text(encoding="utf-8")))
 
     def list_open(self) -> list[IncidentRecord]:
         """Return all incidents that are not yet resolved."""
@@ -190,14 +190,15 @@ class IncidentTracker:
 
     def _save(self, record: IncidentRecord) -> None:
         self._path(record.incident_id).write_text(
-            json.dumps(record.to_dict(), indent=2)
+            json.dumps(record.to_dict(), indent=2),
+            encoding="utf-8",
         )
 
     def _load_all(self) -> list[IncidentRecord]:
         records = []
         for p in self.incidents_dir.glob("????????.json"):
             try:
-                records.append(IncidentRecord.from_dict(json.loads(p.read_text())))
+                records.append(IncidentRecord.from_dict(json.loads(p.read_text(encoding="utf-8"))))
             except Exception:  # noqa: BLE001
                 pass
         return records

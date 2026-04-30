@@ -70,7 +70,7 @@ class _LocalRun:
         self._data["ended_at"] = datetime.now(tz=timezone.utc).isoformat()
         self._store_dir.mkdir(parents=True, exist_ok=True)
         out = self._store_dir / f"{self.run_id}_{self.run_name}.json"
-        with open(out, "w") as f:
+        with open(out, "w", encoding="utf-8") as f:
             json.dump(self._data, f, indent=2, default=str)
         logger.debug("Experiment run saved → %s", out)
 

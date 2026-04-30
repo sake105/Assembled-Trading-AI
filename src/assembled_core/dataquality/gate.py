@@ -175,7 +175,7 @@ class DataQualityGate:
                 "rows": len(df),
                 "error_count": len(failures),
             }
-            with open(qdir / "metadata.json", "w") as f:
+            with open(qdir / "metadata.json", "w", encoding="utf-8") as f:
                 json.dump(meta, f, indent=2)
         except Exception as e:
             logger.warning("Quarantine write failed: %s", e)

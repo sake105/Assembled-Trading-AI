@@ -108,7 +108,7 @@ def get_universe_members(
         if wl.exists():
             return sorted(
                 line.strip()
-                for line in wl.read_text().splitlines()
+                for line in wl.read_text(encoding="utf-8").splitlines()
                 if line.strip() and not line.startswith("#")
             )
         return []

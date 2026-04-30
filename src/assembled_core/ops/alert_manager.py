@@ -77,7 +77,7 @@ class AlertManager:
              "timestamp": a.timestamp, "details": a.details}
             for a in self._alerts
         ]
-        filepath.write_text(json.dumps(data, indent=2))
+        filepath.write_text(json.dumps(data, indent=2), encoding="utf-8")
         self._alerts.clear()
         return str(filepath)
 

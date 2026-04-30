@@ -447,7 +447,7 @@ def get_regime_status(
             )
         regime_files = sorted(out_path.glob("regime_state_*.json"), reverse=True)
         if regime_files:
-            data = _json.loads(regime_files[0].read_text())
+            data = _json.loads(regime_files[0].read_text(encoding="utf-8"))
             return {
                 "status": "ok",
                 "regime": data.get("regime", "unknown"),
@@ -487,7 +487,7 @@ def get_active_alerts(
         out_path = _Path(output_dir)
         zombie_files = sorted(out_path.glob("zombie_report_*.json"), reverse=True)
         if zombie_files:
-            zombie_data = _json.loads(zombie_files[0].read_text())
+            zombie_data = _json.loads(zombie_files[0].read_text(encoding="utf-8"))
             zombie_syms = zombie_data.get("zombie_symbols", [])
             if zombie_syms:
                 alerts.append({
@@ -519,7 +519,7 @@ def get_active_alerts(
         out_path = _Path(output_dir)
         corr_files = sorted(out_path.glob("correlation_guard_*.json"), reverse=True)
         if corr_files:
-            corr_data = _json.loads(corr_files[0].read_text())
+            corr_data = _json.loads(corr_files[0].read_text(encoding="utf-8"))
             if corr_data.get("guard_triggered"):
                 alerts.append({
                     "type": "correlation_guard",
@@ -567,7 +567,7 @@ def get_signal_scores(
                 }
             return {"status": "unavailable", "message": "No signal score files found"}
 
-        data = _json.loads(score_files[0].read_text())
+        data = _json.loads(score_files[0].read_text(encoding="utf-8"))
         scores = data.get("scores", {})
         return {
             "status": "ok",

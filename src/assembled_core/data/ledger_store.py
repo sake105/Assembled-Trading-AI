@@ -393,7 +393,7 @@ class LedgerStore:
             logger.warning("[LedgerStore] JSON path not found: %s", path)
             return 0
 
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
         fills = data if isinstance(data, list) else data.get("fills", [])
         count = 0
         for fill in fills:

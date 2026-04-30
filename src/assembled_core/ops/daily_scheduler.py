@@ -101,7 +101,7 @@ def _post_trade_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerR
         report = pta.run_post_trade_analysis(fills_df, prices_df)  # type: ignore[attr-defined]
         report_path = Path(output_dir) / f"post_trade_{date_str}.json"
         import json
-        report_path.write_text(json.dumps(report, default=str, indent=2))
+        report_path.write_text(json.dumps(report, default=str, indent=2), encoding="utf-8")
         logger.info("[OK] post_trade: report written to %s", report_path)
         return WorkerResult(worker_name="post_trade_worker", status="ok",
                             duration_s=time.monotonic() - t0)
@@ -214,7 +214,7 @@ def _reconcile_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerRe
             "last_equity": float(equity_curve["equity"].iloc[-1]) if not equity_curve.empty else cash,
         }
         report_path = Path(output_dir) / f"reconcile_{date_str}.json"
-        report_path.write_text(json.dumps(report, default=str, indent=2))
+        report_path.write_text(json.dumps(report, default=str, indent=2), encoding="utf-8")
         logger.info("[OK] reconcile: %d positions, cash=%.2f, written to %s",
                     len(positions), cash, report_path)
         return WorkerResult(worker_name="reconcile_worker", status="ok",
@@ -241,7 +241,7 @@ def _health_check_worker(date_str: str, output_dir: str, dry_run: bool) -> Worke
         if not path.exists():
             raise FileNotFoundError(f"Output directory does not exist: {output_dir}")
         test_file = path / ".health_check_probe"
-        test_file.write_text("ok")
+        test_file.write_text("ok", encoding="utf-8")
         test_file.unlink()
     except Exception as exc:
         issues.append(f"output_dir_not_writable: {exc}")
@@ -395,7 +395,7 @@ def _retrain_scheduler_worker(date_str: str, output_dir: str, dry_run: bool) -> 
                 for d in rec.signal_details
             ],
         }
-        rec_path.write_text(json.dumps(rec_dict, indent=2))
+        rec_path.write_text(json.dumps(rec_dict, indent=2), encoding="utf-8")
 
         logger.info(
             "[RETRAIN-SCHED] decision=%s signals=%d auto_deploy=%s report=%s",
@@ -517,7 +517,7 @@ def _factor_curation_worker(date_str: str, output_dir: str, dry_run: bool) -> Wo
                 }
 
         report_path = out_path / f"factor_curation_{date_str}.json"
-        report_path.write_text(json.dumps(curation_report, default=str, indent=2))
+        report_path.write_text(json.dumps(curation_report, default=str, indent=2), encoding="utf-8")
         n_flagged = len(curation_report["flagged_for_removal"])
         logger.info("[OK] factor_curation: %d factors analyzed, %d flagged (DSR < %.1f), report at %s",
                     len(factor_cols), n_flagged, dsr_threshold, report_path)
@@ -577,7 +577,7 @@ def _alert_health_worker(date_str: str, output_dir: str, dry_run: bool) -> Worke
             import json
             diag_path = out_path / "diagnostics" / f"signal_health_{date_str}.json"
             if diag_path.exists():
-                diag_data = json.loads(diag_path.read_text())
+                diag_data = json.loads(diag_path.read_text(encoding="utf-8"))
                 n_alerts = diag_data.get("n_alerts", 0)
                 if n_alerts > 0:
                     mgr.alert("WARNING", "signal_diagnostics",
@@ -606,7 +606,7 @@ def _alert_health_worker(date_str: str, output_dir: str, dry_run: bool) -> Worke
             import json
             kpis_path = out_path / "run_kpis.json"
             if kpis_path.exists():
-                kpis = json.loads(kpis_path.read_text())
+                kpis = json.loads(kpis_path.read_text(encoding="utf-8"))
                 risk_state = kpis.get("risk_state")
                 if risk_state and risk_state not in ("WATCH", None):
                     mgr.alert("INFO", "risk_state_machine",
@@ -649,7 +649,7 @@ def _kpi_export_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerR
         kpis_path = out_path / "run_kpis.json"
         if kpis_path.exists():
             try:
-                kpis = json.loads(kpis_path.read_text())
+                kpis = json.loads(kpis_path.read_text(encoding="utf-8"))
                 mults = kpis.get("multipliers") or {}
                 if "georisk" in mults:
                     metrics["assembled_georisk_multiplier"] = float(mults["georisk"])
@@ -667,7 +667,7 @@ def _kpi_export_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerR
         reconcile_path = out_path / f"reconcile_{date_str}.json"
         if reconcile_path.exists():
             try:
-                rec = json.loads(reconcile_path.read_text())
+                rec = json.loads(reconcile_path.read_text(encoding="utf-8"))
                 if rec.get("n_positions") is not None:
                     metrics["assembled_n_positions"] = float(rec["n_positions"])
                 if rec.get("last_equity") is not None:
@@ -681,7 +681,7 @@ def _kpi_export_worker(date_str: str, output_dir: str, dry_run: bool) -> WorkerR
         diag_path = out_path / "diagnostics" / f"signal_health_{date_str}.json"
         if diag_path.exists():
             try:
-                diag = json.loads(diag_path.read_text())
+                diag = json.loads(diag_path.read_text(encoding="utf-8"))
                 metrics["assembled_signal_health_alerts"] = float(diag.get("n_alerts", 0))
                 metrics["assembled_signal_health_factors"] = float(diag.get("n_factors", 0))
             except Exception as _dge:

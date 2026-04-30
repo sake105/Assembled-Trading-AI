@@ -245,7 +245,7 @@ def write_calibration_report(
     try:
         import yaml  # type: ignore[import-not-found]
 
-        out_path.write_text(yaml.safe_dump(body, sort_keys=False))
+        out_path.write_text(yaml.safe_dump(body, sort_keys=False, encoding="utf-8"))
     except Exception:
         # Deterministic fallback — one top-level key per line; nested dicts
         # are emitted as JSON so the file stays machine-parseable.
@@ -255,7 +255,7 @@ def write_calibration_report(
                 lines.append(f"{k}: {json.dumps(v, default=str)}")
             else:
                 lines.append(f"{k}: {json.dumps(v, default=str)}")
-        out_path.write_text("\n".join(lines) + "\n")
+        out_path.write_text("\n".join(lines, encoding="utf-8") + "\n")
 
     logger.info("[CALIBRATOR] wrote %s", out_path)
     return out_path
