@@ -1557,12 +1557,10 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 top_quantile=args.top_quantile,
                 bottom_quantile=args.bottom_quantile,
                 rebalance_freq=args.rebalance_freq,
-                config=strategy_config,
             )
             position_sizing_fn = create_multifactor_long_short_position_sizing_fn(
                 bundle_path=str(bundle_path),
                 max_gross_exposure=args.max_gross_exposure,
-                config=strategy_config,
             )
         else:
             logger.error(f"Unknown strategy: {args.strategy}")

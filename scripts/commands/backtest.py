@@ -283,9 +283,52 @@ Examples:
         "--strategy",
         type=str,
         default="trend_baseline",
-        choices=["trend_baseline", "event_insider_shipping"],
+        choices=["trend_baseline", "event_insider_shipping", "multifactor_long_short"],
         metavar="NAME",
-        help="Strategy name: 'trend_baseline' (EMA crossover) or 'event_insider_shipping' (Phase 6 event-based)",
+        help="Strategy: trend_baseline | event_insider_shipping | multifactor_long_short",
+    )
+    backtest_parser.add_argument(
+        "--bundle-path",
+        type=str,
+        default=None,
+        dest="bundle_path",
+        metavar="FILE",
+        help="Factor bundle YAML (required for multifactor_long_short)",
+    )
+    backtest_parser.add_argument(
+        "--top-quantile",
+        type=float,
+        default=0.2,
+        dest="top_quantile",
+        help="Top quantile for long positions (default: 0.2)",
+    )
+    backtest_parser.add_argument(
+        "--bottom-quantile",
+        type=float,
+        default=0.2,
+        dest="bottom_quantile",
+        help="Bottom quantile for short positions (default: 0.2)",
+    )
+    backtest_parser.add_argument(
+        "--max-gross-exposure",
+        type=float,
+        default=1.5,
+        dest="max_gross_exposure",
+        help="Max gross exposure (default: 1.5)",
+    )
+    backtest_parser.add_argument(
+        "--use-regime-overlay",
+        action="store_true",
+        default=False,
+        dest="use_regime_overlay",
+        help="Enable regime overlay for multifactor strategy",
+    )
+    backtest_parser.add_argument(
+        "--regime-config-file",
+        type=str,
+        default=None,
+        dest="regime_config_file",
+        help="Path to regime config JSON/YAML",
     )
     backtest_parser.add_argument(
         "--start-capital",
@@ -386,6 +429,34 @@ Examples:
         default=None,
         metavar="TAGS",
         help="Comma-separated tags for the experiment (e.g., 'trend,baseline,ma20_50')",
+    )
+    backtest_parser.add_argument(
+        "--no-ledger",
+        action="store_true",
+        default=False,
+        help="Skip ledger/accounting output (faster, for quick checks)",
+    )
+    backtest_parser.add_argument(
+        "--rebalance-freq",
+        type=str,
+        default="1d",
+        dest="rebalance_freq",
+        metavar="FREQ",
+        help="Rebalance frequency (default: 1d)",
+    )
+    backtest_parser.add_argument(
+        "--broker-snapshot-policy",
+        type=str,
+        default="never",
+        dest="broker_snapshot_policy",
+        help="When to write broker snapshots: never|on_rebal|always (default: never)",
+    )
+    backtest_parser.add_argument(
+        "--write-broker-snapshot",
+        action="store_true",
+        default=False,
+        dest="write_broker_snapshot",
+        help="Write broker snapshot after backtest",
     )
     backtest_parser.set_defaults(func=run_backtest_subcommand)
 
