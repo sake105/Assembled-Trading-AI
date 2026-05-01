@@ -191,12 +191,27 @@ Schwellen müssen erfüllt sein, bevor eine Schicht aktiviert wird:
 - Nächster Schritt: `events/news/` Pipeline als Feature-Source integrieren.
 
 **Schicht 3 — Conformal Quantile Sizing** (`conformal.enabled`)
-- Artefakt: `models/conformal_position_v1.joblib`
-- OOS Coverage: 87.0 % (Ziel 85–92 %) — **deployment-ready**
-- Aktivierungsschwelle: Ablation A/B-Backtest — nur Schicht 3 aktivieren (Schichten 1 und 2
-  disabled). Kriterien: Max-Drawdown-Reduktion ≥ 1 % ohne Sharpe-Schaden > 0.1.
-- Hypothese: narrow CI-Band → full size, wide CI-Band → reduce erzeugt 5–15 % weniger DD.
-- **Empfehlung: als nächstes testen** — der erste echter ML-Effekt im Live-System wäre hier.
+- Artefakt: `models/conformal_position_v2.joblib` (v2 = q05/q95, 87% Coverage)
+- OOS Coverage: 87.0 % (Ziel 85–92 %) — Modell deployment-fähig, Feature-Alignment offen
+- A/B-Backtest 2021-01-04→2026-04-10 (Schicht 3 only, Schichten 1+2 disabled, monatliches Rebalancing):
+
+  | Metrik       | Baseline  | Conformal  | Delta    |
+  |--------------|-----------|------------|----------|
+  | CAGR         | 12.04%    | 4.16%      | -7.88pp  |
+  | Sharpe       | 1.726     | 1.528      | -0.198   |
+  | MDD          | -10.74%   | -3.49%     | +7.25pp  |
+  | Trades       | 840       | 840        | 0        |
+
+- **Befund:** Overlay funktioniert (MDD -7.3pp). Return-Einbruch erklärt durch Feature-Gap:
+  v2-Modell wurde auf Kurznamen trainiert (`rsi_14`, `vol_20d`, …), Panel liefert Präfixnamen
+  (`ta_rsi_14_v1`, `rv_20`, …). 7/13 Features konnten gemappt werden; 6/13 werden zero-gefüllt
+  → Intervalbreiten systematisch zu weit → Multiplikatoren klemmen bei 0.25 (Minimum).
+- **Bug-Fixes committed (e10348e):** `parents[4]` → `parents[3]` (falscher Repo-Root-Pfad),
+  `target_weight` + `target_qty` beide skaliert (vorher nur `target_pct` geprüft → kein Effekt).
+- **Nächster Schritt:** Conformal-Modell v3 mit panel-nativen Feature-Namen neu trainieren.
+  Erwartetes Ergebnis: Multiplikatoren verteilen sich zwischen 0.25–2.0 statt an 0.25 zu klemmen.
+  Aktivierungskriterium: MDD-Reduktion ≥ 1% **ohne** Sharpe-Schaden > 0.1.
+- Aktivierungsschwelle: *noch nicht erfüllt* (CAGR-Schaden > 5pp unakzeptabel bis Retraining).
 
 #### Offene Verbesserungen
 
