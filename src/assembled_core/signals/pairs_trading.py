@@ -197,11 +197,103 @@ def cointegration_score(y: pd.Series, x: pd.Series) -> float:
         return 0.5
 
 
+def generate_pairs_signals_from_panel(
+    prices: pd.DataFrame,
+    pairs: list[tuple[str, str]] | None = None,
+    coint_pval_threshold: float = 0.05,
+    max_pairs: int = 20,
+    entry_z: float = 2.0,
+    exit_z: float = 0.5,
+    stop_z: float = 4.0,
+    window: int = 60,
+    delta: float = 1e-4,
+    min_history: int = 120,
+) -> pd.DataFrame:
+    """Panel-level pairs signal generator for pipeline integration.
+
+    Accepts a wide prices DataFrame (index=date, columns=symbols), discovers
+    cointegrated pairs if ``pairs`` is None, and returns a long-format signal
+    DataFrame compatible with the pipeline signal contract.
+
+    Args:
+        prices: Wide-format DataFrame (dates × symbols) of close prices.
+        pairs: Explicit list of (leg_a, leg_b) tuples; auto-selected if None.
+        coint_pval_threshold: Max cointegration p-value to accept a pair.
+        max_pairs: Maximum number of pairs to evaluate when auto-discovering.
+        entry_z, exit_z, stop_z: Z-score thresholds (passed to generate_pairs_signals).
+        window: Rolling window for z-score normalization.
+        delta: Kalman state noise variance.
+        min_history: Minimum rows required per symbol pair.
+
+    Returns:
+        DataFrame with columns [symbol_a, symbol_b, direction, z_score, spread]
+        where direction ∈ {LONG_A, SHORT_A, EXIT, HOLD}.
+    """
+    results: list[dict] = []
+    symbols = [c for c in prices.columns if prices[c].notna().sum() >= min_history]
+
+    if pairs is None:
+        # Auto-discover: score all n*(n-1)/2 pairs, keep best coint p-value ones
+        scored: list[tuple[float, str, str]] = []
+        for i, sym_a in enumerate(symbols):
+            for sym_b in symbols[i + 1:]:
+                try:
+                    pval = cointegration_score(prices[sym_a].dropna(), prices[sym_b].dropna())
+                    scored.append((pval, sym_a, sym_b))
+                except Exception:
+                    pass
+        scored.sort(key=lambda t: t[0])
+        pairs = [
+            (a, b) for pval, a, b in scored[:max_pairs]
+            if pval <= coint_pval_threshold
+        ]
+        logger.debug("[pairs] auto-discovered %d cointegrated pairs (p<%.2f)", len(pairs), coint_pval_threshold)
+
+    for sym_a, sym_b in pairs:
+        if sym_a not in prices.columns or sym_b not in prices.columns:
+            continue
+        y = prices[sym_a].dropna()
+        x = prices[sym_b].dropna()
+        common_idx = y.index.intersection(x.index)
+        if len(common_idx) < min_history:
+            continue
+        try:
+            sig = generate_pairs_signals(
+                y.loc[common_idx], x.loc[common_idx],
+                entry_z=entry_z, exit_z=exit_z, stop_z=stop_z,
+                window=window, delta=delta,
+            )
+            # Current bar signal
+            if sig.entry_long.iloc[-1]:
+                direction = "LONG_A"
+            elif sig.entry_short.iloc[-1]:
+                direction = "SHORT_A"
+            elif sig.exit_signal.iloc[-1]:
+                direction = "EXIT"
+            else:
+                direction = "HOLD"
+            results.append({
+                "symbol_a": sym_a,
+                "symbol_b": sym_b,
+                "direction": direction,
+                "z_score": float(sig.z_score.iloc[-1]) if not sig.z_score.empty else float("nan"),
+                "spread": float(sig.spread.iloc[-1]) if not sig.spread.empty else float("nan"),
+                "beta": float(sig.beta.iloc[-1]) if not sig.beta.empty else float("nan"),
+            })
+        except Exception as e:
+            logger.debug("[pairs] %s/%s skipped: %s", sym_a, sym_b, e)
+
+    if not results:
+        return pd.DataFrame(columns=["symbol_a", "symbol_b", "direction", "z_score", "spread", "beta"])
+    return pd.DataFrame(results)
+
+
 __all__ = [
     "PairsSignal",
     "kalman_hedge_ratio",
     "compute_spread",
     "spread_z_score",
     "generate_pairs_signals",
+    "generate_pairs_signals_from_panel",
     "cointegration_score",
 ]

@@ -24,6 +24,16 @@ from src.assembled_core.portfolio.stress_test_constraints import (  # noqa: F401
     evaluate_stress_scenarios,
     get_cvxpy_stress_constraints,
 )
+from src.assembled_core.portfolio.conformal_position import (  # noqa: F401
+    ConformalPositionSizer,
+)
+from src.assembled_core.portfolio.adaptive_conformal_position import (  # noqa: F401
+    AdaptiveConformalSizer,
+)
+from src.assembled_core.portfolio.hierarchical_risk_parity import (  # noqa: F401
+    compute_hrp_weights,
+    hrp_with_turnover_control,
+)
 
 __all__ = [
     "apply_cost_aware_wrapper",
@@ -40,4 +50,8 @@ __all__ = [
     "build_scenario_return_matrix",
     "evaluate_stress_scenarios",
     "get_cvxpy_stress_constraints",
+    "ConformalPositionSizer",
+    "AdaptiveConformalSizer",
+    "compute_hrp_weights",
+    "hrp_with_turnover_control",
 ]

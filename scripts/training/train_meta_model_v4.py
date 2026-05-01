@@ -141,6 +141,20 @@ def main():
     )
     print(f"[v4] Train: {len(X_train):,} | Embargo: {EMBARGO_BARS} bars | Val: {len(X_val):,}")
 
+    # Leakage check on training features (look-ahead + recursive bias)
+    try:
+        from src.assembled_core.qa.leakage_analyzer import LeakageAnalyzer
+        _analyzer = LeakageAnalyzer(max_lag_check=3, correlation_threshold=0.90)
+        _la_reports = _analyzer.full_check(X_train, y_train)
+        if _la_reports:
+            print(f"[WARN][v4] Leakage analyzer found {len(_la_reports)} potential issues:")
+            for r in _la_reports[:5]:
+                print(f"     {r.leakage_type} | {r.feature} | {r.evidence} [{r.severity}]")
+        else:
+            print("[v4] Leakage check: no issues detected")
+    except Exception as _le:
+        print(f"[v4] Leakage check skipped: {_le}")
+
     try:
         import lightgbm as lgb
     except ImportError:
