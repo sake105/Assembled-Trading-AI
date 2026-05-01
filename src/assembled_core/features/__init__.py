@@ -51,6 +51,13 @@ from src.assembled_core.features.ta_liquidity_vol_factors import (
     add_turnover_and_liquidity_proxies,
     add_vol_of_vol,
 )
+from src.assembled_core.features.triple_barrier import (  # noqa: F401
+    cusum_filter,
+    triple_barrier_labels,
+    fractional_diff,
+    meta_label,
+    compute_sample_weights,
+)
 
 __all__ = [
     "build_or_load_factors",
@@ -68,4 +75,10 @@ __all__ = [
     "compute_predicted_demand",
     "build_index_rebal_features",
     "get_index_rebal_feature_names",
+    # Lopez de Prado labeling
+    "cusum_filter",
+    "triple_barrier_labels",
+    "fractional_diff",
+    "meta_label",
+    "compute_sample_weights",
 ]
