@@ -345,10 +345,10 @@ position_sizing:
     vol_lookback_days: 60
     reference_half_width: null   # null → no uncertainty discount until calibrated
     normalize: true
-  # Quantile-interval sizing overlay (LightGBM q05/q95, ~87% coverage)
+  # Quantile-interval sizing overlay (LightGBM q05/q95, v3 panel-native names, 91.5% coverage)
   conformal:
     enabled: false                 # enable to scale positions by prediction interval width
-    model_path: "models/conformal_position_v2.joblib"
+    model_path: "models/conformal_position_v3.joblib"
 
 # ---------------------------------------------------------------------------
 # HMM Regime Overlay — portfolio exposure multiplier based on detected regime

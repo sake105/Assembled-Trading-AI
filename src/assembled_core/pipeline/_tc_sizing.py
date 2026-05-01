@@ -775,9 +775,12 @@ def size_positions(
         if conf_cfg.get("enabled", False) and not target_positions.empty and prices_with_features is not None:
             import joblib as _jl
             from pathlib import Path as _Path
-            _default_conf = "models/conformal_position_v2.joblib"
+            _default_conf = "models/conformal_position_v3.joblib"
             _conf_rel = conf_cfg.get("model_path", _default_conf)
             _conf_path = _Path(__file__).parents[3] / _conf_rel
+            if not _conf_path.exists():
+                # fall back to v2 if v3 not present
+                _conf_path = _Path(__file__).parents[3] / "models" / "conformal_position_v3.joblib"
             if not _conf_path.exists():
                 _conf_path = _Path(__file__).parents[3] / "models" / "conformal_position_v2.joblib"
             if _conf_path.exists():
