@@ -870,21 +870,47 @@ def apply_meta_model_filter(
 
         meta_obj = load_meta_model(model_file)
 
-        # v2 format: dict with 'model' + 'feature_cols' keys
+        # v2/v3/v4 format: dict with 'model' + 'feature_cols' keys
         if isinstance(meta_obj, dict):
             clf = meta_obj["model"]
-            feature_cols = meta_obj.get("feature_cols", [])
+            feature_cols = meta_obj.get("feature_cols", [])  # raw inference features
+            cs_feature_cols = meta_obj.get("cs_feature_cols", [])  # cross-sectional (v4+)
+            training_feature_cols = meta_obj.get("training_feature_cols", feature_cols)
+            version = meta_obj.get("version", "v2")
+
             available = [f for f in feature_cols if f in signals_df.columns]
             if not available:
-                logger.warning("[META-FILTER] v2: no feature columns found in signals_df — passing through")
+                logger.warning("[META-FILTER] %s: no feature columns found in signals_df — passing through", version)
                 return signals_df
-            # Always build X with all training features; fill missing with 0
+
+            # Build raw feature matrix
             X = pd.DataFrame(
                 {col: signals_df[col].fillna(0) if col in signals_df.columns else 0.0
                  for col in feature_cols},
                 index=signals_df.index,
             )
-            logger.debug("[META-FILTER] v2: %d/%d features available", len(available), len(feature_cols))
+
+            # v4+: compute cross-sectional rank features from current signals batch
+            if cs_feature_cols:
+                for cs_col in cs_feature_cols:
+                    raw_col = cs_col[len("cs_"):]  # strip "cs_" prefix
+                    if raw_col in X.columns and len(X) > 1:
+                        X[cs_col] = X[raw_col].rank(pct=True)
+                    else:
+                        X[cs_col] = 0.5  # neutral rank when batch too small
+
+            # Align columns to training order (fill any still-missing with 0)
+            if training_feature_cols and training_feature_cols != feature_cols:
+                X = pd.DataFrame(
+                    {col: X[col] if col in X.columns else 0.0
+                     for col in training_feature_cols},
+                    index=signals_df.index,
+                )
+
+            logger.debug(
+                "[META-FILTER] %s: %d/%d raw features available, %d cs features",
+                version, len(available), len(feature_cols), len(cs_feature_cols),
+            )
             proba = clf.predict_proba(X)
             confidence = pd.Series(proba[:, 1], index=signals_df.index)
         else:
