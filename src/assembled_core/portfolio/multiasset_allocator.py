@@ -258,6 +258,79 @@ def allocate_by_regime_with_strategy_weights(
     )
 
 
+def allocate_with_hrp(
+    returns: "pd.DataFrame",
+    regime: str = "bull",
+    sector_weights: dict[str, float] | None = None,
+    custom_allocations: dict[str, RegimeAllocation] | None = None,
+    max_weight: float = 0.20,
+    current_weights: dict[str, float] | None = None,
+    max_turnover: float | None = None,
+) -> dict[str, float]:
+    """HRP equity weights + regime macro overlay.
+
+    Replaces the rule-based equity weighting inside ``allocate_by_regime``
+    with Lopez de Prado Hierarchical Risk Parity.  The macro instruments
+    (TLT/IEF/GLD/SH) are still allocated by regime as usual.
+
+    Falls back to equal-weight equity allocation if scipy is unavailable or
+    returns has insufficient history.
+
+    Args:
+        returns: Wide-format DataFrame (dates × symbols) of daily equity returns.
+            Must have at least 30 rows after dropping NaNs.
+        regime: Current market regime (bull/sideways/bear/crisis).
+        sector_weights: Optional sector ETF overlay (passed through to regime allocator).
+        custom_allocations: Override REGIME_ALLOCATIONS if provided.
+        max_weight: Maximum weight cap per equity asset before normalization.
+        current_weights: If provided, applies turnover control overlay.
+        max_turnover: Maximum allowed one-period weight change (turnover control).
+            Only applies when ``current_weights`` is also provided.
+
+    Returns:
+        Combined weight dict {symbol: final_weight} with equity + macro instruments.
+    """
+    try:
+        import pandas as pd
+        from src.assembled_core.portfolio.hierarchical_risk_parity import (
+            compute_hrp_weights,
+            hrp_with_turnover_control,
+        )
+
+        if current_weights and max_turnover is not None:
+            hrp_weights = hrp_with_turnover_control(
+                returns=returns,
+                current_weights=current_weights,
+                max_turnover=max_turnover,
+                max_weight=max_weight,
+            )
+        else:
+            hrp_weights = compute_hrp_weights(returns, max_weight=max_weight)
+
+        if not hrp_weights:
+            # Fallback: equal weight across all symbols in returns
+            syms = list(returns.columns)
+            hrp_weights = {s: 1.0 / len(syms) for s in syms} if syms else {}
+
+        _log.debug(
+            "[HRP] weights computed: n=%d, max=%.4f, min=%.4f",
+            len(hrp_weights),
+            max(hrp_weights.values()) if hrp_weights else 0.0,
+            min(hrp_weights.values()) if hrp_weights else 0.0,
+        )
+    except Exception as exc:
+        _log.debug("[HRP] computation failed, using equal weight: %s", exc)
+        syms = list(returns.columns) if hasattr(returns, "columns") else []
+        hrp_weights = {s: 1.0 / len(syms) for s in syms} if syms else {}
+
+    return allocate_by_regime(
+        regime=regime,
+        equity_weights=hrp_weights,
+        sector_weights=sector_weights,
+        custom_allocations=custom_allocations,
+    )
+
+
 __all__ = [
     "RegimeAllocation",
     "RegimeDetectorConfig",
@@ -265,4 +338,5 @@ __all__ = [
     "REGIME_ALLOCATIONS",
     "allocate_by_regime",
     "allocate_by_regime_with_strategy_weights",
+    "allocate_with_hrp",
 ]
