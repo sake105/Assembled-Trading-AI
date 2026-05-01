@@ -370,6 +370,172 @@ def composite_score(
     return float(np.clip(raw, -1.0, 1.0)), scores
 
 
+def _col(df: pd.DataFrame, *candidates: str) -> str | None:
+    """Return first candidate column name that exists in df."""
+    return next((c for c in candidates if c in df.columns), None)
+
+
+def generate_composite_score_signals(
+    panel: pd.DataFrame,
+    regime: str = "normal",
+    signal_threshold: float = 0.10,
+    as_of_date: "date | None" = None,
+    min_history_bars: int = 30,
+) -> pd.DataFrame:
+    """Generate buy/sell signals for all symbols using the 9-dimension composite score.
+
+    Computes each dimension from panel columns where available.
+    Dimensions that require external data (IV, intraday) default to 0.0 (neutral).
+
+    Panel column mappings (accepts both legacy and ta_*_v1 names):
+        RSI: ta_rsi_14_v1 / rsi_14
+        MACD histogram: ta_macd_hist_v1 / macd_hist
+        BB %B: ta_bb_pctb_v1 / bb_pos / bb_pctb
+        ADX: ta_adx_v1 / adx_14
+        Log returns: ta_log_return_v1 / log_return
+        MA20: ta_ma_20_v1 / ma_20
+
+    Args:
+        panel: Panel DataFrame with columns: symbol, timestamp, close, volume + TA features.
+        regime: Composite weight regime (calm/normal/elevated/crisis).
+                "bull"/"bear"/"sideways" are mapped to composite regime labels.
+        signal_threshold: Minimum absolute composite score to generate a non-NEUTRAL signal.
+        as_of_date: If provided, only use rows with timestamp <= as_of_date.
+        min_history_bars: Minimum rows per symbol required for computation.
+
+    Returns:
+        DataFrame with columns: symbol, direction, score.
+        direction is "BUY" / "SELL" / "NEUTRAL".
+    """
+    if panel is None or panel.empty:
+        return pd.DataFrame(columns=["symbol", "direction", "score"])
+
+    # Map pipeline regime labels to composite weight regime labels
+    _regime_map = {
+        "bull": "normal", "sideways": "elevated",
+        "bear": "elevated", "crisis": "crisis",
+    }
+    composite_regime = _regime_map.get(regime, regime)
+    if composite_regime not in COMPOSITE_WEIGHTS_BY_REGIME:
+        composite_regime = "normal"
+
+    df = panel.copy()
+    if as_of_date is not None:
+        cutoff = pd.Timestamp(as_of_date, tz="UTC") if pd.Timestamp(as_of_date).tzinfo is None else pd.Timestamp(as_of_date)
+        if "timestamp" in df.columns:
+            ts = pd.to_datetime(df["timestamp"], utc=True)
+            df = df[ts <= cutoff]
+
+    if df.empty:
+        return pd.DataFrame(columns=["symbol", "direction", "score"])
+
+    # Column aliases
+    rsi_col   = _col(df, "ta_rsi_14_v1", "rsi_14", "rsi")
+    macd_col  = _col(df, "ta_macd_hist_v1", "macd_hist")
+    bb_col    = _col(df, "ta_bb_pctb_v1", "bb_pos", "bb_pctb")
+    adx_col   = _col(df, "ta_adx_v1", "adx_14", "adx")
+    ret_col   = _col(df, "ta_log_return_v1", "log_return")
+    ma20_col  = _col(df, "ta_ma_20_v1", "ma_20")
+
+    # Cross-sectional breadth: % of symbols trading above their MA20
+    breadth_ratio = 0.0
+    if ma20_col and "close" in df.columns and "symbol" in df.columns:
+        last = (
+            df.sort_values("timestamp").groupby("symbol").last().reset_index()
+            if "timestamp" in df.columns
+            else df.groupby("symbol").last().reset_index()
+        )
+        n_above = (last["close"] > last[ma20_col]).sum()
+        n_total = len(last)
+        breadth_ratio = float(n_above / n_total) if n_total > 0 else 0.5
+    mcclellan_proxy = (breadth_ratio - 0.5) * 200.0  # map [0,1] → [-100, +100]
+
+    results = []
+    for symbol, grp in df.groupby("symbol"):
+        grp = grp.sort_values("timestamp") if "timestamp" in grp.columns else grp
+        if len(grp) < min_history_bars:
+            continue
+
+        close = grp["close"]
+        volume = grp["volume"] if "volume" in grp.columns else pd.Series(1.0, index=grp.index)
+
+        # Dim 1: MTF alignment (use daily close + ADX; intraday signals = 0)
+        adx_val = float(grp[adx_col].iloc[-1]) if adx_col else 20.0
+        dim1 = mtf_alignment_score(close, macd_hist_15m=0.0, rsi_5m=50.0, adx_daily=adx_val)
+
+        # Dim 2: Classical TA
+        rsi_val  = float(grp[rsi_col].iloc[-1])  if rsi_col  else 50.0
+        macd_val = float(grp[macd_col].iloc[-1]) if macd_col else 0.0
+        bb_val   = float(grp[bb_col].iloc[-1])   if bb_col   else 0.5
+        dim2 = classical_ta_score(rsi_val, macd_val, bb_val, composite_regime)
+
+        # Dim 3: Microstructure (returns + dollar volume)
+        if ret_col and not grp[ret_col].isna().all():
+            returns_s = grp[ret_col].fillna(0.0)
+            dv = close * volume
+            dim3 = microstructure_score(returns_s, dv)
+        else:
+            dim3 = 0.0
+
+        # Dim 4: Volume profile
+        dim4 = volume_profile_score(close, volume) if len(close) >= 10 else 0.0
+
+        # Dim 5: Chart pattern (placeholder)
+        dim5 = chart_pattern_score(close)
+
+        # Dim 6: Vol surface — no IV data in panel; use realized vol ratio as proxy
+        dim6 = 0.0
+        if "rv_20" in grp.columns and "rv_60" in grp.columns:
+            rv20 = float(grp["rv_20"].iloc[-1])
+            rv60 = float(grp["rv_60"].iloc[-1])
+            if rv60 > 0:
+                vrp_proxy = (rv20 - rv60) / rv60
+                dim6 = float(np.tanh(-vrp_proxy * 2.0))
+
+        # Dim 7: Breadth / intermarket (cross-sectional breadth proxy)
+        dim7 = breadth_intermarket_score(mcclellan=mcclellan_proxy)
+
+        # Dim 8: Seasonality
+        if "timestamp" in grp.columns:
+            _ts = pd.Timestamp(grp["timestamp"].iloc[-1])
+            _d = _ts.date() if not isinstance(_ts, type(None)) else (as_of_date or date.today())
+        else:
+            _d = as_of_date or date.today()
+        dim8 = seasonality_score(_d)
+
+        # Dim 9: News (0.0 when no news_features available in panel)
+        dim9 = 0.0
+        if "news_sentiment" in grp.columns:
+            dim9 = float(np.clip(grp["news_sentiment"].iloc[-1], -1.0, 1.0))
+
+        score, _ = composite_score(
+            composite_regime, dim1, dim2, dim3, dim4, dim5, dim6, dim7, dim8, dim9
+        )
+
+        if score > signal_threshold:
+            direction = "BUY"
+        elif score < -signal_threshold:
+            direction = "SELL"
+        else:
+            direction = "NEUTRAL"
+
+        results.append({"symbol": symbol, "direction": direction, "score": score})
+
+    if not results:
+        return pd.DataFrame(columns=["symbol", "direction", "score"])
+
+    out = pd.DataFrame(results)
+    logger.debug(
+        "[composite_score] generated %d signals (%d BUY, %d SELL, %d NEUTRAL) regime=%s",
+        len(out),
+        (out["direction"] == "BUY").sum(),
+        (out["direction"] == "SELL").sum(),
+        (out["direction"] == "NEUTRAL").sum(),
+        composite_regime,
+    )
+    return out
+
+
 __all__ = [
     "COMPOSITE_WEIGHTS_BY_REGIME",
     "TA_PARAMS_BY_REGIME",
@@ -383,4 +549,5 @@ __all__ = [
     "seasonality_score",
     "news_score",
     "composite_score",
+    "generate_composite_score_signals",
 ]
