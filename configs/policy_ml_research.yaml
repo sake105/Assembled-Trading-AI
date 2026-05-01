@@ -1,0 +1,563 @@
+policy_version: "v1.0"
+
+# High-level scope for this policy version.
+scope:
+  instruments: ["ETFs", "equities"]  # ETFs + direct equities for short candidates
+  leverage_allowed: true             # research: allow gross turnover > 1.0
+  shorts_allowed: true               # v2.0: enabled — inverse ETFs + direct shorts
+
+# Short-selling configuration (active when shorts_allowed: true)
+shorts:
+  enabled: true
+  max_short_weight_per_position: 0.10   # max 10% per short position
+  max_total_short_exposure: 0.30        # max 30% total short exposure
+  # Historical shorts-specific cap (long + |short|). Kept for documentation of
+  # the intended headroom *if* leverage were enabled. Currently overridden by
+  # `risk_limits.max_gross_exposure: 1.0` via `min()` in trading_cycle.py
+  # because scope.leverage_allowed=false. Changing this alone will NOT loosen
+  # the effective cap — you must also raise risk_limits.max_gross_exposure AND
+  # flip leverage_allowed=true (P0 finding A6, Deep Run v2, 2026-04-18).
+  max_gross_exposure: 10.00             # research: uncapped
+  max_net_short: 0.20                   # max 20% net short
+  allowed_instruments:
+    direct_short: true                  # direct equity shorts
+    inverse_etf_1x: true               # 1x inverse ETFs (SH, PSQ, RWM, etc.)
+    inverse_etf_2x: false              # 2x inverse ETFs disabled (volatility decay)
+    inverse_etf_3x: false              # 3x inverse ETFs never
+  regime_scaling:
+    bull: 0.0                           # no shorts in bull market
+    sideways: 0.10                      # max 10% short
+    bear: 0.25                          # max 25% short
+    crisis: 0.30                        # max 30% short — fully active
+    reflation: 0.05                     # minimal
+  borrow_cost_assumption_bps: 50        # 50bps p.a. borrow cost assumption
+  squeeze_risk_check: true              # enable short-squeeze detection
+  min_short_signal_confidence: 0.70     # higher confidence threshold for shorts
+  min_crash_probability: 0.60          # min crash probability to activate shorts
+  require_stop_loss: true               # every short MUST have a stop-loss
+  max_stop_loss_pct: 0.15              # max 15% loss before stop-out
+
+# Risk limits are benchmark-style constraints, not auto-stops on returns.
+risk_limits:
+  target_vol_annual: 0.20         # 20% annualized vol target; moderate for ETF portfolio
+  max_drawdown:
+    soft: 0.12                   # 12% DD triggers de-risk scaling
+    hard: 0.20                   # 20% DD hard position reduction
+    kill: 0.30                   # 30% DD triggers kill switch
+  max_position_weight: 0.20      # max 20% in any single ETF
+  # Gross-exposure cap (long + |short|) for general pre-trade gate. P0 finding A6
+  # (Deep Run v2, 2026-04-18): prior to this key, the only gross cap was under
+  # `shorts.max_gross_exposure` (1.50), which is shorts-specific. This key is
+  # read first by pipeline/trading_cycle.py and must be consistent with
+  # scope.leverage_allowed=false (see policy_schema.py gross-exposure check).
+  max_gross_exposure: 10.0       # research: uncapped
+  turnover:
+    weekly_cap: 0.50             # max 50% portfolio turnover per week
+    daily_cap: 0.20              # max 20% portfolio turnover per day
+  concentration_guard:
+    max_sector_weight: 0.40      # max 40% in correlated sector ETFs
+    max_corr_cluster_weight: 0.50 # max 50% in highly correlated cluster
+
+# High-level state machine config (WATCH / ACTIVE / COOLDOWN / PAUSE).
+state_machine:
+  states: ["WATCH", "ACTIVE", "COOLDOWN", "PAUSE"]
+  activation:
+    requires_geo_trigger: true
+    requires_market_stress_confirm: true
+    evidence_tiers: ["A", "B"]   # welche Evidenz-Ebenen für ACTIVE nötig sind
+  deactivation:
+    geo_decay_days: 14            # geo risk decays over 14 days
+    vol_normalization_days: 20   # vol normalization window: 20 days
+    cooldown_days: 5             # minimum 5 days in COOLDOWN state
+
+# Health / QC gates for external inputs (News, Disclosures, Market Data).
+health_gates:
+  news:
+    degraded_behavior: "WATCH_ONLY"   # oder "PAUSE" für strengere Policy
+    required_tier_for_active: "A"
+  disclosures:
+    degraded_behavior: "WATCH_ONLY"
+  marketdata:
+    degraded_behavior: "PAUSE"
+
+# Intel integrations (read-only load into TradingContext).
+intel:
+  disclosures_triggers:
+    enabled: false
+    path: "output/intel/disclosures/triggers_latest.json"
+
+  # RSS feed integration — 71+ feeds wired via rss_fetcher.py
+  rss:
+    enabled: true  # Wire RSSFetcher into intel cycle (parallel with GDELT)
+
+  # NLP sentiment scoring via FinBERT (optional, requires transformers)
+  nlp:
+    enabled: false  # set true to activate FinBERT sentiment on RSS events
+
+  # T4.7: Master kill-switch — stops News + GDELT + Disclosures pipelines.
+  # Workers read this flag at startup and exit-early when enabled.
+  kill_switch:
+    enabled: false           # set true to halt all intel/news/disclosures workers
+
+  # T4.1: Crisis-Alpha v1 integration (default off; shadow-only until T4.1 flip)
+  crisis_alpha:
+    enabled: true            # wire run_crisis_alpha_pipeline() into trading_cycle
+    shadow_only: true        # when enabled=true: log result, do not affect orders
+
+  # Phase 9: Intel alpha signal layer wired into signal pipeline
+  signal_layer:
+    enabled: true            # enable compute_symbol_intel_scores() in trading_cycle
+    weight: 0.15             # additive weight of intel score on signal score
+    allow_short: false       # allow short signals from intel losers (inverse-ETF blacklist enforced in intel_signal_adapter.py)
+    min_confidence: 0.50     # minimum intel signal confidence
+    shock_confidence: 0.60   # base confidence for shock beneficiary signals
+
+  # Part B deeper wiring (2026-04-22): News→Signal bridge. Reads
+  # output/intel/news/triggers_latest.json and applies per-ticker score deltas
+  # based on severity * urgency * sentiment_sign. allow_short=false keeps the
+  # bridge long-only (matches signal_layer + sector_rotation defaults).
+  news_signal_bridge:
+    enabled: true
+    weight: 0.10             # max scaled score delta contribution per ticker
+    min_severity: 1          # 1 = WATCH, 2+ = ACTIVE
+    allow_short: false
+
+# Disclosures confirmation boost for NEWS geo_confidence (DISCL-4.2).
+disclosures_confirm:
+  enabled: true
+  boost:
+    min_severity: 1
+    add_confidence: 0.10
+    max_confidence: 0.95
+  qc:
+    if_disclosures_degraded: "no_boost"
+
+# Execution & operations policy (high-level, environment-agnostic).
+execution_policy:
+  mode_default: "paper"          # v1.x: Paper-Track als Default; Live kommt später
+  idempotency_required: true     # kritische Worker müssen idempotent sein
+  reconcile_as_truth: true       # Reconcile-Ergebnis gilt als „source of truth“ für Zustand
+
+# Part B deeper wiring (2026-04-22): pre-trade execution cost layer.
+# Activated via paper_runner → annotate_execution_cost, which writes per-order
+# Almgren-Chriss impact estimates + SOR venue allocation into result.meta.
+# enforce=false means high-impact orders are flagged but NOT dropped (shadow).
+execution:
+  cost_meta:
+    enabled: true            # annotate result.meta.execution_cost with per-order estimates
+    impact_limit_bps: 50.0   # orders beyond this are tagged high_impact=true
+    enforce: false           # when true, high-impact orders are filtered out pre-fill
+    default_adv: 1000000.0   # ADV fallback when volume data unavailable
+    default_sigma: 0.02      # daily vol fallback for Almgren-Chriss
+  smart_order_router:
+    enabled: true            # compute venue allocation for each order
+    urgency: 0.5             # 0=patient, 1=urgent
+    allow_dark_pools: true
+    max_venues: 3
+
+# Logging / audit requirements for policy-relevant actions.
+logging_policy:
+  audit_required: true
+  artifact_paths:
+    policy_snapshot: "output/policy/policy_snapshot.yaml"  # Snapshot des aktiven Policy-Configs pro Run
+
+georisk_overlay:
+  enabled: true
+  source: "news_geo"
+  mapping:
+    WATCH:
+      multiplier: 1.00
+      hedge:
+        enabled: false
+    ACTIVE:
+      multiplier: 0.70
+      hedge:
+        enabled: false
+    COOLDOWN:
+      multiplier: 0.85
+      hedge:
+        enabled: false
+    PAUSE:
+      multiplier: 0.00
+      hedge:
+        enabled: false
+  by_geo_score:
+    "0": 1.00
+    "1": 0.90
+    "2": 0.70
+    "3": 0.50
+  confidence_floor: 0.60
+  qc:
+    if_intel_degraded: "WATCH"
+
+turnover_budget:
+  enabled: true
+  mode: "daily"
+  cap: 0.50
+  min_trade_notional: 0
+  behavior: "scale"
+  qc:
+    if_missing_prices: "scale_to_zero"
+
+profit_lock:
+  enabled: true
+  lookback_days: 20
+  trigger_return: 0.08
+  multiplier_on_trigger: 0.80
+  floor: 0.50
+  cooldown_days: 10
+
+vol_targeting:
+  enabled: false              # M6-T03: disabled by default; enable with calibrated target_vol_annual
+  lookback_days: 20
+  target_vol_annual: 0.15     # 15% annualized target; tune before enabling
+  min_scale: 0.50             # floor: never reduce below 50% exposure
+  max_scale: 1.00             # no amplification; consistent with leverage_allowed: false
+
+market_stress:
+  enabled: true
+  lookback_days: 20
+  metrics:
+    vol_z:
+      enabled: true
+      z_threshold: 1.5
+    dd_lookback:
+      enabled: true
+      dd_threshold: -0.05
+  confirm_rule:
+    mode: "any"
+  qc:
+    if_data_missing: false
+  exposure_scaling:
+    stress_score_1: 0.75          # moderate stress (1 trigger) -> 75% exposure
+    stress_score_2: 0.50          # high stress (2 triggers) -> 50% exposure
+
+risk_state_machine:
+  enabled: true
+  state_path: "output/state/risk_state.json"
+  persistence:
+    mode: "live"
+    per_run_dir: "output/state/runs"
+    lock:
+      enabled: true
+      retries: 5
+      backoff_ms: 50
+  hysteresis:
+    activate_score: 2
+    deactivate_score: 1
+    pause_score: 3
+    confidence_floor: 0.60
+    require_market_stress_confirm: true
+    require_disclosures_confirm: false
+    disclosures_min_severity: 1
+    disclosures_confirm_gate:
+      enabled: true
+      min_geo_score: 3
+      on_states: ["WATCH", "COOLDOWN"]
+  cooldown:
+    hours: 24
+  pause:
+    enabled: false
+    require_confidence: 0.80
+    hours: 12
+  qc:
+    if_intel_degraded: "WATCH"
+
+
+# ---------------------------------------------------------------------------
+# Regime detection (Phase 0D)
+# ---------------------------------------------------------------------------
+regime_detection:
+  enabled: false             # research: skip per-cycle HMM refitting
+  method: "rule_based"
+  n_regimes: 3               # bull / bear / sideways
+  benchmark_symbol: "SPY"
+  multifeature: false        # true → MultiFeatureRegimeHMM (4 observables)
+  min_history_days: 120      # minimum trading days before HMM fit
+
+# ---------------------------------------------------------------------------
+# Signal generation mode (Phase 0.1)
+# ---------------------------------------------------------------------------
+signal_generation:
+  mode: "multifactor"        # "ema" | "multifactor" | "ml_enhanced"
+  multifactor:
+    top_n: 15                # long candidates
+    bottom_n: 5              # short candidates (if shorts_allowed)
+    score_method: "adaptive" # "static" | "adaptive" (IC-weighted)
+    regime_blending: true    # use regime-conditional weights
+    sector_neutralize: false # sector-bias elimination (Phase 9)
+  ml_enhanced:
+    meta_model_path: "models/meta/meta_model_latest.joblib"
+    confidence_threshold: 0.55
+    scale_by_confidence: true
+    use_stacking: true
+    use_quantile_sizing: false
+
+  # Phase 9: Sector rotation overlay (read by trading_cycle at signal_generation.sector_rotation)
+  # Activated 2026-04-22 — ctx.sector_rotation_scores now populated by paper/intel_context.py
+  sector_rotation:
+    enabled: true            # wired to generate_sector_rotation_signals() via ctx population
+    long_weight: 0.12        # per-sector long ETF weight
+    short_weight: 0.08       # per-sector short ETF weight (absolute)
+
+  # Phase 9: Pre-earnings signal suppression + PEAD (read by trading_cycle at signal_generation.earnings_guard)
+  # Activated 2026-04-22 — ctx.earnings_calendar loaded from cache by paper/intel_context.py
+  # Cache refreshed via scripts/fetch_earnings_calendar.py; safe no-op if cache missing
+  earnings_guard:
+    enabled: true            # suppress signals 3d before earnings + PEAD drift when cache present
+    suppress_window: 3       # days before earnings to zero out mean-reversion signals
+    pead_window_days: 60     # PEAD drift window (days after earnings)
+    pead_weight: 0.15        # weight added to score from PEAD signal
+
+  # Phase 9: Bayesian signal confidence scoring (read by trading_cycle at signal_generation.bayesian_confidence)
+  bayesian_confidence:
+    enabled: true            # Bayesian CI scoring for position scaling; BL max_weight=0.15 caps inflation
+    ci_level: 0.90           # credible interval level (90%)
+    max_scale: 1.50          # maximum position scale factor from confidence
+    min_scale: 0.50          # minimum position scale factor from confidence
+
+  # Phase 9: Signal health diagnostics at end of each cycle (read by trading_cycle at signal_generation.signal_diagnostics)
+  signal_diagnostics:
+    enabled: true            # emit compute_signal_health() JSON artifact (no behavior side-effects)
+    forward_returns_col: "return_1d"
+    ic_alert_threshold: 0.0  # rolling IC below this triggers WARNING
+    output_dir: "output/diagnostics"
+
+# ---------------------------------------------------------------------------
+# Position sizing (Phase 0C)
+# ---------------------------------------------------------------------------
+position_sizing:
+  method: "default"            # research: use strategy signal_fn directly
+  black_litterman:
+    risk_aversion: 2.5
+    tau: 0.05
+    max_weight: 0.15
+    min_history_days: 60       # fallback to vol_scaled if insufficient data
+  fallback_method: "vol_scaled"  # used when BL fails to converge
+  # Part B deeper wiring (2026-04-22): compute half-Kelly weights with
+  # conformal-uncertainty discount IN PARALLEL to the active method.
+  # Purely observational — written to result.meta.kelly_uncertainty_shadow
+  # for ML training-data collection. Does NOT change result.target_positions.
+  kelly_uncertainty_shadow:
+    enabled: true
+    fractional_kelly: 0.5
+    max_fraction: 0.25
+    vol_lookback_days: 60
+    reference_half_width: null   # null → no uncertainty discount until calibrated
+    normalize: true
+  # Quantile-interval sizing overlay (LightGBM q05/q95, ~87% coverage)
+  conformal:
+    enabled: true                  # research: conformal uncertainty sizing
+    model_path: "models/conformal_position_v2.joblib"
+
+# ---------------------------------------------------------------------------
+# HMM Regime Overlay — portfolio exposure multiplier based on detected regime
+# ---------------------------------------------------------------------------
+hmm_regime_overlay:
+  enabled: true                    # research: HMM regime overlay active
+  model_path: "models/regime_hmm_4state_spy.joblib"
+  multipliers:
+    bull: 1.15                     # slightly more aggressive in bull
+    sideways: 1.00                 # neutral
+    bear: 0.75                     # reduce exposure in bear
+    crisis: 0.40                   # significant reduction in crisis
+
+# ---------------------------------------------------------------------------
+# Anti-churn / hysteresis (Phase 0D)
+# ---------------------------------------------------------------------------
+anti_churn:
+  ranking_hysteresis_enabled: true
+  entry_n: 5                   # new positions need top-5 rank
+  hold_n: 7                    # existing positions stay if top-7
+  deadzone_enabled: true
+  deadzone_pct: 0.02           # rebalance only if weight diff > 2%
+  rebalance_filter_enabled: true
+  min_notional: 500.0          # drop orders below $500 notional value
+  # NOTE: sector_rotation / earnings_guard / bayesian_confidence / signal_diagnostics
+  # were moved to top-level `signal_generation:` (that is where trading_cycle.py
+  # reads them). Leaving them under `anti_churn:` was a silent no-op.
+
+evidence_engine:
+  enabled: true
+  require_grade_for_active: "B"   # minimum evidence grade to allow WATCH->ACTIVE
+  misinfo_risk_threshold: 0.70    # misinfo score above this blocks grade A
+  grades:
+    A:
+      description: "Strong: >=2 Tier-A OR >=3 independent Tier-B, low misinfo risk"
+    B:
+      description: "Moderate: >=1 Tier-A OR >=2 independent Tier-B, acceptable misinfo"
+    C:
+      description: "Weak: >=1 source but below B threshold"
+    D:
+      description: "Insufficient: no qualifying evidence or misinfo too high"
+
+# ---------------------------------------------------------------------------
+# Paper trading engine selection
+# ---------------------------------------------------------------------------
+paper_trading:
+  engine: "unified"              # "unified" uses UnifiedPaperEngine; other values fall back to legacy PaperTrackRunner
+  seed_capital: 100000.0
+  enable_ledger: true
+  enable_reconciliation: true
+  enable_fat_finger: true
+
+# ---------------------------------------------------------------------------
+# Fat-finger guard (pre-trade order size cap)
+# ---------------------------------------------------------------------------
+fat_finger_guard:
+  enabled: true
+  max_notional_usd: 500000.0      # reject any single order > $500k notional
+  max_qty_multiple: 5.0           # reject if qty > 5× symbol's recent max qty
+
+# ---------------------------------------------------------------------------
+# Data freshness / stale-feature monitoring
+# ---------------------------------------------------------------------------
+freshness_monitor:
+  enabled: true
+  stale_feature_days: 5           # flag features constant for > 5 days
+
+# ---------------------------------------------------------------------------
+# Cost-aware weight shrinkage (Step 4.85 — reduces oversizing on expensive trades)
+# ---------------------------------------------------------------------------
+cost_aware_wrapper:
+  enabled: false                  # start disabled — behavior change on target_weights
+  penalty_factor: null            # null = auto (0.5 * invested_pct)
+  min_shrink: 0.0
+
+# ---------------------------------------------------------------------------
+# Borrow cost estimation for short positions (Step 6.8)
+# ---------------------------------------------------------------------------
+borrow_costs:
+  enabled: true
+  default_rate_bps: 50.0          # easy-to-borrow annualised bps
+  htb_rate_bps: 500.0             # hard-to-borrow annualised bps
+
+# ---------------------------------------------------------------------------
+# ML drift detection (Step 2.4 — KS-test on feature distributions)
+# ---------------------------------------------------------------------------
+ml:
+  drift_detection:
+    enabled: true
+    p_value_threshold: 0.01       # KS p-value < this → feature drifted
+
+# ---------------------------------------------------------------------------
+# Signal meta-model confidence scoring (Step 3.7 — shadow only)
+# ---------------------------------------------------------------------------
+signals:
+  meta_model_scoring:
+    enabled: false                 # legacy path — use meta_model below
+    model_path: "output/models/meta/meta_model.joblib"
+  # Step 3.96: LightGBM meta-model filter v2 (AUC=0.649, Precision@top10%=44% vs 30% base)
+  meta_model:
+    enabled: true                  # research: meta-model confidence filter active
+    model_path: "models/meta_model_lgbm_v2.joblib"
+    confidence_threshold: 0.58    # optimal threshold calibrated on val set
+    scale_by_confidence: true     # multiply mf_score by confidence_score
+
+# ---------------------------------------------------------------------------
+# Multi-factor composite signal (Step 3.55 — shadow mf_score on signals)
+# ---------------------------------------------------------------------------
+multifactor_signal:
+  enabled: false  # research: multifactor_long_short uses its own signal_fn
+  bundle_path: "configs/factor_bundles/macro_world_etfs_core_bundle.yaml"
+
+# ---------------------------------------------------------------------------
+# Phase 10: Monte Carlo robustness (bootstrap after each cycle / backtest)
+# ---------------------------------------------------------------------------
+monte_carlo:
+  auto_run: false            # if true: bootstrap_returns() runs after each trading cycle
+  n_paths: 500               # bootstrap paths (500 = fast; use 1000+ for reports)
+  confidence_level: 0.95     # CI level
+  seed: null                 # null = random; set integer for reproducibility
+
+# Phase 10: Parameter robustness (optional, heavier — intended for batch runs)
+robustness:
+  enabled: false             # gate: enable run_param_grid_sweep() on batch backtest
+  deterministic: true
+
+# Phase 10: Regime-aware walk-forward validation
+regime_walk_forward:
+  enabled: false             # gate: enable regime-aware WF as validation step
+
+# ---------------------------------------------------------------------------
+# Phase 11: Alert system
+# ---------------------------------------------------------------------------
+alerts:
+  enabled: true              # enable alert_health_worker in daily_scheduler
+  rate_limit_seconds: 300    # seconds between identical alert messages
+  output_dir: "output/alerts"
+  sinks:
+    slack:
+      enabled: false         # enable SlackWebhookSink (set ASSEMBLED_SLACK_WEBHOOK_URL env var)
+      min_severity: "WARNING"
+    email:
+      enabled: false         # enable EmailSink (set ASSEMBLED_SMTP_* env vars)
+      min_severity: "CRITICAL"
+
+# Phase 11: KPI / Prometheus metrics export
+kpi_export:
+  enabled: true              # enable metrics_exporter + kpi_export_worker
+  output_dir: "output/metrics"
+  gateway_url: null          # set to Prometheus Pushgateway URL if desired
+
+# ---------------------------------------------------------------------------
+# Ultra-Plan Part D — shadow-mode gates for activation observation.
+# All default shadow_only=true. Flip to false only after 5 trading-day
+# observation window documented in output/activation_ledger.md.
+# ---------------------------------------------------------------------------
+correlation_guard:
+  shadow_only: true          # D1 — compute but do not apply scaled weights
+  max_pairwise_corr: 0.8
+zombie_killer:
+  shadow_only: true          # D2 — log zombies but do not force-flat
+  max_hold_days: 30
+  stale_signal_bars: 10
+crash_prediction:
+  shadow_only: true          # D3 — long-gross equity cap shadow-only
+  equity_cap_enabled: true
+  equity_cap_threshold: 0.4
+  base_long_gross: 1.0
+inverse_etf:
+  shadow_only: true          # D4 — hedge recommendation only
+  enabled: true              # activate gate evaluation (recording still shadow)
+  vix_threshold: 25.0
+  crash_prob_threshold: 0.4
+  hedge_ratio: 0.1
+  max_holding_days: 5
+signal_decay:
+  shadow_only: true          # D5 — apply multipliers only when false
+  enabled: false
+  stale_multiplier: 0.0
+
+# ---------------------------------------------------------------------------
+# T4.6: Feature-Flag declarations (N1 — all 10 flags previously undefined).
+# Builders read these flags at runtime; missing flag → KeyError (not silent pass).
+# ---------------------------------------------------------------------------
+features:
+  news_count_7d: true
+  news_count_30d: true
+  news_sentiment_7d: true
+  news_sentiment_30d: true
+  news_sentiment_z: true
+  news_volume_spike: true
+  news_sentiment_shock: true
+  macro_growth_regime: true
+  macro_inflation_regime: true
+  macro_risk_aversion: true
+  enhanced_factors:
+    enabled: true
+  behavioral_features:
+    enabled: true
+    min_rows: 60                  # min history per symbol to compute composite
+    ta_factors_core: true           # add multi-horizon returns, trend strength, reversal
+    cross_sectional_rank: true      # rank-normalize key features across symbols per day
+    rank_normalize_to: "symmetric"  # -1..+1 symmetric percentile rank
+    rank_cols:
+      - trend_ema_spread
+      - mom_rsi_centered
+      - mom_12_1
+      - low_vol_rank
+      - quality_score
+      - trend_strength_20
+      - trend_strength_50
+      - momentum_12m_excl_1m

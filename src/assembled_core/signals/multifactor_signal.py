@@ -868,8 +868,21 @@ def apply_meta_model_filter(
     try:
         from src.assembled_core.signals.meta_model import load_meta_model
 
-        meta_model = load_meta_model(model_file)
-        confidence = meta_model.predict_proba(signals_df)
+        meta_obj = load_meta_model(model_file)
+
+        # v2 format: dict with 'model' + 'feature_cols' keys
+        if isinstance(meta_obj, dict):
+            clf = meta_obj["model"]
+            feature_cols = meta_obj.get("feature_cols", [])
+            available = [f for f in feature_cols if f in signals_df.columns]
+            if not available:
+                logger.warning("[META-FILTER] v2: no feature columns found in signals_df — passing through")
+                return signals_df
+            X = signals_df[available].fillna(0)
+            proba = clf.predict_proba(X)
+            confidence = pd.Series(proba[:, 1], index=signals_df.index)
+        else:
+            confidence = meta_obj.predict_proba(signals_df)
 
         signals_df = signals_df.copy()
         signals_df["confidence_score"] = confidence.values

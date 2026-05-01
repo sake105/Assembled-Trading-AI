@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Any, Dict
 
@@ -32,6 +33,9 @@ def load_policy(
         yaml.YAMLError: If the file exists but is not parseable YAML.
         ValueError:     If the top-level YAML document is not a mapping.
     """
+    env_override = os.environ.get("ASSEMBLED_POLICY_PATH")
+    if env_override:
+        path = env_override
     p = Path(path)
     cache_key = str(p.resolve())
     if cache_key in _POLICY_CACHE:

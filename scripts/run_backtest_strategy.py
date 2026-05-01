@@ -945,6 +945,14 @@ Examples:
         help="Path to write timings JSON file (default: output_dir/timings.json or output_dir/run_timings.json)",
     )
 
+    parser.add_argument(
+        "--no-qa-gate",
+        action="store_true",
+        default=False,
+        dest="no_qa_gate",
+        help="Override QA data-quality gate (for research/backtesting with imperfect data)",
+    )
+
     return parser.parse_args()
 
 
