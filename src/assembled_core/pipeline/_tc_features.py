@@ -373,4 +373,32 @@ def build_features(
     except Exception as e:
         log.debug("[OB-IMBALANCE] order_book_imbalance skipped: %s", e)
 
+    # --- Step 2.16: News features (EWM sentiment, event count, velocity, confidence) ---
+    # Requires ctx.news_events (DataFrame with event_date/symbol/direction/confidence).
+    # Silently skipped when no news events are available — no degradation for backtests
+    # that don't feed news data.
+    try:
+        nf_cfg = (policy.get("features") or {}).get("news_features") or {}
+        if nf_cfg.get("enabled", False) and not pwf.empty:
+            _news_events = getattr(ctx, "news_events", None)
+            if _news_events is not None and not _news_events.empty:
+                from src.assembled_core.features.news_features import add_news_features
+
+                _ts_col = "timestamp" if "timestamp" in pwf.columns else None
+                _prices_dates = (
+                    pwf[_ts_col].unique() if _ts_col else None
+                )
+                pwf = add_news_features(
+                    prices=pwf,
+                    events=_news_events,
+                    short_window=int(nf_cfg.get("short_window", 7)),
+                    long_window=int(nf_cfg.get("long_window", 30)),
+                )
+                _nf_cols = [c for c in pwf.columns if c.startswith("news_")]
+                log.debug("[NEWS-FEATURES] added %d news columns: %s", len(_nf_cols), _nf_cols)
+            else:
+                log.debug("[NEWS-FEATURES] enabled but no ctx.news_events — skipped")
+    except Exception as e:
+        log.debug("[NEWS-FEATURES] news_features skipped: %s", e)
+
     return pwf, prices_latest_update

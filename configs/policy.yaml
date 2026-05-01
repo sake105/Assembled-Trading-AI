@@ -544,6 +544,10 @@ features:
   macro_growth_regime: true
   macro_inflation_regime: true
   macro_risk_aversion: true
+  news_features:
+    enabled: false          # requires ctx.news_events; enable when news pipeline feeds events
+    short_window: 7
+    long_window: 30
   enhanced_factors:
     enabled: true
   behavioral_features:
