@@ -1958,7 +1958,10 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             # snapshot=True: signal fn receives one row per symbol (latest factor values). Safe for
             # factor-bundle strategies where factors are precomputed point-in-time values.
             # snapshot=False needed for trend/EMA strategies that require full price history within the cycle.
-            backtest_use_snapshot=(getattr(args, "rebalance", "daily") == "monthly"),
+            backtest_use_snapshot=(
+                getattr(args, "rebalance", "daily") == "monthly"
+                or getattr(args, "rebalance_freq", "D") in ("M", "W")
+            ),
         )
 
         # Create cycle_fn using make_cycle_fn

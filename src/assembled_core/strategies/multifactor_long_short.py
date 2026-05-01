@@ -238,9 +238,24 @@ def generate_multifactor_long_short_signals(
         logger.info("Snapshot mode detected (single timestamp): skipping rebalance-date filter")
     else:
         logger.info(f"Filtering to rebalancing dates (freq: {config.rebalance_freq})...")
-        rebalance_mask = mf_df["timestamp"].apply(
-            lambda ts: _is_rebalance_date(ts, config.rebalance_freq)
-        )
+        if config.rebalance_freq.upper() == "M":
+            # Detect first trading day of each month from the actual date series
+            # (avoids day==1 failing when the 1st falls on a weekend/holiday)
+            sorted_ts = sorted(mf_df["timestamp"].dropna().unique())
+            first_td_of_month: set = set()
+            prev_ym = None
+            for ts in sorted_ts:
+                ym = (pd.Timestamp(ts).year, pd.Timestamp(ts).month)
+                if ym != prev_ym:
+                    first_td_of_month.add(pd.Timestamp(ts).normalize())
+                    prev_ym = ym
+            rebalance_mask = mf_df["timestamp"].apply(
+                lambda ts: pd.Timestamp(ts).normalize() in first_td_of_month
+            )
+        else:
+            rebalance_mask = mf_df["timestamp"].apply(
+                lambda ts: _is_rebalance_date(ts, config.rebalance_freq)
+            )
         mf_df_rebalance = mf_df[rebalance_mask].copy()
 
     logger.info(
