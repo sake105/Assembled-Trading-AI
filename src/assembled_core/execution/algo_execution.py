@@ -220,7 +220,7 @@ class VWAPScheduler:
         vol = volume_profile.copy()
         time_col = "time" if "time" in vol.columns else vol.columns[0]
         vol_col = "volume" if "volume" in vol.columns else vol.columns[1]
-        vol[time_col] = pd.to_datetime(vol[time_col])
+        vol[time_col] = pd.to_datetime(vol[time_col], format="mixed")
         mask = (vol[time_col] >= start_time) & (vol[time_col] <= end_time)
         vol = vol[mask].sort_values(time_col)
 

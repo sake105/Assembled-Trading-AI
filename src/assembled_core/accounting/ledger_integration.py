@@ -102,8 +102,10 @@ def build_ledger_from_trades(
     trade_events = events_from_trades(trades_df, run_id=run_id, source="paper")
     logger.info(f"Generated {len(trade_events)} FILL/REJECT events")
 
-    # Combine events
-    all_events = pd.concat([order_events, trade_events], ignore_index=True)
+    # Combine events — filter empty frames first to avoid pandas FutureWarning
+    # about dtype inference from all-NA columns during concat.
+    _frames = [f for f in [order_events, trade_events] if not f.empty]
+    all_events = pd.concat(_frames, ignore_index=True) if _frames else order_events.iloc[0:0].copy()
 
     # Store ledger events
     ledger_base = ledger_base_path(output_dir, run_id)
