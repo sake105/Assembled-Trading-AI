@@ -58,6 +58,17 @@ from src.assembled_core.features.triple_barrier import (  # noqa: F401
     meta_label,
     compute_sample_weights,
 )
+from src.assembled_core.features.change_point_detection import (  # noqa: F401
+    ChangePointResult,
+    detect_change_points_pelt,
+    detect_change_points_binseg,
+    change_point_regime_feature,
+    recent_break_flag,
+)
+from src.assembled_core.features.residual_momentum import (  # noqa: F401
+    compute_residual_momentum,
+    cross_sectional_residual_momentum,
+)
 
 __all__ = [
     "build_or_load_factors",
@@ -81,4 +92,13 @@ __all__ = [
     "fractional_diff",
     "meta_label",
     "compute_sample_weights",
+    # Regime / structural break detection
+    "ChangePointResult",
+    "detect_change_points_pelt",
+    "detect_change_points_binseg",
+    "change_point_regime_feature",
+    "recent_break_flag",
+    # Residual momentum
+    "compute_residual_momentum",
+    "cross_sectional_residual_momentum",
 ]
