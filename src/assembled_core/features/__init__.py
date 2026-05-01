@@ -69,6 +69,20 @@ from src.assembled_core.features.residual_momentum import (  # noqa: F401
     compute_residual_momentum,
     cross_sectional_residual_momentum,
 )
+from src.assembled_core.features.tsfresh_augmentation import (  # noqa: F401
+    extract_features as extract_tsfresh_features,
+    extract_rolling_features,
+)
+from src.assembled_core.features.liquidity_condition_index import (  # noqa: F401
+    compute_lci,
+    lci_regime,
+    lci_exposure_multiplier,
+)
+from src.assembled_core.features.macro_regime_quadrant import (  # noqa: F401
+    compute_macro_quadrant,
+    current_quadrant_from_fred,
+    quadrant_exposure_bias,
+)
 
 __all__ = [
     "build_or_load_factors",
@@ -101,4 +115,15 @@ __all__ = [
     # Residual momentum
     "compute_residual_momentum",
     "cross_sectional_residual_momentum",
+    # Time-series feature extraction (tsfresh / manual fallback)
+    "extract_tsfresh_features",
+    "extract_rolling_features",
+    # Liquidity condition index
+    "compute_lci",
+    "lci_regime",
+    "lci_exposure_multiplier",
+    # Macro regime quadrant (growth × inflation)
+    "compute_macro_quadrant",
+    "current_quadrant_from_fred",
+    "quadrant_exposure_bias",
 ]

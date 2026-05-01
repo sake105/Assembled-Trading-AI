@@ -41,6 +41,15 @@ from src.assembled_core.risk.transaction_costs import (
     estimate_per_trade_cost,
     summarize_tca,
 )
+from src.assembled_core.risk.garch_vol import (  # noqa: F401
+    forecast_vol,
+    size_vol_target,
+    compute_vol_forecasts,
+)
+from src.assembled_core.risk.garch_vol_forecast import (  # noqa: F401
+    forecast_garch_vol,
+    garch_vol_target_size,
+)
 
 __all__ = [
     # Regime Models (D1)
@@ -68,4 +77,10 @@ __all__ = [
     "FactorExposureConfig",
     "compute_factor_exposures",
     "summarize_factor_exposures",
+    # Vol forecasting (GARCH / fallback)
+    "forecast_vol",
+    "size_vol_target",
+    "compute_vol_forecasts",
+    "forecast_garch_vol",
+    "garch_vol_target_size",
 ]

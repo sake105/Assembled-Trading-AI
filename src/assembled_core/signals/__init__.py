@@ -31,6 +31,23 @@ from src.assembled_core.signals.tail_risk_hedge import (  # noqa: F401
     should_buy_hedge,
     should_roll_hedge,
 )
+from src.assembled_core.signals.etf_flows import (  # noqa: F401
+    compute_etf_flow,
+    sector_rotation_signal,
+    etf_flow_summary,
+)
+from src.assembled_core.signals.insider_cluster import (  # noqa: F401
+    cluster_buy_score,
+    net_officer_usd,
+    insider_cluster_signal,
+    batch_insider_signals,
+)
+from src.assembled_core.signals.cross_asset_carry import (  # noqa: F401
+    equity_carry,
+    bond_carry,
+    cross_asset_carry_score,
+    carry_exposure_multiplier,
+)
 
 __all__ = [
     "MultiFactorSignalResult",
@@ -55,4 +72,18 @@ __all__ = [
     "tail_hedge_rules",
     "should_buy_hedge",
     "should_roll_hedge",
+    # Market structure / flow signals
+    "compute_etf_flow",
+    "sector_rotation_signal",
+    "etf_flow_summary",
+    # Insider cluster (alt-data)
+    "cluster_buy_score",
+    "net_officer_usd",
+    "insider_cluster_signal",
+    "batch_insider_signals",
+    # Cross-asset carry
+    "equity_carry",
+    "bond_carry",
+    "cross_asset_carry_score",
+    "carry_exposure_multiplier",
 ]
