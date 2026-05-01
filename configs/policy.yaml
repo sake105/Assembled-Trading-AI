@@ -3,7 +3,7 @@ policy_version: "v1.0"
 # High-level scope for this policy version.
 scope:
   instruments: ["ETFs", "equities"]  # ETFs + direct equities for short candidates
-  leverage_allowed: true             # backtest: allow gross turnover > 1.0 (rebalancing)
+  leverage_allowed: false            # no leverage / no leveraged products
   shorts_allowed: true               # v2.0: enabled — inverse ETFs + direct shorts
 
 # Short-selling configuration (active when shorts_allowed: true)
@@ -17,7 +17,7 @@ shorts:
   # because scope.leverage_allowed=false. Changing this alone will NOT loosen
   # the effective cap — you must also raise risk_limits.max_gross_exposure AND
   # flip leverage_allowed=true (P0 finding A6, Deep Run v2, 2026-04-18).
-  max_gross_exposure: 10.00             # backtest: high cap to allow full rebalancing turnover (was 1.50)
+  max_gross_exposure: 1.50              # long + |short| <= 150%
   max_net_short: 0.20                   # max 20% net short
   allowed_instruments:
     direct_short: true                  # direct equity shorts
@@ -50,7 +50,7 @@ risk_limits:
   # `shorts.max_gross_exposure` (1.50), which is shorts-specific. This key is
   # read first by pipeline/trading_cycle.py and must be consistent with
   # scope.leverage_allowed=false (see policy_schema.py gross-exposure check).
-  max_gross_exposure: 10.0       # backtest: effectively uncapped — sells reflect portfolio appreciation vs fixed capital BUYs
+  max_gross_exposure: 1.0        # leverage_allowed: false → cap at 100%
   turnover:
     weekly_cap: 0.50             # max 50% portfolio turnover per week
     daily_cap: 0.20              # max 20% portfolio turnover per day
@@ -268,8 +268,8 @@ risk_state_machine:
 # Regime detection (Phase 0D)
 # ---------------------------------------------------------------------------
 regime_detection:
-  enabled: false             # backtest: disabled to avoid per-cycle HMM refitting
-  method: "rule_based"       # backtest: use rule_based to skip per-cycle HMM fitting (was "hmm")
+  enabled: true
+  method: "hmm"              # "hmm" | "multifeature_hmm" | "rule_based"
   n_regimes: 3               # bull / bear / sideways
   benchmark_symbol: "SPY"
   multifeature: false        # true → MultiFeatureRegimeHMM (4 observables)
@@ -327,7 +327,7 @@ signal_generation:
 # Position sizing (Phase 0C)
 # ---------------------------------------------------------------------------
 position_sizing:
-  method: "default"            # "equal_weight" | "score_weighted" | "vol_scaled" | "black_litterman" | "cost_aware" | "default" → ctx.position_sizing_fn
+  method: "black_litterman"    # "equal_weight" | "score_weighted" | "vol_scaled" | "black_litterman" | "cost_aware"
   black_litterman:
     risk_aversion: 2.5
     tau: 0.05
@@ -458,7 +458,7 @@ signals:
 # Multi-factor composite signal (Step 3.55 — shadow mf_score on signals)
 # ---------------------------------------------------------------------------
 multifactor_signal:
-  enabled: false  # disabled — multifactor_long_short strategy uses its own signal_fn
+  enabled: true
   bundle_path: "configs/factor_bundles/macro_world_etfs_core_bundle.yaml"
 
 # ---------------------------------------------------------------------------
