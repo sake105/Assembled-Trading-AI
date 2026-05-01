@@ -59,19 +59,15 @@ Erwarteter Bias: +1–2% p.a. bei US Large-Caps, **+5–10% p.a.** bei Mid-Caps.
 - [x] **[DONE 2026-04-30]** Drift-Persistierung implementiert  
   **Datei:** `src/assembled_core/qa/drift_detection.py` — `save_drift_results()` schreibt `output/drift_analysis_{freq}.parquet`; API liest daraus
 
-### 1.5 Backtest Performance: `--rebalance monthly` erforderlich für Snapshot-Modus
+### 1.5 Backtest: Monatlicher Rebalance-Modus — BEHOBEN (3478948)
 
-- [ ] **[usability]** Monatsrebalancing: `--rebalance monthly` muss explizit gesetzt werden  
-  **Dateien:** `scripts/run_backtest_strategy.py` (Zeile 1961), `src/assembled_core/qa/backtest_engine.py` (Zeile 695)  
-  **Problem:** `backtest_use_snapshot` aktiviert sich nur wenn `--rebalance monthly` übergeben wird  
-  (nicht `--rebalance-freq M`). Ohne dieses Flag läuft der cycle_fn auf allen ~1300 Tagen statt  
-  nur auf ~62 Rebalance-Tagen → ~20× langsamer.  
-  **Korrekte Syntax für monatliches Rebalancing:**  
-  ```
-  --freq 1d --rebalance monthly --rebalance-freq M
-  ```
-  `--rebalance-freq M` steuert die interne Signallogik; `--rebalance monthly` steuert die  
-  Backtest-Engine (welche Tage cycle_fn aufruft + snapshot-Modus-Aktivierung).
+- [x] **[FIXED 2026-05-02]** Zwei kombinierte Bugs ließen ~6/63 monatliche Rebalance-Dates leer:
+  1. `_is_rebalance_date()` prüfte `timestamp.day == 1` (Kalender-Tag) statt ersten Handelstag.
+     Fix: Month-boundary-Erkennung aus der tatsächlichen Timestamp-Serie der Preisdaten.
+  2. `backtest_use_snapshot` triggerte nur bei `--rebalance monthly`, nicht `--rebalance-freq M`.
+     Fix: `rebalance_freq in ("M", "W")` löst jetzt ebenfalls Snapshot-Modus aus.
+  **Betroffene Monate:** Jun/Sep/Nov 2025, Jan/Feb/Mar 2026 (1. auf Wochenende/Feiertag).  
+  **Commit:** `3478948` — 113 Tests bestanden.
 
 ### 1.6 Live-Trading-Mode
 
@@ -208,10 +204,24 @@ Schwellen müssen erfüllt sein, bevor eine Schicht aktiviert wird:
   → Intervalbreiten systematisch zu weit → Multiplikatoren klemmen bei 0.25 (Minimum).
 - **Bug-Fixes committed (e10348e):** `parents[4]` → `parents[3]` (falscher Repo-Root-Pfad),
   `target_weight` + `target_qty` beide skaliert (vorher nur `target_pct` geprüft → kein Effekt).
-- **Nächster Schritt:** Conformal-Modell v3 mit panel-nativen Feature-Namen neu trainieren.
-  Erwartetes Ergebnis: Multiplikatoren verteilen sich zwischen 0.25–2.0 statt an 0.25 zu klemmen.
-  Aktivierungskriterium: MDD-Reduktion ≥ 1% **ohne** Sharpe-Schaden > 0.1.
-- Aktivierungsschwelle: *noch nicht erfüllt* (CAGR-Schaden > 5pp unakzeptabel bis Retraining).
+- **v3 (panel-native names, runtime-median anchor) — A/B-Backtest 2023-01-03→2026-04-15
+  (post-Rebalance-Fix, commit 3478948, monatliches Rebalancing, Kosten an):**
+
+  | Metrik   | Baseline  | Conformal v3 | Delta     |
+  |----------|-----------|--------------|-----------|
+  | CAGR     | 19.19%    | 15.20%       | -3.99pp   |
+  | Sharpe   | 2.988     | 2.813        | -0.175    |
+  | MDD      | -3.39%    | -3.32%       | +0.07pp   |
+  | PF       | 1.7739    | 1.5873       | -10.5%    |
+  | Trades   | 438       | 438          | 0         |
+
+- **Befund v3:** Feature-Gap behoben (alle 13 Features resolven). Runtime-Median-Anchor
+  reduziert Verteilungsshift (Train-Median 0.183 vs. Test-Median 0.306). Dennoch:
+  Sharpe-Schaden (-0.175) überschreitet Schwelle (-0.1), MDD-Verbesserung (+0.07pp)
+  unterschreitet Mindest-Reduktion (1.0pp). **K4-Aktivierungskriterium nicht erfüllt.**
+- **Aktivierungsschwelle:** *nicht erfüllt.* Nächste Option: breitere Alpha-Features
+  (Fundamentaldaten, News-Sentiment) trainieren, die MDD-relevante Risiko-Signale
+  vom CAGR-generierenden Alpha trennen.
 
 #### Offene Verbesserungen
 

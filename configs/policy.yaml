@@ -347,7 +347,7 @@ position_sizing:
     normalize: true
   # Quantile-interval sizing overlay (LightGBM q05/q95, v3 panel-native names, 91.5% coverage)
   conformal:
-    enabled: false                 # v3 ready; A/B: see KNOWN_ISSUES.md §4.3 for activation criteria
+    enabled: false                 # v3 A/B (2023-26, post-rebalance-fix): CAGR -3.99pp, Sharpe -0.175, MDD +0.07pp -- K4 NOT met
     model_path: "models/conformal_position_v3.joblib"
 
 # ---------------------------------------------------------------------------
