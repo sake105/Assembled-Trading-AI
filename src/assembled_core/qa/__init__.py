@@ -97,6 +97,15 @@ from src.assembled_core.qa.walk_forward import (
 
 compute_rank_ic_legacy = compute_factor_rank_ic
 
+from src.assembled_core.qa.leakage_analyzer import (  # noqa: F401
+    LeakageReport,
+    LeakageAnalyzer,
+)
+from src.assembled_core.qa.cpcv_validation import (  # noqa: F401
+    purged_train_test_split,
+    walk_forward_oos_score,
+)
+
 __all__ = [
     "add_forward_returns",
     "compute_factor_ic",
@@ -130,4 +139,10 @@ __all__ = [
     "generate_walk_forward_splits",
     "run_walk_forward_backtest",
     "make_engine_backtest_fn",
+    # Leakage detection
+    "LeakageReport",
+    "LeakageAnalyzer",
+    # CPCV / purged CV
+    "purged_train_test_split",
+    "walk_forward_oos_score",
 ]
