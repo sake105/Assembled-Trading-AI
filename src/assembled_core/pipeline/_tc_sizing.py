@@ -811,12 +811,14 @@ def size_positions(
 
                 _avail = [c for c in _conf_feat_cols if c in _lf_work.columns]
                 if len(_avail) >= 5 and "symbol" in _lf_work.columns:
-                    _X_conf = _lf_work.set_index("symbol")[_avail].reindex(
+                    # Keep DataFrame (not ndarray) so LightGBM skips feature-name warning
+                    _X_conf_df = _lf_work.set_index("symbol")[_avail].reindex(
                         columns=_conf_feat_cols, fill_value=0.0
-                    ).values.astype(float)
+                    ).astype(float)
+                    _X_conf = _X_conf_df  # pass DataFrame to preserve feature names
                     _mtype = _conf_bundle.get("model_type", "")
                     if _mtype == "QuantileRegressionInterval_v2":
-                        # v2: q05/q95 models for ~87% coverage
+                        # v2/v3: q05/q95 models for >=87% coverage
                         _q_lo = _conf_bundle["q05_model"].predict(_X_conf)
                         _q_hi = _conf_bundle["q95_model"].predict(_X_conf)
                         _widths = (_q_hi - _q_lo).clip(1e-8)
@@ -826,9 +828,13 @@ def size_positions(
                         _q_hi = _conf_bundle["q90_model"].predict(_X_conf)
                         _widths = (_q_hi - _q_lo).clip(1e-8)
                     else:
-                        _, _intervals = _conf_bundle["model"].predict_interval(_X_conf)
+                        _, _intervals = _conf_bundle["model"].predict_interval(_X_conf_df.values)
                         _widths = (_intervals[:, 1, 0] - _intervals[:, 0, 0]).clip(1e-8)
-                    _size_mult = (_med_width / _widths).clip(0.25, 2.0)
+                    # Anchor to runtime cross-section median to avoid train/test
+                    # distribution shift (test widths often differ from train).
+                    _runtime_med = float(np.median(_widths)) if len(_widths) >= 3 else _med_width
+                    _anchor = _runtime_med if _runtime_med > 0 else _med_width
+                    _size_mult = (_anchor / _widths).clip(0.25, 2.0)
                     _mult_map = dict(zip(_lf_work["symbol"].values, _size_mult.tolist()))
                     _weight_col = next(
                         (c for c in ("target_pct", "target_weight") if c in target_positions.columns),

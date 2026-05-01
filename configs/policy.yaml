@@ -347,7 +347,7 @@ position_sizing:
     normalize: true
   # Quantile-interval sizing overlay (LightGBM q05/q95, v3 panel-native names, 91.5% coverage)
   conformal:
-    enabled: false                 # enable to scale positions by prediction interval width
+    enabled: false                 # v3 ready; A/B: PF 1.73 vs baseline 1.83 (runtime-median anchor)
     model_path: "models/conformal_position_v3.joblib"
 
 # ---------------------------------------------------------------------------
