@@ -229,12 +229,19 @@ def generate_multifactor_long_short_signals(
         score_col="mf_score",
     )
 
-    # Filter to rebalancing dates
-    logger.info(f"Filtering to rebalancing dates (freq: {config.rebalance_freq})...")
-    rebalance_mask = mf_df["timestamp"].apply(
-        lambda ts: _is_rebalance_date(ts, config.rebalance_freq)
-    )
-    mf_df_rebalance = mf_df[rebalance_mask].copy()
+    # Filter to rebalancing dates.
+    # Skip filter in snapshot mode (single timestamp) — caller already ensured we are on a
+    # rebalancing date by only invoking the signal on monthly boundaries.
+    _n_timestamps = mf_df["timestamp"].nunique() if "timestamp" in mf_df.columns else 0
+    if _n_timestamps <= 1:
+        mf_df_rebalance = mf_df.copy()
+        logger.info("Snapshot mode detected (single timestamp): skipping rebalance-date filter")
+    else:
+        logger.info(f"Filtering to rebalancing dates (freq: {config.rebalance_freq})...")
+        rebalance_mask = mf_df["timestamp"].apply(
+            lambda ts: _is_rebalance_date(ts, config.rebalance_freq)
+        )
+        mf_df_rebalance = mf_df[rebalance_mask].copy()
 
     logger.info(
         f"Rebalancing dates: {mf_df_rebalance['timestamp'].nunique()} unique dates, "

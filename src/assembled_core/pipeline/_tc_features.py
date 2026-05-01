@@ -154,9 +154,17 @@ def build_features(
         log.debug("HMM regime detection skipped: %s", e)
 
     # --- Step 2.2: Enhanced enrichment (ta_factors_core + cross_sectional) ---
+    # Skip in backtest mode when precomputed features are already present — re-running
+    # build_core_ta_factors on a short slice would overwrite valid precomputed factor
+    # values (returns_12m, momentum_12m_excl_1m, trend_strength_50, rv_20) with NaN.
+    _using_precomputed = (
+        ctx.mode == "backtest"
+        and ctx.precomputed_prices_with_features is not None
+        and not ctx.precomputed_prices_with_features.empty
+    )
     try:
         enh_cfg = (policy.get("features") or {}).get("enhanced_factors") or {}
-        if enh_cfg.get("enabled", False) and not pwf.empty:
+        if enh_cfg.get("enabled", False) and not pwf.empty and not _using_precomputed:
             if enh_cfg.get("ta_factors_core", True):
                 from src.assembled_core.features.ta_factors_core import (
                     build_core_ta_factors,

@@ -485,11 +485,22 @@ def create_multifactor_long_short_signal_fn(
         rebalance_freq=rebalance_freq,
     )
 
+    from src.assembled_core.config.factor_bundles import load_factor_bundle
+
+    _bundle = load_factor_bundle(bundle_path)
+    _bundle_factor_names = [f.name for f in _bundle.factors]
+
     def signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
-        """Generate multi-factor long/short signals from prices."""
+        """Generate multi-factor long/short signals from prices.
+
+        If the precomputed factor columns are already present in prices_df, use them
+        directly (avoids recomputing from a per-day slice which is too small for
+        long-window factors like trend_strength_200, rv_20, momentum_12m_excl_1m).
+        """
+        factors_present = all(col in prices_df.columns for col in _bundle_factor_names)
         return generate_multifactor_long_short_signals(
             prices=prices_df,
-            factors=None,  # Will be computed from prices
+            factors=prices_df if factors_present else None,
             config=config,
         )
 
@@ -770,9 +781,9 @@ Examples:
     parser.add_argument(
         "--rebalance",
         type=str,
-        choices=["daily", "weekly"],
+        choices=["daily", "weekly", "monthly"],
         default="daily",
-        help="Rebalance schedule: daily (every bar) or weekly (every 5th bar for 1d). Default: daily.",
+        help="Rebalance schedule: daily (every bar), weekly (every 5th bar), or monthly (first trading day of each month). Default: daily.",
     )
 
     # Broker snapshot arguments (Sprint 13 extension)
@@ -1131,12 +1142,19 @@ def load_price_data(
             write_qc_report_json(qc_report, qc_report_path)
             logger.info(f"QC report written: {qc_report_path}")
 
-        # Set QA Gate if QC has FAIL issues
+        # Set QA Gate if QC has FAIL issues (skippable with --no-qa-gate for research)
+        no_qa_gate = getattr(args, "no_qa_gate", False)
         if not qc_report.ok:
-            qa_block_trading = True
-            qa_block_reason = f"DATA_QC_FAIL: {qc_report.summary.get('fail_count', 0)} FAIL issues, {qc_report.summary.get('warn_count', 0)} WARN issues"
-            logger.warning(f"QC FAILED: {qa_block_reason}")
-            logger.warning("Trading will be blocked (no orders generated in backtest)")
+            if no_qa_gate:
+                logger.warning(
+                    f"QC FAILED ({qc_report.summary.get('fail_count', 0)} FAIL issues) "
+                    f"— overridden by --no-qa-gate (research mode)"
+                )
+            else:
+                qa_block_trading = True
+                qa_block_reason = f"DATA_QC_FAIL: {qc_report.summary.get('fail_count', 0)} FAIL issues, {qc_report.summary.get('warn_count', 0)} WARN issues"
+                logger.warning(f"QC FAILED: {qa_block_reason}")
+                logger.warning("Trading will be blocked (no orders generated in backtest)")
         elif qc_report.summary.get("warn_count", 0) > 0:
             logger.warning(
                 f"QC WARN: {qc_report.summary.get('warn_count', 0)} WARN issues (backtest will proceed)"
@@ -1312,6 +1330,18 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         if prices.empty:
             logger.error("No price data loaded")
             return 1
+
+        # Normalize timestamps to midnight UTC — yfinance mixes 00:00 UTC and 04:00 UTC
+        # for different tickers (DST boundary artefact). Dedup keeps the last close per
+        # (symbol, calendar-date) so the equity timeline has one row per trading day.
+        if "timestamp" in prices.columns:
+            prices = prices.copy()
+            prices["timestamp"] = pd.to_datetime(prices["timestamp"], utc=True).dt.normalize()
+            prices = (
+                prices.sort_values(["symbol", "timestamp"])
+                .drop_duplicates(subset=["symbol", "timestamp"], keep="last")
+                .reset_index(drop=True)
+            )
 
         # Log data size
         logger.info(
@@ -1828,6 +1858,39 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                         f"[fallback] Computed features directly: {len(precomputed_prices_with_features)} rows"
                     )
 
+        # For multifactor_long_short: also compute bundle-specific factors (rv_20, trend_strength, momentum_12m etc.)
+        if (
+            args.strategy == "multifactor_long_short"
+            and precomputed_prices_with_features is not None
+            and not precomputed_prices_with_features.empty
+        ):
+            try:
+                from scripts.run_factor_analysis import compute_factors
+                from src.assembled_core.config.factor_bundles import load_factor_bundle
+
+                bundle = load_factor_bundle(args.bundle_path)
+                factor_set = getattr(bundle, "factor_set", "core+vol_liquidity")
+                logger.info(
+                    f"[multifactor] Computing bundle factors (factor_set={factor_set}) on full history..."
+                )
+                base = prices.copy() if precomputed_prices_with_features is None else precomputed_prices_with_features.copy()
+                mf_features = compute_factors(base, factor_set=factor_set, output_dir=None)
+                # Merge newly computed factor columns back (avoid duplicates)
+                existing_cols = set(precomputed_prices_with_features.columns)
+                new_cols = [c for c in mf_features.columns if c not in existing_cols]
+                if new_cols:
+                    key_cols = ["timestamp", "symbol"]
+                    precomputed_prices_with_features = precomputed_prices_with_features.merge(
+                        mf_features[key_cols + new_cols], on=key_cols, how="left"
+                    )
+                    logger.info(f"[multifactor] Added factor columns: {new_cols}")
+                else:
+                    # Factor cols already present — use mf_features directly
+                    precomputed_prices_with_features = mf_features
+                    logger.info("[multifactor] Factor columns already present, used recomputed frame.")
+            except Exception as _e:
+                logger.warning(f"[multifactor] Factor pre-computation failed: {_e} — signals may degrade")
+
         # Load security master (if available) for sector/region/FX limits
         security_meta_df = None
         try:
@@ -1865,7 +1928,10 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             security_meta_df=security_meta_df,  # Pass security metadata for group exposure limits
             qa_block_trading=qa_block_trading,  # QA Gate (Sprint 3 / D2)
             qa_block_reason=qa_block_reason,
-            backtest_use_snapshot=False,  # Need full history slice for EMA/trend signals (snapshot = 1 row/symbol -> no signals)
+            # snapshot=True: signal fn receives one row per symbol (latest factor values). Safe for
+            # factor-bundle strategies where factors are precomputed point-in-time values.
+            # snapshot=False needed for trend/EMA strategies that require full price history within the cycle.
+            backtest_use_snapshot=(getattr(args, "rebalance", "daily") == "monthly"),
         )
 
         # Create cycle_fn using make_cycle_fn

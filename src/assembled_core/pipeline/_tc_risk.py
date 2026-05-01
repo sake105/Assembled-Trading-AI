@@ -198,7 +198,7 @@ def check_risk(
                 from src.assembled_core.paper.rebalance_filter import (
                     filter_small_rebalances,
                 )
-                result.orders_filtered, _rf_meta = filter_small_rebalances(result.orders_filtered, min_notional=float(anti_churn_cfg.get("min_notional", 500.0)), prices=prices_filtered if prices_filtered is not None else ctx.prices)
+                result.orders_filtered, _rf_meta = filter_small_rebalances(result.orders_filtered, min_notional=float(anti_churn_cfg.get("min_notional", 500.0)), prices=ctx.prices)
                 result.meta["rebalance_filter"] = _rf_meta
     except Exception as e:
         log.debug("anti_churn filters skipped: %s", e)

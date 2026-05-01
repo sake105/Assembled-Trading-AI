@@ -437,6 +437,13 @@ Examples:
         help="Skip ledger/accounting output (faster, for quick checks)",
     )
     backtest_parser.add_argument(
+        "--no-qa-gate",
+        action="store_true",
+        default=False,
+        dest="no_qa_gate",
+        help="Override QA data-quality gate (for research/backtesting with imperfect data)",
+    )
+    backtest_parser.add_argument(
         "--rebalance-freq",
         type=str,
         default="1d",

@@ -886,6 +886,13 @@ def _pb_simulate_equity(
             spread_w = spread_w if spread_w is not None else default_costs.spread_w
             impact_w = impact_w if impact_w is not None else default_costs.impact_w
 
+        # Normalize rebalance_freq to data-bar frequency for the fill pipeline.
+        # "M"/"W"/"Q" are rebalancing cadences, not bar frequencies — the session
+        # gate only recognises "1d" as EOD mode. Any non-intraday cadence maps to "1d"
+        # so midnight-UTC EOD timestamps are accepted instead of rejected as OUTSIDE_SESSION.
+        _INTRADAY_FREQS = {"1min", "5min", "15min", "30min", "1h", "2h", "4h"}
+        fill_freq = rebalance_freq if rebalance_freq in _INTRADAY_FREQS else "1d"
+
         if include_costs:
             equity, metrics, trades_df = simulate_with_costs(
                 orders=orders_df,
@@ -893,7 +900,7 @@ def _pb_simulate_equity(
                 commission_bps=commission_bps,
                 spread_w=spread_w,
                 impact_w=impact_w,
-                freq=rebalance_freq,
+                freq=fill_freq,
                 prices=prices,
                 strict_session_gate=strict_session_gate,
             )
@@ -914,7 +921,7 @@ def _pb_simulate_equity(
         orders_df = apply_fill_model_pipeline(
             orders_df,
             prices=prices,
-            freq=rebalance_freq,
+            freq=fill_freq,
             partial_fill_model=None,
             strict_session_gate=strict_session_gate,
         )
@@ -1292,6 +1299,14 @@ def run_portfolio_backtest(
         rebalance_timestamps_set: set = set(normalized_rebalance)
     elif rebalance_schedule == "weekly":
         rebalance_timestamps_set = set(timeline[i] for i in range(0, len(timeline), 5))
+    elif rebalance_schedule == "monthly":
+        # First trading day of each calendar month: keep ts if previous ts has a different month.
+        rebalance_timestamps_set = set()
+        prev_month: int | None = None
+        for ts in timeline:
+            if ts.month != prev_month:
+                rebalance_timestamps_set.add(ts)
+            prev_month = ts.month
     else:
         rebalance_timestamps_set = set(timeline)
 

@@ -233,18 +233,24 @@ def _validate_fill_constraints(fills: pd.DataFrame) -> None:
     """
     if fills.empty:
         return
-    # Check fill_qty <= qty
-    if not (fills["fill_qty"] <= fills["qty"]).all():
+    # Check fill_qty <= qty (NaN-safe: drop rows where either is NaN before comparison)
+    _valid = fills.dropna(subset=["fill_qty", "qty"])
+    if not (_valid["fill_qty"] <= _valid["qty"]).all():
+        _bad = _valid[_valid["fill_qty"] > _valid["qty"]][["symbol", "side", "qty", "fill_qty"]].head(5)
+        logger.error("[fill_model] fill_qty > qty in rows: %s", _bad.to_dict("records"))
         raise ValueError("fill_qty must be <= qty for all rows")
 
-    # Check fill_qty >= 0
-    if not (fills["fill_qty"] >= 0).all():
+    # Check fill_qty >= 0 (NaN-safe)
+    if not (_valid["fill_qty"] >= 0).all():
         raise ValueError("fill_qty must be >= 0 for all rows")
 
-    # Check remaining_qty = qty - fill_qty
-    expected_remaining = fills["qty"] - fills["fill_qty"]
-    if not np.allclose(
-        fills["remaining_qty"], expected_remaining, rtol=1e-9, atol=1e-9
+    # Check remaining_qty = qty - fill_qty (NaN-safe)
+    _valid_rem = fills.dropna(subset=["remaining_qty", "fill_qty", "qty"])
+    if not _valid_rem.empty and not np.allclose(
+        _valid_rem["remaining_qty"],
+        _valid_rem["qty"] - _valid_rem["fill_qty"],
+        rtol=1e-9,
+        atol=1e-9,
     ):
         raise ValueError("remaining_qty must equal qty - fill_qty")
 

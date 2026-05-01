@@ -104,37 +104,26 @@ def _zscore_crosssectional(
     Returns:
         Series with z-scores (index matches df.index)
     """
-    result = df[[timestamp_col, factor_col]].copy()
-
-    # Group by timestamp and compute z-score within each group
-    def zscore_group(group: pd.DataFrame) -> pd.Series:
-        values = group[factor_col].values
-        non_null_mask = ~pd.isna(values)
-
+    # Use transform on SeriesGroupBy — always returns a flat Series with the
+    # same index as the original column (avoids pandas 2.2 DataFrame return
+    # from DataFrameGroupBy.apply with include_groups=False).
+    def _zscore_within_group(s: pd.Series) -> pd.Series:
+        non_null_mask = ~s.isna()
         if non_null_mask.sum() < 2:
-            # Not enough non-null values for z-scoring
-            return pd.Series(np.nan, index=group.index)
-
-        non_null_values = values[non_null_mask]
-        mean_val = np.mean(non_null_values)
-        std_val = np.std(non_null_values, ddof=0)  # Population std
-
-        # Compute z-scores
-        zscores = np.full(len(values), np.nan)
-        if std_val > 1e-10:  # Avoid division by zero
-            zscores[non_null_mask] = (non_null_values - mean_val) / std_val
+            return pd.Series(np.nan, index=s.index, dtype=float)
+        vals = s[non_null_mask].values
+        mean_val = float(np.mean(vals))
+        std_val = float(np.std(vals, ddof=0))
+        out = pd.Series(np.nan, index=s.index, dtype=float)
+        if std_val > 1e-10:
+            out[non_null_mask] = (vals - mean_val) / std_val
         else:
-            # All values are the same, set z-score to 0
-            zscores[non_null_mask] = 0.0
+            out[non_null_mask] = 0.0
+        return out
 
-        return pd.Series(zscores, index=group.index)
-
-    zscores = result.groupby(timestamp_col, group_keys=False).apply(zscore_group, include_groups=False)
-
-    # Reindex to match original df index
-    zscores = zscores.reindex(df.index)
-
-    return zscores
+    return df.groupby(timestamp_col, group_keys=False)[factor_col].transform(
+        _zscore_within_group
+    )
 
 
 def build_multifactor_signal(
