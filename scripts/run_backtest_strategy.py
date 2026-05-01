@@ -953,6 +953,13 @@ Examples:
         help="Override QA data-quality gate (for research/backtesting with imperfect data)",
     )
 
+    parser.add_argument(
+        "--policy-path",
+        type=str,
+        default=None,
+        help="Override policy YAML path (sets ASSEMBLED_POLICY_PATH; useful for A/B experiments)",
+    )
+
     return parser.parse_args()
 
 
@@ -2435,6 +2442,15 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
 def main() -> int:
     """Main entry point for strategy backtest CLI (standalone script)."""
     args = parse_args()
+    if getattr(args, "policy_path", None):
+        import os as _os
+        _os.environ["ASSEMBLED_POLICY_PATH"] = args.policy_path
+        # Clear policy cache so size_positions() picks up the new path.
+        try:
+            from src.assembled_core.config.policy_loader import _POLICY_CACHE
+            _POLICY_CACHE.clear()
+        except Exception:
+            pass
     return run_backtest_from_args(args)
 
 

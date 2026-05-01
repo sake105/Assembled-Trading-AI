@@ -788,9 +788,27 @@ def size_positions(
                     prices_with_features.sort_values("timestamp")
                     .groupby("symbol").last().reset_index()
                 ) if "symbol" in prices_with_features.columns else prices_with_features
-                _avail = [c for c in _conf_feat_cols if c in _latest_f.columns]
-                if len(_avail) >= 5 and "symbol" in _latest_f.columns:
-                    _X_conf = _latest_f.set_index("symbol")[_avail].reindex(
+
+                # Translate legacy conformal feature names to panel-native names.
+                # Models trained before panel naming was standardised used short names;
+                # panel uses prefixed names (ta_*, rv_*). Map where semantics match exactly.
+                _CONF_NAME_MAP = {
+                    "rsi_14":      "ta_rsi_14_v1",
+                    "macd_hist":   "ta_macd_hist_v1",
+                    "bb_pos":      "ta_bb_pctb_v1",
+                    "bb_width":    "ta_bb_bandwidth_v1",
+                    "atr_norm":    "ta_atr_14_v1",
+                    "vol_20d":     "rv_20",
+                    "vol_zscore_20": "volume_zscore",
+                }
+                _lf_work = _latest_f.copy()
+                for _old, _new in _CONF_NAME_MAP.items():
+                    if _old not in _lf_work.columns and _new in _lf_work.columns:
+                        _lf_work[_old] = _lf_work[_new]
+
+                _avail = [c for c in _conf_feat_cols if c in _lf_work.columns]
+                if len(_avail) >= 5 and "symbol" in _lf_work.columns:
+                    _X_conf = _lf_work.set_index("symbol")[_avail].reindex(
                         columns=_conf_feat_cols, fill_value=0.0
                     ).values.astype(float)
                     _mtype = _conf_bundle.get("model_type", "")
@@ -808,7 +826,7 @@ def size_positions(
                         _, _intervals = _conf_bundle["model"].predict_interval(_X_conf)
                         _widths = (_intervals[:, 1, 0] - _intervals[:, 0, 0]).clip(1e-8)
                     _size_mult = (_med_width / _widths).clip(0.25, 2.0)
-                    _mult_map = dict(zip(_latest_f["symbol"].values, _size_mult.tolist()))
+                    _mult_map = dict(zip(_lf_work["symbol"].values, _size_mult.tolist()))
                     if "target_pct" in target_positions.columns and "symbol" in target_positions.columns:
                         target_positions = target_positions.copy()
                         _sym_mult = target_positions["symbol"].map(_mult_map).fillna(1.0)

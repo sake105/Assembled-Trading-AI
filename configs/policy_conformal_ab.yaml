@@ -1,0 +1,418 @@
+policy_version: v1.0
+scope:
+  instruments:
+  - ETFs
+  - equities
+  leverage_allowed: false
+  shorts_allowed: true
+shorts:
+  enabled: true
+  max_short_weight_per_position: 0.1
+  max_total_short_exposure: 0.3
+  max_gross_exposure: 1.5
+  max_net_short: 0.2
+  allowed_instruments:
+    direct_short: true
+    inverse_etf_1x: true
+    inverse_etf_2x: false
+    inverse_etf_3x: false
+  regime_scaling:
+    bull: 0.0
+    sideways: 0.1
+    bear: 0.25
+    crisis: 0.3
+    reflation: 0.05
+  borrow_cost_assumption_bps: 50
+  squeeze_risk_check: true
+  min_short_signal_confidence: 0.7
+  min_crash_probability: 0.6
+  require_stop_loss: true
+  max_stop_loss_pct: 0.15
+risk_limits:
+  target_vol_annual: 0.2
+  max_drawdown:
+    soft: 0.12
+    hard: 0.2
+    kill: 0.3
+  max_position_weight: 0.2
+  max_gross_exposure: 1.0
+  turnover:
+    weekly_cap: 0.5
+    daily_cap: 0.2
+  concentration_guard:
+    max_sector_weight: 0.4
+    max_corr_cluster_weight: 0.5
+state_machine:
+  states:
+  - WATCH
+  - ACTIVE
+  - COOLDOWN
+  - PAUSE
+  activation:
+    requires_geo_trigger: true
+    requires_market_stress_confirm: true
+    evidence_tiers:
+    - A
+    - B
+  deactivation:
+    geo_decay_days: 14
+    vol_normalization_days: 20
+    cooldown_days: 5
+health_gates:
+  news:
+    degraded_behavior: WATCH_ONLY
+    required_tier_for_active: A
+  disclosures:
+    degraded_behavior: WATCH_ONLY
+  marketdata:
+    degraded_behavior: PAUSE
+intel:
+  disclosures_triggers:
+    enabled: false
+    path: output/intel/disclosures/triggers_latest.json
+  rss:
+    enabled: true
+  nlp:
+    enabled: false
+  kill_switch:
+    enabled: false
+  crisis_alpha:
+    enabled: true
+    shadow_only: true
+  signal_layer:
+    enabled: true
+    weight: 0.15
+    allow_short: false
+    min_confidence: 0.5
+    shock_confidence: 0.6
+  news_signal_bridge:
+    enabled: true
+    weight: 0.1
+    min_severity: 1
+    allow_short: false
+disclosures_confirm:
+  enabled: true
+  boost:
+    min_severity: 1
+    add_confidence: 0.1
+    max_confidence: 0.95
+  qc:
+    if_disclosures_degraded: no_boost
+execution_policy:
+  mode_default: paper
+  idempotency_required: true
+  reconcile_as_truth: true
+execution:
+  cost_meta:
+    enabled: true
+    impact_limit_bps: 50.0
+    enforce: false
+    default_adv: 1000000.0
+    default_sigma: 0.02
+  smart_order_router:
+    enabled: true
+    urgency: 0.5
+    allow_dark_pools: true
+    max_venues: 3
+logging_policy:
+  audit_required: true
+  artifact_paths:
+    policy_snapshot: output/policy/policy_snapshot.yaml
+georisk_overlay:
+  enabled: true
+  source: news_geo
+  mapping:
+    WATCH:
+      multiplier: 1.0
+      hedge:
+        enabled: false
+    ACTIVE:
+      multiplier: 0.7
+      hedge:
+        enabled: false
+    COOLDOWN:
+      multiplier: 0.85
+      hedge:
+        enabled: false
+    PAUSE:
+      multiplier: 0.0
+      hedge:
+        enabled: false
+  by_geo_score:
+    '0': 1.0
+    '1': 0.9
+    '2': 0.7
+    '3': 0.5
+  confidence_floor: 0.6
+  qc:
+    if_intel_degraded: WATCH
+turnover_budget:
+  enabled: true
+  mode: daily
+  cap: 0.5
+  min_trade_notional: 0
+  behavior: scale
+  qc:
+    if_missing_prices: scale_to_zero
+profit_lock:
+  enabled: true
+  lookback_days: 20
+  trigger_return: 0.08
+  multiplier_on_trigger: 0.8
+  floor: 0.5
+  cooldown_days: 10
+vol_targeting:
+  enabled: false
+  lookback_days: 20
+  target_vol_annual: 0.15
+  min_scale: 0.5
+  max_scale: 1.0
+market_stress:
+  enabled: true
+  lookback_days: 20
+  metrics:
+    vol_z:
+      enabled: true
+      z_threshold: 1.5
+    dd_lookback:
+      enabled: true
+      dd_threshold: -0.05
+  confirm_rule:
+    mode: any
+  qc:
+    if_data_missing: false
+  exposure_scaling:
+    stress_score_1: 0.75
+    stress_score_2: 0.5
+risk_state_machine:
+  enabled: true
+  state_path: output/state/risk_state.json
+  persistence:
+    mode: live
+    per_run_dir: output/state/runs
+    lock:
+      enabled: true
+      retries: 5
+      backoff_ms: 50
+  hysteresis:
+    activate_score: 2
+    deactivate_score: 1
+    pause_score: 3
+    confidence_floor: 0.6
+    require_market_stress_confirm: true
+    require_disclosures_confirm: false
+    disclosures_min_severity: 1
+    disclosures_confirm_gate:
+      enabled: true
+      min_geo_score: 3
+      on_states:
+      - WATCH
+      - COOLDOWN
+  cooldown:
+    hours: 24
+  pause:
+    enabled: false
+    require_confidence: 0.8
+    hours: 12
+  qc:
+    if_intel_degraded: WATCH
+regime_detection:
+  enabled: true
+  method: hmm
+  n_regimes: 3
+  benchmark_symbol: SPY
+  multifeature: false
+  min_history_days: 120
+signal_generation:
+  mode: multifactor
+  multifactor:
+    top_n: 15
+    bottom_n: 5
+    score_method: adaptive
+    regime_blending: true
+    sector_neutralize: false
+  ml_enhanced:
+    meta_model_path: models/meta/meta_model_latest.joblib
+    confidence_threshold: 0.55
+    scale_by_confidence: true
+    use_stacking: true
+    use_quantile_sizing: false
+  sector_rotation:
+    enabled: true
+    long_weight: 0.12
+    short_weight: 0.08
+  earnings_guard:
+    enabled: true
+    suppress_window: 3
+    pead_window_days: 60
+    pead_weight: 0.15
+  bayesian_confidence:
+    enabled: true
+    ci_level: 0.9
+    max_scale: 1.5
+    min_scale: 0.5
+  signal_diagnostics:
+    enabled: true
+    forward_returns_col: return_1d
+    ic_alert_threshold: 0.0
+    output_dir: output/diagnostics
+position_sizing:
+  method: black_litterman
+  black_litterman:
+    risk_aversion: 2.5
+    tau: 0.05
+    max_weight: 0.15
+    min_history_days: 60
+  fallback_method: vol_scaled
+  kelly_uncertainty_shadow:
+    enabled: true
+    fractional_kelly: 0.5
+    max_fraction: 0.25
+    vol_lookback_days: 60
+    reference_half_width: null
+    normalize: true
+  conformal:
+    enabled: true
+    model_path: models/conformal_position_v2.joblib
+hmm_regime_overlay:
+  enabled: false
+  model_path: models/regime_hmm_4state_spy.joblib
+  multipliers:
+    bull: 1.15
+    sideways: 1.0
+    bear: 0.75
+    crisis: 0.4
+anti_churn:
+  ranking_hysteresis_enabled: true
+  entry_n: 5
+  hold_n: 7
+  deadzone_enabled: true
+  deadzone_pct: 0.02
+  rebalance_filter_enabled: true
+  min_notional: 500.0
+evidence_engine:
+  enabled: true
+  require_grade_for_active: B
+  misinfo_risk_threshold: 0.7
+  grades:
+    A:
+      description: 'Strong: >=2 Tier-A OR >=3 independent Tier-B, low misinfo risk'
+    B:
+      description: 'Moderate: >=1 Tier-A OR >=2 independent Tier-B, acceptable misinfo'
+    C:
+      description: 'Weak: >=1 source but below B threshold'
+    D:
+      description: 'Insufficient: no qualifying evidence or misinfo too high'
+paper_trading:
+  engine: unified
+  seed_capital: 100000.0
+  enable_ledger: true
+  enable_reconciliation: true
+  enable_fat_finger: true
+fat_finger_guard:
+  enabled: true
+  max_notional_usd: 500000.0
+  max_qty_multiple: 5.0
+freshness_monitor:
+  enabled: true
+  stale_feature_days: 5
+cost_aware_wrapper:
+  enabled: false
+  penalty_factor: null
+  min_shrink: 0.0
+borrow_costs:
+  enabled: true
+  default_rate_bps: 50.0
+  htb_rate_bps: 500.0
+ml:
+  drift_detection:
+    enabled: true
+    p_value_threshold: 0.01
+signals:
+  meta_model_scoring:
+    enabled: false
+    model_path: output/models/meta/meta_model.joblib
+  meta_model:
+    enabled: false
+    model_path: models/meta_model_lgbm_v2.joblib
+    confidence_threshold: 0.58
+    scale_by_confidence: true
+multifactor_signal:
+  enabled: true
+  bundle_path: configs/factor_bundles/macro_world_etfs_core_bundle.yaml
+monte_carlo:
+  auto_run: false
+  n_paths: 500
+  confidence_level: 0.95
+  seed: null
+robustness:
+  enabled: false
+  deterministic: true
+regime_walk_forward:
+  enabled: false
+alerts:
+  enabled: true
+  rate_limit_seconds: 300
+  output_dir: output/alerts
+  sinks:
+    slack:
+      enabled: false
+      min_severity: WARNING
+    email:
+      enabled: false
+      min_severity: CRITICAL
+kpi_export:
+  enabled: true
+  output_dir: output/metrics
+  gateway_url: null
+correlation_guard:
+  shadow_only: true
+  max_pairwise_corr: 0.8
+zombie_killer:
+  shadow_only: true
+  max_hold_days: 30
+  stale_signal_bars: 10
+crash_prediction:
+  shadow_only: true
+  equity_cap_enabled: true
+  equity_cap_threshold: 0.4
+  base_long_gross: 1.0
+inverse_etf:
+  shadow_only: true
+  enabled: true
+  vix_threshold: 25.0
+  crash_prob_threshold: 0.4
+  hedge_ratio: 0.1
+  max_holding_days: 5
+signal_decay:
+  shadow_only: true
+  enabled: false
+  stale_multiplier: 0.0
+features:
+  news_count_7d: true
+  news_count_30d: true
+  news_sentiment_7d: true
+  news_sentiment_30d: true
+  news_sentiment_z: true
+  news_volume_spike: true
+  news_sentiment_shock: true
+  macro_growth_regime: true
+  macro_inflation_regime: true
+  macro_risk_aversion: true
+  enhanced_factors:
+    enabled: true
+  behavioral_features:
+    enabled: true
+    min_rows: 60
+    ta_factors_core: true
+    cross_sectional_rank: true
+    rank_normalize_to: symmetric
+    rank_cols:
+    - trend_ema_spread
+    - mom_rsi_centered
+    - mom_12_1
+    - low_vol_rank
+    - quality_score
+    - trend_strength_20
+    - trend_strength_50
+    - momentum_12m_excl_1m

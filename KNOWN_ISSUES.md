@@ -38,6 +38,12 @@ Erwarteter Bias: +1–2% p.a. bei US Large-Caps, **+5–10% p.a.** bei Mid-Caps.
 - [x] **[DONE 2026-04-30]** `binary_outperformance` und `multi_class` Labeling vollständig implementiert  
   **Datei:** `src/assembled_core/qa/labeling.py` (Zeilen 574–591)
 
+- [ ] **[open]** HMM Regime Multipliers — hand-tuned, nicht kalibriert  
+  **Datei:** `configs/policy.yaml` (`hmm_regime_overlay.multipliers`)  
+  **Beschreibung:** bull=1.15, sideways=1.00, bear=0.75, crisis=0.40 sind Schätzwerte.
+  Grid-Search auf OOS 2020–2024 ausstehend. Risiko: Whipsaw bei häufigen Regime-Switches.
+  Siehe §4.3 für Aktivierungskriterien.
+
 ### 1.2 Trade-Level-Metriken
 
 - [x] **[DONE 2026-04-30]** `hit_rate`, `profit_factor`, `avg_win`, `avg_loss` implementiert  
@@ -147,6 +153,38 @@ Erwarteter Bias: +1–2% p.a. bei US Large-Caps, **+5–10% p.a.** bei Mid-Caps.
   **Beschreibung:** Economic-Indicators (CPI, Unemployment), Fed-Announcements.
 
 ### 4.3 ML-Experimente
+
+#### ML-Aktivierungskriterien (Stand 2026-05-01)
+
+Alle drei ML-Schichten sind policy-gated und per Default **disabled**. Die folgenden
+Schwellen müssen erfüllt sein, bevor eine Schicht aktiviert wird:
+
+**Schicht 1 — HMM Regime Overlay** (`hmm_regime_overlay.enabled`)
+- Artefakt: `models/regime_hmm_4state_spy.joblib`
+- Multipliers (bull/sideways/bear/crisis): aktuell hand-tuned — **nicht kalibriert**
+- Aktivierungsschwelle: Out-of-Sample A/B-Backtest 2020–2024 mit vs. ohne HMM-Overlay,
+  Sharpe-Differenz ≥ 0.0 (nicht-negativ). Whipsaw-Risiko bei häufigen Regime-Switches
+  prüfen: max. tolerable Drawdown-Zunahme 1.5 %.
+- Kalibrierung ausstehend: Grid-Search auf Multiplier-Werte {0.5, 0.6, 0.75, 0.85, 1.0,
+  1.1, 1.15, 1.25} × {bull, sideways, bear, crisis} auf OOS 2020–2024.
+
+**Schicht 2 — Meta-Model Filter** (`meta_model.enabled` / policy `use_meta_model`)
+- Artefakt: `models/meta_model_lgbm_v4.joblib` (aktuell kanonisch, v4 = cs-rank target)
+- OOS AUC v1–v4: alle zwischen 0.50 und 0.51 — **near-random mit TA-Features alleine**
+- Aktivierungsschwelle: OOS AUC ≥ 0.55 **und** Bootstrap-p-Value < 0.05 (5000 Iterationen)
+- Voraussetzung: News/Earnings/Macro-Features im Feature-Set (TA-Features alleine
+  reichen nicht — durch 4 Iterationen empirisch belegt).
+- Nächster Schritt: `events/news/` Pipeline als Feature-Source integrieren.
+
+**Schicht 3 — Conformal Quantile Sizing** (`conformal.enabled`)
+- Artefakt: `models/conformal_position_v1.joblib`
+- OOS Coverage: 87.0 % (Ziel 85–92 %) — **deployment-ready**
+- Aktivierungsschwelle: Ablation A/B-Backtest — nur Schicht 3 aktivieren (Schichten 1 und 2
+  disabled). Kriterien: Max-Drawdown-Reduktion ≥ 1 % ohne Sharpe-Schaden > 0.1.
+- Hypothese: narrow CI-Band → full size, wide CI-Band → reduce erzeugt 5–15 % weniger DD.
+- **Empfehlung: als nächstes testen** — der erste echter ML-Effekt im Live-System wäre hier.
+
+#### Offene Verbesserungen
 
 - [ ] **[enhancement]** Feature-Selection-Pipeline  
   **Dokumentation:** `docs/RESEARCH_ROADMAP.md` (Sektion 3.3)  

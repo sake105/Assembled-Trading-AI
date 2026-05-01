@@ -359,7 +359,7 @@ class StrategyAllocator:
             best_dir = max(dir_weights, key=dir_weights.get)  # type: ignore[arg-type]
             return pd.Series({"score": wscore, "direction": best_dir})
 
-        result = combined_raw.groupby("symbol", group_keys=False).apply(_agg).reset_index()
+        result = combined_raw.groupby("symbol", group_keys=False).apply(_agg, include_groups=False).reset_index()
         return result
 
     def _majority_vote(self, per_signals: dict[str, Any]) -> Any:
@@ -383,5 +383,5 @@ class StrategyAllocator:
             score = float(grp["score"].mean()) if "score" in grp.columns else 0.0
             return pd.Series({"direction": direction, "score": score})
 
-        result = combined_raw.groupby("symbol", group_keys=False).apply(_vote).reset_index()
+        result = combined_raw.groupby("symbol", group_keys=False).apply(_vote, include_groups=False).reset_index()
         return result
