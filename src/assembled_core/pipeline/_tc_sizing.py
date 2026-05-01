@@ -777,9 +777,9 @@ def size_positions(
             from pathlib import Path as _Path
             _default_conf = "models/conformal_position_v2.joblib"
             _conf_rel = conf_cfg.get("model_path", _default_conf)
-            _conf_path = _Path(__file__).parents[4] / _conf_rel
+            _conf_path = _Path(__file__).parents[3] / _conf_rel
             if not _conf_path.exists():
-                _conf_path = _Path(__file__).parents[4] / "models" / "conformal_position_v2.joblib"
+                _conf_path = _Path(__file__).parents[3] / "models" / "conformal_position_v2.joblib"
             if _conf_path.exists():
                 _conf_bundle = _jl.load(_conf_path)
                 _conf_feat_cols = _conf_bundle["feature_cols"]
@@ -827,13 +827,21 @@ def size_positions(
                         _widths = (_intervals[:, 1, 0] - _intervals[:, 0, 0]).clip(1e-8)
                     _size_mult = (_med_width / _widths).clip(0.25, 2.0)
                     _mult_map = dict(zip(_lf_work["symbol"].values, _size_mult.tolist()))
-                    if "target_pct" in target_positions.columns and "symbol" in target_positions.columns:
+                    _weight_col = next(
+                        (c for c in ("target_pct", "target_weight") if c in target_positions.columns),
+                        None,
+                    )
+                    if _weight_col and "symbol" in target_positions.columns:
                         target_positions = target_positions.copy()
                         _sym_mult = target_positions["symbol"].map(_mult_map).fillna(1.0)
-                        target_positions["target_pct"] = (
-                            target_positions["target_pct"] * _sym_mult
+                        target_positions[_weight_col] = (
+                            target_positions[_weight_col] * _sym_mult
                         ).clip(-1.0, 1.0)
-                        log.debug("[CONFORMAL] Applied quantile-interval size multipliers to %d positions", len(target_positions))
+                        if "target_qty" in target_positions.columns:
+                            target_positions["target_qty"] = (
+                                target_positions["target_qty"] * _sym_mult
+                            )
+                        log.debug("[CONFORMAL] Applied quantile-interval size multipliers to %d positions via %s", len(target_positions), _weight_col)
     except Exception as e:
         log.debug("[CONFORMAL] quantile sizing skipped: %s", e)
 
