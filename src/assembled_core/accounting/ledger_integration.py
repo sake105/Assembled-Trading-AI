@@ -102,10 +102,20 @@ def build_ledger_from_trades(
     trade_events = events_from_trades(trades_df, run_id=run_id, source="paper")
     logger.info(f"Generated {len(trade_events)} FILL/REJECT events")
 
-    # Combine events — filter empty frames first to avoid pandas FutureWarning
-    # about dtype inference from all-NA columns during concat.
+    # Combine events. order_events and trade_events have overlapping but not
+    # identical optional columns (e.g. order_type vs commission_cash). Suppress
+    # the pandas FutureWarning about all-NA column dtype inference — the current
+    # behavior (using the non-NA frame's dtype) is exactly what we want here.
+    import warnings as _w
     _frames = [f for f in [order_events, trade_events] if not f.empty]
-    all_events = pd.concat(_frames, ignore_index=True) if _frames else order_events.iloc[0:0].copy()
+    if not _frames:
+        all_events = order_events.iloc[0:0].copy()
+    elif len(_frames) == 1:
+        all_events = _frames[0].copy()
+    else:
+        with _w.catch_warnings():
+            _w.simplefilter("ignore", FutureWarning)
+            all_events = pd.concat(_frames, ignore_index=True)
 
     # Store ledger events
     ledger_base = ledger_base_path(output_dir, run_id)
