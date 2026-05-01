@@ -170,13 +170,24 @@ Alle drei ML-Schichten sind policy-gated und per Default **disabled**. Die folge
 Schwellen müssen erfüllt sein, bevor eine Schicht aktiviert wird:
 
 **Schicht 1 — HMM Regime Overlay** (`hmm_regime_overlay.enabled`)
-- Artefakt: `models/regime_hmm_4state_spy.joblib`
+- Artefakt: `models/regime_hmm_4state_spy.joblib` (retrained 2026-05-02: 3-state, diag cov, StandardScaler)
 - Multipliers (bull/sideways/bear/crisis): aktuell hand-tuned — **nicht kalibriert**
-- Aktivierungsschwelle: Out-of-Sample A/B-Backtest 2020–2024 mit vs. ohne HMM-Overlay,
-  Sharpe-Differenz ≥ 0.0 (nicht-negativ). Whipsaw-Risiko bei häufigen Regime-Switches
-  prüfen: max. tolerable Drawdown-Zunahme 1.5 %.
-- Kalibrierung ausstehend: Grid-Search auf Multiplier-Werte {0.5, 0.6, 0.75, 0.85, 1.0,
-  1.1, 1.15, 1.25} × {bull, sideways, bear, crisis} auf OOS 2020–2024.
+- Aktivierungsschwelle: Sharpe-Differenz >= 0.0 (nicht-negativ), MDD-Zunahme <= 1.5pp
+- A/B-Backtest 2023-01-01 bis 2026-04-15 (monatliches Rebalancing):
+
+  | Metrik  | Baseline | HMM v3 | Delta    |
+  |---------|----------|--------|----------|
+  | CAGR    | 18.68%   | 20.09% | +1.41pp  |
+  | Sharpe  | 1.678    | 1.673  | -0.005   |
+  | MDD     | -13.30%  | -14.22%| -0.92pp  |
+  | PF      | 1.749    | 1.819  | +3.9%    |
+
+- **Befund HMM v3:** Sharpe-Delta = -0.005 < 0 → Aktivierungskriterium **nicht erfüllt**.
+  CAGR-Gewinn (+1.41pp) kommt weitgehend aus Bull-Regime-Leverage (1.15x), kein echter Regime-Edge.
+  Bugs behoben (2026-05-02): 4-state-Modell hatte degenerate Konvergenz (3 States bei extremen Means);
+  `parents[4]` → `parents[3]` path bug verhinderte Modell-Loading. Beide fixes committed.
+- Kalibrierung ausstehend: Bull-Multiplier auf 1.0 setzen (nur bear/crisis als echte Regime-Signale
+  nutzen); Grid-Search auf Multiplier-Werte {0.5, 0.6, 0.75, 0.85} × {bear, crisis} auf OOS 2020–2024.
 
 **Schicht 2 — Meta-Model Filter** (`meta_model.enabled` / policy `use_meta_model`)
 - Artefakt: `models/meta_model_lgbm_v4.joblib` (aktuell kanonisch, v4 = cs-rank target)

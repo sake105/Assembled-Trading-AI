@@ -313,11 +313,9 @@ class RegimeHMM:
 class MultiFeatureRegimeHMM:
     """Multi-observable HMM for earlier regime detection.
 
-    Uses 4 observables instead of just returns:
-    ``[daily_return, realized_vol_20d, vix_change, hy_spread_change]``
-
-    Multi-variate observables detect regime changes 2-5 days earlier
-    than univariate return-based HMMs.
+    Uses 2+ observables (daily_return, realized_vol_20d, and optionally
+    vix_change, hy_spread_change). Features are standardised internally
+    via a fitted StandardScaler so callers always pass raw feature values.
 
     When ``hmmlearn`` is not installed, falls back to a simple
     volatility-threshold classifier.
@@ -326,23 +324,33 @@ class MultiFeatureRegimeHMM:
     def __init__(
         self,
         n_regimes: int = 3,
-        n_iter: int = 100,
+        n_iter: int = 200,
         random_state: int = 42,
+        covariance_type: str = "diag",
+        n_seeds: int = 5,
     ):
         self.n_regimes = n_regimes
         self.n_iter = n_iter
         self.random_state = random_state
+        self.covariance_type = covariance_type
+        self.n_seeds = n_seeds
         self._model: Any = None
+        self._scaler: Any = None
         self._label_map: dict[int, str] = {}
         self._fitted = False
 
+    def _scale(self, X: np.ndarray) -> np.ndarray:
+        """Apply fitted scaler; fit+transform if scaler not yet fit."""
+        if self._scaler is None:
+            return X
+        return self._scaler.transform(X)
+
     def fit(self, features_df: pd.DataFrame) -> bool:
-        """Fit multi-feature HMM.
+        """Fit multi-feature HMM with StandardScaler + multi-seed search.
 
         Args:
             features_df: DataFrame with numeric feature columns.
-                Each row is one observation (time step).
-                NaN rows are dropped.
+                Each row is one observation (time step). NaN rows are dropped.
 
         Returns:
             True if fitting succeeded.
@@ -357,37 +365,61 @@ class MultiFeatureRegimeHMM:
             logger.debug("[MultiHMM] insufficient data (%d < 60)", len(clean))
             return False
 
-        X = clean.values
-        n_features = X.shape[1]
-
         try:
-            model = GaussianHMM(
-                n_components=self.n_regimes,
-                covariance_type="full",
-                n_iter=self.n_iter,
-                random_state=self.random_state,
-            )
-            model.fit(X)
-            self._model = model
-            self._label_map = RegimeHMM._build_label_map(model)
-            self._fitted = True
-            logger.info(
-                "[MultiHMM] Fitted %d-regime model with %d features on %d obs",
-                self.n_regimes, n_features, len(clean),
-            )
-            return True
-        except Exception as exc:
-            logger.warning("[MultiHMM] fit failed: %s", exc)
+            from sklearn.preprocessing import StandardScaler  # type: ignore
+        except ImportError:
+            logger.warning("[MultiHMM] scikit-learn not installed; skipping scaling")
+            StandardScaler = None  # type: ignore
+
+        raw_X = clean.values.astype(np.float64)
+        if StandardScaler is not None:
+            scaler = StandardScaler()
+            X = scaler.fit_transform(raw_X)
+            self._scaler = scaler
+        else:
+            X = raw_X
+            self._scaler = None
+
+        n_features = X.shape[1]
+        best_score = -np.inf
+        best_model = None
+        seeds = [self.random_state + i * 7 for i in range(self.n_seeds)]
+
+        for seed in seeds:
+            try:
+                m = GaussianHMM(
+                    n_components=self.n_regimes,
+                    covariance_type=self.covariance_type,
+                    n_iter=self.n_iter,
+                    random_state=seed,
+                )
+                m.fit(X)
+                s = m.score(X)
+                if s > best_score:
+                    best_score = s
+                    best_model = m
+            except Exception:
+                continue
+
+        if best_model is None:
+            logger.warning("[MultiHMM] all seeds failed to converge")
             return False
+
+        self._model = best_model
+        self._label_map = RegimeHMM._build_label_map(best_model)
+        self._fitted = True
+        logger.info(
+            "[MultiHMM] Fitted %d-regime model with %d features on %d obs "
+            "(score=%.2f, covariance=%s)",
+            self.n_regimes, n_features, len(clean), best_score, self.covariance_type,
+        )
+        return True
 
     def predict_proba(self, features_df: pd.DataFrame) -> pd.DataFrame:
         """Predict regime probabilities for each row.
 
-        Args:
-            features_df: Same feature columns as used for fitting.
-
         Returns:
-            DataFrame with regime probability columns (bull, bear, sideways).
+            DataFrame with regime probability columns (p_bull, p_bear, p_sideways).
         """
         if not self._fitted or self._model is None:
             return self._fallback_proba(features_df)
@@ -397,8 +429,8 @@ class MultiFeatureRegimeHMM:
             return pd.DataFrame()
 
         try:
-            # hmmlearn uses score_samples() for smoothed posteriors, not predict_proba()
-            _, posteriors = self._model.score_samples(clean.values)
+            X = self._scale(clean.values.astype(np.float64))
+            _, posteriors = self._model.score_samples(X)
         except Exception:
             return self._fallback_proba(features_df)
 
@@ -419,7 +451,8 @@ class MultiFeatureRegimeHMM:
             return pd.Series(dtype=str)
 
         try:
-            states = self._model.predict(clean.values)
+            X = self._scale(clean.values.astype(np.float64))
+            states = self._model.predict(X)
             return pd.Series(
                 [self._label_map.get(int(s), f"state_{s}") for s in states],
                 index=clean.index,
@@ -441,10 +474,12 @@ class MultiFeatureRegimeHMM:
         joblib.dump(
             {
                 "model": self._model,
+                "scaler": self._scaler,
                 "label_map": self._label_map,
                 "n_regimes": self.n_regimes,
                 "n_iter": self.n_iter,
                 "random_state": self.random_state,
+                "covariance_type": self.covariance_type,
                 "class": "MultiFeatureRegimeHMM",
             },
             _path,
@@ -458,11 +493,13 @@ class MultiFeatureRegimeHMM:
         from pathlib import Path as _Path
         data = joblib.load(_Path(path))
         obj = cls(
-            n_regimes=data.get("n_regimes", 4),
-            n_iter=data.get("n_iter", 100),
+            n_regimes=data.get("n_regimes", 3),
+            n_iter=data.get("n_iter", 200),
             random_state=data.get("random_state", 42),
+            covariance_type=data.get("covariance_type", "diag"),
         )
         obj._model = data["model"]
+        obj._scaler = data.get("scaler")
         obj._label_map = data["label_map"]
         obj._fitted = True
         return obj

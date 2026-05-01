@@ -354,7 +354,7 @@ position_sizing:
 # HMM Regime Overlay — portfolio exposure multiplier based on detected regime
 # ---------------------------------------------------------------------------
 hmm_regime_overlay:
-  enabled: false                   # enable to scale all positions by regime
+  enabled: false                   # v3 A/B (2023-26): CAGR +1.41pp, Sharpe -0.005, MDD -0.92pp -- Sharpe criterion not met
   model_path: "models/regime_hmm_4state_spy.joblib"
   multipliers:
     bull: 1.15                     # slightly more aggressive in bull

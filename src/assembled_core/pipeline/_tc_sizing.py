@@ -6,6 +6,9 @@ import logging
 
 import numpy as np
 import pandas as pd
+
+# Module-level cache: market-return series derived from panel (keyed by panel path)
+_HMM_MKT_RET_CACHE: dict[str, pd.Series] = {}
 from src.assembled_core.config.policy_loader import load_policy
 from src.assembled_core.pipeline.trading_cycle_shared import (
     TradingContext,
@@ -335,16 +338,43 @@ def _sp_compute_final_multiplier(
     hmm_regime_multiplier = 1.0
     try:
         hmm_cfg = (policy.get("hmm_regime_overlay") or {})
-        if hmm_cfg.get("enabled", False) and getattr(ctx, "prices", None) is not None:
+        if hmm_cfg.get("enabled", False):
             from pathlib import Path as _Path
             from src.assembled_core.ml.regime_hmm import MultiFeatureRegimeHMM
-            _hmm_path = _Path(__file__).parents[4] / "models" / "regime_hmm_4state_spy.joblib"
+            _root = _Path(__file__).parents[3]
+            _model_path = hmm_cfg.get("model_path", "models/regime_hmm_4state_spy.joblib")
+            _hmm_path = _root / _model_path
             if _hmm_path.exists():
                 _hmm = MultiFeatureRegimeHMM.load(_hmm_path)
-                _prices = ctx.prices
-                if "close" in _prices.columns and "symbol" in _prices.columns and "timestamp" in _prices.columns:
-                    _px = _prices.pivot_table(index="timestamp", columns="symbol", values="close", aggfunc="last")
-                    _mkt_ret = np.log(_px.mean(axis=1) / _px.mean(axis=1).shift(1)).dropna()
+                # Build market-return series: prefer full panel (for snapshot mode where
+                # ctx.prices may only contain a single day), fall back to ctx.prices.
+                _prices_src = getattr(ctx, "prices", None)
+                _mkt_ret: pd.Series | None = None
+                # Try full panel first — gives rolling history needed for vol estimate.
+                # Cached per process (keyed by path string) to avoid re-reading 210k rows
+                # at every cycle.
+                _panel_path = _root / "output" / "factor_panels" / "full_panel_7y.parquet"
+                _panel_key = str(_panel_path)
+                if _panel_path.exists():
+                    try:
+                        if _panel_key not in _HMM_MKT_RET_CACHE:
+                            _panel = pd.read_parquet(_panel_path)
+                            _close_col = "close" if "close" in _panel.columns else "adj_close"
+                            _panel["date"] = pd.to_datetime(_panel["date"]).dt.tz_localize(None)
+                            _px_full = _panel.pivot_table(index="date", columns="symbol", values=_close_col, aggfunc="last")
+                            _HMM_MKT_RET_CACHE[_panel_key] = np.log(_px_full.mean(axis=1) / _px_full.mean(axis=1).shift(1)).dropna()
+                            log.info("[HMM-REGIME] Panel market-return series cached (%d days)", len(_HMM_MKT_RET_CACHE[_panel_key]))
+                        _full_mkt_ret = _HMM_MKT_RET_CACHE[_panel_key]
+                        _as_of = pd.Timestamp(getattr(ctx, "as_of", _full_mkt_ret.index.max())).tz_localize(None) if getattr(ctx, "as_of", None) else _full_mkt_ret.index.max()
+                        _mkt_ret = _full_mkt_ret[_full_mkt_ret.index <= _as_of].iloc[-60:]
+                    except Exception:
+                        pass
+                # Fall back to ctx.prices if panel load failed
+                if _mkt_ret is None and _prices_src is not None:
+                    if "close" in _prices_src.columns and "symbol" in _prices_src.columns and "timestamp" in _prices_src.columns:
+                        _px = _prices_src.pivot_table(index="timestamp", columns="symbol", values="close", aggfunc="last")
+                        _mkt_ret = np.log(_px.mean(axis=1) / _px.mean(axis=1).shift(1)).dropna()
+                if _mkt_ret is not None and len(_mkt_ret) >= 20:
                     _mkt_vol = _mkt_ret.rolling(20).std().dropna()
                     _mkt_ret = _mkt_ret.loc[_mkt_vol.index]
                     if len(_mkt_ret) >= 20:
@@ -354,7 +384,7 @@ def _sp_compute_final_multiplier(
                         _mult_map = hmm_cfg.get("multipliers") or {"bull": 1.15, "sideways": 1.0, "bear": 0.75, "crisis": 0.40}
                         hmm_regime_multiplier = float(_mult_map.get(_regime, 1.0))
                         meta["hmm_regime"] = {"regime": _regime, "multiplier": hmm_regime_multiplier}
-                        log.debug("[HMM-REGIME] regime=%s multiplier=%.3f", _regime, hmm_regime_multiplier)
+                        log.info("[HMM-REGIME] regime=%s multiplier=%.3f", _regime, hmm_regime_multiplier)
     except Exception as e:
         log.debug("hmm_regime_overlay skipped: %s", e)
 
