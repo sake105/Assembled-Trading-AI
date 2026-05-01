@@ -1123,6 +1123,18 @@ def load_price_data(
         logger.info(
             f"Loaded {len(prices)} rows for {prices['symbol'].nunique()} symbols"
         )
+    # Apply start/end date filter for all loading paths (old-style loaders ignore these args)
+    _cli_start = getattr(args, "start_date", None)
+    _cli_end = getattr(args, "end_date", None)
+    if not prices.empty and "timestamp" in prices.columns and (_cli_start or _cli_end):
+        _ts = pd.to_datetime(prices["timestamp"]).dt.tz_localize(None)
+        _mask = pd.Series(True, index=prices.index)
+        if _cli_start:
+            _mask &= _ts >= pd.Timestamp(_cli_start)
+        if _cli_end:
+            _mask &= _ts <= pd.Timestamp(_cli_end)
+        prices = prices[_mask].reset_index(drop=True)
+
     if not prices.empty:
         logger.info(
             f"Date range: {prices['timestamp'].min()} to {prices['timestamp'].max()}"
