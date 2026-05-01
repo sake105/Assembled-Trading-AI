@@ -59,7 +59,21 @@ Erwarteter Bias: +1–2% p.a. bei US Large-Caps, **+5–10% p.a.** bei Mid-Caps.
 - [x] **[DONE 2026-04-30]** Drift-Persistierung implementiert  
   **Datei:** `src/assembled_core/qa/drift_detection.py` — `save_drift_results()` schreibt `output/drift_analysis_{freq}.parquet`; API liest daraus
 
-### 1.5 Live-Trading-Mode
+### 1.5 Backtest Performance: `--rebalance monthly` erforderlich für Snapshot-Modus
+
+- [ ] **[usability]** Monatsrebalancing: `--rebalance monthly` muss explizit gesetzt werden  
+  **Dateien:** `scripts/run_backtest_strategy.py` (Zeile 1961), `src/assembled_core/qa/backtest_engine.py` (Zeile 695)  
+  **Problem:** `backtest_use_snapshot` aktiviert sich nur wenn `--rebalance monthly` übergeben wird  
+  (nicht `--rebalance-freq M`). Ohne dieses Flag läuft der cycle_fn auf allen ~1300 Tagen statt  
+  nur auf ~62 Rebalance-Tagen → ~20× langsamer.  
+  **Korrekte Syntax für monatliches Rebalancing:**  
+  ```
+  --freq 1d --rebalance monthly --rebalance-freq M
+  ```
+  `--rebalance-freq M` steuert die interne Signallogik; `--rebalance monthly` steuert die  
+  Backtest-Engine (welche Tage cycle_fn aufruft + snapshot-Modus-Aktivierung).
+
+### 1.6 Live-Trading-Mode
 
 - [ ] **[enhancement]** Live-Trading-Mode (Environment.LIVE)  
   **Datei:** `src/assembled_core/config/settings.py` (Zeile ~28)  
