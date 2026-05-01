@@ -25,6 +25,11 @@ warnings.filterwarnings("ignore")
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from src.assembled_core.qa.cpcv_validation import (
+    purged_train_test_split,
+    walk_forward_oos_score,
+)
+
 PANEL_FILE = ROOT / "output" / "factor_panels" / "full_panel_7y.parquet"
 MODEL_OUT = ROOT / "models" / "meta_model_lgbm_v4.joblib"
 
@@ -119,15 +124,22 @@ def main():
     feature_cols = raw_available + cs_cols
     print(f"[v4] Total features: {len(feature_cols)}")
 
-    X = df[feature_cols].replace([np.inf, -np.inf], np.nan).fillna(0.0)
-    y = df["target"]
+    # Sort by date so positional slicing is chronological (required for CPCV)
+    df_sorted = df.sort_values("date").reset_index(drop=True)
+    X = df_sorted[feature_cols].replace([np.inf, -np.inf], np.nan).fillna(0.0)
+    y = df_sorted["target"]
 
-    train_mask = df["date"] < TRAIN_CUTOFF
-    val_mask = df["date"] >= TRAIN_CUTOFF
+    # Compute val fraction matching TRAIN_CUTOFF date
+    n_val = (df_sorted["date"] >= TRAIN_CUTOFF).sum()
+    test_size = n_val / len(df_sorted)
 
-    X_train, y_train = X[train_mask], y[train_mask]
-    X_val, y_val = X[val_mask], y[val_mask]
-    print(f"[v4] Train: {len(X_train):,} | Val: {len(X_val):,}")
+    # Purged split: adds embargo_bars gap between train and val to prevent
+    # information leakage near the boundary (replaces raw date-mask split).
+    EMBARGO_BARS = 10  # ~2 trading weeks
+    X_train, X_val, y_train, y_val = purged_train_test_split(
+        X, y, test_size=test_size, embargo_bars=EMBARGO_BARS
+    )
+    print(f"[v4] Train: {len(X_train):,} | Embargo: {EMBARGO_BARS} bars | Val: {len(X_val):,}")
 
     try:
         import lightgbm as lgb
@@ -135,20 +147,35 @@ def main():
         print("[ERROR] lightgbm not installed")
         sys.exit(1)
 
-    model = lgb.LGBMClassifier(
+    _lgb_params = dict(
         n_estimators=300,
         learning_rate=0.05,
-        num_leaves=15,       # very shallow trees → less overfit
+        num_leaves=15,
         max_depth=5,
-        min_child_samples=100,  # at least 100 samples per leaf
+        min_child_samples=100,
         subsample=0.6,
         colsample_bytree=0.5,
-        reg_alpha=1.0,       # strong L1
-        reg_lambda=1.0,      # strong L2
-        is_unbalance=False,  # target is balanced by construction
+        reg_alpha=1.0,
+        reg_lambda=1.0,
+        is_unbalance=False,
         random_state=42,
         verbose=-1,
     )
+
+    # Walk-forward OOS diagnostic on training fold (5 splits, roc_auc)
+    try:
+        _cv_estimator = lgb.LGBMClassifier(**_lgb_params)
+        _cv_result = walk_forward_oos_score(
+            _cv_estimator, X_train, y_train, n_splits=5, scoring="roc_auc"
+        )
+        print(
+            f"[v4] Walk-forward CV AUC:  {_cv_result.mean_score:.4f}"
+            f" +/- {_cv_result.std_score:.4f} (n={_cv_result.n_splits} splits)"
+        )
+    except Exception as _cv_err:
+        print(f"[v4] Walk-forward CV skipped: {_cv_err}")
+
+    model = lgb.LGBMClassifier(**_lgb_params)
     model.fit(X_train, y_train)
 
     from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
@@ -203,6 +230,8 @@ def main():
         "baseline_accuracy": float(baseline_acc),
         "train_rows": int(len(X_train)),
         "val_rows": int(len(X_val)),
+        "embargo_bars": EMBARGO_BARS,
+        "cv_method": "walk_forward_oos (5 splits) + purged_train_test_split",
         "target": "cs_rank > 0.5 (cross-sectional within date)",
         "train_cutoff": TRAIN_CUTOFF,
         "version": "v4",
