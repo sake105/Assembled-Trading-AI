@@ -450,8 +450,8 @@ signals:
   # Step 3.96: LightGBM meta-model filter v2 (AUC=0.649, Precision@top10%=44% vs 30% base)
   meta_model:
     enabled: true                  # research: meta-model confidence filter active
-    model_path: "models/meta_model_lgbm_v2.joblib"
-    confidence_threshold: 0.58    # optimal threshold calibrated on val set
+    model_path: "models/meta_model_lgbm_v3.joblib"
+    confidence_threshold: 0.40    # v3 calibrated threshold (panel-aligned feature names)
     scale_by_confidence: true     # multiply mf_score by confidence_score
 
 # ---------------------------------------------------------------------------

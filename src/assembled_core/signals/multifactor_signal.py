@@ -878,7 +878,13 @@ def apply_meta_model_filter(
             if not available:
                 logger.warning("[META-FILTER] v2: no feature columns found in signals_df — passing through")
                 return signals_df
-            X = signals_df[available].fillna(0)
+            # Always build X with all training features; fill missing with 0
+            X = pd.DataFrame(
+                {col: signals_df[col].fillna(0) if col in signals_df.columns else 0.0
+                 for col in feature_cols},
+                index=signals_df.index,
+            )
+            logger.debug("[META-FILTER] v2: %d/%d features available", len(available), len(feature_cols))
             proba = clf.predict_proba(X)
             confidence = pd.Series(proba[:, 1], index=signals_df.index)
         else:

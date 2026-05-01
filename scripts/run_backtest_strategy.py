@@ -1948,6 +1948,7 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             signal_fn=signal_fn,
             position_sizing_fn=position_sizing_fn,
             capital=args.start_capital,
+            enable_risk_controls=ctx_template.enable_risk_controls,
         )
 
         # Run backtest

@@ -461,8 +461,19 @@ def generate_signals(
             else:
                 _threshold = float(_policy_threshold)
             _scale = bool(meta_cfg.get("scale_by_confidence", True))
+            # Enrich signals with panel features so meta-model v3 can find its columns
+            _signals_for_meta = signals
+            if not features.empty and "symbol" in features.columns:
+                _extra = [c for c in features.columns if c not in signals.columns]
+                if _extra:
+                    _on = ["symbol"]
+                    if "timestamp" in features.columns and "timestamp" in signals.columns:
+                        _on = ["timestamp", "symbol"]
+                    _signals_for_meta = signals.merge(
+                        features[_on + _extra], on=_on, how="left"
+                    )
             signals = apply_meta_model_filter(
-                signals,
+                _signals_for_meta,
                 model_path=_model_path,
                 confidence_threshold=_threshold,
                 scale_by_confidence=_scale,
