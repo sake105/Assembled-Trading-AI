@@ -164,6 +164,7 @@ logging_policy:
 georisk_overlay:
   enabled: true
   source: "news_geo"
+  max_geo_multiplier: 2.0         # Phase A: raised from 1.0 to allow upscaling; mapping values still <= 1.0
   mapping:
     WATCH:
       multiplier: 1.00
@@ -361,6 +362,25 @@ hmm_regime_overlay:
     sideways: 1.00                 # neutral
     bear: 0.75                     # reduce exposure in bear
     crisis: 0.40                   # significant reduction in crisis
+
+# ---------------------------------------------------------------------------
+# EDCL — Event-Driven Conviction Layer (Phase A foundation)
+# Separate upscaling term; live/paper only by default.
+# Activation criterion: paper-run 30 days + 15% net improvement over baseline.
+# DO NOT enable until paper-trading validation complete.
+# ---------------------------------------------------------------------------
+edcl_conviction_overlay:
+  enabled: false                   # Phase A: disabled until paper-run validation
+  conviction_threshold: 0.70      # minimum conviction to trigger upscaling
+  max_multiplier: 2.0             # hard ceiling on EDCL multiplier
+  allow_in_backtest: false        # do not apply live-fetch signals in backtest
+  use_historical_beta: true       # Phase C: enrich conviction with event-beta from FeatureStore
+  # Phase E: conformal sizing for EDCL-triggered trades
+  edcl_sizing:
+    enabled: false                # enable after paper-run validation
+    model_path: "models/conformal_position_v3.joblib"
+    target_coverage: 0.85        # 85% coverage target for EDCL positions
+    max_edcl_weight: 0.30        # max single-asset weight in EDCL-driven trade
 
 # ---------------------------------------------------------------------------
 # Anti-churn / hysteresis (Phase 0D)

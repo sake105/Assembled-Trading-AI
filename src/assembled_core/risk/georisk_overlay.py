@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 def compute_exposure_multiplier(ctx: "TradingContext", policy: Dict[str, Any]) -> float:
     """Compute exposure multiplier from GeoRisk overlay policy and TradingContext.
 
-    Rules (v1):
+    Rules (v2 — EDCL-aware):
     - If georisk_overlay.enabled is false -> 1.0
     - If ctx.news_geo is None -> 1.0 (unless intel degraded handling applies)
     - If intel_geo_score or intel_news_triggers is DEGRADED:
@@ -18,7 +18,7 @@ def compute_exposure_multiplier(ctx: "TradingContext", policy: Dict[str, Any]) -
     - If geo_confidence < confidence_floor -> 1.0
     - state_hint: from ctx.risk_state.state if present, else ctx.news_geo.state_hint
     - If by_geo_score has key for geo_score -> use it; else mapping[state_hint].multiplier
-    - Clamp multiplier to [0.0, 1.0]
+    - Clamp multiplier to [0.0, max_geo_multiplier] (default 2.0 to allow EDCL upscaling)
     """
     overlay = (policy or {}).get("georisk_overlay") or {}
     if not overlay.get("enabled", False):
@@ -70,10 +70,11 @@ def compute_exposure_multiplier(ctx: "TradingContext", policy: Dict[str, Any]) -
         state_cfg = mapping.get(state_hint) or {}
         multiplier = float(state_cfg.get("multiplier", 1.0))
 
+    max_geo_mult = float(overlay.get("max_geo_multiplier", 2.0))
     if multiplier < 0.0:
         multiplier = 0.0
-    if multiplier > 1.0:
-        multiplier = 1.0
+    if multiplier > max_geo_mult:
+        multiplier = max_geo_mult
     return multiplier
 
 
@@ -81,17 +82,20 @@ def apply_exposure_multiplier_to_targets(
     target_positions: Any,
     multiplier: float,
     cash_symbol: str = "CASH",
+    max_gross_exposure: float | None = None,
 ) -> Any:
-    """Apply exposure multiplier to target positions DataFrame.
+    """Apply exposure multiplier to target positions DataFrame (bidirectional).
 
     Scales target_weight and target_qty (if present) for all non-cash symbols.
-    Optionally lets cash absorb the freed-up weight if a cash row is present.
+    - Downscaling (multiplier < 1.0): cash absorbs freed weight.
+    - Upscaling (multiplier > 1.0): risky weights are increased proportionally;
+      if max_gross_exposure is set and would be exceeded, weights are normalized
+      to that ceiling.
     """
     if target_positions is None:
         return target_positions
 
-    # No-op if multiplier is >= 1.0
-    if multiplier >= 1.0:
+    if abs(multiplier - 1.0) < 1e-9:
         return target_positions
 
     # Import pandas lazily to avoid hard dependency at module import time
@@ -128,7 +132,7 @@ def apply_exposure_multiplier_to_targets(
         cash_mask = None
         risky_mask = pd.Series(True, index=df.index)
 
-    # Track original risky and cash weights (if available)
+    # Track original risky weights
     risky_sum_before = 0.0
     if has_weight:
         risky_weights_before = pd.to_numeric(
@@ -136,8 +140,6 @@ def apply_exposure_multiplier_to_targets(
             errors="coerce",
         ).fillna(0.0)
         risky_sum_before = float(risky_weights_before.sum())
-
-        # Scale risky weights
         df.loc[risky_mask, "target_weight"] = risky_weights_before * multiplier
 
     # Scale quantities if present
@@ -148,21 +150,68 @@ def apply_exposure_multiplier_to_targets(
         )
         df.loc[risky_mask, "target_qty"] = risky_qty_before * multiplier
 
-    # Let cash absorb the freed-up weight (if weights and cash are present)
-    if has_weight and has_cash and risky_sum_before != 0.0 and cash_mask is not None:
+    if has_weight:
         risky_sum_after = risky_sum_before * multiplier
-        delta_to_cash = risky_sum_before - risky_sum_after
-        cash_before = (
-            pd.to_numeric(
-                df.loc[cash_mask, "target_weight"],
-                errors="coerce",
+
+        if multiplier < 1.0:
+            # Downscaling: cash absorbs the freed-up weight
+            if has_cash and risky_sum_before != 0.0 and cash_mask is not None:
+                delta_to_cash = risky_sum_before - risky_sum_after
+                cash_before = (
+                    pd.to_numeric(
+                        df.loc[cash_mask, "target_weight"],
+                        errors="coerce",
+                    )
+                    .fillna(0.0)
+                    .sum()
+                )
+                df.loc[cash_mask, "target_weight"] = cash_before + delta_to_cash
+
+        elif multiplier > 1.0 and max_gross_exposure is not None:
+            # Upscaling: enforce max_gross_exposure ceiling
+            total_abs = float(
+                pd.to_numeric(df.loc[risky_mask, "target_weight"], errors="coerce")
+                .fillna(0.0)
+                .abs()
+                .sum()
             )
-            .fillna(0.0)
-            .sum()
-        )
-        df.loc[cash_mask, "target_weight"] = cash_before + delta_to_cash
+            if total_abs > max_gross_exposure:
+                scale_down = max_gross_exposure / total_abs
+                df.loc[risky_mask, "target_weight"] = (
+                    pd.to_numeric(df.loc[risky_mask, "target_weight"], errors="coerce")
+                    .fillna(0.0)
+                    * scale_down
+                )
 
     return df
+
+
+def compute_edcl_conviction_multiplier(ctx: "TradingContext", policy: Dict[str, Any]) -> float:
+    """Compute EDCL conviction-based exposure multiplier [1.0, max_multiplier].
+
+    Only fires when edcl_conviction_overlay.enabled=true and ctx.edcl_state.conviction
+    exceeds conviction_threshold. Returns 1.0 (no-op) in all other cases.
+    """
+    edcl_cfg = (policy or {}).get("edcl_conviction_overlay") or {}
+    if not edcl_cfg.get("enabled", False):
+        return 1.0
+
+    # By default EDCL conviction upscaling only applies live/paper — not backtest.
+    mode = getattr(ctx, "mode", "backtest")
+    if mode not in ("live", "paper") and not edcl_cfg.get("allow_in_backtest", False):
+        return 1.0
+
+    edcl_state = getattr(ctx, "edcl_state", None) or {}
+    conviction = float(edcl_state.get("conviction", 0.0))
+    threshold = float(edcl_cfg.get("conviction_threshold", 0.70))
+    if conviction < threshold:
+        return 1.0
+
+    max_mult = float(edcl_cfg.get("max_multiplier", 2.0))
+    denom = 1.0 - threshold if threshold < 1.0 else 1.0
+    scale = (conviction - threshold) / denom
+    multiplier = 1.0 + scale * (max_mult - 1.0)
+    return min(multiplier, max_mult)
 
 
 def get_market_implied_geo_signal(
@@ -226,5 +275,6 @@ def get_market_implied_geo_signal(
 __all__ = [
     "compute_exposure_multiplier",
     "apply_exposure_multiplier_to_targets",
+    "compute_edcl_conviction_multiplier",
     "get_market_implied_geo_signal",
 ]

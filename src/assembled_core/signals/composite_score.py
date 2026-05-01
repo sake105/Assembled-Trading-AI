@@ -333,6 +333,93 @@ def news_score(news_features: dict[str, float]) -> float:
 # ---------------------------------------------------------------------------
 
 
+def compute_news_dim_with_edcl(
+    base_news_score: float,
+    edcl_basket: Any | None,
+    conviction: float,
+) -> float:
+    """Blend base news score with EDCL trigger-basket score.
+
+    When an EDCL basket is active, the news dimension is conviction-weighted
+    toward the basket's composite score, amplifying the geo-event signal.
+    Falls back to base_news_score when basket is None or conviction is 0.
+
+    Args:
+        base_news_score: Raw news dimension score in [-1, +1].
+        edcl_basket: TriggerBasket from intel.trigger_basket (Phase B), or None.
+        conviction: EDCL conviction score in [0, 1] from conviction_engine.
+
+    Returns:
+        Blended news dimension score in [-1, +1].
+    """
+    if edcl_basket is None or conviction <= 0.0:
+        return base_news_score
+    try:
+        from src.assembled_core.intel.trigger_basket import compute_basket_score
+        edcl_score = compute_basket_score(edcl_basket)
+        # Map [0,1] basket score to [-1,+1]: positive geo-risk events are bearish
+        # (reduce exposure toward affected assets) unless conviction is directional.
+        # Default: high basket score → bearish news signal (risk-off).
+        edcl_news = edcl_score * 2.0 - 1.0  # [0,1] → [-1,+1], so 0 becomes -1
+        # Actually: geo-risk means bearish, so basket_score=1 → news=-1
+        edcl_news = -(edcl_score)  # high geo-risk → bearish news dimension
+    except Exception:
+        return base_news_score
+
+    blended = (1.0 - conviction) * base_news_score + conviction * edcl_news
+    return float(np.clip(blended, -1.0, 1.0))
+
+
+def compute_edcl_conviction_multiplier(
+    edcl_conviction: float,
+    composite_regime: str,
+    options_iv_skew_z: float = 0.0,
+    policy: dict[str, Any] | None = None,
+) -> float:
+    """Phase H — Triple-Confirmation sizing multiplier.
+
+    Rewards confluence of three independent signals:
+      1. EDCL trigger conviction > threshold (Phase B/C)
+      2. Composite score regime == 'crisis' or 'elevated'
+      3. Options IV skew Z-score > 2.0 (tail-risk skew confirmation)
+
+    Args:
+        edcl_conviction: EDCL conviction score [0, 1] from conviction_engine.
+        composite_regime: Current composite regime label ('calm'/'normal'/'elevated'/'crisis').
+        options_iv_skew_z: Options IV skew Z-score (0.0 = not available).
+        policy: Policy dict — reads edcl_conviction_overlay sub-dict.
+
+    Returns:
+        Sizing multiplier [1.0, 2.0].
+        - Triple confirmation (all three): 2.0
+        - Double (EDCL + regime, no IV): 1.5
+        - EDCL only above threshold: 1.2
+        - No confirmation: 1.0
+    """
+    cfg = (policy or {}).get("edcl_conviction_overlay") or {}
+    threshold = float(cfg.get("conviction_threshold", 0.70))
+    max_mult = float(cfg.get("max_multiplier", 2.0))
+
+    if edcl_conviction < threshold:
+        return 1.0
+
+    crisis_regime = composite_regime in ("crisis", "elevated")
+    iv_spike = options_iv_skew_z > 2.0
+
+    if crisis_regime and iv_spike:
+        multiplier = min(2.0, max_mult)   # triple confirmation
+    elif crisis_regime:
+        multiplier = 1.5                  # double: EDCL + regime
+    else:
+        multiplier = 1.2                  # EDCL only
+
+    logger.debug(
+        "[EDCL-H] triple_confirm: conviction=%.3f regime=%s iv_z=%.2f → mult=%.2f",
+        edcl_conviction, composite_regime, options_iv_skew_z, multiplier,
+    )
+    return multiplier
+
+
 def composite_score(
     regime: str,
     mtf: float,
@@ -344,17 +431,24 @@ def composite_score(
     breadth: float,
     seasonality: float,
     news: float,
+    edcl_basket: Any | None = None,
+    edcl_conviction: float = 0.0,
 ) -> tuple[float, dict[str, float]]:
     """Weighted composite of all 9 dimensions.
 
     Args:
         regime: One of 'calm', 'normal', 'elevated', 'crisis'.
         mtf .. news: Individual dimension scores, each in [-1, +1].
+        edcl_basket: Optional TriggerBasket from EDCL Phase B (enriches news dim).
+        edcl_conviction: EDCL conviction score [0,1]; only used when edcl_basket set.
 
     Returns:
         (composite_score in [-1, +1], per-dimension dict for attribution).
     """
     weights = COMPOSITE_WEIGHTS_BY_REGIME.get(regime, COMPOSITE_WEIGHTS_BY_REGIME["normal"])
+    # Enrich news dimension with EDCL basket if provided
+    if edcl_basket is not None and edcl_conviction > 0.0:
+        news = compute_news_dim_with_edcl(news, edcl_basket, edcl_conviction)
     scores = {
         "mtf": mtf,
         "classical_ta": classical_ta,
@@ -548,6 +642,8 @@ __all__ = [
     "breadth_intermarket_score",
     "seasonality_score",
     "news_score",
+    "compute_news_dim_with_edcl",
+    "compute_edcl_conviction_multiplier",
     "composite_score",
     "generate_composite_score_signals",
 ]

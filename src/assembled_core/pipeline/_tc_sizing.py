@@ -388,11 +388,28 @@ def _sp_compute_final_multiplier(
     except Exception as e:
         log.debug("hmm_regime_overlay skipped: %s", e)
 
-    final_multiplier = geo_multiplier * profit_lock_mult * vol_scale_factor * ms_multiplier * crisis_alpha_multiplier * pm_multiplier * hmm_regime_multiplier
+    # EDCL conviction overlay — separate upscaling term, live/paper only
+    edcl_multiplier = 1.0
+    try:
+        from src.assembled_core.risk.georisk_overlay import compute_edcl_conviction_multiplier
+        edcl_multiplier = compute_edcl_conviction_multiplier(ctx, policy)
+        if edcl_multiplier != 1.0:
+            meta["edcl_conviction"] = {"multiplier": edcl_multiplier}
+            log.info("[EDCL] conviction multiplier=%.3f", edcl_multiplier)
+    except Exception as e:
+        log.debug("edcl_conviction_overlay skipped: %s", e)
+
+    final_multiplier = geo_multiplier * profit_lock_mult * vol_scale_factor * ms_multiplier * crisis_alpha_multiplier * pm_multiplier * hmm_regime_multiplier * edcl_multiplier
     _MIN_EXPOSURE_MULT = 0.05
+    _MAX_EXPOSURE_MULT = 3.0
     if final_multiplier < _MIN_EXPOSURE_MULT:
         log.warning("[SIZE] exposure multiplier %.4f below floor %.2f — clamping", final_multiplier, _MIN_EXPOSURE_MULT)
         final_multiplier = _MIN_EXPOSURE_MULT
+    if final_multiplier > _MAX_EXPOSURE_MULT:
+        log.warning("[SIZE] exposure multiplier %.4f above ceiling %.1f — clamping", final_multiplier, _MAX_EXPOSURE_MULT)
+        final_multiplier = _MAX_EXPOSURE_MULT
+    if final_multiplier > 1.5:
+        log.warning("[SIZE] exposure multiplier %.4f > 1.5 — confirm EDCL/HMM overlay is intentional", final_multiplier)
     return final_multiplier
 
 

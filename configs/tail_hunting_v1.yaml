@@ -1,0 +1,90 @@
+# EDCL Phase G — Tail-Hunting Event Templates
+#
+# Pre-positioned trade plans for seltene, tail-risk events with outsized returns.
+# When a tail_event activates (conviction >= activation_conviction), the pipeline
+# reads this plan and executes immediately — no computation delay at trigger time.
+#
+# direction: "long" (buy primary_assets) / "short" (sell primary_assets, buy hedge_assets)
+# activation_conviction: minimum EDCL conviction score [0, 1] to activate plan
+# max_position_size: max total portfolio weight allocated to this tail event
+#
+# IMPORTANT: Plans are DISABLED by default (enabled: false).
+# Enable only after paper-run validation of each event type.
+
+tail_events:
+
+  hormuz_closure:
+    enabled: false
+    triggers:
+      - CHOKEPOINT_STRESS
+      - ENERGY_SUPPLY_RISK
+      - STRAIT_BLOCKADE
+    primary_assets: [USO, XLE, OIH, XOP]
+    direction: long
+    hedge_assets: [XLI, IYT]          # Industrials/Transport short on oil shock
+    max_position_size: 0.30
+    activation_conviction: 0.75
+    description: "Hormuz closure / chokepoint stress — long energy, short transport"
+
+  taiwan_strait:
+    enabled: false
+    triggers:
+      - WAR_ESCALATION
+      - MILITARY_BUILDUP
+      - TERRITORIAL_ESCALATION
+    primary_assets: [SOXX, SMH, INTC]  # Semis fall on TSMC risk
+    direction: short
+    hedge_assets: [GLD, ITA]           # Gold + Defense long
+    max_position_size: 0.25
+    activation_conviction: 0.75
+    description: "Taiwan strait escalation — short semis, long gold + defense"
+
+  tariff_shock:
+    enabled: false
+    triggers:
+      - POLICY_SHIFT
+      - SANCTIONS_ESCALATION
+      - TRADE_WAR_ESCALATION
+    primary_assets: [EWG, EWJ, FXI]   # Foreign equity short
+    direction: short
+    hedge_assets: [TLT, DXY]           # Bonds + USD long
+    max_position_size: 0.20
+    activation_conviction: 0.70
+    description: "Tariff shock / trade war escalation — short foreign equity, long bonds"
+
+  banking_crisis:
+    enabled: false
+    triggers:
+      - BANKING_CRISIS
+      - CREDIT_DOWNGRADE
+      - FISCAL_CLIFF
+    primary_assets: [KRE, XLF]        # Regional banks + financials short
+    direction: short
+    hedge_assets: [GLD, TLT, USDU]    # Gold + bonds + USD long
+    max_position_size: 0.25
+    activation_conviction: 0.70
+    description: "Banking crisis / credit downgrade — short financials, long safe haven"
+
+  cyber_attack_infrastructure:
+    enabled: false
+    triggers:
+      - CYBER_ESCALATION
+      - ZERO_DAY_DISCLOSURE
+    primary_assets: [CIBR, BUG]       # Cybersecurity ETFs long (demand spike)
+    direction: long
+    hedge_assets: [XLK]               # Broad tech short (supply disruption)
+    max_position_size: 0.15
+    activation_conviction: 0.65
+    description: "Critical infrastructure cyber attack — long cybersecurity, hedge broad tech"
+
+  nuclear_escalation:
+    enabled: false
+    triggers:
+      - NUCLEAR_THREAT
+      - WAR_ESCALATION
+    primary_assets: [GLD, SLV]        # Safe haven long
+    direction: long
+    hedge_assets: [SPY, QQQ]          # Broad market short (extreme risk-off)
+    max_position_size: 0.20
+    activation_conviction: 0.85       # High threshold — nuclear rhetoric is noisy
+    description: "Nuclear escalation rhetoric — long safe haven, hedge broad market"

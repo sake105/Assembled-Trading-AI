@@ -1,0 +1,36 @@
+{
+  "schema_version": "2.0",
+  "description": "EDCL Phase F — post-Wiring-Wave-4 backtest baseline (AI-Tech-Core-ML bundle, survivorship-bias present, treat as upper-bound artifact). Run: run_backtest_strategy.py --bundle-path configs/factor_bundles/ai_tech_core_ml_bundle.yaml --start-date 2023-01-03 --end-date 2026-04-15 --rebalance-freq monthly. Commit: 3478948 (rebalance-fix). Any EDCL-enhanced run should stay within acceptance_criteria below vs this baseline.",
+  "run_config": {
+    "bundle": "ai_tech_core_ml_bundle",
+    "start_date": "2023-01-03",
+    "end_date": "2026-04-15",
+    "rebalance_freq": "monthly",
+    "policy_overrides": {
+      "hmm_regime_overlay.enabled": false,
+      "position_sizing.conformal.enabled": false,
+      "edcl_conviction_overlay.enabled": false
+    }
+  },
+  "baseline_metrics": {
+    "cagr": 0.1919,
+    "sharpe": 2.988,
+    "max_drawdown": -0.0339,
+    "profit_factor": 1.7739,
+    "n_trades": 438
+  },
+  "data_quality_notes": [
+    "Survivorship bias present — AI-Tech universe selected post-hoc from winners",
+    "Treat CAGR/Sharpe as upper-bound artifacts, not live-performance estimates",
+    "Rebalance bug fixed (3478948): 6 months were silently skipped pre-fix",
+    "CI unverified — local run only, 2026-05-02"
+  ],
+  "acceptance_criteria": {
+    "description": "EDCL-enhanced runs must satisfy all of the following vs baseline to be activated",
+    "cagr_min_delta": -0.02,
+    "sharpe_min_delta": -0.10,
+    "max_drawdown_max_delta": 0.03,
+    "cpcv_sharpe_std_max": 0.40,
+    "deflated_sharpe_min": 0.95
+  }
+}
