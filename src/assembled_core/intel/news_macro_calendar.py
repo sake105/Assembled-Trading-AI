@@ -105,7 +105,7 @@ class MacroCalendar:
                     event_id=entry["event_id"],
                     kind=entry.get("kind", "other").lower(),
                     ts=ts,
-                    importance=int(entry.get("importance", 3)),
+                    importance=int(entry.get("importance") or 3),
                     tickers=list(entry.get("tickers", [])),
                     note=entry.get("note", ""),
                 ))

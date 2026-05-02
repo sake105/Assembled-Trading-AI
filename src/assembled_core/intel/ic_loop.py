@@ -117,8 +117,8 @@ class ICTracker:
     def _load(self) -> None:
         try:
             data = json.loads(self._path.read_text(encoding="utf-8"))
-            self._window = int(data.get("window", self._window))
-            self._threshold = float(data.get("ic_threshold", self._threshold))
+            self._window = int(data.get("window") or self._window)
+            self._threshold = float(data.get("ic_threshold") or self._threshold)
             raw = data.get("observations", {})
             self._observations = {
                 k: [(float(s), float(r)) for s, r in v]

@@ -127,7 +127,7 @@ def _load_feed_configs(config_path: Path = _CONFIG_PATH) -> list[FeedConfig]:
                 focus=entry.get("focus", "general"),
                 enabled=entry.get("enabled", True),
                 note=entry.get("note", ""),
-                max_age_hours=int(entry.get("max_age_hours", 0)),
+                max_age_hours=int(entry.get("max_age_hours") or 0),
             ))
         return configs
     except Exception as exc:

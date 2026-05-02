@@ -60,7 +60,7 @@ def load_disclosures_triggers(path: str | Path) -> DisclosuresTriggerSnapshot:
     for t in items:
         if not isinstance(t, dict):
             continue
-        sev = int(t.get("severity", 0))
+        sev = int(t.get("severity") or 0)
         if sev > max_sev:
             max_sev = sev
         if sev >= 1:
