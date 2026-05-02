@@ -141,8 +141,13 @@ def cross_sectional_residual_momentum(
 
     result = pd.DataFrame(scores)
     # Cross-sectional z-score per date (ranking signal)
+    cross_std = result.std(axis=1)
+    zero_std_rows = (cross_std == 0).sum()
+    if zero_std_rows > 0:
+        log = logging.getLogger(__name__)
+        log.debug("[ResidualMomentum] %d date(s) with zero cross-sectional std — z-score will be NaN", zero_std_rows)
     result_z = result.sub(result.mean(axis=1), axis=0).div(
-        result.std(axis=1).replace(0, np.nan), axis=0
+        cross_std.replace(0, np.nan), axis=0
     )
     result_z.columns.name = "ticker"
     return result_z

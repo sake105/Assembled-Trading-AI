@@ -159,7 +159,7 @@ def test_daily_allows_external_fetch() -> None:
         )
         # If yfinance is not available, this will raise ImportError (expected)
         # If available, should succeed
-        assert price_source is not None or True  # Either way is fine for this test
+        pass  # import succeeded — no assertion needed; the try/except handles both outcomes
     except ImportError:
         # yfinance not available - that's fine, test passes if we get here
         # (we're testing the gate logic, not yfinance availability)

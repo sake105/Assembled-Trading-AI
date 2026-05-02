@@ -212,7 +212,10 @@ def _resample_group(
         # Resampled timestamps are period-end labels; if the cutoff falls within
         # the last period, that period is incomplete — remove it
         try:
-            if pit_cutoff < last_period_end:
+            # Normalise both to UTC-naive for comparison to avoid TZ TypeError
+            _cutoff = pd.Timestamp(pit_cutoff).tz_localize(None) if pd.Timestamp(pit_cutoff).tzinfo else pd.Timestamp(pit_cutoff)
+            _last = pd.Timestamp(last_period_end).tz_localize(None) if pd.Timestamp(last_period_end).tzinfo else pd.Timestamp(last_period_end)
+            if _cutoff < _last:
                 resampled = resampled.iloc[:-1]
         except Exception:
             pass  # If we can't determine, keep all periods

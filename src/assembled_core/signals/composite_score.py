@@ -357,12 +357,8 @@ def compute_news_dim_with_edcl(
     try:
         from src.assembled_core.intel.trigger_basket import compute_basket_score
         edcl_score = compute_basket_score(edcl_basket)
-        # Map [0,1] basket score to [-1,+1]: positive geo-risk events are bearish
-        # (reduce exposure toward affected assets) unless conviction is directional.
-        # Default: high basket score → bearish news signal (risk-off).
-        edcl_news = edcl_score * 2.0 - 1.0  # [0,1] → [-1,+1], so 0 becomes -1
-        # Actually: geo-risk means bearish, so basket_score=1 → news=-1
-        edcl_news = -(edcl_score)  # high geo-risk → bearish news dimension
+        # Map [0,1] geo-risk score to [-1,0]: 0 risk → neutral, max risk → fully bearish
+        edcl_news = -(edcl_score)
     except Exception:
         return base_news_score
 
