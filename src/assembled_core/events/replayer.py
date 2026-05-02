@@ -70,7 +70,11 @@ class Replayer:
         result = ReplayResult(session_id=session_id, n_events_replayed=len(events))
 
         for row in events:
-            payload = json.loads(row.get("payload_json", "{}"))
+            try:
+                payload = json.loads(row.get("payload_json", "{}"))
+            except json.JSONDecodeError as _exc:
+                logger.warning("[replayer] malformed payload_json in session %s seq %s: %s", session_id, row.get("sequence"), _exc)
+                payload = {}
             event_dict = {
                 "session_id": row["session_id"],
                 "sequence": row["sequence"],

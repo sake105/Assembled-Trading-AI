@@ -255,8 +255,8 @@ def get_market_implied_geo_signal(
                 get_market_implied_geo_signal as _poly_signal,
             )
             poly_sig = _poly_signal(policy=policy)
-        except Exception:
-            pass
+        except Exception as _exc:
+            _log.debug("[GeoRisk] polymarket signal failed: %s", _exc)
 
     if use_kalshi:
         try:
@@ -267,8 +267,8 @@ def get_market_implied_geo_signal(
                 get_market_implied_geo_signal as _kals_signal,
             )
             kals_sig = _kals_signal()
-        except Exception:
-            pass
+        except Exception as _exc:
+            _log.debug("[GeoRisk] kalshi signal failed: %s", _exc)
 
     if poly_sig is None and kals_sig is None:
         return {"signal": 0.0, "source": "prediction_markets_combined", "n_sources": 0}

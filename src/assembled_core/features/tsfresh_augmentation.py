@@ -249,7 +249,7 @@ def _hurst(arr: np.ndarray, max_lag: int = 20) -> float:
         dev = np.cumsum(sub - mean)
         r = dev.max() - dev.min()
         s = sub.std(ddof=1)
-        if s > 0:
+        if s > 0 and r > 0:
             rs_vals.append((lag, r / s))
     if len(rs_vals) < 2:
         return 0.5

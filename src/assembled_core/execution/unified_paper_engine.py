@@ -1638,7 +1638,7 @@ class UnifiedPaperEngine:
             sym = str(row["symbol"])
             if sym not in positions:
                 continue
-            ratio = float(row.get("split_ratio", 1.0))
+            ratio = float(row.get("split_ratio") or 1.0)
             if ratio <= 0:
                 continue
             positions[sym] = positions[sym] * ratio
@@ -1651,7 +1651,7 @@ class UnifiedPaperEngine:
             sym = str(row["symbol"])
             if sym not in positions:
                 continue
-            per_share = float(row.get("dividend_cash", 0.0))
+            per_share = float(row.get("dividend_cash") or 0.0)
             cash += positions[sym] * per_share
 
         self._state["cash"] = cash

@@ -43,7 +43,7 @@ def score_disclosure_triggers(
 
     severity_cfg = cfg.get("severity") or {}
     base_by_action = severity_cfg.get("base_by_action") or {}
-    max_sev = int(severity_cfg.get("max", 3))
+    max_sev = int(severity_cfg.get("max") or 3)
     confidence_cfg = cfg.get("confidence") or {}
     tier_a_alone = float(confidence_cfg.get("tierA_alone", 0.85))
     tier_b_two = float(confidence_cfg.get("tierB_two_domains", 0.70))
@@ -51,12 +51,12 @@ def score_disclosure_triggers(
     gating = cfg.get("gating") or {}
     require_evidence_ok = bool(gating.get("require_evidence_ok", True))
     ttl_cfg = cfg.get("ttl") or {}
-    default_ttl = int(ttl_cfg.get("default_hours", 168))
+    default_ttl = int(ttl_cfg.get("default_hours") or 168)
     by_action_ttl = ttl_cfg.get("by_action") or {}
     decay_cfg = cfg.get("decay") or {}
     half_life = float(decay_cfg.get("half_life_hours", 72))
     min_conf_floor = float(decay_cfg.get("min_confidence_floor", 0.25))
-    sev_floor = int(decay_cfg.get("severity_floor", 0))
+    sev_floor = int(decay_cfg.get("severity_floor") or 0)
 
     triggers: List[Dict[str, Any]] = []
 
@@ -82,7 +82,7 @@ def score_disclosure_triggers(
             base_sev = 0
             conf = otherwise
 
-        ttl_hours = int(by_action_ttl.get(action_type, default_ttl))
+        ttl_hours = int(by_action_ttl.get(action_type) or default_ttl)
         age_h = _age_hours(ev.published_utc or now_utc, now_utc)
 
         if age_h >= ttl_hours:
@@ -149,8 +149,8 @@ def apply_qc_caps(
 ) -> List[Dict[str, Any]]:
     """Cap trigger severity by health status (DEGRADED => degraded_max_severity, ERROR => error_max_severity)."""
     status = (health_status or "").strip().upper()
-    max_sev_degraded = int(qc_gates.get("degraded_max_severity", 1))
-    max_sev_error = int(qc_gates.get("error_max_severity", 0))
+    max_sev_degraded = int(qc_gates.get("degraded_max_severity") or 1)
+    max_sev_error = int(qc_gates.get("error_max_severity") or 0)
     if status == "ERROR":
         cap = max_sev_error
     elif status == "DEGRADED":

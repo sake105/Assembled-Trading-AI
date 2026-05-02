@@ -156,7 +156,7 @@ def chart_pattern_score(
       anomaly_score: how unusual current pattern is (0-1)
       trend_strength: matrix profile trend signal (proxy for momentum)
     """
-    result = compute_matrix_profile(np.log(prices.replace(0, np.nan).dropna()), window=window)
+    result = compute_matrix_profile(np.log(prices.clip(lower=1e-10)), window=window)
 
     features: dict[str, float] = {
         "anomaly_score": 0.0,

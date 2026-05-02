@@ -125,8 +125,8 @@ def store_ledger_events_parquet(
         if tmp_path.exists():
             try:
                 tmp_path.unlink()
-            except Exception:
-                pass
+            except Exception as _exc:
+                logger.debug("[LedgerStore] failed to remove tmp file %s: %s", tmp_path, _exc)
         raise
 
     return ledger_path
@@ -216,8 +216,8 @@ def store_daily_snapshot_parquet(
         if tmp_path.exists():
             try:
                 tmp_path.unlink()
-            except Exception:
-                pass
+            except Exception as _exc:
+                logger.debug("[LedgerStore] failed to remove tmp file %s: %s", tmp_path, _exc)
         raise
 
     return snapshot_path

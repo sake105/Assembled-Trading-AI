@@ -67,7 +67,8 @@ class BarraRiskModel:
                 r_vec = pd.Series(y.values - X_day.values @ coef, index=y.index, name=date)
                 factor_ret_rows.append(f_ret)
                 residual_rows.append(r_vec)
-            except Exception:
+            except Exception as _exc:
+                logger.debug("[BarraRisk] lstsq failed for date %s: %s", date, _exc)
                 continue
 
         self._factor_returns = pd.DataFrame(factor_ret_rows)
@@ -179,7 +180,7 @@ class BarraRiskModel:
         mcap = fund["market_cap"].reindex(symbols) if "market_cap" in fund.columns else pd.Series(np.nan, index=symbols)
         b2p = fund["book_to_price"].reindex(symbols) if "book_to_price" in fund.columns else pd.Series(np.nan, index=symbols)
 
-        size = -np.log(mcap.clip(lower=1))  # smaller market cap → positive size score
+        size = -np.log(mcap.fillna(1.0).clip(lower=1))  # smaller market cap → positive size score
 
         scores = pd.DataFrame({
             "momentum": momentum,

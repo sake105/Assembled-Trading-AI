@@ -42,7 +42,7 @@ def parse_acled_events(df: pd.DataFrame) -> list[ACLEDEvent]:
                 event_date=str(row.get("event_date", "")),
                 event_type=etype,
                 country=str(row.get("country", "")),
-                fatalities=int(row.get("fatalities", 0)),
+                fatalities=int(row.get("fatalities") or 0),
                 notes=str(row.get("notes", "")),
                 trigger_type=trigger,
             )

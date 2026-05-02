@@ -174,7 +174,8 @@ def get_ecb_usd_eur_rate_sync(
         obs = next(iter(series.values()))["observations"]
         usd_per_eur = float(next(iter(obs.values()))[0])
         return round(1.0 / usd_per_eur, 6)
-    except Exception:
+    except Exception as _exc:
+        logger.warning("[ECB] FX rate fetch failed (%s) — using fallback %.4f", _exc, fallback_rate)
         return fallback_rate
 
 

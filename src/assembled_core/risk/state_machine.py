@@ -48,7 +48,8 @@ def _hours_since(iso_utc: str, now_utc: str) -> float:
         t1 = datetime.fromisoformat(now_utc.replace("Z", "+00:00"))
         delta = t1 - t0
         return delta.total_seconds() / 3600.0
-    except Exception:
+    except Exception as _exc:
+        logger.warning("[RiskState] _hours_since parse error (%s) — returning 0.0", _exc)
         return 0.0
 
 

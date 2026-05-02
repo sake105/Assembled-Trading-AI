@@ -217,8 +217,8 @@ def _resample_group(
             _last = pd.Timestamp(last_period_end).tz_localize(None) if pd.Timestamp(last_period_end).tzinfo else pd.Timestamp(last_period_end)
             if _cutoff < _last:
                 resampled = resampled.iloc[:-1]
-        except Exception:
-            pass  # If we can't determine, keep all periods
+        except Exception as _exc:
+            logger.warning("[resample] PIT cut failed, keeping all periods: %s", _exc)
 
     resampled.index.name = timestamp_col
     return resampled.reset_index()

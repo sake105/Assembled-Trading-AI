@@ -177,8 +177,8 @@ def submit_orders_to_broker(
                         intent_key=intent_key,
                         store_path=intent_store_path,
                     )
-                except Exception:
-                    pass  # Best-effort; original error already logged
+                except Exception as _exc:
+                    logger.debug("[broker_execution] intent completion write failed: %s", _exc)
             results.append(None)
 
     return results, intent_keys

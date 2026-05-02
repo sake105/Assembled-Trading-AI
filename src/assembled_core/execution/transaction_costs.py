@@ -9,11 +9,14 @@ Costs are computed per trade/fill and added as columns to trade DataFrames.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -186,8 +189,8 @@ def add_cost_columns_to_trades(
 
             # Compute spread cash
             spread_cash = compute_spread_cash(notional, spread_bps)
-        except Exception:
-            # Fallback: use fallback_spread_bps for all trades
+        except Exception as _exc:
+            logger.warning("[TC] spread calc failed, using fallback: %s", _exc)
             spread_bps = np.full(
                 n_trades, spread_model.fallback_spread_bps, dtype=np.float64
             )
@@ -236,8 +239,8 @@ def add_cost_columns_to_trades(
 
             # Compute slippage cash
             slippage_cash = compute_slippage_cash(notional, slippage_bps)
-        except Exception:
-            # Fallback: use fallback_slippage_bps for all trades
+        except Exception as _exc:
+            logger.warning("[TC] slippage calc failed, using fallback: %s", _exc)
             slippage_bps = np.full(
                 n_trades, slippage_model.fallback_slippage_bps, dtype=np.float64
             )
