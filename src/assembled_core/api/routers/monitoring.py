@@ -410,7 +410,7 @@ def get_portfolio_status(
             "cash": round(cash, 2),
             "equity": round(last_equity, 2),
             "n_positions": len(positions),
-            "positions": positions.to_dict(orient="records") if not positions.empty else [],
+            "positions": _json.loads(positions.to_json(orient="records")) if not positions.empty else [],
             "last_updated": equity_curve["as_of"].iloc[-1].isoformat() if not equity_curve.empty else None,
         }
     except Exception as exc:
@@ -554,7 +554,7 @@ def get_signal_scores(
             score_files_pq = sorted(out_path.glob("signal_scores_*.parquet"), reverse=True)
             if score_files_pq:
                 df = pd.read_parquet(str(score_files_pq[0]))
-                scores = df.set_index("symbol")["score"].to_dict() if "score" in df.columns else {}
+                scores = {k: float(v) for k, v in df.set_index("symbol")["score"].to_dict().items()} if "score" in df.columns else {}
                 return {
                     "status": "ok",
                     "source": score_files_pq[0].name,
