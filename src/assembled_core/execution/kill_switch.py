@@ -76,21 +76,34 @@ def _read_state() -> dict[str, Any]:
         return {}
 
 
-def _write_state(state: dict[str, Any]) -> None:
-    """Atomically write kill switch state to JSON file."""
+def _write_state(state: dict[str, Any]) -> bool:
+    """Atomically write kill switch state to JSON file.
+
+    Returns:
+        True if the write succeeded, False if it failed.
+        Callers that perform safety-critical state changes (activate/deactivate)
+        MUST check the return value and handle False appropriately.
+    """
     p = _state_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     tmp = p.with_suffix(".tmp")
     try:
         tmp.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         tmp.replace(p)
+        return True
     except Exception as exc:
-        logger.error("[KillSwitch] Failed to write state file %s: %s", p, exc)
+        logger.error(
+            "[KillSwitch] CRITICAL — failed to persist state file %s: %s. "
+            "In-memory activation may not survive restart.",
+            p,
+            exc,
+        )
         if tmp.exists():
             try:
                 tmp.unlink()
             except Exception:
                 pass  # cleanup best-effort
+        return False
 
 
 def _append_audit(event: dict[str, Any]) -> None:
@@ -131,14 +144,23 @@ def activate_kill_switch(
         "actor": actor,
         "activated_at": datetime.now(timezone.utc).isoformat(),
     }
-    _write_state(state)
+    write_ok = _write_state(state)
     _append_audit({"action": "ACTIVATE", "throttle_pct": throttle_pct, "reason": reason, "actor": actor})
-    logger.warning(
-        "[KillSwitch] ACTIVATED — throttle=%.0f%%, reason=%s, actor=%s",
-        throttle_pct * 100,
-        reason,
-        actor,
-    )
+    if write_ok:
+        logger.warning(
+            "[KillSwitch] ACTIVATED — throttle=%.0f%%, reason=%s, actor=%s",
+            throttle_pct * 100,
+            reason,
+            actor,
+        )
+    else:
+        logger.critical(
+            "[KillSwitch] ACTIVATION WRITE FAILED — state NOT persisted. "
+            "Kill switch will NOT survive process restart. throttle=%.0f%%, reason=%s, actor=%s",
+            throttle_pct * 100,
+            reason,
+            actor,
+        )
 
 
 def deactivate_kill_switch(*, reason: str = "", actor: str = "system") -> None:
@@ -150,9 +172,17 @@ def deactivate_kill_switch(*, reason: str = "", actor: str = "system") -> None:
         "actor": actor,
         "deactivated_at": datetime.now(timezone.utc).isoformat(),
     }
-    _write_state(state)
+    write_ok = _write_state(state)
     _append_audit({"action": "DEACTIVATE", "reason": reason, "actor": actor})
-    logger.info("[KillSwitch] DEACTIVATED — reason=%s, actor=%s", reason, actor)
+    if write_ok:
+        logger.info("[KillSwitch] DEACTIVATED — reason=%s, actor=%s", reason, actor)
+    else:
+        logger.critical(
+            "[KillSwitch] DEACTIVATION WRITE FAILED — state NOT persisted. "
+            "Kill switch may re-engage on next read from stale state file. reason=%s, actor=%s",
+            reason,
+            actor,
+        )
 
 
 def get_kill_switch_state() -> dict[str, Any]:
