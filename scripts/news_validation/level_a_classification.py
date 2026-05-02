@@ -31,7 +31,10 @@ def load_predictions(path: Path) -> list[str]:
         for line in fh:
             line = line.strip()
             if line:
-                labels.append(json.loads(line)["label"].lower())
+                try:
+                    labels.append(json.loads(line)["label"].lower())
+                except (json.JSONDecodeError, KeyError):
+                    continue
     return labels
 
 

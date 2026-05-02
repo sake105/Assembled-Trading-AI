@@ -36,7 +36,11 @@ def main():
         print("Usage: python pull_coingecko_ohlc.py <symbols_csv> <days> <out_dir>")
         sys.exit(2)
     symbols = sys.argv[1].split(',')
-    days = int(sys.argv[2])
+    try:
+        days = int(sys.argv[2])
+    except ValueError:
+        print(f"Error: <days> must be an integer, got {sys.argv[2]!r}")
+        sys.exit(2)
     out_dir = Path(sys.argv[3])
     out_dir.mkdir(parents=True, exist_ok=True)
     dfs = []

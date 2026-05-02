@@ -37,7 +37,10 @@ def load_events(path: Path) -> pd.DataFrame:
         for line in fh:
             line = line.strip()
             if line:
-                rows.append(json.loads(line))
+                try:
+                    rows.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
     return pd.DataFrame(rows)
 
 

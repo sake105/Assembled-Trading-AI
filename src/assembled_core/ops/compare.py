@@ -41,8 +41,14 @@ def compare_summaries(path_a: str | Path, path_b: str | Path) -> Dict[str, Any]:
         raise FileNotFoundError(f"Summary A not found: {pa}")
     if not pb.exists():
         raise FileNotFoundError(f"Summary B not found: {pb}")
-    data_a = json.loads(pa.read_text(encoding="utf-8"))
-    data_b = json.loads(pb.read_text(encoding="utf-8"))
+    try:
+        data_a = json.loads(pa.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"[compare] Malformed JSON in {pa}: {exc}") from exc
+    try:
+        data_b = json.loads(pb.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"[compare] Malformed JSON in {pb}: {exc}") from exc
     if not isinstance(data_a, dict):
         data_a = {}
     if not isinstance(data_b, dict):
