@@ -88,6 +88,8 @@ def module_id(path: Path) -> str:
         parts = list(rel.parts)
         # Build dotted path from all parts, replacing __init__ with parent folder
         name_parts = [p.replace(".py", "") for p in parts]
+        if not name_parts:
+            return "module:root.__init__"
         if name_parts[-1] == "__init__":
             name_parts = name_parts[:-1]
         if not name_parts:

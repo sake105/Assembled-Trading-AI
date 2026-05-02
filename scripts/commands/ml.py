@@ -243,7 +243,7 @@ def build_ml_dataset_subcommand(args: argparse.Namespace) -> int:
             if args.symbols:
                 universe_list = args.symbols
             elif args.universe:
-                with open(args.universe, "r") as _f:
+                with open(args.universe, "r", encoding="utf-8") as _f:
                     universe_list = [
                         line.strip().upper()
                         for line in _f
