@@ -149,7 +149,7 @@ def compute_signal_hit_rate(
                     "total_trades": total,
                     "hits": hits,
                     "hit_rate": hits / total,
-                    "avg_forward_return": sum(fwd_returns) / len(fwd_returns),
+                    "avg_forward_return": sum(fwd_returns) / len(fwd_returns) if fwd_returns else None,
                 }
             )
 
