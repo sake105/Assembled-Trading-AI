@@ -118,11 +118,12 @@ def build_anlage_kap_xml(
     # Taxable amount after Sparer-Pauschbetrag (Zeile 19)
     _add_field(kap, "Kap_Z19_Besteuerungsgrundlage", summary.taxable_pnl_eur, "EUR")
 
-    # Abgeltungsteuer (Zeile 36) — estimated
-    _add_field(kap, "Kap_Z36_Abgeltungsteuer", summary.estimated_tax_eur, "EUR")
+    # Abgeltungsteuer (Zeile 36): flat 25% only (estimated_tax_eur = 25% * 1.055 combined)
+    abgeltungsteuer = round(summary.estimated_tax_eur / 1.055, 2)
+    _add_field(kap, "Kap_Z36_Abgeltungsteuer", abgeltungsteuer, "EUR")
 
-    # Solidaritätszuschlag (Zeile 37)
-    soli = round(summary.estimated_tax_eur * 0.055, 2)
+    # Solidaritätszuschlag (Zeile 37): 5.5% of Abgeltungsteuer only
+    soli = round(abgeltungsteuer * 0.055, 2)
     _add_field(kap, "Kap_Z37_Solidaritaetszuschlag", soli, "EUR")
 
     # Anrechenbare Quellensteuer (Zeile 48)
