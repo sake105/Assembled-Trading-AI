@@ -126,8 +126,15 @@ def load_eod_prices(
         if df.empty:
             raise ValueError(f"No data found for symbols: {symbols}")
 
-    # Select and order columns
+    # Select and order columns — extra columns (factors, features) are intentionally
+    # dropped here; callers needing them should use panel_store or factor_store directly
     required_cols = ["timestamp", "symbol", "open", "high", "low", "close", "volume"]
+    extra_cols = [c for c in df.columns if c not in required_cols]
+    if extra_cols:
+        import logging as _logging
+        _logging.getLogger(__name__).debug(
+            "[load_eod_prices] dropping %d non-OHLCV columns: %s", len(extra_cols), extra_cols[:5]
+        )
     df = df[required_cols].copy()
 
     # Validate OHLC relationships

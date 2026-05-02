@@ -162,8 +162,11 @@ def filter_prices_to_trading_days(
                 .dt.normalize()
                 .dt.date.map(lambda d: d in valid_dates if d is not None else False)
             )
-        except Exception:
-            # Fall back to per-row check if range lookup fails
+        except Exception as _cal_exc:
+            import logging as _logging
+            _logging.getLogger(__name__).warning(
+                "[calendar] vectorized trading-day filter failed (%s) — falling back to per-row O(n) check", _cal_exc
+            )
             mask = ts.apply(
                 lambda t: is_trading_day_safe(t) if not pd.isna(t) else False
             )
