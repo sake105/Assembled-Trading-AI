@@ -264,7 +264,9 @@ def generate_pairs_signals_from_panel(
                 window=window, delta=delta,
             )
             # Current bar signal
-            if sig.entry_long.iloc[-1]:
+            if sig.entry_long.empty or sig.entry_short.empty or sig.exit_signal.empty:
+                direction = "HOLD"
+            elif sig.entry_long.iloc[-1]:
                 direction = "LONG_A"
             elif sig.entry_short.iloc[-1]:
                 direction = "SHORT_A"
