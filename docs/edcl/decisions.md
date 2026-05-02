@@ -206,4 +206,53 @@ Kein Schritt überspringen. Kein Threshold senken ohne Precision-Messung.
 
 ---
 
-*Zuletzt aktualisiert: 2026-05-02 — ef891cb, feat/edcl branch*
+---
+
+## Phase G — Tail-Hunting Execution Layer
+
+### TailHuntSignal.size_fraction() — lineare Skalierung
+
+```
+size_fraction = max_position_size * (conviction - activation_conviction) / (1.0 - activation_conviction)
+```
+
+**Begründung:** Direkt an der activation_conviction → 0% Position (kein Risiko bei Threshold-Grenzwert). Bei conviction=1.0 → volle max_position_size. Lineare Skalierung statt Stufen, weil Tail-Events eine kontinuierliche Conviction-Qualität haben.
+
+### tail_signals_to_targets() — Long vs. Short
+
+**Long:** primary_assets += per_asset_weight; hedge_assets -= per_hedge_weight  
+**Short:** primary_assets -= per_asset_weight; hedge_assets += per_hedge_weight
+
+**Begründung:** Für short-directed Tail-Events (z.B. taiwan_strait → short Semis, long GLD) muss die Logik umgekehrt sein. Der `direction`-Parameter in der YAML ist die verbindliche Quelle.
+
+---
+
+## Phase H — Pipeline-Wiring
+
+### _tc_sizing.py: Phase H ersetzt Phase A EDCL-Multiplier
+
+**Entscheidung:** In `_sp_compute_final_multiplier` wird jetzt `composite_score.compute_edcl_conviction_multiplier` (Phase H — triple-confirmation) aufgerufen statt `georisk_overlay.compute_edcl_conviction_multiplier` (Phase A — lineare Version).
+
+**Begründung:** Phase H ist die Vollversion mit drei unabhängigen Quellen. Phase A war ein Zwischenstand. Beide in der Multiplikationskette wäre Doppel-Zählung.
+
+**Inputs für Phase H in der Pipeline:**
+- `edcl_conviction`: aus `ctx.edcl_state.conviction` (Phase B/C)
+- `composite_regime`: aus `ctx.crisis_state_intel.mode` → "crisis"/"elevated"/"normal"
+- `options_iv_skew_z`: aus `ctx.options_iv_skew_z` (neu, default 0.0 — options_iv Pipeline noch nicht verdrahtet)
+
+### options_iv_skew_z — default 0.0
+
+**Bedeutung:** Solange der options_iv-Pipe nicht verdrahtet ist, erreicht triple-confirmation maximal "double" (1.5×). Die 2.0×-Stufe erfordert explizite IV-Spike-Bestätigung.  
+**Kein Fehler:** Graceful degradation ist beabsichtigt.
+
+---
+
+## Phase C — event_beta Compute Script
+
+`scripts/training/compute_event_betas.py` schreibt die FeatureStore-View `event_beta/`.  
+**Voraussetzung:** `data/intel/geo_events_historical.parquet` mit Spalten `event_date`, `trigger_type`. Diese Datei wird erst erzeugt, wenn die intel-Ingestion-Pipeline historische Events persistiert.  
+**Bis dahin:** `compute_event_beta()` in conviction_engine.py gibt immer None zurück → beta_boost=0.0.
+
+---
+
+*Zuletzt aktualisiert: 2026-05-02 — 6aea4f2+, feat/edcl branch*

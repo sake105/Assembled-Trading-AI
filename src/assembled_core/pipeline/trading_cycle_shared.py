@@ -229,6 +229,9 @@ class TradingContext:
     # raw_news_events: optional list[NewsEvent] supplied by intel pipeline for full
     # keyword-based basket scoring. Falls back to active_triggers when None.
     raw_news_events: list | None = None
+    # options_iv_skew_z: Options IV skew Z-score for Phase H triple-confirmation.
+    # Populated by options_iv pipeline when available; 0.0 means no IV data.
+    options_iv_skew_z: float = 0.0
 
     # Outputs
     output_dir: Path = field(default_factory=lambda: Path("output"))

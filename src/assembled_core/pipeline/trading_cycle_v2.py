@@ -407,6 +407,24 @@ def _load_intel(
     except Exception as _e:
         log.debug("edcl_basket computation skipped: %s", _e)
 
+    # EDCL Phase G — Tail-Hunting: match active basket against pre-positioned plans
+    try:
+        _edcl_state = getattr(ctx, "edcl_state", None) or {}
+        _conviction_g = float(_edcl_state.get("conviction", 0.0))
+        if _conviction_g > 0.0 and _basket is not None:
+            from src.assembled_core.intel.tail_hunting import match_tail_plans
+            _tail_signals = match_tail_plans(_basket, _conviction_g)
+            if _tail_signals:
+                _edcl_state["tail_signals"] = [s.as_dict() for s in _tail_signals]
+                ctx.edcl_state = _edcl_state
+                log.info(
+                    "[TAIL-G] %d plan(s) activated: %s",
+                    len(_tail_signals),
+                    [s.event_name for s in _tail_signals],
+                )
+    except Exception as _e:
+        log.debug("tail_hunting Phase G skipped: %s", _e)
+
 
 # ---------------------------------------------------------------------------
 # Orchestrator
