@@ -26,7 +26,10 @@ import pandas as pd
 
 
 def load_equity(path: Path) -> pd.DataFrame:
-    data = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{path}: malformed JSON — {exc}") from exc
     if "equity" not in data:
         raise ValueError(f"{path}: missing 'equity' key")
     df = pd.DataFrame(data["equity"])

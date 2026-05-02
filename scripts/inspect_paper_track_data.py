@@ -52,6 +52,9 @@ def inspect_data(freq: str = "1d") -> dict:
 
     symbols = sorted(df["symbol"].unique().tolist())
     dates = sorted(df["timestamp"].dt.normalize().unique())
+    if not dates:
+        result["error"] = "no valid timestamps in price data"
+        return result
     min_date = dates[0].strftime("%Y-%m-%d")
     max_date = dates[-1].strftime("%Y-%m-%d")
 
