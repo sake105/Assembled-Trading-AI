@@ -946,6 +946,7 @@ def _evaluate_var_gate(
         else:
             syms = targets["symbol"].unique()
             w = pd.Series(1.0 / max(len(syms), 1), index=syms)
+            logger.warning("[VAR-GATE] no weight/notional column in target_positions — using equal weights for VaR")
 
         var_calc = PortfolioVaR(returns=returns.fillna(0.0), weights=w)
         alpha = float(cfg.get("confidence", 0.95))

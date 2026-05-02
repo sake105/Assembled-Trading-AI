@@ -425,7 +425,9 @@ def _sp_compute_final_multiplier(
                         _edcl_conviction, _composite_regime, _iv_skew_z, edcl_multiplier,
                     )
     except Exception as e:
-        log.debug("edcl_conviction_overlay skipped: %s", e)
+        _edcl_mode_check = getattr(ctx, "mode", "backtest")
+        _log_fn = log.warning if _edcl_mode_check in ("live", "paper") else log.debug
+        _log_fn("edcl_conviction_overlay raised — multiplier stays 1.0: %s", e)
 
     final_multiplier = geo_multiplier * profit_lock_mult * vol_scale_factor * ms_multiplier * crisis_alpha_multiplier * pm_multiplier * hmm_regime_multiplier * edcl_multiplier
     _MIN_EXPOSURE_MULT = 0.05
@@ -833,6 +835,14 @@ def size_positions(
             cash_symbol="CASH",
             max_gross_exposure=_max_gross,
         )
+        # Per-symbol weight re-clamp: only when upscaling (multiplier > 1) since upscaling can push
+        # individual weights above max_position_weight; downscaling is already safe.
+        if final_multiplier > 1.0 and not target_positions.empty and "target_weight" in target_positions.columns:
+            _max_pos_w = float(policy.get("risk_limits", {}).get("max_position_weight", 0.20))
+            _is_cash = target_positions.get("symbol", target_positions.index) == "CASH"
+            target_positions.loc[~_is_cash, "target_weight"] = (
+                target_positions.loc[~_is_cash, "target_weight"].clip(lower=-_max_pos_w, upper=_max_pos_w)
+            )
 
     target_positions = _sp_apply_factor_risk(target_positions, prices_for_sizing, policy, log)
     target_positions = _sp_apply_trailing_stops(target_positions, ctx, prices_filtered, policy, meta, log)
