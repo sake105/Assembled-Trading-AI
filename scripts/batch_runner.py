@@ -56,8 +56,11 @@ def _load_yaml(path: Path) -> dict[str, Any]:
             "Install via 'pip install pyyaml' or use JSON config instead."
         ) from exc
 
-    with path.open("r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            return yaml.safe_load(f)
+    except yaml.YAMLError as exc:
+        raise ValueError(f"[batch_runner] Malformed YAML in {path}: {exc}") from exc
 
 
 def _compute_run_id_hash(run_cfg: RunConfig, seed: int) -> str:
