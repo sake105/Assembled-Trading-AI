@@ -363,7 +363,7 @@ def test_compute_equity_metrics_sideways(synthetic_equity_sideways):
 def test_compute_equity_metrics_with_daily_return(synthetic_equity_1d):
     """Test equity metrics with pre-computed daily_return."""
     equity = synthetic_equity_1d.copy()
-    equity["daily_return"] = equity["equity"].pct_change()
+    equity["daily_return"] = equity["equity"].pct_change(fill_method=None)
 
     metrics = compute_equity_metrics(equity=equity, start_capital=10000.0, freq="1d")
 

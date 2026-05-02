@@ -199,8 +199,8 @@ def test_scenario_vol_spike(synthetic_prices):
             .reset_index(drop=True)
         )
 
-        original_returns = original["close"].pct_change().dropna()
-        shocked_returns = shocked["close"].pct_change().dropna()
+        original_returns = original["close"].pct_change(fill_method=None).dropna()
+        shocked_returns = shocked["close"].pct_change(fill_method=None).dropna()
 
         # Returns in shock period should have higher variance
         shock_mask = (original["timestamp"] >= shock_start) & (
@@ -375,8 +375,8 @@ def test_apply_scenario_to_equity_vol_spike(synthetic_equity):
     shocked_equity = apply_scenario_to_equity(synthetic_equity, scenario)
 
     # Equity should have higher volatility
-    original_returns = synthetic_equity.pct_change().dropna()
-    shocked_returns = shocked_equity.pct_change().dropna()
+    original_returns = synthetic_equity.pct_change(fill_method=None).dropna()
+    shocked_returns = shocked_equity.pct_change(fill_method=None).dropna()
 
     # Shocked returns should have higher variance
     assert shocked_returns.std() > original_returns.std()

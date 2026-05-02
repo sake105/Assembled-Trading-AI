@@ -68,7 +68,7 @@ def test_split_adjustment_no_fake_crash() -> None:
     ), "close_research should be split-adjusted"
 
     # Verify returns with close_research show no fake crash
-    returns_research = result["close_research"].pct_change().dropna()
+    returns_research = result["close_research"].pct_change(fill_method=None).dropna()
     # Day 1->2: (102.5 - 100.0) / 100.0 = +2.5%
     # Day 2->3: (100.0 - 102.5) / 102.5 = -2.44% (small, not -50%!)
     # Day 3->4: (102.0 - 100.0) / 100.0 = +2.0%
@@ -78,7 +78,7 @@ def test_split_adjustment_no_fake_crash() -> None:
     assert all(returns_research > -0.1), "No fake crash in research returns"
 
     # Compare with unadjusted returns (would show -50% crash)
-    returns_unadjusted = result["close"].pct_change().dropna()
+    returns_unadjusted = result["close"].pct_change(fill_method=None).dropna()
     # Day 2->3: (100.0 - 205.0) / 205.0 = -51.2% (fake crash!)
     assert any(returns_unadjusted < -0.5), "Unadjusted returns show fake crash"
 
