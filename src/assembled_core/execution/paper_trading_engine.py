@@ -13,6 +13,7 @@ Fill model (optional):
 from __future__ import annotations
 
 import math
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Literal
@@ -185,6 +186,7 @@ class PaperTradingEngine:
         self._positions: dict[str, float] = {}
         self._fill_model = fill_model
         self._cash: float = initial_cash
+        self._lock = threading.RLock()
         logger.debug("Paper trading engine initialized (fill_model=%s, cash=%.2f)",
                       "enabled" if fill_model else "off", initial_cash)
 
@@ -204,78 +206,79 @@ class PaperTradingEngine:
         """
         filled_orders = []
 
-        for order in orders:
-            # Validate order
-            if order.quantity <= 0:
-                order.status = "REJECTED"
-                order.reason = f"Invalid quantity: {order.quantity} (must be > 0)"
-                logger.warning(f"Order {order.order_id} rejected: {order.reason}")
-                filled_orders.append(order)
-                continue
-
-            if not order.symbol or not order.symbol.strip():
-                order.status = "REJECTED"
-                order.reason = "Invalid symbol: empty or whitespace"
-                logger.warning(f"Order {order.order_id} rejected: {order.reason}")
-                filled_orders.append(order)
-                continue
-
-            # Normalize symbol
-            symbol = order.symbol.strip().upper()
-
-            # Cash-balance guard for BUY orders (skip if price is None or 0)
-            if order.side == "BUY" and order.price:
-                cost = order.price * order.quantity
-                if cost > self._cash:
+        with self._lock:
+            for order in orders:
+                # Validate order
+                if order.quantity <= 0:
                     order.status = "REJECTED"
-                    order.reason = "Insufficient cash"
-                    logger.warning(
-                        "Order %s rejected: Insufficient cash (need=%.2f, have=%.2f)",
-                        order.order_id, cost, self._cash,
-                    )
+                    order.reason = f"Invalid quantity: {order.quantity} (must be > 0)"
+                    logger.warning(f"Order {order.order_id} rejected: {order.reason}")
                     filled_orders.append(order)
                     continue
 
-            # Fill order immediately
-            order.status = "FILLED"
-            order.filled_at = datetime.now(tz=timezone.utc)
-            order.symbol = symbol  # Store normalized symbol
+                if not order.symbol or not order.symbol.strip():
+                    order.status = "REJECTED"
+                    order.reason = "Invalid symbol: empty or whitespace"
+                    logger.warning(f"Order {order.order_id} rejected: {order.reason}")
+                    filled_orders.append(order)
+                    continue
 
-            # Apply fill model for realistic execution costs
-            if self._fill_model is not None and order.price is not None:
-                fill_px, cost_info = self._fill_model.compute_fill_price(
-                    order_price=order.price,
-                    side=order.side,
-                    quantity=order.quantity,
+                # Normalize symbol
+                symbol = order.symbol.strip().upper()
+
+                # Cash-balance guard for BUY orders (skip if price is None or 0)
+                if order.side == "BUY" and order.price:
+                    cost = order.price * order.quantity
+                    if cost > self._cash:
+                        order.status = "REJECTED"
+                        order.reason = "Insufficient cash"
+                        logger.warning(
+                            "Order %s rejected: Insufficient cash (need=%.2f, have=%.2f)",
+                            order.order_id, cost, self._cash,
+                        )
+                        filled_orders.append(order)
+                        continue
+
+                # Fill order immediately
+                order.status = "FILLED"
+                order.filled_at = datetime.now(tz=timezone.utc)
+                order.symbol = symbol  # Store normalized symbol
+
+                # Apply fill model for realistic execution costs
+                if self._fill_model is not None and order.price is not None:
+                    fill_px, cost_info = self._fill_model.compute_fill_price(
+                        order_price=order.price,
+                        side=order.side,
+                        quantity=order.quantity,
+                    )
+                    order.fill_price = fill_px
+                    order.fill_cost_breakdown = cost_info
+                else:
+                    order.fill_price = order.price
+
+                # Update position
+                if symbol not in self._positions:
+                    self._positions[symbol] = 0.0
+
+                # BUY adds to position, SELL subtracts from position; update cash balance
+                effective_price = order.fill_price or order.price
+                if order.side == "BUY":
+                    self._positions[symbol] += order.quantity
+                    if effective_price:
+                        self._cash -= effective_price * order.quantity
+                else:  # SELL
+                    self._positions[symbol] -= order.quantity
+                    if effective_price:
+                        self._cash += effective_price * order.quantity
+
+                filled_orders.append(order)
+                logger.debug(
+                    f"Order {order.order_id} filled: {order.side} {order.quantity} {symbol} "
+                    f"@ {order.price or 'MARKET'}"
                 )
-                order.fill_price = fill_px
-                order.fill_cost_breakdown = cost_info
-            else:
-                order.fill_price = order.price
 
-            # Update position
-            if symbol not in self._positions:
-                self._positions[symbol] = 0.0
-
-            # BUY adds to position, SELL subtracts from position; update cash balance
-            effective_price = order.fill_price or order.price
-            if order.side == "BUY":
-                self._positions[symbol] += order.quantity
-                if effective_price:
-                    self._cash -= effective_price * order.quantity
-            else:  # SELL
-                self._positions[symbol] -= order.quantity
-                if effective_price:
-                    self._cash += effective_price * order.quantity
-
-            filled_orders.append(order)
-            logger.debug(
-                f"Order {order.order_id} filled: {order.side} {order.quantity} {symbol} "
-                f"@ {order.price or 'MARKET'}"
-            )
-
-        # Add orders to history (newest first)
-        self._orders = filled_orders + self._orders
+            # Add orders to history (newest first)
+            self._orders = filled_orders + self._orders
 
         logger.info(f"Submitted {len(filled_orders)} orders, all filled")
         return filled_orders
@@ -289,9 +292,10 @@ class PaperTradingEngine:
         Returns:
             List of PaperOrder objects (newest first)
         """
-        orders = self._orders
-        if limit is not None and limit > 0:
-            orders = orders[:limit]
+        with self._lock:
+            orders = list(self._orders)
+            if limit is not None and limit > 0:
+                orders = orders[:limit]
 
         return orders
 
@@ -301,11 +305,12 @@ class PaperTradingEngine:
         Returns:
             List of PaperPosition objects (only non-zero positions)
         """
-        positions = [
-            PaperPosition(symbol=symbol, quantity=qty)
-            for symbol, qty in self._positions.items()
-            if abs(qty) > 1e-6  # Filter out essentially zero positions
-        ]
+        with self._lock:
+            positions = [
+                PaperPosition(symbol=symbol, quantity=qty)
+                for symbol, qty in self._positions.items()
+                if abs(qty) > 1e-6  # Filter out essentially zero positions
+            ]
 
         # Sort by symbol for consistent ordering
         positions.sort(key=lambda p: p.symbol)
@@ -397,20 +402,22 @@ class PaperTradingEngine:
 
     def get_cash_balance(self) -> float:
         """Return the current cash balance."""
-        return self._cash
+        with self._lock:
+            return self._cash
 
     def reset(self) -> None:
         """Reset engine state (clear all orders and positions).
 
         This is primarily for testing purposes.
         """
-        order_count = len(self._orders)
-        position_count = len(
-            [qty for qty in self._positions.values() if abs(qty) > 1e-6]
-        )
+        with self._lock:
+            order_count = len(self._orders)
+            position_count = len(
+                [qty for qty in self._positions.values() if abs(qty) > 1e-6]
+            )
 
-        self._orders = []
-        self._positions = {}
+            self._orders = []
+            self._positions = {}
 
         logger.info(
             f"Engine reset: cleared {order_count} orders, {position_count} positions"
