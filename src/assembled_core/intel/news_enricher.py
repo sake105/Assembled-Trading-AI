@@ -94,8 +94,8 @@ class NewsEventEnricher:
                         if hasattr(_evt, "severity") and _evt.severity is not None:
                             _evt.severity = round(min(10.0, max(0.0, float(_evt.severity) * _w)), 4)
                 logger.debug("[OK] IC-Gewichte auf %d Events angewendet", len(events))
-        except Exception:
-            pass  # Nie die Enrichment-Pipeline unterbrechen
+        except Exception as _exc:
+            logger.debug("[news_enricher] IC-weights step failed: %s", _exc)
 
         # Step 2.5: Decay discount on impact_bps so stale events don't inflate
         # downstream position sizing.

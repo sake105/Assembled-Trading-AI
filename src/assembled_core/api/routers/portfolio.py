@@ -3,8 +3,11 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException
@@ -50,8 +53,8 @@ def _parse_portfolio_report(report_path: Path) -> dict[str, float | int]:
         trades = int(trades_match.group(1)) if trades_match else 0
 
         return {"final_pf": final_pf, "sharpe": sharpe, "trades": trades}
-    except Exception:
-        # Return defaults if parsing fails
+    except Exception as _exc:
+        logger.debug("[portfolio] _parse_portfolio_report failed: %s", _exc)
         return {"final_pf": 1.0, "sharpe": None, "trades": 0}
 
 

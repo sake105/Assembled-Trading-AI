@@ -136,7 +136,8 @@ class NewsTradeAttributor:
                     estimated_contribution=round(est_contrib, 6),
                     impact_bps=round(impact_bps, 2),
                 ))
-            except Exception:
+            except Exception as _exc:
+                logger.debug("[NewsTradeAttr] link_trade_to_events row skipped: %s", _exc)
                 continue
 
         return links
@@ -237,7 +238,8 @@ class NewsTradeAttributor:
                                 ]
                                 n_enriched += 1
                     enriched_lines.append(json.dumps(rec))
-                except Exception:
+                except Exception as _exc:
+                    logger.debug("[NewsTradeAttr] enrich_learning_store line skipped: %s", _exc)
                     enriched_lines.append(line)
 
         target = output_path or learning_store_path
