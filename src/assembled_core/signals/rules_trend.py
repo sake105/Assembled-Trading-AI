@@ -437,7 +437,8 @@ def compute_multi_timeframe_signal(
     daily = (
         df.groupby(symbol_col, group_keys=False)
         .apply(
-            lambda g: _sma_trend(g, timestamp_col, close_col, daily_fast, daily_slow, "daily_trend")
+            lambda g: _sma_trend(g, timestamp_col, close_col, daily_fast, daily_slow, "daily_trend"),
+            include_groups=False,
         )
     )
 
@@ -447,7 +448,8 @@ def compute_multi_timeframe_signal(
         weekly = (
             weekly.groupby(symbol_col, group_keys=False)
             .apply(
-                lambda g: _sma_trend(g, timestamp_col, close_col, weekly_fast, weekly_slow, "weekly_trend")
+                lambda g: _sma_trend(g, timestamp_col, close_col, weekly_fast, weekly_slow, "weekly_trend"),
+                include_groups=False,
             )
         )
         daily = align_higher_tf_to_daily(
@@ -466,7 +468,8 @@ def compute_multi_timeframe_signal(
         monthly = (
             monthly.groupby(symbol_col, group_keys=False)
             .apply(
-                lambda g: _sma_trend(g, timestamp_col, close_col, monthly_fast, monthly_slow, "monthly_trend")
+                lambda g: _sma_trend(g, timestamp_col, close_col, monthly_fast, monthly_slow, "monthly_trend"),
+                include_groups=False,
             )
         )
         daily = align_higher_tf_to_daily(

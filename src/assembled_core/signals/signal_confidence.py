@@ -100,7 +100,7 @@ def compute_signal_confidence(
     # Estimate prior from history or current cross-section
     if historical_scores is not None and len(historical_scores) >= min_history:
         prior_mean = float(historical_scores.mean())
-        prior_std = float(historical_scores.std())
+        prior_std = float(historical_scores.std()) if len(historical_scores) > 1 else 1.0
     else:
         valid = current_scores.dropna()
         prior_mean = float(valid.mean()) if len(valid) > 0 else 0.0

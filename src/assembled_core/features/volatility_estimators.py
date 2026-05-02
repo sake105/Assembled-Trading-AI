@@ -53,7 +53,7 @@ def rogers_satchell_volatility(
     log_lo = np.log((low / open_).clip(lower=1e-10))
     log_lc = np.log((low / close).clip(lower=1e-10))
     daily_var = log_ho * log_hc + log_lo * log_lc
-    return np.sqrt(daily_var.rolling(period).mean())
+    return np.sqrt(daily_var.rolling(period).mean().clip(lower=0))
 
 
 def tick_rule_signs(prices: pd.Series) -> pd.Series:

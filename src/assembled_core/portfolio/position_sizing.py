@@ -80,6 +80,9 @@ def compute_target_positions(
     # Compute weights
     n_positions = len(long_signals)
 
+    if n_positions == 0:
+        return pd.DataFrame(columns=["symbol", "target_weight", "target_qty"])
+
     if equal_weight:
         # Equal weighting: 1/N for each position
         long_signals["target_weight"] = 1.0 / n_positions

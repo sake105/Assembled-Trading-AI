@@ -164,7 +164,11 @@ class RegimeHMM:
             Dict mapping regime label -> probability for T+1
         """
         self._check_fitted()
-        last_proba = self.predict_regime_proba(returns).iloc[-1].values
+        proba_df = self.predict_regime_proba(returns)
+        if proba_df.empty:
+            cols = [self._label_map.get(i, f"state_{i}") for i in range(self.n_regimes)]
+            return dict.fromkeys(cols, 1.0 / max(self.n_regimes, 1))
+        last_proba = proba_df.iloc[-1].values
         next_proba = last_proba @ self._model.transmat_  # type: ignore[union-attr]
         cols = [self._label_map.get(i, f"state_{i}") for i in range(self.n_regimes)]
         return dict(zip(cols, next_proba.tolist()))
