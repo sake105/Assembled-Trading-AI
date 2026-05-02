@@ -49,7 +49,7 @@ class TestCircuitBreaker:
 
 class TestAdversarialFill:
 
-    def test_import(self):
+    def test_import_v2(self):
         from src.assembled_core.execution.fill_model import (
             compute_adversarial_fill_cost,
         )
@@ -92,7 +92,7 @@ class TestAdversarialFill:
 
 class TestBenchmarkMetrics:
 
-    def test_import(self):
+    def test_import_v3(self):
         from src.assembled_core.qa.metrics import compute_benchmark_relative_metrics
         assert compute_benchmark_relative_metrics is not None
 
@@ -140,7 +140,7 @@ class TestBenchmarkMetrics:
 
 class TestPermutationTest:
 
-    def test_import(self):
+    def test_import_v4(self):
         from src.assembled_core.qa.metrics import permutation_test_sharpe
         assert permutation_test_sharpe is not None
 
@@ -180,7 +180,7 @@ class TestPermutationTest:
 
 class TestDailyPnLReconciliation:
 
-    def test_import(self):
+    def test_import_v5(self):
         from src.assembled_core.accounting.reconciliation import reconcile_daily_pnl
         assert reconcile_daily_pnl is not None
 

@@ -56,7 +56,7 @@ class TestJobPostingFeatures:
 
 @pytest.mark.phase12
 class TestAppRatingFeatures:
-    def test_basic(self):
+    def test_basic_v2(self):
         data = pd.DataFrame({
             "symbol": ["META"] * 15,
             "scrape_date": pd.date_range("2024-01-01", periods=15, freq="D"),
@@ -70,14 +70,14 @@ class TestAppRatingFeatures:
         assert "app_review_velocity" in result.columns
         assert result["app_rating_trend"].iloc[0] > 0  # improving
 
-    def test_empty_input(self):
+    def test_empty_input_v2(self):
         result = compute_app_rating_features(pd.DataFrame(), as_of="2024-01-01")
         assert len(result) == 0
 
 
 @pytest.mark.phase12
 class TestWebTrafficFeatures:
-    def test_basic(self):
+    def test_basic_v3(self):
         data = pd.DataFrame({
             "symbol": ["AMZN"] * 20,
             "scrape_date": pd.date_range("2024-01-01", periods=20, freq="D"),
@@ -88,7 +88,7 @@ class TestWebTrafficFeatures:
         assert "web_traffic_index" in result.columns
         assert "web_traffic_trend" in result.columns
 
-    def test_empty_input(self):
+    def test_empty_input_v3(self):
         result = compute_website_traffic_features(pd.DataFrame(), as_of="2024-01-01")
         assert len(result) == 0
 

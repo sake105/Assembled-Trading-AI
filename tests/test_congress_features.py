@@ -42,7 +42,7 @@ class TestComputeCongressNetBuyScore:
 
 @pytest.mark.phase12
 class TestAddCongressFeatures:
-    def test_basic(self):
+    def test_basic_v2(self):
         trades = _synthetic_trades()
         panel = pd.DataFrame({
             "symbol": ["AAPL"] * 10 + ["MSFT"] * 10,
@@ -53,7 +53,7 @@ class TestAddCongressFeatures:
         assert isinstance(result, pd.DataFrame)
         assert len(result) == len(panel)
 
-    def test_empty_trades(self):
+    def test_empty_trades_v2(self):
         panel = pd.DataFrame({
             "symbol": ["AAPL"] * 5,
             "timestamp": pd.bdate_range("2024-01-01", periods=5),

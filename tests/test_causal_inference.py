@@ -128,7 +128,7 @@ class TestDifferenceInDifferences:
         # ATE should be near zero
         assert abs(result.ate) < 0.01
 
-    def test_short_data(self):
+    def test_short_data_v2(self):
         result = difference_in_differences(
             np.array([0.01, 0.02, 0.03]),
             np.array([0.01, 0.02, 0.03]),

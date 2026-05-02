@@ -84,7 +84,7 @@ class TestKellyWeights:
 
 
 class TestRiskParity:
-    def test_basic_output(
+    def test_basic_output_v2(
         self, long_signals: pd.DataFrame, volatilities: dict[str, float]
     ) -> None:
         result = compute_risk_parity_weights(long_signals, volatilities)
@@ -101,13 +101,13 @@ class TestRiskParity:
         # MSFT (vol=0.20) should have higher weight than AMZN (vol=0.35)
         assert msft_w > amzn_w
 
-    def test_weights_sum_le_one(
+    def test_weights_sum_le_one_v2(
         self, long_signals: pd.DataFrame, volatilities: dict[str, float]
     ) -> None:
         result = compute_risk_parity_weights(long_signals, volatilities)
         assert result["target_weight"].sum() <= 1.0 + 1e-10
 
-    def test_max_weight_cap(
+    def test_max_weight_cap_v2(
         self, long_signals: pd.DataFrame, volatilities: dict[str, float]
     ) -> None:
         result = compute_risk_parity_weights(
@@ -115,21 +115,21 @@ class TestRiskParity:
         )
         assert (result["target_weight"] <= 0.20 + 1e-10).all()
 
-    def test_empty_signals(self, volatilities: dict[str, float]) -> None:
+    def test_empty_signals_v2(self, volatilities: dict[str, float]) -> None:
         empty = pd.DataFrame(columns=["symbol", "direction"])
         result = compute_risk_parity_weights(empty, volatilities)
         assert len(result) == 0
 
 
 class TestVolScaled:
-    def test_basic_output(
+    def test_basic_output_v3(
         self, long_signals: pd.DataFrame, volatilities: dict[str, float]
     ) -> None:
         result = compute_vol_scaled_weights(long_signals, volatilities)
         assert len(result) == 4
         assert "target_weight" in result.columns
 
-    def test_lower_vol_higher_weight(
+    def test_lower_vol_higher_weight_v2(
         self, long_signals: pd.DataFrame, volatilities: dict[str, float]
     ) -> None:
         result = compute_vol_scaled_weights(long_signals, volatilities, target_vol=0.15)
@@ -148,13 +148,13 @@ class TestVolScaled:
         )
         assert high["target_weight"].sum() >= low["target_weight"].sum() - 1e-10
 
-    def test_weights_sum_le_one(
+    def test_weights_sum_le_one_v3(
         self, long_signals: pd.DataFrame, volatilities: dict[str, float]
     ) -> None:
         result = compute_vol_scaled_weights(long_signals, volatilities)
         assert result["target_weight"].sum() <= 1.0 + 1e-10
 
-    def test_empty_signals(self, volatilities: dict[str, float]) -> None:
+    def test_empty_signals_v3(self, volatilities: dict[str, float]) -> None:
         empty = pd.DataFrame(columns=["symbol", "direction"])
         result = compute_vol_scaled_weights(empty, volatilities)
         assert len(result) == 0

@@ -264,7 +264,7 @@ class TestReconcilePositions:
 
 
 class TestReconcileCash:
-    def test_no_drift(self):
+    def test_no_drift_v2(self):
         assert reconcile_cash(10000.0, 10000.0) is None
 
     def test_small_drift_within_tolerance(self):

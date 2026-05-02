@@ -357,7 +357,7 @@ class TestBuildMultifactorSignal:
 class TestSelectTopBottom:
     """Tests for select_top_bottom() function."""
 
-    def test_basic_functionality(self, sample_factors_df, sample_bundle_positive):
+    def test_basic_functionality_v2(self, sample_factors_df, sample_bundle_positive):
         """Test that select_top_bottom adds mf_long_flag and mf_short_flag columns."""
         # First build mf_score
         mf_result = build_multifactor_signal(

@@ -365,7 +365,7 @@ class TestCompositeScoreEdclKwargs:
 # ---------------------------------------------------------------------------
 
 class TestTripleConfirmation:
-    def test_below_threshold_returns_one(self):
+    def test_below_threshold_returns_one_v2(self):
         assert composite_edcl_mult(0.5, "crisis", 3.0) == 1.0
 
     def test_triple_confirmation_returns_two(self):

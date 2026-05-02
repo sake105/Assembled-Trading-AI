@@ -112,7 +112,7 @@ class TestScenarioCatalog:
 
 @pytest.mark.phase12
 class TestStressTestPortfolio:
-    def test_basic(self):
+    def test_basic_v2(self):
         weights = np.array([0.3, 0.3, 0.2, 0.1, 0.1])
         result = stress_test_portfolio_against_scenarios(weights)
         assert isinstance(result, pd.DataFrame)

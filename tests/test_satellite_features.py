@@ -59,7 +59,7 @@ class TestParkingLotData:
 
 @pytest.mark.phase12
 class TestShippingData:
-    def test_basic(self):
+    def test_basic_v2(self):
         rng = np.random.default_rng(42)
         data = pd.DataFrame({
             "region": ["Shanghai"] * 20,
@@ -71,14 +71,14 @@ class TestShippingData:
         assert "shipping_volume_index" in result.columns
         assert "shipping_trend_4w" in result.columns
 
-    def test_empty_input(self):
+    def test_empty_input_v2(self):
         result = process_shipping_data(pd.DataFrame(), as_of="2024-01-01")
         assert len(result) == 0
 
 
 @pytest.mark.phase12
 class TestNightlightFeatures:
-    def test_basic(self):
+    def test_basic_v3(self):
         data = pd.DataFrame({
             "region": ["US_NE"] * 400 + ["US_NE"] * 30,
             "observation_date": list(pd.date_range("2022-01-01", periods=400, freq="D")) + list(pd.date_range("2024-01-01", periods=30, freq="D")),
@@ -90,7 +90,7 @@ class TestNightlightFeatures:
         assert "nightlight_yoy_change" in result.columns
         assert result["nightlight_yoy_change"].iloc[0] > 0  # intensity increased
 
-    def test_empty_input(self):
+    def test_empty_input_v3(self):
         result = compute_nightlight_features(pd.DataFrame(), as_of="2024-01-01")
         assert len(result) == 0
 

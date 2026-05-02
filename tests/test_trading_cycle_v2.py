@@ -203,7 +203,7 @@ class TestIngestData:
 
 
 class TestBuildFeatures:
-    def test_returns_two_element_tuple(self):
+    def test_returns_two_element_tuple_v2(self):
         ctx = _make_ctx()
         prices = _make_prices()
         result = build_features(prices, ctx)

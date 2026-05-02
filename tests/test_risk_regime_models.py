@@ -364,7 +364,7 @@ class TestBuildRegimeState:
 class TestComputeRegimeTransitionStats:
     """Tests for compute_regime_transition_stats() function."""
 
-    def test_basic_functionality(
+    def test_basic_functionality_v2(
         self,
         sample_prices_bull_bear,
         sample_macro_factors,
@@ -432,7 +432,7 @@ class TestComputeRegimeTransitionStats:
 class TestEvaluateFactorIcByRegime:
     """Tests for evaluate_factor_ic_by_regime() function."""
 
-    def test_basic_functionality(
+    def test_basic_functionality_v3(
         self,
         sample_prices_bull_bear,
         sample_macro_factors,

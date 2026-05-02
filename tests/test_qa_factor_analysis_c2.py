@@ -181,7 +181,7 @@ class TestBuildFactorPortfolioReturns:
 class TestBuildLongShortPortfolioReturns:
     """Tests for build_long_short_portfolio_returns()."""
 
-    def test_basic_functionality(self, sample_portfolio_returns):
+    def test_basic_functionality_v2(self, sample_portfolio_returns):
         """Test that build_long_short_portfolio_returns works with basic input."""
         result = build_long_short_portfolio_returns(sample_portfolio_returns)
 
@@ -208,7 +208,7 @@ class TestBuildLongShortPortfolioReturns:
                     abs(actual_ls - expected_ls) < 0.0001
                 ), f"LS return should be Q5 - Q1: expected {expected_ls}, got {actual_ls}"
 
-    def test_custom_quantiles(self, sample_portfolio_returns):
+    def test_custom_quantiles_v2(self, sample_portfolio_returns):
         """Test that custom low/high quantiles work."""
         result = build_long_short_portfolio_returns(
             sample_portfolio_returns,
@@ -244,7 +244,7 @@ class TestBuildLongShortPortfolioReturns:
 class TestSummarizeFactorPortfolios:
     """Tests for summarize_factor_portfolios()."""
 
-    def test_basic_functionality(self, sample_portfolio_returns):
+    def test_basic_functionality_v3(self, sample_portfolio_returns):
         """Test that summarize_factor_portfolios works with basic input."""
         # Build long/short returns first
         ls_returns = build_long_short_portfolio_returns(sample_portfolio_returns)
@@ -330,7 +330,7 @@ class TestSummarizeFactorPortfolios:
 class TestComputeDeflatedSharpeRatio:
     """Tests for compute_deflated_sharpe_ratio()."""
 
-    def test_basic_functionality(self):
+    def test_basic_functionality_v4(self):
         """Test that deflated Sharpe ratio is calculated."""
         sharpe = 1.5
         n_obs = 252

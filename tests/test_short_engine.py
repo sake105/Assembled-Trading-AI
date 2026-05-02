@@ -207,7 +207,7 @@ class TestCrashPredictionEngine:
 
 
 class TestShortSignalGenerator:
-    def test_import(self):
+    def test_import_v2(self):
         import pytest; pytest.importorskip('src.assembled_core.signals.short_signals')
         from src.assembled_core.signals.short_signals import ShortSignalGenerator
 
@@ -301,7 +301,7 @@ class TestShortSignalGenerator:
 
 
 class TestShortRiskManager:
-    def test_import(self):
+    def test_import_v3(self):
         import pytest; pytest.importorskip('src.assembled_core.risk.short_risk')
         from src.assembled_core.risk.short_risk import ShortRiskManager
 
@@ -391,7 +391,7 @@ class TestShortRiskManager:
 
 
 class TestInverseETFSelector:
-    def test_import(self):
+    def test_import_v4(self):
         from src.assembled_core.portfolio.inverse_etf_selector import InverseETFSelector
 
         sel = InverseETFSelector()
@@ -445,7 +445,7 @@ class TestInverseETFSelector:
 
 
 class TestLongShortBalancer:
-    def test_import(self):
+    def test_import_v5(self):
         import pytest; pytest.importorskip('src.assembled_core.portfolio.long_short_balance')
         from src.assembled_core.portfolio.long_short_balance import LongShortBalancer
 

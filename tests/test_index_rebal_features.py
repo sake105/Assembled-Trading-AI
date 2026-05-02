@@ -31,7 +31,7 @@ class TestComputePredictedDemand:
 
 @pytest.mark.phase12
 class TestBuildIndexRebalFeatures:
-    def test_basic(self):
+    def test_basic_v2(self):
         changes = pd.DataFrame({
             "symbol": ["AAPL", "XYZ"],
             "effective_date": ["2024-06-21", "2024-06-21"],

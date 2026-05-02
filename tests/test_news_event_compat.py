@@ -117,7 +117,7 @@ class TestEventsToIntel:
 
 
 class TestIntelToEvents:
-    def test_core_fields_preserved(self):
+    def test_core_fields_preserved_v2(self):
         from src.assembled_core.events.news.compat import intel_to_events
         intel = _make_intel_event()
         ev = intel_to_events(intel)
@@ -150,7 +150,7 @@ class TestIntelToEvents:
         assert ev.fingerprint == "hash-abc"
         assert ev.fingerprint64 == "hash-abc"
 
-    def test_entities_preserved(self):
+    def test_entities_preserved_v2(self):
         from src.assembled_core.events.news.compat import intel_to_events
         intel = _make_intel_event(entities=["Tesla", "Elon Musk"])
         ev = intel_to_events(intel)

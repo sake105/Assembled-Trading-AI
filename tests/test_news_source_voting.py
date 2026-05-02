@@ -68,7 +68,7 @@ class TestVoteDirection:
 
 @pytest.mark.phase12
 class TestVoteEventType:
-    def test_empty(self):
+    def test_empty_v2(self):
         assert vote_event_type([]).winner == ""
 
     def test_majority_event_type(self):

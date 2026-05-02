@@ -47,7 +47,7 @@ class TestResampleToWeekly:
 
 @pytest.mark.phase12
 class TestResampleToMonthly:
-    def test_basic(self):
+    def test_basic_v2(self):
         daily = _synthetic_daily()
         monthly = resample_to_monthly(daily)
         assert len(monthly) < len(daily)

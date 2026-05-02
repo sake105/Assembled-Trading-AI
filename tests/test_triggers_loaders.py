@@ -136,18 +136,18 @@ class TestDisclosuresTriggerLoader:
         assert snap.summary["count_sev1plus"] == 2
         assert snap.summary["count_sev2plus"] == 1
 
-    def test_missing_file_returns_empty(self, tmp_path):
+    def test_missing_file_returns_empty_v2(self, tmp_path):
         snap = load_disclosures_triggers(tmp_path / "nonexistent.json")
         assert isinstance(snap, DisclosuresTriggerSnapshot)
         assert snap.triggers == []
 
-    def test_invalid_json_returns_empty(self, tmp_path):
+    def test_invalid_json_returns_empty_v2(self, tmp_path):
         p = tmp_path / "bad.json"
         p.write_text("{{invalid", encoding="utf-8")
         snap = load_disclosures_triggers(p)
         assert snap.triggers == []
 
-    def test_wrong_schema_version_returns_empty(self, tmp_path):
+    def test_wrong_schema_version_returns_empty_v2(self, tmp_path):
         p = _write_json(tmp_path, "triggers_latest.json", {
             "schema_version": "news.triggers.v1",  # wrong schema
             "items": [{"severity": 2}],

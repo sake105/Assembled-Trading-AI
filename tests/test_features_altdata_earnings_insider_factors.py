@@ -325,7 +325,7 @@ class TestBuildEarningsSurpriseFactors:
 class TestBuildInsiderActivityFactors:
     """Tests for build_insider_activity_factors()."""
 
-    def test_basic_functionality(self, sample_price_panel, sample_insider_events):
+    def test_basic_functionality_v2(self, sample_price_panel, sample_insider_events):
         """Test basic insider activity factor computation."""
         result = build_insider_activity_factors(
             sample_insider_events,
@@ -520,7 +520,7 @@ class TestBuildInsiderActivityFactors:
             if not sell_count.empty:
                 assert sell_count.iloc[0] >= 1.0  # At least 1 sell
 
-    def test_empty_events(self, sample_price_panel):
+    def test_empty_events_v2(self, sample_price_panel):
         """Test behavior with empty events DataFrame."""
         empty_events = pd.DataFrame(columns=["timestamp", "symbol", "event_type"])
 

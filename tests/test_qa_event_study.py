@@ -333,7 +333,7 @@ class TestBuildEventWindowPrices:
 class TestComputeEventReturns:
     """Tests for compute_event_returns()."""
 
-    def test_basic_functionality(self, sample_price_panel, sample_events):
+    def test_basic_functionality_v2(self, sample_price_panel, sample_events):
         """Test that compute_event_returns works with basic input."""
         windows = build_event_window_prices(
             sample_price_panel,
@@ -519,7 +519,7 @@ class TestComputeEventReturns:
 class TestAggregateEventStudy:
     """Tests for aggregate_event_study()."""
 
-    def test_basic_functionality(self, sample_price_panel, sample_events):
+    def test_basic_functionality_v3(self, sample_price_panel, sample_events):
         """Test that aggregate_event_study works with basic input."""
         windows = build_event_window_prices(
             sample_price_panel,

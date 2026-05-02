@@ -268,7 +268,7 @@ class TestFetchNewsSentiment:
             assert "sentiment_score" in result.columns
             assert "sentiment_volume" in result.columns
 
-    def test_empty_response(self, mock_settings):
+    def test_empty_response_v2(self, mock_settings):
         """Test handling of empty response."""
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -372,7 +372,7 @@ class TestFetchMacroSeries:
 
         assert isinstance(result, pd.DataFrame)
 
-    def test_empty_response(self, mock_settings):
+    def test_empty_response_v3(self, mock_settings):
         """Test handling of empty response."""
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -395,7 +395,7 @@ class TestFetchMacroSeries:
 
         assert isinstance(result, pd.DataFrame)
 
-    def test_http_error_4xx(self, mock_settings):
+    def test_http_error_4xx_v2(self, mock_settings):
         """Test handling of 4xx HTTP errors."""
         mock_response = MagicMock()
         mock_response.status_code = 400
@@ -418,7 +418,7 @@ class TestFetchMacroSeries:
         # Should return empty DataFrame, not crash
         assert isinstance(result, pd.DataFrame)
 
-    def test_http_error_5xx(self, mock_settings):
+    def test_http_error_5xx_v2(self, mock_settings):
         """Test handling of 5xx HTTP errors."""
         mock_response = MagicMock()
         mock_response.status_code = 500
@@ -443,7 +443,7 @@ class TestFetchMacroSeries:
         # Should return empty DataFrame, not crash
         assert isinstance(result, pd.DataFrame)
 
-    def test_missing_api_key(self, mock_settings_no_key):
+    def test_missing_api_key_v2(self, mock_settings_no_key):
         """Test that missing API key raises RuntimeError."""
         with pytest.raises(RuntimeError, match="FINNHUB_API_KEY"):
             fetch_macro_series(

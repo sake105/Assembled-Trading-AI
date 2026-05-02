@@ -78,7 +78,7 @@ class TestBootstrapReturns:
 
 
 class TestForwardSimulateGBM:
-    def test_basic_output_structure(self, sample_returns: np.ndarray) -> None:
+    def test_basic_output_structure_v2(self, sample_returns: np.ndarray) -> None:
         result = forward_simulate_gbm(
             sample_returns, n_paths=50, horizon_days=100, seed=42
         )
@@ -105,7 +105,7 @@ class TestForwardSimulateGBM:
         )
         assert result.prob_loss > 0.5
 
-    def test_reproducibility(self, sample_returns: np.ndarray) -> None:
+    def test_reproducibility_v2(self, sample_returns: np.ndarray) -> None:
         r1 = forward_simulate_gbm(sample_returns, n_paths=50, horizon_days=50, seed=42)
         r2 = forward_simulate_gbm(sample_returns, n_paths=50, horizon_days=50, seed=42)
         np.testing.assert_array_equal(r1.terminal_values, r2.terminal_values)

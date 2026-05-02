@@ -81,7 +81,7 @@ class TestIsotonicCalibrator:
 
 @pytest.mark.phase12
 class TestTemperatureScaler:
-    def test_fit_transform(self):
+    def test_fit_transform_v2(self):
         rng = np.random.default_rng(42)
         logits = rng.normal(0, 2, 200)
         y_true = (logits > 0).astype(float)
@@ -100,7 +100,7 @@ class TestTemperatureScaler:
         scaler.fit(logits, y_true)
         assert 0.01 <= scaler.temperature <= 10.0
 
-    def test_not_fitted_raises(self):
+    def test_not_fitted_raises_v2(self):
         scaler = TemperatureScaler()
         with pytest.raises(RuntimeError):
             scaler.transform(np.array([0.5]))

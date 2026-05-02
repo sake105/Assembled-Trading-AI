@@ -520,7 +520,7 @@ class TestExampleFactorAnalysisWorkflow:
             or "fwd_ret_20" in results["data_with_returns"].columns
         )
 
-    def test_multiple_horizons(self, sample_panel_3x40):
+    def test_multiple_horizons_v2(self, sample_panel_3x40):
         """Test workflow with multiple horizons."""
         factor_df = sample_panel_3x40.copy()
         factor_df["factor_x"] = np.random.randn(len(factor_df))

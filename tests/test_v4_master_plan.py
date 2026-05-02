@@ -73,7 +73,7 @@ class TestPolymarketSource:
 # ============================================================
 
 class TestKalshiSource:
-    def test_module_importable(self):
+    def test_module_importable_v2(self):
         from assembled_core.data.sources.kalshi_source import (
             fetch_active_markets, get_market_implied_geo_signal, fetch_combined_prediction_signal
         )
@@ -112,7 +112,7 @@ class TestKalshiSource:
 # ============================================================
 
 class TestBayesianMetrics:
-    def test_module_importable(self):
+    def test_module_importable_v3(self):
         from assembled_core.qa.bayesian_metrics import (
             bayesian_sharpe_posterior, hierarchical_strategy_comparison,
             SharpePosterior, StrategyComparison
@@ -161,7 +161,7 @@ class TestBayesianMetrics:
 # ============================================================
 
 class TestEventBus:
-    def test_module_importable(self):
+    def test_module_importable_v4(self):
         from assembled_core.pipeline.event_bus import EventBus, streamed_phase, get_null_bus
 
     def test_null_bus_available_false(self):
@@ -217,7 +217,7 @@ class TestEventBus:
 # ============================================================
 
 class TestTickStore:
-    def test_module_importable(self):
+    def test_module_importable_v5(self):
         from assembled_core.data.tick_store import (
             OHLCVTick, write_ticks, query_ohlcv, query_latest, ping,
             QUESTDB_DRIVER_AVAILABLE,
@@ -259,7 +259,7 @@ class TestTickStore:
 # ============================================================
 
 class TestRLEnvironment:
-    def test_module_importable(self):
+    def test_module_importable_v6(self):
         from assembled_core.execution.rl_environment import (
             OrderExecutionEnv, ExecutionEnvConfig, GYM_AVAILABLE
         )
@@ -299,7 +299,7 @@ class TestRLEnvironment:
 
 
 class TestRLExecution:
-    def test_module_importable(self):
+    def test_module_importable_v7(self):
         from assembled_core.execution.rl_execution import RLExecutor, RuleBasedExecutor, SB3_AVAILABLE
 
     def test_rule_based_executor_runs(self):
@@ -326,7 +326,7 @@ class TestRLExecution:
 # ============================================================
 
 class TestGNNSignal:
-    def test_module_importable(self):
+    def test_module_importable_v8(self):
         from assembled_core.ml.gnn_signal import GNNSignalModel, GNNConfig, GNNSignalResult
 
     def test_stub_predict_returns_zero_scores(self):
@@ -360,7 +360,7 @@ class TestGNNSignal:
 # ============================================================
 
 class TestNewsRAG:
-    def test_module_importable(self):
+    def test_module_importable_v9(self):
         from assembled_core.intel.news_rag import NewsRAG, NewsRecord, RAGResult
 
     def test_ingest_and_query_memory_store(self):
@@ -401,7 +401,7 @@ class TestNewsRAG:
 # ============================================================
 
 class TestStrategyAllocator:
-    def test_module_importable(self):
+    def test_module_importable_v10(self):
         from assembled_core.portfolio.strategy_allocator import (
             inverse_vol_weights, allocate_from_returns_dict,
             StrategyStats, AllocationResult
@@ -460,7 +460,7 @@ class TestStrategyAllocator:
 # ============================================================
 
 class TestWalkForwardOptuna:
-    def test_module_importable(self):
+    def test_module_importable_v11(self):
         from assembled_core.qa.walk_forward_optuna import (
             walk_forward_optuna, WFOptunaResult, WFOptunaTrial,
             momentum_sharpe_objective
@@ -513,7 +513,7 @@ class TestWalkForwardOptuna:
 # ============================================================
 
 class TestDifferentialPrivacy:
-    def test_module_importable(self):
+    def test_module_importable_v12(self):
         from assembled_core.ml.differential_privacy import (
             gaussian_mechanism, laplace_mechanism, dp_mean, dp_count,
             PrivacyBudget, DPSGDTrainer, OPACUS_AVAILABLE
@@ -576,7 +576,7 @@ class TestDifferentialPrivacy:
 # ============================================================
 
 class TestOrderBookImbalance:
-    def test_module_importable(self):
+    def test_module_importable_v13(self):
         from assembled_core.features.order_book_imbalance import (
             compute_imbalance_features, imbalance_from_dict,
             rolling_imbalance_signal, OrderBookSnapshot, BookLevel
@@ -668,7 +668,7 @@ class TestOrderBookImbalance:
 # ============================================================
 
 class TestRegimeConditionalAllocator:
-    def test_module_importable(self):
+    def test_module_importable_v14(self):
         from assembled_core.portfolio.regime_conditional_allocator import (
             compute_regime_sharpes, allocate_by_regime,
             RegimeAllocator, build_regime_allocator
@@ -773,7 +773,7 @@ class TestGeoRiskOverlayPredictionMarkets:
     def test_get_market_implied_geo_signal_importable(self):
         from assembled_core.risk.georisk_overlay import get_market_implied_geo_signal
 
-    def test_get_market_implied_geo_signal_structure(self, monkeypatch):
+    def test_get_market_implied_geo_signal_structure_v2(self, monkeypatch):
         from assembled_core.risk import georisk_overlay
         # Monkeypatch both source modules to return known signals
         from unittest.mock import MagicMock

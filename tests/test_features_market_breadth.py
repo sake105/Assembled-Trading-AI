@@ -170,7 +170,7 @@ class TestComputeMarketBreadthMa:
 class TestComputeAdvanceDeclineLine:
     """Tests for compute_advance_decline_line() function."""
 
-    def test_basic_functionality(self, sample_price_panel):
+    def test_basic_functionality_v2(self, sample_price_panel):
         """Test that compute_advance_decline_line runs and returns correct format."""
         result = compute_advance_decline_line(sample_price_panel)
 
@@ -239,7 +239,7 @@ class TestComputeAdvanceDeclineLine:
                 increasing_ratio > 0.5
             ), f"For uptrend, A/D Line should be increasing more often, got {increasing_ratio}"
 
-    def test_required_columns_validation(self):
+    def test_required_columns_validation_v2(self):
         """Test that missing required columns raise KeyError."""
         # Missing timestamp
         df_no_timestamp = pd.DataFrame(
@@ -251,7 +251,7 @@ class TestComputeAdvanceDeclineLine:
         with pytest.raises(KeyError, match="Missing required columns"):
             compute_advance_decline_line(df_no_timestamp)
 
-    def test_empty_dataframe_raises_error(self):
+    def test_empty_dataframe_raises_error_v2(self):
         """Test that empty DataFrame raises ValueError."""
         empty_df = pd.DataFrame(columns=["timestamp", "symbol", "close"])
 
@@ -262,7 +262,7 @@ class TestComputeAdvanceDeclineLine:
 class TestComputeRiskOnOffIndicator:
     """Tests for compute_risk_on_off_indicator() function."""
 
-    def test_basic_functionality(self, sample_price_panel):
+    def test_basic_functionality_v3(self, sample_price_panel):
         """Test that compute_risk_on_off_indicator runs and returns correct format."""
         result = compute_risk_on_off_indicator(sample_price_panel)
 
@@ -320,7 +320,7 @@ class TestComputeRiskOnOffIndicator:
                 ratio_sum >= 0.99
             ).all(), "risk_on_ratio + risk_off_ratio should be >= 0.99"
 
-    def test_required_columns_validation(self):
+    def test_required_columns_validation_v3(self):
         """Test that missing required columns raise KeyError."""
         # Missing timestamp
         df_no_timestamp = pd.DataFrame(
@@ -332,7 +332,7 @@ class TestComputeRiskOnOffIndicator:
         with pytest.raises(KeyError, match="Missing required columns"):
             compute_risk_on_off_indicator(df_no_timestamp)
 
-    def test_empty_dataframe_raises_error(self):
+    def test_empty_dataframe_raises_error_v3(self):
         """Test that empty DataFrame raises ValueError."""
         empty_df = pd.DataFrame(columns=["timestamp", "symbol", "close"])
 

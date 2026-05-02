@@ -114,7 +114,7 @@ class TestRobustBL:
 
 
 class TestTailRiskParity:
-    def test_basic(self):
+    def test_basic_v2(self):
         from src.assembled_core.portfolio.position_sizing import compute_tail_risk_parity_weights
 
         np.random.seed(42)
@@ -183,7 +183,7 @@ class TestFactorExposureLimits:
 
 
 class TestCashDrag:
-    def test_basic(self):
+    def test_basic_v3(self):
         from src.assembled_core.accounting.ledger import compute_cash_drag
 
         result = compute_cash_drag(100_000, 1_000_000)
@@ -192,7 +192,7 @@ class TestCashDrag:
 
 
 class TestInterestAccrual:
-    def test_basic(self):
+    def test_basic_v4(self):
         from src.assembled_core.accounting.ledger import compute_daily_interest_accrual
 
         result = compute_daily_interest_accrual(
@@ -243,7 +243,7 @@ class TestBacktestRealism:
 
 
 class TestCorrelatedStress:
-    def test_basic(self):
+    def test_basic_v5(self):
         from src.assembled_core.qa.scenario_engine import run_correlated_stress_test
 
         np.random.seed(42)

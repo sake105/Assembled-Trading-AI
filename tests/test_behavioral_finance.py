@@ -97,11 +97,11 @@ class TestAnchoringScore:
         score = compute_anchoring_score(prices, round_levels=[100])
         assert score > 0  # just above round number
 
-    def test_short_series_zero(self):
+    def test_short_series_zero_v2(self):
         score = compute_anchoring_score(np.array([50.0, 51.0]))
         assert score == 0.0
 
-    def test_bounded(self):
+    def test_bounded_v2(self):
         prices = np.linspace(50, 150, 300)
         score = compute_anchoring_score(prices)
         assert -1.0 <= score <= 1.0
@@ -136,7 +136,7 @@ class TestHerdingScore:
         score = compute_herding_score(volumes, returns)
         assert score == 0.0
 
-    def test_short_series_zero(self):
+    def test_short_series_zero_v3(self):
         score = compute_herding_score(np.array([1.0, 2.0]), np.array([0.01, -0.01]))
         assert score == 0.0
 
@@ -166,7 +166,7 @@ class TestOverreactionScore:
         score = compute_overreaction_score(returns, lookback=5, threshold=0.05)
         assert score == 0.0
 
-    def test_bounded(self):
+    def test_bounded_v3(self):
         returns = np.zeros(30)
         returns[-5:] = -0.10  # extreme
         score = compute_overreaction_score(returns, lookback=5, threshold=0.05)

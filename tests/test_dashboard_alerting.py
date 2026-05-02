@@ -39,7 +39,7 @@ class TestPnLCurve:
 
 @pytest.mark.phase12
 class TestPositionTable:
-    def test_basic(self):
+    def test_basic_v2(self):
         weights = {"AAPL": 0.3, "MSFT": 0.2, "GOOG": -0.1}
         prices = {"AAPL": 150.0, "MSFT": 300.0, "GOOG": 2800.0}
         sectors = {"AAPL": "Tech", "MSFT": "Tech", "GOOG": "Tech"}
@@ -56,7 +56,7 @@ class TestPositionTable:
 
 @pytest.mark.phase12
 class TestRiskSnapshot:
-    def test_basic(self):
+    def test_basic_v3(self):
         rng = np.random.default_rng(42)
         returns = pd.Series(rng.normal(0.0005, 0.02, 252))
         metrics = compute_risk_snapshot(returns)
@@ -94,14 +94,14 @@ class TestExposure:
         assert exp["short"] == pytest.approx(0.2)
         assert exp["n_positions"] == 3
 
-    def test_empty(self):
+    def test_empty_v2(self):
         exp = compute_exposure({})
         assert exp["gross"] == 0.0
 
 
 @pytest.mark.phase12
 class TestSignalHeatmap:
-    def test_basic(self):
+    def test_basic_v4(self):
         signals = pd.DataFrame(
             {"momentum": [0.5, -0.3, 0.8], "value": [0.2, 0.6, -0.1]},
             index=["AAPL", "MSFT", "GOOG"],
@@ -111,7 +111,7 @@ class TestSignalHeatmap:
         assert "momentum" in heatmap["AAPL"]
         assert heatmap["GOOG"]["momentum"] == 0.8
 
-    def test_empty(self):
+    def test_empty_v3(self):
         heatmap = build_signal_heatmap(pd.DataFrame())
         assert heatmap == {}
 

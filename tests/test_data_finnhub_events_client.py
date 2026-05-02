@@ -260,7 +260,7 @@ class TestFetchEarningsEvents:
 class TestFetchInsiderEvents:
     """Tests for fetch_insider_events()."""
 
-    def test_successful_fetch(self, mock_settings):
+    def test_successful_fetch_v2(self, mock_settings):
         """Test successful insider events fetch with valid response."""
         # Mock response data
         mock_response_data = {
@@ -324,7 +324,7 @@ class TestFetchInsiderEvents:
         # Check that timestamps are UTC-aware
         assert result["timestamp"].dtype.tz == pd.Timestamp.now(tz="UTC").tz
 
-    def test_empty_response(self, mock_settings):
+    def test_empty_response_v2(self, mock_settings):
         """Test handling of empty API response."""
         mock_response_data = {"data": []}
 
@@ -351,7 +351,7 @@ class TestFetchInsiderEvents:
         assert isinstance(result, pd.DataFrame)
         assert result.empty
 
-    def test_http_error_4xx(self, mock_settings):
+    def test_http_error_4xx_v2(self, mock_settings):
         """Test handling of 4xx HTTP errors."""
         mock_response = MagicMock()
         mock_response.status_code = 401
@@ -376,7 +376,7 @@ class TestFetchInsiderEvents:
         assert isinstance(result, pd.DataFrame)
         assert result.empty
 
-    def test_http_error_5xx(self, mock_settings):
+    def test_http_error_5xx_v2(self, mock_settings):
         """Test handling of 5xx HTTP errors."""
         mock_response = MagicMock()
         mock_response.status_code = 503
@@ -403,7 +403,7 @@ class TestFetchInsiderEvents:
         assert isinstance(result, pd.DataFrame)
         assert result.empty
 
-    def test_missing_api_key(self, mock_settings_no_key):
+    def test_missing_api_key_v2(self, mock_settings_no_key):
         """Test that missing API key raises RuntimeError."""
         with pytest.raises(RuntimeError, match="FINNHUB_API_KEY not set"):
             fetch_insider_events(

@@ -78,7 +78,7 @@ class TestSentimentMomentum:
         result = add_sentiment_momentum(daily, window=3)
         assert "sentiment_momentum_3d" in result.columns
 
-    def test_empty_input(self):
+    def test_empty_input_v2(self):
         result = add_sentiment_momentum(pd.DataFrame())
         assert result.empty
 
@@ -104,6 +104,6 @@ class TestCrowdConsensus:
         result = compute_crowd_consensus(daily, threshold_bullish=0.7)
         assert result["crowd_signal"].iloc[0] == 1.0
 
-    def test_empty_input(self):
+    def test_empty_input_v3(self):
         result = compute_crowd_consensus(pd.DataFrame())
         assert result.empty

@@ -256,7 +256,7 @@ class TestBuildNewsSentimentFactors:
 class TestBuildMacroRegimeFactors:
     """Tests for build_macro_regime_factors()."""
 
-    def test_basic_functionality(self, sample_price_panel, sample_macro_series):
+    def test_basic_functionality_v2(self, sample_price_panel, sample_macro_series):
         """Test basic macro regime factor computation."""
         result = build_macro_regime_factors(
             sample_macro_series,

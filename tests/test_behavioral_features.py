@@ -54,7 +54,7 @@ class TestCapitalGainsOverhang:
 
 @pytest.mark.phase12
 class TestAnchoring52WHigh:
-    def test_basic(self):
+    def test_basic_v2(self):
         prices, _, _ = _make_price_volume()
         prox = anchoring_52w_high(prices)
         assert len(prox) == len(prices)
@@ -87,7 +87,7 @@ class TestRoundNumberProximity:
 
 @pytest.mark.phase12
 class TestAbnormalVolume:
-    def test_basic(self):
+    def test_basic_v3(self):
         _, volumes, _ = _make_price_volume()
         abn = abnormal_volume(volumes)
         assert len(abn) == len(volumes)
@@ -103,7 +103,7 @@ class TestAbnormalVolume:
 
 @pytest.mark.phase12
 class TestMaxEffect:
-    def test_basic(self):
+    def test_basic_v4(self):
         _, _, returns = _make_price_volume()
         mx = max_effect(returns)
         assert len(mx) == len(returns)
@@ -118,7 +118,7 @@ class TestMaxEffect:
 
 @pytest.mark.phase12
 class TestAbnormalTurnover:
-    def test_basic(self):
+    def test_basic_v5(self):
         _, volumes, _ = _make_price_volume()
         abn = abnormal_turnover(volumes, shares_outstanding=1e8)
         assert len(abn) == len(volumes)
@@ -132,7 +132,7 @@ class TestAbnormalTurnover:
 
 @pytest.mark.phase12
 class TestBehavioralComposite:
-    def test_basic(self):
+    def test_basic_v6(self):
         prices, volumes, returns = _make_price_volume(n=300)
         composite = compute_behavioral_composite(prices, volumes, returns)
         assert len(composite) == len(prices)

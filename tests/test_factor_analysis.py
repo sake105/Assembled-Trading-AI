@@ -179,7 +179,7 @@ class TestAddForwardReturns:
 class TestComputeFactorIc:
     """Tests for compute_factor_ic() function."""
 
-    def test_basic_functionality(self, factor_panel_with_forward_returns):
+    def test_basic_functionality_v2(self, factor_panel_with_forward_returns):
         """Test that compute_factor_ic runs and returns IC DataFrame."""
         result = compute_factor_ic(
             factor_panel_with_forward_returns,
@@ -270,7 +270,7 @@ class TestComputeFactorIc:
             assert (ic_values >= -1.0).all(), "IC should be >= -1"
             assert (ic_values <= 1.0).all(), "IC should be <= 1"
 
-    def test_required_columns_validation(self):
+    def test_required_columns_validation_v2(self):
         """Test that missing required columns raise KeyError."""
         df = pd.DataFrame(
             {
@@ -289,7 +289,7 @@ class TestComputeFactorIc:
 class TestComputeRankIc:
     """Tests for compute_rank_ic() function."""
 
-    def test_basic_functionality(self, factor_panel_with_forward_returns):
+    def test_basic_functionality_v3(self, factor_panel_with_forward_returns):
         """Test that compute_rank_ic runs and returns Rank-IC DataFrame."""
         result = compute_rank_ic(
             factor_panel_with_forward_returns,
@@ -336,7 +336,7 @@ class TestComputeRankIc:
 class TestSummarizeFactorIc:
     """Tests for summarize_factor_ic() function."""
 
-    def test_basic_functionality(self, factor_panel_with_forward_returns):
+    def test_basic_functionality_v4(self, factor_panel_with_forward_returns):
         """Test that summarize_factor_ic runs and returns summary DataFrame."""
         # First compute IC
         ic_df = compute_factor_ic(

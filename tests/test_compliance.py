@@ -72,7 +72,7 @@ class TestShouldRetain:
 
 
 class TestAnonymizeHeadline:
-    def test_deterministic(self):
+    def test_deterministic_v2(self):
         h = "Apple CEO retires"
         assert anonymize_news_headline(h) == anonymize_news_headline(h)
 

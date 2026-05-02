@@ -84,7 +84,7 @@ class TestCorrelationFeatures:
 
 class TestSupplyChainFeatures:
 
-    def test_import(self):
+    def test_import_v2(self):
         from src.assembled_core.features.supply_chain_features import build_supply_chain_features
         assert build_supply_chain_features is not None
 
@@ -128,7 +128,7 @@ class TestSupplyChainFeatures:
 
 class TestGPRFeatures:
 
-    def test_import(self):
+    def test_import_v3(self):
         from src.assembled_core.features.geopolitical_features import compute_gpr_proxy
         assert compute_gpr_proxy is not None
 
@@ -165,7 +165,7 @@ class TestGPRFeatures:
 
 class TestWeaponizedInterdependence:
 
-    def test_import(self):
+    def test_import_v4(self):
         import pytest; pytest.importorskip('src.assembled_core.intel.weaponized_interdependence')
         from src.assembled_core.intel.weaponized_interdependence import (
             compute_wi_score,
@@ -229,7 +229,7 @@ class TestWeaponizedInterdependence:
 
 class TestScenarioTrees:
 
-    def test_import(self):
+    def test_import_v5(self):
         import pytest; pytest.importorskip('src.assembled_core.intel.scenario_trees')
         from src.assembled_core.intel.scenario_trees import build_scenario_tree
         assert build_scenario_tree is not None
@@ -290,7 +290,7 @@ def _scipy_available():
 
 class TestHRP:
 
-    def test_import(self):
+    def test_import_v6(self):
         from src.assembled_core.portfolio.hierarchical_risk_parity import compute_hrp_weights
         assert compute_hrp_weights is not None
 
@@ -337,7 +337,7 @@ class TestHRP:
 
 class TestBarbellStrategy:
 
-    def test_import(self):
+    def test_import_v7(self):
         import pytest; pytest.importorskip('src.assembled_core.portfolio.barbell_strategy')
         from src.assembled_core.portfolio.barbell_strategy import (
             compute_tail_risk_score,
@@ -397,7 +397,7 @@ class TestBarbellStrategy:
 
 class TestMonteCarloVaR:
 
-    def test_import(self):
+    def test_import_v8(self):
         from src.assembled_core.risk.risk_metrics import compute_monte_carlo_var
         assert compute_monte_carlo_var is not None
 
@@ -445,7 +445,7 @@ class TestMonteCarloVaR:
 
 class TestBrinsonFachler:
 
-    def test_import(self):
+    def test_import_v9(self):
         from src.assembled_core.risk.risk_metrics import compute_brinson_fachler_attribution
         assert compute_brinson_fachler_attribution is not None
 
@@ -490,7 +490,7 @@ class TestBrinsonFachler:
 
 class TestVolatilityFeatures:
 
-    def test_import(self):
+    def test_import_v10(self):
         import pytest; pytest.importorskip('src.assembled_core.features.volatility_features')
         from src.assembled_core.features.volatility_features import (
             compute_garch_features,

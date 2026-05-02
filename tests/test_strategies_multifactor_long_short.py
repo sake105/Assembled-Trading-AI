@@ -313,7 +313,7 @@ class TestGenerateMultifactorLongShortSignals:
 class TestComputeMultifactorLongShortPositions:
     """Tests for compute_multifactor_long_short_positions() function."""
 
-    def test_basic_functionality(self, simple_bundle_yaml):
+    def test_basic_functionality_v2(self, simple_bundle_yaml):
         """Test that compute_multifactor_long_short_positions works with basic signals."""
         config = MultiFactorStrategyConfig(
             bundle_path=str(simple_bundle_yaml),

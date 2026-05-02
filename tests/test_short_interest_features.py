@@ -31,7 +31,7 @@ class TestShortPctFloat:
 
 @pytest.mark.phase12
 class TestShortRatio:
-    def test_basic(self):
+    def test_basic_v2(self):
         result = compute_short_ratio(5_000_000, 1_000_000)
         assert result == pytest.approx(5.0)
 
@@ -56,7 +56,7 @@ class TestShortSqueezeScore:
 
 @pytest.mark.phase12
 class TestBuildShortInterestFeatures:
-    def test_basic(self):
+    def test_basic_v3(self):
         rng = np.random.default_rng(42)
         dates = pd.bdate_range("2024-01-01", periods=10)
         df = pd.DataFrame({

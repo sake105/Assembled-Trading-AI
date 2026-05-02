@@ -63,7 +63,7 @@ class TestSignalConfidence:
 
 class TestMultiChannelPropagation:
 
-    def test_import(self):
+    def test_import_v2(self):
         import pytest; pytest.importorskip('src.assembled_core.intel.multichannel_propagation')
         from src.assembled_core.intel.multichannel_propagation import (
             propagate_multichannel,
@@ -168,7 +168,7 @@ class TestMultiChannelPropagation:
 
 class TestAlphaDecay:
 
-    def test_import(self):
+    def test_import_v3(self):
         from src.assembled_core.qa.factor_analysis import estimate_alpha_decay_halflife
         assert estimate_alpha_decay_halflife is not None
 

@@ -70,7 +70,7 @@ class TestTWAPScheduler:
 
 @pytest.mark.phase12
 class TestVWAPScheduler:
-    def test_basic_schedule(self):
+    def test_basic_schedule_v2(self):
         scheduler = VWAPScheduler(n_slices=5)
         volume_profile = pd.DataFrame({
             "time_bucket": ["09:30", "10:00", "10:30", "11:00", "11:30"],

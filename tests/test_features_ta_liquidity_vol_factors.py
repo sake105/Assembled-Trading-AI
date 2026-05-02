@@ -174,7 +174,7 @@ class TestAddRealizedVolatility:
 class TestAddVolOfVol:
     """Tests for add_vol_of_vol() function."""
 
-    def test_basic_functionality(self, sample_price_panel):
+    def test_basic_functionality_v2(self, sample_price_panel):
         """Test that add_vol_of_vol runs after adding realized volatility."""
         # First add realized volatility
         df_with_rv = add_realized_volatility(sample_price_panel)
@@ -231,7 +231,7 @@ class TestAddVolOfVol:
 class TestAddTurnoverAndLiquidityProxies:
     """Tests for add_turnover_and_liquidity_proxies() function."""
 
-    def test_basic_functionality(self, sample_price_panel):
+    def test_basic_functionality_v3(self, sample_price_panel):
         """Test that function runs and adds liquidity proxies."""
         result = add_turnover_and_liquidity_proxies(sample_price_panel)
 
@@ -305,7 +305,7 @@ class TestAddTurnoverAndLiquidityProxies:
         # Should not have volume_zscore
         assert "volume_zscore" not in result.columns
 
-    def test_required_columns_validation(self):
+    def test_required_columns_validation_v2(self):
         """Test that missing required columns raise KeyError."""
         # Missing timestamp
         df_no_timestamp = pd.DataFrame(
@@ -317,7 +317,7 @@ class TestAddTurnoverAndLiquidityProxies:
         with pytest.raises(KeyError, match="Missing required columns"):
             add_turnover_and_liquidity_proxies(df_no_timestamp)
 
-    def test_empty_dataframe_raises_error(self):
+    def test_empty_dataframe_raises_error_v2(self):
         """Test that empty DataFrame raises ValueError."""
         empty_df = pd.DataFrame(columns=["timestamp", "symbol"])
 

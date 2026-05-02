@@ -116,7 +116,7 @@ class TestPurgedKFold:
 class TestPurgedWalkForward:
     """Tests for purged_walk_forward_split."""
 
-    def test_import(self):
+    def test_import_v2(self):
         import pytest; pytest.importorskip('src.assembled_core.ml.purged_cv')
         from src.assembled_core.ml.purged_cv import purged_walk_forward_split
         assert purged_walk_forward_split is not None
@@ -164,7 +164,7 @@ class TestPurgedWalkForward:
 class TestGARCHModels:
     """Tests for GARCH family models."""
 
-    def test_import(self):
+    def test_import_v3(self):
         import pytest; pytest.importorskip('src.assembled_core.ml.garch_models')
         from src.assembled_core.ml.garch_models import fit_garch, GARCHResult
         assert fit_garch is not None
@@ -247,7 +247,7 @@ class TestGARCHModels:
 class TestEVTModels:
     """Tests for Extreme Value Theory models."""
 
-    def test_import(self):
+    def test_import_v4(self):
         import pytest; pytest.importorskip('src.assembled_core.ml.evt_models')
         from src.assembled_core.ml.evt_models import fit_evt_pot
         assert fit_evt_pot is not None
@@ -323,7 +323,7 @@ class TestEVTModels:
 class TestCopulaModels:
     """Tests for copula-based tail dependence."""
 
-    def test_import(self):
+    def test_import_v5(self):
         import pytest; pytest.importorskip('src.assembled_core.ml.copula_models')
         from src.assembled_core.ml.copula_models import fit_copula_pair
         assert fit_copula_pair is not None

@@ -105,7 +105,7 @@ class TestSymbolReturnContributions:
 
 
 class TestPortfolioReturn:
-    def test_normal_case(self):
+    def test_normal_case_v2(self):
         weights = {"A": 0.5, "B": 0.5}
         returns = {"A": 0.04, "B": 0.02}
         result = compute_portfolio_return(weights, returns)
@@ -194,7 +194,7 @@ class TestSymbolVolContributions:
         portfolio_vol = compute_portfolio_vol(weights, cov)
         assert sum(contribs.values()) == pytest.approx(portfolio_vol, rel=1e-6)
 
-    def test_empty_weights_returns_empty(self):
+    def test_empty_weights_returns_empty_v2(self):
         prices = _make_price_df(["A", "B"], n_bars=70)
         cov = compute_covariance_matrix(prices, ["A", "B"])
         result = compute_symbol_vol_contributions({}, cov)
