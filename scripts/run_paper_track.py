@@ -54,8 +54,11 @@ logger = logging.getLogger(__name__)
 
 def _load_yaml(path: Path) -> dict[str, Any]:
     """Load YAML file."""
-    with path.open("r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+    except yaml.YAMLError as exc:
+        raise ValueError(f"[run_paper_track] Malformed YAML in {path}: {exc}") from exc
 
 
 def _load_json(path: Path) -> dict[str, Any]:

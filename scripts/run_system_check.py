@@ -122,7 +122,11 @@ async def _run_async(args: argparse.Namespace) -> int:
                   args.defenders_yaml, args.critics_yaml)
         return 2
 
-    cfg = yaml.safe_load(args.config.read_text(encoding="utf-8")) or {}
+    try:
+        cfg = yaml.safe_load(args.config.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as exc:
+        log.error("Malformed YAML in %s: %s", args.config, exc)
+        return 2
 
     # Safety gate: real API calls require ANTHROPIC_API_KEY.
     _try_load_dotenv(REPO_ROOT)

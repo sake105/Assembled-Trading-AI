@@ -42,6 +42,9 @@ def test_scenario(
     cols = [c for c in result.columns if c.lower() in ("direction", "signal")]
     col = cols[0] if cols else "direction"
 
+    if result.empty:
+        print(f"\n=== {name} === NO SIGNALS GENERATED")
+        return
     row = result.iloc[0]
     print(f"\n=== {name} ===")
     print(
