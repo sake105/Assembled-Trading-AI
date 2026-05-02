@@ -364,7 +364,8 @@ def _sp_compute_final_multiplier(
                             _HMM_MKT_RET_CACHE[_panel_key] = np.log((_px_full.mean(axis=1) / _px_full.mean(axis=1).shift(1)).clip(lower=1e-10)).dropna()
                             log.info("[HMM-REGIME] Panel market-return series cached (%d days)", len(_HMM_MKT_RET_CACHE[_panel_key]))
                         _full_mkt_ret = _HMM_MKT_RET_CACHE[_panel_key]
-                        _as_of = pd.Timestamp(getattr(ctx, "as_of", _full_mkt_ret.index.max())).tz_localize(None) if getattr(ctx, "as_of", None) else _full_mkt_ret.index.max()
+                        _as_of_raw = pd.Timestamp(getattr(ctx, "as_of", _full_mkt_ret.index.max())) if getattr(ctx, "as_of", None) else _full_mkt_ret.index.max()
+                        _as_of = _as_of_raw.tz_convert(None) if _as_of_raw.tzinfo is not None else _as_of_raw
                         _mkt_ret = _full_mkt_ret[_full_mkt_ret.index <= _as_of].iloc[-60:]
                     except Exception as _exc:
                         log.debug("[HMM-REGIME] market-return panel load failed: %s", _exc)
