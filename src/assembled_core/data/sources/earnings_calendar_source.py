@@ -194,12 +194,17 @@ class EarningsCalendarSource:
             f"&token={self.finnhub_api_key}"
         )
         # URL is built from a fixed finnhub.io endpoint with validated params.
-        with urllib.request.urlopen(url, timeout=10) as resp:  # nosec B310
-            try:
-                data = json.loads(resp.read())
-            except json.JSONDecodeError as exc:
-                logger.warning("[EarningsCalendar] Finnhub returned invalid JSON for %s: %s", symbol, exc)
-                return []
+        import urllib.error
+        try:
+            with urllib.request.urlopen(url, timeout=10) as resp:  # nosec B310
+                try:
+                    data = json.loads(resp.read())
+                except json.JSONDecodeError as exc:
+                    logger.warning("[EarningsCalendar] Finnhub returned invalid JSON for %s: %s", symbol, exc)
+                    return []
+        except (urllib.error.URLError, urllib.error.HTTPError, OSError) as exc:
+            logger.warning("[EarningsCalendar] Finnhub network error for %s: %s", symbol, exc)
+            return []
 
         rows = []
         for item in data.get("earningsCalendar", []):
