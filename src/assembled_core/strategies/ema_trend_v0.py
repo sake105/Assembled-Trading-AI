@@ -154,7 +154,7 @@ def compute_target_positions(
         rows.append({
             "symbol": sym,
             "target_weight": w,
-            "target_qty": available_capital * weights[sym],
+            "target_qty": available_capital * w,
         })
 
     return pd.DataFrame(rows)
