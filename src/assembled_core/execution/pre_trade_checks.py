@@ -326,7 +326,7 @@ def _ptc_check_group_exposures(
                 original_qty = filtered_orders.loc[idx, "qty"]
                 symbol = filtered_orders.loc[idx, "symbol"]
                 side = filtered_orders.loc[idx, "side"]
-                new_qty = float(int(original_qty * scale_factor))
+                new_qty = float(round(original_qty * scale_factor))
                 new_qty = -abs(new_qty) if side == "SELL" else abs(new_qty)
                 explain = {
                     "group_type": group_type, "group_value": group_value,
@@ -445,7 +445,7 @@ def _ptc_check_turnover(
         original_qty = filtered_orders.loc[idx, "qty"]
         symbol = filtered_orders.loc[idx, "symbol"]
         side = filtered_orders.loc[idx, "side"]
-        new_qty = float(int(original_qty * scale_factor))
+        new_qty = float(round(original_qty * scale_factor))
         new_qty = -abs(new_qty) if side == "SELL" else abs(new_qty)
         explain = {"total_turnover": total_turnover, "cap": config.turnover_cap, "scale_factor": scale_factor}
         if abs(new_qty) < 1e-10:
@@ -497,7 +497,7 @@ def _ptc_check_drawdown(
         original_qty = filtered_orders.loc[idx, "qty"]
         symbol = filtered_orders.loc[idx, "symbol"]
         side = filtered_orders.loc[idx, "side"]
-        new_qty = float(int(original_qty * de_risk_scale))
+        new_qty = float(round(original_qty * de_risk_scale))
         new_qty = -abs(new_qty) if side == "SELL" else abs(new_qty)
         explain = {
             "drawdown": drawdown, "threshold": config.drawdown_threshold,

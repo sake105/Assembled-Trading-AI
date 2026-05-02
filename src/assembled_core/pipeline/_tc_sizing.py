@@ -911,12 +911,20 @@ def size_positions(
                         # v2/v3: q05/q95 models for >=87% coverage
                         _q_lo = _conf_bundle["q05_model"].predict(_X_conf)
                         _q_hi = _conf_bundle["q95_model"].predict(_X_conf)
-                        _widths = (_q_hi - _q_lo).clip(1e-8)
+                        _raw = _q_hi - _q_lo
+                        _n_inv = int((_raw < 0).sum())
+                        if _n_inv > 0:
+                            log.warning("[CONFORMAL] %d/%d symbols have inverted quantile intervals (q05>q95) — model may have distribution shift", _n_inv, len(_raw))
+                        _widths = _raw.clip(1e-8)
                     elif _mtype == "QuantileRegressionInterval":
                         # v1 legacy: q10/q90 models
                         _q_lo = _conf_bundle["q10_model"].predict(_X_conf)
                         _q_hi = _conf_bundle["q90_model"].predict(_X_conf)
-                        _widths = (_q_hi - _q_lo).clip(1e-8)
+                        _raw = _q_hi - _q_lo
+                        _n_inv = int((_raw < 0).sum())
+                        if _n_inv > 0:
+                            log.warning("[CONFORMAL] %d/%d symbols have inverted quantile intervals (q10>q90) — model may have distribution shift", _n_inv, len(_raw))
+                        _widths = _raw.clip(1e-8)
                     else:
                         _, _intervals = _conf_bundle["model"].predict_interval(_X_conf_df.values)
                         _widths = (_intervals[:, 1, 0] - _intervals[:, 0, 0]).clip(1e-8)
