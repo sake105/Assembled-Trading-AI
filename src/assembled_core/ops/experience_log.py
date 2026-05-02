@@ -143,7 +143,7 @@ def compute_experience_summary(
         "total_cycles": len(df),
     }
 
-    if "cycle_date" in df.columns:
+    if "cycle_date" in df.columns and len(df) > 0:
         summary["first_date"] = str(df["cycle_date"].iloc[0])
         summary["last_date"] = str(df["cycle_date"].iloc[-1])
 
