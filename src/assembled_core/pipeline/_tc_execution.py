@@ -48,7 +48,8 @@ def route_orders(
 
     try:
         policy = load_policy()
-    except Exception:
+    except Exception as _exc:
+        logger.debug("[_tc_execution] load_policy failed, using empty policy: %s", _exc)
         policy = {}
 
     # Step 5: Generate orders
@@ -163,7 +164,8 @@ def book_fills(
 
     try:
         policy = load_policy()
-    except Exception:
+    except Exception as _exc:
+        logger.debug("[_tc_execution] load_policy failed, using empty policy: %s", _exc)
         policy = {}
 
     # Ensure orders_filtered exists
