@@ -123,7 +123,8 @@ class AdaptiveConformalSizer:
         try:
             pred = self.base_predictor.predict(X)
             return float(np.ravel(pred)[-1])
-        except Exception:
+        except Exception as exc:
+            logger.debug("base_predictor.predict failed: %s", exc)
             return 0.0
 
     @property

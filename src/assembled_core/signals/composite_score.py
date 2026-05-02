@@ -206,7 +206,8 @@ def volume_profile_score(close: pd.Series, volume: pd.Series) -> float:
         avwap_score = float(-np.tanh(avwap_dev * 10.0))
 
         return float(np.clip(0.6 * mr_score + 0.4 * avwap_score, -1.0, 1.0))
-    except Exception:
+    except Exception as exc:
+        logger.debug("volume_profile_score failed: %s", exc)
         return 0.0
 
 
@@ -358,7 +359,8 @@ def compute_news_dim_with_edcl(
         edcl_score = compute_basket_score(edcl_basket)
         # Map [0,1] geo-risk score to [-1,0]: 0 risk → neutral, max risk → fully bearish
         edcl_news = -(edcl_score)
-    except Exception:
+    except Exception as exc:
+        logger.debug("EDCL basket score failed: %s", exc)
         return base_news_score
 
     blended = (1.0 - conviction) * base_news_score + conviction * edcl_news

@@ -181,7 +181,7 @@ def _optimize_cvxpy(
             w_opt = w.value
             weights = {s: round(float(w_opt[i]), 6) for i, s in enumerate(symbols)}
             exp_ret = float(mu @ w_opt)
-            exp_risk = float(np.sqrt(w_opt @ Sigma @ w_opt))
+            exp_risk = float(np.sqrt(max(float(w_opt @ Sigma @ w_opt), 0.0)))
             tc = float(np.sum(np.abs(w_opt - w_old) * cost_vec))
 
             return OptimizationResult(
@@ -235,7 +235,7 @@ def _optimize_fallback(
 
     weights = {s: round(float(w_opt[i]), 6) for i, s in enumerate(symbols)}
     exp_ret = float(mu @ w_opt)
-    exp_risk = float(np.sqrt(w_opt @ Sigma @ w_opt))
+    exp_risk = float(np.sqrt(max(float(w_opt @ Sigma @ w_opt), 0.0)))
     tc = float(np.sum(np.abs(w_opt - w_old) * cost_vec))
 
     return OptimizationResult(

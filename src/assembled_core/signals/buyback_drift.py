@@ -114,7 +114,8 @@ def detect_buyback_announcement(
                     "pct_market_cap": pct,
                     "signal_strength": "strong" if (pct and pct > 0.05) else "moderate",
                 }
-            except Exception:
+            except Exception as exc:
+                logger.debug("Buyback filing parse failed for %s: %s", ticker, exc)
                 continue
 
         return None
