@@ -88,7 +88,7 @@ def get_risk_summary(freq: Frequency) -> RiskMetrics:
             if rolling_max.max() > 0
             else 0.0
         )
-        current_drawdown = float(drawdown.iloc[-1])
+        current_drawdown = float(drawdown[-1])
 
         # Compute volatility (annualized)
         if len(returns) > 1:
