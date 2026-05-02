@@ -61,9 +61,9 @@ def summarize_closed_lots(
         and lot["trade_date"].year == year
     ]
 
-    total = sum(float(lot["realized_pnl_eur"]) for lot in relevant)
-    wins = [lot for lot in relevant if float(lot["realized_pnl_eur"]) > 0]
-    losses = [lot for lot in relevant if float(lot["realized_pnl_eur"]) < 0]
+    total = sum(float(lot.get("realized_pnl_eur") or 0.0) for lot in relevant)
+    wins = [lot for lot in relevant if float(lot.get("realized_pnl_eur") or 0.0) > 0]
+    losses = [lot for lot in relevant if float(lot.get("realized_pnl_eur") or 0.0) < 0]
 
     taxable = max(0.0, total - sparer_pauschbetrag)
     estimated_tax = taxable * EFFECTIVE_TAX_RATE
@@ -74,8 +74,8 @@ def summarize_closed_lots(
         wins_count=len(wins),
         losses_count=len(losses),
         total_realized_pnl_eur=total,
-        total_wins_eur=sum(float(l["realized_pnl_eur"]) for l in wins),
-        total_losses_eur=sum(float(l["realized_pnl_eur"]) for l in losses),
+        total_wins_eur=sum(float(l.get("realized_pnl_eur") or 0.0) for l in wins),
+        total_losses_eur=sum(float(l.get("realized_pnl_eur") or 0.0) for l in losses),
         taxable_pnl_eur=taxable,
         estimated_tax_eur=estimated_tax,
     )
