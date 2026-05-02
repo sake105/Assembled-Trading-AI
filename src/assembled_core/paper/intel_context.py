@@ -192,7 +192,11 @@ def _populate_sector_rotation_scores(ctx: Any) -> None:
 
     as_of = getattr(ctx, "as_of", None)
     if as_of is not None and ts_col in scores_df.columns:
-        cut = scores_df[pd.to_datetime(scores_df[ts_col]) <= pd.Timestamp(as_of)]
+        _ts_series = pd.to_datetime(scores_df[ts_col], utc=True, errors="coerce")
+        _as_of_ts = pd.Timestamp(as_of)
+        if _as_of_ts.tzinfo is None:
+            _as_of_ts = _as_of_ts.tz_localize("UTC")
+        cut = scores_df[_ts_series <= _as_of_ts]
         if cut.empty:
             return
         last_row = cut.iloc[-1]
