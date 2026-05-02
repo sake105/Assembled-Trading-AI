@@ -326,7 +326,8 @@ def _optimisation_weights(stats_df: pd.DataFrame, factor_cols: list[str]) -> dic
 
     if res.success:
         w_opt = np.clip(res.x, MIN_SINGLE_WEIGHT, MAX_SINGLE_WEIGHT)
-        w_opt = w_opt / w_opt.sum()
+        w_sum = w_opt.sum()
+        w_opt = w_opt / w_sum if w_sum > 1e-12 else np.full_like(w_opt, 1.0 / len(w_opt))
         return {c: round(float(w), 8) for c, w in zip(factor_cols, w_opt)}
     else:
         _warn(f"Optimisation did not converge ({res.message}) -- falling back to IC-IR method.")

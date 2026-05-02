@@ -165,7 +165,9 @@ def _try_fetch_beta_boost(
         return 0.0
 
     # Median beta → scale to [0, 0.3] boost
-    median_beta = sorted(betas)[len(betas) // 2]
+    sorted_betas = sorted(betas)
+    n = len(sorted_betas)
+    median_beta = sorted_betas[n // 2] if n % 2 == 1 else (sorted_betas[n // 2 - 1] + sorted_betas[n // 2]) / 2.0
     # Typical asset event beta ~ 0.02–0.10 (2–10% move). Cap boost at beta >= 0.10.
     boost = min(median_beta / 0.10, 1.0) * 0.30
     log.debug("[EDCL-CONVICTION] beta evidence: n=%d median=%.4f boost=%.3f", len(betas), median_beta, boost)

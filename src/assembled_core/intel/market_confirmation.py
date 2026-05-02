@@ -117,6 +117,8 @@ def _fetch_pct_change(
             return None
         _last = float(closes.iloc[-1].iloc[0]) if hasattr(closes.iloc[-1], "iloc") else float(closes.iloc[-1])
         _first = float(closes.iloc[0].iloc[0]) if hasattr(closes.iloc[0], "iloc") else float(closes.iloc[0])
+        if _first == 0.0:
+            return None
         pct = (_last - _first) / _first * 100
         cache[cache_key] = pct
         return pct
@@ -146,6 +148,8 @@ def _fetch_vix(
         _v_last = float(closes.iloc[-1].iloc[0]) if hasattr(closes.iloc[-1], "iloc") else float(closes.iloc[-1])
         _v_prev = float(closes.iloc[-2].iloc[0]) if hasattr(closes.iloc[-2], "iloc") else float(closes.iloc[-2])
         level = _v_last
+        if _v_prev == 0.0:
+            return None
         change_1d = (_v_last - _v_prev) / _v_prev * 100
         result = (level, change_1d)
         cache[cache_key] = result
