@@ -515,17 +515,17 @@ def run_trading_cycle(
         if _redis_url:
             try:
                 _bus = _EventBus(redis_url=_redis_url, connect_timeout=0.5)
-            except Exception:
-                pass
-    except Exception:
-        pass
+            except Exception as _exc:
+                logger.debug("[event_bus] Redis connect failed (%s): %s", _redis_url, _exc)
+    except Exception as _exc:
+        logger.debug("[event_bus] EventBus init failed: %s", _exc)
 
     def _pub(phase: str, **kw: object) -> None:
         if _bus is not None:
             try:
                 _bus.publish(phase, {"run_id": ctx.run_id, **kw})
-            except Exception:
-                pass
+            except Exception as _exc:
+                logger.debug("[event_bus] publish '%s' failed: %s", phase, _exc)
 
     _pub("cycle_start", mode=getattr(ctx, "mode", "unknown"))
 
