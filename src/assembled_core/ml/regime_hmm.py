@@ -265,10 +265,16 @@ class RegimeHMM:
 
         if not HMMLEARN_AVAILABLE:
             raise ImportError("hmmlearn is required for loading RegimeHMM")
-        data = joblib.load(path)
-        obj = cls(n_regimes=data["n_regimes"])
-        obj._model = data["model"]
-        obj._label_map = data["label_map"]
+        try:
+            data = joblib.load(path)
+        except (FileNotFoundError, EOFError, Exception) as exc:
+            raise RuntimeError(f"[RegimeHMM] Failed to load model from {path}: {exc}") from exc
+        try:
+            obj = cls(n_regimes=data["n_regimes"])
+            obj._model = data["model"]
+            obj._label_map = data["label_map"]
+        except KeyError as exc:
+            raise RuntimeError(f"[RegimeHMM] Model file {path} is missing required key: {exc}") from exc
         obj._is_fitted = True
         return obj
 
@@ -493,16 +499,22 @@ class MultiFeatureRegimeHMM:
         """Load a previously saved MultiFeatureRegimeHMM."""
         import joblib
         from pathlib import Path as _Path
-        data = joblib.load(_Path(path))
-        obj = cls(
-            n_regimes=data.get("n_regimes", 3),
-            n_iter=data.get("n_iter", 200),
-            random_state=data.get("random_state", 42),
-            covariance_type=data.get("covariance_type", "diag"),
-        )
-        obj._model = data["model"]
-        obj._scaler = data.get("scaler")
-        obj._label_map = data["label_map"]
+        try:
+            data = joblib.load(_Path(path))
+        except (FileNotFoundError, EOFError, Exception) as exc:
+            raise RuntimeError(f"[MultiHMM] Failed to load model from {path}: {exc}") from exc
+        try:
+            obj = cls(
+                n_regimes=data.get("n_regimes", 3),
+                n_iter=data.get("n_iter", 200),
+                random_state=data.get("random_state", 42),
+                covariance_type=data.get("covariance_type", "diag"),
+            )
+            obj._model = data["model"]
+            obj._scaler = data.get("scaler")
+            obj._label_map = data["label_map"]
+        except KeyError as exc:
+            raise RuntimeError(f"[MultiHMM] Model file {path} is missing required key: {exc}") from exc
         obj._fitted = True
         return obj
 
