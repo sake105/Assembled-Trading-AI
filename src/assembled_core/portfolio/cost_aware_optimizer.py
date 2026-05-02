@@ -216,8 +216,9 @@ def _optimize_fallback(
         adv_scaled = np.power(np.maximum(adv_vec, 1.0), config.liquidity_alpha)
         scores -= config.liquidity_penalty / adv_scaled
 
-    if config.long_only:
-        scores = np.maximum(scores, 0)
+    # Always clip to non-negative in the fallback: negative scores mean "don't hold".
+    # (The CVXPY optimizer handles proper long-short sizing when available.)
+    scores = np.maximum(scores, 0)
 
     # Top-N by score
     total = scores.sum()
