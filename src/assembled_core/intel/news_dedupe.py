@@ -9,6 +9,7 @@ import re
 import string
 import time
 from collections import OrderedDict
+from itertools import zip_longest
 from datetime import timedelta
 from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
@@ -237,17 +238,13 @@ class NewsDedupeIndex:
             fingerprint_ages: list[float] = data.get("fingerprint_ages", [])
             self.seen_event_ids = OrderedDict(
                 (eid, now - age)
-                for eid, age in zip(
-                    event_ids,
-                    event_id_ages if event_id_ages else [0.0] * len(event_ids),
-                )
+                for eid, age in zip_longest(event_ids, event_id_ages, fillvalue=0.0)
+                if eid is not None
             )
             self.seen_fingerprints = OrderedDict(
                 (fp, now - age)
-                for fp, age in zip(
-                    fingerprints,
-                    fingerprint_ages if fingerprint_ages else [0.0] * len(fingerprints),
-                )
+                for fp, age in zip_longest(fingerprints, fingerprint_ages, fillvalue=0.0)
+                if fp is not None
             )
             logger.debug(
                 "[OK] NewsDedupeIndex.load: %d ids, %d fingerprints",
