@@ -196,7 +196,7 @@ class LedgerStore:
                   strategy (optional).
         """
         symbol = fill["symbol"]
-        side = fill["side"].upper()
+        side = (fill["side"] or "").upper()
         quantity = float(fill["quantity"])
         price = float(fill["price"])
         commission = float(fill.get("commission", 0.0))

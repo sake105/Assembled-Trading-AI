@@ -108,7 +108,7 @@ def load_gold_dataset(path: str | Path) -> tuple[list[str], list[str]]:
             except json.JSONDecodeError:
                 continue
             texts.append(record["text"])
-            labels.append(record["label"].lower())
+            labels.append(str(record.get("label") or "").lower())
     return texts, labels
 
 
