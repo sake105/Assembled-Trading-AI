@@ -128,7 +128,7 @@ def build_scheduler(jobs: dict[str, Callable] | None = None) -> Any:
             )
             logger.debug("Registered job: %s — %s", job_id, config.get("description", ""))
         except Exception as exc:
-            logger.warning("Failed to register job %s: %s", job_id, exc)
+            logger.error("[SCHEDULER] Failed to register job %s — this job will NOT run: %s", job_id, exc)
 
     return scheduler
 

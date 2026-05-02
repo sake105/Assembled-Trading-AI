@@ -323,8 +323,8 @@ def write_portfolio_report(
             f.write(f"# Portfolio Report ({freq})\n\n")
             f.write(f"- Final PF: {metrics['final_pf']:.4f}\n")
             f.write(f"- Sharpe: {metrics['sharpe']}\n")
+            f.write(f"- Trades: {metrics['trades']}\n")
     except (IOError, OSError) as exc:
         raise RuntimeError(f"Failed to write portfolio report to {rep_path}") from exc
-        f.write(f"- Trades: {metrics['trades']}\n")
 
     return eq_path, rep_path
