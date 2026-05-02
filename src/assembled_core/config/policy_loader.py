@@ -9,7 +9,7 @@ import yaml  # type: ignore[import]
 
 logger = logging.getLogger(__name__)
 
-_POLICY_CACHE: dict[str, Dict[str, Any]] = {}
+_POLICY_CACHE: dict[str, tuple[Dict[str, Any], float]] = {}
 
 
 def load_policy(
@@ -39,7 +39,12 @@ def load_policy(
     p = Path(path)
     cache_key = str(p.resolve())
     if cache_key in _POLICY_CACHE:
-        return _POLICY_CACHE[cache_key]
+        cached_data, cached_mtime = _POLICY_CACHE[cache_key]
+        try:
+            if os.path.getmtime(p) == cached_mtime:
+                return cached_data
+        except OSError:
+            return cached_data
     if not p.exists():
         return {}
     with p.open("r", encoding="utf-8") as f:
@@ -59,7 +64,10 @@ def load_policy(
         except Exception as e:
             logger.debug("policy schema validation skipped: %s", e)
 
-    _POLICY_CACHE[cache_key] = data
+    try:
+        _POLICY_CACHE[cache_key] = (data, os.path.getmtime(p))
+    except OSError:
+        _POLICY_CACHE[cache_key] = (data, 0.0)
     return data
 
 

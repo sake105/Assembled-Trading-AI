@@ -382,7 +382,11 @@ def compute_metrics(equity: pd.DataFrame) -> dict[str, float | int]:
     """
     pf = float(equity["equity"].iloc[-1] / max(equity["equity"].iloc[0], 1e-12))
     ret = equity["equity"].pct_change().replace([np.inf, -np.inf], np.nan).dropna()
-    sharpe = float(ret.mean() / (ret.std() + 1e-12)) if not ret.empty else float("nan")
+    if ret.empty or ret.isna().all():
+        logger.warning("[BACKTEST] No valid returns for Sharpe — defaulting to 0.0")
+        sharpe = 0.0
+    else:
+        sharpe = float(ret.mean() / (ret.std() + 1e-12))
 
     return {
         "final_pf": pf,
