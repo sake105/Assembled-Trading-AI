@@ -65,13 +65,17 @@ class NewsArchiveWriter:
         is_new = not self._path.exists() or self._path.stat().st_size == 0
         self._fh = self._path.open("a", encoding="utf-8")
         self._fsync = bool(fsync)
-        if is_new:
-            header = {
-                _ARCHIVE_HEADER_MARKER: True,
-                "_schema_version": _ARCHIVE_SCHEMA_VERSION,
-            }
-            self._fh.write(json.dumps(header, ensure_ascii=False) + "\n")
-            self._fh.flush()
+        try:
+            if is_new:
+                header = {
+                    _ARCHIVE_HEADER_MARKER: True,
+                    "_schema_version": _ARCHIVE_SCHEMA_VERSION,
+                }
+                self._fh.write(json.dumps(header, ensure_ascii=False) + "\n")
+                self._fh.flush()
+        except Exception:
+            self._fh.close()
+            raise
 
     def append(self, events: list[NewsEvent]) -> int:
         written = 0
