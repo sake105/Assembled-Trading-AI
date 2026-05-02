@@ -66,7 +66,7 @@ def cusum_filter(
 
 def _cusum_filter_numpy(prices: pd.Series, threshold: float) -> pd.DatetimeIndex:
     """Pure numpy/pandas CUSUM event filter."""
-    log_ret = np.log(prices).diff().dropna()
+    log_ret = np.log(prices.clip(lower=1e-10)).diff().dropna()
     s_pos = 0.0
     s_neg = 0.0
     events: list = []
@@ -122,7 +122,7 @@ def triple_barrier_labels(
                 get_events,
             )
             if vol is None:
-                log_ret = np.log(prices).diff()
+                log_ret = np.log(prices.clip(lower=1e-10)).diff()
                 vol = log_ret.rolling(20).std().dropna()
 
             t1 = add_vertical_barrier(events, prices, num_days=vertical_barrier_days)
@@ -146,7 +146,7 @@ def _triple_barrier_numpy(
 ) -> pd.DataFrame:
     """Numpy fallback triple-barrier implementation."""
     if vol is None:
-        log_ret = np.log(prices).diff()
+        log_ret = np.log(prices.clip(lower=1e-10)).diff()
         vol = log_ret.rolling(20, min_periods=20).std()
         # No forward-fill — first 20 rows stay NaN to avoid look-ahead leakage in ML labels.
 

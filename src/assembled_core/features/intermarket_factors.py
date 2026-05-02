@@ -149,7 +149,7 @@ def build_intermarket_factors(
         def _ret(sym: str, window: int) -> pd.Series:
             if sym not in etf_df.columns:
                 return pd.Series(np.nan, index=etf_df.index)
-            return etf_df[sym].pct_change(window)
+            return etf_df[sym].pct_change(window, fill_method=None)
 
         def _ma(sym: str, window: int) -> pd.Series:
             if sym not in etf_df.columns:

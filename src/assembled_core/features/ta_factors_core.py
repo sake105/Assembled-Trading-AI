@@ -285,7 +285,7 @@ def _add_short_term_reversal(
 
     for horizon in horizons:
         # Multi-day return (cumulative) — one groupby pass
-        multi_day_return = grouped_price.pct_change(periods=horizon)
+        multi_day_return = grouped_price.pct_change(periods=horizon, fill_method=None)
 
         # Use transform to compute rolling stats without a second full groupby+reset_index
         gb_ret = multi_day_return.groupby(result[group_col], group_keys=False)
