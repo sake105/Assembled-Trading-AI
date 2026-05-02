@@ -199,6 +199,7 @@ class IncidentTracker:
         for p in self.incidents_dir.glob("????????.json"):
             try:
                 records.append(IncidentRecord.from_dict(json.loads(p.read_text(encoding="utf-8"))))
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception as exc:  # noqa: BLE001
+                import logging as _logging
+                _logging.getLogger(__name__).warning("[IncidentTracker] Skipping corrupt incident file %s: %s", p.name, exc)
         return records

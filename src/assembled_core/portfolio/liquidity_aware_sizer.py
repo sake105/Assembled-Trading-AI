@@ -44,9 +44,9 @@ class LiquidityAwareSizer:
             Dict with keys: ``adv`` (avg daily volume in shares), ``price``,
             ``market_cap`` (total market cap in USD). All required.
         """
-        adv = float(symbol_data.get("adv", 0))
-        price = float(symbol_data.get("price", 1))
-        market_cap = float(symbol_data.get("market_cap", 0))
+        adv = float(symbol_data.get("adv") or 0)
+        price = float(symbol_data.get("price") or 1)
+        market_cap = float(symbol_data.get("market_cap") or 0)
 
         adv_cap = int(adv * self.max_pct_adv)
         mcap_cap = int(market_cap / max(price, 1e-9) * self.max_pct_market_cap)

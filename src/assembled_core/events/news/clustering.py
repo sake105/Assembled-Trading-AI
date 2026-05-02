@@ -411,8 +411,9 @@ class SemanticDeduplicator:
         try:
             self._index.add_items(emb, np.array([self._count]))
             self._count += 1
-        except Exception:
-            pass
+        except Exception as exc:
+            import logging as _logging
+            _logging.getLogger(__name__).warning("[SemanticDeduplicator] index.add_items failed: %s", exc)
 
     @property
     def size(self) -> int:

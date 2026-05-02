@@ -33,8 +33,9 @@ def _next_trade_id(date_str: str, journal_path: Path) -> str:
                         count += 1
                 except json.JSONDecodeError:
                     continue
-        except Exception:
-            pass
+        except Exception as exc:
+            import logging as _logging
+            _logging.getLogger(__name__).warning("[TradeJournal] Could not read journal for ID sequencing: %s", exc)
     return f"{prefix}{count + 1:03d}"
 
 
