@@ -183,7 +183,7 @@ def _update_positions_vectorized(
 
                 # Map sides to integers (0=BUY, 1=SELL)
                 side_map = {"BUY": 0, "SELL": 1}
-                sides = orders["side"].map(side_map).values.astype(np.int32)
+                sides = orders["side"].map(side_map).fillna(0).values.astype(np.int32)
                 qtys = orders["qty"].values.astype(np.float64)
                 symbol_indices = (
                     orders["symbol"].map(symbol_to_idx).values.astype(np.int32)

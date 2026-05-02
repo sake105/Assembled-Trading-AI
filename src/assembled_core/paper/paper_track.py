@@ -1116,7 +1116,7 @@ def _ptd_compute_daily_metrics(
     if not updated_positions.empty and not prices_tradeable.empty:
         latest_px = prices_tradeable.groupby("symbol")["close"].last().to_dict()
         pos = updated_positions.copy()
-        pos["price"] = pos["symbol"].map(latest_px)
+        pos["price"] = pos["symbol"].map(latest_px).fillna(0.0)
         pos["value"] = pos["qty"] * pos["price"]
         gross_exposure = float(pos["value"].abs().sum())
         net_exposure = float(pos["value"].sum())
