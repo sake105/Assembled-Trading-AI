@@ -258,14 +258,15 @@ class PaperTradingEngine:
                 self._positions[symbol] = 0.0
 
             # BUY adds to position, SELL subtracts from position; update cash balance
+            effective_price = order.fill_price or order.price
             if order.side == "BUY":
                 self._positions[symbol] += order.quantity
-                if order.price:
-                    self._cash -= order.price * order.quantity
+                if effective_price:
+                    self._cash -= effective_price * order.quantity
             else:  # SELL
                 self._positions[symbol] -= order.quantity
-                if order.price:
-                    self._cash += order.price * order.quantity
+                if effective_price:
+                    self._cash += effective_price * order.quantity
 
             filled_orders.append(order)
             logger.debug(
