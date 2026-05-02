@@ -80,7 +80,7 @@ def compute_news_features(
 
     if as_of is not None:
         as_of_ts = pd.Timestamp(as_of).tz_localize("UTC") if pd.Timestamp(as_of).tzinfo is None else pd.Timestamp(as_of)
-        events = events[events["event_date"] <= as_of_ts]
+        events = events[events["event_date"] <= as_of_ts].copy()
 
     # Map direction to numeric score
     direction_map = {"bullish": 1.0, "bearish": -1.0, "neutral": 0.0}

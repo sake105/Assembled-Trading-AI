@@ -152,7 +152,7 @@ def _insider_activity_raw(
     if df.empty:
         return out
 
-    df = df[df["symbol"].isin(symbols)]
+    df = df[df["symbol"].isin(symbols)].copy()
     if df.empty:
         return out
 
