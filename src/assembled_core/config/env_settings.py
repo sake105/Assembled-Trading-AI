@@ -144,7 +144,7 @@ def get_env_settings(env_override: str | None = None) -> EnvSettings:
     Looks for config/env/.env.{env} file. If the file does not exist,
     settings are loaded from process environment only (useful in CI).
     """
-    env_name = (env_override or os.environ.get("ATA_ENVIRONMENT", "dev")).lower()
+    env_name = (env_override or os.environ.get("ATA_ENVIRONMENT", "dev")).strip().lower()
 
     if env_name not in {e.value for e in Env}:
         raise RuntimeError(

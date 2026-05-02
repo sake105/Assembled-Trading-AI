@@ -405,7 +405,7 @@ def classify_news_event(
         if pattern.search(title_lower):
             raw_severity = max(raw_severity, score)
     tier_mult = _TIER_SEVERITY_MULTIPLIER.get(source_tier, 0.7)
-    severity = round(min(raw_severity * tier_mult, 10.0), 2)
+    severity = round(max(0.0, min(raw_severity * tier_mult, 10.0)), 2)
 
     # --- Market direction ---
     has_bearish = bool(_BEARISH_PATTERN.search(title_lower))

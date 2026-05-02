@@ -331,7 +331,7 @@ def aggregate_triggers(triggers: list[GeoTrigger]) -> dict[str, Any]:
     if not triggers:
         return {"geo_score": 0, "active_triggers": []}
 
-    geo_score = max(t.trigger_score for t in triggers)
+    geo_score = max(0.0, max(t.trigger_score for t in triggers))
     active_trigger_ids = [t.trigger_id for t in triggers]
 
     return {

@@ -58,7 +58,7 @@ class SentimentDriftTracker:
                 ts = getattr(evt, "published_at", None) or getattr(evt, "ingested_at", None) or now
                 if ts.tzinfo is None:
                     ts = ts.replace(tzinfo=timezone.utc)
-                sent = float(getattr(evt, "sentiment_score", 0.0) or 0.0)
+                sent = max(-1.0, min(1.0, float(getattr(evt, "sentiment_score", 0.0) or 0.0)))
                 tickers = list(getattr(evt, "tickers", []) or [])
                 if not tickers:
                     tickers = list(getattr(evt, "affected_assets", []) or [])

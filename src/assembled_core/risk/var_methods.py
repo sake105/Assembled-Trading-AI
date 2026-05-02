@@ -287,6 +287,8 @@ class PortfolioVaR:
         # Empirical moments
         mean_vec = self._returns.mean().to_numpy()
         cov_mat = self._returns.cov().to_numpy()
+        # Tikhonov regularisation: ensure PSD even with collinear assets
+        cov_mat += np.eye(cov_mat.shape[0]) * 1e-8
 
         # Simulate joint returns
         sim_returns = rng.multivariate_normal(mean_vec, cov_mat, size=n_sims)
