@@ -139,9 +139,15 @@ class RunSnapshot:
     def load(cls, dir_path: Path | str) -> RunSnapshot:
         """Load a snapshot previously written by :meth:`save`."""
         base = Path(dir_path)
-        manifest = json.loads((base / "manifest.json").read_text(encoding="utf-8"))
+        try:
+            manifest = json.loads((base / "manifest.json").read_text(encoding="utf-8"))
+        except FileNotFoundError as exc:
+            raise FileNotFoundError(f"[REPLAY] Snapshot manifest missing at {base}: {exc}") from exc
 
-        prices = pd.read_parquet(base / "prices.parquet")
+        try:
+            prices = pd.read_parquet(base / "prices.parquet")
+        except FileNotFoundError as exc:
+            raise FileNotFoundError(f"[REPLAY] Snapshot prices missing at {base}: {exc}") from exc
         signals = None
         sig_path = base / "signals.parquet"
         if sig_path.exists():

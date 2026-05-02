@@ -52,6 +52,11 @@ def validate_safe_orders_df(df: pd.DataFrame) -> dict[str, bool | list[str]]:
     if df_cleaned.empty:
         return {"valid": True, "issues": [], "df_cleaned": df_cleaned}
 
+    required_cols = {"Ticker", "Side", "Quantity", "PriceType", "Comment"}
+    missing = required_cols - set(df_cleaned.columns)
+    if missing:
+        return {"valid": False, "issues": [f"Missing required columns: {sorted(missing)}"], "df_cleaned": df_cleaned}
+
     # Check 1: Quantity <= 0
     invalid_qty = df_cleaned[df_cleaned["Quantity"] <= 0]
     if not invalid_qty.empty:

@@ -107,6 +107,10 @@ def write_features(
         df = df.copy()
         df[available_at_col] = datetime.now(tz=timezone.utc)
 
+    if df.empty:
+        logger.warning("write_features: empty DataFrame passed for view=%s ticker=%s — skipping", view, ticker)
+        return None
+
     # Determine partition key from first available_at timestamp
     first_ts = pd.to_datetime(df[available_at_col].iloc[0])
     year = first_ts.year
