@@ -180,7 +180,7 @@ def classify_regimes_from_index(
         # Rule 5: Reflation (strong positive trend after crisis)
         elif trend_val > config.trend_threshold * 1.5 and i > 0:
             # Check if we're recovering from a recent crisis
-            recent_crisis = any(regimes.iloc[max(0, i - 20) : i] == "crisis")
+            recent_crisis = (regimes.iloc[max(0, i - 20) : i] == "crisis").any()
             if recent_crisis:
                 regimes.iloc[i] = "reflation"
             else:
