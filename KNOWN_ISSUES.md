@@ -96,19 +96,17 @@ Erwarteter Bias: +1–2% p.a. bei US Large-Caps, **+5–10% p.a.** bei Mid-Caps.
 
 ### 2.3 API-Models
 
-- [ ] **[tech-debt]** API-Models-Dokumentation aktualisieren  
+- [x] **[DONE 2026-05-02]** API-Models-Dokumentation aktualisieren  
   **Datei:** `src/assembled_core/api/models.py` (Zeile ~2)  
-  **Beschreibung:** Docstring erwähnt "future implementation", aber Models sind bereits implementiert.
+  **Beschreibung:** Docstring korrekt — "future implementation" nicht mehr vorhanden. Models vollständig implementiert.
 
 ### 2.4 Security & Secrets (deferred)
 
-- [ ] **[security]** Secrets / .env Hardening & Secret-Scanning in CI  
-  **Beschreibung:** Aktuell existiert kein konsistenter Hardening- und Scan-Prozess für Secrets/.env-Dateien.  
-  TODO (deferred):  
-  - Secret-Management-Konzept definieren (Trennung Code/Config/Secrets).  
-  - Secret-Scanning in CI aktivieren (z.B. GitHub-Scanner, Pre-Commit-Hooks).  
-  - Richtlinien zur Ablage/Rotation von Credentials dokumentieren.  
-  **Hinweis:** Umsetzung erfolgt in einem späteren Sprint; in M0-B wird lediglich diese TODO-Notiz gepflegt.
+- [x] **[DONE 2026-05-02]** Secrets / .env Hardening & Secret-Scanning in CI  
+  **Beschreibung:** `.env` korrekt in `.gitignore`, kein git-tracking. CI-Workflow  
+  `.github/workflows/secrets-scan.yml` implementiert (gitleaks 8.18.4 + detect-secrets 1.5.0,
+  triggert auf PR/push zu main). `.gitleaks.toml` konfiguriert. Baseline `.secrets.baseline` vorhanden.
+  Pre-commit Hooks optional; Production-Rotation-Richtlinien in `docs/SECURITY_SECRETS.md`.
 
 ---
 
