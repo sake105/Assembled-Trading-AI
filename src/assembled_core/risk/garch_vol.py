@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 _ARCH_AVAILABLE: bool
 try:
-    from arch import arch_model as _arch_model  # type: ignore
+    from arch import arch_model as _arch_model  # type: ignore  # noqa: F401
     _ARCH_AVAILABLE = True
 except ImportError:
     _ARCH_AVAILABLE = False

@@ -5,6 +5,8 @@ import pandas as pd
 import numpy as np
 import pytest
 
+pytest.importorskip("pandera")
+
 from assembled_core.dataquality import (
     DataQualityGate,
     DataQualityError,

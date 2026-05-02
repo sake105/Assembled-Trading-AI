@@ -23,7 +23,6 @@ from src.assembled_core.risk.georisk_overlay import (
     apply_exposure_multiplier_to_targets,
     compute_exposure_multiplier,
 )
-from src.assembled_core.risk.market_stress import compute_market_stress
 from src.assembled_core.risk.profit_lock import compute_profit_lock_multiplier
 from src.assembled_core.risk.turnover_budget import (
     apply_turnover_gate,

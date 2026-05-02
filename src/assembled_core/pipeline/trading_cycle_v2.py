@@ -17,9 +17,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pandas as pd
-from src.assembled_core.config import get_base_dir
+from src.assembled_core.config import get_base_dir  # noqa: F401
 from src.assembled_core.config.policy_loader import load_policy
-from src.assembled_core.pipeline.trading_cycle_shared import (
+from src.assembled_core.pipeline.trading_cycle_shared import (  # noqa: F401
     TradingContext,
     TradingCycleResult,
     _apply_group_exposure_caps,
@@ -35,7 +35,7 @@ from src.assembled_core.pipeline.trading_cycle_shared import (
     _generate_orders_default,
     should_rebalance,
 )
-from src.assembled_core.risk.market_stress import compute_market_stress
+from src.assembled_core.risk.market_stress import compute_market_stress  # noqa: F401
 from src.assembled_core.risk.state_machine import (
     compute_next_state,
     load_risk_state,
@@ -44,12 +44,12 @@ from src.assembled_core.risk.state_machine import (
 
 # Submodule imports — keep all public names importable from this module
 from src.assembled_core.pipeline._tc_features import build_features
-from src.assembled_core.pipeline._tc_signals import (
+from src.assembled_core.pipeline._tc_signals import (  # noqa: F401
     _apply_evidence_gate,
     _compute_news_triggers,
     generate_signals,
 )
-from src.assembled_core.pipeline._tc_sizing import (
+from src.assembled_core.pipeline._tc_sizing import (  # noqa: F401
     _sp_apply_correlation_guard,
     _sp_apply_cost_aware,
     _sp_apply_crash_cap,
@@ -68,8 +68,8 @@ from src.assembled_core.pipeline._tc_sizing import (
 )
 from src.assembled_core.pipeline._tc_risk import check_risk
 from src.assembled_core.pipeline._tc_execution import book_fills, route_orders
-from src.assembled_core.execution.transaction_costs import add_cost_columns_to_trades  # A8 wiring — re-export for tests
-from src.assembled_core.risk.georisk_overlay import compute_exposure_multiplier  # re-export for tests
+from src.assembled_core.execution.transaction_costs import add_cost_columns_to_trades  # A8 wiring — re-export for tests  # noqa: F401
+from src.assembled_core.risk.georisk_overlay import compute_exposure_multiplier  # re-export for tests  # noqa: F401
 
 if TYPE_CHECKING:
     pass

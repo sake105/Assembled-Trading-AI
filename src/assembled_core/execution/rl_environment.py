@@ -27,7 +27,7 @@ try:
     _GYM_BACKEND = "gymnasium"
 except ImportError:
     try:
-        import gym  # type: ignore[import]
+        import gym  # type: ignore[import]  # noqa: F401
         from gym import spaces  # type: ignore[import]
         _GYM_AVAILABLE = True
         _GYM_BACKEND = "gym"

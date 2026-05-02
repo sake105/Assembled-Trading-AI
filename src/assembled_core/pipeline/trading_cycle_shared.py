@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import pandas as pd
 
 # Import existing modules (no duplication)
-from src.assembled_core.config import get_base_dir  # re-export for test monkeypatching
+from src.assembled_core.config import get_base_dir  # re-export for test monkeypatching  # noqa: F401
 from src.assembled_core.config.models import (
     FeatureConfig,
     ensure_feature_config,
