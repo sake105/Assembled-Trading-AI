@@ -301,8 +301,11 @@ def load_graph(path: str | Path) -> DependencyGraph:
     _log = _logging.getLogger(__name__)
 
     path = Path(path)
-    with open(path, "r", encoding="utf-8") as fh:
-        data = yaml.safe_load(fh)
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            data = yaml.safe_load(fh)
+    except yaml.YAMLError as exc:
+        raise ValueError(f"[DependencyGraph] Malformed YAML in {path}: {exc}") from exc
 
     graph = DependencyGraph()
 
