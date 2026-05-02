@@ -142,12 +142,14 @@ class RegimeHMM:
             DataFrame with columns = regime label strings, index = returns.index
         """
         self._check_fitted()
+        # _prepare drops NaN — track the cleaned index to avoid shape mismatch
+        clean_idx = returns.dropna().index
         arr = self._prepare(returns)
-        # posteriors: shape (T, n_regimes)
+        # posteriors: shape (T_clean, n_regimes)
         _, posteriors = self._model.score_samples(arr)  # type: ignore[union-attr]
         cols = [self._label_map.get(i, f"state_{i}") for i in range(self.n_regimes)]
-        df = pd.DataFrame(posteriors, index=returns.index, columns=cols)
-        return df
+        df = pd.DataFrame(posteriors, index=clean_idx, columns=cols)
+        return df.reindex(returns.index)  # restore NaN rows for original index
 
     def predict_next_regime_proba(self, returns: pd.Series) -> dict[str, float]:
         """Predict the regime probability distribution for the *next* period.
