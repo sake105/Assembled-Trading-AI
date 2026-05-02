@@ -386,7 +386,8 @@ def compute_metrics(equity: pd.DataFrame) -> dict[str, float | int]:
         logger.warning("[BACKTEST] No valid returns for Sharpe — defaulting to 0.0")
         sharpe = 0.0
     else:
-        sharpe = float(ret.mean() / (ret.std() + 1e-12))
+        # Annualised (assumes daily equity curve, consistent with portfolio.py)
+        sharpe = float(ret.mean() / (ret.std() + 1e-12) * np.sqrt(252))
 
     return {
         "final_pf": pf,
