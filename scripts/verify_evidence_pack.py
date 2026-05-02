@@ -14,6 +14,7 @@ from pathlib import Path
 # Repo root for imports
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "src"))  # needed for importlib.metadata to find egg-info
 
 from src.assembled_core import __version__ as TOOL_VERSION
 from src.assembled_core.accounting.evidence_pack import verify_evidence_pack_zip
