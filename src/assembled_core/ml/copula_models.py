@@ -377,8 +377,8 @@ def _fit_pair(
             res = sp_opt.minimize_scalar(neg_ll, bounds=bounds, method="bounded")
             if res.success:
                 results.append((name, float(res.x), -float(res.fun)))
-        except Exception:
-            pass
+        except Exception as _exc:
+            logger.debug("[CopulaModels] %s optimizer failed: %s", name, _exc)
 
     if not results:
         return ("gaussian", 0.0, -np.inf)

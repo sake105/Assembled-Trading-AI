@@ -253,7 +253,7 @@ def main() -> None:
     timestamp_str = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
     output_file = output_dir / f"event_study_bench_{timestamp_str}.json"
 
-    with open(output_file, "w") as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         json.dump(benchmark_results, f, indent=2)
 
     print(f"\nBenchmark results written to: {output_file}")

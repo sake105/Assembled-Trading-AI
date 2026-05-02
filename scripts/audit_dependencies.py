@@ -16,7 +16,7 @@ def parse_requirements_txt(path: Path) -> dict[str, str]:
     reqs: dict[str, str] = {}
     if not path.exists():
         return reqs
-    for line in path.read_text().splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line or line.startswith("#") or line.startswith("-"):
             continue
@@ -36,7 +36,7 @@ def parse_pyproject_deps(path: Path) -> dict[str, str]:
         return deps
 
     in_deps = False
-    for line in path.read_text().splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         stripped = line.strip()
         if stripped.startswith("dependencies"):
             in_deps = True

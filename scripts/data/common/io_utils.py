@@ -45,7 +45,7 @@ def http_get_json(url: str, headers: dict | None = None, retries: int = 3, backo
                 if resp.headers.get("Content-Encoding") == "gzip":
                     data = gzip.decompress(data)
                 return json.loads(data.decode("utf-8"))
-        except (HTTPError, URLError, TimeoutError) as ex:
+        except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as ex:
             last_ex = ex
             time.sleep((i + 1) * backoff)
     raise last_ex

@@ -71,7 +71,11 @@ def check_b(slice_path: Path, strict_min_periods: bool = False) -> bool:
         print("Check B: No date-like column found")
         return False
     df = df.sort_values([tcol, "symbol"])
-    sym = df["symbol"].unique()[0]
+    unique_syms = df["symbol"].unique()
+    if len(unique_syms) == 0:
+        print("Check B: No symbols found in data")
+        return False
+    sym = unique_syms[0]
     s = df[df.symbol == sym].sort_values(tcol)["close"].astype(float)
     if strict_min_periods:
         fast = s.ewm(span=20, adjust=False, min_periods=20).mean()

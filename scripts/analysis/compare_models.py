@@ -37,7 +37,10 @@ logger = logging.getLogger(__name__)
 
 def _load_model(path: Path):
     import joblib
-    return joblib.load(path)
+    try:
+        return joblib.load(path)
+    except (EOFError, Exception) as exc:
+        raise RuntimeError(f"[compare_models] Failed to load model from {path}: {exc}") from exc
 
 
 def _predict(model, X: pd.DataFrame, feature_cols: list[str]) -> pd.Series:

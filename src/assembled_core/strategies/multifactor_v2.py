@@ -249,7 +249,8 @@ def _compute_breadth_ad_slope(df: pd.DataFrame) -> float:
             return 0.0
         ratio = float(advances) / float(total)
         return (ratio - 0.5) * 2.0
-    except Exception:
+    except Exception as _exc:
+        logger.debug("[MF-V2] _compute_breadth_ad_slope failed: %s", _exc)
         return 0.0
 
 
@@ -559,8 +560,8 @@ def compute_signals(
     """
     cfg = strategy_cfg or {}
     min_score = float(cfg.get("min_signal_score", 0.0))
-    ema_fast = int(cfg.get("ema_fast", 20))
-    ema_slow = int(cfg.get("ema_slow", 60))
+    ema_fast = int(cfg.get("ema_fast") or 20)
+    ema_slow = int(cfg.get("ema_slow") or 60)
 
     if prices_with_features.empty or "symbol" not in prices_with_features.columns:
         return _empty_signals()
@@ -942,9 +943,9 @@ def check_exit_signals(
     if "tp_atr_mult_by_regime" in exit_cfg:
         tp_mult = exit_cfg["tp_atr_mult_by_regime"].get(regime, tp_mult)
 
-    atr_window = int(exit_cfg.get("atr_window", 14))
+    atr_window = int(exit_cfg.get("atr_window") or 14)
     momentum_verify = exit_cfg.get("momentum_verification", True)
-    time_stop_days = int(exit_cfg.get("time_stop_days", 30))
+    time_stop_days = int(exit_cfg.get("time_stop_days") or 30)
     time_stop_min_return = float(exit_cfg.get("time_stop_min_return", 0.03))
 
     price_map = {}
@@ -1053,7 +1054,8 @@ def _momentum_intact(prices_latest: pd.DataFrame, symbol: str) -> bool:
             return False
 
         return True
-    except Exception:
+    except Exception as _exc:
+        logger.debug("[MF-V2] _momentum_intact failed: %s", _exc)
         return False
 
 

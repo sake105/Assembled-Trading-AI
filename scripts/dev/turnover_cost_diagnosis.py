@@ -25,7 +25,7 @@ def main() -> int:
     if not tr_path.exists():
         print(f"Missing: {tr_path}")
         return 1
-    with open(tr_path) as f:
+    with open(tr_path, encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
     # Status counts
     status_count: dict[str, int] = {}

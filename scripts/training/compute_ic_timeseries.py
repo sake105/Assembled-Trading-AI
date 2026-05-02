@@ -469,7 +469,7 @@ if __name__ == "__main__":
             return [_sanitise(v) for v in obj]
         return obj
 
-    with open(summary_path, "w") as fh:
+    with open(summary_path, "w", encoding="utf-8") as fh:
         json.dump(_sanitise(summary), fh, indent=2)
     _log(f"[OK] Summary saved -> {summary_path}")
 

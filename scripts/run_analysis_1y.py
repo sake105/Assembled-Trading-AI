@@ -248,7 +248,7 @@ def main():
         "costs": cost_dict,
     }
     os.makedirs("output/backtest_1y", exist_ok=True)
-    with open("output/backtest_1y/analysis_results.json", "w") as f:
+    with open("output/backtest_1y/analysis_results.json", "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, default=str)
     print("Results saved to output/backtest_1y/analysis_results.json")
 

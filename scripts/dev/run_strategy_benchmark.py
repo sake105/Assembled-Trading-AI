@@ -1056,9 +1056,9 @@ def write_attribution_summary(
             inc_ret = None
             inc_turn = None
             if m_base.exists() and m_var.exists():
-                with m_base.open("r") as f:
+                with m_base.open("r", encoding="utf-8") as f:
                     b = json.load(f)
-                with m_var.open("r") as f:
+                with m_var.open("r", encoding="utf-8") as f:
                     v = json.load(f)
                 tr_b, tr_v = b.get("total_return"), v.get("total_return")
                 to_b, to_v = b.get("turnover"), v.get("turnover")

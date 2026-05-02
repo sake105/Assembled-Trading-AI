@@ -438,8 +438,8 @@ def load_paper_track_config(path: Path) -> PaperTrackConfig:
     if not isinstance(hysteresis_cfg, dict):
         hysteresis_cfg = {}
     ranking_hysteresis_enabled = bool(hysteresis_cfg.get("enabled", False))
-    ranking_entry_n = int(hysteresis_cfg.get("entry_n", 5))
-    ranking_hold_n = int(hysteresis_cfg.get("hold_n", 7))
+    ranking_entry_n = int(hysteresis_cfg.get("entry_n") or 5)
+    ranking_hold_n = int(hysteresis_cfg.get("hold_n") or 7)
 
     # Price file override
     data_cfg = raw.get("data", {})

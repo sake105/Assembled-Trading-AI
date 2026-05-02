@@ -565,7 +565,7 @@ def _save_report(result: ComparisonResult, output_dir: Path) -> Path:
         "is_significant": result.is_significant,
     }
     report_path = output_dir / "comparison_report.json"
-    with open(report_path, "w") as fh:
+    with open(report_path, "w", encoding="utf-8") as fh:
         json.dump(report, fh, indent=2, default=str)
     logger.info("%s [OK] Comparison report saved to %s", TAG, report_path)
     result.report_path = report_path

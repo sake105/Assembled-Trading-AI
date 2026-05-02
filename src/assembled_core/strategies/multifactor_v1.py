@@ -91,8 +91,8 @@ def compute_signals(
     cfg = strategy_cfg or {}
     weights = cfg.get("factor_weights", DEFAULT_FACTOR_WEIGHTS)
     min_score = float(cfg.get("min_signal_score", 0.0))
-    ema_fast = int(cfg.get("ema_fast", 20))
-    ema_slow = int(cfg.get("ema_slow", 60))
+    ema_fast = int(cfg.get("ema_fast") or 20)
+    ema_slow = int(cfg.get("ema_slow") or 60)
 
     # D5 — signal-decay read-path. When enabled, stale factors are muted via
     # the weekly decay report at ``output/qa/signal_decay/latest.json``. When

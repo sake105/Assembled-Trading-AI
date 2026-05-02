@@ -406,7 +406,8 @@ class MultiFeatureRegimeHMM:
                 if s > best_score:
                     best_score = s
                     best_model = m
-            except Exception:
+            except Exception as _exc:
+                logger.debug("[MultiHMM] seed failed: %s", _exc)
                 continue
 
         if best_model is None:
@@ -439,7 +440,8 @@ class MultiFeatureRegimeHMM:
         try:
             X = self._scale(clean.values.astype(np.float64))
             _, posteriors = self._model.score_samples(X)
-        except Exception:
+        except Exception as _exc:
+            logger.debug("[MultiHMM] predict_proba score_samples failed: %s", _exc)
             return self._fallback_proba(features_df)
 
         result = pd.DataFrame(index=clean.index)
@@ -466,7 +468,8 @@ class MultiFeatureRegimeHMM:
                 index=clean.index,
                 name="regime",
             )
-        except Exception:
+        except Exception as _exc:
+            logger.debug("[MultiHMM] predict_regime predict failed: %s", _exc)
             proba = self.predict_proba(features_df)
             if proba.empty:
                 return pd.Series(dtype=str)

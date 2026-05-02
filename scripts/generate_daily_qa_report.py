@@ -210,7 +210,7 @@ def main() -> None:
     out_str = json.dumps(report, indent=2)
     if args.out:
         os.makedirs(os.path.dirname(args.out) if os.path.dirname(args.out) else ".", exist_ok=True)
-        with open(args.out, "w") as f:
+        with open(args.out, "w", encoding="utf-8") as f:
             f.write(out_str)
         log.info("[OK] report written to %s", args.out)
     else:

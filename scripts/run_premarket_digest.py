@@ -92,7 +92,7 @@ def generate_premarket_digest(
 
     # --- Crisis mode summary ---
     crisis_mode = crisis_state.get("mode", "NORMAL")
-    geo_score = int(crisis_state.get("geo_score", 0))
+    geo_score = int(crisis_state.get("geo_score") or 0)
     risk_posture = crisis_state.get("risk_posture", {})
 
     # --- Feed health summary ---
