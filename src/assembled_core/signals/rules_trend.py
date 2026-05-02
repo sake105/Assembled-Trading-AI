@@ -260,11 +260,11 @@ def compute_sector_rotation_signal(
         if sym not in pivot.columns:
             continue
 
-        sym_ret = pivot[sym].pct_change(momentum_window)
-        sym_ret_long = pivot[sym].pct_change(long_window)
+        sym_ret = pivot[sym].pct_change(momentum_window, fill_method=None)
+        sym_ret_long = pivot[sym].pct_change(long_window, fill_method=None)
 
         if has_benchmark and _SECTOR_BENCHMARK in pivot.columns:
-            bench_ret = pivot[_SECTOR_BENCHMARK].pct_change(momentum_window)
+            bench_ret = pivot[_SECTOR_BENCHMARK].pct_change(momentum_window, fill_method=None)
             rs = sym_ret - bench_ret
         else:
             rs = sym_ret
