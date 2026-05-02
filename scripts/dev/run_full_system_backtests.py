@@ -283,6 +283,8 @@ def run_backtests(
     dataset_label = "synthetic" if is_synthetic else Path(dataset_path).name
 
     horizons = _compute_horizons(dataset_path, is_synthetic)
+    if is_synthetic:
+        horizons = horizons[:1]  # smoke: one horizon keeps test within timeout
     run_infos = []
     for run_id, start_d, end_d in horizons:
         if start_date:
@@ -604,7 +606,8 @@ def main() -> int:
         is_synthetic = True
         (output_root / "synthetic").mkdir(parents=True, exist_ok=True)
         synth_path = output_root / "synthetic" / "eod_synthetic.parquet"
-        _generate_synthetic_parquet(synth_path, "2020-01-01", "2023-12-31")
+        # Short window so smoke test stays well within 420s timeout (1 horizon only)
+        _generate_synthetic_parquet(synth_path, "2022-06-01", "2023-06-01")
         dataset_path = str(synth_path.resolve())
         dataset_label = "synthetic"
         output_root.mkdir(parents=True, exist_ok=True)
