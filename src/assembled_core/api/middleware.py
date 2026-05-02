@@ -13,8 +13,10 @@ from __future__ import annotations
 import time
 import uuid
 from contextvars import ContextVar
+from typing import TYPE_CHECKING
 
-from fastapi import FastAPI, Request
+if TYPE_CHECKING:
+    from fastapi import FastAPI, Request
 
 # ContextVar so log statements in any coroutine/thread can pick up the current ID
 request_id_var: ContextVar[str] = ContextVar("request_id", default="")
