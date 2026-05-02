@@ -92,7 +92,7 @@ class EventStore:
         """Append a batch of events.  Returns number of rows inserted."""
         rows = [
             (e.session_id, e.sequence, e.event_type, e.source.value,
-             e.occurred_at.isoformat(), json.dumps(e.payload))
+             e.occurred_at.isoformat(), json.dumps(e.payload, default=str))
             for e in events
         ]
         with self._conn() as con:
