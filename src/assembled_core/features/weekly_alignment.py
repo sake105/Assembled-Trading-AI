@@ -39,7 +39,7 @@ def _weekly_ema_slope(
         return pd.Series(0.0, index=prices.index)
     ema = weekly.ewm(span=config.ema_span, adjust=False).mean()
     slope = ema.diff(config.slope_lookback)
-    slope_daily = slope.reindex(prices.index, method="ffill")
+    slope_daily = slope.reindex(prices.index).ffill()
     return slope_daily.fillna(0.0)
 
 

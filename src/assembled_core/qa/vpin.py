@@ -53,7 +53,7 @@ class VPINCalculator:
         # Reindex back to original trade timestamps (last trade per bucket)
         bucket_times = self._bucket_end_times(df, bucket_size)
         vpin_series = pd.Series(rolling_vpin.values, index=bucket_times, name="vpin")
-        return vpin_series.reindex(df.index, method="ffill")
+        return vpin_series.reindex(df.index).ffill()
 
     # ------------------------------------------------------------------
     def _tick_classify(self, df: pd.DataFrame) -> pd.DataFrame:
