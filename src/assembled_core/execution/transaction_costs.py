@@ -577,7 +577,7 @@ def compute_volatility_proxy(
     # Compute log returns per symbol
     prices_copy["log_return"] = (
         prices_copy.groupby("symbol")["close"]
-        .apply(lambda x: np.log(x / x.shift(1)))
+        .apply(lambda x: np.log((x / x.shift(1)).clip(lower=1e-10)))
         .reset_index(level=0, drop=True)
     )
 

@@ -68,7 +68,7 @@ def tick_rule_signs(prices: pd.Series) -> pd.Series:
 
 def close_to_close_volatility(close: pd.Series, period: int = 20) -> pd.Series:
     """Standard close-to-close volatility (baseline for comparison)."""
-    return np.log(close).diff().rolling(period).std() * np.sqrt(252)
+    return np.log(close.clip(lower=1e-10)).diff().rolling(period).std() * np.sqrt(252)
 
 
 def volatility_panel(

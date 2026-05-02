@@ -88,7 +88,7 @@ def add_realized_volatility(
     temp = result.sort_values([group_col, timestamp_col])
 
     # Log prices
-    log_price = np.log(temp[price_col].astype("float64"))
+    log_price = np.log(temp[price_col].astype("float64").clip(lower=1e-10))
 
     # Log returns: diff of log prices per symbol
     log_returns = log_price.groupby(temp[group_col]).diff()
