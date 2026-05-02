@@ -234,7 +234,7 @@ class TestSummaryReport:
         self, tmp_path: Path, sample_ml_dataset: pd.DataFrame
     ):
         """Test writing summary report."""
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         output_path = tmp_path / "summary.md"
 
@@ -263,7 +263,7 @@ class TestSummaryReport:
             reference_dataset_path=None,
             validation_results=validation_results,
             drift_results=drift_results,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
         )
 
         assert output_path.exists()
@@ -278,7 +278,7 @@ class TestSummaryReport:
 
     def test_write_summary_report_contains_keywords(self, tmp_path: Path):
         """Test that summary report contains required keywords."""
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         output_path = tmp_path / "summary.md"
 
@@ -313,7 +313,7 @@ class TestSummaryReport:
             reference_dataset_path=Path("reference.parquet"),
             validation_results=validation_results,
             drift_results=drift_results,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
         )
 
         content = output_path.read_text(encoding="utf-8")
@@ -452,7 +452,7 @@ class TestReportContent:
 
     def test_report_contains_validation_section(self, tmp_path: Path):
         """Test that report contains validation section with keywords."""
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         output_path = tmp_path / "summary.md"
 
@@ -477,7 +477,7 @@ class TestReportContent:
             reference_dataset_path=None,
             validation_results=validation_results,
             drift_results=drift_results,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
         )
 
         content = output_path.read_text(encoding="utf-8")
@@ -488,7 +488,7 @@ class TestReportContent:
 
     def test_report_contains_drift_section(self, tmp_path: Path):
         """Test that report contains drift status section."""
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         output_path = tmp_path / "summary.md"
 
@@ -517,7 +517,7 @@ class TestReportContent:
             reference_dataset_path=None,
             validation_results=validation_results,
             drift_results=drift_results,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
         )
 
         content = output_path.read_text(encoding="utf-8")

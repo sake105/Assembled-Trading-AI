@@ -49,7 +49,7 @@ def compute_recession_probability(
         return pd.Series(dtype=float)
 
     t10y3m_aligned = t10y3m.loc[common].dropna()
-    nfci_aligned = nfci.reindex(t10y3m_aligned.index, method="ffill").fillna(0)
+    nfci_aligned = nfci.reindex(t10y3m_aligned.index).ffill().fillna(0)
 
     try:
         model = MarkovRegression(

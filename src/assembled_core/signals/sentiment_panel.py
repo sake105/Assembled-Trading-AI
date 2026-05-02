@@ -65,7 +65,7 @@ def compute_sentiment_panel(
     }
 
     if umich_sentiment is not None:
-        umich_aligned = umich_sentiment.reindex(common, method="ffill")
+        umich_aligned = umich_sentiment.reindex(common).ffill()
         # Low consumer sentiment = more fear → invert
         components["umich"] = -_zscore(umich_aligned, lookback)
 

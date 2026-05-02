@@ -243,11 +243,12 @@ def build_ml_dataset_subcommand(args: argparse.Namespace) -> int:
             if args.symbols:
                 universe_list = args.symbols
             elif args.universe:
-                universe_list = [
-                    line.strip().upper()
-                    for line in open(args.universe, "r").readlines()
-                    if line.strip()
-                ]
+                with open(args.universe, "r") as _f:
+                    universe_list = [
+                        line.strip().upper()
+                        for line in _f
+                        if line.strip()
+                    ]
 
             label_params = {
                 "horizon_days": args.label_horizon_days,
