@@ -123,7 +123,10 @@ class IncidentTracker:
         path = self._path(incident_id)
         if not path.exists():
             raise FileNotFoundError(f"Incident {incident_id!r} not found at {path}")
-        return IncidentRecord.from_dict(json.loads(path.read_text(encoding="utf-8")))
+        try:
+            return IncidentRecord.from_dict(json.loads(path.read_text(encoding="utf-8")))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"[IncidentTracker] Corrupt incident file {path}: {exc}") from exc
 
     def list_open(self) -> list[IncidentRecord]:
         """Return all incidents that are not yet resolved."""

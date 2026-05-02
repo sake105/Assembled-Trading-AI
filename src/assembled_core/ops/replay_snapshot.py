@@ -143,6 +143,8 @@ class RunSnapshot:
             manifest = json.loads((base / "manifest.json").read_text(encoding="utf-8"))
         except FileNotFoundError as exc:
             raise FileNotFoundError(f"[REPLAY] Snapshot manifest missing at {base}: {exc}") from exc
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"[REPLAY] Snapshot manifest corrupted at {base}: {exc}") from exc
 
         try:
             prices = pd.read_parquet(base / "prices.parquet")

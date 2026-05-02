@@ -110,7 +110,11 @@ def check_c(variants_path: Path) -> bool:
     if not variants_path.exists():
         print(f"Check C: VARIANTS NOT FOUND: {variants_path}")
         return False
-    d = json.loads(variants_path.read_text(encoding="utf-8"))
+    try:
+        d = json.loads(variants_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        print(f"Check C: INVALID JSON in {variants_path}: {exc}")
+        return False
     print("Check C: Variant universes (must match synthetic: AAPL, MSFT, GOOGL)")
     synthetic_symbols = {"AAPL", "MSFT", "GOOGL"}
     ok = True
