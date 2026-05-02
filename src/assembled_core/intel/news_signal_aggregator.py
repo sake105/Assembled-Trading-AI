@@ -12,6 +12,7 @@ news-derived signals.
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
@@ -27,14 +28,17 @@ _RISK_THRESHOLDS = {
 # Observability: how many signals were dropped by the corroboration gate in
 # the current process. Test-accessible via ``get_corroboration_drop_count``.
 _dropped_corroboration_counter: dict[str, int] = {"count": 0}
+_counter_lock = threading.Lock()
 
 
 def get_corroboration_drop_count() -> int:
-    return _dropped_corroboration_counter["count"]
+    with _counter_lock:
+        return _dropped_corroboration_counter["count"]
 
 
 def reset_corroboration_drop_count() -> None:
-    _dropped_corroboration_counter["count"] = 0
+    with _counter_lock:
+        _dropped_corroboration_counter["count"] = 0
 
 
 @dataclass
@@ -100,7 +104,8 @@ def aggregate_signals(
                     min_independent_high_tier=min_independent_high_tier,
                 )
                 if gated is None:
-                    _dropped_corroboration_counter["count"] += 1
+                    with _counter_lock:
+                        _dropped_corroboration_counter["count"] += 1
                     continue
                 sig = gated
             position_signals.append(sig)

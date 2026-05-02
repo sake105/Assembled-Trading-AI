@@ -320,9 +320,9 @@ def _apply_vol_spike(
                 * scenario.shock_magnitude
             )
 
-            # Reconstruct prices from modified returns
+            # Reconstruct prices from modified returns (clip cumsum to avoid exp overflow)
             symbol_data["close"] = symbol_data["close"].iloc[0] * np.exp(
-                symbol_data["log_return"].cumsum()
+                symbol_data["log_return"].cumsum().clip(upper=700)
             )
 
             # Update shocked_prices

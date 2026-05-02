@@ -175,8 +175,8 @@ def generate_jump_diffusion_returns(
     daily_sigma = sigma_annual / np.sqrt(252)
     daily_lambda = jump_intensity / 252
 
-    # Drift correction: subtract expected jump contribution
-    drift_adj = daily_mu - daily_lambda * (np.exp(jump_mean + 0.5 * jump_std ** 2) - 1)
+    # Drift correction: subtract expected jump contribution (clip exponent to avoid overflow)
+    drift_adj = daily_mu - daily_lambda * (np.exp(min(jump_mean + 0.5 * jump_std ** 2, 700)) - 1)
 
     columns = [f"ASSET_{i}" for i in range(n_assets)]
     all_returns: list[np.ndarray] = []
