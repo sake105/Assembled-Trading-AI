@@ -727,8 +727,11 @@ def compute_risk_by_factor_group(
 
                 if len(factor_values) > 0:
                     # Weighted average of this factor across symbols
+                    weight_sum = weights.abs().sum()
                     weighted_avg = float(
-                        (factor_values * weights.abs()).sum() / weights.abs().sum()
+                        (factor_values * weights.abs()).sum() / weight_sum
+                        if weight_sum > 1e-12
+                        else factor_values.mean()
                     )
                     group_scores.append(weighted_avg)
 

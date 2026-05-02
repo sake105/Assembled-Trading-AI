@@ -507,7 +507,7 @@ def neutralize_by_group(
         return (vals - mean) / std
 
     neutralized = df.groupby([timestamp_col, group_col], group_keys=False).apply(
-        _neutralize_group
+        _neutralize_group, include_groups=False
     )
     return neutralized.reindex(df.index)
 

@@ -303,7 +303,8 @@ class BlackLittermanOptimizer:
 
         s = scores.reindex(symbols)
         normalized = (s - s.mean()) / (s.std() + 1e-8)
-        views = (normalized / normalized.abs().max() * return_scale).to_dict()
+        max_norm = normalized.abs().max()
+        views = (normalized / max(float(max_norm), 1e-8) * return_scale).to_dict()
 
         n_syms = len(symbols)
         market_weights = pd.Series(np.ones(n_syms) / n_syms, index=symbols)

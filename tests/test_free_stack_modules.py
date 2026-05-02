@@ -1312,9 +1312,7 @@ def test_tier_processor_process_tier1_sync():
     import asyncio
     from src.assembled_core.data.tier_processor import TierProcessor
     tp = TierProcessor()
-    results = asyncio.get_event_loop().run_until_complete(
-        tp.process_tier1(["AAPL", "GOOG"])
-    )
+    results = asyncio.run(tp.process_tier1(["AAPL", "GOOG"]))
     assert len(results) == 2
     assert all("ticker" in r for r in results)
 

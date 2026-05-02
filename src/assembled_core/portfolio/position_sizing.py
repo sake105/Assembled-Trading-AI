@@ -546,7 +546,8 @@ def compute_max_diversification_weights(
         mrc = cov_matrix @ w / port_vol
         # Update: weight inversely to marginal risk, scaled by asset vol
         w_new = vols / np.maximum(mrc, 1e-12)
-        w_new = w_new / w_new.sum()
+        w_new_sum = w_new.sum()
+        w_new = w_new / w_new_sum if w_new_sum > 1e-12 else np.ones(len(w_new)) / len(w_new)
 
         if np.max(np.abs(w_new - w)) < 1e-8:
             break

@@ -46,8 +46,11 @@ def compute_basic_features(data: pd.DataFrame) -> dict[str, float]:
 
     if "Volume" in data.columns:
         vol = data["Volume"].dropna()
+        mean_vol_20d = vol.tail(20).mean()
         features["volume_ratio_20d"] = (
-            float(vol.iloc[-1] / vol.tail(20).mean()) if len(vol) >= 20 else 1.0
+            float(vol.iloc[-1] / mean_vol_20d)
+            if len(vol) >= 20 and mean_vol_20d > 0
+            else 1.0
         )
 
     return features

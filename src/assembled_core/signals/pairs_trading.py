@@ -72,7 +72,7 @@ def kalman_hedge_ratio(
 
     if KF is None or len(y) < 30:
         # OLS fallback
-        beta_ols = float(np.cov(y.values, x.values)[0, 1] / np.var(x.values))
+        beta_ols = float(np.cov(y.values, x.values)[0, 1] / (np.var(x.values) + 1e-10))
         alpha_ols = float(y.mean() - beta_ols * x.mean())
         beta_s = pd.Series(beta_ols, index=y.index, name="beta")
         alpha_s = pd.Series(alpha_ols, index=y.index, name="alpha")

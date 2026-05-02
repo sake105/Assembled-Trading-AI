@@ -91,7 +91,7 @@ def _check_price_spikes(df: pd.DataFrame, result: QualityResult,
     """Flag rows where intrabar return > spike_threshold × daily vol."""
     if "Close" not in df.columns or len(df) < 5:
         return
-    returns = df["Close"].pct_change().dropna()
+    returns = df["Close"].pct_change(fill_method=None).dropna()
     if returns.std() < 1e-9:
         return
     z = returns.abs() / returns.std()
