@@ -355,8 +355,8 @@ def summarize_metrics_by_regime(
                             try:
                                 d = (pd.Timestamp(sell_row[timestamp_col]) - pd.Timestamp(buy_row[timestamp_col])).days
                                 durations.append(float(d))
-                            except Exception:
-                                pass
+                            except Exception as _exc:
+                                logger.debug("[regime_analysis] trade duration calc skipped: %s", _exc)
                             if has_price:
                                 bp = float(buy_row.get("price") or 0)
                                 sp = float(sell_row.get("price") or 0)

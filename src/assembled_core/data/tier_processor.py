@@ -102,8 +102,8 @@ async def on_demand_analysis(
             if cached:
                 import json
                 return json.loads(cached)
-        except Exception:
-            pass
+        except Exception as _exc:
+            logger.debug("[tier_processor] Redis cache GET failed: %s", _exc)
 
     # Fetch data
     try:
@@ -133,8 +133,8 @@ async def on_demand_analysis(
         try:
             import json
             await redis_client.setex(cache_key, ttl_seconds, json.dumps(result))
-        except Exception:
-            pass
+        except Exception as _exc:
+            logger.debug("[tier_processor] Redis cache SET failed: %s", _exc)
 
     return result
 

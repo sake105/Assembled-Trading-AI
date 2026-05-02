@@ -47,7 +47,10 @@ def _api(method: str, path: str, token: str, body: dict | None = None) -> dict:
         req.add_header("Content-Type", "application/json")
     with urllib.request.urlopen(req) as resp:
         raw = resp.read()
-        return json.loads(raw) if raw else {}
+        try:
+            return json.loads(raw) if raw else {}
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"GitHub API returned non-JSON response: {raw[:200]}") from exc
 
 
 def _encrypt(public_key_b64: str, secret: str) -> str:

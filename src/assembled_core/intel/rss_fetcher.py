@@ -207,8 +207,8 @@ def _entry_to_news_event(
                 if ticker and ticker not in seen_tickers:
                     tickers.append(ticker)
                     seen_tickers.add(ticker)
-            except Exception:
-                pass
+            except Exception as _exc:
+                logger.debug("[rss_fetcher] entity_linker.link failed for %s: %s", entity, _exc)
 
     # Step 5: Build base event
     event = NewsEvent(

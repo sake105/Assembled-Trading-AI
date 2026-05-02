@@ -89,8 +89,8 @@ def route_orders(
             try:
                 from src.assembled_core.data.security_master import load_security_master
                 sec_meta = load_security_master(group_cfg.get("security_master_path") or None)
-            except Exception:
-                pass
+            except Exception as _exc:
+                logger.debug("[_tc_execution] security_master load failed, skipping group caps: %s", _exc)
             if sec_meta is not None:
                 orders, _grp_meta = _apply_group_exposure_caps(orders, sec_meta, group_cfg)
     except Exception as e:
@@ -355,8 +355,8 @@ def book_fills(
                     is_kill_switch_engaged,
                 )
                 kpi_metrics["assembled_kill_switch_engaged"] = 1.0 if is_kill_switch_engaged() else 0.0
-            except Exception:
-                pass
+            except Exception as _exc:
+                logger.debug("[_tc_execution] kill_switch KPI metric failed: %s", _exc)
             # Drift-PSI gauge from drift_monitor meta (if present)
             _drift_meta = result.meta.get("drift_monitor") or {}
             if "max_psi" in _drift_meta:

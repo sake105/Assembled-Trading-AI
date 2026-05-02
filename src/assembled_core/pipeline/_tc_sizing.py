@@ -630,8 +630,8 @@ def _sp_apply_inverse_etf(
             if ctx.prices is not None and not ctx.prices.empty and "VIX" in ctx.prices.columns:
                 try:
                     vix_val = float(ctx.prices["VIX"].iloc[-1])
-                except Exception:
-                    pass
+                except Exception as _exc:
+                    logger.debug("[_tc_sizing] VIX value parse failed: %s", _exc)
             if vix_val is not None and vix_val > float(ie_cfg.get("vix_threshold", 25.0)) and crash_prob > float(ie_cfg.get("crash_prob_threshold", 0.4)):
                 from src.assembled_core.ops.shadow_recorder import (
                     is_shadow_only,
