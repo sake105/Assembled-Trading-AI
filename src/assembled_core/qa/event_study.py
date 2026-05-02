@@ -298,7 +298,7 @@ def compute_event_returns(
 
         if return_type == "log":
             # Log returns: ln(price[t] / price[t-1])
-            returns = np.diff(np.log(prices))
+            returns = np.diff(np.log(np.clip(prices, 1e-10, None)))
             # First day has no return (NaN)
             returns = np.concatenate([[np.nan], returns])
         else:
@@ -325,7 +325,7 @@ def compute_event_returns(
 
             # Compute benchmark returns
             if return_type == "log":
-                benchmark_returns = np.diff(np.log(benchmark_prices))
+                benchmark_returns = np.diff(np.log(np.clip(benchmark_prices, 1e-10, None)))
                 benchmark_returns = np.concatenate([[np.nan], benchmark_returns])
             else:
                 benchmark_returns = np.diff(benchmark_prices) / benchmark_prices[:-1]

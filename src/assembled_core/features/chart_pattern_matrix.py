@@ -94,12 +94,12 @@ def discord_anomaly_feature(
     Higher = current pattern is more unusual relative to historical patterns.
     """
     result = compute_matrix_profile(prices, window=window)
-    if result is None:
+    if result is None or len(result.mp) == 0:
         return 0.0
 
     # Check if most recent subsequence is near a discord
     recent_idx = len(result.mp) - 1
-    recent_mp = result.mp[recent_idx] if recent_idx < len(result.mp) else result.mp[-1]
+    recent_mp = result.mp[recent_idx]
     max_mp = float(np.nanmax(result.mp))
     return float(recent_mp / (max_mp + 1e-9))
 
