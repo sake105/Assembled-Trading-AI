@@ -534,8 +534,8 @@ def add_intraday_noise_proxy(
         result["intraday_oc_return"] = ((close - open_) / open_).astype("float64")
 
         # Garman-Klass estimator: 0.5*(ln(H/L))^2 - (2*ln2-1)*(ln(C/O))^2
-        log_hl = np.log((high / low).replace(0, np.nan))
-        log_co = np.log((close / open_).replace(0, np.nan))
+        log_hl = np.log((high / low).clip(lower=1e-10))
+        log_co = np.log((close / open_).clip(lower=1e-10))
         gk = 0.5 * log_hl ** 2 - (2.0 * np.log(2) - 1.0) * log_co ** 2
         result["intraday_gk_vol"] = np.sqrt(gk.clip(lower=0)).astype("float64")
 

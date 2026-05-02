@@ -42,9 +42,12 @@ def main(start_capital: float, fast: int, slow: int):
     eq = start_capital * np.exp(port.cumsum())
     out = pd.DataFrame({"timestamp": eq.index, "equity": eq.values})
     out.to_csv(OUT / "equity_curve_1d_quick.csv", index=False)
-    print(
-        f"[OK] output/equity_curve_1d_quick.csv rows={len(out)}  first={out['timestamp'].iloc[0]} last={out['timestamp'].iloc[-1]}"
-    )
+    if len(out) > 0:
+        print(
+            f"[OK] output/equity_curve_1d_quick.csv rows={len(out)}  first={out['timestamp'].iloc[0]} last={out['timestamp'].iloc[-1]}"
+        )
+    else:
+        print("[WARN] output/equity_curve_1d_quick.csv rows=0 — no data processed")
 
 
 if __name__ == "__main__":

@@ -16,7 +16,7 @@ def parkinson_volatility(
 
     More efficient than close-to-close at ~5× the statistical efficiency.
     """
-    log_hl = np.log(high / low) ** 2
+    log_hl = np.log((high / low).clip(lower=1e-10)) ** 2
     return np.sqrt(log_hl.rolling(period).sum() / (4 * period * np.log(2)))
 
 
@@ -31,8 +31,8 @@ def garman_klass_volatility(
 
     ~8× more efficient than close-to-close; the dominant bar-level vol estimator.
     """
-    log_hl = np.log(high / low) ** 2
-    log_co = np.log(close / open_) ** 2
+    log_hl = np.log((high / low).clip(lower=1e-10)) ** 2
+    log_co = np.log((close / open_).clip(lower=1e-10)) ** 2
     daily_var = 0.5 * log_hl - (2 * np.log(2) - 1) * log_co
     return np.sqrt(daily_var.rolling(period).sum() / period)
 
@@ -48,10 +48,10 @@ def rogers_satchell_volatility(
 
     Preferred when underlying has non-zero drift.
     """
-    log_ho = np.log(high / open_)
-    log_hc = np.log(high / close)
-    log_lo = np.log(low / open_)
-    log_lc = np.log(low / close)
+    log_ho = np.log((high / open_).clip(lower=1e-10))
+    log_hc = np.log((high / close).clip(lower=1e-10))
+    log_lo = np.log((low / open_).clip(lower=1e-10))
+    log_lc = np.log((low / close).clip(lower=1e-10))
     daily_var = log_ho * log_hc + log_lo * log_lc
     return np.sqrt(daily_var.rolling(period).mean())
 
