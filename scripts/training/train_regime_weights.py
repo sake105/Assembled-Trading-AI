@@ -128,7 +128,7 @@ def generate_regime_labels(
         _warn(f"Symbol '{benchmark_symbol}' not found; using row-mean as proxy.")
         price_series = prices_df.mean(axis=1).dropna()
 
-    returns = np.log(price_series / price_series.shift(1)).dropna()
+    returns = np.log((price_series / price_series.shift(1)).clip(lower=1e-10)).dropna()
 
     if len(returns) < 60:
         _warn("Too few observations for HMM -- falling back to equal 'sideways' labels.")

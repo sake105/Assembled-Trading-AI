@@ -38,7 +38,7 @@ def detect_volume_anomaly(
     mean = float(baseline.mean())
     std = float(baseline.std())
 
-    if std < 1e-6:
+    if pd.isna(std) or std < 1e-6:
         return {"is_anomaly": False, "zscore": 0.0, "baseline_mean": mean, "current_count": current}
 
     zscore = (current - mean) / std
