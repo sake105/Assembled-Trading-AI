@@ -4,7 +4,7 @@ This script validates all Parquet files in an Alt-Daten snapshot directory,
 checking for required columns, date ranges, and data completeness.
 
 Usage:
-    python scripts/validate_altdata_snapshot.py --root "F:\Python_Projekt\Aktiengerüst\datensammlungen\altdaten\stand 3-12-2025" --interval 1d
+    python scripts/validate_altdata_snapshot.py --root "F:\\Python_Projekt\\Aktiengerüst\\datensammlungen\\altdaten\\stand 3-12-2025" --interval 1d
 """
 
 from __future__ import annotations
