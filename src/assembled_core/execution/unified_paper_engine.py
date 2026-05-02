@@ -967,7 +967,9 @@ class UnifiedPaperEngine:
         if prices is not None and not prices.empty:
             sym_col = "symbol" if "symbol" in prices.columns else prices.columns[0]
             price_col = "close" if "close" in prices.columns else (
-                "price" if "price" in prices.columns else prices.columns[1]
+                "price" if "price" in prices.columns else (
+                    prices.columns[1] if len(prices.columns) > 1 else prices.columns[0]
+                )
             )
             syms = prices[sym_col].astype(str).tolist()
             closes = prices[price_col].astype(float).tolist()
