@@ -1,10 +1,13 @@
 """VVIX/SKEW tail-risk signal — calm/elevated/high/extreme regime detection."""
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Literal
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 Regime = Literal["calm", "elevated", "high", "extreme"]
 
