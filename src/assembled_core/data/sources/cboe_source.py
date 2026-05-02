@@ -132,6 +132,9 @@ class CBOESource:
             return pd.DataFrame(columns=["timestamp", "put_call_ratio"])
 
         # CBOE CSV columns vary; normalise
+        if len(raw.columns) == 0:
+            logger.warning("[CBOE] CSV returned no columns")
+            return pd.DataFrame(columns=["timestamp", "put_call_ratio"])
         date_col = next(
             (c for c in raw.columns if "date" in c.lower() or "Date" in c),
             raw.columns[0],

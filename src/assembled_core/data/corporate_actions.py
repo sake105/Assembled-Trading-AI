@@ -48,7 +48,7 @@ def apply_splits_for_research_prices(
         raise ValueError("actions must contain only SPLIT actions")
 
     # Normalize timestamps for comparison
-    ts_col = "timestamp" if "timestamp" in result.columns else result.columns[0]
+    ts_col = "timestamp" if "timestamp" in result.columns else (result.columns[0] if len(result.columns) > 0 else "timestamp")
     result_ts = pd.to_datetime(result[ts_col], utc=True)
     actions = actions.copy()
     actions["effective_date"] = pd.to_datetime(actions["effective_date"], utc=True)
@@ -191,7 +191,7 @@ def adjust_prices_for_splits(
     result = prices.copy()
 
     # Determine timestamp column
-    ts_col = "timestamp" if "timestamp" in result.columns else result.columns[0]
+    ts_col = "timestamp" if "timestamp" in result.columns else (result.columns[0] if len(result.columns) > 0 else "timestamp")
     result_ts = pd.to_datetime(result[ts_col], utc=True, errors="coerce")
     split_actions["effective_date"] = pd.to_datetime(
         split_actions["effective_date"], utc=True
@@ -382,7 +382,7 @@ def apply_delisting_exits(
     if delistings.empty:
         return pd.DataFrame(columns=out_cols)
 
-    ts_col = "timestamp" if "timestamp" in prices.columns else prices.columns[0]
+    ts_col = "timestamp" if "timestamp" in prices.columns else (prices.columns[0] if len(prices.columns) > 0 else "timestamp")
     rows: list[dict] = []
     for _, dl in delistings.iterrows():
         sym = dl["symbol"]

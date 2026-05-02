@@ -105,7 +105,10 @@ def load_rate_table_from_yaml(
     import yaml  # type: ignore[import-untyped]
 
     text = Path(path).read_text(encoding="utf-8")
-    data = yaml.safe_load(text) or {}
+    try:
+        data = yaml.safe_load(text) or {}
+    except yaml.YAMLError as exc:
+        raise ValueError(f"[borrow_costs] Malformed YAML in {path}: {exc}") from exc
 
     default_rates = data.get("default_rates_bps") or {}
     easy = float(default_rates.get("easy", EASY_TO_BORROW_BPS))

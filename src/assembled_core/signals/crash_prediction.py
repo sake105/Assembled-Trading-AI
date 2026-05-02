@@ -453,7 +453,7 @@ class CrashPredictionEngine:
         def cat_avg(keys: list[str]) -> float:
             # Drop NaN values: a NaN sub-signal must not poison the aggregate
             # (min(nan, 1.0) evaluates to nan → crash_prob>=0.60 silently disarms)
-            vals = [v for k in keys if k in signals for v in [signals[k]] if not _math.isnan(v)]
+            vals = [v for k in keys if k in signals for v in [signals[k]] if isinstance(v, (int, float)) and not _math.isnan(v)]
             return sum(vals) / len(vals) if vals else 0.0
 
         score = (

@@ -39,8 +39,11 @@ def load_etf_universe(path: str | Path | None = None) -> dict[str, Any]:
     if not resolved.exists():
         raise FileNotFoundError(f"ETF universe config not found: {resolved}")
 
-    with resolved.open("r", encoding="utf-8") as f:
-        data = yaml.safe_load(f)
+    try:
+        with resolved.open("r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+    except yaml.YAMLError as exc:
+        raise ValueError(f"[universe_etf] Malformed YAML in {resolved}: {exc}") from exc
 
     _ETF_UNIVERSE_CACHE[cache_key] = data
     return data
