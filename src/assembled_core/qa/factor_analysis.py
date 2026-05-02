@@ -161,7 +161,7 @@ def add_forward_returns(
         if return_type == "log":
             forward_return = np.log(np.clip(forward_price / current_price, 1e-10, None))
         elif return_type == "simple":
-            forward_return = (forward_price / current_price) - 1.0
+            forward_return = (forward_price / current_price.clip(lower=1e-10)) - 1.0
         else:
             raise ValueError(
                 f"Invalid return_type: {return_type}. Supported: 'log', 'simple'"
