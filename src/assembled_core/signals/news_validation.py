@@ -103,7 +103,10 @@ def load_gold_dataset(path: str | Path) -> tuple[list[str], list[str]]:
             line = line.strip()
             if not line:
                 continue
-            record = json.loads(line)
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
             texts.append(record["text"])
             labels.append(record["label"].lower())
     return texts, labels
