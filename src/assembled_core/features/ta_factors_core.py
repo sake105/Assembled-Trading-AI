@@ -166,7 +166,7 @@ def _add_multi_horizon_returns(
         current_price = result[price_col]
 
         # Log return
-        log_return = np.log(future_price / current_price)
+        log_return = np.log(np.clip(future_price / current_price, 1e-10, None))
         result[factor_name] = log_return.astype("float64")
 
     # Momentum 12m excluding last month: 11-month return starting 1 month ahead
@@ -178,7 +178,7 @@ def _add_multi_horizon_returns(
     mask = price_12m.notna() & price_1m.notna()
     result["momentum_12m_excl_1m"] = np.where(
         mask,
-        np.log(price_12m / price_1m),
+        np.log(np.clip(price_12m / price_1m, 1e-10, None)),
         np.nan,
     ).astype("float64")
 

@@ -322,7 +322,7 @@ def build_earnings_surprise_factors(
     future_price = grouped_prices[price_col].shift(-window_days)
     current_price = result[price_col]
 
-    forward_return = np.log(future_price / current_price)
+    forward_return = np.log(np.clip(future_price / current_price, 1e-10, None))
 
     # Only set forward return for dates that have earnings events
     # Create a mask: True for dates that have earnings events
