@@ -227,7 +227,10 @@ class TestTriggerBasket:
 # Phase C — conviction_engine
 # ---------------------------------------------------------------------------
 
-from src.assembled_core.intel.conviction_engine import compute_conviction_score
+from src.assembled_core.intel.conviction_engine import (
+    compute_conviction_score,
+    compute_edcl_position_size,
+)
 
 
 class TestConvictionEngine:
@@ -254,6 +257,51 @@ class TestConvictionEngine:
         single = compute_conviction_score(TriggerBasket(conviction=0.6, n_events=1, n_high_conviction=0))
         multi = compute_conviction_score(TriggerBasket(conviction=0.6, n_events=5, n_high_conviction=3))
         assert multi >= single
+
+
+class TestEdclPositionSize:
+    def _policy(self, **kwargs) -> dict:
+        base = {
+            "edcl_conviction_overlay": {
+                "conviction_threshold": 0.70,
+                "edcl_sizing": {
+                    "max_edcl_weight": 0.30,
+                    "target_coverage": 0.85,
+                }
+            }
+        }
+        base["edcl_conviction_overlay"].update(kwargs)
+        return base
+
+    def test_returns_dict_with_required_keys(self):
+        result = compute_edcl_position_size(0.85, policy=self._policy())
+        assert set(result.keys()) >= {"max_weight", "stop_loss_pct", "size_factor", "conformal_factor"}
+
+    def test_below_threshold_returns_zero_weight(self):
+        result = compute_edcl_position_size(0.50, policy=self._policy())
+        assert result["max_weight"] == 0.0
+        assert result["size_factor"] == 0.0
+
+    def test_at_max_conviction_returns_base_max(self):
+        # conviction=1.0, no conformal model → conformal_factor=1.0, scale=1.0
+        result = compute_edcl_position_size(1.0, policy=self._policy())
+        assert result["max_weight"] == pytest.approx(0.30)
+
+    def test_mid_conviction_returns_half_base(self):
+        # conviction=0.85 is midpoint of [0.70, 1.0] → scale=0.5
+        result = compute_edcl_position_size(0.85, policy=self._policy())
+        assert result["max_weight"] == pytest.approx(0.30 * 0.5, abs=0.01)
+
+    def test_no_policy_returns_zero(self):
+        result = compute_edcl_position_size(0.0, policy=None)
+        assert result["max_weight"] == 0.0
+
+    def test_all_values_in_valid_range(self):
+        result = compute_edcl_position_size(0.9, policy=self._policy())
+        assert 0.0 <= result["max_weight"] <= 0.30
+        assert 0.0 <= result["stop_loss_pct"] <= 1.0
+        assert 0.0 <= result["size_factor"] <= 1.0
+        assert 0.0 <= result["conformal_factor"] <= 1.0
 
 
 # ---------------------------------------------------------------------------
