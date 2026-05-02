@@ -310,7 +310,8 @@ def compute_sector_rotation_signal(
         grp["sector_score"] = 1.0 - (full_ranks / (n_valid - 1)).clip(0, 1)
         return grp
 
-    out = out.groupby(timestamp_col, group_keys=False).apply(_rank_group)
+    frames = [_rank_group(grp) for _, grp in out.groupby(timestamp_col, sort=False)]
+    out = pd.concat(frames) if frames else out
     return out.sort_values([timestamp_col, symbol_col]).reset_index(drop=True)
 
 
