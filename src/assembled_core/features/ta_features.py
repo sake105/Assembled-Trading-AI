@@ -63,7 +63,7 @@ def add_log_returns(
     tmp = result.sort_values(sort_cols)
 
     # Log-Preis & Differenz pro Symbol
-    log_price = np.log(tmp[price_col].astype("float64"))
+    log_price = np.log(tmp[price_col].astype("float64").clip(lower=1e-10))
     log_ret = log_price.groupby(tmp["symbol"]).diff()
 
     # Zurück in die ursprüngliche Index-Reihenfolge
