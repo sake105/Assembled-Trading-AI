@@ -60,7 +60,7 @@ state = AdaptiveACState.from_config(cfg, ewma_alpha=EWMA_ALPHA)
 eta_history: list[tuple[int, int, float]] = []   # (day, order, eta_hat)
 fill_count = 0
 
-print(f"Adaptive AC convergence simulation")
+print("Adaptive AC convergence simulation")
 print(f"  eta_true={ETA_TRUE:.3f}  eta_prior={ETA_PRIOR:.3f}  alpha={EWMA_ALPHA}")
 print(f"  {N_DAYS} days × {ORDERS_PER_DAY} orders × {N_CHILD} slices = "
       f"{N_DAYS * ORDERS_PER_DAY * N_CHILD} fills total")
@@ -121,13 +121,13 @@ print(f"  True eta:       {ETA_TRUE:.4f}")
 print(f"  Prior eta:      {ETA_PRIOR:.4f}")
 print(f"  EWMA alpha:     {EWMA_ALPHA:.2f}")
 
-print(f"\nDay-end eta_hat trajectory:")
+print("\nDay-end eta_hat trajectory:")
 print(f"  {'Day':>4}  {'eta_hat':>8}  {'error%':>8}")
 for d, eta_d in enumerate(eta_day_end, 1):
     err_pct = (eta_d - ETA_TRUE) / ETA_TRUE * 100
     print(f"  {d:>4}  {eta_d:>8.5f}  {err_pct:>+7.1f}%")
 
-print(f"\nConvergence:")
+print("\nConvergence:")
 print(f"  eta_hat (final):   {eta_final:.5f}")
 print(f"  eta_true:          {ETA_TRUE:.5f}")  # noqa
 print(f"  Fractional error:  {convergence*100:.1f}%")
@@ -144,7 +144,7 @@ print(f"  Days to <40% err:  "
       f"{'day ' + str(days_to_40pct) if days_to_40pct else '>20 (no convergence)'}")
 
 # Literature plausibility check
-print(f"\nLiterature range for large-cap US equities: eta in [0.05, 0.20]")
+print("\nLiterature range for large-cap US equities: eta in [0.05, 0.20]")
 print(f"  eta_true ({ETA_TRUE:.3f}) in range:  "
       f"{'YES' if 0.05 <= ETA_TRUE <= 0.20 else 'NO (out of range)'}")
 print(f"  eta_hat ({eta_final:.3f}) in range:   "
@@ -154,4 +154,4 @@ if convergence <= 0.30:
     print(f"\nVerdict: CONVERGES. eta_hat tracks eta_true within {convergence*100:.0f}% after {N_DAYS} days.")
 else:
     print(f"\nVerdict: SLOW CONVERGENCE. Fractional error = {convergence*100:.0f}%.")
-    print(f"         Consider increasing EWMA alpha or reducing fill noise.")
+    print("         Consider increasing EWMA alpha or reducing fill noise.")

@@ -337,9 +337,11 @@ def detect_cycles(edges: list[dict]) -> set[str]:
 
     import signal
 
-    class Timeout(Exception): pass
+    class Timeout(Exception):
+        pass
 
-    def _handler(signum, frame): raise Timeout()
+    def _handler(signum, frame):
+        raise Timeout()
 
     # Timeout: skip if DFS takes too long (Windows: signal not reliable, skip)
     try:
@@ -792,7 +794,8 @@ def main() -> int:
         return generate(args)
     except Exception as e:
         print(f"[ERROR] {e}", file=sys.stderr)
-        import traceback; traceback.print_exc()
+        import traceback
+        traceback.print_exc()
         return 2
 
 

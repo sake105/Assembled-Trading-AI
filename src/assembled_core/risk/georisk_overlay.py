@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any, Dict
+
+log = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from src.assembled_core.pipeline.trading_cycle_shared import TradingContext
@@ -166,6 +169,15 @@ def apply_exposure_multiplier_to_targets(
                     .sum()
                 )
                 df.loc[cash_mask, "target_weight"] = cash_before + delta_to_cash
+            elif not has_cash and risky_sum_before != 0.0:
+                freed = risky_sum_before - risky_sum_after
+                log.warning(
+                    "[WARN] apply_exposure_multiplier_to_targets: multiplier=%.4f < 1.0 "
+                    "but no CASH row found in target_positions — %.6f freed weight silently lost. "
+                    "Add a CASH row or ensure the caller handles the weight gap.",
+                    multiplier,
+                    freed,
+                )
 
         elif multiplier > 1.0 and max_gross_exposure is not None:
             # Upscaling: enforce max_gross_exposure ceiling

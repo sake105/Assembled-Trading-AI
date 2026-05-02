@@ -55,7 +55,7 @@ def _parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def _load_frame(path: str) -> "pd.DataFrame":
+def _load_frame(path: str) -> "pd.DataFrame":  # noqa: F821
     import pandas as pd
     p = Path(path)
     if p.suffix == ".parquet":
@@ -63,7 +63,7 @@ def _load_frame(path: str) -> "pd.DataFrame":
     return pd.read_csv(p)
 
 
-def _compute_ic(windows: "pd.DataFrame", window_after: int) -> dict:
+def _compute_ic(windows: "pd.DataFrame", window_after: int) -> dict:  # noqa: F821
     """Compute forward-return IC between event day return and post-event drift."""
     import numpy as np
     try:

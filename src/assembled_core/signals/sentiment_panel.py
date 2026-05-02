@@ -107,8 +107,6 @@ def latest_sentiment_score(fred_client: object, spy_return_127d: float) -> float
         umich = fred_client.get_series("UMCSENT")
         # CBOE put/call via local daily download (CBOE public CSV)
         # Use VIX as proxy if CBOE unavailable
-        spy_series = pd.Series([spy_return_127d], index=[vix.index[-1]])
-
         common_idx = vix.index.intersection(hy.index)
         if len(common_idx) < 20:
             return 50.0

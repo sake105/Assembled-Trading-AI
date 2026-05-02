@@ -339,6 +339,7 @@ def _load_intel(
     # EDCL — Event-Driven Conviction Layer basket computation
     # Runs even when edcl_conviction_overlay.enabled=false so that ctx.edcl_state
     # is always populated for observability. Multiplier only fires when enabled.
+    _basket = None  # guard: Phase G reads this; must be defined even if try-block skips
     try:
         _edcl_cfg = (policy.get("edcl_conviction_overlay") or {})
         # Skip entirely in backtest mode unless allow_in_backtest is set

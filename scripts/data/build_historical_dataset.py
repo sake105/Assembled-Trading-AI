@@ -72,7 +72,7 @@ def load_sp500_historical_members(
         for _, row in changes.iterrows():
             try:
                 date_raw = row.iloc[0]
-                added_sym = str(row.iloc[1]).replace(".", "-") if pd.notna(row.iloc[1]) else None
+                added_sym = str(row.iloc[1]).replace(".", "-") if pd.notna(row.iloc[1]) else None  # noqa: F841
                 removed_sym = str(row.iloc[2]).replace(".", "-") if pd.notna(row.iloc[2]) else None
                 chg_date = pd.to_datetime(date_raw, errors="coerce")
                 if pd.isna(chg_date):

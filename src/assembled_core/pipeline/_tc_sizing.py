@@ -826,7 +826,13 @@ def size_positions(
 
     final_multiplier = _sp_compute_final_multiplier(ctx, policy, meta, log)
     if abs(final_multiplier - 1.0) > 1e-9 and not target_positions.empty:
-        target_positions = apply_exposure_multiplier_to_targets(target_positions, multiplier=final_multiplier, cash_symbol="CASH")
+        _max_gross = policy.get("risk_limits", {}).get("max_gross_exposure", 1.0)
+        target_positions = apply_exposure_multiplier_to_targets(
+            target_positions,
+            multiplier=final_multiplier,
+            cash_symbol="CASH",
+            max_gross_exposure=_max_gross,
+        )
 
     target_positions = _sp_apply_factor_risk(target_positions, prices_for_sizing, policy, log)
     target_positions = _sp_apply_trailing_stops(target_positions, ctx, prices_filtered, policy, meta, log)

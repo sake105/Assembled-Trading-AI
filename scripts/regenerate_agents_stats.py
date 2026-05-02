@@ -43,7 +43,7 @@ def update_agents_md(root: Path, stats: dict[str, int], dry_run: bool = False) -
         return False
 
     if dry_run:
-        print(f"[DRY-RUN] Would update AGENTS.md:")
+        print("[DRY-RUN] Would update AGENTS.md:")
         print(f"  core_modules: {stats['core_modules']}")
         print(f"  scripts: {stats['scripts']}")
         print(f"  test_files: {stats['test_files']}")

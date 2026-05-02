@@ -257,8 +257,8 @@ def run_simulation() -> None:
     print("BASKET P&L SIMULATION (ACTIVE days only)")
     print("=" * 70)
 
-    basket_equity = 1.0   # normalized to 1.0 at start
-    spy_equity = 1.0       # SPY benchmark, tracks all dates
+    _basket_equity = 1.0   # normalized to 1.0 at start (unused tracker)
+    _spy_equity = 1.0       # SPY benchmark, tracks all dates (unused tracker)
     basket_active_equity = 1.0
     spy_active_equity = 1.0
     active_trading_days = 0
@@ -266,7 +266,7 @@ def run_simulation() -> None:
     # Track from first WATCH signal date for SPY full-window comparison
     spy_full_from_feb20 = 1.0
     first_signal_date = "2020-02-20"
-    in_window = False
+    _in_window = False
 
     all_dates_in_returns = sorted(DAILY_RETURNS.keys())
 

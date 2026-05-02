@@ -61,7 +61,6 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
-from scipy.stats import norm
 
 _EULER_MASCHERONI = 0.5772156649015329
 
@@ -135,6 +134,7 @@ def sharpe_threshold(
     """
     if n_trials <= 1 or variance_across_trials <= 0.0:
         return 0.0
+    from scipy.stats import norm  # optional dep — lazy import avoids collection failure
     gamma = _EULER_MASCHERONI
     q1 = norm.ppf(1.0 - 1.0 / n_trials)
     q2 = norm.ppf(1.0 - 1.0 / (n_trials * math.e))
@@ -202,6 +202,7 @@ def deflated_sharpe(
     if not math.isfinite(se) or se <= 0.0:
         dsr_prob = float("nan")
     else:
+        from scipy.stats import norm  # optional dep — lazy import avoids collection failure
         dsr_prob = float(norm.cdf((sr - threshold) / se))
 
     return DSRResult(

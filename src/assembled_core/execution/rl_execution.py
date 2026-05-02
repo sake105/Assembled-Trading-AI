@@ -136,7 +136,7 @@ class RLExecutor:
                 action, _ = self._model.predict(obs, deterministic=True)
             else:
                 # TWAP fallback: uniform fraction
-                remaining = float(obs[0]) * cfg_override.total_shares
+                _remaining = float(obs[0]) * cfg_override.total_shares
                 steps_left = max(1, round(float(obs[1]) * cfg_override.n_steps))
                 action = np.array([1.0 / steps_left], dtype=np.float32)
 

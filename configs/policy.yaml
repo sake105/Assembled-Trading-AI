@@ -58,6 +58,14 @@ risk_limits:
     max_sector_weight: 0.40      # max 40% in correlated sector ETFs
     max_corr_cluster_weight: 0.50 # max 50% in highly correlated cluster
 
+# Auto-DD kill-switch thresholds read by trading_cycle_shared.py.
+# More conservative than risk_limits.max_drawdown (benchmark-style) to trigger
+# intra-run de-risk/kill earlier. Values must be <= corresponding risk_limits entries.
+drawdown_policy:
+  soft: 0.10   # warn at 10% DD
+  hard: 0.15   # reduce exposure at 15% DD
+  kill: 0.20   # kill switch at 20% DD
+
 # High-level state machine config (WATCH / ACTIVE / COOLDOWN / PAUSE).
 state_machine:
   states: ["WATCH", "ACTIVE", "COOLDOWN", "PAUSE"]

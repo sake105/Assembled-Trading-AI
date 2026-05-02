@@ -1593,7 +1593,7 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                 logger.info("Regime Overlay: DISABLED")
 
             # Create strategy config
-            strategy_config = MultiFactorStrategyConfig(
+            _strategy_config = MultiFactorStrategyConfig(
                 bundle_path=str(bundle_path),
                 top_quantile=args.top_quantile,
                 bottom_quantile=args.bottom_quantile,

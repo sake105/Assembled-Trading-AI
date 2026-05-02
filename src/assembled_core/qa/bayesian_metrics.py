@@ -320,7 +320,7 @@ def _pymc_hierarchical_comparison(
     }
 
     mu_pop_samples = trace.posterior["mu_pop"].values.flatten()
-    sharpe_pop_mean = float(np.mean(mu_pop_samples)) / max(float(np.mean(sig_samples)), 1e-9) * math.sqrt(252)
+    _sharpe_pop_mean = float(np.mean(mu_pop_samples)) / max(float(np.mean(sig_samples)), 1e-9) * math.sqrt(252)
 
     return StrategyComparison(
         strategies=names,

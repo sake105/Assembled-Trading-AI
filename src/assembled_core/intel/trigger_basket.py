@@ -50,6 +50,16 @@ _TRIGGER_SECTOR_MAP: dict[TriggerType, list[str]] = {
     TriggerType.ALLIANCE_SHIFT:         ["defense"],
     TriggerType.TERRITORIAL_ESCALATION: ["defense", "energy"],
     TriggerType.STRAIT_BLOCKADE:        ["energy", "industrials"],
+    # --- Previously missing entries ---
+    TriggerType.HEGEMONIC_CHALLENGE:    ["defense", "tech"],
+    TriggerType.PROXY_WAR_EXPANSION:    ["defense", "energy"],
+    TriggerType.RESERVE_DRAIN:          ["financials"],
+    TriggerType.TECHNOLOGY_GAP_WIDENING: ["tech", "defense"],
+    TriggerType.MAJOR_BREACH_DETECTED:  ["cybersecurity", "technology"],
+    TriggerType.STATE_ACTOR_ACTIVITY:   ["defense", "geopolitics"],
+    TriggerType.SEVERE_WEATHER_ALERT:   ["energy", "agriculture", "insurance"],
+    TriggerType.LOGISTICS_DISRUPTION:   ["industrials", "energy"],
+    TriggerType.CASUALTY_SPIKE:         ["defense", "healthcare"],
 }
 
 # Severity thresholds for conviction aggregation

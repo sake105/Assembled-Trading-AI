@@ -67,7 +67,6 @@ def compute_conviction_score(
 
     # Corroboration bonus: multiple high-conviction events
     n_high = getattr(basket, "n_high_conviction", 0)
-    n_total = max(getattr(basket, "n_events", 1), 1)
     corroboration = 0.05 * min(n_high, 3) if n_high > 1 else 0.0
 
     raw = base * (1.0 + beta_boost) + diversity_bonus + corroboration
@@ -202,7 +201,7 @@ def compute_edcl_position_size(
     edcl_cfg = (policy or {}).get("edcl_conviction_overlay") or {}
     sizing_cfg = edcl_cfg.get("edcl_sizing") or {}
     base_max = float(sizing_cfg.get("max_edcl_weight", 0.30))
-    target_coverage = float(sizing_cfg.get("target_coverage", 0.85))
+    _target_coverage = float(sizing_cfg.get("target_coverage", 0.85))  # used by conformal model if loaded
 
     # Default: no scaling (conformal model unavailable)
     conformal_factor = 1.0
@@ -217,7 +216,7 @@ def compute_edcl_position_size(
             _path = Path(model_path)
             if not _path.is_absolute():
                 # Resolve relative to project root (3 levels up from this file)
-                _path = Path(__file__).parents[4] / model_path
+                _path = Path(__file__).parents[3] / model_path
             if _path.exists():
                 bundle = joblib.load(_path)
                 med_width = float(bundle.get("median_interval_width", 0.05))
@@ -234,7 +233,7 @@ def compute_edcl_position_size(
                         X = row_aligned.values.reshape(1, -1)
                         model = bundle.get("model")
                         if model is not None and hasattr(model, "predict"):
-                            y_pred = float(model.predict(X)[0])
+                            _y_pred = float(model.predict(X)[0])  # noqa: F841 — future: use for interval shift
                             # Use median_interval_width as proxy (no MAPIE re-inference here)
                             conformal_factor = conformal_size_factor(
                                 interval_width=med_width,

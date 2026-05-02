@@ -184,7 +184,6 @@ def _manual_features(s: pd.Series, prefix: str) -> dict[str, float]:
 
 def _rolling_feature_set(series: pd.Series, window: int, full: bool) -> pd.DataFrame:
     arr = series.values.astype(float)
-    n = len(arr)
     idx = series.index
 
     out: dict[str, np.ndarray] = {}

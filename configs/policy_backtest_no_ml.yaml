@@ -164,6 +164,7 @@ logging_policy:
 georisk_overlay:
   enabled: true
   source: "news_geo"
+  max_geo_multiplier: 2.0
   mapping:
     WATCH:
       multiplier: 1.00

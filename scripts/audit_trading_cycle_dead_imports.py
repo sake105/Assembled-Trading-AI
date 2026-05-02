@@ -47,7 +47,7 @@ def is_in_try_block(lines: list[str], lineno: int) -> bool:
 
 def check_archive(module: str) -> str:
     path = module_to_path(module)
-    rel = path.relative_to(ROOT) if ROOT in path.parents else path
+    _rel = path.relative_to(ROOT) if ROOT in path.parents else path
     for d in ARCHIVE_DIRS:
         candidate = d / path.name
         if candidate.exists():

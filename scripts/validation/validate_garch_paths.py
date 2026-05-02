@@ -153,7 +153,7 @@ in_band_50 = p25 <= real_sharpe <= p75
 print("\n" + "=" * 60)
 print("GARCH PATH VALIDATION REPORT")
 print("=" * 60)
-print(f"\nGARCH(1,1) parameters (fitted on SPX 2020-2024):")
+print("\nGARCH(1,1) parameters (fitted on SPX 2020-2024):")
 print(f"  omega  = {omega:.6e}  (long-run variance)")
 print(f"  alpha  = {alpha:.4f}        (ARCH — shock persistence)")
 print(f"  beta   = {beta:.4f}        (GARCH — variance persistence)")

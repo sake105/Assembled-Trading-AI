@@ -127,7 +127,7 @@ def main() -> None:
     print(f"[v3] Width std:            {width_std:.6f}")
 
     # Size-multiplier distribution diagnostic
-    q50_pred = models["q50_model"].predict(X_val)
+    _q50_pred = models["q50_model"].predict(X_val)
     med_w = np.median(widths)
     multipliers = np.clip(med_w / widths, 0.25, 2.0)
     print(f"[v3] Multiplier — mean: {multipliers.mean():.3f}, "

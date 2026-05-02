@@ -62,8 +62,6 @@ def compute_etf_flow(
         # Better approach: Shares Outstanding diff × NAV (yfinance sometimes provides sharesOutstanding)
         info = ticker_obj.info
         shares_total = info.get("sharesOutstanding")
-        nav = info.get("navPrice") or info.get("previousClose") or hist["Close"].iloc[-1]
-
         if shares_total is None:
             # Fallback: use volume × price as flow proxy
             recent = hist.tail(lookback_days)

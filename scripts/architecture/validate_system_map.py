@@ -95,7 +95,7 @@ def validate(path: Path) -> int:
             warnings.append(f"  - {o['id']}")
 
     # ── Circular Import Report ───────────────────────────────
-    circular_edges = [e for e in edges if e.get("circular")]
+    _circular_edges = [e for e in edges if e.get("circular")]
     circular_nodes = [n for n in nodes if n.get("in_cycle")]
     if circular_nodes:
         warnings.append(f"{len(circular_nodes)} nodes in circular imports:")

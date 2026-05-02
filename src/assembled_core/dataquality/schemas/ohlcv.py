@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import pandas as pd
-import pandera as pa
+try:
+    import pandera.pandas as pa
+except ImportError:
+    import pandera as pa  # type: ignore[no-redef]
 from pandera.typing import Series
 
 
