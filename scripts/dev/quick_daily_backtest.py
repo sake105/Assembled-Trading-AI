@@ -30,7 +30,7 @@ def main(start_capital: float, fast: int, slow: int):
         df.groupby("symbol", group_keys=False).apply(per_symbol).reset_index(drop=True)
     )
     df = df.merge(sig, on=["timestamp", "symbol"], how="left").fillna({"sig": 0})
-    ret = np.log(df["close"]).groupby(df["symbol"]).diff().fillna(0.0)
+    ret = np.log(df["close"].clip(lower=1e-10)).groupby(df["symbol"]).diff().fillna(0.0)
     df = df.assign(ret=ret)
 
     piv_sig = df.pivot(index="timestamp", columns="symbol", values="sig").fillna(0.0)

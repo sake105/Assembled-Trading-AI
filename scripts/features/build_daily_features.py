@@ -31,7 +31,7 @@ def rsi(s: pd.Series, window: int = 14) -> pd.Series:
 
 
 def realized_vol(s: pd.Series, window: int) -> pd.Series:
-    ret = np.log(s).diff()
+    ret = np.log(s.clip(lower=1e-10)).diff()
     return ret.rolling(window, min_periods=window).std() * np.sqrt(252)
 
 
@@ -50,7 +50,7 @@ def main():
     base = df.copy()
     base["ret1"] = (
         base.groupby("symbol")["adj_close"]
-        .apply(lambda s: np.log(s).diff())
+        .apply(lambda s: np.log(s.clip(lower=1e-10)).diff())
         .fillna(0.0)
         .values
     )
