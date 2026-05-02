@@ -70,7 +70,7 @@ def build_clusters(events: List[NewsEvent], cfg: Dict) -> List[Dict]:
         similarity_threshold = float(cfg.get("similarity_threshold", 0.45))
         require_overlap = bool(cfg.get("require_overlap", True))
         same_day_only = bool(cfg.get("same_day_only", True))
-        max_checks = int(cfg.get("max_pair_checks", 2000) or 0)
+        max_checks = int(cfg.get("max_pair_checks") or 2000)
         if similarity_threshold > 0.0 and max_checks > 0:
             texts = [f"{e.title or ''} {e.summary or ''}".strip() for e in events]
             vectors = build_tfidf_vectors(texts)
@@ -401,7 +401,8 @@ class SemanticDeduplicator:
         try:
             _, distances = self._index.knn_query(emb, k=1)
             return float(1.0 - distances[0][0]) > self._threshold
-        except Exception:
+        except Exception as _exc:
+            _logger.warning("[SemanticDeduplicator] knn_query failed: %s", _exc)
             return False
 
     def add(self, embedding: "np.ndarray") -> None:

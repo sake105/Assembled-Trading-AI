@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import json
+import logging
 from collections import defaultdict
+
+_logger = logging.getLogger(__name__)
 from datetime import datetime, timezone
 from hashlib import sha256
 from pathlib import Path
@@ -48,7 +51,8 @@ def update_baseline(
     if state_path.exists():
         try:
             state = json.loads(state_path.read_text(encoding="utf-8"))
-        except Exception:
+        except Exception as _exc:
+            _logger.warning("[NEWS] Failed to load baseline_state from %s: %s", state_path, _exc)
             state = {}
 
     if (

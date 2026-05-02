@@ -56,7 +56,8 @@ def _load_texts_from_store(
                     if val and isinstance(val, str) and val.strip():
                         texts.append(val.strip())
                         break
-            except Exception:
+            except Exception as _exc:
+                logger.debug("[train_news_embeddings] line skipped: %s", _exc)
                 continue
     logger.info("Geladen: %d Texte (%d übersprungen wegen PIT-Guard)", len(texts), skipped)
     return texts

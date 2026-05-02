@@ -51,8 +51,8 @@ def run_paper_daily_subcommand(args: argparse.Namespace) -> int:
 
             with open(app_cfg_path, "r", encoding="utf-8") as f:
                 app_cfg = yaml.safe_load(f) or {}
-        except Exception:
-            pass
+        except Exception as _exc:
+            logger.warning("[paper] Failed to load app.yaml: %s", _exc)
     if args.include_news_pipeline:
         logger.info(
             "include_news_pipeline=True, but NEWS pipeline integration is not wired in v1. Skipping."
@@ -125,8 +125,8 @@ def run_paper_range_subcommand(args: argparse.Namespace) -> int:
 
             with open(app_cfg_path, "r", encoding="utf-8") as f:
                 app_cfg = yaml.safe_load(f) or {}
-        except Exception:
-            pass
+        except Exception as _exc:
+            logger.warning("[paper] Failed to load app.yaml: %s", _exc)
 
     for i, d in enumerate(trading_dates):
         date_str = date_strs[i]

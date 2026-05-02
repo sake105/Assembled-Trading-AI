@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any, Dict
+
+_logger = logging.getLogger(__name__)
 
 from .emit import emit_json_artifact
 from .normalize import now_utc_iso
@@ -27,7 +30,8 @@ def load_fetch_state(path: Path) -> Dict[str, Any]:
 
         with path.open("r", encoding="utf-8") as f:
             data = json.load(f) or {}
-    except Exception:
+    except Exception as _exc:
+        _logger.warning("[NEWS] Failed to load fetch_state from %s: %s", path, _exc)
         return state
 
     if isinstance(data, dict):

@@ -508,8 +508,8 @@ def compute_feature_importance(model, X: pd.DataFrame, feature_cols: list[str]) 
         if importance:
             log.info("SHAP importance computed (top: %s=%.4f)", importance[0][0], importance[0][1])
         return importance[:20]
-    except Exception:
-        pass
+    except Exception as _exc:
+        log.debug("[feature_importance] SHAP failed: %s", _exc)
 
     # Fallback: sklearn feature_importances_
     try:
@@ -520,8 +520,8 @@ def compute_feature_importance(model, X: pd.DataFrame, feature_cols: list[str]) 
             if importance:
                 log.info("Tree importance computed (top: %s=%.4f)", importance[0][0], importance[0][1])
             return importance[:20]
-    except Exception:
-        pass
+    except Exception as _exc:
+        log.debug("[feature_importance] tree importance failed: %s", _exc)
 
     # Fallback: try calibrated model's base estimator
     try:
@@ -532,8 +532,8 @@ def compute_feature_importance(model, X: pd.DataFrame, feature_cols: list[str]) 
                 importance = list(zip(feature_cols, [round(float(v), 6) for v in imp]))
                 importance.sort(key=lambda x: x[1], reverse=True)
                 return importance[:20]
-    except Exception:
-        pass
+    except Exception as _exc:
+        log.debug("[feature_importance] calibrated estimator fallback failed: %s", _exc)
 
     log.warning("Could not compute feature importance")
     return []
