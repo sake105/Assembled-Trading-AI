@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -68,7 +68,9 @@ class OrderGate:
         if ticker not in self.rt_detector.open_positions:
             return False
         open_ts, _, _, open_side = self.rt_detector.open_positions[ticker]
-        if open_ts.date() != date.today():
+        today_utc = datetime.now(timezone.utc).date()
+        open_date = open_ts.astimezone(timezone.utc).date() if open_ts.tzinfo else open_ts.date()
+        if open_date != today_utc:
             return False
         return (open_side == "long" and side == "sell") or (
             open_side == "short" and side == "buy"
