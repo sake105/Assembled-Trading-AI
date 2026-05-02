@@ -125,7 +125,8 @@ def match_fifo(
         match_qty = min(lot.qty, remaining)
         entry_eur = match_qty * lot.price_eur
         exit_eur = match_qty * exit_price_usd * usd_eur_rate
-        pnl_eur = exit_eur - entry_eur - lot.fees_eur * (match_qty / lot.qty)
+        fee_ratio = (match_qty / lot.qty) if lot.qty != 0.0 else 0.0
+        pnl_eur = exit_eur - entry_eur - lot.fees_eur * fee_ratio
         holding_days = (exit_date - lot.trade_date).days
 
         lots_closed.append({
