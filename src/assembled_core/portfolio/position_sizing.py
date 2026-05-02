@@ -664,7 +664,10 @@ def apply_news_sentiment_weight_adjustment(
         total_w = result["target_weight"].sum()
         if total_w > 1e-9:
             result["target_weight"] = result["target_weight"] / total_w
-        result["target_qty"] = result["target_weight"] * result.get("target_qty", result["target_weight"])
+        # Distribute old total qty proportionally to new weights (weight × qty is dimensionally wrong)
+        if "target_qty" in result.columns:
+            old_qty_sum = result["target_qty"].sum()
+            result["target_qty"] = result["target_weight"] * (old_qty_sum if old_qty_sum > 1e-9 else 1.0)
 
     return result
 
