@@ -795,7 +795,10 @@ def _apply_meta_model_filter(
 
     import joblib
 
-    model = joblib.load(model_path)
+    try:
+        model = joblib.load(model_path)
+    except (EOFError, Exception) as exc:
+        raise RuntimeError(f"[multifactor_v2] Failed to load meta-model from {model_path}: {exc}") from exc
 
     feature_cols = meta_cfg.get("feature_cols")
     if not feature_cols:
