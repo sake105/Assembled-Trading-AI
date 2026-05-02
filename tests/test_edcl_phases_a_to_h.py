@@ -558,3 +558,79 @@ class TestTailSignalsToTargets:
         existing = {"AAPL": 0.20}
         targets = tail_signals_to_targets([], existing_targets=existing)
         assert targets == existing
+
+
+# ---------------------------------------------------------------------------
+# Phase C — GeoEventLogger
+# ---------------------------------------------------------------------------
+
+from src.assembled_core.intel.geo_event_logger import log_basket_event, read_geo_event_log
+
+
+class TestGeoEventLogger:
+    def _basket(self) -> TriggerBasket:
+        return TriggerBasket(
+            fired_triggers=[
+                (TriggerType.CHOKEPOINT_STRESS, 0.85),
+                (TriggerType.ENERGY_SUPPLY_RISK, 0.80),
+            ],
+            affected_sectors={"energy": 0.85},
+            affected_assets=["XLE"],
+            conviction=0.85,
+            n_events=2,
+            n_high_conviction=2,
+        )
+
+    def test_log_returns_true_on_active_basket(self, tmp_path):
+        path = tmp_path / "events.parquet"
+        result = log_basket_event(self._basket(), 0.85, output_path=path)
+        assert result is True
+
+    def test_log_creates_file_with_correct_schema(self, tmp_path):
+        path = tmp_path / "events.parquet"
+        log_basket_event(self._basket(), 0.85, output_path=path)
+        df = read_geo_event_log(path)
+        assert set(df.columns) >= {"event_date", "trigger_type", "conviction", "source_tier"}
+
+    def test_log_writes_one_row_per_fired_trigger(self, tmp_path):
+        path = tmp_path / "events.parquet"
+        log_basket_event(self._basket(), 0.85, output_path=path)
+        df = read_geo_event_log(path)
+        assert len(df) == 2
+        assert set(df["trigger_type"]) == {"CHOKEPOINT_STRESS", "ENERGY_SUPPLY_RISK"}
+
+    def test_log_appends_on_second_call(self, tmp_path):
+        path = tmp_path / "events.parquet"
+        log_basket_event(self._basket(), 0.85, output_path=path)
+        b2 = TriggerBasket(
+            fired_triggers=[(TriggerType.BANKING_CRISIS, 0.7)],
+            conviction=0.7, n_events=1, n_high_conviction=1,
+        )
+        log_basket_event(b2, 0.7, output_path=path)
+        df = read_geo_event_log(path)
+        assert len(df) == 3
+
+    def test_log_returns_false_on_inactive_basket(self, tmp_path):
+        path = tmp_path / "events.parquet"
+        empty = TriggerBasket()
+        result = log_basket_event(empty, 0.0, output_path=path)
+        assert result is False
+        assert not path.exists()
+
+    def test_log_returns_false_on_none_basket(self, tmp_path):
+        path = tmp_path / "events.parquet"
+        result = log_basket_event(None, 0.85, output_path=path)
+        assert result is False
+
+    def test_read_empty_when_no_file(self, tmp_path):
+        df = read_geo_event_log(tmp_path / "nonexistent.parquet")
+        assert len(df) == 0
+        assert "trigger_type" in df.columns
+
+    def test_min_conviction_filter(self, tmp_path):
+        path = tmp_path / "events.parquet"
+        log_basket_event(self._basket(), 0.85, output_path=path)
+        df_all = read_geo_event_log(path, min_conviction=0.0)
+        df_filtered = read_geo_event_log(path, min_conviction=0.90)
+        assert len(df_all) == 2
+        assert len(df_filtered) == 0

@@ -430,6 +430,18 @@ def _load_intel(
                     len(_basket.fired_triggers),
                     list(_basket.affected_sectors.keys()),
                 )
+                # Phase C: log fired events to geo_events_historical.parquet
+                # Builds training data for compute_event_betas.py over time.
+                try:
+                    from src.assembled_core.intel.geo_event_logger import log_basket_event
+                    _tier = 1 if _source == "raw_news_events" else 2
+                    log_basket_event(
+                        _basket, _conviction,
+                        as_of=getattr(ctx, "as_of", None),
+                        source_tier=_tier,
+                    )
+                except Exception as _log_e:
+                    log.debug("geo_event_logger skipped: %s", _log_e)
     except Exception as _e:
         log.debug("edcl_basket computation skipped: %s", _e)
 
