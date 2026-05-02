@@ -454,7 +454,7 @@ def add_tick_rule_imbalance(
 
         result[col] = (
             result.groupby(group_col, group_keys=False)
-            .apply(_imb)
+            .apply(_imb, include_groups=False)
             .reset_index(level=0, drop=True)
         )
 
