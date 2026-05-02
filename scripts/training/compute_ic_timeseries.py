@@ -474,6 +474,10 @@ if __name__ == "__main__":
     _log(f"[OK] Summary saved -> {summary_path}")
 
     # Step 4: Print ranked factor table for primary horizon (20d)
+    if not ic_timeseries:
+        _log("[WARN] ic_timeseries is empty — skipping factor table and gate check.")
+        _log("Done.")
+        return
     primary_horizon = "20d" if "20d" in ic_timeseries else sorted(ic_timeseries.keys())[-1]
     _print_factor_table(summary, horizon_key=primary_horizon)
 

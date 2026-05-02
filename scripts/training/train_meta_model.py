@@ -505,7 +505,8 @@ def compute_feature_importance(model, X: pd.DataFrame, feature_cols: list[str]) 
         mean_abs_shap = np.abs(shap_values).mean(axis=0)
         importance = list(zip(feature_cols, [round(float(v), 6) for v in mean_abs_shap]))
         importance.sort(key=lambda x: x[1], reverse=True)
-        log.info("SHAP importance computed (top: %s=%.4f)", importance[0][0], importance[0][1])
+        if importance:
+            log.info("SHAP importance computed (top: %s=%.4f)", importance[0][0], importance[0][1])
         return importance[:20]
     except Exception:
         pass
@@ -516,7 +517,8 @@ def compute_feature_importance(model, X: pd.DataFrame, feature_cols: list[str]) 
             imp = model.feature_importances_
             importance = list(zip(feature_cols, [round(float(v), 6) for v in imp]))
             importance.sort(key=lambda x: x[1], reverse=True)
-            log.info("Tree importance computed (top: %s=%.4f)", importance[0][0], importance[0][1])
+            if importance:
+                log.info("Tree importance computed (top: %s=%.4f)", importance[0][0], importance[0][1])
             return importance[:20]
     except Exception:
         pass
