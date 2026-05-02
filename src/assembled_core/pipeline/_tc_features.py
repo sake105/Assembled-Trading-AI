@@ -270,6 +270,9 @@ def build_features(
                     pwf = pwf.merge(
                         _mr_df[_keys + _mr_cols], on=_keys, how="left", suffixes=("", "_mrf")
                     )
+                    _null_frac = pwf[_mr_cols].isna().mean().max() if _mr_cols else 0.0
+                    if _null_frac > 0.5:
+                        log.warning("[MR-FACTORS] %.0f%% NaN after merge — possible key misalignment", _null_frac * 100)
     except Exception as e:
         log.debug("[MR-FACTORS] mean_reversion_factors skipped: %s", e)
 
