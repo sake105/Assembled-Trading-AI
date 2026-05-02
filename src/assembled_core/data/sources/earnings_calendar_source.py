@@ -210,7 +210,7 @@ class EarningsCalendarSource:
         for item in data.get("earningsCalendar", []):
             rows.append({
                 "symbol": symbol,
-                "earnings_date": pd.to_datetime(item.get("date")),
+                "earnings_date": pd.to_datetime(item.get("date"), errors="coerce"),
                 "eps_estimate": item.get("epsEstimate", float("nan")),
                 "eps_actual": item.get("epsActual", float("nan")),
                 "surprise_pct": float("nan"),
