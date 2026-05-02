@@ -253,7 +253,7 @@ def _load_intel(
             if cs_path.exists():
                 cs_data = _json.loads(cs_path.read_text(encoding="utf-8"))
                 ctx.crisis_state_intel = cs_data
-                geo_score = int(cs_data.get("geo_score", 0))
+                geo_score = int(cs_data.get("geo_score") or 0)
                 mode_str = str(cs_data.get("mode", "NORMAL"))
                 ctx.news_geo = {
                     "geo_score": geo_score,

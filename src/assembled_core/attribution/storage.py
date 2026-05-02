@@ -5,9 +5,12 @@ From 38_FEATURE_ATTRIBUTION_DASHBOARD.md §2.3.
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 from datetime import datetime
 from pathlib import Path
+
+_logger = logging.getLogger(__name__)
 
 from assembled_core.attribution.schemas import CompositeAttribution
 
@@ -81,13 +84,22 @@ class AttributionStore:
             return [self._row_to_attribution(row) for row in cursor]
 
     def _row_to_attribution(self, row: tuple) -> CompositeAttribution:
+        try:
+            dim_contributions = json.loads(row[4])
+            dim_raw_scores = json.loads(row[5])
+            dim_weights = json.loads(row[6])
+        except json.JSONDecodeError as exc:
+            _logger.warning("[AttributionStore] corrupted JSON in row for %s: %s", row[2], exc)
+            dim_contributions = {}
+            dim_raw_scores = {}
+            dim_weights = {}
         return CompositeAttribution(
             timestamp=datetime.fromisoformat(row[1]),
             ticker=row[2],
             composite_score=row[3],
-            dimension_contributions=json.loads(row[4]),
-            dimension_raw_scores=json.loads(row[5]),
-            dimension_weights=json.loads(row[6]),
+            dimension_contributions=dim_contributions,
+            dimension_raw_scores=dim_raw_scores,
+            dimension_weights=dim_weights,
             strategy_id=row[7],
             model_version=row[8],
             regime=row[9],

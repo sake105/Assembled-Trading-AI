@@ -406,6 +406,6 @@ class NewsRAG:
             try:
                 info = self._qdrant_client.get_collection(self._collection)
                 return int(info.points_count or 0)
-            except Exception:
-                pass
+            except Exception as _exc:
+                logger.debug("[NewsRAG] get_collection failed: %s", _exc)
         return len(self._mem_store)

@@ -100,7 +100,7 @@ def load_risk_state(path: str | Path) -> RiskStateRecord:
         since_utc=str(data.get("since_utc", now)),
         last_transition_utc=str(data.get("last_transition_utc", now)),
         reason=str(data.get("reason", "loaded")),
-        geo_score=int(data.get("geo_score", 0)),
+        geo_score=int(data.get("geo_score") or 0),
         geo_confidence=float(data.get("geo_confidence", 0.0)),
         version=str(data.get("version", VERSION)),
     )

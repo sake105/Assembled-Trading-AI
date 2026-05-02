@@ -75,8 +75,8 @@ def _already_ran_today(dt: datetime) -> bool:
         try:
             last = LAST_RUN_PATH.read_text(encoding="utf-8").strip()
             return last == today
-        except Exception:
-            pass
+        except Exception as _exc:
+            logger.debug("[Scheduler] last_run_date read failed: %s", _exc)
     return False
 
 
