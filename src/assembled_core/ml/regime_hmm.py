@@ -352,10 +352,14 @@ class MultiFeatureRegimeHMM:
         self._fitted = False
 
     def _scale(self, X: np.ndarray) -> np.ndarray:
-        """Apply fitted scaler; fit+transform if scaler not yet fit."""
+        """Apply fitted scaler; return unscaled if scaler absent or not fitted."""
         if self._scaler is None:
             return X
-        return self._scaler.transform(X)
+        try:
+            return self._scaler.transform(X)
+        except Exception as _exc:
+            logger.debug("[MultiHMM] scaler.transform failed, using unscaled: %s", _exc)
+            return X
 
     def fit(self, features_df: pd.DataFrame) -> bool:
         """Fit multi-feature HMM with StandardScaler + multi-seed search.
