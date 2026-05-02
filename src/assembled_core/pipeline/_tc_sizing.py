@@ -386,7 +386,7 @@ def _sp_compute_final_multiplier(
                         meta["hmm_regime"] = {"regime": _regime, "multiplier": hmm_regime_multiplier}
                         log.info("[HMM-REGIME] regime=%s multiplier=%.3f", _regime, hmm_regime_multiplier)
     except Exception as e:
-        log.debug("hmm_regime_overlay skipped: %s", e)
+        log.warning("[HMM-REGIME] overlay skipped unexpectedly: %r", e)
 
     # EDCL conviction overlay — Phase H triple-confirmation (EDCL + regime + IV skew)
     edcl_multiplier = 1.0

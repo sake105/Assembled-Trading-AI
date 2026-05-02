@@ -38,11 +38,11 @@ Erwarteter Bias: +1–2% p.a. bei US Large-Caps, **+5–10% p.a.** bei Mid-Caps.
 - [x] **[DONE 2026-04-30]** `binary_outperformance` und `multi_class` Labeling vollständig implementiert  
   **Datei:** `src/assembled_core/qa/labeling.py` (Zeilen 574–591)
 
-- [ ] **[open]** HMM Regime Multipliers — hand-tuned, nicht kalibriert  
+- [x] **[DONE 2026-05-02]** HMM Regime Multipliers — Grid-Search abgeschlossen  
   **Datei:** `configs/policy.yaml` (`hmm_regime_overlay.multipliers`)  
-  **Beschreibung:** bull=1.15, sideways=1.00, bear=0.75, crisis=0.40 sind Schätzwerte.
-  Grid-Search auf OOS 2020–2024 ausstehend. Risiko: Whipsaw bei häufigen Regime-Switches.
-  Siehe §4.3 für Aktivierungskriterien.
+  **Ergebnis:** Grid {bear=0.50/0.60/0.75/0.85}, OOS 2022-2024. Alle Varianten Sharpe-Delta < 0.
+  Long-Short-Strategie profitiert von Bear-Phasen (Short-Seite). HMM bleibt DISABLED.
+  Siehe §4.3 für vollständige Ergebnistabelle.
 
 ### 1.2 Trade-Level-Metriken
 
@@ -186,8 +186,22 @@ Schwellen müssen erfüllt sein, bevor eine Schicht aktiviert wird:
   CAGR-Gewinn (+1.41pp) kommt weitgehend aus Bull-Regime-Leverage (1.15x), kein echter Regime-Edge.
   Bugs behoben (2026-05-02): 4-state-Modell hatte degenerate Konvergenz (3 States bei extremen Means);
   `parents[4]` → `parents[3]` path bug verhinderte Modell-Loading. Beide fixes committed.
-- Kalibrierung ausstehend: Bull-Multiplier auf 1.0 setzen (nur bear/crisis als echte Regime-Signale
-  nutzen); Grid-Search auf Multiplier-Werte {0.5, 0.6, 0.75, 0.85} × {bear, crisis} auf OOS 2020–2024.
+- **Grid-Search HMM bear-Multiplier (2026-05-02, ABGESCHLOSSEN):**
+  OOS 2022-01-01 bis 2024-12-31, full_panel_7y.parquet (93 Symbole), monatliches Rebalancing.
+  Getestete Varianten: bull=1.0, sideways=1.0, bear∈{0.50, 0.60, 0.75, 0.85}. Modell 3-state (kein crisis-State).
+
+  | Variante  | CAGR% | Sharpe | MDD%   | dSharpe | dMDD   |
+  |-----------|-------|--------|--------|---------|--------|
+  | baseline  | 7.54  | 0.381  | -43.35 | 0.000   | 0.00   |
+  | bear=0.50 | 7.20  | 0.375  | -43.59 | -0.006  | -0.24  |
+  | bear=0.60 | 7.27  | 0.376  | -43.55 | -0.005  | -0.19  |
+  | bear=0.75 | 7.37  | 0.378  | -43.47 | -0.003  | -0.12  |
+  | bear=0.85 | 7.44  | 0.379  | -43.43 | -0.002  | -0.07  |
+
+  **Befund:** Alle Varianten verfehlen Kriterium (Sharpe-Delta < 0 für alle Multiplier).
+  Ursache: Long-Short-Strategie profitiert von Bären-Phasen (Short-Seite). Exposure-Reduktion
+  im Bear-Regime entfernt diesen Vorteil. HMM-Overlay ist für Long-Short-Strategien kontraproduktiv.
+  **Entscheidung: HMM bleibt DISABLED. Kein weiterer Grid-Search vorgesehen.**
 
 **Schicht 2 — Meta-Model Filter** (`meta_model.enabled` / policy `use_meta_model`)
 - Artefakt: `models/meta_model_lgbm_v4.joblib` (aktuell kanonisch, v4 = cs-rank target)
