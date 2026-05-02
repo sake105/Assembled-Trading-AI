@@ -274,9 +274,14 @@ class TaxLotStore:
                 else:
                     # Partial close: reduce open lot, insert closed partial
                     new_qty = lot.qty - close["qty"]
+                    # Allocate fees proportionally to avoid double-counting:
+                    # the closed portion carries its share, the remaining lot gets the rest.
+                    closed_frac = close["qty"] / lot.qty if lot.qty > 0 else 0.0
+                    closed_fees_usd = lot.fees_usd * closed_frac
+                    closed_fees_eur = lot.fees_eur * closed_frac
                     conn.execute(
-                        "UPDATE tax_lots SET qty=? WHERE id=?",
-                        (new_qty, lot.id),
+                        "UPDATE tax_lots SET qty=?, fees_usd=?, fees_eur=? WHERE id=?",
+                        (new_qty, lot.fees_usd - closed_fees_usd, lot.fees_eur - closed_fees_eur, lot.id),
                     )
                     partial = TaxLot(
                         id=str(uuid.uuid4()),
@@ -288,8 +293,8 @@ class TaxLotStore:
                         usd_eur_rate=lot.usd_eur_rate,
                         trade_date=lot.trade_date,
                         trade_timestamp=lot.trade_timestamp,
-                        fees_usd=0.0,
-                        fees_eur=0.0,
+                        fees_usd=closed_fees_usd,
+                        fees_eur=closed_fees_eur,
                         matched_against=lot.id,
                         realized_pnl_eur=close["pnl_eur"],
                         holding_days=close["holding_days"],

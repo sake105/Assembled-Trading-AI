@@ -448,8 +448,12 @@ class CrashPredictionEngine:
                        "sanctions_escalation", "military_escalation"]
         macro_signals = ["yield_curve_inversion", "credit_spread_widening", "monetary_tightening"]
 
+        import math as _math
+
         def cat_avg(keys: list[str]) -> float:
-            vals = [signals[k] for k in keys if k in signals]
+            # Drop NaN values: a NaN sub-signal must not poison the aggregate
+            # (min(nan, 1.0) evaluates to nan → crash_prob>=0.60 silently disarms)
+            vals = [v for k in keys if k in signals for v in [signals[k]] if not _math.isnan(v)]
             return sum(vals) / len(vals) if vals else 0.0
 
         score = (
@@ -458,7 +462,7 @@ class CrashPredictionEngine:
             + CATEGORY_WEIGHTS["geopolitical"] * cat_avg(geo_signals)
             + CATEGORY_WEIGHTS["macro"] * cat_avg(macro_signals)
         )
-        return min(score, 1.0)
+        return min(score, 1.0) if not _math.isnan(score) else 0.0
 
     def _estimate_severity(self, signals: dict[str, float], intel_state: Any) -> float:
         """Estimate expected crash severity (0=mild correction, 1=systemic)."""

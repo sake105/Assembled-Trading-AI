@@ -243,7 +243,12 @@ class BlackLittermanOptimizer:
             )
             if result.success:
                 w_opt = np.maximum(result.x, 0.0)
-                w_opt /= w_opt.sum() if w_opt.sum() > 1e-8 else 1.0
+                if np.any(np.isnan(w_opt)):
+                    fallback_reason = "nan_in_optimizer_result"
+                    logger.warning("[BL] NaN in optimizer result — returning equal weights")
+                    w_opt = w0
+                else:
+                    w_opt /= w_opt.sum() if w_opt.sum() > 1e-8 else 1.0
             else:
                 fallback_reason = f"non_convergence:{result.message}"
                 logger.warning("[BL] Optimization did not converge: %s — returning equal weights (flagged)", result.message)

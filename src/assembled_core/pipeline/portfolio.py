@@ -181,16 +181,12 @@ def simulate_with_costs(
         )
     else:
         # Fallback: use qty and price (for backward compatibility if fill_qty not available)
+        # total_cost_cash already includes spread_cash + slippage_cash + commission_cash,
+        # so do NOT also embed s/im into the price multiplier — that would double-count costs.
         orders["cash_delta"] = np.where(
             orders["sign"] > 0,
-            -(
-                orders["qty"] * orders["price"] * (1.0 + s + im)
-                + orders["total_cost_cash"]
-            ),
-            +(
-                orders["qty"].abs() * orders["price"] * (1.0 - s - im)
-                - orders["total_cost_cash"]
-            ),
+            -(orders["qty"] * orders["price"] + orders["total_cost_cash"]),
+            +(orders["qty"].abs() * orders["price"] - orders["total_cost_cash"]),
         )
 
     # Align order deltas to timeline: when tl is from prices, group by exact timestamp

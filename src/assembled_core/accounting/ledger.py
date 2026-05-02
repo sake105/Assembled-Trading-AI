@@ -458,6 +458,10 @@ def generate_dividend_events(
         if sym not in dividends or qty == 0:
             continue
         div_per_share = dividends[sym]
+        import math as _math
+        if div_per_share is None or (isinstance(div_per_share, float) and _math.isnan(div_per_share)):
+            logger.warning("[LEDGER] NaN/None dividend for %s — skipping", sym)
+            continue
         cash_delta = qty * div_per_share  # long->positive, short->negative
 
         event_id = generate_event_id(
