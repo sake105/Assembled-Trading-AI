@@ -100,8 +100,8 @@ class VVIXTailRiskSignal:
                 hist = yf.Ticker(ticker).history(period="3mo")
                 if not hist.empty:
                     frames[col] = hist["Close"].rename(col)
-            except Exception:
-                pass
+            except Exception as _exc:
+                logger.debug("[tail_risk_vvix] failed to fetch %s: %s", ticker, _exc)
 
         if not frames:
             return pd.DataFrame()

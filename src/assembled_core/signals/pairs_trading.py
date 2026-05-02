@@ -240,8 +240,8 @@ def generate_pairs_signals_from_panel(
                 try:
                     pval = cointegration_score(prices[sym_a].dropna(), prices[sym_b].dropna())
                     scored.append((pval, sym_a, sym_b))
-                except Exception:
-                    pass
+                except Exception as _exc:
+                    logger.debug("[pairs] cointegration_score failed for %s/%s: %s", sym_a, sym_b, _exc)
         scored.sort(key=lambda t: t[0])
         pairs = [
             (a, b) for pval, a, b in scored[:max_pairs]

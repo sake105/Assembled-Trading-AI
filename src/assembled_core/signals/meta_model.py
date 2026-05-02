@@ -465,8 +465,10 @@ def load_meta_model(path: str | pathlib.Path) -> MetaModel:
     if not path.exists():
         raise FileNotFoundError(f"Model file not found: {path}")
 
-    # Load using joblib
-    meta_model = joblib.load(path)
+    try:
+        meta_model = joblib.load(path)
+    except (EOFError, Exception) as exc:
+        raise RuntimeError(f"[meta_model] Failed to load model from {path}: {exc}") from exc
 
     logger.info(f"Loaded meta-model from {path}")
 

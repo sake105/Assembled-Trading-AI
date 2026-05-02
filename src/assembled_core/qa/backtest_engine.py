@@ -812,8 +812,8 @@ def _pb_run_legacy_loop(
                 qty_series = current_positions.set_index("symbol")["qty"]
                 mtm = float((qty_series * px.reindex(qty_series.index).fillna(0.0)).sum())
                 _current_equity = _legacy_cash + mtm
-        except Exception:
-            pass
+        except Exception as _exc:
+            logger.warning("[backtest] MTM equity calc failed at %s: %s", timestamp, _exc)
 
         with timed_step(f"order_generation_{timestamp}", timings, logger):
             orders, updated_positions, targets = _process_rebalancing_timestamp(
@@ -841,8 +841,8 @@ def _pb_run_legacy_loop(
                         _legacy_cash -= _notional
                     else:
                         _legacy_cash += _notional
-        except Exception:
-            pass
+        except Exception as _exc:
+            logger.warning("[backtest] cash accounting failed at %s: %s", timestamp, _exc)
 
         current_positions = updated_positions
         if include_targets and not targets.empty:

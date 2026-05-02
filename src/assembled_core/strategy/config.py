@@ -68,6 +68,8 @@ class StrategyConfig(BaseModel):
             import yaml
             with open(path, encoding="utf-8") as f:
                 data = yaml.safe_load(f)
+        except yaml.YAMLError as exc:
+            raise ValueError(f"[StrategyConfig] Malformed YAML in {path}: {exc}") from exc
         except ImportError:
             import json as _json
             with open(path, encoding="utf-8") as f:
