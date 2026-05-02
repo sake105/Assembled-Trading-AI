@@ -227,6 +227,7 @@ def hrp_vs_equal_weight_comparison(
         port_ret = (returns.values @ weights_arr)
         cumret = np.cumprod(1 + port_ret)
         peak = np.maximum.accumulate(cumret)
+        peak = np.maximum(peak, 1e-10)
         dd = (cumret - peak) / peak
 
         ann_ret = float(np.mean(port_ret)) * 252

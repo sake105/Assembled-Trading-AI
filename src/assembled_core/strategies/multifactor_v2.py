@@ -181,7 +181,7 @@ def _detect_regime(df: pd.DataFrame, cfg: dict[str, Any]) -> str:
             else:
                 _mkt = df.set_index("timestamp")["close"]
             _mkt = _mkt.sort_index().dropna()
-            _log_ret = np.log(_mkt / _mkt.shift(1)).dropna()
+            _log_ret = np.log((_mkt / _mkt.shift(1)).clip(lower=1e-10)).dropna()
             _vol_20d = _log_ret.rolling(20).std().dropna()
             _log_ret = _log_ret.loc[_vol_20d.index]
             if len(_log_ret) >= 20:
