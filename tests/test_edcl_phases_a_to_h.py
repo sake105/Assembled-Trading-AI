@@ -227,7 +227,10 @@ class TestTriggerBasket:
 # Phase C — conviction_engine
 # ---------------------------------------------------------------------------
 
-from src.assembled_core.intel.conviction_engine import compute_conviction_score
+from src.assembled_core.intel.conviction_engine import (
+    compute_conviction_score,
+    compute_edcl_position_size,
+)
 
 
 class TestConvictionEngine:
@@ -254,6 +257,51 @@ class TestConvictionEngine:
         single = compute_conviction_score(TriggerBasket(conviction=0.6, n_events=1, n_high_conviction=0))
         multi = compute_conviction_score(TriggerBasket(conviction=0.6, n_events=5, n_high_conviction=3))
         assert multi >= single
+
+
+class TestEdclPositionSize:
+    def _policy(self, **kwargs) -> dict:
+        base = {
+            "edcl_conviction_overlay": {
+                "conviction_threshold": 0.70,
+                "edcl_sizing": {
+                    "max_edcl_weight": 0.30,
+                    "target_coverage": 0.85,
+                }
+            }
+        }
+        base["edcl_conviction_overlay"].update(kwargs)
+        return base
+
+    def test_returns_dict_with_required_keys(self):
+        result = compute_edcl_position_size(0.85, policy=self._policy())
+        assert set(result.keys()) >= {"max_weight", "stop_loss_pct", "size_factor", "conformal_factor"}
+
+    def test_below_threshold_returns_zero_weight(self):
+        result = compute_edcl_position_size(0.50, policy=self._policy())
+        assert result["max_weight"] == 0.0
+        assert result["size_factor"] == 0.0
+
+    def test_at_max_conviction_returns_base_max(self):
+        # conviction=1.0, no conformal model → conformal_factor=1.0, scale=1.0
+        result = compute_edcl_position_size(1.0, policy=self._policy())
+        assert result["max_weight"] == pytest.approx(0.30)
+
+    def test_mid_conviction_returns_half_base(self):
+        # conviction=0.85 is midpoint of [0.70, 1.0] → scale=0.5
+        result = compute_edcl_position_size(0.85, policy=self._policy())
+        assert result["max_weight"] == pytest.approx(0.30 * 0.5, abs=0.01)
+
+    def test_no_policy_returns_zero(self):
+        result = compute_edcl_position_size(0.0, policy=None)
+        assert result["max_weight"] == 0.0
+
+    def test_all_values_in_valid_range(self):
+        result = compute_edcl_position_size(0.9, policy=self._policy())
+        assert 0.0 <= result["max_weight"] <= 0.30
+        assert 0.0 <= result["stop_loss_pct"] <= 1.0
+        assert 0.0 <= result["size_factor"] <= 1.0
+        assert 0.0 <= result["conformal_factor"] <= 1.0
 
 
 # ---------------------------------------------------------------------------
@@ -344,3 +392,169 @@ class TestTripleConfirmation:
         # conviction == threshold is NOT below threshold (< not <=), so it fires
         # In crisis regime with IV spike → 2.0
         assert composite_edcl_mult(0.70, "crisis", 3.0) == 2.0
+
+
+# ---------------------------------------------------------------------------
+# Phase G — Tail-Hunting
+# ---------------------------------------------------------------------------
+
+from src.assembled_core.intel.tail_hunting import (
+    TailHuntSignal,
+    load_tail_plans,
+    match_tail_plans,
+    tail_signals_to_targets,
+)
+from src.assembled_core.intel.models import TriggerType
+
+
+class TestTailHuntSignal:
+    def _sig(self, direction="long") -> TailHuntSignal:
+        return TailHuntSignal(
+            event_name="hormuz_test",
+            direction=direction,
+            primary_assets=["USO", "XLE"],
+            hedge_assets=["IYT"],
+            max_position_size=0.30,
+            activation_conviction=0.75,
+            current_conviction=0.875,  # midpoint → scale=0.5 → size=0.15
+        )
+
+    def test_size_fraction_scales_linearly(self):
+        sig = self._sig()
+        # (0.875 - 0.75) / (1.0 - 0.75) = 0.5  → 0.30 * 0.5 = 0.15
+        assert abs(sig.size_fraction() - 0.15) < 1e-6
+
+    def test_size_fraction_at_activation_threshold_is_zero(self):
+        sig = TailHuntSignal(
+            event_name="t", direction="long", primary_assets=["A"],
+            hedge_assets=[], max_position_size=0.20,
+            activation_conviction=0.70, current_conviction=0.70,
+        )
+        assert sig.size_fraction() == pytest.approx(0.0, abs=1e-6)
+
+    def test_size_fraction_caps_at_max_position_size(self):
+        sig = TailHuntSignal(
+            event_name="t", direction="long", primary_assets=["A"],
+            hedge_assets=[], max_position_size=0.20,
+            activation_conviction=0.70, current_conviction=1.0,
+        )
+        assert sig.size_fraction() == pytest.approx(0.20, abs=1e-6)
+
+    def test_as_dict_has_required_keys(self):
+        d = self._sig().as_dict()
+        for key in ("event_name", "direction", "primary_assets", "size_fraction",
+                    "max_position_size", "matched_triggers"):
+            assert key in d
+
+
+class TestLoadTailPlans:
+    def test_default_config_loads_six_plans(self):
+        plans = load_tail_plans()
+        assert len(plans) == 6
+
+    def test_all_plans_disabled_by_default(self):
+        plans = load_tail_plans()
+        assert all(not v.get("enabled", False) for v in plans.values())
+
+    def test_missing_file_returns_empty(self, tmp_path):
+        plans = load_tail_plans(tmp_path / "nonexistent.yaml")
+        assert plans == {}
+
+
+class TestMatchTailPlans:
+    def _basket(self) -> TriggerBasket:
+        return TriggerBasket(
+            fired_triggers=[
+                (TriggerType.CHOKEPOINT_STRESS, 0.85),
+                (TriggerType.ENERGY_SUPPLY_RISK, 0.80),
+            ],
+            affected_sectors={"energy": 0.85},
+            affected_assets=["XLE", "USO"],
+            conviction=0.85,
+            n_events=2,
+            n_high_conviction=2,
+        )
+
+    def test_disabled_plans_not_matched(self):
+        # All plans disabled by default in tail_hunting_v1.yaml
+        signals = match_tail_plans(self._basket(), 0.90)
+        assert signals == []
+
+    def test_no_basket_returns_empty(self):
+        assert match_tail_plans(None, 0.90) == []
+
+    def test_inactive_basket_returns_empty(self):
+        empty = TriggerBasket()
+        assert match_tail_plans(empty, 0.90) == []
+
+    def test_below_conviction_threshold_not_matched(self, tmp_path):
+        import yaml
+        config = {"tail_events": {"test_event": {
+            "enabled": True,
+            "triggers": ["CHOKEPOINT_STRESS"],
+            "primary_assets": ["USO"],
+            "hedge_assets": [],
+            "max_position_size": 0.20,
+            "activation_conviction": 0.80,
+            "direction": "long",
+        }}}
+        cfg_path = tmp_path / "tail.yaml"
+        cfg_path.write_text(yaml.dump(config))
+        signals = match_tail_plans(self._basket(), conviction=0.70, config_path=cfg_path)
+        assert signals == []
+
+    def test_enabled_plan_activates_on_match(self, tmp_path):
+        import yaml
+        config = {"tail_events": {"hormuz_test": {
+            "enabled": True,
+            "triggers": ["CHOKEPOINT_STRESS"],
+            "primary_assets": ["USO", "XLE"],
+            "hedge_assets": ["IYT"],
+            "max_position_size": 0.30,
+            "activation_conviction": 0.75,
+            "direction": "long",
+            "description": "test",
+        }}}
+        cfg_path = tmp_path / "tail.yaml"
+        cfg_path.write_text(yaml.dump(config))
+        signals = match_tail_plans(self._basket(), conviction=0.85, config_path=cfg_path)
+        assert len(signals) == 1
+        assert signals[0].event_name == "hormuz_test"
+        assert signals[0].direction == "long"
+        assert "CHOKEPOINT_STRESS" in signals[0].matched_triggers
+
+
+class TestTailSignalsToTargets:
+    def _sig(self) -> TailHuntSignal:
+        return TailHuntSignal(
+            event_name="test", direction="long",
+            primary_assets=["USO", "XLE"], hedge_assets=["IYT"],
+            max_position_size=0.30, activation_conviction=0.75, current_conviction=1.0,
+        )
+
+    def test_long_adds_primary_subtracts_hedge(self):
+        targets = tail_signals_to_targets([self._sig()])
+        assert targets["USO"] > 0
+        assert targets["XLE"] > 0
+        assert targets["IYT"] < 0
+
+    def test_short_subtracts_primary_adds_hedge(self):
+        sig = TailHuntSignal(
+            event_name="test", direction="short",
+            primary_assets=["XLF"], hedge_assets=["GLD"],
+            max_position_size=0.20, activation_conviction=0.70, current_conviction=1.0,
+        )
+        targets = tail_signals_to_targets([sig])
+        assert targets["XLF"] < 0
+        assert targets["GLD"] > 0
+
+    def test_overlays_existing_targets(self):
+        existing = {"AAPL": 0.10, "USO": 0.05}
+        targets = tail_signals_to_targets([self._sig()], existing_targets=existing)
+        assert targets["AAPL"] == pytest.approx(0.10)
+        assert targets["USO"] > 0.05  # added to existing
+
+    def test_empty_signals_returns_existing_unchanged(self):
+        existing = {"AAPL": 0.20}
+        targets = tail_signals_to_targets([], existing_targets=existing)
+        assert targets == existing

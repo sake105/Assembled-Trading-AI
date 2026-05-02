@@ -388,14 +388,42 @@ def _sp_compute_final_multiplier(
     except Exception as e:
         log.debug("hmm_regime_overlay skipped: %s", e)
 
-    # EDCL conviction overlay — separate upscaling term, live/paper only
+    # EDCL conviction overlay — Phase H triple-confirmation (EDCL + regime + IV skew)
     edcl_multiplier = 1.0
     try:
-        from src.assembled_core.risk.georisk_overlay import compute_edcl_conviction_multiplier
-        edcl_multiplier = compute_edcl_conviction_multiplier(ctx, policy)
-        if edcl_multiplier != 1.0:
-            meta["edcl_conviction"] = {"multiplier": edcl_multiplier}
-            log.info("[EDCL] conviction multiplier=%.3f", edcl_multiplier)
+        edcl_cfg = (policy or {}).get("edcl_conviction_overlay") or {}
+        if edcl_cfg.get("enabled", False):
+            _mode = getattr(ctx, "mode", "backtest")
+            if _mode in ("live", "paper") or edcl_cfg.get("allow_in_backtest", False):
+                _edcl_state = getattr(ctx, "edcl_state", None) or {}
+                _edcl_conviction = float(_edcl_state.get("conviction", 0.0))
+                # Derive composite regime from crisis_state_intel
+                _crisis_intel = getattr(ctx, "crisis_state_intel", None) or {}
+                _crisis_mode = str(_crisis_intel.get("mode", "NORMAL")).upper()
+                _composite_regime = (
+                    "crisis" if _crisis_mode == "CRISIS"
+                    else "elevated" if _crisis_mode == "ELEVATED"
+                    else "normal"
+                )
+                # IV skew Z-score — optional field, defaults to 0.0 (no IV data)
+                _iv_skew_z = float(getattr(ctx, "options_iv_skew_z", 0.0) or 0.0)
+                from src.assembled_core.signals.composite_score import (
+                    compute_edcl_conviction_multiplier as _phase_h_mult,
+                )
+                edcl_multiplier = _phase_h_mult(
+                    _edcl_conviction, _composite_regime, _iv_skew_z, policy
+                )
+                if edcl_multiplier != 1.0:
+                    meta["edcl_conviction"] = {
+                        "multiplier": edcl_multiplier,
+                        "conviction": _edcl_conviction,
+                        "regime": _composite_regime,
+                        "iv_skew_z": _iv_skew_z,
+                    }
+                    log.info(
+                        "[EDCL-H] triple_confirm: conviction=%.3f regime=%s iv_z=%.2f → mult=%.3f",
+                        _edcl_conviction, _composite_regime, _iv_skew_z, edcl_multiplier,
+                    )
     except Exception as e:
         log.debug("edcl_conviction_overlay skipped: %s", e)
 

@@ -310,6 +310,146 @@ def _load_intel(
     except Exception as e:
         log.warning("disclosures_confirm apply failed: %s", e)
 
+    # Options IV skew Z-score — populate ctx.options_iv_skew_z for Phase H triple-confirmation.
+    # Uses vix_zscore_252d (Z-score of VIX vs 252d window) as proxy for tail-risk pricing.
+    # Tries panel first (pre-computed), then CBOESource direct fetch.
+    try:
+        _vix_z: float = 0.0
+        _prices = getattr(ctx, "prices_filtered", None) or getattr(ctx, "prices", None)
+        if _prices is not None and "vix_zscore_252d" in _prices.columns:
+            _vix_z_series = _prices["vix_zscore_252d"].dropna()
+            if not _vix_z_series.empty:
+                _vix_z = float(_vix_z_series.iloc[-1])
+        if _vix_z == 0.0:
+            from src.assembled_core.data.sources.cboe_source import CBOESource
+            from src.assembled_core.features.options_derived_signals import (
+                build_options_regime_factors,
+            )
+            _cboe_df = CBOESource().fetch_options_regime_data()
+            if not _cboe_df.empty:
+                _opts = build_options_regime_factors(_cboe_df)
+                if not _opts.empty:
+                    _vix_z = float(_opts.iloc[-1].get("vix_zscore_252d", 0.0) or 0.0)
+        ctx.options_iv_skew_z = _vix_z
+        if abs(_vix_z) > 1.0:
+            log.info("[OPTIONS-IV] vix_z=%.2f → options_iv_skew_z populated", _vix_z)
+    except Exception as _e:
+        log.debug("options_iv_skew_z population skipped: %s", _e)
+
+    # EDCL — Event-Driven Conviction Layer basket computation
+    # Runs even when edcl_conviction_overlay.enabled=false so that ctx.edcl_state
+    # is always populated for observability. Multiplier only fires when enabled.
+    try:
+        _edcl_cfg = (policy.get("edcl_conviction_overlay") or {})
+        # Skip entirely in backtest mode unless allow_in_backtest is set
+        _edcl_mode = getattr(ctx, "mode", "backtest")
+        _allow_bt = _edcl_cfg.get("allow_in_backtest", False)
+        if _edcl_mode not in ("backtest", "bt") or _allow_bt:
+            from src.assembled_core.intel.trigger_basket import (
+                TriggerBasket,
+                build_trigger_basket,
+            )
+            from src.assembled_core.intel.conviction_engine import compute_conviction_score
+            from src.assembled_core.intel.models import TriggerType
+
+            _basket: TriggerBasket | None = None
+
+            # Path 1: full keyword scoring from raw NewsEvent objects
+            _raw = getattr(ctx, "raw_news_events", None)
+            if _raw:
+                _basket = build_trigger_basket(_raw)
+                _source = "raw_news_events"
+
+            # Path 2: construct TriggerBasket directly from active_triggers in ctx.news_geo
+            if _basket is None:
+                _geo = ctx.news_geo or {}
+                _geo_conf = float(_geo.get("geo_confidence", 0.0))
+                _geo_tags: set[str] = set(_geo.get("geo_tags", []))
+                _active = _geo.get("active_triggers", [])
+                _fired: list[tuple[TriggerType, float]] = []
+                for _name in _active:
+                    try:
+                        _fired.append((TriggerType(_name), _geo_conf))
+                    except ValueError:
+                        pass
+                # Derive sector/asset maps from fired triggers
+                if _fired:
+                    from src.assembled_core.intel.trigger_basket import (
+                        _TRIGGER_SECTOR_MAP,
+                    )
+                    from src.assembled_core.intel.news_classifier import (
+                        COUNTRY_TO_ASSETS,
+                        SECTOR_TO_ETFS,
+                    )
+                    _sector_scores: dict[str, float] = {}
+                    for _tt, _sc in _fired:
+                        for _sec in _TRIGGER_SECTOR_MAP.get(_tt, []):
+                            _sector_scores[_sec] = max(_sector_scores.get(_sec, 0.0), _sc)
+                    _seen: set[str] = set()
+                    _assets: list[str] = []
+                    for _sec in _sector_scores:
+                        for _a in SECTOR_TO_ETFS.get(_sec, []):
+                            if _a not in _seen:
+                                _assets.append(_a)
+                                _seen.add(_a)
+                    for _iso in _geo_tags:
+                        for _a in COUNTRY_TO_ASSETS.get(_iso.upper(), []):
+                            if _a not in _seen:
+                                _assets.append(_a)
+                                _seen.add(_a)
+                    _n_high = sum(1 for _, _s in _fired if _s >= 0.6)
+                    _basket = TriggerBasket(
+                        fired_triggers=_fired,
+                        affected_sectors=_sector_scores,
+                        affected_assets=_assets,
+                        geo_tags=_geo_tags,
+                        conviction=_geo_conf,
+                        n_events=max(len(_fired), 1),
+                        n_high_conviction=_n_high,
+                    )
+                    _source = f"active_triggers({len(_fired)})"
+                else:
+                    _basket = TriggerBasket()
+                    _source = "no_triggers"
+
+            _conviction = compute_conviction_score(
+                _basket,
+                as_of=getattr(ctx, "as_of", None),
+                policy=policy,
+            )
+            ctx.edcl_state = {
+                "conviction": _conviction,
+                "source": _source,
+                "basket": _basket.as_dict(),
+            }
+            if _conviction > 0.0:
+                log.info(
+                    "[EDCL] conviction=%.3f source=%s triggers=%d sectors=%s",
+                    _conviction,
+                    _source,
+                    len(_basket.fired_triggers),
+                    list(_basket.affected_sectors.keys()),
+                )
+    except Exception as _e:
+        log.debug("edcl_basket computation skipped: %s", _e)
+
+    # EDCL Phase G — Tail-Hunting: match active basket against pre-positioned plans
+    try:
+        _edcl_state = getattr(ctx, "edcl_state", None) or {}
+        _conviction_g = float(_edcl_state.get("conviction", 0.0))
+        if _conviction_g > 0.0 and _basket is not None:
+            from src.assembled_core.intel.tail_hunting import match_tail_plans
+            _tail_signals = match_tail_plans(_basket, _conviction_g)
+            if _tail_signals:
+                _edcl_state["tail_signals"] = [s.as_dict() for s in _tail_signals]
+                ctx.edcl_state = _edcl_state
+                log.info(
+                    "[TAIL-G] %d plan(s) activated: %s",
+                    len(_tail_signals),
+                    [s.event_name for s in _tail_signals],
+                )
+    except Exception as _e:
+        log.debug("tail_hunting Phase G skipped: %s", _e)
 
 
 # ---------------------------------------------------------------------------

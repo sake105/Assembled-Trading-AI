@@ -222,6 +222,17 @@ class TradingContext:
         False  # BENCH-1: when True, skip intel loading (paper_runner sets simulated intel)
     )
 
+    # EDCL — Event-Driven Conviction Layer (Phase A-H)
+    # edcl_state: populated by _load_intel() from active_triggers + geo_confidence.
+    # Consumed by _sp_compute_final_multiplier via compute_edcl_conviction_multiplier().
+    edcl_state: dict[str, Any] | None = None
+    # raw_news_events: optional list[NewsEvent] supplied by intel pipeline for full
+    # keyword-based basket scoring. Falls back to active_triggers when None.
+    raw_news_events: list | None = None
+    # options_iv_skew_z: Options IV skew Z-score for Phase H triple-confirmation.
+    # Populated by options_iv pipeline when available; 0.0 means no IV data.
+    options_iv_skew_z: float = 0.0
+
     # Outputs
     output_dir: Path = field(default_factory=lambda: Path("output"))
     output_format: Literal["safe_csv", "equity_curve", "state", "none"] = "safe_csv"

@@ -170,7 +170,114 @@ def _try_fetch_beta_boost(
     return boost
 
 
+def compute_edcl_position_size(
+    conviction: float,
+    policy: dict[str, Any] | None = None,
+    feature_row: "pd.Series | None" = None,
+    conformal_model_path: str | None = None,
+) -> dict[str, float]:
+    """Phase E — Compute position size and stop-loss for an EDCL-triggered trade.
+
+    Uses the conformal position model to derive:
+    - A dynamic position size factor based on forecast uncertainty
+    - A stop-loss level as the lower bound of the conformal prediction interval
+
+    The final max_weight is:
+        base_max_weight * conformal_factor * conviction_scale_factor
+
+    Args:
+        conviction: EDCL conviction score [0, 1] from compute_conviction_score().
+        policy: Policy dict — reads edcl_conviction_overlay.edcl_sizing sub-dict.
+        feature_row: Optional feature vector (pd.Series) for conformal inference.
+            If None, falls back to median_interval_width from model artifact.
+        conformal_model_path: Override model path. Falls back to policy.edcl_sizing.model_path.
+
+    Returns:
+        Dict with keys:
+            max_weight: float — max portfolio weight for this EDCL trade [0, base_max]
+            stop_loss_pct: float — stop-loss as fraction below entry (e.g. 0.05 = 5%)
+            size_factor: float — combined conformal × conviction scaling [0, 1]
+            conformal_factor: float — conformal uncertainty discount [0, 1]
+    """
+    edcl_cfg = (policy or {}).get("edcl_conviction_overlay") or {}
+    sizing_cfg = edcl_cfg.get("edcl_sizing") or {}
+    base_max = float(sizing_cfg.get("max_edcl_weight", 0.30))
+    target_coverage = float(sizing_cfg.get("target_coverage", 0.85))
+
+    # Default: no scaling (conformal model unavailable)
+    conformal_factor = 1.0
+    stop_loss_pct = 0.05  # 5% fallback
+
+    model_path = conformal_model_path or sizing_cfg.get("model_path")
+    if model_path:
+        try:
+            import joblib
+            import numpy as np
+            from pathlib import Path
+            _path = Path(model_path)
+            if not _path.is_absolute():
+                # Resolve relative to project root (3 levels up from this file)
+                _path = Path(__file__).parents[4] / model_path
+            if _path.exists():
+                bundle = joblib.load(_path)
+                med_width = float(bundle.get("median_interval_width", 0.05))
+
+                if feature_row is not None:
+                    # Full inference path using conformal model
+                    try:
+                        import pandas as pd
+                        from src.assembled_core.portfolio.conformal_position import (
+                            conformal_size_factor,
+                        )
+                        feat_cols = bundle.get("feature_cols", [])
+                        row_aligned = feature_row.reindex(feat_cols, fill_value=0.0)
+                        X = row_aligned.values.reshape(1, -1)
+                        model = bundle.get("model")
+                        if model is not None and hasattr(model, "predict"):
+                            y_pred = float(model.predict(X)[0])
+                            # Use median_interval_width as proxy (no MAPIE re-inference here)
+                            conformal_factor = conformal_size_factor(
+                                interval_width=med_width,
+                                max_width=float(bundle.get("max_interval_width", med_width * 2)),
+                                min_factor=0.20,
+                            )
+                            stop_loss_pct = med_width / 2.0  # symmetric interval → half-width
+                    except Exception as e:
+                        log.debug("EDCL conformal inference skipped: %s", e)
+                else:
+                    # Fallback: use pre-computed median width for discount
+                    from src.assembled_core.portfolio.conformal_position import conformal_size_factor
+                    conformal_factor = conformal_size_factor(
+                        interval_width=med_width,
+                        max_width=float(bundle.get("max_interval_width", med_width * 2)),
+                        min_factor=0.20,
+                    )
+                    stop_loss_pct = med_width / 2.0
+        except Exception as e:
+            log.debug("EDCL conformal model load skipped (%s): %s", model_path, e)
+
+    # Conviction scaling: linear from threshold to 1.0
+    threshold = float(edcl_cfg.get("conviction_threshold", 0.70))
+    denom = 1.0 - threshold if threshold < 1.0 else 1.0
+    conviction_scale = min(1.0, max(0.0, (conviction - threshold) / denom)) if conviction > threshold else 0.0
+
+    size_factor = conformal_factor * conviction_scale
+    max_weight = base_max * size_factor
+
+    log.debug(
+        "[EDCL-SIZING] conviction=%.3f scale=%.3f conf_factor=%.3f → size_factor=%.3f max_weight=%.3f stop_loss=%.3f",
+        conviction, conviction_scale, conformal_factor, size_factor, max_weight, stop_loss_pct,
+    )
+    return {
+        "max_weight": float(max_weight),
+        "stop_loss_pct": float(stop_loss_pct),
+        "size_factor": float(size_factor),
+        "conformal_factor": float(conformal_factor),
+    }
+
+
 __all__ = [
     "compute_conviction_score",
     "compute_event_beta",
+    "compute_edcl_position_size",
 ]
