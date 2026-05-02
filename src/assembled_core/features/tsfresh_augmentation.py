@@ -344,8 +344,10 @@ def _rolling_log_ret_stat(arr: np.ndarray, window: int, stat: str) -> np.ndarray
     for i in range(window - 1, len(arr)):
         w = arr[i - window + 1: i + 1]
         ret = np.diff(np.log(np.clip(w, 1e-9, None)))
-        if len(ret) > 0:
-            out[i] = float(ret.mean() if stat == "mean" else ret.std(ddof=1))
+        if stat == "mean" and len(ret) > 0:
+            out[i] = float(ret.mean())
+        elif stat == "std" and len(ret) > 1:
+            out[i] = float(ret.std(ddof=1))
     return out
 
 

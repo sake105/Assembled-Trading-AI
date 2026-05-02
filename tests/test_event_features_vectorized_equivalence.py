@@ -35,7 +35,7 @@ def _generate_synthetic_events(
 
     # Generate random event dates
     date_range = pd.date_range(start_date, end_date, freq="D", tz="UTC")
-    event_dates = rng.choice(date_range, size=n_events, replace=True)
+    event_dates = pd.DatetimeIndex(rng.choice(date_range, size=n_events, replace=True))
 
     # Generate disclosure dates (T+0 to T+5 days after event)
     disclosure_dates = event_dates + pd.to_timedelta(
