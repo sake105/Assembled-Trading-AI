@@ -201,7 +201,7 @@ def volume_profile_score(close: pd.Series, volume: pd.Series) -> float:
         dist_pct = (float(close.iloc[-1]) - poc_price) / max(poc_price, 1e-6)
         mr_score = float(-np.tanh(dist_pct * 10.0))
 
-        vwap = (close * volume).cumsum() / volume.cumsum()
+        vwap = (close * volume).cumsum() / volume.cumsum().clip(lower=1e-10)
         avwap_dev = (float(close.iloc[-1]) - float(vwap.iloc[-1])) / max(float(vwap.iloc[-1]), 1e-6)
         avwap_score = float(-np.tanh(avwap_dev * 10.0))
 
