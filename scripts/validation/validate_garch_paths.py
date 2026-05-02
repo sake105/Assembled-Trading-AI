@@ -138,8 +138,8 @@ r_real = spx_returns.values
 sig_real = pd.Series(r_real).rolling(LOOKBACK).mean().shift(1)
 sig_binary_real = (sig_real > 0).astype(float)
 strat_real = r_real * sig_binary_real.values
-real_sharpe = float(strat_real.mean() / strat_real.std() * np.sqrt(252))
-real_buyhold_sharpe = float(r_real.mean() / r_real.std() * np.sqrt(252))
+real_sharpe = float(strat_real.mean() / strat_real.std() * np.sqrt(252)) if strat_real.std() > 0 else 0.0
+real_buyhold_sharpe = float(r_real.mean() / r_real.std() * np.sqrt(252)) if r_real.std() > 0 else 0.0
 
 print(f"    Real SPX strategy Sharpe:    {real_sharpe:.3f}")
 print(f"    Real SPX buy-hold Sharpe:    {real_buyhold_sharpe:.3f}")

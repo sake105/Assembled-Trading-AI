@@ -124,11 +124,11 @@ def reconcile_ledger_vs_broker(
         broker_positions_df: Broker positions DataFrame with columns: symbol, qty
             (may have additional columns)
         broker_cash: Broker cash balance (float)
-        cash_tol: Cash tolerance (default: 1e-6)
+        cash_tol: Cash tolerance (default: 1e-8)
             Differences <= cash_tol are treated as zero
-        qty_tol: Quantity tolerance (default: 1e-8)
+        qty_tol: Quantity tolerance (default: 1e-6)
             Differences <= qty_tol are treated as zero
-        fail_fast: If True, raise ValueError on mismatch (default: False)
+        fail_fast: If True, raise ValueError on mismatch (default: True)
             If False, return reconciliation report with ok=False
 
     Returns:
