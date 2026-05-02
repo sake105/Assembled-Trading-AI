@@ -251,8 +251,8 @@ def allocate_by_regime_with_strategy_weights(
             if result.weights:
                 # Use Sharpe-proportional weights as the equity bucket weights
                 scaled_equity = dict(result.weights)
-    except Exception:
-        pass
+    except Exception as _exc:
+        _log.debug("[allocate_by_regime_with_strategy_weights] regime allocator failed: %s", _exc)
 
     return allocate_by_regime(
         regime=regime,

@@ -229,8 +229,8 @@ def build_features(
                     try:
                         _bc = compute_behavioral_composite(_bp, _bv, _br)
                         _beh_scores[str(_sym)] = float(_bc.iloc[-1]) if len(_bc) > 0 else 0.0
-                    except Exception:
-                        pass
+                    except Exception as _exc:
+                        logger.debug("[behavioral_composite] %s skipped: %s", _sym, _exc)
                 if _beh_scores:
                     pwf = pwf.copy()
                     pwf["behavioral_composite"] = pwf["symbol"].map(_beh_scores)

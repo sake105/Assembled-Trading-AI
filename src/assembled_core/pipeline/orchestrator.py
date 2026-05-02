@@ -836,8 +836,8 @@ def _eo_step_qa(
                 orders_df = load_orders(freq, output_dir=base, strict=False)
                 if orders_df.empty:
                     orders_df = None
-            except Exception:
-                pass
+            except Exception as _exc:
+                logger.debug("[orchestrator] load_orders failed for %s: %s", freq, _exc)
 
             if equity_df is not None and not equity_df.empty:
                 qa_metrics = compute_all_metrics(

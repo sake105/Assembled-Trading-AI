@@ -366,8 +366,8 @@ def _sp_compute_final_multiplier(
                         _full_mkt_ret = _HMM_MKT_RET_CACHE[_panel_key]
                         _as_of = pd.Timestamp(getattr(ctx, "as_of", _full_mkt_ret.index.max())).tz_localize(None) if getattr(ctx, "as_of", None) else _full_mkt_ret.index.max()
                         _mkt_ret = _full_mkt_ret[_full_mkt_ret.index <= _as_of].iloc[-60:]
-                    except Exception:
-                        pass
+                    except Exception as _exc:
+                        log.debug("[HMM-REGIME] market-return panel load failed: %s", _exc)
                 # Fall back to ctx.prices if panel load failed
                 if _mkt_ret is None and _prices_src is not None:
                     if "close" in _prices_src.columns and "symbol" in _prices_src.columns and "timestamp" in _prices_src.columns:

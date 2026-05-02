@@ -189,8 +189,8 @@ def _detect_regime(df: pd.DataFrame, cfg: dict[str, Any]) -> str:
                 _regimes = _hmm.predict_regime(_feat)
                 if len(_regimes) > 0:
                     return str(_regimes.iloc[-1])
-    except Exception:
-        pass
+    except Exception as _exc:
+        logger.debug("[multifactor_v2] HMM regime prediction failed: %s", _exc)
 
     try:
         from src.assembled_core.risk.regime_models import build_regime_state
@@ -199,8 +199,8 @@ def _detect_regime(df: pd.DataFrame, cfg: dict[str, Any]) -> str:
         if regime_df is not None and not regime_df.empty:
             label = str(regime_df.iloc[-1].get("regime_label", "neutral")).lower()
             return label
-    except Exception:
-        pass
+    except Exception as _exc:
+        logger.debug("[multifactor_v2] build_regime_state failed: %s", _exc)
 
     # Fallback: breadth-based
     breadth = _compute_breadth_score(df)

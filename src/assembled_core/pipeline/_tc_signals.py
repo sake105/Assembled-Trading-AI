@@ -675,8 +675,8 @@ def _compute_news_triggers(
             if _pd2.notna(max_t):
                 burst_cutoff = max_t - _pd2.Timedelta(minutes=burst_window_minutes)
                 deduped["trigger_score"] = deduped["trigger_score"] + (times >= burst_cutoff).astype(float) * 0.2
-        except Exception:
-            pass
+        except Exception as _exc:
+            logger.debug("[trigger_score_burst] failed: %s", _exc)
 
     keep_cols = [c for c in (["symbol"] if sym_col else []) + ["trigger_score", "cluster_id", "dedup_kept"] if c in deduped.columns]
     return deduped[keep_cols].reset_index(drop=True)
