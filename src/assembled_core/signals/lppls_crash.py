@@ -62,7 +62,7 @@ class LPPLSCrashDetector:
         from lppls import lppls as lppls_model  # noqa: PLC0415
 
         window = prices[-self.fit_window:]
-        log_p = np.log(window)
+        log_p = np.log(np.clip(window, 1e-9, None))
         t = np.arange(len(log_p))
 
         model = lppls_model.LPPLS(observations=np.array([t, log_p]))
