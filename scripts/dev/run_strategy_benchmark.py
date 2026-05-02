@@ -327,7 +327,7 @@ def _enhance_metrics_from_equity(run_dir: Path, freq: str, row: dict) -> dict:
         eq = eq.set_index("timestamp").sort_index()
         eq = eq["equity"].astype(float)
         # Monthly returns
-        monthly = eq.resample("ME").last().pct_change().dropna()
+        monthly = eq.resample("ME").last().pct_change(fill_method=None).dropna()
         if len(monthly) > 0:
             row["best_month_pct"] = round(float(monthly.max() * 100), 4)
             row["worst_month_pct"] = round(float(monthly.min() * 100), 4)
@@ -375,7 +375,7 @@ def _extend_metrics_from_equity_and_trades(run_dir: Path, freq: str, row: dict) 
         eq["timestamp"] = pd.to_datetime(eq["timestamp"], utc=True)
         eq = eq.set_index("timestamp").sort_index()
         eq = eq["equity"].astype(float)
-        ret = eq.pct_change().dropna()
+        ret = eq.pct_change(fill_method=None).dropna()
         if len(ret) < 2:
             return row
         total_days = len(ret)
@@ -867,7 +867,7 @@ def _load_equity_series(run_dir: Path, freq: str):
         eq["timestamp"] = pd.to_datetime(eq["timestamp"], utc=True)
         eq = eq.set_index("timestamp").sort_index()
         eq = eq["equity"].astype(float)
-        ret = eq.pct_change().dropna()
+        ret = eq.pct_change(fill_method=None).dropna()
         return eq, ret
     except Exception:
         return None, None

@@ -47,7 +47,7 @@ def load_prices(path: Path, market_ticker: str) -> tuple[pd.DataFrame, pd.Series
     if "date" in prices.columns:
         prices = prices.set_index("date")
     prices.index = pd.to_datetime(prices.index)
-    returns_df = prices.pct_change().dropna(how="all")
+    returns_df = prices.pct_change(fill_method=None).dropna(how="all")
     if market_ticker not in returns_df.columns:
         raise ValueError(f"Market ticker {market_ticker!r} not found in prices file")
     market_returns = returns_df[market_ticker]

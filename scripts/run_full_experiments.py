@@ -426,10 +426,10 @@ def main():
         (spy["timestamp"] >= prices["timestamp"].min())
         & (spy["timestamp"] <= prices["timestamp"].max())
     ].sort_values("timestamp")
-    spy_returns = spy["close"].pct_change().dropna().values
+    spy_returns = spy["close"].pct_change(fill_method=None).dropna().values
 
     pivot = prices.pivot(index="timestamp", columns="symbol", values="close")
-    cov_matrix = pivot.pct_change().dropna().cov() * 252
+    cov_matrix = pivot.pct_change(fill_method=None).dropna().cov() * 252
 
     try:
         from assembled_core.data.cost_model_policy import get_per_symbol_costs

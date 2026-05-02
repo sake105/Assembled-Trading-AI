@@ -1438,7 +1438,7 @@ def maybe_load_benchmark_returns(args: argparse.Namespace) -> pd.Series | None:
                     )
                 else:
                     prices = pd.Series(df["close"].values)
-                returns = prices.pct_change().dropna()
+                returns = prices.pct_change(fill_method=None).dropna()
                 logger.debug(f"Computed benchmark returns from {args.benchmark_file}")
                 return returns
             else:
@@ -1749,7 +1749,7 @@ def check_benchmark_correlation(
         if "timestamp" in equity_df.columns:
             equity_series.index = pd.to_datetime(equity_df["timestamp"], utc=True)
 
-        equity_returns = equity_series.pct_change().dropna()
+        equity_returns = equity_series.pct_change(fill_method=None).dropna()
 
         # Align equity returns with benchmark returns
         common_index = equity_returns.index.intersection(benchmark_returns.index)

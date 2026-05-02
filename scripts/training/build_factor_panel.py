@@ -364,7 +364,7 @@ def _add_forward_returns(panel: pd.DataFrame, horizons: list[int]) -> pd.DataFra
         for h in horizons:
             col_name = f"fwd_return_{h}d"
             fwd_price = result.groupby("symbol", group_keys=False)["close"].shift(-h)
-            result[col_name] = fwd_price / result["close"] - 1.0
+            result[col_name] = fwd_price / result["close"].clip(lower=1e-9) - 1.0
             # PIT guard: last h rows per symbol must be NaN (no future data)
             result[col_name] = result.groupby("symbol", group_keys=False)[col_name].transform(
                 lambda s: s.where(pd.Series(range(len(s)), index=s.index) < len(s) - h)

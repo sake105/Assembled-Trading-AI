@@ -205,8 +205,8 @@ def _compute_divergence_metrics(
     merged = merged.sort_values("date").reset_index(drop=True)
 
     # Daily returns
-    merged["paper_ret"] = merged["paper_equity"].pct_change().fillna(0.0)
-    merged["bt_ret"] = merged["bt_equity"].pct_change().fillna(0.0)
+    merged["paper_ret"] = merged["paper_equity"].pct_change(fill_method=None).fillna(0.0)
+    merged["bt_ret"] = merged["bt_equity"].pct_change(fill_method=None).fillna(0.0)
     merged["ret_diff"] = merged["paper_ret"] - merged["bt_ret"]
 
     n = len(merged)

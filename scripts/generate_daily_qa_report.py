@@ -49,7 +49,7 @@ def _load_equity_csv(path: str) -> dict[str, list[float]]:
 
     returns: dict[str, list[float]] = {}
     for col in df.columns:
-        pct = df[col].pct_change().dropna().tolist()
+        pct = df[col].pct_change(fill_method=None).dropna().tolist()
         if pct:
             returns[col] = pct
     return returns

@@ -52,7 +52,7 @@ def main():
             & (spy["timestamp"] <= prices["timestamp"].max())
         ]
         spy = spy.sort_values("timestamp")
-        spy_returns = spy["close"].pct_change().dropna().values
+        spy_returns = spy["close"].pct_change(fill_method=None).dropna().values
         has_spy = True
         print(f"SPY benchmark: {len(spy_returns)} returns")
     except Exception as e:

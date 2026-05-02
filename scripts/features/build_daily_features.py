@@ -68,7 +68,7 @@ def main():
     )
     micro["mom20"] = (
         micro.groupby("symbol")["adj_close"]
-        .apply(lambda s: s.pct_change(20))
+        .apply(lambda s: s.pct_change(20, fill_method=None))
         .fillna(0.0)
         .values
     )

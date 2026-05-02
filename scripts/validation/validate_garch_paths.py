@@ -43,10 +43,10 @@ if _LOCAL_PARQUET.exists():
         # Try common column layouts produced by the EOD pipeline
         for _col in ("^SPX", "SPX", "spx"):
             if _col in _df.columns:
-                spx_returns = _df[_col].dropna().pct_change().dropna()
+                spx_returns = _df[_col].dropna().pct_change(fill_method=None).dropna()
                 break
         if spx_returns is None and "close" in _df.columns:
-            spx_returns = _df["close"].dropna().pct_change().dropna()
+            spx_returns = _df["close"].dropna().pct_change(fill_method=None).dropna()
         if spx_returns is not None:
             print(f"    [local] {len(spx_returns)} daily returns from {_LOCAL_PARQUET.name}")
     except Exception as _e:
@@ -58,7 +58,7 @@ if spx_returns is None:
         raw = yf.download("^SPX", start="2020-01-01", end="2024-12-31",
                           progress=False, auto_adjust=True)
         spx_close = raw["Close"].squeeze().dropna()
-        spx_returns = spx_close.pct_change().dropna()
+        spx_returns = spx_close.pct_change(fill_method=None).dropna()
         print(f"    [yfinance] {len(spx_returns)} daily returns "
               f"({spx_returns.index[0].date()} to {spx_returns.index[-1].date()})")
     except Exception as e:

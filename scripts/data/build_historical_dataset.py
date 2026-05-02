@@ -260,7 +260,7 @@ def run_quality_gate(prices_dir: Path) -> dict:
                     continue
 
                 # Preissprung-Anomalie
-                returns = df[close_col].pct_change().abs()
+                returns = df[close_col].pct_change(fill_method=None).abs()
                 if (returns > 0.5).any():
                     n_jumps = int((returns > 0.5).sum())
                     failed.append({"symbol": sym, "reason": f"{n_jumps} Preissprünge > 50%"})

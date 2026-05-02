@@ -243,7 +243,7 @@ def _build_return_pivot(prices: pd.DataFrame) -> pd.DataFrame:
         index="timestamp", columns="symbol", values="close", aggfunc="last"
     )
     piv = piv.sort_index()
-    daily_ret = piv.pct_change()
+    daily_ret = piv.pct_change(fill_method=None)
     return daily_ret
 
 
