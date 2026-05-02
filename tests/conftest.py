@@ -2,6 +2,16 @@
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+
+# Allow bare `from assembled_core.X import Y` in test files (no `src.` prefix).
+# The package is not installed as an editable package, so we expose `src/` on
+# sys.path so both import styles work side-by-side.
+_src_path = str(Path(__file__).parent.parent / "src")
+if _src_path not in sys.path:
+    sys.path.insert(0, _src_path)
+
 import pandas as pd
 import pytest
 

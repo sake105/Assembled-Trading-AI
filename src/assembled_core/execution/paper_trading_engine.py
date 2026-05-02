@@ -173,18 +173,20 @@ class PaperTradingEngine:
         _positions: Dictionary mapping symbol -> net quantity
     """
 
-    def __init__(self, fill_model: FillModel | None = None) -> None:
+    def __init__(self, fill_model: FillModel | None = None, initial_cash: float = 100_000.0) -> None:
         """Initialize paper trading engine with empty state.
 
         Args:
             fill_model: Optional FillModel for realistic execution costs.
                 If None, orders are filled at exact order price (legacy behaviour).
+            initial_cash: Starting cash balance for cash-balance guard (default: 100,000).
         """
         self._orders: list[PaperOrder] = []
         self._positions: dict[str, float] = {}
         self._fill_model = fill_model
-        logger.debug("Paper trading engine initialized (fill_model=%s)",
-                      "enabled" if fill_model else "off")
+        self._cash: float = initial_cash
+        logger.debug("Paper trading engine initialized (fill_model=%s, cash=%.2f)",
+                      "enabled" if fill_model else "off", initial_cash)
 
     def submit_orders(self, orders: list[PaperOrder]) -> list[PaperOrder]:
         """Submit orders for execution.
@@ -221,6 +223,19 @@ class PaperTradingEngine:
             # Normalize symbol
             symbol = order.symbol.strip().upper()
 
+            # Cash-balance guard for BUY orders (skip if price is None or 0)
+            if order.side == "BUY" and order.price:
+                cost = order.price * order.quantity
+                if cost > self._cash:
+                    order.status = "REJECTED"
+                    order.reason = "Insufficient cash"
+                    logger.warning(
+                        "Order %s rejected: Insufficient cash (need=%.2f, have=%.2f)",
+                        order.order_id, cost, self._cash,
+                    )
+                    filled_orders.append(order)
+                    continue
+
             # Fill order immediately
             order.status = "FILLED"
             order.filled_at = datetime.now(tz=timezone.utc)
@@ -242,11 +257,15 @@ class PaperTradingEngine:
             if symbol not in self._positions:
                 self._positions[symbol] = 0.0
 
-            # BUY adds to position, SELL subtracts from position
+            # BUY adds to position, SELL subtracts from position; update cash balance
             if order.side == "BUY":
                 self._positions[symbol] += order.quantity
+                if order.price:
+                    self._cash -= order.price * order.quantity
             else:  # SELL
                 self._positions[symbol] -= order.quantity
+                if order.price:
+                    self._cash += order.price * order.quantity
 
             filled_orders.append(order)
             logger.debug(
@@ -374,6 +393,10 @@ class PaperTradingEngine:
             side, symbol, algo, total_quantity, algo, len(filled),
         )
         return filled
+
+    def get_cash_balance(self) -> float:
+        """Return the current cash balance."""
+        return self._cash
 
     def reset(self) -> None:
         """Reset engine state (clear all orders and positions).
