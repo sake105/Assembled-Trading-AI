@@ -223,7 +223,7 @@ def test_params_in_manifest(tmp_path: Path) -> None:
 
     sys.path.insert(0, str(ROOT))
 
-    from datetime import datetime
+    from datetime import datetime, timezone
     from scripts.batch_runner import load_batch_config, write_run_manifest
 
     config_file = tmp_path / "test_batch.yaml"
@@ -257,8 +257,8 @@ runs:
         run_cfg=run_cfg,
         run_output_dir=run_output_dir,
         status="success",
-        started_at=datetime.utcnow(),
-        finished_at=datetime.utcnow(),
+        started_at=datetime.now(timezone.utc),
+        finished_at=datetime.now(timezone.utc),
         runtime_sec=1.0,
         exit_code=0,
         seed=42,

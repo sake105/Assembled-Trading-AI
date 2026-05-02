@@ -136,7 +136,7 @@ def _patch_paper_track_runtime(monkeypatch, output_root: Path, strategy_name: st
         _save_minimal_state(
             state_path,
             state.strategy_name,
-            state.last_run_date or pd.Timestamp.utcnow().normalize(),
+            state.last_run_date or pd.Timestamp.now(timezone.utc).normalize(),
         )
 
     # Patch the imported functions in the run_paper_track module

@@ -247,7 +247,7 @@ class TestPDTMigrationDetector:
 
     def test_old_attempts_excluded(self):
         md = PDTMigrationDetector(observation_window_days=7)
-        old = datetime.utcnow() - timedelta(days=30)
+        old = datetime.now(timezone.utc) - timedelta(days=30)
         for _ in range(5):
             md.record_fourth_day_trade_attempt(old)
         assert md.likely_migrated() is False

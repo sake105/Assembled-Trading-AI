@@ -85,7 +85,7 @@ def test_news_triggers_empty_stream_no_exception():
 def test_news_triggers_burst_bonus_recent_events():
     """Events very close in time should receive a burst bonus (+0.2)."""
     import pandas as pd_
-    now = pd_.Timestamp.utcnow().isoformat()
+    now = pd_.Timestamp.now(timezone.utc).isoformat()
     df = _events([
         {"symbol": "AAPL", "title": "Breaking news A", "source_tier": "T2", "published_utc": now},
         {"symbol": "AAPL", "title": "Breaking news B", "source_tier": "T2", "published_utc": now},

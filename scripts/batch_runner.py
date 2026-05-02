@@ -20,7 +20,7 @@ import re
 import subprocess
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -679,7 +679,7 @@ def run_single_backtest(
     # Note: Seed is already set at the beginning of the function (line 508)
     # This ensures reproducibility even if resume logic returns early
 
-    started_at = datetime.utcnow()
+    started_at = datetime.now(timezone.utc)
 
     try:
         # Build args for run_backtest_from_args
@@ -688,7 +688,7 @@ def run_single_backtest(
         # Call backtest function directly (no subprocess)
         exit_code = run_backtest_from_args(args)
 
-        finished_at = datetime.utcnow()
+        finished_at = datetime.now(timezone.utc)
         runtime_sec = (finished_at - started_at).total_seconds()
 
         status = "success" if exit_code == 0 else "failed"
@@ -711,7 +711,7 @@ def run_single_backtest(
         return (status, runtime_sec, exit_code, error)
 
     except Exception as exc:
-        finished_at = datetime.utcnow()
+        finished_at = datetime.now(timezone.utc)
         runtime_sec = (finished_at - started_at).total_seconds()
         error = str(exc)
         # Error logging is done by main process, not worker

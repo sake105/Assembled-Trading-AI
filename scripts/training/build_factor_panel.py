@@ -538,7 +538,7 @@ def build_full_factor_panel(
         nan_rates[col] = round(float(panel[col].isna().mean()), 4)
 
     summary = {
-        "generated_at": pd.Timestamp.utcnow().isoformat(),
+        "generated_at": pd.Timestamp.now(timezone.utc).isoformat(),
         "price_dir": str(price_dir),
         "output_path": str(output_path),
         "shape": {"rows": int(panel.shape[0]), "cols": int(panel.shape[1])},

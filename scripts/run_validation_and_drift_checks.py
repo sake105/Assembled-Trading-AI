@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -625,7 +625,7 @@ def run_validation_and_drift_checks(
     )
 
     # Write summary report
-    timestamp = datetime.utcnow()
+    timestamp = datetime.now(timezone.utc)
     write_summary_report(
         output_path=output_path,
         model_name=model_name,

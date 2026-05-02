@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 
 import pandas as pd
 import pytest
@@ -43,7 +43,7 @@ def temp_factor_store(tmp_path, monkeypatch):
 @pytest.fixture
 def multi_year_factors_df():
     """Create factors DataFrame spanning multiple years for PIT testing."""
-    base_date = datetime(2023, 6, 1, tzinfo=pd.Timestamp.utcnow().tz)
+    base_date = datetime(2023, 6, 1, tzinfo=pd.Timestamp.now(timezone.utc).tz)
     symbols = ["AAPL", "MSFT"]
 
     data = []

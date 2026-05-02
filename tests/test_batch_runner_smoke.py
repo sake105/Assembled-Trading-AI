@@ -82,7 +82,7 @@ def test_batch_runner_write_manifest(tmp_path: Path) -> None:
 
     sys.path.insert(0, str(ROOT))
 
-    from datetime import datetime
+    from datetime import datetime, timezone
     from scripts.batch_runner import RunConfig, write_run_manifest
 
     run_output_dir = tmp_path / "run1"
@@ -97,8 +97,8 @@ def test_batch_runner_write_manifest(tmp_path: Path) -> None:
         start_capital=100000.0,
     )
 
-    started_at = datetime.utcnow()
-    finished_at = datetime.utcnow()
+    started_at = datetime.now(timezone.utc)
+    finished_at = datetime.now(timezone.utc)
 
     write_run_manifest(
         run_id="run1",

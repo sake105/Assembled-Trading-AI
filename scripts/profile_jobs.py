@@ -77,7 +77,7 @@ def _ensure_dir(path: pathlib.Path) -> pathlib.Path:
 
 def _get_timestamp() -> str:
     """Get UTC timestamp string for file naming."""
-    return dt.datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    return dt.datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 
 def _setup_logging() -> None:

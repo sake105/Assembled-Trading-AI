@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -206,7 +206,7 @@ def test_write_batch_summary(tmp_path: Path):
         json.dump(metrics_json1, f)
 
     # Write manifest for run1
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     write_run_manifest(
         run_id="run1",
         run_cfg=batch_cfg.runs[0],
@@ -328,7 +328,7 @@ def test_write_batch_summary_paths(tmp_path: Path):
     run1_dir.mkdir(parents=True, exist_ok=True)
 
     # Write manifest
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     write_run_manifest(
         run_id="run1",
         run_cfg=batch_cfg.runs[0],

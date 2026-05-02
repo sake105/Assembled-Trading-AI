@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -34,8 +34,8 @@ def test_load_existing_manifest(tmp_path: Path) -> None:
         start_capital=100000.0,
     )
 
-    started_at = datetime.utcnow()
-    finished_at = datetime.utcnow()
+    started_at = datetime.now(timezone.utc)
+    finished_at = datetime.now(timezone.utc)
 
     # Write manifest
     write_run_manifest(
@@ -106,8 +106,8 @@ def test_resume_skip_successful_run(tmp_path: Path) -> None:
     # Write a successful manifest
     from scripts.batch_runner import write_run_manifest
 
-    started_at = datetime.utcnow()
-    finished_at = datetime.utcnow()
+    started_at = datetime.now(timezone.utc)
+    finished_at = datetime.now(timezone.utc)
 
     write_run_manifest(
         run_id=run_cfg.id,
@@ -157,8 +157,8 @@ def test_resume_skip_failed_run(tmp_path: Path) -> None:
     # Write a failed manifest
     from scripts.batch_runner import write_run_manifest
 
-    started_at = datetime.utcnow()
-    finished_at = datetime.utcnow()
+    started_at = datetime.now(timezone.utc)
+    finished_at = datetime.now(timezone.utc)
 
     write_run_manifest(
         run_id=run_cfg.id,
@@ -212,8 +212,8 @@ def test_resume_rerun_failed(tmp_path: Path) -> None:
     # Write a failed manifest
     from scripts.batch_runner import write_run_manifest
 
-    started_at = datetime.utcnow()
-    finished_at = datetime.utcnow()
+    started_at = datetime.now(timezone.utc)
+    finished_at = datetime.now(timezone.utc)
 
     write_run_manifest(
         run_id=run_cfg.id,
@@ -298,8 +298,8 @@ def test_manifest_contains_required_fields(tmp_path: Path) -> None:
         start_capital=100000.0,
     )
 
-    started_at = datetime.utcnow()
-    finished_at = datetime.utcnow()
+    started_at = datetime.now(timezone.utc)
+    finished_at = datetime.now(timezone.utc)
 
     write_run_manifest(
         run_id="run1",

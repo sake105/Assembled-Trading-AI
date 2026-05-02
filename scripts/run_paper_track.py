@@ -521,7 +521,7 @@ def compute_date_list(
             if as_of:
                 end_str = as_of
             else:
-                end_str = pd.Timestamp.utcnow().strftime("%Y-%m-%d")
+                end_str = pd.Timestamp.now(timezone.utc).strftime("%Y-%m-%d")
 
             logger.info(
                 f"Catch-up mode: last_run_date={state.last_run_date.date()}, "
@@ -753,7 +753,7 @@ def run_paper_track_from_cli(
         logger.info(f"Run-ID: {run_id}")
 
         # Track start time
-        start_time = pd.Timestamp.utcnow()
+        start_time = pd.Timestamp.now(timezone.utc)
 
         # Intel orchestration (before trading loop)
         intel_orchestration: dict[str, Any] = {"mode": config.intel_mode}
@@ -958,7 +958,7 @@ def run_paper_track_from_cli(
                 logger.warning("Some days failed, but continuing due to --no-fail-fast")
 
         # Track end time
-        end_time = pd.Timestamp.utcnow()
+        end_time = pd.Timestamp.now(timezone.utc)
 
         # Write run summary CSV and JSON (if not dry-run)
         if not dry_run:

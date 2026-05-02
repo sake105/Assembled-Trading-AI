@@ -34,7 +34,7 @@ def run_paper_daily_subcommand(args: argparse.Namespace) -> int:
     if args.as_of:
         as_of_ts = pd.to_datetime(args.as_of, utc=True)
     else:
-        as_of_ts = pd.Timestamp.utcnow().normalize()
+        as_of_ts = pd.Timestamp.now(timezone.utc).normalize()
 
     if args.output is not None:
         output_dir = args.output

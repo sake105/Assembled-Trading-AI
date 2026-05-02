@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 
 import pandas as pd
 import pytest
@@ -47,7 +47,7 @@ def temp_factor_store(tmp_path, monkeypatch):
 @pytest.fixture
 def sample_factors_df():
     """Create sample factors DataFrame for testing."""
-    base_date = datetime(2023, 1, 1, tzinfo=pd.Timestamp.utcnow().tz)
+    base_date = datetime(2023, 1, 1, tzinfo=pd.Timestamp.now(timezone.utc).tz)
     symbols = ["AAPL", "MSFT", "GOOGL"]
 
     data = []
@@ -142,7 +142,7 @@ def test_store_partitions_by_year(temp_factor_store, sample_factors_df):
 
     # Create data spanning multiple years
     multi_year_data = []
-    base_date = datetime(2023, 12, 1, tzinfo=pd.Timestamp.utcnow().tz)
+    base_date = datetime(2023, 12, 1, tzinfo=pd.Timestamp.now(timezone.utc).tz)
     symbols = ["AAPL", "MSFT"]
 
     for symbol in symbols:
@@ -227,7 +227,7 @@ def test_store_append_mode(temp_factor_store, sample_factors_df):
 
     # Create additional data (overlapping dates should be updated, new dates added)
     additional_data = []
-    base_date = datetime(2023, 1, 1, tzinfo=pd.Timestamp.utcnow().tz)
+    base_date = datetime(2023, 1, 1, tzinfo=pd.Timestamp.now(timezone.utc).tz)
     symbols = ["AAPL", "MSFT", "GOOGL"]
 
     for symbol in symbols:

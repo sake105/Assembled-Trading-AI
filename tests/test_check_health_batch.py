@@ -10,7 +10,7 @@ Tests cover:
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -117,7 +117,7 @@ def test_check_batch_latest_status_success(tmp_path: Path) -> None:
             "success_count": 5,
             "failed_count": 0,
         },
-        "finished_at": datetime.utcnow().isoformat(),
+        "finished_at": datetime.now(timezone.utc).isoformat(),
     }
     manifest_path = batch_dir / "batch_manifest.json"
     with manifest_path.open("w", encoding="utf-8") as f:
@@ -141,7 +141,7 @@ def test_check_batch_latest_status_failures(tmp_path: Path) -> None:
             "success_count": 7,
             "failed_count": 3,
         },
-        "finished_at": datetime.utcnow().isoformat(),
+        "finished_at": datetime.now(timezone.utc).isoformat(),
     }
     manifest_path = batch_dir / "batch_manifest.json"
     with manifest_path.open("w", encoding="utf-8") as f:
@@ -322,7 +322,7 @@ def test_run_batch_health_checks_with_batches(tmp_path: Path, monkeypatch) -> No
     # Create batch manifest
     manifest = {
         "batch_name": "test_batch",
-        "finished_at": datetime.utcnow().isoformat(),
+        "finished_at": datetime.now(timezone.utc).isoformat(),
         "run_results_summary": {
             "total_runs": 3,
             "success_count": 2,

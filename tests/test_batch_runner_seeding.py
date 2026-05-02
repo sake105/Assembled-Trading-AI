@@ -112,15 +112,15 @@ def test_write_run_manifest_includes_seed():
             end_date="2020-12-31",
         )
 
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         write_run_manifest(
             run_id="test_run",
             run_cfg=run_cfg,
             run_output_dir=run_output_dir,
             status="success",
-            started_at=datetime.utcnow(),
-            finished_at=datetime.utcnow(),
+            started_at=datetime.now(timezone.utc),
+            finished_at=datetime.now(timezone.utc),
             runtime_sec=10.5,
             exit_code=0,
             seed=42,

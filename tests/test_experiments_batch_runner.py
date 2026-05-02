@@ -11,7 +11,7 @@ Tests cover:
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -374,8 +374,8 @@ def test_batch_result_post_init() -> None:
     """Test BatchResult.__post_init__ computes counts correctly."""
     result = BatchResult(
         batch_name="test",
-        started_at=datetime.utcnow(),
-        finished_at=datetime.utcnow(),
+        started_at=datetime.now(timezone.utc),
+        finished_at=datetime.now(timezone.utc),
         total_runtime_sec=10.0,
         run_results=[
             RunResult(run_id="run1", status="success", runtime_sec=1.0),

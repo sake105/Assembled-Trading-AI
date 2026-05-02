@@ -27,7 +27,7 @@ AGG.mkdir(parents=True, exist_ok=True)
 SYMS = ["AAPL", "MSFT"]
 N_MIN = 8 * 60  # 8 hours of 1-min bars
 
-now = pd.Timestamp.utcnow().floor("min")
+now = pd.Timestamp.now(timezone.utc).floor("min")
 start = now - pd.Timedelta(minutes=N_MIN)
 idx = pd.date_range(start, now, freq="1min", inclusive="left", tz="UTC")
 

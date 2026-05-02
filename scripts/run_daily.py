@@ -71,12 +71,12 @@ def parse_target_date(date_str: str | None) -> datetime:
             target_date = datetime.strptime(date_str, "%Y-%m-%d")
             # Ensure UTC timezone
             if target_date.tzinfo is None:
-                target_date = target_date.replace(tzinfo=pd.Timestamp.utcnow().tz)
+                target_date = target_date.replace(tzinfo=pd.Timestamp.now(timezone.utc).tz)
             return target_date
         except ValueError:
             raise ValueError(f"Invalid date format: {date_str}. Use YYYY-MM-DD")
     else:
-        return datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        return datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
 
 
 def filter_prices_for_date(

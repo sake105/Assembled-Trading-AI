@@ -15,7 +15,7 @@ import argparse
 import cProfile
 import pstats
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -369,7 +369,7 @@ def update_performance_profile_md(
     if not profile_doc.exists():
         return  # Skip if doc doesn't exist
 
-    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     with profile_doc.open("a", encoding="utf-8") as f:
         f.write(f"\n## {job_id} - {phase} (profiled with {profiler}) - {timestamp}\n\n")
@@ -458,7 +458,7 @@ Examples:
     # Create output directory
     settings = get_settings()
     profiles_root = settings.output_dir / "profiles" / args.job
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     output_dir = profiles_root / timestamp
     output_dir.mkdir(parents=True, exist_ok=True)
 

@@ -474,7 +474,7 @@ def extend_historical_data(
     report_path = report_dir / "extension_report.json"
 
     report: dict[str, Any] = {
-        "run_timestamp": datetime.utcnow().isoformat() + "Z",
+        "run_timestamp": datetime.now(timezone.utc).isoformat() + "Z",
         "target_start": target_start,
         "output_dir": str(output_dir),
         "dry_run": dry_run,

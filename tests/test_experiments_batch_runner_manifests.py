@@ -11,7 +11,7 @@ Tests cover:
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -81,8 +81,8 @@ def test_write_run_manifest_roundtrip(tmp_path: Path) -> None:
         run_index=0,
     )
 
-    start_time = datetime.utcnow()
-    end_time = datetime.utcnow()
+    start_time = datetime.now(timezone.utc)
+    end_time = datetime.now(timezone.utc)
 
     # Write manifest
     _write_run_manifest(
@@ -148,8 +148,8 @@ def test_write_batch_manifest_roundtrip(tmp_path: Path) -> None:
 
     batch_result = BatchResult(
         batch_name="test_batch",
-        started_at=datetime.utcnow(),
-        finished_at=datetime.utcnow(),
+        started_at=datetime.now(timezone.utc),
+        finished_at=datetime.now(timezone.utc),
         total_runtime_sec=100.0,
         run_results=[
             RunResult(
@@ -233,8 +233,8 @@ def test_batch_manifest_stable_ordering(tmp_path: Path) -> None:
 
     batch_result = BatchResult(
         batch_name="test",
-        started_at=datetime.utcnow(),
-        finished_at=datetime.utcnow(),
+        started_at=datetime.now(timezone.utc),
+        finished_at=datetime.now(timezone.utc),
         total_runtime_sec=10.0,
         run_results=[
             RunResult(run_id="run3", status="success", runtime_sec=3.0),
@@ -293,8 +293,8 @@ def test_run_manifest_includes_artifacts(tmp_path: Path) -> None:
         run_spec=run_spec,
         base_args={},
         run_output_dir=run_output_dir,
-        start_time=datetime.utcnow(),
-        end_time=datetime.utcnow(),
+        start_time=datetime.now(timezone.utc),
+        end_time=datetime.now(timezone.utc),
     )
 
     manifest_path = run_output_dir / "run_manifest.json"
