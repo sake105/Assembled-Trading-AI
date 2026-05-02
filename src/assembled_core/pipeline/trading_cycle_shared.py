@@ -330,7 +330,7 @@ def _estimate_symbol_volatilities(
             vols[str(sym)] = 0.20
             continue
         close = close.iloc[-lookback:] if len(close) > lookback else close
-        log_rets = np.log(close / close.shift(1)).dropna()
+        log_rets = np.log((close / close.shift(1)).clip(lower=1e-10)).dropna()
         if len(log_rets) < 3:
             vols[str(sym)] = 0.20
             continue
@@ -1075,7 +1075,7 @@ def _apply_pre_trade_impact(
             adv_map[sym_key] = float(tail["volume"].mean())
             closes = tail["close"].astype(float)
             if len(closes) >= 5:
-                rets = np.log(closes / closes.shift(1)).dropna()
+                rets = np.log((closes / closes.shift(1)).clip(lower=1e-10)).dropna()
                 vol_map[sym_key] = float(rets.std()) if len(rets) > 0 else 0.0
 
     new_orders = orders.copy()
