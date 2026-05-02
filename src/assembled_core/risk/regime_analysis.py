@@ -345,8 +345,8 @@ def summarize_metrics_by_regime(
                     pnls: list[float] = []
                     for sym, sym_trades in regime_trades.groupby("symbol"):
                         sym_trades = sym_trades.sort_values(timestamp_col)
-                        buys = sym_trades[sym_trades["side"].str.upper() == "BUY"]
-                        sells = sym_trades[sym_trades["side"].str.upper() == "SELL"]
+                        buys = sym_trades[sym_trades["side"].astype(str).str.upper() == "BUY"]
+                        sells = sym_trades[sym_trades["side"].astype(str).str.upper() == "SELL"]
                         for _, buy_row in buys.iterrows():
                             next_sells = sells[sells[timestamp_col] > buy_row[timestamp_col]]
                             if next_sells.empty:

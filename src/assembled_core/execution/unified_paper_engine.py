@@ -1234,7 +1234,7 @@ class UnifiedPaperEngine:
         # keeps ``running_cash`` accumulation strictly sequential so the cash
         # gate decision stays deterministic.
         cash = float(self._state.get("cash", self.config.seed_capital))
-        buy_mask = fills["side"].str.upper() == "BUY"  # noqa: F841
+        buy_mask = fills["side"].astype(str).str.upper() == "BUY"  # noqa: F841
         running_cash = cash
         _side_list = fills["side"].astype(str).str.upper().tolist()
         _notional_list = fills["notional"].astype(float).tolist()
