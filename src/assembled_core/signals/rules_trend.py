@@ -119,9 +119,12 @@ def generate_trend_signals(
                     symbol=sym, timestamp=aligned.index
                 )
             )
-        align_df = pd.concat(alignment_frames).reset_index(drop=True)
-        df = df.merge(align_df, on=["timestamp", "symbol"], how="left")
-        long_condition = long_condition & df["weekly_alignment_ok"].fillna(False)
+        if not alignment_frames:
+            long_condition = long_condition & False
+        else:
+            align_df = pd.concat(alignment_frames).reset_index(drop=True)
+            df = df.merge(align_df, on=["timestamp", "symbol"], how="left")
+            long_condition = long_condition & df["weekly_alignment_ok"].fillna(False)
 
     df["direction"] = np.where(long_condition, "LONG", "FLAT")
 
