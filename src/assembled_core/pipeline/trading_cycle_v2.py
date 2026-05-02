@@ -310,6 +310,102 @@ def _load_intel(
     except Exception as e:
         log.warning("disclosures_confirm apply failed: %s", e)
 
+    # EDCL — Event-Driven Conviction Layer basket computation
+    # Runs even when edcl_conviction_overlay.enabled=false so that ctx.edcl_state
+    # is always populated for observability. Multiplier only fires when enabled.
+    try:
+        _edcl_cfg = (policy.get("edcl_conviction_overlay") or {})
+        # Skip entirely in backtest mode unless allow_in_backtest is set
+        _edcl_mode = getattr(ctx, "mode", "backtest")
+        _allow_bt = _edcl_cfg.get("allow_in_backtest", False)
+        if _edcl_mode not in ("backtest", "bt") or _allow_bt:
+            from src.assembled_core.intel.trigger_basket import (
+                TriggerBasket,
+                build_trigger_basket,
+            )
+            from src.assembled_core.intel.conviction_engine import compute_conviction_score
+            from src.assembled_core.intel.models import TriggerType
+
+            _basket: TriggerBasket | None = None
+
+            # Path 1: full keyword scoring from raw NewsEvent objects
+            _raw = getattr(ctx, "raw_news_events", None)
+            if _raw:
+                _basket = build_trigger_basket(_raw)
+                _source = "raw_news_events"
+
+            # Path 2: construct TriggerBasket directly from active_triggers in ctx.news_geo
+            if _basket is None:
+                _geo = ctx.news_geo or {}
+                _geo_conf = float(_geo.get("geo_confidence", 0.0))
+                _geo_tags: set[str] = set(_geo.get("geo_tags", []))
+                _active = _geo.get("active_triggers", [])
+                _fired: list[tuple[TriggerType, float]] = []
+                for _name in _active:
+                    try:
+                        _fired.append((TriggerType(_name), _geo_conf))
+                    except ValueError:
+                        pass
+                # Derive sector/asset maps from fired triggers
+                if _fired:
+                    from src.assembled_core.intel.trigger_basket import (
+                        _TRIGGER_SECTOR_MAP,
+                    )
+                    from src.assembled_core.intel.news_classifier import (
+                        COUNTRY_TO_ASSETS,
+                        SECTOR_TO_ETFS,
+                    )
+                    _sector_scores: dict[str, float] = {}
+                    for _tt, _sc in _fired:
+                        for _sec in _TRIGGER_SECTOR_MAP.get(_tt, []):
+                            _sector_scores[_sec] = max(_sector_scores.get(_sec, 0.0), _sc)
+                    _seen: set[str] = set()
+                    _assets: list[str] = []
+                    for _sec in _sector_scores:
+                        for _a in SECTOR_TO_ETFS.get(_sec, []):
+                            if _a not in _seen:
+                                _assets.append(_a)
+                                _seen.add(_a)
+                    for _iso in _geo_tags:
+                        for _a in COUNTRY_TO_ASSETS.get(_iso.upper(), []):
+                            if _a not in _seen:
+                                _assets.append(_a)
+                                _seen.add(_a)
+                    _n_high = sum(1 for _, _s in _fired if _s >= 0.6)
+                    _basket = TriggerBasket(
+                        fired_triggers=_fired,
+                        affected_sectors=_sector_scores,
+                        affected_assets=_assets,
+                        geo_tags=_geo_tags,
+                        conviction=_geo_conf,
+                        n_events=max(len(_fired), 1),
+                        n_high_conviction=_n_high,
+                    )
+                    _source = f"active_triggers({len(_fired)})"
+                else:
+                    _basket = TriggerBasket()
+                    _source = "no_triggers"
+
+            _conviction = compute_conviction_score(
+                _basket,
+                as_of=getattr(ctx, "as_of", None),
+                policy=policy,
+            )
+            ctx.edcl_state = {
+                "conviction": _conviction,
+                "source": _source,
+                "basket": _basket.as_dict(),
+            }
+            if _conviction > 0.0:
+                log.info(
+                    "[EDCL] conviction=%.3f source=%s triggers=%d sectors=%s",
+                    _conviction,
+                    _source,
+                    len(_basket.fired_triggers),
+                    list(_basket.affected_sectors.keys()),
+                )
+    except Exception as _e:
+        log.debug("edcl_basket computation skipped: %s", _e)
 
 
 # ---------------------------------------------------------------------------
