@@ -380,6 +380,8 @@ def compute_metrics(equity: pd.DataFrame) -> dict[str, float | int]:
         first: First timestamp
         last: Last timestamp
     """
+    if equity.empty or "equity" not in equity.columns:
+        return {"final_pf": 1.0, "sharpe": 0.0, "rows": 0, "first": None, "last": None}
     pf = float(equity["equity"].iloc[-1] / max(equity["equity"].iloc[0], 1e-12))
     ret = equity["equity"].pct_change(fill_method=None).replace([np.inf, -np.inf], np.nan).dropna()
     if ret.empty or ret.isna().all():
