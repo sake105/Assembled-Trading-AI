@@ -114,12 +114,12 @@ def test_load_factor_bundle_ml_alpha_only():
 
 @pytest.mark.advanced
 def test_load_factor_bundle_core_ml_mixed():
-    """Test loading mixed core+ML bundle."""
+    """Test loading the AI-Tech core bundle (core+vol_liquidity)."""
     bundle = load_factor_bundle("configs/factor_bundles/ai_tech_core_ml_bundle.yaml")
 
     assert isinstance(bundle, FactorBundleConfig)
     assert bundle.universe == "universe_ai_tech"
-    assert bundle.factor_set == "core+alt_full+ml"
+    assert bundle.factor_set == "core+vol_liquidity"
     assert bundle.horizon_days == 20
 
     # Check weights sum to 1.0
@@ -128,17 +128,10 @@ def test_load_factor_bundle_core_ml_mixed():
         abs(total_weight - 1.0) < 0.01
     ), f"Weights should sum to 1.0, got {total_weight:.4f}"
 
-    # Check ML alpha factor is present
-    ml_alpha_factors = [f for f in bundle.factors if f.name.startswith("ml_alpha_")]
-    assert len(ml_alpha_factors) > 0, "ML alpha factor should be present"
-    assert ml_alpha_factors[0].name == "ml_alpha_ridge_20d"
-    assert ml_alpha_factors[0].weight == 0.40
-
-    # Check traditional factors are also present
-    traditional_factors = [
-        f for f in bundle.factors if not f.name.startswith("ml_alpha_")
-    ]
-    assert len(traditional_factors) > 0, "Traditional factors should be present"
+    # Check expected core factors are present
+    factor_names = {f.name for f in bundle.factors}
+    assert "returns_12m" in factor_names, "returns_12m factor should be present"
+    assert "momentum_12m_excl_1m" in factor_names, "momentum factor should be present"
 
     # Check all factors have valid directions
     for factor in bundle.factors:

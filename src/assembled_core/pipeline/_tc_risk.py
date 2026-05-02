@@ -50,7 +50,8 @@ def check_risk(
 
     try:
         policy = load_policy()
-    except Exception:
+    except Exception as _policy_exc:
+        log.warning("[RISK] load_policy() failed — all policy-gated guards disabled: %s", _policy_exc)
         policy = {}
 
     # Fast path: if risk controls are disabled, skip all steps and pass orders through.
@@ -217,7 +218,7 @@ def check_risk(
                 log.warning("[FAT-FINGER] Rejected %d orders: %s", n_rejected, _ffg_reasons[:3])
                 _rej_counts["fat_finger"] = n_rejected
     except Exception as e:
-        log.debug("fat_finger_guard skipped: %s", e)
+        log.warning("[RISK] fat_finger_guard raised — hard cap not applied: %s", e)
 
     # Step 6.9: Order lifecycle tracking
     try:
