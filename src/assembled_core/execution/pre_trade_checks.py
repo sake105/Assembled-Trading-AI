@@ -692,7 +692,7 @@ def run_pre_trade_checks(
 
     orders_with_notional = filtered_orders.copy()
     if "price" in filtered_orders.columns:
-        orders_with_notional["notional"] = filtered_orders["qty"] * filtered_orders["price"]
+        orders_with_notional["notional"] = (filtered_orders["qty"] * filtered_orders["price"]).abs()
     else:
         if config.max_notional_per_symbol is not None or config.max_gross_exposure is not None:
             blocked_reasons.append(

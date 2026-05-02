@@ -52,8 +52,11 @@ class RoundTripDetector:
 
         if not is_closing:
             new_qty = open_qty + qty
-            new_price = (open_qty * open_price + qty * price) / new_qty
-            self.open_positions[ticker] = (open_ts, new_qty, new_price, open_side)
+            if abs(new_qty) < 1e-10:
+                del self.open_positions[ticker]
+            else:
+                new_price = (open_qty * open_price + qty * price) / new_qty
+                self.open_positions[ticker] = (open_ts, new_qty, new_price, open_side)
             return None
 
         if open_ts.date() == ts.date():

@@ -194,7 +194,7 @@ def adjust_prices_for_splits(
     ts_col = "timestamp" if "timestamp" in result.columns else (result.columns[0] if len(result.columns) > 0 else "timestamp")
     result_ts = pd.to_datetime(result[ts_col], utc=True, errors="coerce")
     split_actions["effective_date"] = pd.to_datetime(
-        split_actions["effective_date"], utc=True
+        split_actions["effective_date"], utc=True, errors="coerce"
     )
 
     # Apply each split: for rows of the same symbol before the split date,
@@ -369,7 +369,7 @@ def apply_delisting_exits(
         return pd.DataFrame(columns=out_cols)
 
     delistings["effective_date"] = pd.to_datetime(
-        delistings["effective_date"], utc=True,
+        delistings["effective_date"], utc=True, errors="coerce"
     )
     if as_of is not None:
         cutoff = pd.Timestamp(as_of)
