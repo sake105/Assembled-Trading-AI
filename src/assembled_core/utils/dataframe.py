@@ -38,5 +38,12 @@ def coerce_price_types(df: pd.DataFrame) -> pd.DataFrame:
     df["close"] = pd.to_numeric(df["close"], errors="coerce").astype("float64")
     if "symbol" in df.columns:
         df["symbol"] = df["symbol"].astype("string")
+    n_before = len(df)
     df = df.dropna(subset=["timestamp", "close"])
+    n_dropped = n_before - len(df)
+    if n_dropped > 0:
+        import logging as _logging
+        _logging.getLogger(__name__).warning(
+            "[coerce_price_types] dropped %d/%d rows with invalid timestamp or close", n_dropped, n_before
+        )
     return df

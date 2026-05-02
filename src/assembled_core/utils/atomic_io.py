@@ -54,6 +54,12 @@ def atomic_write_json(
             last_err = exc
             if attempt < retries - 1:
                 time.sleep(backoff_ms * (2**attempt) / 1000.0)
+    # All retries exhausted — clean up orphaned temp file before raising
+    try:
+        if tmp_path.exists():
+            tmp_path.unlink()
+    except OSError:
+        pass
     if last_err is not None:
         raise last_err
 
