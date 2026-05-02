@@ -310,6 +310,32 @@ def _load_intel(
     except Exception as e:
         log.warning("disclosures_confirm apply failed: %s", e)
 
+    # Options IV skew Z-score — populate ctx.options_iv_skew_z for Phase H triple-confirmation.
+    # Uses vix_zscore_252d (Z-score of VIX vs 252d window) as proxy for tail-risk pricing.
+    # Tries panel first (pre-computed), then CBOESource direct fetch.
+    try:
+        _vix_z: float = 0.0
+        _prices = getattr(ctx, "prices_filtered", None) or getattr(ctx, "prices", None)
+        if _prices is not None and "vix_zscore_252d" in _prices.columns:
+            _vix_z_series = _prices["vix_zscore_252d"].dropna()
+            if not _vix_z_series.empty:
+                _vix_z = float(_vix_z_series.iloc[-1])
+        if _vix_z == 0.0:
+            from src.assembled_core.data.sources.cboe_source import CBOESource
+            from src.assembled_core.features.options_derived_signals import (
+                build_options_regime_factors,
+            )
+            _cboe_df = CBOESource().fetch_options_regime_data()
+            if not _cboe_df.empty:
+                _opts = build_options_regime_factors(_cboe_df)
+                if not _opts.empty:
+                    _vix_z = float(_opts.iloc[-1].get("vix_zscore_252d", 0.0) or 0.0)
+        ctx.options_iv_skew_z = _vix_z
+        if abs(_vix_z) > 1.0:
+            log.info("[OPTIONS-IV] vix_z=%.2f → options_iv_skew_z populated", _vix_z)
+    except Exception as _e:
+        log.debug("options_iv_skew_z population skipped: %s", _e)
+
     # EDCL — Event-Driven Conviction Layer basket computation
     # Runs even when edcl_conviction_overlay.enabled=false so that ctx.edcl_state
     # is always populated for observability. Multiplier only fires when enabled.
