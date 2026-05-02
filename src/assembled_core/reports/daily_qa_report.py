@@ -234,8 +234,8 @@ def _build_report_content(
 
     # Metadata
     lines.append("### Period Information")
-    lines.append(f"- **Start Date:** {metrics.start_date.strftime('%Y-%m-%d')}")
-    lines.append(f"- **End Date:** {metrics.end_date.strftime('%Y-%m-%d')}")
+    lines.append(f"- **Start Date:** {metrics.start_date.strftime('%Y-%m-%d') if metrics.start_date is not None else 'N/A'}")
+    lines.append(f"- **End Date:** {metrics.end_date.strftime('%Y-%m-%d') if metrics.end_date is not None else 'N/A'}")
     lines.append(f"- **Periods:** {metrics.periods}")
     lines.append(f"- **Start Capital:** {metrics.start_capital:,.2f}")
     lines.append(f"- **End Equity:** {metrics.end_equity:,.2f}")

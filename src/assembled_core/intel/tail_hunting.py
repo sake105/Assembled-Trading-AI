@@ -38,7 +38,7 @@ class TailHuntSignal:
     def size_fraction(self) -> float:
         """Linear scale from activation_conviction → 1.0 maps to 0 → max_position_size."""
         denom = 1.0 - self.activation_conviction if self.activation_conviction < 1.0 else 1.0
-        scale = min(1.0, (self.current_conviction - self.activation_conviction) / denom)
+        scale = max(0.0, min(1.0, (self.current_conviction - self.activation_conviction) / denom))
         return self.max_position_size * scale
 
     def as_dict(self) -> dict[str, Any]:

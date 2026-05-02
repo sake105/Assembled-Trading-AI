@@ -81,6 +81,11 @@ def generate_signals(
     if missing:
         raise ValueError(f"signals missing required columns: {', '.join(missing)}")
 
+    # Coerce score column to float — signal_fn may return object dtype
+    if "score" in signals.columns:
+        signals = signals.copy()
+        signals["score"] = pd.to_numeric(signals["score"], errors="coerce").fillna(0.0)
+
     log.debug("Signals generated: %d rows", len(signals))
 
     # --- Zombie killer: force-FLAT for positions held too long ---
