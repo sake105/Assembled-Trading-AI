@@ -289,7 +289,7 @@ def _np_run_burst_detection(
             window_hours_primary = int(primary_map[cadence])
         if window_hours_primary not in windows and windows:
             window_hours_primary = windows[0]
-        primary = next((bw for bw in bursts_windows if int(bw.get("window_hours")) == window_hours_primary), {"top_entities_burst": [], "top_phrases_burst": []})
+        primary = next((bw for bw in bursts_windows if bw.get("window_hours") == window_hours_primary), {"top_entities_burst": [], "top_phrases_burst": []})
         items_flat: List[Dict[str, Any]] = [*primary.get("top_entities_burst", []), *primary.get("top_phrases_burst", [])]
         items_flat.sort(key=lambda x: (-x["score"], x["kind"], x["key"]))
         bursts_primary = items_flat
