@@ -379,6 +379,8 @@ class StrategyAllocator:
 
         def _vote(grp: Any) -> Any:
             counts = grp["direction"].value_counts()
+            if counts.empty:
+                return pd.Series({"direction": None, "score": 0.0})
             direction = counts.idxmax()
             score = float(grp["score"].mean()) if "score" in grp.columns else 0.0
             return pd.Series({"direction": direction, "score": score})
