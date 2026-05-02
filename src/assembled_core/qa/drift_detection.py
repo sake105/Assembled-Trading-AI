@@ -350,7 +350,7 @@ def compute_performance_drift(equity: pd.Series, window: int = 63) -> dict[str, 
         }
 
     # Compute returns
-    returns = equity.pct_change().dropna()
+    returns = equity.pct_change(fill_method=None).dropna()
 
     if len(returns) < window:
         # Not enough data for rolling window, use simple mean/std

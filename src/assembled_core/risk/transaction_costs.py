@@ -324,7 +324,7 @@ def summarize_tca(
                     equity_curve["timestamp"], utc=True, errors="coerce"
                 )
             equity_curve = equity_curve.set_index("timestamp").sort_index()
-            equity_returns = equity_curve["equity"].pct_change().fillna(0.0)
+            equity_returns = equity_curve["equity"].pct_change(fill_method=None).fillna(0.0)
 
             # Align with summary index
             equity_returns_resampled = equity_returns.resample(freq).sum()

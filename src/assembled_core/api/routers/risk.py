@@ -67,7 +67,7 @@ def get_risk_summary(freq: Frequency) -> RiskMetrics:
         equity_series = df["equity"].values
 
         # Compute Sharpe ratio from returns
-        returns = pd.Series(equity_series).pct_change().dropna()
+        returns = pd.Series(equity_series).pct_change(fill_method=None).dropna()
         if len(returns) > 1 and returns.std() > 0:
             # Annualize based on frequency
             periods_per_year = (

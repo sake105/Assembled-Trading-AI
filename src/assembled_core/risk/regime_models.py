@@ -369,10 +369,10 @@ def build_regime_state_hmm(
     if benchmark_symbol and benchmark_symbol in prices[symbol_col].values:
         bench = prices[prices[symbol_col] == benchmark_symbol].copy()
         bench = bench.sort_values(timestamp_col)
-        returns = bench.set_index(timestamp_col)[close_col].pct_change().dropna()
+        returns = bench.set_index(timestamp_col)[close_col].pct_change(fill_method=None).dropna()
     else:
         pivot = prices.pivot_table(index=timestamp_col, columns=symbol_col, values=close_col)
-        returns = pivot.pct_change().median(axis=1).dropna()
+        returns = pivot.pct_change(fill_method=None).median(axis=1).dropna()
 
     if len(returns) < 60:
         _log.warning("[RegimeHMM] Insufficient data (%d rows) for HMM", len(returns))

@@ -17,7 +17,7 @@ def detect_unadjusted_splits(
 
     for ticker, group in df.groupby(ticker_col, sort=False):
         group = group.sort_values(timestamp_col).reset_index(drop=True)
-        ret = group[price_col].pct_change()
+        ret = group[price_col].pct_change(fill_method=None)
 
         for pos in ret[ret < -drop_threshold].index:
             if pos == 0:

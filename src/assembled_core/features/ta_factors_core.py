@@ -211,7 +211,7 @@ def _add_trend_strength_factors(
         )
         # Fallback: use rolling std of returns as volatility proxy
         grouped_close = result.groupby(group_col, group_keys=False)[price_col]
-        returns = grouped_close.pct_change()
+        returns = grouped_close.pct_change(fill_method=None)
         atr_proxy = (
             returns.groupby(result[group_col], group_keys=False)
             .rolling(window=20, min_periods=1)

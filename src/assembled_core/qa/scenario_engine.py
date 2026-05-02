@@ -471,7 +471,7 @@ def apply_scenario_to_equity(
         return shocked_equity
     elif scenario.shock_type == "vol_spike":
         # For vol_spike, increase volatility of returns
-        returns = equity_series.pct_change().fillna(0.0)
+        returns = equity_series.pct_change(fill_method=None).fillna(0.0)
 
         if scenario.shock_start is not None:
             if not isinstance(equity_series.index, pd.DatetimeIndex):
@@ -900,7 +900,7 @@ def compare_crisis_scenarios(
             pivot = shocked_prices.pivot_table(
                 index="timestamp", columns="symbol", values="close", aggfunc="last"
             )
-            returns = pivot.pct_change().dropna(how="all")
+            returns = pivot.pct_change(fill_method=None).dropna(how="all")
             port_returns = returns.mean(axis=1).dropna()
 
             if len(port_returns) < 2:

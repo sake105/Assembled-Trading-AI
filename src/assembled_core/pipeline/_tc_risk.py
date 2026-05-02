@@ -76,7 +76,7 @@ def check_risk(
             import numpy as _np_evt
             from src.assembled_core.risk.evt_tail_var import evt_var
             _pivot_evt = prices_for_evt.pivot_table(index="timestamp" if "timestamp" in prices_for_evt.columns else prices_for_evt.columns[0], columns="symbol" if "symbol" in prices_for_evt.columns else None, values="close")
-            _rets_evt = _pivot_evt.pct_change().dropna(how="all")
+            _rets_evt = _pivot_evt.pct_change(fill_method=None).dropna(how="all")
             if len(_rets_evt) >= 60:
                 _port_rets = _rets_evt.mean(axis=1).dropna()
                 _losses = (-_port_rets).values
@@ -98,7 +98,7 @@ def check_risk(
         if not orders.empty and prices_for_cop is not None and not prices_for_cop.empty and "close" in prices_for_cop.columns:
             from src.assembled_core.ml.copula_models import compute_portfolio_tail_risk
             _pivot_cop = prices_for_cop.pivot_table(index="timestamp" if "timestamp" in prices_for_cop.columns else prices_for_cop.columns[0], columns="symbol" if "symbol" in prices_for_cop.columns else None, values="close")
-            _rets_cop = _pivot_cop.pct_change().dropna(how="all")
+            _rets_cop = _pivot_cop.pct_change(fill_method=None).dropna(how="all")
             if len(_rets_cop) >= 60 and 1 < _rets_cop.shape[1] <= 30:
                 _cop_metrics = compute_portfolio_tail_risk(_rets_cop)
                 if float(_cop_metrics.get("avg_lower_tail_dep", 0.0)) > 0.5:

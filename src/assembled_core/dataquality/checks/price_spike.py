@@ -33,7 +33,7 @@ def detect_price_spikes(
             elif avg_price < 20:
                 threshold = 0.35
 
-        ret = group[price_col].pct_change()
+        ret = group[price_col].pct_change(fill_method=None)
         mask_abs = (ret.abs() > threshold).fillna(False)
 
         roll_mean = ret.rolling(20, min_periods=5).mean()

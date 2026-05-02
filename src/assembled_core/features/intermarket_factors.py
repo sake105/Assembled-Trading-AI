@@ -179,8 +179,8 @@ def build_intermarket_factors(
         if "HYG" in etf_df.columns and "LQD" in etf_df.columns:
             hy_ig = etf_df["HYG"] / etf_df["LQD"].replace(0, np.nan)
             result["hy_ig_ratio"] = hy_ig.values
-            result["credit_spread_change_5d"] = hy_ig.pct_change(5).values
-            result["credit_spread_change_20d"] = hy_ig.pct_change(20).values
+            result["credit_spread_change_5d"] = hy_ig.pct_change(5, fill_method=None).values
+            result["credit_spread_change_20d"] = hy_ig.pct_change(20, fill_method=None).values
 
         # Gold / equity divergence: GLD minus SPY return (20d) — risk-off signal
         if "GLD" in etf_df.columns and "SPY" in etf_df.columns:

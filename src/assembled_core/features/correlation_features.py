@@ -250,7 +250,7 @@ def build_correlation_features_panel(
         index=timestamp_col, columns=symbol_col, values=close_col,
     )
     # Compute returns
-    returns_wide = wide.pct_change().dropna(how="all")
+    returns_wide = wide.pct_change(fill_method=None).dropna(how="all")
 
     if returns_wide.empty or returns_wide.shape[1] < 2:
         return pd.DataFrame()

@@ -754,7 +754,7 @@ def add_volume_weighted_momentum(
         logger.warning("[VWM] Missing columns: %s — skipping", missing)
         return result
 
-    ret = result.groupby(symbol_col)[close_col].pct_change()
+    ret = result.groupby(symbol_col)[close_col].pct_change(fill_method=None)
     vol = result[volume_col].astype(float)
 
     for w in windows:

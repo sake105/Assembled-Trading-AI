@@ -977,13 +977,13 @@ def _pb_normalize_equity(equity: pd.DataFrame) -> pd.DataFrame:
     if "timestamp" in equity.columns:
         equity = equity.copy()
         equity["date"] = pd.to_datetime(equity["timestamp"]).dt.date
-        equity["daily_return"] = equity["equity"].pct_change().fillna(0.0)
+        equity["daily_return"] = equity["equity"].pct_change(fill_method=None).fillna(0.0)
         base_cols = ["date", "timestamp", "equity", "daily_return"]
         extra = [c for c in ["cash"] if c in equity.columns]
         return equity[base_cols + extra].copy()
     if "date" in equity.columns:
         equity = equity.copy()
-        equity["daily_return"] = equity["equity"].pct_change().fillna(0.0)
+        equity["daily_return"] = equity["equity"].pct_change(fill_method=None).fillna(0.0)
         base = ["date", "equity", "daily_return"]
         if "timestamp" in equity.columns:
             base = ["date", "timestamp", "equity", "daily_return"]
@@ -999,7 +999,7 @@ def _pb_normalize_equity(equity: pd.DataFrame) -> pd.DataFrame:
         else:
             equity["date"] = pd.date_range(start="2000-01-01", periods=len(equity), freq="D").date
             equity["timestamp"] = pd.to_datetime(equity["date"])
-    equity["daily_return"] = equity["equity"].pct_change().fillna(0.0)
+    equity["daily_return"] = equity["equity"].pct_change(fill_method=None).fillna(0.0)
     base_cols = ["date", "timestamp", "equity", "daily_return"]
     extra = [c for c in ["cash"] if c in equity.columns]
     return equity[base_cols + extra].copy()

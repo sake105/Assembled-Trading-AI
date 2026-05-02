@@ -405,7 +405,7 @@ def _build_report_content(
             else:
                 eq_series = equity.iloc[:, -1]  # last numeric column
 
-            daily_rets = eq_series.pct_change().dropna().values
+            daily_rets = eq_series.pct_change(fill_method=None).dropna().values
             if len(daily_rets) >= 5:
                 profile = compute_performance_profile(daily_rets)
                 lines.append("## Portfolio Analysis (Advanced)")
@@ -611,7 +611,7 @@ def generate_quantstats_tearsheet(
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Convert NAV to returns
-    returns = equity_curve.pct_change().dropna()
+    returns = equity_curve.pct_change(fill_method=None).dropna()
 
     try:
         qs.reports.html(

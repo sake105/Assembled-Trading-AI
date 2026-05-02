@@ -932,7 +932,7 @@ def _evaluate_var_gate(
         wide = prices.pivot_table(
             index="timestamp", columns="symbol", values=price_col, aggfunc="last"
         ).sort_index()
-        returns = wide.pct_change().dropna(how="all")
+        returns = wide.pct_change(fill_method=None).dropna(how="all")
         if returns.shape[0] < int(cfg.get("min_history", 20)):
             return None
 

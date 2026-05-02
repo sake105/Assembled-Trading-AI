@@ -381,7 +381,7 @@ def compute_metrics(equity: pd.DataFrame) -> dict[str, float | int]:
         last: Last timestamp
     """
     pf = float(equity["equity"].iloc[-1] / max(equity["equity"].iloc[0], 1e-12))
-    ret = equity["equity"].pct_change().replace([np.inf, -np.inf], np.nan).dropna()
+    ret = equity["equity"].pct_change(fill_method=None).replace([np.inf, -np.inf], np.nan).dropna()
     if ret.empty or ret.isna().all():
         logger.warning("[BACKTEST] No valid returns for Sharpe — defaulting to 0.0")
         sharpe = 0.0

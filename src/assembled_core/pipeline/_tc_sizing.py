@@ -96,7 +96,7 @@ def _sp_dispatch_sizing(
                     scores_dict = {str(sym): float(s) for sym, s in _bl[_bl["score"].abs() > 0.01].set_index("symbol")["score"].items()}
                 if scores_dict and prices_for_sizing is not None and not prices_for_sizing.empty and "close" in prices_for_sizing.columns and "symbol" in prices_for_sizing.columns:
                     _pivot = prices_for_sizing.pivot_table(index="timestamp", columns="symbol", values="close")
-                    sigma = estimate_covariance(_pivot.pct_change().dropna(how="all"), method=sizing_cfg.get("cov_method", "ledoit_wolf"))
+                    sigma = estimate_covariance(_pivot.pct_change(fill_method=None).dropna(how="all"), method=sizing_cfg.get("cov_method", "ledoit_wolf"))
                     if not sigma.empty:
                         bl_w = bl.optimize_from_scores(
                             scores=pd.Series(scores_dict), sigma=sigma,
@@ -122,7 +122,7 @@ def _sp_dispatch_sizing(
                 from src.assembled_core.portfolio.covariance import estimate_covariance
                 if prices_for_sizing is not None and not prices_for_sizing.empty and not signals.empty and "close" in prices_for_sizing.columns and "symbol" in prices_for_sizing.columns:
                     _pivot_cao = prices_for_sizing.pivot_table(index="timestamp", columns="symbol", values="close")
-                    sigma_cao = estimate_covariance(_pivot_cao.pct_change().dropna(how="all"), method="ledoit_wolf")
+                    sigma_cao = estimate_covariance(_pivot_cao.pct_change(fill_method=None).dropna(how="all"), method="ledoit_wolf")
                     mu_cao = signals.set_index("symbol")["score"].reindex(sigma_cao.index).fillna(0.0) if "score" in signals.columns else pd.Series(dtype=float)
                     _cur_w: dict[str, float] = {}
                     if ctx.current_positions is not None and isinstance(ctx.current_positions, pd.DataFrame) and "symbol" in ctx.current_positions.columns:
@@ -154,7 +154,7 @@ def _sp_dispatch_sizing(
                     _sig_syms = [s for s in signals["symbol"].tolist() if s in prices_for_sizing["symbol"].unique()]
                     if len(_sig_syms) >= 2:
                         _pivot_erc = prices_for_sizing[prices_for_sizing["symbol"].isin(_sig_syms)].pivot_table(index="timestamp", columns="symbol", values="close")
-                        _rets_erc = _pivot_erc.pct_change().dropna(how="all")
+                        _rets_erc = _pivot_erc.pct_change(fill_method=None).dropna(how="all")
                         if len(_rets_erc) >= 3:
                             sigma_erc = estimate_covariance(_rets_erc, method="ledoit_wolf")
                             erc_res = compute_erc_weights(sigma_erc, symbols=list(sigma_erc.columns), long_only=True, max_weight=float(sizing_cfg.get("max_weight", 0.25)))
@@ -210,7 +210,7 @@ def _sp_dispatch_sizing(
                     _sig_syms_mvo = [s for s in signals["symbol"].tolist() if s in prices_for_sizing["symbol"].unique()]
                     if len(_sig_syms_mvo) >= 2:
                         _pivot_mvo = prices_for_sizing[prices_for_sizing["symbol"].isin(_sig_syms_mvo)].pivot_table(index="timestamp", columns="symbol", values="close")
-                        _rets_mvo = _pivot_mvo.pct_change().dropna(how="all")
+                        _rets_mvo = _pivot_mvo.pct_change(fill_method=None).dropna(how="all")
                         if len(_rets_mvo) >= 3:
                             sigma_mvo = estimate_covariance(_rets_mvo, method="ledoit_wolf").values
                             mvo_syms = list(_rets_mvo.columns)

@@ -169,7 +169,7 @@ def compute_vol_forecasts(
     records: list[dict[str, Any]] = []
     for ticker, group in prices_df.groupby(ticker_col, sort=False):
         group = group.sort_values(timestamp_col)
-        returns = group[price_col].pct_change().dropna()
+        returns = group[price_col].pct_change(fill_method=None).dropna()
         vol = forecast_vol(returns, horizon=horizon)
         size = size_vol_target(vol, target_vol=target_vol, max_leverage=max_leverage)
         records.append({
