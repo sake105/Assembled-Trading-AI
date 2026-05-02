@@ -261,6 +261,7 @@ def build_multifactor_signal(
     if total_configured_weight > 0:
         renorm = total_configured_weight / effective_weight_sum.replace(0.0, np.nan)
         mf_score = mf_score * renorm
+        mf_score = mf_score.clip(lower=-4.0, upper=4.0)
         # Rows where ALL factors were NaN remain NaN (not 0.0)
         mf_score.loc[effective_weight_sum == 0.0] = np.nan
 
@@ -618,6 +619,7 @@ def build_adaptive_multifactor_signal(
     # Renormalize
     total_w = effective_weight_sum.replace(0, np.nan)
     mf_score = mf_score / total_w  # normalize to unit weights
+    mf_score = mf_score.clip(lower=-4.0, upper=4.0)
     mf_score.loc[effective_weight_sum == 0.0] = np.nan
 
     result_df["mf_score"] = mf_score

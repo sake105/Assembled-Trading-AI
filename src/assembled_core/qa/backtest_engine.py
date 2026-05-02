@@ -690,6 +690,7 @@ def _pb_run_cycle_fn_loop(
     cash = start_capital
     profit_lock_state: dict[str, Any] | None = None
     current_positions = pd.DataFrame(columns=["symbol", "qty"])
+    _px_cache: dict[str, float] = {}  # last-known price per symbol (prevents fillna(0) gaps)
 
     for timestamp in timeline:
         if timestamp not in rebalance_timestamps_set:
@@ -743,10 +744,12 @@ def _pb_run_cycle_fn_loop(
             all_orders.append(orders)
 
         prices_at_ts = prices[prices["timestamp"] == timestamp]
-        if not prices_at_ts.empty and not current_positions.empty:
-            px = prices_at_ts.set_index("symbol")["close"]
+        if not prices_at_ts.empty:
+            _px_cache.update(prices_at_ts.set_index("symbol")["close"].to_dict())
+        if not current_positions.empty:
             qty_series = current_positions.set_index("symbol")["qty"]
-            mtm = (qty_series * px.reindex(qty_series.index).fillna(0)).sum()
+            filled_px = pd.Series({sym: _px_cache.get(sym, 0.0) for sym in qty_series.index})
+            mtm = float((qty_series * filled_px).sum())
         else:
             mtm = 0.0
         equity_values.append(cash + float(mtm))
