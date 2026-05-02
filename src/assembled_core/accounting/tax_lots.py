@@ -171,8 +171,14 @@ def get_ecb_usd_eur_rate_sync(
         with urllib.request.urlopen(url, timeout=5) as resp:
             data = json.loads(resp.read())
         series = data["dataSets"][0]["series"]
-        obs = next(iter(series.values()))["observations"]
-        usd_per_eur = float(next(iter(obs.values()))[0])
+        first_series = next(iter(series.values()), None)
+        if first_series is None:
+            raise ValueError("ECB API returned empty series")
+        obs = first_series["observations"]
+        first_obs = next(iter(obs.values()), None)
+        if first_obs is None:
+            raise ValueError("ECB API returned empty observations")
+        usd_per_eur = float(first_obs[0])
         return round(1.0 / usd_per_eur, 6)
     except Exception as _exc:
         logger.warning("[ECB] FX rate fetch failed (%s) — using fallback %.4f", _exc, fallback_rate)
