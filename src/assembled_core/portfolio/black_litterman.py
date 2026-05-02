@@ -302,7 +302,9 @@ class BlackLittermanOptimizer:
             return pd.Series(np.ones(n) / n, index=sigma.index)
 
         s = scores.reindex(symbols)
-        normalized = (s - s.mean()) / (s.std() + 1e-8)
+        std_s = s.std()
+        denom = float(std_s) if np.isfinite(std_s) and std_s > 1e-8 else 1.0
+        normalized = (s - s.mean()) / denom
         max_norm = normalized.abs().max()
         views = (normalized / max(float(max_norm), 1e-8) * return_scale).to_dict()
 
