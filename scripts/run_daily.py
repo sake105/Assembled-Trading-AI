@@ -25,7 +25,7 @@ from __future__ import annotations
 import argparse
 import sys
 from contextlib import nullcontext
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd

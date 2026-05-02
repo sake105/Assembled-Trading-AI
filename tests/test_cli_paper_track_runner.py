@@ -9,6 +9,7 @@ Uses in-process execution with monkeypatching for robustness.
 from __future__ import annotations
 
 import json
+from datetime import timezone
 import subprocess
 import sys
 from pathlib import Path
