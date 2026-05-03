@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict
 
+import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -49,27 +50,16 @@ def filter_deadzone_orders(
     if current_positions is None or current_positions.empty:
         return orders, stats
 
-    pos_map: Dict[str, float] = {}
-    for _, row in current_positions.iterrows():
-        sym = row["symbol"]
-        qty = abs(float(row.get("qty", 0)))
-        if qty > 0:
-            pos_map[sym] = qty
+    pos_s = pd.to_numeric(current_positions["qty"], errors="coerce").abs().fillna(0.0)
+    valid = pos_s > 0
+    pos_map: Dict[str, float] = dict(zip(current_positions.loc[valid, "symbol"], pos_s[valid]))
 
-    keep_mask = []
-    for _, order in orders.iterrows():
-        sym = order["symbol"]
-        order_qty = abs(float(order["qty"]))
-        current_qty = pos_map.get(sym, 0.0)
-
-        if current_qty == 0:
-            keep_mask.append(True)
-            continue
-
-        denominator = max(current_qty, order_qty)
-        ratio = order_qty / denominator if denominator > 0 else 0.0
-
-        keep_mask.append(ratio >= deadzone_pct)
+    order_qty = pd.to_numeric(orders["qty"], errors="coerce").abs().fillna(0.0)
+    current_qty = orders["symbol"].map(pos_map).fillna(0.0)
+    has_pos = current_qty > 0
+    denom = np.maximum(current_qty.values, order_qty.values)
+    ratio = np.where(denom > 0, order_qty.values / denom, 0.0)
+    keep_mask = ~has_pos.values | (ratio >= deadzone_pct)
 
     filtered = orders[keep_mask].reset_index(drop=True)
 
