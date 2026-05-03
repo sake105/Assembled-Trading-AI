@@ -97,10 +97,10 @@ def _reconstruct_trades_from_ledger(ledger_path: Path) -> list[dict[str, Any]]:
         grp = grp.sort_values("event_ts").reset_index(drop=True)
         open_positions: list[dict[str, Any]] = []
 
-        for _, row in grp.iterrows():
-            qty = float(row["qty"]) if not pd.isna(row["qty"]) else 0.0
-            price = float(row["price"]) if not pd.isna(row["price"]) else np.nan
-            ts = row["event_ts"]
+        for row in grp.itertuples(index=False):
+            qty = float(row.qty) if not pd.isna(row.qty) else 0.0
+            price = float(row.price) if not pd.isna(row.price) else np.nan
+            ts = row.event_ts
 
             if qty > 0:
                 # Entry (buy)

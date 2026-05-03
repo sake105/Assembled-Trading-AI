@@ -67,19 +67,14 @@ def create_benchmark_prices(n_symbols: int = 10, n_days: int = 252) -> pd.DataFr
 
 def simple_signal_fn(prices_df: pd.DataFrame) -> pd.DataFrame:
     """Simple signal function for benchmarking."""
-    signals = []
-    for _, row in prices_df.iterrows():
-        # Simple trend signal: LONG if price > 100-day moving average approximation
-        direction = "LONG" if row["close"] > 100.0 else "FLAT"
-        signals.append(
-            {
-                "timestamp": row["timestamp"],
-                "symbol": row["symbol"],
-                "direction": direction,
-                "score": 1.0 if direction == "LONG" else 0.0,
-            }
-        )
-    return pd.DataFrame(signals)
+    is_long = prices_df["close"].to_numpy() > 100.0
+    direction = np.where(is_long, "LONG", "FLAT")
+    return pd.DataFrame({
+        "timestamp": prices_df["timestamp"].values,
+        "symbol": prices_df["symbol"].values,
+        "direction": direction,
+        "score": is_long.astype(float),
+    })
 
 
 def simple_position_sizing_fn(signals_df: pd.DataFrame, capital: float) -> pd.DataFrame:
@@ -88,17 +83,14 @@ def simple_position_sizing_fn(signals_df: pd.DataFrame, capital: float) -> pd.Da
     if long_signals.empty:
         return pd.DataFrame(columns=["symbol", "target_weight", "target_qty"])
 
-    targets = []
-    n = len(long_signals["symbol"].unique())
-    for symbol in long_signals["symbol"].unique():
-        targets.append(
-            {
-                "symbol": symbol,
-                "target_weight": 1.0 / n if n > 0 else 0.0,
-                "target_qty": (capital / n) / 100.0,  # Rough price estimate
-            }
-        )
-    return pd.DataFrame(targets)
+    syms = long_signals["symbol"].unique()
+    n = len(syms)
+    w = 1.0 / n if n > 0 else 0.0
+    return pd.DataFrame({
+        "symbol": syms,
+        "target_weight": w,
+        "target_qty": (capital / n) / 100.0,  # Rough price estimate
+    })
 
 
 def run_benchmark(

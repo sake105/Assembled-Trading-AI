@@ -92,19 +92,15 @@ def load_experiment_run(run_dir: Path) -> Optional[dict]:
                 # Extract scalar metrics (latest value for time-series metrics)
                 if len(metrics_df) > 0:
                     # Get latest values for each metric
-                    for metric_name in metrics_df["metric_name"].unique():
-                        metric_rows = metrics_df[
-                            metrics_df["metric_name"] == metric_name
-                        ]
-                        if len(metric_rows) > 0:
-                            # Use last value
-                            latest_row = metric_rows.iloc[-1]
-                            try:
-                                metrics_data[metric_name] = float(
-                                    latest_row["metric_value"]
-                                )
-                            except (ValueError, TypeError):
-                                pass
+                    for metric_name, metric_rows in metrics_df.groupby("metric_name", sort=False):
+                        # Use last value
+                        latest_row = metric_rows.iloc[-1]
+                        try:
+                            metrics_data[metric_name] = float(
+                                latest_row["metric_value"]
+                            )
+                        except (ValueError, TypeError):
+                            pass
             except Exception as e:
                 print(f"Warning: Failed to load metrics from {metrics_csv}: {e}")
 
@@ -258,12 +254,8 @@ def print_summary_table(df: pd.DataFrame) -> None:
         print("=" * 100)
 
         universe_stats = []
-        for universe in df["universe"].unique():
+        for universe, universe_runs in df.groupby("universe", sort=False):
             if universe == "unknown":
-                continue
-
-            universe_runs = df[df["universe"] == universe]
-            if len(universe_runs) == 0:
                 continue
 
             cagr_values = universe_runs["cagr"].dropna()

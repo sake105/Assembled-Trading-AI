@@ -225,12 +225,15 @@ def main() -> int:
         # Display top 10
         logger.info("Top 10 Factors by Combined Score:")
         top_10 = ranking_df.head(10)
-        for idx, row in top_10.iterrows():
+        for rank, row in enumerate(top_10.itertuples(index=False), start=1):
+            ic_ir = getattr(row, "ic_ir", None)
+            ls_dsr = getattr(row, "ls_deflated_sharpe", None)
+            ic_ir_str = f"{ic_ir:.4f}" if ic_ir is not None and pd.notna(ic_ir) else "N/A"
+            ls_dsr_str = f"{ls_dsr:.4f}" if ls_dsr is not None and pd.notna(ls_dsr) else "N/A"
             logger.info(
-                f"  {idx + 1:2d}. {row['factor_name']:40s} "
-                f"Score: {row['combined_score']:.4f} "
-                f"(IC-IR: {row.get('ic_ir', 'N/A'):.4f if pd.notna(row.get('ic_ir')) else 'N/A'}, "
-                f"DSR: {row.get('ls_deflated_sharpe', 'N/A'):.4f if pd.notna(row.get('ls_deflated_sharpe')) else 'N/A'})"
+                f"  {rank:2d}. {row.factor_name:40s} "
+                f"Score: {row.combined_score:.4f} "
+                f"(IC-IR: {ic_ir_str}, DSR: {ls_dsr_str})"
             )
         logger.info("")
 

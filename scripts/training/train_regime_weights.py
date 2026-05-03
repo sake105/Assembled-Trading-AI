@@ -538,10 +538,10 @@ def validate_regime_weights_wf(
         wt_ics, eq_ics = [], []
         eq_w = 1.0 / len(factor_cols)
 
-        for _, row in test_merged.iterrows():
-            regime = str(row["regime_label"])
+        for row in test_merged.itertuples(index=False):
+            regime = str(row.regime_label)
             w_map = weights.get(regime, _equal_weights(factor_cols))
-            ic_vals = {c: row[c] for c in factor_cols if not np.isnan(row[c])}
+            ic_vals = {c: getattr(row, c) for c in factor_cols if not np.isnan(getattr(row, c))}
             if not ic_vals:
                 continue
             wt_ic = sum(w_map.get(c, eq_w) * v for c, v in ic_vals.items())

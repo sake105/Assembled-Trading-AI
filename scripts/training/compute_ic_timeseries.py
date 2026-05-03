@@ -346,13 +346,13 @@ def _print_factor_table(
     print(header)
     print(f"{'-'*80}")
 
-    for _, row in table.iterrows():
-        mean_ic_str = f"{row['mean_ic']:8.4f}" if not math.isnan(row["mean_ic"]) else "     NaN"
-        ic_ir_str = f"{row['ic_ir']:7.3f}" if not math.isnan(row["ic_ir"]) else "    NaN"
-        hit_str = f"{row['hit_ratio']:9.3f}" if not math.isnan(row["hit_ratio"]) else "      NaN"
-        t_str = f"{row['t_stat']:8.3f}" if not math.isnan(row["t_stat"]) else "     NaN"
+    for row in table.itertuples(index=False):
+        mean_ic_str = f"{row.mean_ic:8.4f}" if not math.isnan(row.mean_ic) else "     NaN"
+        ic_ir_str = f"{row.ic_ir:7.3f}" if not math.isnan(row.ic_ir) else "    NaN"
+        hit_str = f"{row.hit_ratio:9.3f}" if not math.isnan(row.hit_ratio) else "      NaN"
+        t_str = f"{row.t_stat:8.3f}" if not math.isnan(row.t_stat) else "     NaN"
         print(
-            f"{row['factor']:<35} {mean_ic_str} {ic_ir_str} {hit_str} {t_str} {int(row['n_periods']):>6}"
+            f"{row.factor:<35} {mean_ic_str} {ic_ir_str} {hit_str} {t_str} {int(row.n_periods):>6}"
         )
 
     print(f"{'='*80}")
