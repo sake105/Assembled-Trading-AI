@@ -141,7 +141,12 @@ line-length = 88
 [tool.ruff.lint]
 # Nur echte Fehler prüfen, keine Style-Warnungen
 select = ["E", "F", "NPY201"]
-ignore = ["E501", "E203", "E402"]  # E402: Module level import not at top (absichtlich in Tests nach sys.path.insert)
+ignore = ["E501", "E203", "E402", "E702"]  # E402: module-level import not at top (intentional in tests after sys.path.insert); E702: multiple statements on one line — test files use `import pytest; pytest.importorskip(...)` pattern
+
+[tool.ruff.lint.per-file-ignores]
+"src/assembled_core/config/__init__.py" = ["F401"]  # re-export pattern: imports added to __all__ dynamically
+"tests/**" = ["F841"]  # test helper variables assigned for side-effects or future assertions
+"tests/*.py" = ["F841"]  # same, for flat test files
 
 [tool.ruff.lint.isort]
 known-first-party = ["assembled_core"]

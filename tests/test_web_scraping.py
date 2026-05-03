@@ -6,7 +6,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
-import pytest; pytest.importorskip("src.assembled_core.data.altdata.web_scraping")
+pytest.importorskip("src.assembled_core.data.altdata.web_scraping")
 from src.assembled_core.data.altdata.web_scraping import (
     WebScrapingConfig,
     compute_job_posting_features,

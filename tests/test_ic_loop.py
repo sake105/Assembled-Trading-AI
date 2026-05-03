@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-import math
 import pytest
 
 from src.assembled_core.intel.ic_loop import ICTracker, _pearson_corr

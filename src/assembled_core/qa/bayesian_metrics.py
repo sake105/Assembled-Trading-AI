@@ -24,7 +24,7 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 try:
-    import pymc as pm  # type: ignore[import]
+    import pymc as pm  # type: ignore[import]  # noqa: F401
     _PYMC_AVAILABLE = True
 except ImportError:
     _PYMC_AVAILABLE = False

@@ -216,7 +216,6 @@ def compute_edcl_position_size(
     if model_path:
         try:
             import joblib
-            import numpy as np
             from pathlib import Path
             _path = Path(model_path)
             if not _path.is_absolute():
@@ -229,7 +228,6 @@ def compute_edcl_position_size(
                 if feature_row is not None:
                     # Full inference path using conformal model
                     try:
-                        import pandas as pd
                         from src.assembled_core.portfolio.conformal_position import (
                             conformal_size_factor,
                         )

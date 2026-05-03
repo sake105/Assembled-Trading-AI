@@ -405,7 +405,7 @@ def test_sentiment_panel_basic():
 
 def test_recession_probability_without_statsmodels():
     from src.assembled_core.signals import recession_probability as mod
-    import importlib, sys
+    import sys
 
     # Temporarily hide statsmodels
     real = sys.modules.pop("statsmodels.tsa.regime_switching.markov_regression", None)
@@ -657,7 +657,7 @@ def test_riskfolio_no_library(monkeypatch):
 
 def test_riskfolio_optimize_if_available():
     try:
-        import riskfolio
+        import riskfolio  # noqa: F401
     except ImportError:
         pytest.skip("riskfolio-lib not installed")
 
@@ -1108,7 +1108,7 @@ def test_list_jobs_no_scheduler():
 
 def test_scheduler_with_apscheduler():
     try:
-        from apscheduler.schedulers.background import BackgroundScheduler
+        from apscheduler.schedulers.background import BackgroundScheduler  # noqa: F401
     except ImportError:
         pytest.skip("apscheduler not installed")
 
@@ -1362,11 +1362,8 @@ def test_sentry_transaction_yields_when_not_initialized(monkeypatch):
 def test_sentry_exports():
     from src.assembled_core.ops.error_tracking import (
         init_sentry,
-        init_sentry_fastapi,
         capture_exception,
         capture_message,
-        sentry_transaction,
-        set_user_context,
     )
     assert callable(init_sentry)
     assert callable(capture_exception)

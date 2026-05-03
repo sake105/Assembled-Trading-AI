@@ -3,10 +3,8 @@ from __future__ import annotations
 
 import math
 
-import pytest
 
 from assembled_core.ops.metrics_exporter import (
-    HistogramSnapshot,
     export_metrics,
     render_prometheus_text,
     slippage_histogram,
@@ -109,5 +107,5 @@ def test_export_metrics_accepts_histograms(tmp_path):
 def test_histogram_inf_bucket_last_in_output():
     h = slippage_histogram([0])
     text = render_prometheus_text(metrics={}, histograms={"s": h})
-    lines = [l for l in text.splitlines() if "s_bucket" in l]
+    lines = [ln for ln in text.splitlines() if "s_bucket" in ln]
     assert lines[-1].startswith('s_bucket{le="+Inf"}')

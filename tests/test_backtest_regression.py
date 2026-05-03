@@ -16,7 +16,7 @@ import pandas as pd
 import pytest
 
 from src.assembled_core.pipeline.backtest import compute_metrics, simulate_equity
-import pytest; pytest.importorskip('src.assembled_core.pipeline.backtest_legacy')
+pytest.importorskip('src.assembled_core.pipeline.backtest_legacy')
 from src.assembled_core.pipeline.backtest_legacy import (
     _legacy_simulate_equity,
 )

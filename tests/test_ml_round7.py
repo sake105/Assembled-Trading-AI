@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -845,7 +844,7 @@ def test_news_trade_attribution_decay_ordering():
     })
     attributor = NewsTradeAttributor(pre_window_hours=24, decay_halflife_hours=6)
     links = attributor.link_trade_to_events(trade, news)
-    by_id = {l.event_id: l for l in links}
+    by_id = {lnk.event_id: lnk for lnk in links}
     assert by_id["NEAR"].weight > by_id["FAR"].weight
     assert by_id["NEAR"].distance_hours < by_id["FAR"].distance_hours
 
@@ -884,7 +883,7 @@ def test_news_trade_attribution_residual_and_contribution():
     attrs = NewsTradeAttributor(decay_halflife_hours=6).attribute_trades(trades, news)
     assert len(attrs) == 1
     a = attrs[0]
-    total_contrib = sum(l.estimated_contribution for l in a.news_links)
+    total_contrib = sum(lnk.estimated_contribution for lnk in a.news_links)
     assert abs(a.residual_return - (a.closed_return - total_contrib)) < 1e-6
 
 

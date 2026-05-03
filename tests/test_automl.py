@@ -6,7 +6,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
-import pytest; pytest.importorskip('src.assembled_core.ml.automl')
+pytest.importorskip('src.assembled_core.ml.automl')
 from src.assembled_core.ml.automl import (
     AutoMLResult,
     compute_ic,

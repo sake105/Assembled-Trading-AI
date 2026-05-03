@@ -58,7 +58,7 @@ except ImportError:
     pass
 
 try:
-    import anthropic  # type: ignore[import]
+    import anthropic  # type: ignore[import]  # noqa: F401
     _ANTHROPIC = True
 except ImportError:
     pass

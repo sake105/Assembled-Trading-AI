@@ -6,7 +6,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
-import pytest; pytest.importorskip('src.assembled_core.portfolio.covariance')
+pytest.importorskip('src.assembled_core.portfolio.covariance')
 from src.assembled_core.portfolio.covariance import (
     estimate_covariance,
     returns_from_prices,

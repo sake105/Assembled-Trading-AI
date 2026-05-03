@@ -7,7 +7,6 @@ that were wired in wave-4 of Part B.
 from __future__ import annotations
 
 import pandas as pd
-import pytest
 
 from src.assembled_core.paper.ranking_hysteresis import apply_ranking_hysteresis
 from src.assembled_core.paper.deadzone_rebalance import filter_deadzone_orders

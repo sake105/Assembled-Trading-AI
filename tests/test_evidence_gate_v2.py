@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import pandas as pd
-import pytest
 
 from assembled_core.pipeline.trading_cycle_v2 import _apply_evidence_gate
 

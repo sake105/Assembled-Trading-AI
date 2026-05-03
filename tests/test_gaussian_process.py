@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 import numpy as np
 
-import pytest; pytest.importorskip('src.assembled_core.ml.gaussian_process')
+pytest.importorskip('src.assembled_core.ml.gaussian_process')
 from src.assembled_core.ml.gaussian_process import (
     GPRResult,
     FactorGPR,

@@ -3,18 +3,16 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
-from unittest.mock import patch
 
 def _noon_utc() -> datetime:
     """Return today's noon UTC at call time — avoids midnight-crossing when the
     module is imported hours before the tests run (e.g. long full-suite runs)."""
     return datetime.now(timezone.utc).replace(hour=12, minute=0, second=0, microsecond=0)
 
-import pytest
 
 from assembled_core.execution.pdt_tracker import DayTrade, PDTTracker
 from assembled_core.execution.round_trip_detector import RoundTripDetector
-from assembled_core.execution.order_gate import GateResult, OrderDecision, OrderGate
+from assembled_core.execution.order_gate import OrderDecision, OrderGate
 from assembled_core.execution.migration_detector import PDTMigrationDetector
 
 

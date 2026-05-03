@@ -6,7 +6,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
-import pytest; pytest.importorskip("src.assembled_core.data.altdata.patent_features")
+pytest.importorskip("src.assembled_core.data.altdata.patent_features")
 from src.assembled_core.data.altdata.patent_features import (
     PatentConfig,
     compute_patent_features,

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import pandas as pd
-import pytest
 
 from assembled_core.ops.slippage_collector import SlippageCollector
 

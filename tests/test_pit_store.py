@@ -110,7 +110,7 @@ class TestPITStore:
 @pytest.mark.phase12
 class TestNewsReplayer:
     def _build_store(self, tmp_path):
-        from datetime import datetime, timezone
+        from datetime import datetime
         store = PITStore(tmp_path / "pit")
         for i, day in enumerate(["2024-01-10", "2024-01-20", "2024-01-30"]):
             dt = datetime.fromisoformat(day + "T12:00:00+00:00")

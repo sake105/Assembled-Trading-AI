@@ -13,7 +13,7 @@ from typing import Any
 import pandas as pd
 import pytest
 
-import pytest; pytest.importorskip('src.assembled_core.qa.robustness')
+pytest.importorskip('src.assembled_core.qa.robustness')
 from src.assembled_core.qa.robustness import (
     export_crisis_windows_results,
     get_standard_crisis_windows,

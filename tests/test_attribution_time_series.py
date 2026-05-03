@@ -1,12 +1,10 @@
 """Tests for src/assembled_core/attribution/time_series.py."""
 from __future__ import annotations
 
-import math
 from datetime import datetime, timezone
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from assembled_core.attribution.schemas import CompositeAttribution
 from assembled_core.attribution.time_series import (

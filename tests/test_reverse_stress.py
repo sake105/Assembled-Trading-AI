@@ -6,7 +6,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
-import pytest; pytest.importorskip('src.assembled_core.qa.reverse_stress')
+pytest.importorskip('src.assembled_core.qa.reverse_stress')
 from src.assembled_core.qa.reverse_stress import (
     reverse_stress_test,
     run_multiple_reverse_stress,

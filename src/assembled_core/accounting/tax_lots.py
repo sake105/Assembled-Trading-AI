@@ -116,7 +116,7 @@ def match_fifo(
     remaining = qty_to_close
     lots_closed = []
 
-    for lot in sorted(open_lots, key=lambda l: (l.trade_date, l.trade_timestamp)):
+    for lot in sorted(open_lots, key=lambda t: (t.trade_date, t.trade_timestamp)):
         if remaining <= 0:
             break
         if lot.status != "open":
@@ -137,7 +137,7 @@ def match_fifo(
         })
         remaining -= match_qty
 
-    total_pnl = sum(l["pnl_eur"] for l in lots_closed)
+    total_pnl = sum(row["pnl_eur"] for row in lots_closed)
     return FIFOCloseResult(
         lots_closed=lots_closed,
         total_pnl_eur=round(total_pnl, 4),
@@ -269,7 +269,7 @@ class TaxLotStore:
         open_lots = self.open_lots_for(symbol)
         result = match_fifo(open_lots, qty_to_close, exit_price_usd, usd_eur_rate, exit_date)
 
-        lot_map = {l.id: l for l in open_lots}
+        lot_map = {lot.id: lot for lot in open_lots}
         with sqlite3.connect(self.db_path) as conn:
             for close in result.lots_closed:
                 lot = lot_map[close["lot_id"]]

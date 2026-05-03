@@ -6,7 +6,6 @@ Verifies round-trip conversions between:
 """
 from __future__ import annotations
 
-import pytest
 from datetime import datetime, timezone
 
 

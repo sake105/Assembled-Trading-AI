@@ -92,12 +92,12 @@ def volatility_panel(
     DataFrame with columns: parkinson, garman_klass, rogers_satchell, close_to_close.
     """
     scale = np.sqrt(252) if annualise else 1.0
-    o, h, l, c = ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"]
+    o, h, low, c = ohlc["open"], ohlc["high"], ohlc["low"], ohlc["close"]
     return pd.DataFrame(
         {
-            "parkinson": parkinson_volatility(h, l, period) * scale,
-            "garman_klass": garman_klass_volatility(o, h, l, c, period) * scale,
-            "rogers_satchell": rogers_satchell_volatility(o, h, l, c, period) * scale,
+            "parkinson": parkinson_volatility(h, low, period) * scale,
+            "garman_klass": garman_klass_volatility(o, h, low, c, period) * scale,
+            "rogers_satchell": rogers_satchell_volatility(o, h, low, c, period) * scale,
             "close_to_close": close_to_close_volatility(c, period),
         },
         index=ohlc.index,

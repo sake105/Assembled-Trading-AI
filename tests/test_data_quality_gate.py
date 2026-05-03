@@ -14,7 +14,6 @@ from assembled_core.dataquality import (
     detect_price_spikes,
     detect_volume_anomalies,
     detect_unadjusted_splits,
-    detect_missing_trading_days,
 )
 
 

@@ -261,7 +261,6 @@ class TestAdaptiveAC:
         return cfg, state
 
     def test_initial_eta_from_config(self):
-        from assembled_core.execution.execution_router import ExecutionConfig
         cfg, state = self._setup()
         assert state.eta_hat == pytest.approx(cfg.almgren_eta)
 

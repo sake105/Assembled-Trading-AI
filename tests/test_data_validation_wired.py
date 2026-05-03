@@ -12,7 +12,8 @@ def test_no_print_in_load_eod_prices():
     import src.assembled_core.data.prices_ingest as mod
     src_text = inspect.getsource(mod)
     # Allow print in comments/strings but not as statement in production code
-    import ast, textwrap
+    import ast
+    import textwrap
     tree = ast.parse(textwrap.dedent(src_text))
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
@@ -43,7 +44,6 @@ def test_validate_price_data_has_callers():
 def test_validate_price_data_catches_negatives():
     """Negative prices should be flagged as invalid."""
     from src.assembled_core.data.prices_ingest import validate_price_data
-    import pandas as pd
 
     df = pd.DataFrame({
         "timestamp": pd.to_datetime(["2024-01-01"]),
@@ -63,7 +63,6 @@ def test_validate_price_data_catches_negatives():
 def test_validate_price_data_happy_path():
     """Clean data should pass validation."""
     from src.assembled_core.data.prices_ingest import validate_price_data
-    import pandas as pd
 
     df = pd.DataFrame({
         "timestamp": pd.to_datetime(["2024-01-01", "2024-01-02"]),

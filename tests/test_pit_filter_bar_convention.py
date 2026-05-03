@@ -4,7 +4,6 @@ Validates that the inclusive <= as_of filter is correct for EOD bar-open
 convention: a bar timestamped T is available at close of day T.
 """
 import pandas as pd
-import pytest
 
 from src.assembled_core.pipeline.trading_cycle_shared import _filter_prices_for_as_of
 

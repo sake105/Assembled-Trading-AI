@@ -1,7 +1,7 @@
 """Tests for signals/base.py and signals/registry.py (spec 60)."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 import pytest

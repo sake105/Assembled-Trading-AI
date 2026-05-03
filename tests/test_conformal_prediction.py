@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 import numpy as np
 
-import pytest; pytest.importorskip('src.assembled_core.ml.conformal_prediction')
+pytest.importorskip('src.assembled_core.ml.conformal_prediction')
 from src.assembled_core.ml.conformal_prediction import (
     ConformalResult,
     SplitConformal,

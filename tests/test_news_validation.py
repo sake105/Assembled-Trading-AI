@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import json
 import math
-import tempfile
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -381,7 +379,6 @@ class TestRunFinbertTone:
         monkeypatch.setitem(__import__("sys").modules, "transformers", fake_transformers)
 
         # Direct call with mock
-        import importlib
         import assembled_core.signals.news_validation as nv
         original = nv.run_finbert_tone
 

@@ -1,7 +1,6 @@
 """A2: idempotency.py wired into paper_trading_engine + broker_adapter."""
 from __future__ import annotations
 
-import types
 import pytest
 
 

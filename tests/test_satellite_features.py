@@ -6,7 +6,7 @@ import pytest
 import numpy as np
 import pandas as pd
 
-import pytest; pytest.importorskip("src.assembled_core.data.altdata.satellite_features")
+pytest.importorskip("src.assembled_core.data.altdata.satellite_features")
 from src.assembled_core.data.altdata.satellite_features import (
     SatelliteConfig,
     process_parking_lot_data,

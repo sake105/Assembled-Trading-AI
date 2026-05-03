@@ -1,9 +1,7 @@
 """Tests for src/assembled_core/ops/incident_tracker.py."""
 from __future__ import annotations
 
-import json
 from datetime import datetime, timezone
-from pathlib import Path
 
 import pytest
 

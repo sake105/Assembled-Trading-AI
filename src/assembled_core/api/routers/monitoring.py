@@ -410,7 +410,7 @@ def get_portfolio_status(
             "cash": round(cash, 2),
             "equity": round(last_equity, 2),
             "n_positions": len(positions),
-            "positions": _json.loads(positions.to_json(orient="records")) if not positions.empty else [],
+            "positions": json.loads(positions.to_json(orient="records")) if not positions.empty else [],
             "last_updated": equity_curve["as_of"].iloc[-1].isoformat() if not equity_curve.empty else None,
         }
     except Exception as exc:

@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
 
-import pytest
 
 from assembled_core.compliance.gdpr import (
     anonymize_news_headline,
@@ -23,7 +22,6 @@ from assembled_core.compliance.rate_limits import (
 from assembled_core.compliance.tax_report import (
     EFFECTIVE_TAX_RATE,
     SPARER_PAUSCHBETRAG_EUR,
-    TaxReportSummary,
     summarize_closed_lots,
 )
 

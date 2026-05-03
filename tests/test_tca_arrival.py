@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import pytest; pytest.importorskip('src.assembled_core.qa.tca_arrival')
+pytest.importorskip('src.assembled_core.qa.tca_arrival')
 from src.assembled_core.qa.tca_arrival import (  # noqa: E402
     compute_implementation_shortfall,
     summarize_implementation_shortfall,

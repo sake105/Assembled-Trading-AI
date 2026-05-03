@@ -295,7 +295,6 @@ def allocate_with_hrp(
         Combined weight dict {symbol: final_weight} with equity + macro instruments.
     """
     try:
-        import pandas as pd
         from src.assembled_core.portfolio.hierarchical_risk_parity import (
             compute_hrp_weights,
             hrp_with_turnover_control,

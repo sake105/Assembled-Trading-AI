@@ -74,8 +74,8 @@ def summarize_closed_lots(
         wins_count=len(wins),
         losses_count=len(losses),
         total_realized_pnl_eur=total,
-        total_wins_eur=sum(float(l.get("realized_pnl_eur") or 0.0) for l in wins),
-        total_losses_eur=sum(float(l.get("realized_pnl_eur") or 0.0) for l in losses),
+        total_wins_eur=sum(float(r.get("realized_pnl_eur") or 0.0) for r in wins),
+        total_losses_eur=sum(float(r.get("realized_pnl_eur") or 0.0) for r in losses),
         taxable_pnl_eur=taxable,
         estimated_tax_eur=estimated_tax,
     )

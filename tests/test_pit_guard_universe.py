@@ -15,7 +15,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-import pytest; pytest.importorskip("src.assembled_core.data.pit_guard")
+pytest.importorskip("src.assembled_core.data.pit_guard")
 from src.assembled_core.data.pit_guard import PITGuard, PITViolationError
 from src.assembled_core.data.universe import store_universe_history
 from src.assembled_core.errors import UniverseLookupError

@@ -228,13 +228,13 @@ class NewsTradeAttributor:
                             if links:
                                 rec["news_links"] = [
                                     {
-                                        "event_id": l.event_id,
-                                        "distance_hours": l.distance_hours,
-                                        "weight": l.weight,
-                                        "estimated_contribution": l.estimated_contribution,
-                                        "impact_bps": l.impact_bps,
+                                        "event_id": lnk.event_id,
+                                        "distance_hours": lnk.distance_hours,
+                                        "weight": lnk.weight,
+                                        "estimated_contribution": lnk.estimated_contribution,
+                                        "impact_bps": lnk.impact_bps,
                                     }
-                                    for l in links
+                                    for lnk in links
                                 ]
                                 n_enriched += 1
                     enriched_lines.append(json.dumps(rec))

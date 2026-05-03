@@ -1,7 +1,6 @@
 """Tests for src/assembled_core/signals/news_fusion.py (3-layer News-TA Fusion)."""
 from __future__ import annotations
 
-import pytest
 
 from assembled_core.signals.news_fusion import (
     news_z_score,

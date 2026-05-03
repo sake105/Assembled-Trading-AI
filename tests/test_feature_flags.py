@@ -1,7 +1,6 @@
 """Tests for assembled_core/config/feature_flags.py (spec 36)."""
 from __future__ import annotations
 
-import pytest
 
 from assembled_core.config.feature_flags import FeatureFlags, load_flags, emit_startup_banner
 

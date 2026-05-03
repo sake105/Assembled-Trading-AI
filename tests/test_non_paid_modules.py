@@ -22,9 +22,7 @@ Covers files 30-43 (excluding PAID 20-23):
 
 from __future__ import annotations
 
-import tempfile
-from datetime import date, datetime, timezone, timedelta
-from pathlib import Path
+from datetime import date, datetime, timezone
 
 import numpy as np
 import pandas as pd
@@ -74,7 +72,7 @@ def test_signal_registry_register_and_get():
 
 
 def test_signal_registry_duplicate_raises():
-    from src.assembled_core.signals.base import BaseSignal, SignalOutput
+    from src.assembled_core.signals.base import BaseSignal
     from src.assembled_core.signals.registry import SignalRegistry
 
     class DupSignal(BaseSignal):
@@ -358,7 +356,6 @@ def test_pdt_pre_order_check_high_equity():
 
 
 def test_pdt_pre_order_check_blocked():
-    from src.assembled_core.execution.pdt_counter import PDTCounter
     import os
     os.environ["PDT_RULE_ACTIVE"] = "true"
     # reimport to pick up env var
@@ -650,13 +647,13 @@ def test_quality_gate_fails_negative_price():
 
 
 def test_quality_gate_fails_empty():
-    from src.assembled_core.data.quality_gate import validate_ohlcv, QualityStatus
+    from src.assembled_core.data.quality_gate import validate_ohlcv
     r = validate_ohlcv(pd.DataFrame(), ticker="EMPTY")
     assert r.blocked is True
 
 
 def test_quality_gate_warns_null_price():
-    from src.assembled_core.data.quality_gate import validate_ohlcv, QualityStatus
+    from src.assembled_core.data.quality_gate import validate_ohlcv
     df = _make_ohlcv(20)
     df.loc[df.index[10], "Close"] = np.nan
     r = validate_ohlcv(df, ticker="GOOG")
@@ -846,7 +843,6 @@ def test_experiment_tracker_local(tmp_path):
         run.log_params({"lr": 0.001, "n_estimators": 200})
         run.log_metrics({"accuracy": 0.88})
         run.set_tag("env", "test")
-    import os
     files = list((tmp_path / "runs").glob("*.json"))
     assert len(files) == 1
     import json

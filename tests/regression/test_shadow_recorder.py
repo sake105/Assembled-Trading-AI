@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-import pytest; pytest.importorskip('src.assembled_core.ops.shadow_recorder')
+pytest.importorskip('src.assembled_core.ops.shadow_recorder')
 from src.assembled_core.ops.shadow_recorder import is_shadow_only, record_shadow
 
 

@@ -30,9 +30,9 @@ _TORCH_AVAILABLE = False
 _PYG_AVAILABLE = False
 
 try:
-    import torch  # type: ignore[import]
+    import torch  # type: ignore[import]  # noqa: F401
     _TORCH_AVAILABLE = True
-    import torch_geometric  # type: ignore[import]
+    import torch_geometric  # type: ignore[import]  # noqa: F401
     _PYG_AVAILABLE = True
 except ImportError:
     pass

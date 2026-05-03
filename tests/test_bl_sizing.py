@@ -12,7 +12,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-import pytest; pytest.importorskip('src.assembled_core.portfolio.bl_sizing')
+pytest.importorskip('src.assembled_core.portfolio.bl_sizing')
 from src.assembled_core.portfolio.bl_sizing import (  # noqa: E402
     apply_bl_sizing,
     apply_bl_sizing_from_policy,

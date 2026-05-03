@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 _OPACUS_AVAILABLE = False
 try:
-    import opacus  # type: ignore[import]
+    import opacus  # type: ignore[import]  # noqa: F401
     _OPACUS_AVAILABLE = True
 except ImportError:
     pass

@@ -18,7 +18,7 @@ from src.assembled_core.data.universe import get_universe_members, get_universe_
 from src.assembled_core.errors import UniverseLookupError
 
 
-def _write_history(tmp_path, rows: list[dict]) -> "Path":
+def _write_history(tmp_path, rows: list[dict]):
     """Write a synthetic universe history CSV to tmp_path/default.csv.
 
     Returns the root directory to pass as root= to get_universe_members.

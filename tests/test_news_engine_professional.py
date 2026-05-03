@@ -13,7 +13,6 @@ Covers:
 
 from __future__ import annotations
 
-import json
 import tempfile
 from datetime import date, datetime, timezone
 
@@ -242,7 +241,7 @@ class TestNewsPositionBridge:
 
 @pytest.mark.phase12
 class TestSectorRotationSignal:
-    def _make_events_df(self) -> "pd.DataFrame":
+    def _make_events_df(self):
         import pandas as pd
 
         now = datetime.now(tz=timezone.utc)
