@@ -46,27 +46,18 @@ def compute_avg_pairwise_correlation(
         return pd.DataFrame(index=returns_wide.index)
 
     results = pd.DataFrame(index=returns_wide.index)
+    n_sym = returns_wide.shape[1]
+    _tri_mask = np.triu(np.ones((n_sym, n_sym), dtype=bool), k=1)
+
+    def _mean_upper_tri(mat: pd.DataFrame) -> float:
+        vals = mat.values[_tri_mask]
+        vals = vals[np.isfinite(vals)]
+        return float(np.mean(vals)) if len(vals) > 0 else np.nan
 
     for w in windows:
         col = f"avg_pairwise_corr_{w}d"
-        avg_corrs = []
-        for i in range(len(returns_wide)):
-            if i < w - 1:
-                avg_corrs.append(np.nan)
-                continue
-            window_data = returns_wide.iloc[i - w + 1:i + 1]
-            corr_mat = window_data.corr()
-            # Extract upper triangle (exclude diagonal)
-            n = len(corr_mat)
-            if n < 2:
-                avg_corrs.append(np.nan)
-                continue
-            mask = np.triu(np.ones((n, n), dtype=bool), k=1)
-            upper_vals = corr_mat.values[mask]
-            upper_vals = upper_vals[np.isfinite(upper_vals)]
-            avg_corrs.append(float(np.mean(upper_vals)) if len(upper_vals) > 0 else np.nan)
-
-        results[col] = avg_corrs
+        rolling_corr = returns_wide.rolling(w, min_periods=w).corr()
+        results[col] = rolling_corr.groupby(level=0).apply(_mean_upper_tri)
 
     return results
 

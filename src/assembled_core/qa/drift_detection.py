@@ -126,36 +126,29 @@ def compute_psi(base: pd.Series, current: pd.Series, bins: int = 10) -> float:
     base_freq = base_counts / len(base_clean)
     current_freq = current_counts / len(current_clean)
 
-    # Compute PSI: sum over bins of (current_freq - base_freq) * ln(current_freq / base_freq)
-    # Use original frequencies consistently, with epsilon protection only where needed for division by zero
-    # This maintains mathematical consistency: all bins use the same frequency basis
+    # Compute PSI vectorized: (current_freq - base_freq) * ln(current_freq / base_freq)
+    # with epsilon protection for zero frequencies
     epsilon = 1e-10
-    psi = 0.0
-    for i in range(len(base_freq)):
-        base_is_zero = base_freq[i] == 0
-        current_is_zero = current_freq[i] == 0
+    base_is_zero = base_freq == 0
+    current_is_zero = current_freq == 0
+    base_safe = np.where(base_is_zero, epsilon, base_freq)
+    current_safe = np.where(current_is_zero, epsilon, current_freq)
 
-        if base_is_zero and current_is_zero:
-            # Both zero: skip this bin (no contribution to PSI)
-            continue
-        elif base_is_zero:
-            # All current in this bin, none in base → high drift
-            # Formula: current_freq * ln(current_freq / epsilon)
-            # Use epsilon in denominator to avoid ln(infinity), but use original current_freq
-            psi += current_freq[i] * np.log(current_freq[i] / epsilon)
-        elif current_is_zero:
-            # All base in this bin, none in current → high drift
-            # Formula: base_freq * ln(epsilon / base_freq)
-            # Use epsilon in numerator, but use original base_freq
-            # We want positive contribution, so use absolute value
-            psi += base_freq[i] * abs(np.log(epsilon / base_freq[i]))
-        else:
-            # Both non-zero: standard PSI formula using original frequencies
-            psi += (current_freq[i] - base_freq[i]) * np.log(
-                current_freq[i] / base_freq[i]
-            )
+    psi_contrib = np.where(
+        base_is_zero & current_is_zero,
+        0.0,
+        np.where(
+            base_is_zero,
+            current_freq * np.log(current_safe / epsilon),
+            np.where(
+                current_is_zero,
+                base_freq * np.log(base_safe / epsilon),
+                (current_freq - base_freq) * np.log(current_safe / base_safe),
+            ),
+        ),
+    )
 
-    return max(0.0, psi)  # Ensure non-negative
+    return max(0.0, float(psi_contrib.sum()))  # Ensure non-negative
 
 
 def detect_feature_drift(
