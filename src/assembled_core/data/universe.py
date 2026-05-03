@@ -283,25 +283,30 @@ def detect_delisted_symbols(
     # later rows.
     prices_copy = prices_copy[prices_copy["timestamp"] <= as_of]
 
+    last_dates = prices_copy.groupby("symbol")["timestamp"].max()
+    days_stale_s = (as_of - last_dates).dt.days
+    stale_syms = days_stale_s[days_stale_s > max_stale_days].index
+
+    last_prices_s = (
+        prices_copy[prices_copy["symbol"].isin(stale_syms)]
+        .sort_values("timestamp")
+        .groupby("symbol")["close"]
+        .last()
+        if len(stale_syms) > 0 else pd.Series(dtype=float)
+    )
+
     delisted = []
     terminal_values = {}
-
-    for sym, group in prices_copy.groupby("symbol"):
-        if group.empty:
-            continue
-        last_date = group["timestamp"].max()
-        days_stale = (as_of - last_date).days
-
-        if days_stale > max_stale_days:
-            last_price = float(group.sort_values("timestamp").iloc[-1]["close"])
-            terminal_price = last_price * (1.0 + terminal_return)
-            delisted.append(str(sym))
-            terminal_values[str(sym)] = {
-                "last_price": round(last_price, 2),
-                "last_date": str(last_date.date()),
-                "days_stale": days_stale,
-                "terminal_price": round(terminal_price, 2),
-            }
+    for sym in stale_syms:
+        lp = float(last_prices_s[sym])
+        tp = lp * (1.0 + terminal_return)
+        delisted.append(str(sym))
+        terminal_values[str(sym)] = {
+            "last_price": round(lp, 2),
+            "last_date": str(last_dates[sym].date()),
+            "days_stale": int(days_stale_s[sym]),
+            "terminal_price": round(tp, 2),
+        }
 
     return {
         "delisted": delisted,
