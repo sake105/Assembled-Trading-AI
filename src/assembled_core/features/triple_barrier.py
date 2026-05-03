@@ -320,18 +320,26 @@ def compute_sample_weights(
     -------
     pd.Series of float weights aligned to events.index.
     """
-    counts = pd.Series(0, index=prices.index, dtype=float)
-    for t_in, t_out in zip(events[t_in_col], events[t_out_col]):
-        mask = (prices.index >= t_in) & (prices.index <= t_out)
-        counts.loc[mask] += 1
+    prices_idx = prices.index
+    t_in_arr = events[t_in_col].values
+    t_out_arr = events[t_out_col].values
 
-    weights = pd.Series(0.0, index=events.index)
-    for i, (t_in, t_out) in enumerate(zip(events[t_in_col], events[t_out_col])):
-        overlap = counts.loc[(prices.index >= t_in) & (prices.index <= t_out)]
+    # O(N_events) count accumulation via searchsorted + cumsum difference encoding
+    left_idxs = np.searchsorted(prices_idx, t_in_arr, side="left")
+    right_idxs = np.searchsorted(prices_idx, t_out_arr, side="right")
+    delta = np.zeros(len(prices_idx) + 1)
+    np.add.at(delta, left_idxs, 1)
+    np.add.at(delta, right_idxs, -1)
+    counts_arr = np.cumsum(delta[:-1])
+
+    weights_arr = np.empty(len(events))
+    for i, (li, ri) in enumerate(zip(left_idxs, right_idxs)):
+        overlap = counts_arr[li:ri]
         if len(overlap) == 0 or overlap.sum() == 0:
-            weights.iloc[i] = 1.0
+            weights_arr[i] = 1.0
         else:
-            weights.iloc[i] = float((1.0 / overlap).mean())
+            weights_arr[i] = float((1.0 / overlap).mean())
+    weights = pd.Series(weights_arr, index=events.index)
 
     total = weights.sum()
     if total > 0:

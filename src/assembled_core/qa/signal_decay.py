@@ -227,10 +227,11 @@ def compute_signal_autocorrelation(
         lags = [1, 5, 10, 20]
 
     # Compute per-symbol autocorrelation, then average
+    sorted_panel = factor_panel.sort_values(["symbol", "timestamp"])
     result: dict[int, float] = {}
     for lag in lags:
         per_sym = (
-            factor_panel.sort_values(["symbol", "timestamp"])
+            sorted_panel
             .groupby("symbol")[factor_col]
             .apply(lambda s: s.autocorr(lag=lag) if len(s) > lag + 5 else np.nan)
             .dropna()
