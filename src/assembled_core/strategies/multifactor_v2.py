@@ -735,10 +735,10 @@ def compute_signals(
 
     # --- Build output signals ---
     out = []
-    for i, (idx, row) in enumerate(latest.iterrows()):
-        sym = row["symbol"]
+    for i, row in enumerate(latest.itertuples(index=False)):
+        sym = row.symbol
         score = float(composite.iloc[i]) if i < len(composite) else 0.0
-        ts = row.get("timestamp")
+        ts = getattr(row, "timestamp", None)
         ema_spread = float(scores.iloc[i].get("trend_ema_spread", 0.0)) if i < len(scores) else 0.0
 
         if score > min_score and ema_spread > -0.5:

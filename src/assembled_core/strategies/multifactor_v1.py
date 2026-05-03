@@ -226,10 +226,10 @@ def compute_signals(
 
     # --- Build output signals (LONG only where composite > min_score) ---
     out = []
-    for i, (idx, row) in enumerate(latest.iterrows()):
-        sym = row["symbol"]
+    for i, row in enumerate(latest.itertuples(index=False)):
+        sym = row.symbol
         score = float(composite.iloc[i]) if i < len(composite) else 0.0
-        ts = row.get("timestamp")
+        ts = getattr(row, "timestamp", None)
 
         # Only generate LONG signals for positive scores
         # Also require basic EMA trend confirmation (fast > slow)

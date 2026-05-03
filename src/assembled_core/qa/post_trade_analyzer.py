@@ -49,19 +49,19 @@ def compute_forward_returns(
         grp["future_ts"] = grp["timestamp"] + pd.Timedelta(days=horizon_days)
         # Map future_ts to closest available close
         ts_idx = grp.set_index("timestamp")["close"]
-        for _, row in grp.iterrows():
-            future_ts = row["future_ts"]
+        for row in grp.itertuples(index=False):
+            future_ts = row.future_ts
             # Find closest price at or after future_ts
             candidates = ts_idx[ts_idx.index >= future_ts]
             if candidates.empty:
                 fwd = float("nan")
             else:
-                fwd = candidates.iloc[0] / row["close"] - 1.0
+                fwd = candidates.iloc[0] / row.close - 1.0
             rows.append(
                 {
-                    "timestamp": row["timestamp"],
+                    "timestamp": row.timestamp,
                     "symbol": symbol,
-                    "close": row["close"],
+                    "close": row.close,
                     "forward_return": fwd,
                 }
             )
@@ -111,12 +111,12 @@ def compute_signal_hit_rate(
         total = 0
         fwd_returns = []
 
-        for _, trade in sym_trades.iterrows():
-            ts = trade["event_ts"]
-            side = str(trade.get("side", "")).upper()
+        for trade in sym_trades.itertuples(index=False):
+            ts = trade.event_ts
+            side = str(getattr(trade, "side", "")).upper()
             if not side:
                 # Try event_type: FILL implies BUY from sign of qty
-                qty = float(trade.get("qty", 0))
+                qty = float(getattr(trade, "qty", 0))
                 side = "BUY" if qty > 0 else "SELL"
 
             # Find closest forward return within tolerance
@@ -197,13 +197,13 @@ def build_learning_record(
     if not hit_rate_df.empty:
         record["per_symbol"] = [
             {
-                "symbol": row["symbol"],
-                "total_trades": int(row["total_trades"]),
-                "hits": int(row["hits"]),
-                "hit_rate": round(float(row["hit_rate"]), 4),
-                "avg_forward_return": round(float(row["avg_forward_return"]), 4),
+                "symbol": row.symbol,
+                "total_trades": int(row.total_trades),
+                "hits": int(row.hits),
+                "hit_rate": round(float(row.hit_rate), 4),
+                "avg_forward_return": round(float(row.avg_forward_return), 4),
             }
-            for _, row in hit_rate_df.iterrows()
+            for row in hit_rate_df.itertuples(index=False)
         ]
 
     if extra:
