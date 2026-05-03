@@ -502,7 +502,7 @@ def generate_trade_labels(
 
         if forward_prices.empty:
             # No forward data, label as 0 (not successful)
-            result = signal.to_dict()
+            result = signal._asdict()
             result["label"] = 0
             result["realized_return"] = 0.0
             result["benchmark_return"] = float("nan")
@@ -576,7 +576,7 @@ def generate_trade_labels(
             label = 1 if max_price >= entry_price * (1 + threshold_pct) else 0
 
         # Build result row
-        result = signal.to_dict()
+        result = signal._asdict()
         result["label"] = label
         result["realized_return"] = realized_return
         result["benchmark_return"] = benchmark_return
