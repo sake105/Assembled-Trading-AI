@@ -159,8 +159,8 @@ def filter_orders_by_symbol_blocks(
         return orders.copy(), []
 
     reasons: list[str] = []
-    for _, row in orders.loc[mask_blocked].iterrows():
-        sym = str(row[symbol_col])
+    for row in orders.loc[mask_blocked].itertuples(index=False):
+        sym = str(getattr(row, symbol_col))
         info = blocked.get(sym, {})
         reasons.append(
             f"symbol_kill_switch: {sym} rejected — reason="

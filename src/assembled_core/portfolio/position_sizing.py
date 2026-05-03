@@ -622,9 +622,9 @@ def apply_news_sentiment_weight_adjustment(
 
     # Build per-symbol sentiment map via EntityLinker
     sentiment_map: dict[str, float] = {}
-    for _, row in news_events.iterrows():
-        entity = str(row.get("entity") or row.get("symbol") or "")
-        score = float(row.get(sentiment_col, 0.0) or 0.0)
+    for row in news_events.itertuples(index=False):
+        entity = str(getattr(row, "entity", None) or getattr(row, "symbol", None) or "")
+        score = float(getattr(row, sentiment_col, 0.0) or 0.0)
         try:
             sym = entity_linker.link(entity)
         except Exception:

@@ -130,19 +130,22 @@ def build_event_window_prices(
         drop=True
     )
 
+    # Pre-group prices by symbol to avoid O(N*M) per-event filter
+    _prices_by_sym = {sym: grp.copy() for sym, grp in prices_sorted.groupby(group_col, sort=False)}
+
     # Build event windows
     all_windows = []
 
-    for _, event_row in events_work.iterrows():
-        event_symbol = event_row[group_col]
-        event_timestamp = event_row[timestamp_col]
-        event_type = event_row[event_type_col]
-        event_id = event_row[event_id_col]
+    for event_row in events_work.itertuples(index=False):
+        event_symbol = getattr(event_row, group_col)
+        event_timestamp = getattr(event_row, timestamp_col)
+        event_type = getattr(event_row, event_type_col)
+        event_id = getattr(event_row, event_id_col)
 
         # Filter prices for this symbol
-        symbol_prices = prices_sorted[prices_sorted[group_col] == event_symbol].copy()
+        symbol_prices = _prices_by_sym.get(event_symbol)
 
-        if symbol_prices.empty:
+        if symbol_prices is None or symbol_prices.empty:
             continue
 
         # Find event day index
