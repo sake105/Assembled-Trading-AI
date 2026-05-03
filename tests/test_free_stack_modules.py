@@ -1377,13 +1377,13 @@ def test_sentry_exports():
 
 def test_sops_yaml_example_exists():
     from pathlib import Path
-    p = Path("F:/Python_Projekt/Aktiengerüst/.sops.yaml.example")
+    p = Path(__file__).parents[1] / ".sops.yaml.example"
     assert p.exists(), ".sops.yaml.example must exist"
 
 
 def test_sops_yaml_example_has_creation_rules():
     from pathlib import Path
-    content = Path("F:/Python_Projekt/Aktiengerüst/.sops.yaml.example").read_text()
+    content = (Path(__file__).parents[1] / ".sops.yaml.example").read_text()
     assert "creation_rules" in content
     assert "path_regex" in content
     assert "age" in content
@@ -1393,9 +1393,10 @@ def test_sops_yaml_example_has_creation_rules():
 def test_sops_yaml_example_not_committed_as_active():
     """Verify .sops.yaml (without .example) is gitignored or absent."""
     from pathlib import Path
-    sops_active = Path("F:/Python_Projekt/Aktiengerüst/.sops.yaml")
+    _root = Path(__file__).parents[1]
+    sops_active = _root / ".sops.yaml"  # noqa: F841
     # It's fine if it exists locally, but .sops.yaml.example is the committed artifact
-    example = Path("F:/Python_Projekt/Aktiengerüst/.sops.yaml.example")
+    example = _root / ".sops.yaml.example"
     assert example.exists()
 
 
@@ -1406,13 +1407,13 @@ def test_sops_yaml_example_not_committed_as_active():
 
 def test_caddyfile_example_exists():
     from pathlib import Path
-    p = Path("F:/Python_Projekt/Aktiengerüst/configs/Caddyfile.example")
+    p = Path(__file__).parents[1] / "configs" / "Caddyfile.example"
     assert p.exists(), "configs/Caddyfile.example must exist"
 
 
 def test_caddyfile_example_has_reverse_proxy():
     from pathlib import Path
-    content = Path("F:/Python_Projekt/Aktiengerüst/configs/Caddyfile.example").read_text()
+    content = (Path(__file__).parents[1] / "configs" / "Caddyfile.example").read_text()
     assert "reverse_proxy" in content
     assert "trading." in content
     assert "mlflow." in content
@@ -1421,5 +1422,5 @@ def test_caddyfile_example_has_reverse_proxy():
 
 def test_caddyfile_example_has_gzip():
     from pathlib import Path
-    content = Path("F:/Python_Projekt/Aktiengerüst/configs/Caddyfile.example").read_text()
+    content = (Path(__file__).parents[1] / "configs" / "Caddyfile.example").read_text()
     assert "encode gzip" in content
