@@ -111,36 +111,34 @@ def compute_sector_dispersion(
             index=returns_wide.index,
         )
 
-    sectors = pd.Series({s: sector_map[s] for s in available})
-    unique_sectors = sectors.unique()
+    # Vectorized: reshape to long, add sector column, groupby (date, sector)
+    _stacked = returns_wide[available].stack()
+    _stacked.name = "ret"
+    ret_long = _stacked.reset_index()
+    _date_col = ret_long.columns[0]
+    ret_long.columns = [_date_col, "symbol", "ret"]
+    ret_long["sector"] = ret_long["symbol"].map(sector_map)
 
-    intra_disps = []
-    inter_disps = []
+    grp = ret_long.groupby([_date_col, "sector"])["ret"]
+    sector_means_wide = grp.mean().unstack("sector")
+    sector_stds_wide = grp.std(ddof=1).unstack("sector")
+    sector_counts_wide = grp.count().unstack("sector")
 
-    for idx in returns_wide.index:
-        row = returns_wide.loc[idx, available]
+    # Intra-sector: mean of within-sector std (only where count >= 2 symbols)
+    intra_raw = sector_stds_wide.where(sector_counts_wide >= 2)
+    intra_series = intra_raw.mean(axis=1, skipna=True).reindex(returns_wide.index)
 
-        # Sector means
-        sector_means = {}
-        sector_stds = []
-        for sec in unique_sectors:
-            sec_symbols = sectors[sectors == sec].index.tolist()
-            sec_returns = row[sec_symbols].dropna()
-            if len(sec_returns) >= 2:
-                sector_stds.append(float(sec_returns.std()))
-            sector_means[sec] = float(sec_returns.mean()) if len(sec_returns) > 0 else np.nan
-
-        # Intra-sector: average within-sector dispersion
-        intra = float(np.mean(sector_stds)) if sector_stds else np.nan
-        intra_disps.append(intra)
-
-        # Inter-sector: dispersion of sector means
-        mean_vals = [v for v in sector_means.values() if np.isfinite(v)]
-        inter = float(np.std(mean_vals)) if len(mean_vals) >= 2 else np.nan
-        inter_disps.append(inter)
+    # Inter-sector: population std of sector means (only where >= 2 sectors have finite mean)
+    valid_count = sector_means_wide.count(axis=1)
+    inter_series = sector_means_wide.std(axis=1, ddof=0, skipna=True).where(
+        valid_count >= 2
+    ).reindex(returns_wide.index)
 
     return pd.DataFrame(
-        {"intra_sector_dispersion": intra_disps, "inter_sector_dispersion": inter_disps},
+        {
+            "intra_sector_dispersion": intra_series.to_numpy(),
+            "inter_sector_dispersion": inter_series.to_numpy(),
+        },
         index=returns_wide.index,
     )
 
