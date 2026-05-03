@@ -954,6 +954,14 @@ Examples:
     )
 
     parser.add_argument(
+        "--with-altdata",
+        action="store_true",
+        default=False,
+        dest="with_altdata",
+        help="Enrich feature panel with altdata: earnings surprise, macro regime, news sentiment",
+    )
+
+    parser.add_argument(
         "--policy-path",
         type=str,
         default=None,
@@ -1918,6 +1926,83 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
                     logger.info("[multifactor] Factor columns already present, used recomputed frame.")
             except Exception as _e:
                 logger.warning(f"[multifactor] Factor pre-computation failed: {_e} — signals may degrade")
+
+        # ------------------------------------------------------------------ #
+        # Altdata enrichment: earnings surprise + macro regime + news sentiment
+        # ------------------------------------------------------------------ #
+        if getattr(args, "with_altdata", False) and precomputed_prices_with_features is not None:
+            try:
+                from src.assembled_core.features.altdata_earnings_insider_factors import (
+                    build_earnings_surprise_factors,
+                )
+                from src.assembled_core.features.altdata_news_macro_factors import (
+                    build_news_sentiment_factors,
+                )
+
+                output_base = Path(args.output_dir) if getattr(args, "output_dir", None) else Path("output")
+                base_pf = precomputed_prices_with_features
+
+                # 1. Earnings surprise factors
+                earn_path = output_base / "events_earnings.parquet"
+                if earn_path.exists():
+                    events_earnings = pd.read_parquet(earn_path)
+                    events_earnings["timestamp"] = pd.to_datetime(events_earnings["timestamp"], utc=True)
+                    earn_factors = build_earnings_surprise_factors(events_earnings, base_pf)
+                    new_cols = [c for c in earn_factors.columns if c not in base_pf.columns]
+                    if new_cols:
+                        base_pf = base_pf.merge(
+                            earn_factors[["timestamp", "symbol"] + new_cols],
+                            on=["timestamp", "symbol"], how="left"
+                        )
+                        logger.info(f"[altdata] Earnings factors added: {new_cols}")
+
+                # 2. Macro regime from FRED (wide → regime signals)
+                macro_path = output_base / "macro.parquet"
+                if macro_path.exists():
+                    macro_df = pd.read_parquet(macro_path)
+                    macro_df["timestamp"] = pd.to_datetime(macro_df["timestamp"], utc=True).dt.normalize()
+                    # Derive regime signals directly from FRED series
+                    macro_df["macro_yield_curve"] = macro_df.get("yield_curve_spread", pd.Series(dtype=float))
+                    macro_df["macro_vix"] = macro_df.get("vix", pd.Series(dtype=float))
+                    macro_df["macro_growth_regime"] = (
+                        (macro_df["macro_yield_curve"].fillna(0) > 0).astype(int)
+                        - (macro_df["macro_yield_curve"].fillna(0) < -0.2).astype(int)
+                    )  # +1 = normal/expansion, -1 = inverted (recession risk), 0 = flat
+                    macro_df["macro_risk_aversion_proxy"] = (
+                        (macro_df["macro_vix"].fillna(20) > 25).astype(int) * -1
+                        + (macro_df["macro_vix"].fillna(20) < 15).astype(int)
+                    )  # -1 = fear (VIX>25), +1 = calm (VIX<15), 0 = normal
+                    macro_cols = ["macro_growth_regime", "macro_risk_aversion_proxy"]
+                    macro_slim = macro_df[["timestamp"] + macro_cols].dropna()
+                    # Broadcast macro (market-wide) to all symbols
+                    base_pf["timestamp_date"] = pd.to_datetime(base_pf["timestamp"], utc=True).dt.normalize()
+                    base_pf = base_pf.merge(
+                        macro_slim.rename(columns={"timestamp": "timestamp_date"}),
+                        on="timestamp_date", how="left"
+                    ).drop(columns=["timestamp_date"])
+                    logger.info(f"[altdata] Macro regime factors added: {macro_cols}")
+
+                # 3. News sentiment (limited to available dates)
+                news_path = output_base / "news_sentiment_daily.parquet"
+                if news_path.exists():
+                    news_df = pd.read_parquet(news_path)
+                    news_df["timestamp"] = pd.to_datetime(news_df["timestamp"], utc=True)
+                    news_factors = build_news_sentiment_factors(news_df, base_pf)
+                    new_cols = [c for c in news_factors.columns if c not in base_pf.columns]
+                    if new_cols:
+                        base_pf = base_pf.merge(
+                            news_factors[["timestamp", "symbol"] + new_cols],
+                            on=["timestamp", "symbol"], how="left"
+                        )
+                        logger.info(f"[altdata] News sentiment factors added: {new_cols}")
+
+                precomputed_prices_with_features = base_pf
+                altdata_cols = [c for c in base_pf.columns if c.startswith(("earnings_", "macro_", "news_", "insider_", "post_"))]
+                logger.info(f"[altdata] Total altdata columns in panel: {len(altdata_cols)}")
+
+            except Exception as _ae:
+                logger.warning(f"[altdata] Enrichment failed: {_ae} — continuing without altdata")
+                import traceback; logger.debug(traceback.format_exc())
 
         # Load security master (if available) for sector/region/FX limits
         security_meta_df = None

@@ -320,7 +320,8 @@ def _load_intel(
             _vix_z_series = _prices["vix_zscore_252d"].dropna()
             if not _vix_z_series.empty:
                 _vix_z = float(_vix_z_series.iloc[-1])
-        if _vix_z == 0.0:
+        _is_backtest = getattr(ctx, "mode", "backtest") in ("backtest", "bt")
+        if _vix_z == 0.0 and not _is_backtest:
             from src.assembled_core.data.sources.cboe_source import CBOESource
             from src.assembled_core.features.options_derived_signals import (
                 build_options_regime_factors,
