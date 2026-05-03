@@ -458,45 +458,25 @@ def summarize_factor_ic(
     if ic_df.empty:
         raise ValueError("Input DataFrame is empty")
 
-    summary_data = []
+    # Vectorized IC summary: single groupby instead of per-factor loop
+    grp = ic_df.groupby("factor", sort=False)[ic_col]
+    stats = grp.agg(
+        mean_ic="mean",
+        std_ic="std",
+        count="count",
+        min_ic="min",
+        max_ic="max",
+    )
+    # hit_ratio: fraction of non-NaN values that are positive
+    # NaN > 0 → False in pandas; count() excludes NaN; so sum(>0)/count is correct
+    pos_count = (ic_df[ic_col] > 0).groupby(ic_df["factor"]).sum()
+    stats["hit_ratio"] = (pos_count / stats["count"]).fillna(0.0)
+    stats["ic_ir"] = (stats["mean_ic"] / stats["std_ic"]).where(
+        stats["std_ic"] > 1e-10, 0.0
+    ).fillna(0.0)
+    stats = stats[stats["count"] > 0].reset_index()
 
-    # Group by factor and compute summary statistics
-    for factor, factor_group in ic_df.groupby("factor", sort=False):
-        factor_ic = factor_group[ic_col].dropna()
-
-        if len(factor_ic) == 0:
-            continue
-
-        mean_ic = float(factor_ic.mean())
-        std_ic = float(factor_ic.std())
-
-        # IC-IR: Information Ratio (mean IC / std IC)
-        ic_ir = mean_ic / std_ic if std_ic > 1e-10 else 0.0
-
-        # Hit ratio: percentage of positive IC values
-        hit_ratio = (
-            float((factor_ic > 0).sum() / len(factor_ic)) if len(factor_ic) > 0 else 0.0
-        )
-
-        # Min/Max IC
-        min_ic = float(factor_ic.min())
-        max_ic = float(factor_ic.max())
-
-        # Count
-        count = len(factor_ic)
-
-        summary_data.append(
-            {
-                "factor": factor,
-                "mean_ic": mean_ic,
-                "std_ic": std_ic,
-                "ic_ir": ic_ir,
-                "hit_ratio": hit_ratio,
-                "count": count,
-                "min_ic": min_ic,
-                "max_ic": max_ic,
-            }
-        )
+    summary_data = stats.to_dict("records")
 
     if not summary_data:
         logger.warning("No summary statistics computed. Check input IC DataFrame.")
