@@ -83,28 +83,31 @@ def apply_fat_finger_guard(
     keep_mask = pd.Series(True, index=orders.index)
     history = history_qty_by_symbol or {}
 
-    for idx, row in orders.iterrows():
-        qty = float(row.get(qty_col, 0.0) or 0.0)
-        price = float(row.get(price_col, 0.0) or 0.0)
-        notional = abs(qty * price)
-        symbol = str(row.get(symbol_col, ""))
+    qty_s = pd.to_numeric(orders[qty_col], errors="coerce").fillna(0.0)
+    price_s = pd.to_numeric(orders[price_col], errors="coerce").fillna(0.0)
+    notional_s = (qty_s * price_s).abs()
+    symbols_s = orders[symbol_col].astype(str)
 
-        if max_notional_usd is not None and notional > float(max_notional_usd):
-            keep_mask.at[idx] = False
+    if max_notional_usd is not None:
+        notional_reject = notional_s > float(max_notional_usd)
+        for idx in orders.index[notional_reject]:
             reasons.append(
-                f"fat_finger: {symbol} rejected — notional={notional:.2f} "
+                f"fat_finger: {symbols_s.loc[idx]} rejected — notional={notional_s.loc[idx]:.2f} "
                 f"> max_notional_usd={float(max_notional_usd):.2f}"
             )
-            continue
+        keep_mask &= ~notional_reject
 
-        if max_qty_multiple is not None and symbol in history:
-            hist_qty = float(history[symbol] or 0.0)
-            if hist_qty > 0 and abs(qty) > float(max_qty_multiple) * hist_qty:
-                keep_mask.at[idx] = False
-                reasons.append(
-                    f"fat_finger: {symbol} rejected — qty={qty:.2f} > "
-                    f"{float(max_qty_multiple):.2f} * history_max={hist_qty:.2f}"
-                )
+    if max_qty_multiple is not None and history:
+        hist_qty_s = symbols_s.map(history).astype(float)
+        has_hist = hist_qty_s.notna() & (hist_qty_s > 0)
+        qty_reject = keep_mask & has_hist & (qty_s.abs() > float(max_qty_multiple) * hist_qty_s.fillna(0.0))
+        for idx in orders.index[qty_reject]:
+            sym = symbols_s.loc[idx]
+            reasons.append(
+                f"fat_finger: {sym} rejected — qty={qty_s.loc[idx]:.2f} > "
+                f"{float(max_qty_multiple):.2f} * history_max={history[sym]:.2f}"
+            )
+        keep_mask &= ~qty_reject
 
     filtered = orders.loc[keep_mask].copy()
     return filtered, reasons
