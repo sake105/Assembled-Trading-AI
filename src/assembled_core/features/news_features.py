@@ -271,22 +271,24 @@ def compute_sector_rotation_signal(
     prior = df[(df["timestamp"] >= now - prior_td) & (df["timestamp"] < now - window_td)]
 
     def _sector_scores(frame: pd.DataFrame) -> dict[str, dict]:
-        scores: dict[str, dict] = {}
-        for row in frame.itertuples(index=False):
-            sectors = getattr(row, "affected_sectors", [])
-            if isinstance(sectors, str):
-                sectors = [sectors]
-            elif not isinstance(sectors, list):
-                sectors = []
-            severity = float(getattr(row, "severity", 1.0) or 1.0)
-            direction = str(getattr(row, "market_direction", "neutral")).lower()
-            direction_sign = -1.0 if direction == "bearish" else (1.0 if direction == "bullish" else 0.0)
-            for sector in sectors:
-                if sector not in scores:
-                    scores[sector] = {"count": 0, "weighted": 0.0}
-                scores[sector]["count"] += 1
-                scores[sector]["weighted"] += severity * (direction_sign if direction_sign != 0 else 1.0)
-        return scores
+        if frame.empty or "affected_sectors" not in frame.columns:
+            return {}
+        tmp = frame[["affected_sectors", "severity", "market_direction"]].copy() if "severity" in frame.columns and "market_direction" in frame.columns else frame[["affected_sectors"]].copy()
+        tmp["affected_sectors"] = tmp["affected_sectors"].apply(
+            lambda x: [x] if isinstance(x, str) else (x if isinstance(x, list) else [])
+        )
+        tmp = tmp.explode("affected_sectors")
+        tmp = tmp[tmp["affected_sectors"].notna() & (tmp["affected_sectors"] != "")]
+        if tmp.empty:
+            return {}
+        sev = pd.to_numeric(tmp.get("severity", 1.0), errors="coerce").fillna(1.0) if "severity" in tmp.columns else pd.Series(1.0, index=tmp.index)
+        dir_raw = tmp["market_direction"].str.lower() if "market_direction" in tmp.columns else pd.Series("neutral", index=tmp.index)
+        dir_sign = dir_raw.map({"bullish": 1.0, "bearish": -1.0}).fillna(0.0)
+        tmp = tmp.copy()
+        tmp["_sev"] = sev.values
+        tmp["_w"] = (sev * dir_sign.where(dir_sign != 0, 1.0)).values
+        agg = tmp.groupby("affected_sectors").agg(count=("_sev", "count"), weighted=("_w", "sum"))
+        return agg.rename_axis(None).to_dict("index")
 
     curr_scores = _sector_scores(current)
     prior_scores = _sector_scores(prior)
