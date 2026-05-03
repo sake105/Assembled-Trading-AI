@@ -119,111 +119,96 @@ def _add_shooting_star(df: pd.DataFrame) -> pd.Series:
 
 def _add_engulfing(df: pd.DataFrame) -> pd.Series:
     """Bullish (+1) or Bearish (-1) Engulfing pattern."""
-    open_ = df[_OPEN].values
-    close_ = df[_CLOSE].values
-    result = np.zeros(len(df))
-    for i in range(1, len(df)):
-        prev_bear = close_[i - 1] < open_[i - 1]
-        prev_bull = close_[i - 1] > open_[i - 1]
-        curr_bull = close_[i] > open_[i]
-        curr_bear = close_[i] < open_[i]
-        # Bullish engulfing: previous candle bearish, current candle bullish and engulfs
-        if prev_bear and curr_bull:
-            if open_[i] <= close_[i - 1] and close_[i] >= open_[i - 1]:
-                result[i] = 1.0
-        # Bearish engulfing: previous candle bullish, current candle bearish and engulfs
-        elif prev_bull and curr_bear:
-            if open_[i] >= close_[i - 1] and close_[i] <= open_[i - 1]:
-                result[i] = -1.0
-    return pd.Series(result, index=df.index, name="cs_engulfing_v1")
+    o = df[_OPEN]
+    c = df[_CLOSE]
+    prev_bear = c.shift(1) < o.shift(1)
+    prev_bull = c.shift(1) > o.shift(1)
+    curr_bull = c > o
+    curr_bear = c < o
+    bullish = prev_bear & curr_bull & (o <= c.shift(1)) & (c >= o.shift(1))
+    bearish = prev_bull & curr_bear & (o >= c.shift(1)) & (c <= o.shift(1))
+    return pd.Series(
+        np.where(bullish, 1.0, np.where(bearish, -1.0, 0.0)),
+        index=df.index, name="cs_engulfing_v1",
+    )
 
 
 def _add_harami(df: pd.DataFrame) -> pd.Series:
     """Bullish (+1) or Bearish (-1) Harami — small body inside previous large body."""
-    open_ = df[_OPEN].values
-    close_ = df[_CLOSE].values
+    o = df[_OPEN].values
+    c = df[_CLOSE].values
+    prev_top = np.maximum(o[:-1], c[:-1])
+    prev_bot = np.minimum(o[:-1], c[:-1])
+    curr_top = np.maximum(o[1:], c[1:])
+    curr_bot = np.minimum(o[1:], c[1:])
+    inside = (curr_top < prev_top) & (curr_bot > prev_bot)
+    bullish = inside & (c[:-1] < o[:-1]) & (c[1:] > o[1:])
+    bearish = inside & (c[:-1] > o[:-1]) & (c[1:] < o[1:])
     result = np.zeros(len(df))
-    for i in range(1, len(df)):
-        prev_top = max(open_[i - 1], close_[i - 1])
-        prev_bot = min(open_[i - 1], close_[i - 1])
-        curr_top = max(open_[i], close_[i])
-        curr_bot = min(open_[i], close_[i])
-        inside = curr_top < prev_top and curr_bot > prev_bot
-        if not inside:
-            continue
-        # Bullish harami: previous bearish, current bullish
-        if close_[i - 1] < open_[i - 1] and close_[i] > open_[i]:
-            result[i] = 1.0
-        # Bearish harami: previous bullish, current bearish
-        elif close_[i - 1] > open_[i - 1] and close_[i] < open_[i]:
-            result[i] = -1.0
+    result[1:] = np.where(bullish, 1.0, np.where(bearish, -1.0, 0.0))
     return pd.Series(result, index=df.index, name="cs_harami_v1")
 
 
 def _add_morning_star(df: pd.DataFrame) -> pd.Series:
     """Three-candle bullish reversal: large bearish, small body, large bullish."""
-    open_ = df[_OPEN].values
-    close_ = df[_CLOSE].values
-    result = np.zeros(len(df))
-    for i in range(2, len(df)):
-        c1_bear = close_[i - 2] < open_[i - 2]
-        c1_large = abs(close_[i - 2] - open_[i - 2]) > 0.5 * (df[_HIGH].iloc[i - 2] - df[_LOW].iloc[i - 2]) if (df[_HIGH].iloc[i - 2] - df[_LOW].iloc[i - 2]) > 0 else False
-        c2_small = abs(close_[i - 1] - open_[i - 1]) < 0.3 * abs(close_[i - 2] - open_[i - 2]) if abs(close_[i - 2] - open_[i - 2]) > 0 else False
-        c3_bull = close_[i] > open_[i]
-        c3_close_above_midpoint = close_[i] > (open_[i - 2] + close_[i - 2]) / 2
-        if c1_bear and c1_large and c2_small and c3_bull and c3_close_above_midpoint:
-            result[i] = 1.0
-    return pd.Series(result, index=df.index, name="cs_morning_star_v1")
+    o = df[_OPEN]
+    c = df[_CLOSE]
+    body = (c - o).abs()
+    rng = df[_HIGH] - df[_LOW]
+    body2 = body.shift(2)
+    rng2 = rng.shift(2)
+    c1_bear = c.shift(2) < o.shift(2)
+    c1_large = body2 > 0.5 * rng2.where(rng2 > 0)
+    c2_small = body.shift(1) < 0.3 * body2.where(body2 > 0)
+    c3_bull = c > o
+    c3_above = c > (o.shift(2) + c.shift(2)) / 2
+    cond = c1_bear & c1_large.fillna(False) & c2_small.fillna(False) & c3_bull & c3_above
+    return pd.Series(np.where(cond, 1.0, 0.0), index=df.index, name="cs_morning_star_v1")
 
 
 def _add_evening_star(df: pd.DataFrame) -> pd.Series:
     """Three-candle bearish reversal: large bullish, small body, large bearish."""
-    open_ = df[_OPEN].values
-    close_ = df[_CLOSE].values
-    result = np.zeros(len(df))
-    for i in range(2, len(df)):
-        c1_bull = close_[i - 2] > open_[i - 2]
-        c1_large = abs(close_[i - 2] - open_[i - 2]) > 0.5 * (df[_HIGH].iloc[i - 2] - df[_LOW].iloc[i - 2]) if (df[_HIGH].iloc[i - 2] - df[_LOW].iloc[i - 2]) > 0 else False
-        c2_small = abs(close_[i - 1] - open_[i - 1]) < 0.3 * abs(close_[i - 2] - open_[i - 2]) if abs(close_[i - 2] - open_[i - 2]) > 0 else False
-        c3_bear = close_[i] < open_[i]
-        c3_close_below_midpoint = close_[i] < (open_[i - 2] + close_[i - 2]) / 2
-        if c1_bull and c1_large and c2_small and c3_bear and c3_close_below_midpoint:
-            result[i] = -1.0
-    return pd.Series(result, index=df.index, name="cs_evening_star_v1")
+    o = df[_OPEN]
+    c = df[_CLOSE]
+    body = (c - o).abs()
+    rng = df[_HIGH] - df[_LOW]
+    body2 = body.shift(2)
+    rng2 = rng.shift(2)
+    c1_bull = c.shift(2) > o.shift(2)
+    c1_large = body2 > 0.5 * rng2.where(rng2 > 0)
+    c2_small = body.shift(1) < 0.3 * body2.where(body2 > 0)
+    c3_bear = c < o
+    c3_below = c < (o.shift(2) + c.shift(2)) / 2
+    cond = c1_bull & c1_large.fillna(False) & c2_small.fillna(False) & c3_bear & c3_below
+    return pd.Series(np.where(cond, -1.0, 0.0), index=df.index, name="cs_evening_star_v1")
 
 
 def _add_three_white_soldiers(df: pd.DataFrame) -> pd.Series:
     """Three consecutive strong bullish candles — continuation bullish signal."""
-    close_ = df[_CLOSE].values
-    open_ = df[_OPEN].values
-    result = np.zeros(len(df))
-    for i in range(2, len(df)):
-        bullish = [close_[j] > open_[j] for j in range(i - 2, i + 1)]
-        rising = close_[i - 2] < close_[i - 1] < close_[i]
-        opens_within = (
-            open_[i - 1] > open_[i - 2] and open_[i - 1] < close_[i - 2]
-            and open_[i] > open_[i - 1] and open_[i] < close_[i - 1]
-        )
-        if all(bullish) and rising and opens_within:
-            result[i] = 1.0
-    return pd.Series(result, index=df.index, name="cs_three_white_soldiers_v1")
+    o = df[_OPEN]
+    c = df[_CLOSE]
+    all_bull = (c > o) & (c.shift(1) > o.shift(1)) & (c.shift(2) > o.shift(2))
+    rising = (c.shift(2) < c.shift(1)) & (c.shift(1) < c)
+    opens_within = (
+        (o.shift(1) > o.shift(2)) & (o.shift(1) < c.shift(2))
+        & (o > o.shift(1)) & (o < c.shift(1))
+    )
+    cond = all_bull & rising & opens_within
+    return pd.Series(np.where(cond, 1.0, 0.0), index=df.index, name="cs_three_white_soldiers_v1")
 
 
 def _add_three_black_crows(df: pd.DataFrame) -> pd.Series:
     """Three consecutive strong bearish candles — continuation bearish signal."""
-    close_ = df[_CLOSE].values
-    open_ = df[_OPEN].values
-    result = np.zeros(len(df))
-    for i in range(2, len(df)):
-        bearish = [close_[j] < open_[j] for j in range(i - 2, i + 1)]
-        falling = close_[i - 2] > close_[i - 1] > close_[i]
-        opens_within = (
-            open_[i - 1] < open_[i - 2] and open_[i - 1] > close_[i - 2]
-            and open_[i] < open_[i - 1] and open_[i] > close_[i - 1]
-        )
-        if all(bearish) and falling and opens_within:
-            result[i] = -1.0
-    return pd.Series(result, index=df.index, name="cs_three_black_crows_v1")
+    o = df[_OPEN]
+    c = df[_CLOSE]
+    all_bear = (c < o) & (c.shift(1) < o.shift(1)) & (c.shift(2) < o.shift(2))
+    falling = (c.shift(2) > c.shift(1)) & (c.shift(1) > c)
+    opens_within = (
+        (o.shift(1) < o.shift(2)) & (o.shift(1) > c.shift(2))
+        & (o < o.shift(1)) & (o > c.shift(1))
+    )
+    cond = all_bear & falling & opens_within
+    return pd.Series(np.where(cond, -1.0, 0.0), index=df.index, name="cs_three_black_crows_v1")
 
 
 # ---------------------------------------------------------------------------
