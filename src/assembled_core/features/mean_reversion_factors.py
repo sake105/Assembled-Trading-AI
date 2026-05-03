@@ -160,14 +160,9 @@ def compute_mean_reversion_factors(
     for sym, grp in work.groupby(symbol_col, sort=False):
         close = grp[close_col].astype(float).reset_index(drop=True)
         factor_frame = _compute_for_group(close)
-        out = pd.DataFrame(
-            {
-                timestamp_col: grp[timestamp_col].to_numpy(),
-                symbol_col: sym,
-            }
-        )
-        for col in _FACTOR_COLUMNS:
-            out[col] = factor_frame[col].to_numpy()
+        out = factor_frame.copy()
+        out[timestamp_col] = grp[timestamp_col].to_numpy()
+        out[symbol_col] = sym
         frames.append(out)
 
     result = pd.concat(frames, ignore_index=True)
