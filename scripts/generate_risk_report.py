@@ -434,15 +434,15 @@ def write_risk_report_markdown(
                 "|--------|---------|--------|------------|-------|------|--------------|----------|\n"
             )
 
-            for _, row in regime_metrics.iterrows():
-                regime = row["regime_label"]
-                n_periods = int(row["n_periods"])
-                sharpe = row.get("sharpe")
-                vol = row.get("volatility")
-                max_dd = row.get("max_drawdown")
-                cagr = row.get("cagr")
-                total_ret = row.get("total_return")
-                sortino = row.get("sortino")
+            for row in regime_metrics.itertuples(index=False):
+                regime = row.regime_label
+                n_periods = int(row.n_periods)
+                sharpe = getattr(row, "sharpe", None)
+                vol = getattr(row, "volatility", None)
+                max_dd = getattr(row, "max_drawdown", None)
+                cagr = getattr(row, "cagr", None)
+                total_ret = getattr(row, "total_return", None)
+                sortino = getattr(row, "sortino", None)
 
                 sharpe_str = (
                     f"{sharpe:.4f}"
@@ -526,14 +526,14 @@ def write_risk_report_markdown(
                 "|--------|---------|-------------|------------|--------|-------|--------------|\n"
             )
 
-            for _, row in risk_by_regime.iterrows():
-                regime = row["regime"]
-                n_periods = int(row["n_periods"])
-                mean_ret = row.get("mean_return_annualized")
-                vol = row.get("vol_annualized")
-                sharpe = row.get("sharpe")
-                max_dd = row.get("max_drawdown")
-                total_ret = row.get("total_return")
+            for row in risk_by_regime.itertuples(index=False):
+                regime = row.regime
+                n_periods = int(row.n_periods)
+                mean_ret = getattr(row, "mean_return_annualized", None)
+                vol = getattr(row, "vol_annualized", None)
+                sharpe = getattr(row, "sharpe", None)
+                max_dd = getattr(row, "max_drawdown", None)
+                total_ret = getattr(row, "total_return", None)
 
                 mean_ret_str = f"{mean_ret:.2%}" if mean_ret is not None else "N/A"
                 vol_str = f"{vol:.2%}" if vol is not None else "N/A"
@@ -558,12 +558,12 @@ def write_risk_report_markdown(
                 "|--------------|---------|-------------|--------------|----------|\n"
             )
 
-            for _, row in risk_by_factor_group.iterrows():
-                group = row["factor_group"]
-                factors = row.get("factors", "N/A")
-                corr = row.get("correlation_with_returns")
-                exposure = row.get("avg_exposure")
-                n_periods = int(row.get("n_periods", 0))
+            for row in risk_by_factor_group.itertuples(index=False):
+                group = row.factor_group
+                factors = getattr(row, "factors", "N/A")
+                corr = getattr(row, "correlation_with_returns", None)
+                exposure = getattr(row, "avg_exposure", None)
+                n_periods = int(getattr(row, "n_periods", 0))
 
                 corr_str = f"{corr:.4f}" if corr is not None else "N/A"
                 exposure_str = f"{exposure:.4f}" if exposure is not None else "N/A"
@@ -641,13 +641,13 @@ def write_risk_report_markdown(
                 "|--------|-----------|----------|---------|-------------------|----------|\n"
             )
 
-            for _, row in top_factors.iterrows():
-                factor = row["factor"]
-                mean_beta = row["mean_beta"]
-                std_beta = row["std_beta"]
-                mean_r2 = row["mean_r2"]
-                mean_residual_vol = row["mean_residual_vol"]
-                n_windows = int(row["n_windows"])
+            for row in top_factors.itertuples(index=False):
+                factor = row.factor
+                mean_beta = row.mean_beta
+                std_beta = row.std_beta
+                mean_r2 = row.mean_r2
+                mean_residual_vol = row.mean_residual_vol
+                n_windows = int(row.n_windows)
 
                 mean_beta_str = f"{mean_beta:.4f}" if not pd.isna(mean_beta) else "N/A"
                 std_beta_str = f"{std_beta:.4f}" if not pd.isna(std_beta) else "N/A"

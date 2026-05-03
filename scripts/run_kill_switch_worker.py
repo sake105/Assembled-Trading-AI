@@ -109,12 +109,10 @@ def _generate_flatten_orders(positions_path: str, date_str: str) -> pd.DataFrame
 
     # Flatten = sell longs, buy back shorts
     orders_rows = []
-    for _, row in open_positions.iterrows():
-        qty = float(row["qty"])
+    for row in open_positions.itertuples(index=False):
+        qty = float(row.qty)
         side = "SELL" if qty > 0 else "BUY"
-        orders_rows.append(
-            {"symbol": str(row["symbol"]), "side": side, "qty": abs(qty)}
-        )
+        orders_rows.append({"symbol": str(row.symbol), "side": side, "qty": abs(qty)})
 
     orders_df = pd.DataFrame(orders_rows)
     logger.info("[INFO] generated %d flatten order(s)", len(orders_df))

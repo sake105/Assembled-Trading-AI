@@ -461,10 +461,10 @@ def apply_spinoff(
 
     result = positions.copy()
     new_rows: list[dict] = []
-    for _, sp in spinoffs.iterrows():
-        parent = sp["symbol"]
-        child = sp["child_symbol"]
-        ratio = float(sp["spinoff_ratio"])
+    for sp in spinoffs.itertuples(index=False):
+        parent = sp.symbol
+        child = sp.child_symbol
+        ratio = float(sp.spinoff_ratio)
         if ratio <= 0:
             continue
         parent_mask = result["symbol"] == parent

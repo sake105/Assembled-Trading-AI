@@ -116,18 +116,10 @@ def filter_prices_for_date(
         filtered = filtered.drop(columns=["date_only"])
     else:  # mode == "last_available"
         # For each symbol, get the last available timestamp <= target_date
-        filtered_list = []
-        for symbol in prices["symbol"].unique():
-            sym_data = prices[prices["symbol"] == symbol].copy()
-            sym_data = sym_data[sym_data["timestamp"] <= target_date]
-            if not sym_data.empty:
-                # Get last available timestamp for this symbol
-                last_ts = sym_data["timestamp"].max()
-                last_row = sym_data[sym_data["timestamp"] == last_ts]
-                filtered_list.append(last_row)
-
-        if filtered_list:
-            filtered = pd.concat(filtered_list, ignore_index=True)
+        eligible = prices[prices["timestamp"] <= target_date]
+        if not eligible.empty:
+            last_idx = eligible.groupby("symbol", sort=False)["timestamp"].idxmax()
+            filtered = eligible.loc[last_idx].reset_index(drop=True)
         else:
             filtered = pd.DataFrame(columns=prices.columns)
 

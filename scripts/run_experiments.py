@@ -126,9 +126,7 @@ def run_experiment(
             sym_list = top_syms["symbol"].tolist()
 
             if config.use_optimizer and len(sym_list) >= 2:
-                exp_ret = pd.Series(
-                    {row["symbol"]: float(row["score"]) for _, row in top_syms.iterrows()}
-                )
+                exp_ret = pd.Series(dict(zip(top_syms["symbol"], top_syms["score"].astype(float))))
                 available = [s for s in sym_list if s in cov_matrix.columns]
                 if len(available) >= 2:
                     sub_cov = cov_matrix.loc[available, available]

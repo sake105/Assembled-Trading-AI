@@ -1989,9 +1989,10 @@ def summarize_factor_portfolios(
             # Recompute deflated Sharpe with correct n_tests
             from src.assembled_core.qa.metrics import deflated_sharpe_ratio
 
-            for idx, row in result_df.iterrows():
-                sharpe_val = row.get("sharpe")
-                n_periods_val = row.get("n_periods", 0)
+            for row in result_df.itertuples(index=True):
+                idx = row.Index
+                sharpe_val = getattr(row, "sharpe", None)
+                n_periods_val = getattr(row, "n_periods", 0)
                 if (
                     sharpe_val is not None
                     and not np.isnan(sharpe_val)

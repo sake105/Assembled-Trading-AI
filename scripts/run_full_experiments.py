@@ -240,12 +240,12 @@ def run_backtest(
                 available = [s for s in all_syms if s in cov_matrix.columns]
 
                 if len(available) >= 2:
-                    exp_ret = pd.Series(dtype=float)
-                    for _, row in longs.iterrows():
-                        exp_ret[row["symbol"]] = float(row["score"])
-                    for _, row in shorts.iterrows():
-                        exp_ret[row["symbol"]] = float(row["score"])  # Negative scores
-                    exp_ret = exp_ret.reindex(available).fillna(0.0)
+                    exp_ret = pd.Series(
+                        dict(zip(
+                            pd.concat([longs["symbol"], shorts["symbol"]]),
+                            pd.concat([longs["score"], shorts["score"]]).astype(float),
+                        ))
+                    ).reindex(available).fillna(0.0)
 
                     mn_config = MarketNeutralConfig(
                         risk_aversion=risk_aversion,
@@ -280,9 +280,7 @@ def run_backtest(
                 available = [s for s in sym_list if s in cov_matrix.columns]
 
                 if len(available) >= 2:
-                    exp_ret = pd.Series(
-                        {row["symbol"]: float(row["score"]) for _, row in longs.iterrows()}
-                    )
+                    exp_ret = pd.Series(dict(zip(longs["symbol"], longs["score"].astype(float))))
                     sub_cov = cov_matrix.loc[available, available]
                     exp_ret_sub = exp_ret.reindex(available).fillna(0.0)
 
