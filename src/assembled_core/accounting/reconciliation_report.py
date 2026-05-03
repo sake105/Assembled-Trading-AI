@@ -114,14 +114,14 @@ def write_reconcile_report_csv(
     # Position difference rows
     position_diffs_df = result_dict.get("position_diffs_df")
     if position_diffs_df is not None and not position_diffs_df.empty:
-        for _, row in position_diffs_df.iterrows():
+        for row in position_diffs_df.itertuples(index=False):
             report_rows.append(
                 {
                     "type": "position",
-                    "symbol": row["symbol"],
-                    "ledger_value": row["ledger_qty"],
-                    "broker_value": row["broker_qty"],
-                    "diff": row["diff_qty"],
+                    "symbol": row.symbol,
+                    "ledger_value": row.ledger_qty,
+                    "broker_value": row.broker_qty,
+                    "diff": row.diff_qty,
                     "match": False,
                 }
             )
@@ -452,9 +452,9 @@ def write_reconcile_report_md(
             lines.append("")
             lines.append("| Symbol | Ledger Qty | Broker Qty | Diff |")
             lines.append("|--------|------------|------------|------|")
-            for _, row in position_diffs_df.iterrows():
+            for row in position_diffs_df.itertuples(index=False):
                 lines.append(
-                    f"| {row['symbol']} | {row['ledger_qty']:.2f} | {row['broker_qty']:.2f} | {row['diff_qty']:.2f} |"
+                    f"| {row.symbol} | {row.ledger_qty:.2f} | {row.broker_qty:.2f} | {row.diff_qty:.2f} |"
                 )
             lines.append("")
 

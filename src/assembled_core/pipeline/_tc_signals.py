@@ -318,11 +318,11 @@ def generate_signals(
                     existing_syms = set(signals["symbol"].values) if not signals.empty else set()
                     short_rows = [
                         {"timestamp": ctx.as_of or pd.Timestamp.now("UTC"),
-                         "symbol": row["symbol"],
-                         "direction": row.get("direction", "SHORT"),
-                         "score": -abs(row["confidence"])}
-                        for _, row in short_df.iterrows()
-                        if row["symbol"] not in existing_syms
+                         "symbol": row.symbol,
+                         "direction": getattr(row, "direction", "SHORT"),
+                         "score": -abs(row.confidence)}
+                        for row in short_df.itertuples(index=False)
+                        if row.symbol not in existing_syms
                     ]
                     if short_rows:
                         signals = pd.concat([signals, pd.DataFrame(short_rows)], ignore_index=True)

@@ -314,11 +314,11 @@ def get_drift_status_summary(
 
                 features_with_drift = [
                     FeatureDriftItem(
-                        feature=row["feature"],
-                        psi=float(row["psi"]),
-                        drift_flag=str(row.get("drift_flag", "NONE")),
+                        feature=row.feature,
+                        psi=float(row.psi),
+                        drift_flag=str(getattr(row, "drift_flag", "NONE")),
                     )
-                    for _, row in drift_df_sorted.iterrows()
+                    for row in drift_df_sorted.itertuples(index=False)
                 ]
 
                 # Determine overall severity (worst case)

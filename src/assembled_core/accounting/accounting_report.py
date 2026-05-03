@@ -176,28 +176,21 @@ def write_accounting_report_csv(
 
     # Per-symbol rows (sorted by symbol)
     if not positions_df.empty:
-        for _, row in positions_df.iterrows():
+        for row in positions_df.itertuples(index=False):
+            _rpnl = row.realized_pnl if hasattr(row, "realized_pnl") else float("nan")
+            _upnl = row.unrealized_pnl if hasattr(row, "unrealized_pnl") else float("nan")
             report_rows.append(
                 {
                     "section": "POSITION",
-                    "symbol": str(row["symbol"]),
+                    "symbol": str(row.symbol),
                     "cash_start": None,
                     "cash_end": None,
                     "cash_change": None,
-                    "realized_pnl": (
-                        float(row["realized_pnl"])
-                        if pd.notna(row["realized_pnl"])
-                        else 0.0
-                    ),
-                    "unrealized_pnl": (
-                        float(row["unrealized_pnl"])
-                        if pd.notna(row["unrealized_pnl"])
-                        else 0.0
-                    ),
+                    "realized_pnl": float(_rpnl) if pd.notna(_rpnl) else 0.0,
+                    "unrealized_pnl": float(_upnl) if pd.notna(_upnl) else 0.0,
                     "total_pnl": (
-                        float(row["realized_pnl"] + row["unrealized_pnl"])
-                        if pd.notna(row["realized_pnl"])
-                        and pd.notna(row["unrealized_pnl"])
+                        float(_rpnl + _upnl)
+                        if pd.notna(_rpnl) and pd.notna(_upnl)
                         else None
                     ),
                     "commission_cash": None,
@@ -290,38 +283,27 @@ def write_accounting_report_json(
     positions_list = []
     if not positions_df.empty:
         positions_sorted = positions_df.sort_values("symbol", kind="mergesort")
-        for _, row in positions_sorted.iterrows():
+        for row in positions_sorted.itertuples(index=False):
+            _qty = row.qty if hasattr(row, "qty") else float("nan")
+            _avg = row.avg_price if hasattr(row, "avg_price") else float("nan")
+            _rpnl = row.realized_pnl if hasattr(row, "realized_pnl") else float("nan")
+            _upnl = row.unrealized_pnl if hasattr(row, "unrealized_pnl") else float("nan")
+            _notional = row.notional if hasattr(row, "notional") else float("nan")
+            _last = row.last_price if hasattr(row, "last_price") else float("nan")
             positions_list.append(
                 {
-                    "symbol": str(row["symbol"]),
-                    "qty": float(row["qty"]) if pd.notna(row["qty"]) else 0.0,
-                    "avg_price": (
-                        float(row["avg_price"]) if pd.notna(row["avg_price"]) else None
-                    ),
-                    "realized_pnl": (
-                        float(row["realized_pnl"])
-                        if pd.notna(row["realized_pnl"])
-                        else 0.0
-                    ),
-                    "unrealized_pnl": (
-                        float(row["unrealized_pnl"])
-                        if pd.notna(row["unrealized_pnl"])
-                        else 0.0
-                    ),
+                    "symbol": str(row.symbol),
+                    "qty": float(_qty) if pd.notna(_qty) else 0.0,
+                    "avg_price": float(_avg) if pd.notna(_avg) else None,
+                    "realized_pnl": float(_rpnl) if pd.notna(_rpnl) else 0.0,
+                    "unrealized_pnl": float(_upnl) if pd.notna(_upnl) else 0.0,
                     "total_pnl": (
-                        float(row["realized_pnl"] + row["unrealized_pnl"])
-                        if pd.notna(row["realized_pnl"])
-                        and pd.notna(row["unrealized_pnl"])
+                        float(_rpnl + _upnl)
+                        if pd.notna(_rpnl) and pd.notna(_upnl)
                         else None
                     ),
-                    "notional": (
-                        float(row["notional"]) if pd.notna(row["notional"]) else 0.0
-                    ),
-                    "last_price": (
-                        float(row["last_price"])
-                        if pd.notna(row["last_price"])
-                        else None
-                    ),
+                    "notional": float(_notional) if pd.notna(_notional) else 0.0,
+                    "last_price": float(_last) if pd.notna(_last) else None,
                 }
             )
 

@@ -150,13 +150,13 @@ def write_targets_artifact(
     if isinstance(target_positions, pd.DataFrame) and not target_positions.empty:
         has_weight = "target_weight" in target_positions.columns
         has_qty = "target_qty" in target_positions.columns
-        for _, row in target_positions.iterrows():
-            item: Dict[str, Any] = {"symbol": row.get("symbol")}
-            if has_weight:
-                item["target_weight"] = _safe_float(row.get("target_weight"))
-            if has_qty:
-                item["target_qty"] = _safe_float(row.get("target_qty"))
-            items.append(item)
+        _cols = ["symbol"] + (["target_weight"] if has_weight else []) + (["target_qty"] if has_qty else [])
+        _tmp = target_positions[[c for c in _cols if c in target_positions.columns]].copy()
+        if has_weight:
+            _tmp["target_weight"] = _tmp["target_weight"].apply(_safe_float)
+        if has_qty:
+            _tmp["target_qty"] = _tmp["target_qty"].apply(_safe_float)
+        items = _tmp.to_dict("records")
 
     payload: Dict[str, Any] = {
         "schema_version": "run.targets.v1",
@@ -176,21 +176,20 @@ def write_orders_artifact(
 
     items: list[Dict[str, Any]] = []
     if isinstance(orders, pd.DataFrame) and not orders.empty:
-        for _, row in orders.iterrows():
-            item: Dict[str, Any] = {}
-            for key in ("timestamp", "symbol", "side", "qty", "price"):
-                if key in row.index:
-                    val = row.get(key)
-                    if key == "timestamp" and pd.notna(val):
-                        try:
-                            item[key] = pd.to_datetime(val).isoformat()
-                        except Exception:  # pragma: no cover - defensive
-                            item[key] = str(val)
-                    elif key in ("qty", "price"):
-                        item[key] = _safe_float(val)
-                    else:
-                        item[key] = val
-            items.append(item)
+        _all_keys = ("timestamp", "symbol", "side", "qty", "price")
+        _cols = [k for k in _all_keys if k in orders.columns]
+        _tmp = orders[_cols].copy()
+        if "qty" in _tmp.columns:
+            _tmp["qty"] = _tmp["qty"].apply(_safe_float)
+        if "price" in _tmp.columns:
+            _tmp["price"] = _tmp["price"].apply(_safe_float)
+        if "timestamp" in _tmp.columns:
+            _ts = pd.to_datetime(_tmp["timestamp"], errors="coerce")
+            _tmp["timestamp"] = [
+                v.isoformat() if pd.notna(v) else str(raw)
+                for v, raw in zip(_ts, _tmp["timestamp"])
+            ]
+        items = _tmp.to_dict("records")
 
     payload: Dict[str, Any] = {
         "schema_version": "run.orders.v1",
@@ -393,28 +392,23 @@ def build_exposure_report(
     else:
         hhi = 0.0
 
-    positions_list: list[Dict[str, Any]] = []
-    for _, row in exposures_df.iterrows():
-        positions_list.append(
-            {
-                "symbol": row.get("symbol"),
-                "target_qty": _safe_float(row.get("target_qty")),
-                "price": _safe_float(row.get("price")),
-                "notional": _safe_float(row.get("notional")),
-                "weight": _safe_float(row.get("weight")),
-            }
-        )
+    _exp_cols = [c for c in ("symbol", "target_qty", "price", "notional", "weight") if c in exposures_df.columns]
+    _exp_tmp = exposures_df[_exp_cols].copy()
+    for _c in ("target_qty", "price", "notional", "weight"):
+        if _c in _exp_tmp.columns:
+            _exp_tmp[_c] = _exp_tmp[_c].apply(_safe_float)
+    positions_list: list[Dict[str, Any]] = _exp_tmp.to_dict("records")
 
     top_df = exposures_df.assign(abs_weight=abs_weights).sort_values(
         "abs_weight", ascending=False
     ).head(int(top_n))
     top_list: list[Dict[str, Any]] = [
         {
-            "symbol": row.get("symbol"),
-            "weight": _safe_float(row.get("weight")),
-            "notional": _safe_float(row.get("notional")),
+            "symbol": row.symbol,
+            "weight": _safe_float(row.weight),
+            "notional": _safe_float(row.notional),
         }
-        for _, row in top_df.iterrows()
+        for row in top_df.itertuples(index=False)
     ]
 
     return {
@@ -564,14 +558,14 @@ def write_diff_vs_prev(
         and "symbol" in current_targets.columns
     ):
         has_weight = "target_weight" in current_targets.columns
-        for _, row in current_targets.iterrows():
-            sym = row.get("symbol")
-            if sym is None:
-                continue
-            if has_weight:
-                curr_weights[str(sym)] = _safe_float(row.get("target_weight")) or 0.0
-            else:
-                curr_weights[str(sym)] = 0.0
+        _ct = current_targets.dropna(subset=["symbol"])
+        if has_weight:
+            curr_weights = {
+                str(sym): _safe_float(w) or 0.0
+                for sym, w in zip(_ct["symbol"], _ct["target_weight"])
+            }
+        else:
+            curr_weights = {str(sym): 0.0 for sym in _ct["symbol"]}
 
     symbols = sorted(set(prev_weights) | set(curr_weights))
     delta_targets: list[Dict[str, Any]] = []

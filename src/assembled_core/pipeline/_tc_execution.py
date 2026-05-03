@@ -386,14 +386,14 @@ def book_fills(
             if _qs_store.ping():
                 _qs_ts = pd.Timestamp.now("UTC")
                 _qs_ticks: list[OHLCVTick] = []
-                for _, _qs_row in result.orders_filtered.iterrows():
-                    _qs_p = float(_qs_row.get("price", 0) or 0)
+                for _qs_row in result.orders_filtered.itertuples(index=False):
+                    _qs_p = float(getattr(_qs_row, "price", 0) or 0)
                     if _qs_p > 0:
                         _qs_ticks.append(OHLCVTick(
-                            symbol=str(_qs_row["symbol"]),
+                            symbol=str(_qs_row.symbol),
                             ts=_qs_ts,
                             open=_qs_p, high=_qs_p, low=_qs_p, close=_qs_p,
-                            volume=abs(float(_qs_row.get("qty", 0) or 0)),
+                            volume=abs(float(getattr(_qs_row, "qty", 0) or 0)),
                         ))
                 if _qs_ticks:
                     written = _qs_store.write_ticks(_qs_ticks)

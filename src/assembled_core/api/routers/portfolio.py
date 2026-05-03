@@ -285,8 +285,8 @@ def get_portfolio_equity_curve(freq: Frequency) -> EquityCurveResponse:
 
         # Convert to EquityPoint models
         points = [
-            EquityPoint(timestamp=row["timestamp"], equity=float(row["equity"]))
-            for _, row in df.iterrows()
+            EquityPoint(timestamp=row.timestamp, equity=float(row.equity))
+            for row in df.itertuples(index=False)
         ]
 
         start_equity = float(df["equity"].iloc[0])
