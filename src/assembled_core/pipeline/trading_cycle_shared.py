@@ -656,10 +656,14 @@ def should_rebalance(
 
     # Trigger 2: Weight drift
     if current_weights and not target_positions.empty and "symbol" in target_positions.columns:
-        target_w = {}
+        target_w: dict[str, float] = {}
         if "target_weight" in target_positions.columns:
-            for _, row in target_positions.iterrows():
-                target_w[row["symbol"]] = float(row.get("target_weight", 0.0))
+            target_w = (
+                target_positions.set_index("symbol")["target_weight"]
+                .fillna(0.0)
+                .astype(float)
+                .to_dict()
+            )
         all_syms = set(current_weights.keys()) | set(target_w.keys())
         if all_syms:
             max_drift = max(

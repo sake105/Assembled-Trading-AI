@@ -152,10 +152,11 @@ def generate_signals(
                 )
                 if raw_scores and "score" in signals.columns:
                     intel_weight = float(intel_sig_cfg.get("weight", 0.15))
-                    for idx, row in signals.iterrows():
-                        sym = row.get("symbol", "")
-                        if sym in raw_scores:
-                            signals.at[idx, "score"] = float(row["score"]) + intel_weight * raw_scores[sym]
+                    signals = signals.copy()
+                    signals["score"] = (
+                        signals["score"].astype(float)
+                        + intel_weight * signals["symbol"].map(raw_scores).fillna(0.0)
+                    )
                     log.info("[INTEL] signal layer applied: %d symbols scored", len(raw_scores))
 
             active_shocks = getattr(ctx, "intel_active_shocks", None)
@@ -272,15 +273,13 @@ def generate_signals(
                     historical_scores=getattr(ctx, "signal_historical_scores", None),
                     ci_level=float(bc_cfg.get("ci_level", 0.90)),
                 )
-                for idx, row in signals.iterrows():
-                    sym = row.get("symbol", "")
-                    if sym in confidences:
-                        scaler = confidence_position_scaler(
-                            confidences[sym],
-                            max_scale=float(bc_cfg.get("max_scale", 1.5)),
-                            min_scale=float(bc_cfg.get("min_scale", 0.5)),
-                        )
-                        signals.at[idx, "score"] = float(row["score"]) * scaler
+                signals = signals.copy()
+                _max_scale = float(bc_cfg.get("max_scale", 1.5))
+                _min_scale = float(bc_cfg.get("min_scale", 0.5))
+                signals["score"] = signals["score"].astype(float) * signals["symbol"].map(
+                    {sym: confidence_position_scaler(conf, max_scale=_max_scale, min_scale=_min_scale)
+                     for sym, conf in confidences.items()}
+                ).fillna(1.0)
     except Exception as e:
         log.debug("[SIGNAL-DIAG] bayesian_confidence skipped: %s", e)
 
@@ -361,11 +360,7 @@ def generate_signals(
             if _bundle_path.exists():
                 _mf_result = build_multifactor_signal(features, load_factor_bundle(_bundle_path))
                 if not _mf_result.df.empty and "mf_score" in _mf_result.df.columns:
-                    _mf_latest = (
-                        _mf_result.df.sort_values("timestamp").groupby("symbol")["mf_score"].last()
-                        if "timestamp" in _mf_result.df.columns
-                        else _mf_result.df.groupby("symbol")["mf_score"].last()
-                    )
+                    _mf_latest = _mf_result.df.groupby("symbol")["mf_score"].last()
                     signals = signals.copy()
                     signals["mf_score"] = signals["symbol"].map(_mf_latest)
     except Exception as e:
@@ -403,8 +398,7 @@ def generate_signals(
                 _ts_signals = generate_trend_signals(features, ma_fast=20, ma_slow=50)
                 if not _ts_signals.empty and "symbol" in _ts_signals.columns:
                     _ts_latest = (
-                        _ts_signals.sort_values("timestamp")
-                        .groupby("symbol")
+                        _ts_signals.groupby("symbol")
                         .last()
                         .reset_index()[["symbol", "score"]]
                         .rename(columns={"score": "trend_ma_score"})

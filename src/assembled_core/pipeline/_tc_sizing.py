@@ -487,12 +487,24 @@ def _sp_apply_trailing_stops(
                     apply_stop_reductions_to_weights,
                     compute_trailing_stops,
                 )
+                _price_priority = [c for c in ("avg_entry_price", "entry_price", "price") if c in current_positions_df.columns]
                 pos_map: dict[str, dict] = {}
-                for _, row in current_positions_df.iterrows():
-                    sym = str(row.get("symbol", "")).upper()
-                    entry = row.get("avg_entry_price") or row.get("entry_price") or row.get("price")
-                    if sym and entry is not None:
-                        pos_map[sym] = {"entry_price": float(entry), "qty": float(row.get("qty", 0.0) or 0.0), "weight": float(row.get("weight", 0.0) or 0.0)}
+                if _price_priority:
+                    _cpd = current_positions_df.copy()
+                    _cpd["_sym"] = _cpd["symbol"].astype(str).str.upper()
+                    # Coalesce price columns in priority order (first non-null wins)
+                    _cpd["_entry"] = pd.to_numeric(
+                        _cpd[_price_priority].bfill(axis=1).iloc[:, 0], errors="coerce"
+                    )
+                    _cpd = _cpd[_cpd["_sym"].str.len() > 0].dropna(subset=["_entry"])
+                    _qty_col = "qty" if "qty" in _cpd.columns else None
+                    _wt_col = "weight" if "weight" in _cpd.columns else None
+                    for row in _cpd.itertuples(index=False):
+                        pos_map[row._sym] = {
+                            "entry_price": float(row._entry),
+                            "qty": float(getattr(row, _qty_col, 0.0) or 0.0) if _qty_col else 0.0,
+                            "weight": float(getattr(row, _wt_col, 0.0) or 0.0) if _wt_col else 0.0,
+                        }
                 rs_meta = meta.get("risk_state") or {}
                 regime_label = str(rs_meta.get("regime", "unknown")).lower()
                 vix_level = ctx.market_stress.get("vix_level") if ctx.market_stress else None
@@ -879,8 +891,7 @@ def size_positions(
                 _conf_feat_cols = _conf_bundle["feature_cols"]
                 _med_width = float(_conf_bundle.get("median_interval_width", 0.05))
                 _latest_f = (
-                    prices_with_features.sort_values("timestamp")
-                    .groupby("symbol").last().reset_index()
+                    prices_with_features.groupby("symbol").last().reset_index()
                 ) if "symbol" in prices_with_features.columns else prices_with_features
 
                 # Translate legacy conformal feature names to panel-native names.
