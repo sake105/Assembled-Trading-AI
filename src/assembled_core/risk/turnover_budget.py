@@ -70,7 +70,7 @@ def estimate_turnover(
         and "qty" in current_positions.columns
         and "symbol" in current_positions.columns
     ):
-        cp = current_positions.set_index("symbol")["qty"].apply(lambda q: float(q or 0))
+        cp = pd.to_numeric(current_positions.set_index("symbol")["qty"], errors="coerce").fillna(0.0)
         for sym in symbols:
             if sym in cp.index:
                 pr = float(price_series.get(sym, 0) or 0)
@@ -79,9 +79,7 @@ def estimate_turnover(
     # Target weight per symbol
     target_weight = pd.Series(index=symbols, data=0.0, dtype=float)
     if "target_weight" in target_positions.columns:
-        tw = target_positions.set_index("symbol")["target_weight"].apply(
-            lambda w: float(w or 0)
-        )
+        tw = pd.to_numeric(target_positions.set_index("symbol")["target_weight"], errors="coerce").fillna(0.0)
         for sym in symbols:
             if sym in tw.index:
                 target_weight[sym] = float(tw[sym])

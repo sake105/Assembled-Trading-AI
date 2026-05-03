@@ -577,12 +577,9 @@ def compute_volatility_proxy(
             drop=True
         )
 
-    # Compute log returns per symbol
-    prices_copy["log_return"] = (
-        prices_copy.groupby("symbol")["close"]
-        .apply(lambda x: np.log((x / x.shift(1)).clip(lower=1e-10)))
-        .reset_index(level=0, drop=True)
-    )
+    # Compute log returns per symbol (groupby shift avoids cross-symbol leakage)
+    _prev_close = prices_copy.groupby("symbol")["close"].shift(1)
+    prices_copy["log_return"] = np.log((prices_copy["close"] / _prev_close).clip(lower=1e-10))
 
     # Rolling standard deviation per symbol
     volatility = (
