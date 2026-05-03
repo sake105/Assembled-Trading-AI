@@ -45,10 +45,16 @@ class RejectionCollector:
         if rejected.empty:
             return
         reason_col = "reject_reason" if "reject_reason" in rejected.columns else None
+        if reason_col:
+            reasons = rejected[reason_col].fillna("UNKNOWN").astype(str).tolist()
+        else:
+            reasons = ["UNKNOWN"] * len(rejected)
+        counts_map: dict[str, int] = {}
+        for r in reasons:
+            counts_map[r] = counts_map.get(r, 0) + 1
         with self._lock:
-            for row in rejected.itertuples(index=False):
-                reason = str(getattr(row, "reject_reason", "UNKNOWN")) if reason_col else "UNKNOWN"
-                self._counts[reason] = self._counts.get(reason, 0) + 1
+            for r, c in counts_map.items():
+                self._counts[r] = self._counts.get(r, 0) + c
 
     def record_blocked_reasons(self, reasons: list[str]) -> None:
         """Record a list of block reasons (e.g. from PreTradeResult.blocked_reasons)."""
