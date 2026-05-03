@@ -685,26 +685,22 @@ def compute_signals(
     # Crash probability inverse -- not z-scored (scalar → zero variance).
     # Applied as multiplier post-composite via _crash_prediction_multiplier.
 
-    # --- Cross-sectional z-score per factor ---
+    # --- Cross-sectional z-score per factor (vectorized across all columns) ---
     # Use ddof=0 (population std) to avoid NaN for single-row universes.
     # For very small universes (< 5 symbols), z-scoring is statistically
     # meaningless, so use rank-normalization instead.
     factor_cols = [c for c in scores.columns if c != "symbol"]
     n_rows = len(scores)
-    for col in factor_cols:
-        vals = scores[col].astype(float)
-        if n_rows < 5:
-            # Rank-normalize: rank / N, centered around 0
-            ranks = vals.rank(method="average", na_option="bottom")
-            scores[col] = ((ranks / max(n_rows, 1)) - 0.5) * 2.0
-        else:
-            mean_v = vals.mean()
-            std_v = vals.std(ddof=0)
-            if std_v > 1e-10:
-                scores[col] = (vals - mean_v) / std_v
-            else:
-                scores[col] = 0.0
-        scores[col] = scores[col].clip(-3.0, 3.0)
+    factor_df = scores[factor_cols].astype(float)
+    if n_rows < 5:
+        ranks = factor_df.rank(method="average", na_option="bottom")
+        scores[factor_cols] = (((ranks / max(n_rows, 1)) - 0.5) * 2.0).clip(-3.0, 3.0)
+    else:
+        means = factor_df.mean()
+        stds = factor_df.std(ddof=0)
+        valid = stds > 1e-10
+        normalized = (factor_df - means) / stds.where(valid, 1.0)
+        scores[factor_cols] = normalized.where(valid, 0.0).clip(-3.0, 3.0)
 
     # --- Weighted composite with regime-conditional weights ---
     # Fix 20: Only count factors that contributed non-zero values to avoid

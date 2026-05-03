@@ -186,18 +186,14 @@ def compute_signals(
     scores["breadth_above_ma"] = breadth_score
     scores["breadth_ad_line"] = breadth_score  # simplified: same breadth context
 
-    # --- Cross-sectional z-score per factor ---
+    # --- Cross-sectional z-score per factor (vectorized across all columns) ---
     factor_cols = [c for c in scores.columns if c != "symbol"]
-    for col in factor_cols:
-        vals = scores[col].astype(float)
-        mean_v = vals.mean()
-        std_v = vals.std()
-        if std_v > 1e-10:
-            scores[col] = (vals - mean_v) / std_v
-        else:
-            scores[col] = 0.0
-        # Winsorize at [-3, +3]
-        scores[col] = scores[col].clip(-3.0, 3.0)
+    factor_df = scores[factor_cols].astype(float)
+    means = factor_df.mean()
+    stds = factor_df.std()
+    valid = stds > 1e-10
+    normalized = (factor_df - means) / stds.where(valid, 1.0)
+    scores[factor_cols] = normalized.where(valid, 0.0).clip(-3.0, 3.0)
 
     # --- Weighted composite score ---
     # Mirror the v2 guard (multifactor_v2.py:694): only count a factor into
