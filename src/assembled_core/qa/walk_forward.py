@@ -517,15 +517,14 @@ def run_walk_forward_backtest(
     # Calculate aggregated metrics for numeric columns
     aggregated = {}
 
-    # Extract metric columns (exclude split_index)
+    # Extract numeric metric columns (exclude split_index)
     metric_cols = [col for col in metrics_df.columns if col != "split_index"]
-
-    for col in metric_cols:
-        if pd.api.types.is_numeric_dtype(metrics_df[col]):
-            aggregated[f"mean_{col}"] = float(metrics_df[col].mean())
-            aggregated[f"std_{col}"] = float(metrics_df[col].std())
-            aggregated[f"min_{col}"] = float(metrics_df[col].min())
-            aggregated[f"max_{col}"] = float(metrics_df[col].max())
+    numeric_cols = metrics_df[metric_cols].select_dtypes(include="number").columns
+    if len(numeric_cols) > 0:
+        stats = metrics_df[numeric_cols].agg(["mean", "std", "min", "max"])
+        for stat in ("mean", "std", "min", "max"):
+            for col in numeric_cols:
+                aggregated[f"{stat}_{col}"] = float(stats.loc[stat, col])
 
     # Add split statistics
     aggregated["n_splits"] = len(splits)

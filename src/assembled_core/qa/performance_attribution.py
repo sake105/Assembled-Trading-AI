@@ -225,19 +225,18 @@ def sector_attribution(
     Returns:
         {sector: {"total_return", "n_positions", "contribution_pct"}}
     """
-    sectors: dict[str, list[float]] = {}
-    for col in position_returns.columns:
-        sec = sector_map.get(col, "UNKNOWN")
-        sectors.setdefault(sec, []).append(float(position_returns[col].sum()))
-
-    total = sum(sum(v) for v in sectors.values())
+    col_sums = position_returns.sum()
+    col_sec = col_sums.index.map(lambda c: sector_map.get(c, "UNKNOWN"))
+    sector_totals = col_sums.groupby(col_sec).sum()
+    sector_counts = col_sums.groupby(col_sec).count()
+    total = float(sector_totals.sum())
 
     out = {}
-    for sec, rets in sectors.items():
-        s = float(sum(rets))
+    for sec in sector_totals.index:
+        s = float(sector_totals[sec])
         out[sec] = {
             "total_return": s,
-            "n_positions": len(rets),
+            "n_positions": int(sector_counts[sec]),
             "contribution_pct": (s / total * 100.0) if abs(total) > 1e-12 else 0.0,
         }
     return out

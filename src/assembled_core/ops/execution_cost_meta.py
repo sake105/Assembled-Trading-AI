@@ -56,8 +56,11 @@ def _safe_adv_map(prices: pd.DataFrame, default_adv: float = 1_000_000.0) -> dic
         return {}
     try:
         return (
-            prices.groupby("symbol")["volume"]
-            .apply(lambda s: float(s.tail(20).mean()) if len(s) > 0 else default_adv)
+            prices.groupby("symbol")
+            .tail(20)
+            .groupby("symbol")["volume"]
+            .mean()
+            .fillna(default_adv)
             .to_dict()
         )
     except Exception:

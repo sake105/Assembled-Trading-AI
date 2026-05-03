@@ -207,11 +207,14 @@ def compute_adv_usd(
 
     df["_dollar_vol"] = df[close_col].abs() * df[vol_col].abs()
 
-    # Per-symbol mean of the last *window* bars
+    # Per-symbol mean of the last *window* bars (tail+mean avoids per-group apply overhead)
+    sort_cols = ["symbol", "timestamp"] if "timestamp" in df.columns else ["symbol"]
     result = (
-        df.sort_values(["symbol", "timestamp"] if "timestamp" in df.columns else ["symbol"])
+        df.sort_values(sort_cols)
+        .groupby("symbol")
+        .tail(window)
         .groupby("symbol")["_dollar_vol"]
-        .apply(lambda s: s.tail(window).mean())
+        .mean()
     )
     return result
 
