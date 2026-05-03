@@ -535,115 +535,67 @@ def build_macro_regime_factors(
         macro_series["macro_code"].isin([c.upper() for c in risk_indicators])
     ].copy()
 
-    # Aggregate macro indicators by date
-    # For each date, compute regime indicators
+    # Aggregate macro indicators by date — vectorized via pivot_table
     all_dates = sorted(macro_series[timestamp_col].dt.date.unique())
+    date_index = pd.Index(all_dates)
 
-    regime_factors = []
+    for _ds in (growth_data, inflation_data, risk_data):
+        _ds["_date"] = _ds[timestamp_col].dt.date
 
-    for date_val in all_dates:
-        date_ts = pd.Timestamp(date_val, tz="UTC")
+    # Growth: GDP > 2 → expansion, GDP < 0 → recession; UNEMPLOYMENT fallback
+    gpivot = (
+        growth_data.pivot_table(index="_date", columns="macro_code", values="value", aggfunc="mean")
+        .reindex(date_index)
+        if not growth_data.empty else pd.DataFrame(index=date_index)
+    )
+    gdp_regime = (
+        np.where(gpivot["GDP"] > 2.0, 1.0, np.where(gpivot["GDP"] < 0.0, -1.0, 0.0))
+        if "GDP" in gpivot.columns else np.zeros(len(date_index))
+    )
+    unemp_regime = (
+        np.where(gpivot["UNEMPLOYMENT"] < 4.0, 1.0, np.where(gpivot["UNEMPLOYMENT"] > 7.0, -1.0, 0.0))
+        if "UNEMPLOYMENT" in gpivot.columns else np.zeros(len(date_index))
+    )
+    growth_regime_arr = np.where(gdp_regime != 0.0, gdp_regime, unemp_regime)
 
-        # Growth regime
-        growth_values = growth_data[growth_data[timestamp_col].dt.date == date_val][
-            "value"
-        ].dropna()
+    # Inflation: avg across codes > 3 → high, < 1 → low
+    ipivot = (
+        inflation_data.pivot_table(index="_date", columns="macro_code", values="value", aggfunc="mean")
+        .reindex(date_index)
+        if not inflation_data.empty else pd.DataFrame(index=date_index)
+    )
+    avg_infl = ipivot.mean(axis=1) if not ipivot.empty else pd.Series(np.nan, index=date_index)
+    inflation_regime_arr = np.where(avg_infl > 3.0, 1.0, np.where(avg_infl < 1.0, -1.0, 0.0))
 
-        growth_regime = 0.0
-        if not growth_values.empty:
-            # Simple heuristic: positive GDP growth = expansion, negative = recession
-            # Low unemployment = expansion, high = recession
-            gdp_values = growth_data[
-                (growth_data[timestamp_col].dt.date == date_val)
-                & (growth_data["macro_code"] == "GDP")
-            ]["value"].dropna()
+    # Risk aversion: FED_RATE > 5 → risk-off, < 2 → risk-on; VIX fallback
+    rpivot = (
+        risk_data.pivot_table(index="_date", columns="macro_code", values="value", aggfunc="mean")
+        .reindex(date_index)
+        if not risk_data.empty else pd.DataFrame(index=date_index)
+    )
+    fed_regime = (
+        np.where(rpivot["FED_RATE"] > 5.0, 1.0, np.where(rpivot["FED_RATE"] < 2.0, -1.0, 0.0))
+        if "FED_RATE" in rpivot.columns else np.zeros(len(date_index))
+    )
+    vix_regime = (
+        np.where(rpivot["VIX"] > 20.0, 1.0, np.where(rpivot["VIX"] < 15.0, -1.0, 0.0))
+        if "VIX" in rpivot.columns else np.zeros(len(date_index))
+    )
+    risk_aversion_arr = np.where(fed_regime != 0.0, fed_regime, vix_regime)
 
-            unemployment_values = growth_data[
-                (growth_data[timestamp_col].dt.date == date_val)
-                & (growth_data["macro_code"] == "UNEMPLOYMENT")
-            ]["value"].dropna()
+    regime_df = pd.DataFrame({
+        timestamp_col: pd.to_datetime(date_index, utc=True),
+        "macro_growth_regime": growth_regime_arr,
+        "macro_inflation_regime": inflation_regime_arr,
+        "macro_risk_aversion_proxy": risk_aversion_arr,
+    }).sort_values(timestamp_col).reset_index(drop=True)
 
-            if not gdp_values.empty:
-                # GDP growth > 0 = expansion, < 0 = recession
-                avg_gdp = gdp_values.mean()
-                if avg_gdp > 2.0:  # Threshold: 2% GDP growth
-                    growth_regime = 1.0
-                elif avg_gdp < 0:
-                    growth_regime = -1.0
-
-            if not unemployment_values.empty and growth_regime == 0.0:
-                # Low unemployment = expansion, high = recession
-                avg_unemployment = unemployment_values.mean()
-                if avg_unemployment < 4.0:  # Threshold: 4% unemployment
-                    growth_regime = 1.0
-                elif avg_unemployment > 7.0:  # Threshold: 7% unemployment
-                    growth_regime = -1.0
-
-        # Inflation regime
-        inflation_values = inflation_data[
-            inflation_data[timestamp_col].dt.date == date_val
-        ]["value"].dropna()
-
-        inflation_regime = 0.0
-        if not inflation_values.empty:
-            # High inflation = +1, low/deflation = -1
-            avg_inflation = inflation_values.mean()
-            if avg_inflation > 3.0:  # Threshold: 3% inflation
-                inflation_regime = 1.0
-            elif avg_inflation < 1.0:  # Threshold: 1% inflation (low/deflation)
-                inflation_regime = -1.0
-
-        # Risk aversion proxy
-        risk_values = risk_data[risk_data[timestamp_col].dt.date == date_val][
-            "value"
-        ].dropna()
-
-        risk_aversion = 0.0
-        if not risk_values.empty:
-            # High Fed rate = risk-off, low = risk-on
-            # High VIX = risk-off, low = risk-on
-            fed_rate_values = risk_data[
-                (risk_data[timestamp_col].dt.date == date_val)
-                & (risk_data["macro_code"] == "FED_RATE")
-            ]["value"].dropna()
-
-            vix_values = risk_data[
-                (risk_data[timestamp_col].dt.date == date_val)
-                & (risk_data["macro_code"] == "VIX")
-            ]["value"].dropna()
-
-            if not fed_rate_values.empty:
-                avg_fed_rate = fed_rate_values.mean()
-                if avg_fed_rate > 5.0:  # Threshold: 5% Fed rate
-                    risk_aversion = 1.0
-                elif avg_fed_rate < 2.0:  # Threshold: 2% Fed rate
-                    risk_aversion = -1.0
-
-            if not vix_values.empty and risk_aversion == 0.0:
-                avg_vix = vix_values.mean()
-                if avg_vix > 20.0:  # Threshold: VIX > 20
-                    risk_aversion = 1.0
-                elif avg_vix < 15.0:  # Threshold: VIX < 15
-                    risk_aversion = -1.0
-
-        regime_factors.append(
-            {
-                timestamp_col: date_ts,
-                "macro_growth_regime": growth_regime,
-                "macro_inflation_regime": inflation_regime,
-                "macro_risk_aversion_proxy": risk_aversion,
-            }
-        )
-
-    if not regime_factors:
+    if regime_df.empty:
         logger.warning("No regime factors computed. Returning prices with NaN factors.")
         result["macro_growth_regime"] = np.nan
         result["macro_inflation_regime"] = np.nan
         result["macro_risk_aversion_proxy"] = np.nan
         return result
-
-    regime_df = pd.DataFrame(regime_factors)
-    regime_df = regime_df.sort_values(timestamp_col).reset_index(drop=True)
 
     # Join regime factors to all symbols (market-wide factors — single merge_asof, no per-symbol loop)
     regime_df_sorted = regime_df.sort_values(timestamp_col).reset_index(drop=True)

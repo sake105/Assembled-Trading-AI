@@ -55,17 +55,16 @@ def compute_lci(
         logger.warning("LCI: no common index across inputs — returning empty Series")
         return pd.Series(dtype=float)
 
-    hy_ig_z = _rolling_zscore(hy_ig_ratio.loc[common], lookback_days)
-    dxy_z = _rolling_zscore(dxy.loc[common], lookback_days)
-    vix_z = _rolling_zscore(vix.loc[common], lookback_days)
-    curve_z = _rolling_zscore(yield_curve_slope.loc[common], lookback_days) * -1  # inversion → risk
-
-    lci = (
-        0.30 * hy_ig_z
-        + 0.20 * dxy_z
-        + 0.30 * vix_z
-        + 0.20 * curve_z
+    df = pd.DataFrame(
+        {"hy_ig": hy_ig_ratio.loc[common], "dxy": dxy.loc[common],
+         "vix": vix.loc[common], "curve": yield_curve_slope.loc[common]},
+        index=common,
     )
+    _min_p = max(lookback_days // 4, 20)
+    roll = df.rolling(window=lookback_days, min_periods=_min_p)
+    z = (df - roll.mean()) / roll.std().replace(0, np.nan)
+
+    lci = 0.30 * z["hy_ig"] + 0.20 * z["dxy"] + 0.30 * z["vix"] + 0.20 * z["curve"] * -1
     lci.name = "lci"
     return lci
 

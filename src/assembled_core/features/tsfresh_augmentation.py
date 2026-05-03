@@ -301,9 +301,10 @@ def _rolling_autocorr(arr: np.ndarray, window: int, lag: int) -> np.ndarray:
 
 def _rolling_mean_abs_change(arr: np.ndarray, window: int) -> np.ndarray:
     out = np.full(len(arr), np.nan)
-    for i in range(window - 1, len(arr)):
-        w = arr[i - window + 1: i + 1]
-        out[i] = float(np.abs(np.diff(w)).mean()) if len(w) > 1 else 0.0
+    if len(arr) >= window and window > 1:
+        abs_diffs = pd.Series(arr).diff().abs()
+        rolled = abs_diffs.rolling(window=window - 1, min_periods=window - 1).mean()
+        out[window - 1:] = rolled.values[window - 1:]
     return out
 
 
@@ -324,18 +325,21 @@ def _rolling_slope(arr: np.ndarray, window: int) -> np.ndarray:
 
 
 def _rolling_last_minus_first(arr: np.ndarray, window: int) -> np.ndarray:
-    out = np.full(len(arr), np.nan)
-    for i in range(window - 1, len(arr)):
-        w = arr[i - window + 1: i + 1]
-        out[i] = w[-1] - w[0]
+    n = len(arr)
+    out = np.full(n, np.nan)
+    if n >= window:
+        out[window - 1:] = arr[window - 1:] - arr[:n - window + 1]
     return out
 
 
 def _rolling_pct_change_total(arr: np.ndarray, window: int) -> np.ndarray:
-    out = np.full(len(arr), np.nan)
-    for i in range(window - 1, len(arr)):
-        w = arr[i - window + 1: i + 1]
-        out[i] = (w[-1] / w[0] - 1) if w[0] != 0 else 0.0
+    n = len(arr)
+    out = np.full(n, np.nan)
+    if n >= window:
+        first = arr[:n - window + 1]
+        last = arr[window - 1:]
+        safe = first != 0
+        out[window - 1:] = np.where(safe, last / np.where(safe, first, 1.0) - 1.0, 0.0)
     return out
 
 
