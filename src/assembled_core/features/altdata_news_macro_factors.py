@@ -645,32 +645,22 @@ def build_macro_regime_factors(
     regime_df = pd.DataFrame(regime_factors)
     regime_df = regime_df.sort_values(timestamp_col).reset_index(drop=True)
 
-    # Join regime factors to all symbols (market-wide factors)
-    # All symbols on the same date get the same macro regime values
+    # Join regime factors to all symbols (market-wide factors — single merge_asof, no per-symbol loop)
     regime_df_sorted = regime_df.sort_values(timestamp_col).reset_index(drop=True)
-    result_list = []
-    for symbol, symbol_result in result.groupby(group_col, sort=False):
-        symbol_result = symbol_result.sort_values(timestamp_col).reset_index(drop=True)
-
-        # Use merge_asof to forward-fill regime factors
-        symbol_result = pd.merge_asof(
-            symbol_result,
-            regime_df_sorted[
-                [
-                    timestamp_col,
-                    "macro_growth_regime",
-                    "macro_inflation_regime",
-                    "macro_risk_aversion_proxy",
-                ]
-            ],
-            on=timestamp_col,
-            direction="backward",
-            allow_exact_matches=True,
-        )
-        result_list.append(symbol_result)
-
-    if result_list:
-        result = pd.concat(result_list, ignore_index=True)
+    result = pd.merge_asof(
+        result.sort_values(timestamp_col),
+        regime_df_sorted[
+            [
+                timestamp_col,
+                "macro_growth_regime",
+                "macro_inflation_regime",
+                "macro_risk_aversion_proxy",
+            ]
+        ],
+        on=timestamp_col,
+        direction="backward",
+        allow_exact_matches=True,
+    )
 
     # Ensure all factor columns exist
     factor_cols = [
