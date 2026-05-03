@@ -117,21 +117,20 @@ def compute_dividend_cashflows(
         )
         actions = actions[actions["effective_date"] <= as_of_utc]
 
-    rows = []
-    for _, pos in positions.iterrows():
-        sym, qty = pos["symbol"], float(pos["qty"])
-        for _, act in actions[actions["symbol"] == sym].iterrows():
-            rows.append(
-                {
-                    "timestamp": act["effective_date"],
-                    "symbol": sym,
-                    "cashflow_type": "DIVIDEND",
-                    "amount": qty * float(act["dividend_cash"]),
-                }
-            )
-    out = pd.DataFrame(rows)
-    if out.empty:
+    pos_df = positions[["symbol", "qty"]].copy()
+    pos_df["qty"] = pd.to_numeric(pos_df["qty"], errors="coerce").fillna(0.0)
+    merged = pos_df.merge(
+        actions[["symbol", "effective_date", "dividend_cash"]],
+        on="symbol",
+        how="inner",
+    )
+    if merged.empty:
         return pd.DataFrame(columns=["timestamp", "symbol", "cashflow_type", "amount"])
+    merged["amount"] = merged["qty"] * pd.to_numeric(merged["dividend_cash"], errors="coerce").fillna(0.0)
+    merged["cashflow_type"] = "DIVIDEND"
+    out = merged.rename(columns={"effective_date": "timestamp"})[
+        ["timestamp", "symbol", "cashflow_type", "amount"]
+    ]
     return out.sort_values("timestamp").reset_index(drop=True)
 
 

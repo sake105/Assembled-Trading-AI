@@ -352,11 +352,9 @@ class StrategyAllocator:
             else:
                 wscore = 0.0
             # Weighted direction vote
-            dir_weights: dict[str, float] = {}
-            for _, row in grp.iterrows():
-                d = str(row.get("direction", "NEUTRAL"))
-                dir_weights[d] = dir_weights.get(d, 0.0) + float(row.get("_weight", 1.0))
-            best_dir = max(dir_weights, key=dir_weights.get)  # type: ignore[arg-type]
+            _w = grp["_weight"].astype(float) if "_weight" in grp.columns else pd.Series(1.0, index=grp.index)
+            dir_totals = _w.groupby(grp["direction"].astype(str)).sum()
+            best_dir = str(dir_totals.idxmax()) if not dir_totals.empty else "NEUTRAL"
             return pd.Series({"score": wscore, "direction": best_dir})
 
         result = combined_raw.groupby("symbol", group_keys=False).apply(_agg, include_groups=False).reset_index()

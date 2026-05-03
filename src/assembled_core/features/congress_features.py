@@ -14,6 +14,7 @@ Zukünftige Integration:
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 from src.assembled_core.data.latency import (
     apply_source_latency,
@@ -185,19 +186,14 @@ def compute_congress_net_buy_score(
     if trades_df is None or trades_df.empty:
         return {}
 
-    scores: dict[str, float] = {}
-    for sym, group in trades_df.groupby("symbol"):
-        net = 0.0
-        for _, row in group.iterrows():
-            amount = float(row.get("amount", 0))
-            is_buy = str(row.get("type", "")).lower() in ("buy", "purchase")
-            weight = 1.0
-            if committee_members and row.get("member_id") in committee_members:
-                weight = committee_weight
-            if is_buy:
-                net += amount * weight
-            else:
-                net -= amount * weight
-        scores[str(sym)] = round(net, 2)
-
-    return scores
+    df = trades_df.copy()
+    df["_amount"] = pd.to_numeric(df["amount"], errors="coerce").fillna(0.0) if "amount" in df.columns else 0.0
+    df["_sign"] = np.where(
+        df["type"].astype(str).str.lower().isin(("buy", "purchase")), 1.0, -1.0
+    ) if "type" in df.columns else 1.0
+    df["_weight"] = 1.0
+    if committee_members and "member_id" in df.columns:
+        df["_weight"] = np.where(df["member_id"].isin(committee_members), committee_weight, 1.0)
+    df["_net"] = df["_amount"] * df["_sign"] * df["_weight"]
+    scores_series = df.groupby("symbol")["_net"].sum().round(2)
+    return {str(sym): float(v) for sym, v in scores_series.items()}
