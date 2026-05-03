@@ -101,11 +101,11 @@ def rolling_dimension_ic(
         if len(window_df) < 10:
             continue
         row: dict[str, Any] = {"window_end": end_date}
+        fwd_values = window_df["fwd"].values
         for col in contrib_cols:
             dim = col.replace("contrib_", "")
             x = window_df[col].values
-            y = window_df["fwd"].values
-            row[dim] = _ic(x, y, method)
+            row[dim] = _ic(x, fwd_values, method)
         records.append(row)
 
     return pd.DataFrame(records).set_index("window_end") if records else pd.DataFrame()

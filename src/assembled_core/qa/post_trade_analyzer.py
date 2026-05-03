@@ -12,6 +12,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -43,32 +44,28 @@ def compute_forward_returns(
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
     df = df.sort_values(["symbol", "timestamp"]).reset_index(drop=True)
 
-    rows = []
+    chunks = []
     for symbol, grp in df.groupby("symbol"):
         grp = grp.sort_values("timestamp").copy()
         grp["future_ts"] = grp["timestamp"] + pd.Timedelta(days=horizon_days)
-        # Map future_ts to closest available close
-        ts_idx = grp.set_index("timestamp")["close"]
-        for row in grp.itertuples(index=False):
-            future_ts = row.future_ts
-            # Find closest price at or after future_ts
-            candidates = ts_idx[ts_idx.index >= future_ts]
-            if candidates.empty:
-                fwd = float("nan")
-            else:
-                fwd = candidates.iloc[0] / row.close - 1.0
-            rows.append(
-                {
-                    "timestamp": row.timestamp,
-                    "symbol": symbol,
-                    "close": row.close,
-                    "forward_return": fwd,
-                }
-            )
+        ts_arr = grp["timestamp"].values
+        close_arr = grp["close"].to_numpy(dtype=float)
+        future_arr = grp["future_ts"].values
 
-    if not rows:
+        # Binary search: O(n log n) instead of O(n²) filter per row
+        idxs = np.searchsorted(ts_arr, future_arr, side="left")
+        valid = idxs < len(close_arr)
+        fwd_closes = np.where(valid, close_arr[np.minimum(idxs, len(close_arr) - 1)], np.nan)
+        fwd_returns = np.where(valid, fwd_closes / close_arr - 1.0, np.nan)
+
+        sub = grp[["timestamp", "close"]].copy()
+        sub["symbol"] = symbol
+        sub["forward_return"] = fwd_returns
+        chunks.append(sub)
+
+    if not chunks:
         return pd.DataFrame(columns=["timestamp", "symbol", "close", "forward_return"])
-    return pd.DataFrame(rows)
+    return pd.concat(chunks, ignore_index=True)[["timestamp", "symbol", "close", "forward_return"]]
 
 
 def compute_signal_hit_rate(

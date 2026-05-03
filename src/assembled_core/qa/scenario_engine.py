@@ -258,11 +258,11 @@ def _apply_equity_crash(
             )
 
             # Also update other price columns if present
-            for col in ["open", "high", "low"]:
-                if col in shocked_prices.columns:
-                    shocked_prices.loc[shock_idx, col] = (
-                        shocked_prices.loc[shock_idx, col] * price_ratio
-                    )
+            ohlc_cols = [c for c in ["open", "high", "low"] if c in shocked_prices.columns]
+            if ohlc_cols:
+                shocked_prices.loc[shock_idx, ohlc_cols] = (
+                    shocked_prices.loc[shock_idx, ohlc_cols] * price_ratio
+                )
 
     return shocked_prices
 
@@ -321,15 +321,14 @@ def _apply_vol_spike(
             shocked_prices.loc[sym_idx, "close"] = symbol_data["close"].values
 
             # Also update other price columns if present (simplified: scale by same ratio)
-            for col in ["open", "high", "low"]:
-                if col in shocked_prices.columns:
-                    # Compute ratio of new close to old close for each row
-                    old_close = prices.loc[sym_idx, "close"].values
-                    new_close = symbol_data["close"].values
-                    close_ratio = new_close / old_close
-                    shocked_prices.loc[sym_idx, col] = (
-                        prices.loc[sym_idx, col].values * close_ratio
-                    )
+            ohlc_cols = [c for c in ["open", "high", "low"] if c in shocked_prices.columns]
+            if ohlc_cols:
+                old_close = prices.loc[sym_idx, "close"].values
+                new_close = symbol_data["close"].values
+                close_ratio = new_close / old_close
+                shocked_prices.loc[sym_idx, ohlc_cols] = (
+                    prices.loc[sym_idx, ohlc_cols].values * close_ratio[:, None]
+                )
 
     return shocked_prices
 

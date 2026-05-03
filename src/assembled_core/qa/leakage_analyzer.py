@@ -67,10 +67,11 @@ class LeakageAnalyzer:
         """Flag features that are derived directly from the target at the same timestamp."""
         reports: list[LeakageReport] = []
         target_aligned = target.reindex(features.index)
+        target_drop_idx = target_aligned.dropna().index
 
         for col in features.columns:
             feat = features[col].dropna()
-            common = feat.index.intersection(target_aligned.dropna().index)
+            common = feat.index.intersection(target_drop_idx)
             if len(common) < 20:
                 continue
             corr = abs(feat.loc[common].corr(target_aligned.loc[common]))
@@ -104,15 +105,18 @@ class LeakageAnalyzer:
         if fitted_on != "full":
             return []
         reports: list[LeakageReport] = []
-        for col in train_features.columns:
-            if col not in test_features.columns:
+        common_cols = train_features.columns.intersection(test_features.columns)
+        if common_cols.empty:
+            return reports
+        train_means = train_features[common_cols].mean()
+        train_stds = train_features[common_cols].std()
+        test_means = test_features[common_cols].mean()
+        valid = train_stds > 0
+        z_scores = ((test_means - train_means) / train_stds.where(valid, 1.0)).abs()
+        for col in common_cols:
+            if not valid[col]:
                 continue
-            train_mean = train_features[col].mean()
-            train_std = train_features[col].std()
-            test_mean = test_features[col].mean()
-            if train_std == 0:
-                continue
-            z = abs((test_mean - train_mean) / train_std)
+            z = float(z_scores[col])
             if z < 0.1:
                 reports.append(
                     LeakageReport(
@@ -120,8 +124,8 @@ class LeakageAnalyzer:
                         leakage_type="normalization",
                         evidence=f"Test mean ≈ train mean (z={z:.3f}); possible full-dataset scaler fit",
                         severity="low",
-                        details={"z_score": float(z), "train_mean": float(train_mean),
-                                 "test_mean": float(test_mean)},
+                        details={"z_score": z, "train_mean": float(train_means[col]),
+                                 "test_mean": float(test_means[col])},
                     )
                 )
         return reports

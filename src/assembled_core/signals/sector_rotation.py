@@ -99,75 +99,35 @@ def compute_sector_scores(
         _log.warning("No sector ETFs found in price data. Columns: %s", list(sector_wide.columns))
         return pd.DataFrame()
 
-    records = []
-    dates = sector_wide.index
+    # Build scores_df vectorized: shift-based lookback instead of O(N×K) cumulative slices
+    scores_df = pd.DataFrame(index=sector_wide.index)
+    spy_ret_rs = spy_series / spy_series.shift(config.rs_window) - 1
 
-    for date in dates:
-        row: dict = {timestamp_col: date}
+    for etf in available_etfs:
+        etf_col = sector_wide[etf]
+        scores_df[f"{etf}_3m"] = etf_col / etf_col.shift(config.lookback_3m) - 1
+        scores_df[f"{etf}_6m"] = etf_col / etf_col.shift(config.lookback_6m) - 1
+        etf_ret_rs = etf_col / etf_col.shift(config.rs_window) - 1
+        scores_df[f"{etf}_rs"] = (etf_ret_rs - spy_ret_rs).reindex(scores_df.index)
 
-        for etf in available_etfs:
-            etf_series = sector_wide[etf].loc[:date]
-            spy_slice = spy_series.loc[:date]
+    # Composite score: weighted average of 3m/6m/rs (NaN-safe, vectorized over dates)
+    for etf in available_etfs:
+        m3 = scores_df[f"{etf}_3m"]
+        m6 = scores_df[f"{etf}_6m"]
+        rs = scores_df[f"{etf}_rs"]
+        numer = (
+            m3.fillna(0.0) * config.weight_3m
+            + m6.fillna(0.0) * config.weight_6m
+            + rs.fillna(0.0) * config.weight_rs
+        )
+        denom = (
+            m3.notna() * config.weight_3m
+            + m6.notna() * config.weight_6m
+            + rs.notna() * config.weight_rs
+        )
+        scores_df[f"{etf}_score"] = numer / denom.where(denom > 0, np.nan)
 
-            # 3M momentum
-            if len(etf_series) >= config.lookback_3m:
-                ret_3m = (etf_series.iloc[-1] / etf_series.iloc[-config.lookback_3m] - 1)
-            else:
-                ret_3m = np.nan
-
-            # 6M momentum
-            if len(etf_series) >= config.lookback_6m:
-                ret_6m = (etf_series.iloc[-1] / etf_series.iloc[-config.lookback_6m] - 1)
-            else:
-                ret_6m = np.nan
-
-            # Relative strength vs SPY (RS window)
-            if len(etf_series) >= config.rs_window and len(spy_slice) >= config.rs_window:
-                etf_rs = (etf_series.iloc[-1] / etf_series.iloc[-config.rs_window] - 1)
-                spy_rs = (spy_slice.iloc[-1] / spy_slice.iloc[-config.rs_window] - 1)
-                rs = etf_rs - spy_rs
-            else:
-                rs = np.nan
-
-            row[f"{etf}_3m"] = ret_3m
-            row[f"{etf}_6m"] = ret_6m
-            row[f"{etf}_rs"] = rs
-
-        records.append(row)
-
-    scores_df = pd.DataFrame(records).set_index(timestamp_col)
-
-    # Cross-sectional rank → composite score (per date)
-    result_rows = []
-    for row in scores_df.itertuples(index=True):
-        date = row.Index
-        score_row: dict = {timestamp_col: date}
-        scores_raw = {}
-        for etf in available_etfs:
-            m3 = getattr(row, f"{etf}_3m", np.nan)
-            m6 = getattr(row, f"{etf}_6m", np.nan)
-            rs = getattr(row, f"{etf}_rs", np.nan)
-            # Simple composite (weights sum to 1.0)
-            parts = [
-                (m3, config.weight_3m),
-                (m6, config.weight_6m),
-                (rs, config.weight_rs),
-            ]
-            valid = [(v, w) for v, w in parts if not np.isnan(v)]
-            if valid:
-                total_w = sum(w for _, w in valid)
-                composite = sum(v * w for v, w in valid) / total_w
-            else:
-                composite = np.nan
-            scores_raw[etf] = composite
-            score_row[f"{etf}_score"] = composite
-            score_row[f"{etf}_3m"] = m3
-            score_row[f"{etf}_6m"] = m6
-            score_row[f"{etf}_rs"] = rs
-
-        result_rows.append(score_row)
-
-    result_df = pd.DataFrame(result_rows)
+    result_df = scores_df.reset_index()
     _log.info("Sector scores computed: %d dates, %d ETFs", len(result_df), len(available_etfs))
     return result_df
 
