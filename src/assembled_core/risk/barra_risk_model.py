@@ -191,8 +191,8 @@ class BarraRiskModel:
             "value": b2p,
         }, index=symbols)
 
-        # Cross-sectional standardisation
-        return scores.apply(lambda col: (col - col.mean()) / (col.std() + 1e-9))
+        # Cross-sectional standardisation (vectorized DataFrame arithmetic)
+        return (scores - scores.mean()) / (scores.std() + 1e-9)
 
     def _build_sector_dummies(self) -> pd.DataFrame:
         """Build sector dummy matrix if sector column present in fundamentals."""

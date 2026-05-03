@@ -86,18 +86,17 @@ def get_signals(freq: Frequency) -> SignalsResponse:
             )
 
         # Map DataFrame rows to Signal models
-        signals_list = []
-        for _, row in signals_df.iterrows():
-            signals_list.append(
-                Signal(
-                    timestamp=row["timestamp"],
-                    symbol=str(row["symbol"]),
-                    signal_type=_map_sig_to_signal_type(int(row["sig"])),
-                    price=float(row["price"]),
-                    ema_fast=None,  # Not computed in current implementation
-                    ema_slow=None,  # Not computed in current implementation
-                )
+        signals_list = [
+            Signal(
+                timestamp=row.timestamp,
+                symbol=str(row.symbol),
+                signal_type=_map_sig_to_signal_type(int(row.sig)),
+                price=float(row.price),
+                ema_fast=None,
+                ema_slow=None,
             )
+            for row in signals_df.itertuples(index=False)
+        ]
 
         # Sort by timestamp descending (most recent first)
         signals_list.sort(key=lambda s: s.timestamp, reverse=True)
