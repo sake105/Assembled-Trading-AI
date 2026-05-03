@@ -5,9 +5,10 @@ from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
 
-# Today at noon UTC — avoids midnight-crossing for intra-day tests while
-# staying within the PDTTracker 5-business-day rolling window.
-_NOON_UTC = datetime.now(timezone.utc).replace(hour=12, minute=0, second=0, microsecond=0)
+def _noon_utc() -> datetime:
+    """Return today's noon UTC at call time — avoids midnight-crossing when the
+    module is imported hours before the tests run (e.g. long full-suite runs)."""
+    return datetime.now(timezone.utc).replace(hour=12, minute=0, second=0, microsecond=0)
 
 import pytest
 
@@ -132,7 +133,7 @@ class TestRoundTripDetector:
 
     def test_buy_then_sell_same_day_is_day_trade(self):
         tracker, detector = self._make_detector()
-        ts = _NOON_UTC
+        ts = _noon_utc()
         detector.on_fill(_fill("AAPL", "buy", ts=ts))
         trade = detector.on_fill(_fill("AAPL", "sell", price=110.0, ts=ts + timedelta(hours=1)))
         assert trade is not None
@@ -142,8 +143,8 @@ class TestRoundTripDetector:
 
     def test_buy_different_day_no_day_trade(self):
         tracker, detector = self._make_detector()
-        yesterday = _NOON_UTC - timedelta(days=1)
-        today = _NOON_UTC
+        yesterday = _noon_utc() - timedelta(days=1)
+        today = _noon_utc()
         detector.on_fill(_fill("AAPL", "buy", ts=yesterday))
         trade = detector.on_fill(_fill("AAPL", "sell", ts=today))
         assert trade is None
@@ -151,7 +152,7 @@ class TestRoundTripDetector:
 
     def test_adding_to_position_not_day_trade(self):
         tracker, detector = self._make_detector()
-        ts = _NOON_UTC
+        ts = _noon_utc()
         detector.on_fill(_fill("AAPL", "buy", qty=100, ts=ts))
         result = detector.on_fill(_fill("AAPL", "buy", qty=50, price=105.0, ts=ts + timedelta(minutes=30)))
         assert result is None
@@ -159,7 +160,7 @@ class TestRoundTripDetector:
 
     def test_partial_close_one_day_trade(self):
         tracker, detector = self._make_detector()
-        ts = _NOON_UTC
+        ts = _noon_utc()
         detector.on_fill(_fill("AAPL", "buy", qty=500, ts=ts))
         detector.on_fill(_fill("AAPL", "sell", qty=100, ts=ts + timedelta(hours=1)))
         detector.on_fill(_fill("AAPL", "sell", qty=400, ts=ts + timedelta(hours=2)))
@@ -167,7 +168,7 @@ class TestRoundTripDetector:
 
     def test_short_round_trip(self):
         tracker, detector = self._make_detector()
-        ts = _NOON_UTC
+        ts = _noon_utc()
         detector.on_fill(_fill("TSLA", "sell", ts=ts))  # short
         trade = detector.on_fill(_fill("TSLA", "buy", price=95.0, ts=ts + timedelta(hours=2)))
         assert trade is not None
@@ -194,20 +195,20 @@ class TestOrderGate:
 
     def test_allowed_when_open_position_but_below_limit(self):
         gate, tracker, detector = self._gate(n_existing_trades=2)
-        detector.on_fill(_fill("AAPL", "buy", ts=_NOON_UTC))
+        detector.on_fill(_fill("AAPL", "buy", ts=_noon_utc()))
         result = gate.check_order("AAPL", "sell", 100)
         assert result.decision == OrderDecision.ALLOWED
 
     def test_blocked_pdt_at_limit(self):
         gate, tracker, detector = self._gate(n_existing_trades=3)
-        detector.on_fill(_fill("AAPL", "buy", ts=_NOON_UTC))
+        detector.on_fill(_fill("AAPL", "buy", ts=_noon_utc()))
         result = gate.check_order("AAPL", "sell", 100)
         assert result.decision == OrderDecision.BLOCKED_PDT
         assert result.suggested_action is not None
 
     def test_allowed_above_25k_equity(self):
         gate, _, detector = self._gate(equity=30_000.0, n_existing_trades=5)
-        detector.on_fill(_fill("AAPL", "buy", ts=_NOON_UTC))
+        detector.on_fill(_fill("AAPL", "buy", ts=_noon_utc()))
         result = gate.check_order("AAPL", "sell", 100)
         assert result.decision == OrderDecision.ALLOWED
 
@@ -217,7 +218,7 @@ class TestOrderGate:
             tracker.record_day_trade(_trade(ticker=f"T{i}", days_ago=0))
         detector = RoundTripDetector(tracker)
         gate = OrderGate(tracker, detector)
-        detector.on_fill(_fill("AAPL", "buy", ts=_NOON_UTC))
+        detector.on_fill(_fill("AAPL", "buy", ts=_noon_utc()))
         result = gate.check_order("AAPL", "sell", 100)
         assert result.decision == OrderDecision.ALLOWED
 
