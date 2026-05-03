@@ -366,13 +366,17 @@ def generate_multifactor_long_short_signals(
         # Regime path: per-timestamp lookup, but inner symbol loop replaced with concat
         from src.assembled_core.signals.multifactor_signal import extract_regime_posteriors
 
-        ts_frames = []
-        for timestamp in mf_df_rebalance["timestamp"].unique():
-            timestamp_df = mf_df_rebalance[mf_df_rebalance["timestamp"] == timestamp]
+        _regime_by_ts = (
+            {ts: grp for ts, grp in regime_state_df.groupby("timestamp", sort=False)}
+            if regime_state_df is not None and not regime_state_df.empty
+            else {}
+        )
 
+        ts_frames = []
+        for timestamp, timestamp_df in mf_df_rebalance.groupby("timestamp", sort=False):
             regime_label = None
             regime_posteriors: dict[str, float] = {}
-            regime_for_ts = regime_state_df[regime_state_df["timestamp"] == timestamp]
+            regime_for_ts = _regime_by_ts.get(timestamp, pd.DataFrame())
             if not regime_for_ts.empty:
                 regime_label = regime_for_ts["regime_label"].iloc[0]
                 regime_posteriors = extract_regime_posteriors(regime_state_df, timestamp)
@@ -407,10 +411,9 @@ def generate_multifactor_long_short_signals(
         )
 
         # Log per-rebalance statistics
-        for timestamp in signals_df["timestamp"].unique():
-            ts_signals = signals_df[signals_df["timestamp"] == timestamp]
-            n_long = len(ts_signals[ts_signals["direction"] == "LONG"])
-            n_short = len(ts_signals[ts_signals["direction"] == "SHORT"])
+        for timestamp, ts_signals in signals_df.groupby("timestamp", sort=False):
+            n_long = int((ts_signals["direction"] == "LONG").sum())
+            n_short = int((ts_signals["direction"] == "SHORT").sum())
             logger.debug(
                 f"  {timestamp.strftime('%Y-%m-%d')}: {n_long} long, {n_short} short"
             )

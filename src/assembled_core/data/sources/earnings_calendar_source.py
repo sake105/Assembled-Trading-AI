@@ -254,15 +254,17 @@ class EarningsCalendarSource:
         result = prices_df.copy()
         result[timestamp_col] = pd.to_datetime(result[timestamp_col])
 
+        _cal_by_sym = {sym: grp for sym, grp in calendar_df.groupby("symbol", sort=False)}
+
         days_to = []
         pre_flag = []
         post_flag = []
 
-        for _, row in result.iterrows():
-            sym = row[symbol_col]
-            ts = row[timestamp_col]
+        for row in result.itertuples(index=False):
+            sym = getattr(row, symbol_col)
+            ts = getattr(row, timestamp_col)
 
-            sym_cal = calendar_df[calendar_df["symbol"] == sym]
+            sym_cal = _cal_by_sym.get(sym, pd.DataFrame())
             if sym_cal.empty:
                 days_to.append(float("nan"))
                 pre_flag.append(0.0)

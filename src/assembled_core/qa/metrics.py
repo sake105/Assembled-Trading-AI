@@ -990,9 +990,8 @@ def compute_regime_segmented_performance(
 
     results: dict[str, dict[str, float]] = {}
 
-    for regime in aligned["regime"].unique():
-        mask = aligned["regime"] == regime
-        r = aligned.loc[mask, "returns"]
+    for regime, regime_data in aligned.groupby("regime", sort=False):
+        r = regime_data["returns"]
 
         if len(r) < 5:
             results[str(regime)] = {

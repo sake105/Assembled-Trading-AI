@@ -462,8 +462,8 @@ def summarize_factor_ic(
     summary_data = []
 
     # Group by factor and compute summary statistics
-    for factor in ic_df["factor"].unique():
-        factor_ic = ic_df[ic_df["factor"] == factor][ic_col].dropna()
+    for factor, factor_group in ic_df.groupby("factor", sort=False):
+        factor_ic = factor_group[ic_col].dropna()
 
         if len(factor_ic) == 0:
             continue

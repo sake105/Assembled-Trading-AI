@@ -271,9 +271,8 @@ def analyze_regime_performance(
 
     aligned = pd.DataFrame({"return": daily_returns, "regime": regime_labels}).dropna()
 
-    for regime_name in aligned["regime"].unique():
-        mask = aligned["regime"] == regime_name
-        sub = aligned.loc[mask, "return"]
+    for regime_name, regime_data in aligned.groupby("regime", sort=False):
+        sub = regime_data["return"]
         n = len(sub)
         if n < 2:
             continue

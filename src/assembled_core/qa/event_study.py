@@ -290,9 +290,9 @@ def compute_event_returns(
     # Compute returns per event
     result["event_return"] = np.nan
 
-    for event_id in result["event_id"].unique():
-        event_mask = result["event_id"] == event_id
-        event_data = result[event_mask].sort_values(rel_day_col)
+    for event_id, event_grp in result.groupby("event_id", sort=False):
+        event_idx = event_grp.index
+        event_data = event_grp.sort_values(rel_day_col)
 
         if len(event_data) < 2:
             continue
@@ -310,15 +310,15 @@ def compute_event_returns(
             # First day has no return (NaN)
             returns = np.concatenate([[np.nan], returns])
 
-        result.loc[event_mask, "event_return"] = returns
+        result.loc[event_idx, "event_return"] = returns
 
     # Compute abnormal returns if benchmark provided
     if benchmark_col is not None:
         result["abnormal_return"] = np.nan
 
-        for event_id in result["event_id"].unique():
-            event_mask = result["event_id"] == event_id
-            event_data = result[event_mask].sort_values(rel_day_col)
+        for event_id, event_grp in result.groupby("event_id", sort=False):
+            event_idx = event_grp.index
+            event_data = event_grp.sort_values(rel_day_col)
 
             if len(event_data) < 2:
                 continue
@@ -336,7 +336,7 @@ def compute_event_returns(
 
             # Abnormal return = event_return - benchmark_return
             abnormal_returns = event_returns - benchmark_returns
-            result.loc[event_mask, "abnormal_return"] = abnormal_returns
+            result.loc[event_idx, "abnormal_return"] = abnormal_returns
 
     return result
 
