@@ -111,28 +111,24 @@ def compute_signal_confidence(
     # Cross-sectional observations
     observations = current_scores.dropna().values
 
+    # Hoist constant (symbol-independent) computations outside the loop
+    post_mean, post_var = bayesian_update_normal(prior_mean, prior_var, observations)
+    individual_var = prior_var / 2.0
+    combined_precision = 1.0 / individual_var + 1.0 / post_var
+    individual_post_var = 1.0 / combined_precision
+    post_std = np.sqrt(individual_post_var)
+    half_ci = z * post_std
+    n_obs = len(observations)
+
     results: dict[str, SignalConfidence] = {}
 
     for symbol, score in current_scores.items():
         if pd.isna(score):
             continue
 
-        # Bayesian update: use score as single observation, cross-section as context
-        post_mean, post_var = bayesian_update_normal(
-            prior_mean, prior_var, observations,
-        )
-
-        # Individual posterior: shrink toward cross-sectional posterior
-        # Weight individual score by 1/n_obs relative to prior
-        individual_var = prior_var / 2.0  # simple shrinkage
-        individual_mean = (score / individual_var + post_mean / post_var) / (
-            1.0 / individual_var + 1.0 / post_var
-        )
-        individual_post_var = 1.0 / (1.0 / individual_var + 1.0 / post_var)
-
-        post_std = np.sqrt(individual_post_var)
-        ci_lower = individual_mean - z * post_std
-        ci_upper = individual_mean + z * post_std
+        individual_mean = (score / individual_var + post_mean / post_var) / combined_precision
+        ci_lower = individual_mean - half_ci
+        ci_upper = individual_mean + half_ci
 
         results[symbol] = SignalConfidence(
             point_estimate=round(individual_mean, 6),
@@ -141,7 +137,7 @@ def compute_signal_confidence(
             confidence_width=round(ci_upper - ci_lower, 6),
             prior_mean=round(prior_mean, 6),
             prior_std=round(prior_std, 6),
-            n_obs=len(observations),
+            n_obs=n_obs,
         )
 
     return results
