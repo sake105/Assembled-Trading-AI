@@ -70,22 +70,11 @@ def _calculate_positions_from_orders(orders: pd.DataFrame) -> dict[str, float]:
     if orders.empty:
         return {}
 
-    positions = {}
-    for _, row in orders.iterrows():
-        symbol = str(row["symbol"])
-        side = str(row["side"]).upper()
-        qty = float(row["qty"])
-
-        if symbol not in positions:
-            positions[symbol] = 0.0
-
-        if side == "BUY":
-            positions[symbol] += qty
-        elif side == "SELL":
-            positions[symbol] -= qty
-
-    # Remove zero positions
-    return {k: v for k, v in positions.items() if v != 0.0}
+    import numpy as np
+    qty_signed = pd.to_numeric(orders["qty"], errors="coerce").fillna(0.0)
+    qty_signed = np.where(orders["side"].str.upper() == "BUY", qty_signed, -qty_signed)
+    net = orders.assign(_sq=qty_signed).groupby(orders["symbol"].astype(str))["_sq"].sum()
+    return {str(k): float(v) for k, v in net.items() if v != 0.0}
 
 
 def _estimate_cash_from_equity_and_positions(

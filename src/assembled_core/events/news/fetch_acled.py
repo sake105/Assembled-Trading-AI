@@ -33,21 +33,17 @@ class ACLEDEvent:
 
 def parse_acled_events(df: pd.DataFrame) -> list[ACLEDEvent]:
     """Parse an ACLED DataFrame into a list of ACLEDEvent objects."""
-    events: list[ACLEDEvent] = []
-    for _, row in df.iterrows():
-        etype = str(row.get("event_type", "")).strip()
-        trigger = _EVENT_TYPE_MAP.get(etype.lower(), "REGIME_CHANGE_RISK")
-        events.append(
-            ACLEDEvent(
-                event_date=str(row.get("event_date", "")),
-                event_type=etype,
-                country=str(row.get("country", "")),
-                fatalities=int(row.get("fatalities") or 0),
-                notes=str(row.get("notes", "")),
-                trigger_type=trigger,
-            )
+    return [
+        ACLEDEvent(
+            event_date=str(getattr(row, "event_date", "") or ""),
+            event_type=(etype := str(getattr(row, "event_type", "") or "").strip()),
+            country=str(getattr(row, "country", "") or ""),
+            fatalities=int(getattr(row, "fatalities", 0) or 0),
+            notes=str(getattr(row, "notes", "") or ""),
+            trigger_type=_EVENT_TYPE_MAP.get(etype.lower(), "REGIME_CHANGE_RISK"),
         )
-    return events
+        for row in df.itertuples(index=False)
+    ]
 
 
 def aggregate_acled_by_country(events: list[ACLEDEvent]) -> dict[str, dict[str, Any]]:
