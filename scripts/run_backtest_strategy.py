@@ -1161,6 +1161,7 @@ def load_price_data(
             prices=prices,
             freq=args.freq,
             calendar="NYSE",
+            thresholds={"outlier_return_fail": 2.0},  # 200%: catch data errors, not real micro-cap squeezes
         )
 
         # Write QC report to output directory
