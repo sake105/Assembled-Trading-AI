@@ -157,22 +157,16 @@ def align_higher_tf_to_daily(
     result[timestamp_col] = pd.to_datetime(result[timestamp_col])
     htf[timestamp_col] = pd.to_datetime(htf[timestamp_col])
 
-    pieces = []
-    for sym, grp in result.groupby(symbol_col):
-        htf_sym = htf[htf[symbol_col] == sym].sort_values(timestamp_col)
-        grp = grp.sort_values(timestamp_col)
-        merged = pd.merge_asof(
-            grp,
-            htf_sym[[timestamp_col] + merged_feature_cols],
-            on=timestamp_col,
-            direction="backward",
-        )
-        pieces.append(merged)
-
-    if not pieces:
-        return result
-
-    out = pd.concat(pieces, ignore_index=True)
+    # Single grouped asof merge instead of per-symbol loop
+    result_sorted = result.sort_values([symbol_col, timestamp_col])
+    htf_sorted = htf.sort_values([symbol_col, timestamp_col])
+    out = pd.merge_asof(
+        result_sorted,
+        htf_sorted[[symbol_col, timestamp_col] + merged_feature_cols],
+        on=timestamp_col,
+        by=symbol_col,
+        direction="backward",
+    )
     return out.sort_values([symbol_col, timestamp_col]).reset_index(drop=True)
 
 

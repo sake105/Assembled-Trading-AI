@@ -97,8 +97,9 @@ class NewsTradeAttributor:
         if "published_at" not in events.columns:
             return []
 
-        events["_pub_ts"] = pd.to_datetime(events["published_at"], errors="coerce", utc=True)
-        events = events.dropna(subset=["_pub_ts"])
+        # Avoid underscore-prefix column (_pub_ts) which itertuples silently renames
+        events["pub_ts_"] = pd.to_datetime(events["published_at"], errors="coerce", utc=True)
+        events = events.dropna(subset=["pub_ts_"])
 
         # Symbol-Match (entweder direkte 'symbol' oder 'tickers' Liste)
         if "symbol" in events.columns:
@@ -110,36 +111,39 @@ class NewsTradeAttributor:
         else:
             return []
 
-        time_mask = (events["_pub_ts"] >= window_start) & (events["_pub_ts"] <= window_end)
+        time_mask = (events["pub_ts_"] >= window_start) & (events["pub_ts_"] <= window_end)
         relevant = events[sym_mask & time_mask]
         if relevant.empty:
             return []
 
+        # Vectorize decay computation — avoids itertuples underscore-rename bug
+        pub_ts_series = relevant["pub_ts_"]
+        dist_hours = (opened - pub_ts_series).abs().dt.total_seconds() / 3600.0
+        decay = np.exp(-np.log(2) * dist_hours / max(1e-6, self.halflife))
+        if "impact_bps" in relevant.columns:
+            impact_bps_s = relevant["impact_bps"].fillna(0.0)
+        else:
+            impact_bps_s = pd.Series(0.0, index=relevant.index)
+        weight = decay * (impact_bps_s.abs() / 100.0).clip(upper=1.0)
+        weight = weight.where(impact_bps_s != 0, decay * 0.5)
+        closed_ret = float(trade.get("closed_return", 0.0) or trade.get("pnl", 0.0))
+        est_contrib = weight * closed_ret
+        event_id_s = (
+            relevant["event_id"].fillna("").astype(str)
+            if "event_id" in relevant.columns
+            else pd.Series("", index=relevant.index)
+        )
+
         links: list[NewsLink] = []
-        for row in relevant.itertuples(index=False):
-            try:
-                pub_ts = row._pub_ts
-                dist_hours = float(abs((opened - pub_ts).total_seconds()) / 3600.0)
-                decay = np.exp(-np.log(2) * dist_hours / max(1e-6, self.halflife))
-                impact_bps = float(getattr(row, "impact_bps", 0.0))
-                # Base weight: decay × normalized-impact
-                weight = float(decay * min(1.0, abs(impact_bps) / 100.0 if impact_bps else 0.5))
-                # Estimated Contribution to closed return
-                closed_ret = float(trade.get("closed_return", 0.0) or trade.get("pnl", 0.0))
-                est_contrib = weight * closed_ret
-
-                links.append(NewsLink(
-                    event_id=str(getattr(row, "event_id", "")),
-                    symbol=symbol,
-                    distance_hours=round(dist_hours, 2),
-                    weight=round(weight, 4),
-                    estimated_contribution=round(est_contrib, 6),
-                    impact_bps=round(impact_bps, 2),
-                ))
-            except Exception as _exc:
-                logger.debug("[NewsTradeAttr] link_trade_to_events row skipped: %s", _exc)
-                continue
-
+        for idx in relevant.index:
+            links.append(NewsLink(
+                event_id=event_id_s[idx],
+                symbol=symbol,
+                distance_hours=round(float(dist_hours[idx]), 2),
+                weight=round(float(weight[idx]), 4),
+                estimated_contribution=round(float(est_contrib[idx]), 6),
+                impact_bps=round(float(impact_bps_s[idx]), 2),
+            ))
         return links
 
     def attribute_trades(
