@@ -1967,26 +1967,24 @@ def summarize_factor_portfolios(
             # Recompute deflated Sharpe with correct n_tests
             from src.assembled_core.qa.metrics import deflated_sharpe_ratio
 
-            for row in result_df.itertuples(index=True):
-                idx = row.Index
-                sharpe_val = getattr(row, "sharpe", None)
-                n_periods_val = getattr(row, "n_periods", 0)
-                if (
-                    sharpe_val is not None
-                    and not np.isnan(sharpe_val)
-                    and n_periods_val >= 2
-                ):
-                    try:
-                        result_df.at[idx, "deflated_sharpe"] = deflated_sharpe_ratio(
-                            sharpe_annual=sharpe_val,
-                            n_obs=n_periods_val,
-                            n_tests=n_tests_actual,
-                            skew=0.0,
-                            kurtosis=3.0,
-                        )
-                    except (ValueError, TypeError, AttributeError) as exc:
-                        # Keep existing value (or NaN) if stats computation fails
-                        logger.warning("[FactorAnalysis] stats computation failed for factor: %s", exc)
+            def _recompute_dsr(row: "pd.Series") -> float:
+                sv = row.get("sharpe")
+                nv = row.get("n_periods", 0)
+                if sv is None or (isinstance(sv, float) and np.isnan(sv)) or nv < 2:
+                    return row.get("deflated_sharpe", float("nan"))
+                try:
+                    return deflated_sharpe_ratio(
+                        sharpe_annual=sv,
+                        n_obs=int(nv),
+                        n_tests=n_tests_actual,
+                        skew=0.0,
+                        kurtosis=3.0,
+                    )
+                except (ValueError, TypeError, AttributeError) as exc:
+                    logger.warning("[FactorAnalysis] stats computation failed for factor: %s", exc)
+                    return row.get("deflated_sharpe", float("nan"))
+
+            result_df["deflated_sharpe"] = result_df.apply(_recompute_dsr, axis=1)
 
     # Sort by Sharpe Ratio (descending)
     result_df = result_df.sort_values("sharpe", ascending=False).reset_index(drop=True)

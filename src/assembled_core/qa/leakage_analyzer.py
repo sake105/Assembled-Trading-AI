@@ -36,28 +36,33 @@ class LeakageAnalyzer:
         """Flag features with suspiciously high correlation to future target values."""
         reports: list[LeakageReport] = []
         target_aligned = target.reindex(features.index)
+        # Count valid (non-NaN) pairs per column for the min-sample guard
+        already_reported: set[str] = set()
 
-        for col in features.columns:
-            feat = features[col].dropna()
-            for lag in range(1, self.max_lag_check + 1):
-                shifted_target = target_aligned.shift(-lag)
-                common = feat.index.intersection(shifted_target.dropna().index)
-                if len(common) < 20:
+        for lag in range(1, self.max_lag_check + 1):
+            remaining = [c for c in features.columns if c not in already_reported]
+            if not remaining:
+                break
+            shifted = target_aligned.shift(-lag)
+            shifted_notna = shifted.notna()
+            valid_counts = features[remaining].notna().mul(shifted_notna, axis=0).sum()
+            eligible = [c for c in remaining if valid_counts[c] >= 20]
+            if not eligible:
+                continue
+            corrs = features[eligible].corrwith(shifted).abs()
+            for col, corr in corrs.items():
+                if np.isnan(corr) or corr < self.correlation_threshold:
                     continue
-                corr = abs(feat.loc[common].corr(shifted_target.loc[common]))
-                if np.isnan(corr):
-                    continue
-                if corr >= self.correlation_threshold:
-                    reports.append(
-                        LeakageReport(
-                            feature=col,
-                            leakage_type="lookahead",
-                            evidence=f"|corr(feat_t, target_t+{lag})| = {corr:.3f} >= {self.correlation_threshold}",
-                            severity="high" if corr >= 0.99 else "medium",
-                            details={"lag": lag, "correlation": float(corr)},
-                        )
+                reports.append(
+                    LeakageReport(
+                        feature=col,
+                        leakage_type="lookahead",
+                        evidence=f"|corr(feat_t, target_t+{lag})| = {corr:.3f} >= {self.correlation_threshold}",
+                        severity="high" if corr >= 0.99 else "medium",
+                        details={"lag": lag, "correlation": float(corr)},
                     )
-                    break  # report first offending lag only
+                )
+                already_reported.add(col)  # report first offending lag only
 
         return reports
 
@@ -67,26 +72,24 @@ class LeakageAnalyzer:
         """Flag features that are derived directly from the target at the same timestamp."""
         reports: list[LeakageReport] = []
         target_aligned = target.reindex(features.index)
-        target_drop_idx = target_aligned.dropna().index
-
-        for col in features.columns:
-            feat = features[col].dropna()
-            common = feat.index.intersection(target_drop_idx)
-            if len(common) < 20:
+        target_notna = target_aligned.notna()
+        valid_counts = features.notna().mul(target_notna, axis=0).sum()
+        eligible = [c for c in features.columns if valid_counts[c] >= 20]
+        if not eligible:
+            return reports
+        corrs = features[eligible].corrwith(target_aligned).abs()
+        for col, corr in corrs.items():
+            if np.isnan(corr) or corr < self.correlation_threshold:
                 continue
-            corr = abs(feat.loc[common].corr(target_aligned.loc[common]))
-            if np.isnan(corr):
-                continue
-            if corr >= self.correlation_threshold:
-                reports.append(
-                    LeakageReport(
-                        feature=col,
-                        leakage_type="recursive",
-                        evidence=f"|corr(feat_t, target_t)| = {corr:.3f} >= {self.correlation_threshold}",
-                        severity="high",
-                        details={"correlation": float(corr)},
-                    )
+            reports.append(
+                LeakageReport(
+                    feature=col,
+                    leakage_type="recursive",
+                    evidence=f"|corr(feat_t, target_t)| = {corr:.3f} >= {self.correlation_threshold}",
+                    severity="high",
+                    details={"correlation": float(corr)},
                 )
+            )
 
         return reports
 

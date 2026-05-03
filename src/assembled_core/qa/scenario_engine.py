@@ -652,14 +652,10 @@ def _apply_sector_shock(
         shocked_baseline = baseline_price * (1.0 + mag)
         price_ratio = shocked_baseline / baseline_price if baseline_price != 0 else 1.0
 
-        shocked_prices.loc[shock_mask, "close"] = (
-            shocked_prices.loc[shock_mask, "close"] * price_ratio
+        ohlc_cols = [c for c in ["open", "high", "low", "close"] if c in shocked_prices.columns]
+        shocked_prices.loc[shock_mask, ohlc_cols] = (
+            shocked_prices.loc[shock_mask, ohlc_cols] * price_ratio
         )
-        for col in ["open", "high", "low"]:
-            if col in shocked_prices.columns:
-                shocked_prices.loc[shock_mask, col] = (
-                    shocked_prices.loc[shock_mask, col] * price_ratio
-                )
 
     return shocked_prices
 

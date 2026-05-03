@@ -70,6 +70,7 @@ class VPINCalculator:
 
     def _bucket_imbalances(self, df: pd.DataFrame, bucket_size: int) -> list[float]:
         cumvol = df["volume"].cumsum().values
+        vol = df["volume"].values
         buy = df["buy_volume"].values
         sell = df["sell_volume"].values
         imbalances: list[float] = []
@@ -77,8 +78,8 @@ class VPINCalculator:
         b_buy = b_sell = 0.0
         for i in range(len(df)):
             remaining = bucket_size * bucket_idx - (cumvol[i - 1] if i > 0 else 0)
-            fill = min(df["volume"].iloc[i], max(0.0, remaining))
-            ratio = fill / max(df["volume"].iloc[i], 1e-9)
+            fill = min(vol[i], max(0.0, remaining))
+            ratio = fill / max(vol[i], 1e-9)
             b_buy += buy[i] * ratio
             b_sell += sell[i] * ratio
             if cumvol[i] >= bucket_size * bucket_idx:

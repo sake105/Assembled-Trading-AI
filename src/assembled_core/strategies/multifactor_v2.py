@@ -730,31 +730,40 @@ def compute_signals(
     composite = composite * exposure_mult
 
     # --- Build output signals ---
-    out = []
-    for i, row in enumerate(latest.itertuples(index=False)):
-        sym = row.symbol
-        score = float(composite.iloc[i]) if i < len(composite) else 0.0
-        ts = getattr(row, "timestamp", None)
-        ema_spread = float(scores.iloc[i].get("trend_ema_spread", 0.0)) if i < len(scores) else 0.0
+    composite_arr = composite.to_numpy(dtype=float)
+    ema_spread_arr = (
+        scores["trend_ema_spread"].to_numpy(dtype=float)
+        if "trend_ema_spread" in scores.columns
+        else np.zeros(len(composite_arr))
+    )
+    sym_list = latest["symbol"].tolist()
+    ts_list = latest["timestamp"].tolist() if "timestamp" in latest.columns else [None] * len(latest)
+    scores_mat = scores[factor_cols].to_numpy(dtype=float)
+    col_idx = {f: j for j, f in enumerate(factor_cols)}
 
+    out = []
+    for i in range(len(latest)):
+        score = composite_arr[i]
+        ema_spread = ema_spread_arr[i]
         if score > min_score and ema_spread > -0.5:
+            row_scores = scores_mat[i]
             # Top contributing factors for reason string
-            factor_contribs = []
-            for f in used_factors:
-                fval = float(scores.iloc[i].get(f, 0.0))
-                fw = weights.get(f, 0.0)
-                factor_contribs.append((f, fval * fw))
+            factor_contribs = [
+                (f, float(row_scores[col_idx[f]]) * weights.get(f, 0.0))
+                for f in used_factors
+                if f in col_idx
+            ]
             factor_contribs.sort(key=lambda x: abs(x[1]), reverse=True)
             reasons = [f"{f}={v:.2f}" for f, v in factor_contribs[:5]]
 
             out.append({
-                "timestamp": ts,
-                "symbol": sym,
+                "timestamp": ts_list[i],
+                "symbol": sym_list[i],
                 "direction": "LONG",
-                "score": score,
+                "score": float(score),
                 "reason": f"v2|regime={regime_label}|" + "; ".join(reasons),
                 # Preserve factor scores for meta-model
-                **{f: float(scores.iloc[i].get(f, 0.0)) for f in factor_cols},
+                **{f: float(row_scores[col_idx[f]]) for f in factor_cols if f in col_idx},
             })
 
     if not out:

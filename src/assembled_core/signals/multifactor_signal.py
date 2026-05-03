@@ -794,35 +794,35 @@ def apply_signal_hysteresis(
     Returns:
         Filtered signal series with hysteresis applied.
     """
-    result = signal_series.copy()
+    arr = signal_series.to_numpy(dtype=float)
     current_dir = 0  # 0=flat, 1=long, -1=short
     bars_since_flip = cooldown_bars  # start ready
+    upper = threshold + abs(threshold) * hysteresis_pct + hysteresis_pct * 0.01
+    lower = -threshold - abs(threshold) * hysteresis_pct - hysteresis_pct * 0.01
+    half_thresh = abs(threshold) * 0.5
 
-    for i in range(len(result)):
-        val = float(result.iloc[i])
+    for i in range(len(arr)):
+        val = arr[i]
         bars_since_flip += 1
 
         if bars_since_flip < cooldown_bars:
             # In cooldown — keep current direction
             if current_dir == 0:
-                result.iloc[i] = 0.0
+                arr[i] = 0.0
             continue
 
         # Check for direction change with hysteresis
-        upper = threshold + abs(threshold) * hysteresis_pct + hysteresis_pct * 0.01
-        lower = -threshold - abs(threshold) * hysteresis_pct - hysteresis_pct * 0.01
-
         if current_dir <= 0 and val > upper:
             current_dir = 1
             bars_since_flip = 0
         elif current_dir >= 0 and val < lower:
             current_dir = -1
             bars_since_flip = 0
-        elif current_dir != 0 and abs(val) < abs(threshold) * 0.5:
+        elif current_dir != 0 and abs(val) < half_thresh:
             current_dir = 0
             bars_since_flip = 0
 
-    return result
+    return pd.Series(arr, index=signal_series.index, name=signal_series.name)
 
 
 # ---------------------------------------------------------------------------

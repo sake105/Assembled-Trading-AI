@@ -14,6 +14,7 @@ Zukünftige Integration:
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 from src.assembled_core.data.latency import (
     apply_source_latency,
@@ -114,58 +115,61 @@ def add_insider_features(
     # Pre-group events by symbol to avoid O(N*M) per-symbol filter
     _events_by_sym = {sym: grp for sym, grp in events.groupby("symbol", sort=False)}
 
+    td20_ns = int(pd.Timedelta(days=20).value)
+    td60_ns = int(pd.Timedelta(days=60).value)
+
     # Group by symbol for efficient processing
     for symbol, symbol_prices in result.groupby("symbol", sort=False):
-        symbol_prices = symbol_prices.copy()
-
         # Get events for this symbol
-        symbol_events = _events_by_sym.get(symbol, pd.DataFrame()).copy()
-
+        symbol_events = _events_by_sym.get(symbol, pd.DataFrame())
         if symbol_events.empty:
             continue
 
-        # For each price row, compute features based on events in rolling windows
-        # PIT: Use disclosure_date for filtering, but event_date/timestamp for window calculation
-        for idx in symbol_prices.index:
-            price_time = symbol_prices.loc[idx, "timestamp"]
+        # Determine window time column once (constant per symbol group)
+        window_time_col = "event_date" if "event_date" in symbol_events.columns else "timestamp"
+        has_pit = "disclosure_date" in symbol_events.columns
+        has_ns = "net_shares" in symbol_events.columns
 
-            # Apply per-row PIT filtering (if as_of is per-row)
-            # For now, use pre-filtered events (as_of was single timestamp)
-            row_events = symbol_events.copy()
+        # Pre-extract event arrays in int64 ns for fast comparison
+        ev_time_ns = symbol_events[window_time_col].values.astype("int64")
+        ev_ns_vals = symbol_events["net_shares"].values if has_ns else np.zeros(len(symbol_events))
+        if has_pit:
+            ev_disclose_ns = symbol_events["disclosure_date"].values.astype("int64")
+        else:
+            ev_disclose_ns = None
 
-            # Filter by disclosure_date <= price_time (PIT-safe)
-            if "disclosure_date" in row_events.columns:
-                row_events = row_events[
-                    row_events["disclosure_date"] <= price_time.normalize()
-                ].copy()
+        price_ts_ns = symbol_prices["timestamp"].values.astype("int64")
+        n_prices = len(price_ts_ns)
 
-            # Use event_date or timestamp for window calculation
-            window_time_col = (
-                "event_date" if "event_date" in row_events.columns else "timestamp"
-            )
+        nb20 = np.zeros(n_prices)
+        tc20 = np.zeros(n_prices, dtype=np.int64)
+        nb60 = np.zeros(n_prices)
+        tc60 = np.zeros(n_prices, dtype=np.int64)
 
-            # 20-day window (based on event_date, but only disclosed events)
-            window_20d = row_events[
-                (row_events[window_time_col] <= price_time)
-                & (row_events[window_time_col] > price_time - pd.Timedelta(days=20))
-            ]
-            result.loc[idx, "insider_net_buy_20d"] = (
-                window_20d["net_shares"].sum()
-                if "net_shares" in window_20d.columns
-                else 0.0
-            )
-            result.loc[idx, "insider_trade_count_20d"] = len(window_20d)
+        for i, pt_ns in enumerate(price_ts_ns):
+            # PIT: disclosure_date.normalize() <= price_time.normalize() in int64 ns
+            if ev_disclose_ns is not None:
+                # Normalize to day boundary (truncate to days in ns)
+                _ns_per_day = 86_400_000_000_000
+                pt_day_ns = (pt_ns // _ns_per_day) * _ns_per_day
+                ev_day_ns = (ev_disclose_ns // _ns_per_day) * _ns_per_day
+                pit_mask = ev_day_ns <= pt_day_ns
+            else:
+                pit_mask = np.ones(len(ev_time_ns), dtype=bool)
 
-            # 60-day window
-            window_60d = row_events[
-                (row_events[window_time_col] <= price_time)
-                & (row_events[window_time_col] > price_time - pd.Timedelta(days=60))
-            ]
-            result.loc[idx, "insider_net_buy_60d"] = (
-                window_60d["net_shares"].sum()
-                if "net_shares" in window_60d.columns
-                else 0.0
-            )
-            result.loc[idx, "insider_trade_count_60d"] = len(window_60d)
+            # 20-day and 60-day windows combined with PIT
+            w20 = pit_mask & (ev_time_ns <= pt_ns) & (ev_time_ns > pt_ns - td20_ns)
+            w60 = pit_mask & (ev_time_ns <= pt_ns) & (ev_time_ns > pt_ns - td60_ns)
+
+            nb20[i] = ev_ns_vals[w20].sum()
+            tc20[i] = int(w20.sum())
+            nb60[i] = ev_ns_vals[w60].sum()
+            tc60[i] = int(w60.sum())
+
+        # Bulk-assign results for this symbol (4 assignments vs 4 × N_prices)
+        result.loc[symbol_prices.index, "insider_net_buy_20d"] = nb20
+        result.loc[symbol_prices.index, "insider_trade_count_20d"] = tc20
+        result.loc[symbol_prices.index, "insider_net_buy_60d"] = nb60
+        result.loc[symbol_prices.index, "insider_trade_count_60d"] = tc60
 
     return result

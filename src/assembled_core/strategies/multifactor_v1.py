@@ -221,25 +221,28 @@ def compute_signals(
     composite = composite * regime_mult
 
     # --- Build output signals (LONG only where composite > min_score) ---
+    composite_arr = composite.to_numpy(dtype=float)
+    ema_spread_arr = (
+        scores["trend_ema_spread"].to_numpy(dtype=float)
+        if "trend_ema_spread" in scores.columns
+        else np.zeros(len(composite_arr))
+    )
+    sym_list = latest["symbol"].tolist()
+    ts_list = latest["timestamp"].tolist() if "timestamp" in latest.columns else [None] * len(latest)
+    top_factors = used_factors[:3]
+    factor_arrs = {f: scores[f].to_numpy(dtype=float) for f in top_factors if f in scores.columns}
+
     out = []
-    for i, row in enumerate(latest.itertuples(index=False)):
-        sym = row.symbol
-        score = float(composite.iloc[i]) if i < len(composite) else 0.0
-        ts = getattr(row, "timestamp", None)
-
-        # Only generate LONG signals for positive scores
-        # Also require basic EMA trend confirmation (fast > slow)
-        ema_spread = float(scores.iloc[i].get("trend_ema_spread", 0.0)) if i < len(scores) else 0.0
-
+    for i in range(len(latest)):
+        score = composite_arr[i]
+        ema_spread = ema_spread_arr[i]
         if score > min_score and ema_spread > -0.5:  # Allow slight negative EMA if other factors strong
-            reasons = []
-            for f in used_factors[:3]:  # Top 3 contributing factors
-                reasons.append(f"{f}={scores.iloc[i].get(f, 0.0):.2f}")
+            reasons = [f"{f}={factor_arrs[f][i]:.2f}" for f in top_factors if f in factor_arrs]
             out.append({
-                "timestamp": ts,
-                "symbol": sym,
+                "timestamp": ts_list[i],
+                "symbol": sym_list[i],
                 "direction": "LONG",
-                "score": score,
+                "score": float(score),
                 "reason": "; ".join(reasons),
             })
 

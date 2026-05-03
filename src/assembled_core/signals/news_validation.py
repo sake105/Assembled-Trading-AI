@@ -186,6 +186,13 @@ def event_study(
     Returns:
         DataFrame with [ticker, event_date, label, car, n_event_days, resid_std]
     """
+    # Pre-extract per-ticker return series to avoid repeated column lookups
+    _rets_by_ticker = {
+        t: returns_df[t].dropna()
+        for t in events_df["ticker"].unique()
+        if t in returns_df.columns
+    }
+
     results = []
 
     for row in events_df.itertuples(index=False):
@@ -193,10 +200,9 @@ def event_study(
         event_date = pd.Timestamp(row.event_date)
         label = getattr(row, "sentiment_label", "unknown")
 
-        if ticker not in returns_df.columns:
+        ticker_rets = _rets_by_ticker.get(ticker)
+        if ticker_rets is None:
             continue
-
-        ticker_rets = returns_df[ticker].dropna()
 
         est_start = event_date + pd.Timedelta(days=estimation_window[0])
         est_end = event_date + pd.Timedelta(days=estimation_window[1])

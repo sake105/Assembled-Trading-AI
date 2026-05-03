@@ -107,19 +107,19 @@ class GNNSignalModel:
         import torch
         n = returns_matrix.shape[1]
         corr = np.corrcoef(returns_matrix.T)
-        edges_src, edges_dst, weights = [], [], []
-        for i in range(n):
-            for j in range(i + 1, n):
-                if abs(corr[i, j]) >= self._adj_threshold:
-                    edges_src += [i, j]
-                    edges_dst += [j, i]
-                    weights += [corr[i, j], corr[i, j]]
+        rows, cols = np.triu_indices(n, k=1)
+        mask = np.abs(corr[rows, cols]) >= self._adj_threshold
+        src = rows[mask]
+        dst = cols[mask]
+        w = corr[src, dst]
 
-        if not edges_src:
+        if len(src) == 0:
             return torch.zeros((2, 0), dtype=torch.long), torch.zeros(0)
 
-        edge_index = torch.tensor([edges_src, edges_dst], dtype=torch.long)
-        edge_weights = torch.tensor(weights, dtype=torch.float)
+        edge_index = torch.tensor(
+            [np.concatenate([src, dst]), np.concatenate([dst, src])], dtype=torch.long
+        )
+        edge_weights = torch.tensor(np.concatenate([w, w]), dtype=torch.float)
         return edge_index, edge_weights
 
     def fit(

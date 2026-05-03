@@ -4,6 +4,10 @@ import hashlib
 import re
 from typing import List
 
+import numpy as np
+
+_BIT_POSITIONS = np.arange(64, dtype=np.uint64)
+
 
 def _tokenize(text: str) -> List[str]:
     """Lowercase, split on non-alnum, keep tokens with length >= 3."""
@@ -20,20 +24,16 @@ def simhash64(text: str) -> int:
     if not tokens:
         return 0
 
-    vector = [0] * 64
+    vector = np.zeros(64, dtype=np.int64)
     for token in tokens:
         h_bytes = hashlib.md5(token.encode("utf-8"), usedforsecurity=False).digest()[:8]
-        h = int.from_bytes(h_bytes, byteorder="big", signed=False)
-        for bit in range(64):
-            if h & (1 << bit):
-                vector[bit] += 1
-            else:
-                vector[bit] -= 1
+        h = np.uint64(int.from_bytes(h_bytes, byteorder="big", signed=False))
+        set_mask = (h >> _BIT_POSITIONS) & np.uint64(1)
+        vector += np.where(set_mask, np.int64(1), np.int64(-1))
 
     fp = 0
-    for bit in range(64):
-        if vector[bit] > 0:
-            fp |= 1 << bit
+    for b in np.where(vector > 0)[0]:
+        fp |= 1 << int(b)
     return fp
 
 

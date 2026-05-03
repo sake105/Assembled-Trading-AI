@@ -7,6 +7,8 @@ import logging
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION = "paper.summary.v1"
@@ -60,27 +62,21 @@ def _total_return_and_drawdown(
     if start_val <= 0:
         return None, None
     total_ret = (end_val / start_val) - 1.0
-    peak = start_val
-    max_dd = 0.0
-    for v in equity_values:
-        if v > peak:
-            peak = v
-        dd = (peak - v) / peak if peak > 0 else 0.0
-        if dd > max_dd:
-            max_dd = dd
+    arr = np.array(equity_values, dtype=float)
+    peaks = np.maximum.accumulate(arr)
+    dd = np.where(peaks > 0, (peaks - arr) / peaks, 0.0)
+    max_dd = float(dd.max())
     return total_ret, max_dd
 
 
 def _daily_returns(equity_values: list[float]) -> list[float]:
     if len(equity_values) < 2:
         return []
-    rets = []
-    for i in range(1, len(equity_values)):
-        prev = equity_values[i - 1]
-        curr = equity_values[i]
-        if prev and prev > 0:
-            rets.append((curr / prev) - 1.0)
-    return rets
+    arr = np.array(equity_values, dtype=float)
+    prev = arr[:-1]
+    curr = arr[1:]
+    mask = prev > 0
+    return ((curr[mask] / prev[mask]) - 1.0).tolist()
 
 
 def build_paper_summary(output_root: str | Path, dates: list[str]) -> dict[str, Any]:

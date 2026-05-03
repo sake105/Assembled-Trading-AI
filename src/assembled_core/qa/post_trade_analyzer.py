@@ -104,9 +104,18 @@ def compute_signal_hit_rate(
         for sym, grp in fwd.groupby("symbol", sort=False)
     }
 
+    tol = pd.Timedelta(days=tolerance_days)
+    tol_ns = int(tol.value)
+
     results = []
     for symbol, sym_trades in trades.groupby("symbol", sort=False):
-        sym_fwd = _fwd_by_sym.get(symbol, pd.Series(dtype=float))
+        sym_fwd_raw = _fwd_by_sym.get(symbol, pd.Series(dtype=float))
+        if sym_fwd_raw.empty:
+            continue
+        # Sort once per symbol; pre-extract int64 timestamps for searchsorted
+        sym_fwd = sym_fwd_raw.sort_index()
+        sym_idx_ns = sym_fwd.index.values.astype("int64")
+        sym_vals = sym_fwd.values
 
         hits = 0
         total = 0
@@ -120,22 +129,17 @@ def compute_signal_hit_rate(
                 qty = float(getattr(trade, "qty", 0))
                 side = "BUY" if qty > 0 else "SELL"
 
-            # Find closest forward return within tolerance
-            tol = pd.Timedelta(days=tolerance_days)
-            candidates = sym_fwd[
-                (sym_fwd.index >= ts - tol) & (sym_fwd.index <= ts + tol)
-            ]
-            if candidates.empty:
+            # Find closest forward return within tolerance using searchsorted (O(log N))
+            ts_ns = int(ts.value)
+            lo = int(np.searchsorted(sym_idx_ns, ts_ns - tol_ns))
+            hi = int(np.searchsorted(sym_idx_ns, ts_ns + tol_ns, side="right"))
+            if lo >= hi:
                 continue
 
-            # Use the closest timestamp (not just first in sorted order)
-            time_diffs = pd.Series(
-                [(abs((idx - ts).total_seconds())) for idx in candidates.index],
-                index=candidates.index,
-            )
-            closest_idx = int(time_diffs.argmin())
-            fwd_ret = candidates.iloc[closest_idx]
-            if pd.isna(fwd_ret):
+            window_ns = sym_idx_ns[lo:hi]
+            closest_local = int(np.abs(window_ns - ts_ns).argmin())
+            fwd_ret = float(sym_vals[lo + closest_local])
+            if np.isnan(fwd_ret):
                 continue
 
             fwd_returns.append(fwd_ret)

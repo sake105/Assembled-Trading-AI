@@ -130,8 +130,11 @@ def build_event_window_prices(
         drop=True
     )
 
-    # Pre-group prices by symbol to avoid O(N*M) per-event filter
-    _prices_by_sym = {sym: grp.copy() for sym, grp in prices_sorted.groupby(group_col, sort=False)}
+    # Pre-group prices by symbol; reset index so label == positional offset
+    _prices_by_sym = {
+        sym: grp.reset_index(drop=True)
+        for sym, grp in prices_sorted.groupby(group_col, sort=False)
+    }
 
     # Build event windows
     all_windows = []
@@ -148,23 +151,20 @@ def build_event_window_prices(
         if symbol_prices is None or symbol_prices.empty:
             continue
 
-        # Find event day index
-        event_idx = symbol_prices[symbol_prices[timestamp_col] == event_timestamp].index
-
-        if len(event_idx) == 0:
-            # Event timestamp not found in prices, try to find closest
-            time_diffs = (symbol_prices[timestamp_col] - event_timestamp).abs()
-            closest_idx = time_diffs.idxmin()
-            closest_diff = time_diffs.loc[closest_idx]
-
-            # Only use if within 1 day
+        # Find event day index using searchsorted (O(log N)) — work in int64 ns to avoid tz warnings
+        ts_ns_arr = symbol_prices[timestamp_col].values.astype("int64")
+        event_ns = int(pd.Timestamp(event_timestamp).value)
+        pos = int(np.searchsorted(ts_ns_arr, event_ns))
+        if pos < len(ts_ns_arr) and ts_ns_arr[pos] == event_ns:
+            event_row_idx = pos
+        else:
+            # Event timestamp not found — find closest within 1 day
+            diffs = np.abs(ts_ns_arr - event_ns)
+            closest_pos = int(diffs.argmin())
+            closest_diff = pd.Timedelta(int(diffs[closest_pos]), unit="ns")
             if closest_diff > pd.Timedelta(days=1):
                 continue
-
-            event_idx = pd.Index([closest_idx])
-
-        event_idx = event_idx[0]
-        event_row_idx = symbol_prices.index.get_loc(event_idx)
+            event_row_idx = closest_pos
 
         # Extract window: from (event_row_idx - window_before) to (event_row_idx + window_after)
         start_idx = max(0, event_row_idx - window_before)

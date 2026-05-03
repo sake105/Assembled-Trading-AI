@@ -90,8 +90,7 @@ def _news_sentiment_raw(
         return out
 
     means = df.groupby("symbol")["sentiment_score"].mean()
-    for sym in means.index:
-        out.loc[sym] = means.loc[sym]
+    out.loc[means.index] = means
     return out
 
 

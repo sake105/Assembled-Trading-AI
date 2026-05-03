@@ -47,17 +47,18 @@ def compute_avg_pairwise_correlation(
 
     results = pd.DataFrame(index=returns_wide.index)
     n_sym = returns_wide.shape[1]
-    _tri_mask = np.triu(np.ones((n_sym, n_sym), dtype=bool), k=1)
-
-    def _mean_upper_tri(mat: pd.DataFrame) -> float:
-        vals = mat.values[_tri_mask]
-        vals = vals[np.isfinite(vals)]
-        return float(np.mean(vals)) if len(vals) > 0 else np.nan
+    n_dates = len(returns_wide)
+    tri_row, tri_col = np.triu_indices(n_sym, k=1)
 
     for w in windows:
         col = f"avg_pairwise_corr_{w}d"
         rolling_corr = returns_wide.rolling(w, min_periods=w).corr()
-        results[col] = rolling_corr.groupby(level=0).apply(_mean_upper_tri)
+        # reshape (n_dates * n_sym, n_sym) → (n_dates, n_sym, n_sym) then extract upper triangle
+        arr = rolling_corr.to_numpy().reshape(n_dates, n_sym, n_sym)
+        upper_vals = arr[:, tri_row, tri_col]  # (n_dates, n_pairs)
+        with np.errstate(all="ignore"):
+            mean_corr = np.nanmean(upper_vals, axis=1)
+        results[col] = mean_corr
 
     return results
 

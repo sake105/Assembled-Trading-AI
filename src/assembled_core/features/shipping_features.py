@@ -11,6 +11,7 @@ Zukünftige Integration:
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 
@@ -65,42 +66,48 @@ def add_shipping_features(prices: pd.DataFrame, events: pd.DataFrame) -> pd.Data
     # Pre-group events by symbol to avoid O(N*M) per-symbol filter
     _events_by_sym = {sym: grp for sym, grp in events.groupby("symbol", sort=False)}
 
+    td1_ns = int(pd.Timedelta(days=1).value)
+    td7_ns = int(pd.Timedelta(days=7).value)
+
     # Group by symbol for efficient processing
     for symbol, symbol_prices in result.groupby("symbol", sort=False):
-        symbol_prices = symbol_prices.copy()
-
-        # Get events for this symbol
-        symbol_events = _events_by_sym.get(symbol, pd.DataFrame()).copy()
+        symbol_events = _events_by_sym.get(symbol, pd.DataFrame())
 
         if symbol_events.empty:
             continue
 
-        # For each price row, compute features based on events
-        for idx in symbol_prices.index:
-            price_time = symbol_prices.loc[idx, "timestamp"]
+        # Sort events by timestamp to enable searchsorted
+        symbol_events = symbol_events.sort_values("timestamp")
 
-            # Most recent event (within 1 day)
-            recent = symbol_events[
-                (symbol_events["timestamp"] <= price_time)
-                & (symbol_events["timestamp"] > price_time - pd.Timedelta(days=1))
-            ]
-            if not recent.empty:
-                # Use most recent
-                latest = recent.iloc[-1]
-                result.loc[idx, "shipping_congestion_score"] = latest[
-                    "congestion_score"
-                ]
-                result.loc[idx, "shipping_ships_count"] = latest["ships"]
+        ev_time_ns = symbol_events["timestamp"].values.astype("int64")
+        ev_congestion = symbol_events["congestion_score"].values.astype(float)
+        ev_ships = symbol_events["ships"].values.astype(float)
 
-            # 7-day window for averages
-            window_7d = symbol_events[
-                (symbol_events["timestamp"] <= price_time)
-                & (symbol_events["timestamp"] > price_time - pd.Timedelta(days=7))
-            ]
-            if not window_7d.empty:
-                result.loc[idx, "shipping_congestion_score_7d"] = window_7d[
-                    "congestion_score"
-                ].mean()
-                result.loc[idx, "shipping_ships_count_7d"] = window_7d["ships"].mean()
+        price_ts_ns = symbol_prices["timestamp"].values.astype("int64")
+        n_prices = len(price_ts_ns)
+
+        cong_1d = np.full(n_prices, np.nan)
+        ships_1d = np.full(n_prices, np.nan)
+        cong_7d = np.full(n_prices, np.nan)
+        ships_7d = np.full(n_prices, np.nan)
+
+        for i, pt_ns in enumerate(price_ts_ns):
+            # searchsorted gives O(log N) window bounds on sorted events
+            hi = int(np.searchsorted(ev_time_ns, pt_ns, side="right"))
+
+            lo1 = int(np.searchsorted(ev_time_ns, pt_ns - td1_ns + 1))
+            if lo1 < hi:
+                cong_1d[i] = ev_congestion[hi - 1]
+                ships_1d[i] = ev_ships[hi - 1]
+
+            lo7 = int(np.searchsorted(ev_time_ns, pt_ns - td7_ns + 1))
+            if lo7 < hi:
+                cong_7d[i] = ev_congestion[lo7:hi].mean()
+                ships_7d[i] = ev_ships[lo7:hi].mean()
+
+        result.loc[symbol_prices.index, "shipping_congestion_score"] = cong_1d
+        result.loc[symbol_prices.index, "shipping_ships_count"] = ships_1d
+        result.loc[symbol_prices.index, "shipping_congestion_score_7d"] = cong_7d
+        result.loc[symbol_prices.index, "shipping_ships_count_7d"] = ships_7d
 
     return result

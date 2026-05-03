@@ -103,58 +103,56 @@ def add_congress_features(
     # Pre-group events by symbol to avoid O(N*M) per-symbol filter
     _events_by_sym = {sym: grp for sym, grp in events.groupby("symbol", sort=False)}
 
+    td60_ns = int(pd.Timedelta(days=60).value)
+    td90_ns = int(pd.Timedelta(days=90).value)
+
     # Group by symbol for efficient processing
     for symbol, symbol_prices in result.groupby("symbol", sort=False):
-        symbol_prices = symbol_prices.copy()
-
-        # Get events for this symbol
-        symbol_events = _events_by_sym.get(symbol, pd.DataFrame()).copy()
-
+        symbol_events = _events_by_sym.get(symbol, pd.DataFrame())
         if symbol_events.empty:
             continue
 
-        # For each price row, compute features based on events in rolling windows
-        # PIT: Use disclosure_date for filtering, but event_date/timestamp for window calculation
-        for idx in symbol_prices.index:
-            price_time = symbol_prices.loc[idx, "timestamp"]
+        # Determine window time column and PIT flag once per symbol
+        window_time_col = "event_date" if "event_date" in symbol_events.columns else "timestamp"
+        has_pit = "disclosure_date" in symbol_events.columns
+        has_amount = "amount" in symbol_events.columns
 
-            # Apply per-row PIT filtering (if as_of is per-row)
-            row_events = symbol_events.copy()
+        ev_time_ns = symbol_events[window_time_col].values.astype("int64")
+        ev_amounts = symbol_events["amount"].values if has_amount else np.zeros(len(symbol_events))
+        if has_pit:
+            ev_disclose_ns = symbol_events["disclosure_date"].values.astype("int64")
+        else:
+            ev_disclose_ns = None
 
-            # Filter by disclosure_date <= price_time (PIT-safe)
-            if "disclosure_date" in row_events.columns:
-                row_events = row_events[
-                    row_events["disclosure_date"] <= price_time.normalize()
-                ].copy()
+        price_ts_ns = symbol_prices["timestamp"].values.astype("int64")
+        n_prices = len(price_ts_ns)
 
-            # Use event_date or timestamp for window calculation
-            window_time_col = (
-                "event_date" if "event_date" in row_events.columns else "timestamp"
-            )
+        tc60 = np.zeros(n_prices, dtype=np.int64)
+        ta60 = np.zeros(n_prices)
+        tc90 = np.zeros(n_prices, dtype=np.int64)
+        ta90 = np.zeros(n_prices)
 
-            # 60-day window (based on event_date, but only disclosed events)
-            window_60d = row_events[
-                (row_events[window_time_col] <= price_time)
-                & (row_events[window_time_col] > price_time - pd.Timedelta(days=60))
-            ]
-            result.loc[idx, "congress_trade_count_60d"] = len(window_60d)
-            result.loc[idx, "congress_total_amount_60d"] = (
-                window_60d["amount"].sum()
-                if "amount" in window_60d.columns and len(window_60d) > 0
-                else 0.0
-            )
+        for i, pt_ns in enumerate(price_ts_ns):
+            if ev_disclose_ns is not None:
+                _ns_per_day = 86_400_000_000_000
+                pt_day_ns = (pt_ns // _ns_per_day) * _ns_per_day
+                ev_day_ns = (ev_disclose_ns // _ns_per_day) * _ns_per_day
+                pit = ev_day_ns <= pt_day_ns
+            else:
+                pit = np.ones(len(ev_time_ns), dtype=bool)
 
-            # 90-day window
-            window_90d = row_events[
-                (row_events[window_time_col] <= price_time)
-                & (row_events[window_time_col] > price_time - pd.Timedelta(days=90))
-            ]
-            result.loc[idx, "congress_trade_count_90d"] = len(window_90d)
-            result.loc[idx, "congress_total_amount_90d"] = (
-                window_90d["amount"].sum()
-                if "amount" in window_90d.columns and len(window_90d) > 0
-                else 0.0
-            )
+            w60 = pit & (ev_time_ns <= pt_ns) & (ev_time_ns > pt_ns - td60_ns)
+            w90 = pit & (ev_time_ns <= pt_ns) & (ev_time_ns > pt_ns - td90_ns)
+
+            tc60[i] = int(w60.sum())
+            ta60[i] = ev_amounts[w60].sum()
+            tc90[i] = int(w90.sum())
+            ta90[i] = ev_amounts[w90].sum()
+
+        result.loc[symbol_prices.index, "congress_trade_count_60d"] = tc60
+        result.loc[symbol_prices.index, "congress_total_amount_60d"] = ta60
+        result.loc[symbol_prices.index, "congress_trade_count_90d"] = tc90
+        result.loc[symbol_prices.index, "congress_total_amount_90d"] = ta90
 
     return result
 

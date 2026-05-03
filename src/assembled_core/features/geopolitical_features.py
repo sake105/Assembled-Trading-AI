@@ -96,10 +96,10 @@ def compute_gpr_proxy(
         z = (aligned - mean) / std
         composite += (weight / total_weight) * z.fillna(0)
 
-    # Percentile normalization to 0-100
+    # Percentile normalization to 0-100: proportion of window <= last value
     gpr_level = composite.rolling(rolling_window, min_periods=30).apply(
-        lambda x: pd.Series(x).rank(pct=True).iloc[-1] * 100,
-        raw=False,
+        lambda x: (x <= x[-1]).sum() / len(x) * 100,
+        raw=True,
     )
 
     # Short-term z-score (20d)
@@ -143,10 +143,10 @@ def compute_gpr_from_fred(
     if gpr_series is None or gpr_series.empty:
         return pd.DataFrame(columns=["gpr_level", "gpr_zscore", "gpr_momentum", "gpr_regime"])
 
-    # Percentile over rolling window
+    # Percentile over rolling window: proportion of window <= last value
     gpr_level = gpr_series.rolling(rolling_window, min_periods=30).apply(
-        lambda x: pd.Series(x).rank(pct=True).iloc[-1] * 100,
-        raw=False,
+        lambda x: (x <= x[-1]).sum() / len(x) * 100,
+        raw=True,
     )
 
     mean_20 = gpr_series.rolling(20, min_periods=10).mean()

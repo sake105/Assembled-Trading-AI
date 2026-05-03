@@ -157,20 +157,21 @@ def _manual_features(s: pd.Series, prefix: str) -> dict[str, float]:
 
     features: dict[str, float] = {}
     p = prefix + "__"
+    arr_s = pd.Series(arr)  # single Series for pandas-specific methods
 
     features[p + "mean"] = float(arr.mean())
     features[p + "std"] = float(arr.std(ddof=1)) if n > 1 else 0.0
     features[p + "min"] = float(arr.min())
     features[p + "max"] = float(arr.max())
     features[p + "range"] = float(arr.max() - arr.min())
-    features[p + "skew"] = float(pd.Series(arr).skew())
-    features[p + "kurtosis"] = float(pd.Series(arr).kurtosis())
+    features[p + "skew"] = float(arr_s.skew())
+    features[p + "kurtosis"] = float(arr_s.kurtosis())
     features[p + "last_minus_first"] = float(arr[-1] - arr[0])
     features[p + "pct_change_total"] = float((arr[-1] / arr[0] - 1)) if arr[0] != 0 else 0.0
     features[p + "mean_abs_change"] = float(np.abs(np.diff(arr)).mean()) if n > 1 else 0.0
     features[p + "num_peaks"] = _count_peaks(arr)
-    features[p + "autocorr_lag1"] = float(pd.Series(arr).autocorr(lag=1)) if n > 2 else 0.0
-    features[p + "autocorr_lag5"] = float(pd.Series(arr).autocorr(lag=5)) if n > 6 else 0.0
+    features[p + "autocorr_lag1"] = float(arr_s.autocorr(lag=1)) if n > 2 else 0.0
+    features[p + "autocorr_lag5"] = float(arr_s.autocorr(lag=5)) if n > 6 else 0.0
     features[p + "log_ret_mean"] = float(ret.mean())
     features[p + "log_ret_std"] = float(ret.std(ddof=1)) if len(ret) > 1 else 0.0
     features[p + "log_ret_skew"] = float(pd.Series(ret).skew()) if len(ret) > 2 else 0.0
@@ -291,12 +292,18 @@ def _sample_entropy(arr: np.ndarray, m: int = 2, r: float = 0.2) -> float:
 
 
 def _rolling_autocorr(arr: np.ndarray, window: int, lag: int) -> np.ndarray:
-    out = np.full(len(arr), np.nan)
-    for i in range(window - 1, len(arr)):
-        w = arr[i - window + 1: i + 1]
-        if len(w) > lag + 1:
-            out[i] = float(pd.Series(w).autocorr(lag=lag))
-    return out
+    if len(arr) < window or window <= lag + 1:
+        return np.full(len(arr), np.nan)
+
+    def _autocorr_fn(w: np.ndarray) -> float:
+        x, y = w[:-lag], w[lag:]
+        sx = x.std()
+        sy = y.std()
+        if sx < 1e-12 or sy < 1e-12:
+            return np.nan
+        return float(np.dot(x - x.mean(), y - y.mean()) / (len(x) * sx * sy))
+
+    return pd.Series(arr).rolling(window, min_periods=window).apply(_autocorr_fn, raw=True).values
 
 
 def _rolling_mean_abs_change(arr: np.ndarray, window: int) -> np.ndarray:
@@ -309,19 +316,25 @@ def _rolling_mean_abs_change(arr: np.ndarray, window: int) -> np.ndarray:
 
 
 def _rolling_above_mean_frac(arr: np.ndarray, window: int) -> np.ndarray:
-    out = np.full(len(arr), np.nan)
-    for i in range(window - 1, len(arr)):
-        w = arr[i - window + 1: i + 1]
-        out[i] = float((w > w.mean()).mean())
-    return out
+    return pd.Series(arr).rolling(window, min_periods=window).apply(
+        lambda w: float((w > w.mean()).mean()), raw=True
+    ).values
 
 
 def _rolling_slope(arr: np.ndarray, window: int) -> np.ndarray:
-    out = np.full(len(arr), np.nan)
-    for i in range(window - 1, len(arr)):
-        w = arr[i - window + 1: i + 1]
-        out[i] = _linear_slope(w)
-    return out
+    if len(arr) < window or window < 2:
+        return np.full(len(arr), np.nan)
+    x = np.arange(window, dtype=float)
+    x -= x.mean()
+    denom = (x * x).sum()
+    if denom == 0:
+        return np.full(len(arr), np.nan)
+
+    def _slope_fn(w: np.ndarray) -> float:
+        y = w - w.mean()
+        return float((x * y).sum() / denom)
+
+    return pd.Series(arr).rolling(window, min_periods=window).apply(_slope_fn, raw=True).values
 
 
 def _rolling_last_minus_first(arr: np.ndarray, window: int) -> np.ndarray:
@@ -345,38 +358,38 @@ def _rolling_pct_change_total(arr: np.ndarray, window: int) -> np.ndarray:
 
 def _rolling_log_ret_stat(arr: np.ndarray, window: int, stat: str) -> np.ndarray:
     out = np.full(len(arr), np.nan)
-    for i in range(window - 1, len(arr)):
-        w = arr[i - window + 1: i + 1]
-        ret = np.diff(np.log(np.clip(w, 1e-9, None)))
-        if stat == "mean" and len(ret) > 0:
-            out[i] = float(ret.mean())
-        elif stat == "std" and len(ret) > 1:
-            out[i] = float(ret.std(ddof=1))
+    n = len(arr)
+    if n < window or window < 2:
+        return out
+    log_diffs = np.diff(np.log(np.clip(arr, 1e-9, None)))
+    roll = pd.Series(log_diffs).rolling(window - 1, min_periods=window - 1)
+    if stat == "mean":
+        vals = roll.mean().values
+    elif stat == "std":
+        vals = roll.std().values  # ddof=1 by default
+    else:
+        return out
+    out[window - 1:] = vals[window - 2:]
     return out
 
 
 def _rolling_peaks(arr: np.ndarray, window: int) -> np.ndarray:
-    out = np.full(len(arr), np.nan)
-    for i in range(window - 1, len(arr)):
-        w = arr[i - window + 1: i + 1]
-        out[i] = _count_peaks(w)
-    return out
+    return pd.Series(arr).rolling(window, min_periods=window).apply(
+        _count_peaks, raw=True
+    ).values
 
 
 def _rolling_hurst(arr: np.ndarray, window: int) -> np.ndarray:
-    out = np.full(len(arr), np.nan)
-    for i in range(window - 1, len(arr)):
-        w = arr[i - window + 1: i + 1]
-        if len(w) >= 20:
-            out[i] = _hurst(w)
-    return out
+    if window < 20:
+        return np.full(len(arr), np.nan)
+    return pd.Series(arr).rolling(window, min_periods=window).apply(
+        _hurst, raw=True
+    ).values
 
 
 def _rolling_sample_entropy(arr: np.ndarray, window: int) -> np.ndarray:
-    out = np.full(len(arr), np.nan)
-    for i in range(window - 1, len(arr)):
-        w = arr[i - window + 1: i + 1]
+    def _se_fn(w: np.ndarray) -> float:
         ret = np.diff(np.log(np.clip(w, 1e-9, None)))
-        if len(ret) >= 10:
-            out[i] = _sample_entropy(ret)
-    return out
+        return _sample_entropy(ret) if len(ret) >= 10 else np.nan
+
+    return pd.Series(arr).rolling(window, min_periods=window).apply(_se_fn, raw=True).values

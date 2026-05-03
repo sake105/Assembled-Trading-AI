@@ -142,25 +142,32 @@ def find_all_drawdowns(
     dd = equity / peak - 1.0
 
     drawdowns: list[DrawdownPeriod] = []
+    dd_arr = dd.values
+    equity_arr = equity.values
     in_dd = False
     current_peak_idx = 0
+    running_max = equity_arr[0] if len(equity_arr) > 0 else 0.0
+    running_max_idx = 0
 
-    for i in range(len(dd)):
-        if dd.iloc[i] <= -min_depth and not in_dd:
+    for i in range(len(dd_arr)):
+        if equity_arr[i] > running_max:
+            running_max = equity_arr[i]
+            running_max_idx = i
+        if dd_arr[i] <= -min_depth and not in_dd:
             in_dd = True
-            current_peak_idx = int(equity.iloc[:i + 1].values.argmax())
-        elif dd.iloc[i] >= -0.001 and in_dd:
-            trough_range = dd.iloc[current_peak_idx:i]
-            trough_idx_rel = int(trough_range.values.argmin())
+            current_peak_idx = running_max_idx
+        elif dd_arr[i] >= -0.001 and in_dd:
+            trough_range = dd_arr[current_peak_idx:i]
+            trough_idx_rel = int(trough_range.argmin())
             trough_idx = current_peak_idx + trough_idx_rel
             duration = trough_idx - current_peak_idx
             if duration >= min_duration:
                 drawdowns.append(DrawdownPeriod(
                     start_idx=current_peak_idx,
                     end_idx=trough_idx,
-                    peak_value=float(equity.iloc[current_peak_idx]),
-                    trough_value=float(equity.iloc[trough_idx]),
-                    max_drawdown=float(dd.iloc[trough_idx]),
+                    peak_value=float(equity_arr[current_peak_idx]),
+                    trough_value=float(equity_arr[trough_idx]),
+                    max_drawdown=float(dd_arr[trough_idx]),
                     duration=duration,
                 ))
             in_dd = False

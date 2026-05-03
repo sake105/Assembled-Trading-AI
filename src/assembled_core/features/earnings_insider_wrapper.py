@@ -162,25 +162,18 @@ def _insider_activity_raw(
 
     # Normalization.
     if market_cap_df is not None and not market_cap_df.empty:
-        mcap = market_cap_df.set_index("symbol")["market_cap"]
-        for sym in summed.index:
-            cap = mcap.get(sym, np.nan)
-            if pd.notna(cap) and cap > 0:
-                out.loc[sym] = summed.loc[sym] / cap
-            else:
-                # Missing/invalid market cap -> fallback scale below.
-                out.loc[sym] = summed.loc[sym]
+        mcap = market_cap_df.set_index("symbol")["market_cap"].reindex(summed.index)
+        valid = mcap.notna() & (mcap > 0)
+        out.loc[summed.index] = np.where(valid, summed / mcap.where(valid, 1.0), summed)
     else:
         # Fallback scale: divide by section-wide mean absolute signed flow so
         # z-scoring is meaningful even in unit-less flow terms. If everything
         # is zero, the z-score stage will handle the degenerate case.
         denom = summed.abs().mean()
         if denom and denom > 0:
-            for sym in summed.index:
-                out.loc[sym] = summed.loc[sym] / denom
+            out.loc[summed.index] = summed / denom
         else:
-            for sym in summed.index:
-                out.loc[sym] = 0.0
+            out.loc[summed.index] = 0.0
 
     return out
 
