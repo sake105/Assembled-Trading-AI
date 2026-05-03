@@ -62,13 +62,16 @@ def add_shipping_features(prices: pd.DataFrame, events: pd.DataFrame) -> pd.Data
     result["shipping_congestion_score_7d"] = pd.NA
     result["shipping_ships_count_7d"] = pd.NA
 
+    # Pre-group events by symbol to avoid O(N*M) per-symbol filter
+    _events_by_sym = {sym: grp for sym, grp in events.groupby("symbol", sort=False)}
+
     # Group by symbol for efficient processing
     for symbol in result["symbol"].unique():
         symbol_mask = result["symbol"] == symbol
         symbol_prices = result[symbol_mask].copy()
 
         # Get events for this symbol
-        symbol_events = events[events["symbol"] == symbol].copy()
+        symbol_events = _events_by_sym.get(symbol, pd.DataFrame()).copy()
 
         if symbol_events.empty:
             continue
