@@ -1,6 +1,6 @@
 # Known Issues & Open Topics
 
-**Letzte Aktualisierung:** 2026-04-30
+**Letzte Aktualisierung:** 2026-05-03
 
 Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante Erweiterungen im Backend von Assembled Trading AI.
 
@@ -8,25 +8,25 @@ Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante 
 
 ## 0. Bekannte Datenqualitäts-Risiken (AUDIT A10)
 
-### 0.1 Survivorship-Bias: PIT-Universe nicht aktiviert
+### 0.1 Survivorship-Bias: PIT-Universe — TEILWEISE BEHOBEN (2026-05-03)
 
-**Schwere:** AKUT für Backtests mit Mid-Cap / historischem Universum  
+**Schwere:** reduziert (war: AKUT)  
 **Entdeckt:** 2026-04-26 (Audit A10)  
-**Status:** API implementiert, aber KEIN produktiver Aufrufer — statische watchlist.txt in Betrieb
+**Status:** ✅ Architektur gewired — data-derived PIT aktiv. ⚠️ Kommerzieller Index-Membership-Feed fehlt weiterhin.
 
-**Problem:** `data/universe.py::get_universe_members_pit(as_of)` existiert mit vollständiger PIT-Logik.  
-Kein Script oder Pipeline-Schritt ruft sie produktiv auf. Stattdessen kommt das Universum aus der  
-statischen `watchlist.txt`, die nur *aktuelle* Symbole enthält.
+**Was getan wurde:**
+- `build_universe_history_from_prices(prices_df)` in `universe.py` — leitet `start_date`/`end_date` direkt aus dem Panel ab.
+- `wrap_signal_fn_with_pit_filter(signal_fn, universe_history)` — filtert Signale per Datum gegen die abgeleitete History.
+- `scripts/run_backtest_strategy.py` — baut/lädt Universe-History automatisch vor jedem Backtest-Lauf, schreibt nach `data/universe/<panel-stem>.csv`.
+- 8 Tests in `tests/test_universe_pit_wire.py` — alle grün.
 
-**Konsequenz:** Backtests 2015–2024 mit heutiger Watchlist kennen Symbole, die damals noch nicht
-handelbar waren (TSLA vor 2010 als Penny-Stock; Zwischenzeit-Delistings usw.).
-Erwarteter Bias: +1–2% p.a. bei US Large-Caps, **+5–10% p.a.** bei Mid-Caps.
+**Was noch offen bleibt:**
+- Vollständige Index-Membership-Daten (z. B. S&P500-Zusammensetzung 2010–2026) — verhindert echten Survivorship-Bias für Aufnahmen/Abgänge innerhalb des Panels.
+- Kommerziell: Sharadar (SFACT), Norgate, FactSet.
+- Open: S&P-Wikipedia-Scraper (unvollständig, lückenhaft).
+- Erwarteter Restbias mit data-derived PIT: ~0 für Large-Caps die nicht delistet wurden, **+1–3% p.a.** für historische Aufnahmen die jetzt in der Watchlist stehen.
 
-**Voraussetzung für echten Fix:** Historische Mitgliedschaftsdaten beschaffen:
-- Kommerziell: Sharadar (SFACT), Norgate, FactSet
-- Open: S&P-Zusammensetzungs-CSVs via Wikipedia-Scraper (unvollständig)
-
-**Datei:** `src/assembled_core/data/universe.py:144` (Funktion existiert, unverkabelt)  
+**Datei:** `src/assembled_core/data/universe.py` (Funktionen `build_universe_history_from_prices`, `wrap_signal_fn_with_pit_filter`)  
 **Tracking:** autonome weiterarbeit/AUDIT_2026-04-26_FINDINGS_AND_REMEDIATION_v2.md#a10
 
 ---

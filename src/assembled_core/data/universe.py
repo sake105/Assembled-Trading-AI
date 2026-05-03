@@ -5,9 +5,16 @@ Storage layout: <root>/<universe_name>.parquet (or .csv)
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
+from typing import TYPE_CHECKING, Callable
 
 import pandas as pd
+
+if TYPE_CHECKING:
+    pass
+
+logger = logging.getLogger(__name__)
 
 
 def _universe_path(universe_name: str, root: Path, fmt: str) -> Path:
@@ -189,6 +196,122 @@ def get_universe_members_pit(
             details="PIT filter yielded zero members — check universe history coverage",
         )
     return members
+
+
+# ---------------------------------------------------------------------------
+# PIT Universe — build from panel + signal_fn wrapper
+# ---------------------------------------------------------------------------
+
+
+def build_universe_history_from_prices(
+    prices_df: pd.DataFrame,
+    *,
+    status: str = "active",
+) -> pd.DataFrame:
+    """Derive symbol membership windows from a price panel.
+
+    Uses each symbol's first and last timestamp as start_date / end_date.
+    Symbols whose last row equals the panel maximum are treated as still listed
+    (end_date = NaT). All others get end_date = last_ts + 1 business day so
+    the membership interval is half-open: [start_date, end_date).
+
+    Args:
+        prices_df: Long-format price panel with at least 'timestamp' and 'symbol'.
+        status: Value written to the 'status' column (default 'active').
+
+    Returns:
+        DataFrame with columns: symbol, start_date, end_date, status.
+    """
+    ts = pd.to_datetime(prices_df["timestamp"], utc=True)
+    panel_end = ts.max()
+
+    agg = prices_df.assign(_ts=ts).groupby("symbol")["_ts"].agg(["min", "max"])
+    agg.columns = ["start_date", "last_ts"]
+
+    # Symbols still active at panel end → end_date = NaT (still listed)
+    still_active = agg["last_ts"] >= panel_end
+    agg["end_date"] = agg["last_ts"].where(~still_active, other=pd.NaT)
+    # For delisted symbols, advance end_date by 1 business day (exclusive boundary)
+    delisted_mask = ~still_active
+    if delisted_mask.any():
+        agg.loc[delisted_mask, "end_date"] = (
+            agg.loc[delisted_mask, "last_ts"] + pd.offsets.BDay(1)
+        )
+
+    agg["status"] = status
+    agg = agg.drop(columns=["last_ts"]).reset_index()
+    return agg[["symbol", "start_date", "end_date", "status"]]
+
+
+def _pit_members_from_history(
+    universe_history: pd.DataFrame,
+    as_of: pd.Timestamp,
+) -> set[str]:
+    """Return set of PIT-valid symbols at as_of (in-memory, no disk I/O)."""
+    if universe_history.empty:
+        return set()
+    hist = universe_history.copy()
+    hist["start_date"] = pd.to_datetime(hist["start_date"], utc=True)
+    hist["end_date"] = pd.to_datetime(hist["end_date"], utc=True, errors="coerce")
+    if as_of.tzinfo is None:
+        as_of = as_of.tz_localize("UTC")
+    started = hist["start_date"] <= as_of
+    not_ended = hist["end_date"].isna() | (hist["end_date"] > as_of)
+    if "status" in hist.columns:
+        null_end = hist["end_date"].isna()
+        active_status = hist["status"].str.lower().eq("active")
+        not_ended = (null_end & active_status) | (~null_end & (hist["end_date"] > as_of))
+    return set(hist.loc[started & not_ended, "symbol"].str.strip().str.upper())
+
+
+def wrap_signal_fn_with_pit_filter(
+    signal_fn: Callable[[pd.DataFrame], pd.DataFrame],
+    universe_history: pd.DataFrame,
+) -> Callable[[pd.DataFrame], pd.DataFrame]:
+    """Wrap a signal function so its output is filtered to PIT universe members.
+
+    The wrapper derives the rebalance date from the signals DataFrame's latest
+    timestamp, then keeps only rows whose symbol was active in the universe at
+    that date.
+
+    Degrades gracefully: if universe_history is empty a WARNING is logged and
+    the original signals are returned unfiltered (backwards-compatible).
+
+    Args:
+        signal_fn: Original signal function (prices_df -> signals_df).
+        universe_history: Output of build_universe_history_from_prices or
+            load_universe_history — columns: symbol, start_date, end_date[, status].
+
+    Returns:
+        Wrapped callable with the same signature as signal_fn.
+    """
+    if universe_history.empty:
+        logger.warning(
+            "[PIT] universe_history is empty — PIT filter disabled, signals unfiltered. "
+            "Run build_universe_history_from_prices() to enable."
+        )
+        return signal_fn
+
+    def _wrapped(prices_df: pd.DataFrame) -> pd.DataFrame:
+        signals = signal_fn(prices_df)
+        if signals.empty or "symbol" not in signals.columns:
+            return signals
+        if "timestamp" in signals.columns and not signals["timestamp"].isna().all():
+            as_of = pd.to_datetime(signals["timestamp"].max(), utc=True)
+        elif "timestamp" in prices_df.columns:
+            as_of = pd.to_datetime(prices_df["timestamp"].max(), utc=True)
+        else:
+            return signals
+
+        valid = _pit_members_from_history(universe_history, as_of)
+        before = len(signals)
+        filtered = signals[signals["symbol"].str.strip().str.upper().isin(valid)]
+        dropped = before - len(filtered)
+        if dropped:
+            logger.debug("[PIT] Filtered %d signal(s) not in universe at %s", dropped, as_of.date())
+        return filtered
+
+    return _wrapped
 
 
 # ---------------------------------------------------------------------------

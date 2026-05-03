@@ -2050,6 +2050,35 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
             ),
         )
 
+        # --- PIT Universe filter (KNOWN_ISSUES §0.1) ---
+        # Derive symbol membership windows from the loaded panel and wrap
+        # signal_fn so its output is filtered to PIT-valid symbols per date.
+        # Degrades gracefully if prices is empty or history cannot be built.
+        try:
+            from src.assembled_core.data.universe import (
+                build_universe_history_from_prices,
+                load_universe_history,
+                store_universe_history,
+                wrap_signal_fn_with_pit_filter,
+            )
+            _universe_root = Path("data") / "universe"
+            _price_file = getattr(args, "price_file", None) or getattr(args, "universe", None)
+            _universe_name = Path(_price_file).stem if _price_file else "default"
+            _universe_csv = _universe_root / f"{_universe_name}.csv"
+
+            if _universe_csv.exists():
+                _pit_history = load_universe_history(universe_name=_universe_name, root=_universe_root)
+                logger.info("[PIT] Loaded universe history: %s (%d symbols)", _universe_csv, len(_pit_history))
+            else:
+                _pit_history = build_universe_history_from_prices(prices)
+                store_universe_history(_pit_history, universe_name=_universe_name, root=_universe_root, format="csv")
+                logger.info("[PIT] Built + stored universe history: %s (%d symbols)", _universe_csv, len(_pit_history))
+
+            signal_fn = wrap_signal_fn_with_pit_filter(signal_fn, _pit_history)
+            logger.info("[PIT] signal_fn wrapped with PIT universe filter (%s)", _universe_name)
+        except Exception as _pit_exc:
+            logger.warning("[PIT] Universe filter setup failed (%s) — proceeding without PIT filter", _pit_exc)
+
         # Create cycle_fn using make_cycle_fn
         cycle_fn = make_cycle_fn(
             ctx_template,
