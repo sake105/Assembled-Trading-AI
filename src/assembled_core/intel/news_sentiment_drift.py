@@ -20,6 +20,8 @@ from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
+import numpy as np
+
 logger = logging.getLogger(__name__)
 
 
@@ -125,16 +127,14 @@ def _least_squares_slope(
     """
     if len(points) < 2:
         return 0.0
-    xs = [(p[0] - anchor).total_seconds() / 60.0 for p in points]
-    ys = [p[1] for p in points]
-    n = len(points)
-    mean_x = sum(xs) / n
-    mean_y = sum(ys) / n
-    num = sum((xs[i] - mean_x) * (ys[i] - mean_y) for i in range(n))
-    den = sum((xs[i] - mean_x) ** 2 for i in range(n))
+    xs = np.array([(p[0] - anchor).total_seconds() / 60.0 for p in points])
+    ys = np.array([p[1] for p in points])
+    xs_c = xs - xs.mean()
+    ys_c = ys - ys.mean()
+    den = float(np.dot(xs_c, xs_c))
     if den == 0.0:
         return 0.0
-    return num / den
+    return float(np.dot(xs_c, ys_c) / den)
 
 
 __all__ = ["SentimentDriftTracker", "DriftEntry"]
