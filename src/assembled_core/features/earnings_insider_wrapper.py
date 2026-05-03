@@ -98,30 +98,26 @@ def _earnings_surprise_raw(
     # Take the most recent filing per symbol.
     df = df.sort_values("filing_date").groupby("symbol", as_index=False).tail(1)
 
-    for _, row in df.iterrows():
-        sym = row["symbol"]
-        est = row["eps_estimate"]
-        act = row["eps_actual"]
-        if pd.isna(est) or pd.isna(act):
-            continue
-        if abs(est) < SAFE_DIVIDE_EPS:
-            # Safe-divide: undefined surprise, keep as NaN.
-            continue
-        surprise = (act - est) / abs(est)
+    valid = df["eps_estimate"].notna() & df["eps_actual"].notna()
+    valid &= df["eps_estimate"].abs() >= SAFE_DIVIDE_EPS
+    df = df[valid].copy()
+    if df.empty:
+        return out
 
-        days_old = (as_of_date - row["filing_date"]).days
-        if days_old <= EARNINGS_DECAY_START_DAYS:
-            scale = 1.0
-        elif days_old >= EARNINGS_DECAY_END_DAYS:
-            scale = 0.0
-        else:
-            # Linear decay from 1.0 at 90d to 0.0 at 120d.
-            scale = max(
-                0.0,
-                1.0 - (days_old - EARNINGS_DECAY_START_DAYS)
-                / (EARNINGS_DECAY_END_DAYS - EARNINGS_DECAY_START_DAYS),
-            )
-        out.loc[sym] = surprise * scale
+    df["_surprise"] = (df["eps_actual"] - df["eps_estimate"]) / df["eps_estimate"].abs()
+    df["_days_old"] = (as_of_date - pd.to_datetime(df["filing_date"])).dt.days
+    df["_scale"] = np.where(
+        df["_days_old"] <= EARNINGS_DECAY_START_DAYS,
+        1.0,
+        np.where(
+            df["_days_old"] >= EARNINGS_DECAY_END_DAYS,
+            0.0,
+            (1.0 - (df["_days_old"] - EARNINGS_DECAY_START_DAYS)
+             / (EARNINGS_DECAY_END_DAYS - EARNINGS_DECAY_START_DAYS)).clip(lower=0.0),
+        ),
+    )
+    scaled = df.set_index("symbol")["_surprise"] * df.set_index("symbol")["_scale"]
+    out.loc[scaled.index] = scaled.values
 
     return out
 

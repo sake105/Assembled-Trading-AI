@@ -63,21 +63,16 @@ def blend_with_news(
         return overlay.macro_score
 
     original_count = len(signals)
-    downgraded = 0
 
-    for idx, row in signals.iterrows():
-        sym = row["symbol"]
-        trend_score = float(row["score"])
-        news_score = _news_score_for(sym)
+    sym_scores = signals["symbol"].map(overlay.ticker_scores).fillna(overlay.macro_score)
+    blended = ((1.0 - news_alpha) * signals["score"].astype(float) + news_alpha * sym_scores).clip(0.0, 1.0)
+    signals["score"] = blended
 
-        blended = (1.0 - news_alpha) * trend_score + news_alpha * news_score
-        signals.at[idx, "score"] = max(0.0, min(1.0, blended))
-
-        # Crisis downgrade: strong bearish news overrides a LONG signal
-        if news_score < _CRISIS_BEARISH_THRESHOLD and row["direction"] == "LONG":
-            signals.at[idx, "direction"] = "FLAT"
-            signals.at[idx, "score"] = 0.0
-            downgraded += 1
+    crisis_mask = (sym_scores < _CRISIS_BEARISH_THRESHOLD) & (signals["direction"] == "LONG")
+    downgraded = int(crisis_mask.sum())
+    if downgraded > 0:
+        signals.loc[crisis_mask, "direction"] = "FLAT"
+        signals.loc[crisis_mask, "score"] = 0.0
 
     if downgraded > 0:
         logger.info(
