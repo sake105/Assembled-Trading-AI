@@ -234,42 +234,35 @@ def _apply_equity_crash(
     )
 
     # For each symbol, find the price just before shock_start (baseline)
-    for symbol in shocked_prices["symbol"].unique():
-        symbol_mask = shocked_prices["symbol"] == symbol
-        symbol_data = shocked_prices[symbol_mask].copy()
+    for symbol, symbol_data in shocked_prices.groupby("symbol", sort=False):
+        sym_idx = symbol_data.index
+        shock_idx = sym_idx[mask.loc[sym_idx]]
 
         # Find baseline price (last price before shock_start)
         baseline = symbol_data[symbol_data["timestamp"] < shock_start]
         if baseline.empty:
-            # If no baseline, use first price in shock period
+            post = symbol_data[symbol_data["timestamp"] >= shock_start]
             baseline_price = (
-                symbol_data[symbol_data["timestamp"] >= shock_start]["close"].iloc[0]
-                if len(symbol_data[symbol_data["timestamp"] >= shock_start]) > 0
-                else symbol_data["close"].iloc[0]
+                post["close"].iloc[0] if not post.empty else symbol_data["close"].iloc[0]
             )
         else:
             baseline_price = baseline["close"].iloc[-1]
 
         # Apply crash: scale prices in shock period
-        shock_mask = symbol_mask & mask
-        if shock_mask.any():
+        if len(shock_idx) > 0:
             # Calculate shocked price at start of shock period
             shocked_baseline = baseline_price * (1 + scenario.shock_magnitude)
+            price_ratio = shocked_baseline / baseline_price
+            shocked_prices.loc[shock_idx, "close"] = (
+                shocked_prices.loc[shock_idx, "close"] * price_ratio
+            )
 
-            # For prices in shock period, scale them relative to the shocked baseline
-            # We maintain the relative movements within the shock period
-            shock_prices = shocked_prices.loc[shock_mask, "close"].copy()
-            if len(shock_prices) > 0:
-                # Scale all prices in shock period by the same factor
-                price_ratio = shocked_baseline / baseline_price
-                shocked_prices.loc[shock_mask, "close"] = shock_prices * price_ratio
-
-                # Also update other price columns if present
-                for col in ["open", "high", "low"]:
-                    if col in shocked_prices.columns:
-                        shocked_prices.loc[shock_mask, col] = (
-                            shocked_prices.loc[shock_mask, col] * price_ratio
-                        )
+            # Also update other price columns if present
+            for col in ["open", "high", "low"]:
+                if col in shocked_prices.columns:
+                    shocked_prices.loc[shock_idx, col] = (
+                        shocked_prices.loc[shock_idx, col] * price_ratio
+                    )
 
     return shocked_prices
 
@@ -293,15 +286,14 @@ def _apply_vol_spike(
     )
 
     # For each symbol, compute returns and apply volatility multiplier
-    for symbol in shocked_prices["symbol"].unique():
-        symbol_mask = shocked_prices["symbol"] == symbol
+    for symbol, _sym_orig in shocked_prices.groupby("symbol", sort=False):
+        sym_idx = _sym_orig.index
         symbol_data = (
-            shocked_prices[symbol_mask]
+            _sym_orig
             .copy()
             .sort_values("timestamp")
             .reset_index(drop=True)
         )
-        symbol_indices = shocked_prices[symbol_mask].index
 
         # Compute log returns
         symbol_data["log_return"] = np.log(
@@ -326,17 +318,17 @@ def _apply_vol_spike(
             )
 
             # Update shocked_prices
-            shocked_prices.loc[symbol_indices, "close"] = symbol_data["close"].values
+            shocked_prices.loc[sym_idx, "close"] = symbol_data["close"].values
 
             # Also update other price columns if present (simplified: scale by same ratio)
             for col in ["open", "high", "low"]:
                 if col in shocked_prices.columns:
                     # Compute ratio of new close to old close for each row
-                    old_close = prices.loc[symbol_indices, "close"].values
+                    old_close = prices.loc[sym_idx, "close"].values
                     new_close = symbol_data["close"].values
                     close_ratio = new_close / old_close
-                    shocked_prices.loc[symbol_indices, col] = (
-                        prices.loc[symbol_indices, col].values * close_ratio
+                    shocked_prices.loc[sym_idx, col] = (
+                        prices.loc[sym_idx, col].values * close_ratio
                     )
 
     return shocked_prices
@@ -705,7 +697,7 @@ def _apply_geopolitical_shock(
     gold_syms = set(_GOLD_DEFAULT_SYMBOLS)
     defense_syms = set(_DEFENSE_DEFAULT_SYMBOLS)
 
-    for symbol in shocked_prices["symbol"].unique():
+    for symbol, symbol_data in shocked_prices.groupby("symbol", sort=False):
         # Determine sector
         if sector_mapping:
             sect = sector_mapping.get(symbol, "broad")
@@ -721,12 +713,12 @@ def _apply_geopolitical_shock(
         mult = merged_mults.get(sect, merged_mults.get("broad", -0.5))
         mag = base_mag * mult
 
-        sym_mask = shocked_prices["symbol"] == symbol
-        shock_mask = sym_mask & mask
-        if not shock_mask.any():
+        sym_idx = symbol_data.index
+        shock_idx = sym_idx[mask.loc[sym_idx]]
+        if len(shock_idx) == 0:
             continue
 
-        symbol_data = shocked_prices[sym_mask].sort_values("timestamp")
+        symbol_data = symbol_data.sort_values("timestamp")
         baseline_row = symbol_data[symbol_data["timestamp"] < shock_start]
         if baseline_row.empty:
             shock_rows = symbol_data[symbol_data["timestamp"] >= shock_start]
@@ -735,13 +727,13 @@ def _apply_geopolitical_shock(
             baseline_price = float(baseline_row["close"].iloc[-1])
 
         price_ratio = (1.0 + mag) if baseline_price != 0 else 1.0
-        shocked_prices.loc[shock_mask, "close"] = (
-            shocked_prices.loc[shock_mask, "close"] * price_ratio
+        shocked_prices.loc[shock_idx, "close"] = (
+            shocked_prices.loc[shock_idx, "close"] * price_ratio
         )
         for col in ["open", "high", "low"]:
             if col in shocked_prices.columns:
-                shocked_prices.loc[shock_mask, col] = (
-                    shocked_prices.loc[shock_mask, col] * price_ratio
+                shocked_prices.loc[shock_idx, col] = (
+                    shocked_prices.loc[shock_idx, col] * price_ratio
                 )
 
     return shocked_prices

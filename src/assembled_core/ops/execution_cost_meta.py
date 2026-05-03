@@ -127,10 +127,10 @@ def annotate_execution_cost(
     total_cost_bps = 0.0
     high_impact_count = 0
 
-    for _, row in orders.iterrows():
-        sym = str(row.get("symbol", "")).strip()
+    for row in orders.itertuples(index=False):
+        sym = str(getattr(row, "symbol", "")).strip()
         try:
-            qty = abs(float(row.get("qty", 0.0)))
+            qty = abs(float(getattr(row, "qty", 0.0)))
         except (TypeError, ValueError):
             drop_mask.append(False)
             continue

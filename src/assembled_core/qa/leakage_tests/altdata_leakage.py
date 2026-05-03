@@ -137,10 +137,10 @@ def assert_feature_zero_before_disclosure(
         if len(non_zero_before) > 0:
             # Find which symbols/dates have non-zero features
             non_zero_rows = result_before.loc[non_zero_before.index]
-            for idx, row in non_zero_rows.iterrows():
-                symbol = row.get("symbol", "UNKNOWN")
-                timestamp = row.get("timestamp", "UNKNOWN")
-                value = row[feature_col]
+            for row in non_zero_rows.itertuples(index=False):
+                symbol = getattr(row, "symbol", "UNKNOWN")
+                timestamp = getattr(row, "timestamp", "UNKNOWN")
+                value = getattr(row, feature_col, None)
                 violations.append(
                     f"Feature '{feature_col}' is non-zero ({value}) before disclosure "
                     f"at symbol={symbol}, timestamp={timestamp}, as_of={as_of_before}"

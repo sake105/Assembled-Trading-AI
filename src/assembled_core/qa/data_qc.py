@@ -354,12 +354,9 @@ def _check_missing_sessions(
     }
 
     # Check each symbol
-    for symbol in prices["symbol"].unique():
-        if symbol not in actual_dates_by_symbol:
-            continue
-
+    for symbol, sym_actual_dates in actual_dates_by_symbol.items():
         # Find missing dates
-        missing_dates = expected_dates_set - actual_dates_by_symbol[symbol]
+        missing_dates = expected_dates_set - sym_actual_dates
 
         if missing_dates:
             missing_pct = (len(missing_dates) / len(expected_dates)) * 100.0
@@ -383,7 +380,7 @@ def _check_missing_sessions(
                         "missing_count": len(missing_dates),
                         "missing_pct": float(missing_pct),
                         "expected_count": len(expected_dates),
-                        "actual_count": len(actual_dates_by_symbol[symbol]),
+                        "actual_count": len(sym_actual_dates),
                     },
                 )
             )
@@ -414,9 +411,8 @@ def _check_stale_prices(
     stale_sessions = thresholds.get("stale_price_sessions", 3)
 
     # Check each symbol
-    for symbol in prices["symbol"].unique():
-        symbol_data = prices[prices["symbol"] == symbol].copy()
-        if symbol_data.empty or len(symbol_data) < stale_sessions:
+    for symbol, symbol_data in prices.groupby("symbol", sort=False):
+        if len(symbol_data) < stale_sessions:
             continue
 
         symbol_data = symbol_data.sort_values("timestamp").reset_index(drop=True)
@@ -500,9 +496,8 @@ def _check_outlier_returns(
     )
 
     # Check each symbol
-    for symbol in prices["symbol"].unique():
-        symbol_data = prices[prices["symbol"] == symbol].copy()
-        if symbol_data.empty or len(symbol_data) < 2:
+    for symbol, symbol_data in prices.groupby("symbol", sort=False):
+        if len(symbol_data) < 2:
             continue
 
         symbol_data = symbol_data.sort_values("timestamp").reset_index(drop=True)
@@ -613,8 +608,7 @@ def _check_zero_volume(
         return issues
 
     # Check each symbol (daily path)
-    for symbol in prices["symbol"].unique():
-        symbol_data = prices[prices["symbol"] == symbol].copy()
+    for symbol, symbol_data in prices.groupby("symbol", sort=False):
         if symbol_data.empty:
             continue
 

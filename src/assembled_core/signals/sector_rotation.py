@@ -139,13 +139,14 @@ def compute_sector_scores(
 
     # Cross-sectional rank → composite score (per date)
     result_rows = []
-    for date, r in scores_df.iterrows():
+    for row in scores_df.itertuples(index=True):
+        date = row.Index
         score_row: dict = {timestamp_col: date}
         scores_raw = {}
         for etf in available_etfs:
-            m3 = r.get(f"{etf}_3m", np.nan)
-            m6 = r.get(f"{etf}_6m", np.nan)
-            rs = r.get(f"{etf}_rs", np.nan)
+            m3 = getattr(row, f"{etf}_3m", np.nan)
+            m6 = getattr(row, f"{etf}_6m", np.nan)
+            rs = getattr(row, f"{etf}_rs", np.nan)
             # Simple composite (weights sum to 1.0)
             parts = [
                 (m3, config.weight_3m),
@@ -160,9 +161,9 @@ def compute_sector_scores(
                 composite = np.nan
             scores_raw[etf] = composite
             score_row[f"{etf}_score"] = composite
-            score_row[f"{etf}_3m"] = r.get(f"{etf}_3m", np.nan)
-            score_row[f"{etf}_6m"] = r.get(f"{etf}_6m", np.nan)
-            score_row[f"{etf}_rs"] = r.get(f"{etf}_rs", np.nan)
+            score_row[f"{etf}_3m"] = m3
+            score_row[f"{etf}_6m"] = m6
+            score_row[f"{etf}_rs"] = rs
 
         result_rows.append(score_row)
 

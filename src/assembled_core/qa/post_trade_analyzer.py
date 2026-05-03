@@ -102,10 +102,14 @@ def compute_signal_hit_rate(
     fwd = forward_returns_df.copy()
     fwd["timestamp"] = pd.to_datetime(fwd["timestamp"], utc=True)
 
+    _fwd_by_sym = {
+        sym: grp.set_index("timestamp")["forward_return"]
+        for sym, grp in fwd.groupby("symbol", sort=False)
+    }
+
     results = []
-    for symbol in trades["symbol"].unique():
-        sym_trades = trades[trades["symbol"] == symbol]
-        sym_fwd = fwd[fwd["symbol"] == symbol].set_index("timestamp")["forward_return"]
+    for symbol, sym_trades in trades.groupby("symbol", sort=False):
+        sym_fwd = _fwd_by_sym.get(symbol, pd.Series(dtype=float))
 
         hits = 0
         total = 0
