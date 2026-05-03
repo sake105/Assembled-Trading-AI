@@ -352,12 +352,12 @@ def write_tca_report_md(
                 f.write(
                     "|--------|----------|------------|--------|----------|------------|------------|--------|\n"
                 )
-                for _, row in symbol_summary.iterrows():
+                for row in symbol_summary.itertuples(index=False):
                     f.write(
-                        f"| {row['symbol']} | ${row['notional']:,.2f} | "
-                        f"${row['commission_cash']:,.2f} | ${row['spread_cash']:,.2f} | "
-                        f"${row['slippage_cash']:,.2f} | ${row['total_cost_cash']:,.2f} | "
-                        f"{row['cost_bps']:.2f} | {row['n_trades']} |\n"
+                        f"| {row.symbol} | ${row.notional:,.2f} | "
+                        f"${row.commission_cash:,.2f} | ${row.spread_cash:,.2f} | "
+                        f"${row.slippage_cash:,.2f} | ${row.total_cost_cash:,.2f} | "
+                        f"{row.cost_bps:.2f} | {row.n_trades} |\n"
                     )
                 f.write("\n")
 
@@ -390,12 +390,12 @@ def write_tca_report_md(
                 f.write(
                     "|------|----------|------------|--------|----------|------------|------------|--------|\n"
                 )
-                for _, row in day_summary.iterrows():
+                for row in day_summary.itertuples(index=False):
                     f.write(
-                        f"| {row['date']} | ${row['notional']:,.2f} | "
-                        f"${row['commission_cash']:,.2f} | ${row['spread_cash']:,.2f} | "
-                        f"${row['slippage_cash']:,.2f} | ${row['total_cost_cash']:,.2f} | "
-                        f"{row['cost_bps']:.2f} | {row['n_trades']} |\n"
+                        f"| {row.date} | ${row.notional:,.2f} | "
+                        f"${row.commission_cash:,.2f} | ${row.spread_cash:,.2f} | "
+                        f"${row.slippage_cash:,.2f} | ${row.total_cost_cash:,.2f} | "
+                        f"{row.cost_bps:.2f} | {row.n_trades} |\n"
                     )
                 f.write("\n")
 

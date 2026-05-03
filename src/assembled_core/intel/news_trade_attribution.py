@@ -116,12 +116,12 @@ class NewsTradeAttributor:
             return []
 
         links: list[NewsLink] = []
-        for _, row in relevant.iterrows():
+        for row in relevant.itertuples(index=False):
             try:
-                pub_ts = row["_pub_ts"]
+                pub_ts = row._pub_ts
                 dist_hours = float(abs((opened - pub_ts).total_seconds()) / 3600.0)
                 decay = np.exp(-np.log(2) * dist_hours / max(1e-6, self.halflife))
-                impact_bps = float(row.get("impact_bps", 0.0))
+                impact_bps = float(getattr(row, "impact_bps", 0.0))
                 # Base weight: decay × normalized-impact
                 weight = float(decay * min(1.0, abs(impact_bps) / 100.0 if impact_bps else 0.5))
                 # Estimated Contribution to closed return
@@ -129,7 +129,7 @@ class NewsTradeAttributor:
                 est_contrib = weight * closed_ret
 
                 links.append(NewsLink(
-                    event_id=str(row.get("event_id", "")),
+                    event_id=str(getattr(row, "event_id", "")),
                     symbol=symbol,
                     distance_hours=round(dist_hours, 2),
                     weight=round(weight, 4),

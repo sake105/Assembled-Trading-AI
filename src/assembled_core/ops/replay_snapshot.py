@@ -307,10 +307,10 @@ def run_paper_replay(
             # missing ``side`` to BUY or a missing ``qty`` to 0 silently
             # diverges replay from backtest, so we fail-fast on malformed
             # rows instead.
-            for _, row in stamped.iterrows():
-                sym = str(row["symbol"])
-                raw_side = row.get("side")
-                raw_qty = row.get("qty")
+            for row in stamped.itertuples(index=False):
+                sym = str(row.symbol)
+                raw_side = getattr(row, "side", None)
+                raw_qty = getattr(row, "qty", None)
                 if raw_side is None or (isinstance(raw_side, float) and np.isnan(raw_side)):
                     raise ValueError(f"replay: order row for {sym} has null side")
                 side = str(raw_side).upper()

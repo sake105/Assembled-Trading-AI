@@ -375,20 +375,19 @@ def apply_delisting_exits(
         return pd.DataFrame(columns=out_cols)
 
     ts_col = "timestamp" if "timestamp" in prices.columns else (prices.columns[0] if len(prices.columns) > 0 else "timestamp")
+    pos_qty_map = positions.groupby("symbol")["qty"].first().to_dict()
+    sym_prices_map = {sym: grp for sym, grp in prices.groupby("symbol")}
     rows: list[dict] = []
-    for _, dl in delistings.iterrows():
-        sym = dl["symbol"]
-        eff = dl["effective_date"]
-        pos_mask = positions["symbol"] == sym
-        if not pos_mask.any():
-            continue
-        qty = float(positions.loc[pos_mask, "qty"].iloc[0])
+    for dl in delistings.itertuples(index=False):
+        sym = dl.symbol
+        eff = dl.effective_date
+        qty = float(pos_qty_map.get(sym, 0.0))
         if qty == 0:
             continue
-        # Last available price on or before delisting date
-        sym_prices = prices[prices["symbol"] == sym].copy()
-        if sym_prices.empty:
+        sym_prices = sym_prices_map.get(sym)
+        if sym_prices is None or sym_prices.empty:
             continue
+        sym_prices = sym_prices.copy()
         sym_prices[ts_col] = pd.to_datetime(sym_prices[ts_col], utc=True)
         before = sym_prices[sym_prices[ts_col] <= eff]
         if before.empty:

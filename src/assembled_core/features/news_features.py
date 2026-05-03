@@ -272,14 +272,14 @@ def compute_sector_rotation_signal(
 
     def _sector_scores(frame: pd.DataFrame) -> dict[str, dict]:
         scores: dict[str, dict] = {}
-        for _, row in frame.iterrows():
-            sectors = row.get("affected_sectors", [])
+        for row in frame.itertuples(index=False):
+            sectors = getattr(row, "affected_sectors", [])
             if isinstance(sectors, str):
                 sectors = [sectors]
             elif not isinstance(sectors, list):
                 sectors = []
-            severity = float(row.get("severity", 1.0) or 1.0)
-            direction = str(row.get("market_direction", "neutral")).lower()
+            severity = float(getattr(row, "severity", 1.0) or 1.0)
+            direction = str(getattr(row, "market_direction", "neutral")).lower()
             direction_sign = -1.0 if direction == "bearish" else (1.0 if direction == "bullish" else 0.0)
             for sector in sectors:
                 if sector not in scores:

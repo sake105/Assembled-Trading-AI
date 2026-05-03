@@ -95,11 +95,11 @@ def build_index_rebal_features(
 
     # Rebalancing window: 5 trading days before effective date
     rows = []
-    for _, row in df.iterrows():
-        eff_date = row[date_col]
-        sym = row[symbol_col]
-        flag = row["index_addition_flag"]
-        index_name = row.get(index_col, "SP500")
+    for row in df.itertuples(index=False):
+        eff_date = getattr(row, date_col)
+        sym = getattr(row, symbol_col)
+        flag = row.index_addition_flag
+        index_name = getattr(row, index_col, "SP500")
         aum = _INDEX_AUM.get(str(index_name).upper(), _INDEX_AUM["SP500"])
 
         # Create window: T-5 to T
