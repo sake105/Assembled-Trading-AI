@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -181,43 +182,39 @@ def simulate_fills(
         return fills
     price_map = prices_latest.set_index("symbol")[price_col].to_dict()
 
-    for _, row in orders.iterrows():
-        symbol = row.get("symbol")
-        if symbol is None or pd.isna(symbol):
-            continue
-        symbol = str(symbol).strip()
-        side = row.get("side")
-        qty = row.get("qty")
-        try:
-            qty_f = float(qty) if qty is not None else 0.0
-        except (TypeError, ValueError):
-            continue
-        if qty_f <= 0:
-            continue
-        base_price = float(price_map.get(symbol, 0.0) or 0.0)
-        if base_price <= 0:
-            continue
-        # Slippage: buy => pay more, sell => receive less
-        slippage_mult = 1.0 + (slippage_bps / 10000.0)
-        if str(side).upper() == "SELL":
-            fill_price = base_price / slippage_mult
-        else:
-            fill_price = base_price * slippage_mult
-        # Commission (per-share approximation)
-        commission_per_share = base_price * (commission_bps / 10000.0)
-        fill_price = fill_price + (
-            commission_per_share
-            if str(side).upper() == "BUY"
-            else -commission_per_share
+    df = orders.copy()
+    df["_sym"] = df["symbol"].astype(str).str.strip()
+    df["_qty"] = pd.to_numeric(df["qty"], errors="coerce")
+    valid = (
+        df["_sym"].notna()
+        & ~df["_sym"].isin(("None", "nan", ""))
+        & df["_qty"].notna()
+        & (df["_qty"] > 0)
+    )
+    df = df[valid].copy()
+    if df.empty:
+        return fills
+
+    df["_base"] = df["_sym"].map(price_map).astype(float).fillna(0.0)
+    df = df[df["_base"] > 0]
+    if df.empty:
+        return fills
+
+    slippage_mult = 1.0 + (slippage_bps / 10000.0)
+    is_sell = df["side"].astype(str).str.upper() == "SELL"
+    raw_price = np.where(is_sell, df["_base"] / slippage_mult, df["_base"] * slippage_mult)
+    commission = df["_base"].values * (commission_bps / 10000.0)
+    fill_price = np.where(is_sell, raw_price - commission, raw_price + commission)
+
+    fills = [
+        {"symbol": sym, "side": side, "qty": float(qty), "price": float(price)}
+        for sym, side, qty, price in zip(
+            df["_sym"],
+            df["side"].astype(str).str.upper().fillna("BUY"),
+            df["_qty"],
+            fill_price,
         )
-        fills.append(
-            {
-                "symbol": symbol,
-                "side": str(side).upper() if side else "BUY",
-                "qty": qty_f,
-                "price": fill_price,
-            }
-        )
+    ]
     return fills
 
 
