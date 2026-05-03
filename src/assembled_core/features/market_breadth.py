@@ -122,12 +122,11 @@ def compute_market_breadth_ma(
     # For each timestamp, compute fraction of symbols above MA
     breadth_data = []
 
-    for timestamp in sorted(result_df[timestamp_col].unique()):
-        timestamp_data = result_df[result_df[timestamp_col] == timestamp]
-
+    for timestamp, timestamp_data in result_df.groupby(timestamp_col, sort=True):
         # Filter rows where both price and MA are available
-        valid_mask = timestamp_data[price_col].notna() & timestamp_data[ma_col].notna()
-        valid_data = timestamp_data[valid_mask]
+        valid_data = timestamp_data[
+            timestamp_data[price_col].notna() & timestamp_data[ma_col].notna()
+        ]
 
         if len(valid_data) == 0:
             continue
@@ -235,9 +234,7 @@ def compute_advance_decline_line(
     # Aggregate by timestamp: count advances and declines
     ad_data = []
 
-    for timestamp in sorted(result_df[timestamp_col].unique()):
-        timestamp_data = result_df[result_df[timestamp_col] == timestamp]
-
+    for timestamp, timestamp_data in result_df.groupby(timestamp_col, sort=True):
         # Filter rows with valid returns (not NaN)
         valid_returns = timestamp_data["_daily_return"].dropna()
 
@@ -358,9 +355,7 @@ def compute_risk_on_off_indicator(
     # Aggregate by timestamp
     risk_data = []
 
-    for timestamp in sorted(result_df[timestamp_col].unique()):
-        timestamp_data = result_df[result_df[timestamp_col] == timestamp]
-
+    for timestamp, timestamp_data in result_df.groupby(timestamp_col, sort=True):
         # Filter rows with valid returns
         valid_returns = timestamp_data["_daily_return"].dropna()
 

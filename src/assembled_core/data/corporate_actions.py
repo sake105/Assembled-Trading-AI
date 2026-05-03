@@ -276,15 +276,14 @@ def compute_total_return_index(
     _divs_by_sym = {sym: grp.sort_values("effective_date") for sym, grp in divs.groupby("symbol", sort=False)}
 
     # For each symbol, compute cumulative dividend adjustment
-    for sym in result["symbol"].unique():
+    for sym, sym_prices in result.groupby("symbol", sort=False):
         sym_divs = _divs_by_sym.get(sym, pd.DataFrame())
         if sym_divs.empty:
             continue
 
-        sym_mask = result["symbol"] == sym
-        sym_idx = result.index[sym_mask]
-        sym_ts = result.loc[sym_idx, ts_col]
-        sym_close = result.loc[sym_idx, "close"].astype(float)
+        sym_idx = sym_prices.index
+        sym_ts = sym_prices[ts_col]
+        sym_close = sym_prices["close"].astype(float)
 
         # Build cumulative reinvestment factor per row
         cum_factor = pd.Series(1.0, index=sym_idx, dtype=float)
