@@ -283,52 +283,37 @@ def label_daily_records(
     # Ensure price column is numeric
     df[price_col] = pd.to_numeric(df[price_col], errors="coerce")
 
-    # Compute forward returns and labels (optimized: vectorized where possible)
-    # Use shift to get future prices more efficiently
+    # Vectorized forward-label computation using searchsorted (O(N log N))
     df_sorted = df.sort_values("timestamp").reset_index(drop=True)
 
-    # Calculate forward prices using shift (more efficient than iterrows)
-    # For each row, find the price horizon_days ahead
-    labels = []
-    for i in range(len(df_sorted)):
-        current_price = df_sorted.iloc[i][price_col]
-        current_time = df_sorted.iloc[i]["timestamp"]
-        target_time = current_time + pd.Timedelta(days=horizon_days)
+    ts_ns = df_sorted["timestamp"].astype("int64").to_numpy()
+    prices_arr = df_sorted[price_col].to_numpy(dtype=float)
+    horizon_ns = int(pd.Timedelta(days=horizon_days).value)
+    target_ns = ts_ns + horizon_ns
 
-        # Find price at target_time (or closest available)
-        future_mask = df_sorted["timestamp"] >= target_time
-        future_rows = df_sorted[future_mask]
+    # For each row find the first future index with timestamp >= target
+    future_idx = np.searchsorted(ts_ns, target_ns, side="left")
+    valid = future_idx < len(df_sorted)
+    safe_idx = np.clip(future_idx, 0, len(df_sorted) - 1)
+    future_prices = np.where(valid, prices_arr[safe_idx], np.nan)
 
-        if future_rows.empty:
-            # No future data available, label as 0 (not successful)
-            labels.append(0)
-            continue
-
-        # Get closest future price (first row after target_time)
-        future_price = future_rows.iloc[0][price_col]
-
-        # Compute forward return
-        if pd.isna(current_price) or pd.isna(future_price) or current_price <= 0:
-            labels.append(0)
-            continue
-
-        forward_return = (future_price - current_price) / current_price
-
-        # Label: 1 if return >= threshold, else 0
-        label = 1 if forward_return >= success_threshold else 0
-        labels.append(label)
+    # Compute labels: 1 if forward_return >= threshold, else 0
+    fwd_ok = valid & ~np.isnan(prices_arr) & (prices_arr > 0) & ~np.isnan(future_prices)
+    forward_returns = np.where(fwd_ok, (future_prices - prices_arr) / prices_arr, np.nan)
+    labels_arr = np.where(
+        np.isfinite(forward_returns) & (forward_returns >= success_threshold), 1, 0
+    )
 
     # Restore original order if needed
     if not df.index.equals(df_sorted.index):
-        # Map labels back to original order
         df["label"] = (
-            pd.Series(labels, index=df_sorted.index)
+            pd.Series(labels_arr, index=df_sorted.index)
             .reindex(df.index)
             .fillna(0)
             .astype(int)
         )
     else:
-        df["label"] = labels
+        df["label"] = labels_arr.tolist()
 
     return df
 

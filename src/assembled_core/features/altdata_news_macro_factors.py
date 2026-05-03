@@ -166,19 +166,17 @@ def build_news_sentiment_factors(
     # Helper function to compute trend (slope over rolling window)
     def compute_trend(series: pd.Series, window: int) -> pd.Series:
         """Compute rolling trend (slope) over window."""
-        trends = []
-        for i in range(len(series)):
-            if i < window - 1:
-                trends.append(np.nan)
-            else:
-                y = series.iloc[i - window + 1 : i + 1].values
-                x = np.arange(len(y))
-                if len(y) > 1 and not np.isnan(y).all():
-                    slope = np.polyfit(x, y, 1)[0]
-                    trends.append(slope)
-                else:
-                    trends.append(np.nan)
-        return pd.Series(trends, index=series.index)
+        x = np.arange(window, dtype=float)
+        sum_x = x.sum()
+        sum_x2 = (x ** 2).sum()
+        denom = window * sum_x2 - sum_x ** 2
+        if denom == 0:
+            return pd.Series(np.nan, index=series.index)
+        rolling_xy = series.rolling(window, min_periods=window).apply(
+            lambda y: np.dot(x, y), raw=True
+        )
+        rolling_y = series.rolling(window, min_periods=window).sum()
+        return (window * rolling_xy - sum_x * rolling_y) / denom
 
     # Handle market-wide sentiment (symbol=None or "__MARKET__")
     # If sentiment has symbol column, join per symbol; otherwise join market-wide to all symbols

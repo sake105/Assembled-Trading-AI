@@ -192,10 +192,14 @@ def volume_profile_score(close: pd.Series, volume: pd.Series) -> float:
 
     try:
         price_bins = np.linspace(close.min(), close.max(), 50)
-        profile = np.zeros(49)
-        for i in range(len(close)):
-            idx = min(int(np.searchsorted(price_bins, close.iloc[i])), 48)
-            profile[idx] += float(volume.iloc[i]) if len(volume) > i else 1.0
+        close_arr = close.to_numpy(dtype=float)
+        vol_arr = (
+            volume.to_numpy(dtype=float)
+            if len(volume) >= len(close)
+            else np.concatenate([volume.to_numpy(dtype=float), np.ones(len(close) - len(volume))])
+        )
+        idx_arr = np.clip(np.searchsorted(price_bins, close_arr), 0, 48)
+        profile = np.bincount(idx_arr, weights=vol_arr, minlength=49).astype(float)
         poc_idx = int(np.argmax(profile))
         poc_price = (price_bins[poc_idx] + price_bins[poc_idx + 1]) / 2.0
         dist_pct = (float(close.iloc[-1]) - poc_price) / max(poc_price, 1e-6)
