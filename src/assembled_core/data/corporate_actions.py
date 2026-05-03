@@ -74,13 +74,12 @@ def apply_splits_for_research_prices(
         sym_idx = result.index[sym_mask]
         sym_ts = result_ts[sym_idx]
 
-        for _, split_row in sym_splits.iterrows():
-            eff_date = split_row["effective_date"]
-            ratio = float(split_row["split_ratio"])
+        for split_row in sym_splits.itertuples(index=False):
+            ratio = float(split_row.split_ratio)
             if ratio <= 0:
                 continue
             # Rows before the split effective date get divided by split_ratio
-            pre_split = sym_ts < eff_date
+            pre_split = sym_ts < split_row.effective_date
             adj_factors.loc[sym_idx[pre_split]] /= ratio
 
     result["close_research"] = result["close"] * adj_factors
@@ -198,17 +197,11 @@ def adjust_prices_for_splits(
 
     # Apply each split: for rows of the same symbol before the split date,
     # multiply close by 1/split_ratio (backward adjustment).
-    for _, s in split_actions.iterrows():
-        sym = s["symbol"]
-        eff_date = s["effective_date"]
-        ratio = float(s["split_ratio"])
+    for s in split_actions.itertuples(index=False):
+        ratio = float(s.split_ratio)
         if ratio <= 0:
             continue
-
-        sym_mask = result["symbol"] == sym
-        before_mask = result_ts < eff_date
-        apply_mask = sym_mask & before_mask
-
+        apply_mask = (result["symbol"] == s.symbol) & (result_ts < s.effective_date)
         result.loc[apply_mask, "close"] = result.loc[apply_mask, "close"] / ratio
 
     return result
@@ -292,9 +285,9 @@ def compute_total_return_index(
 
         # Build cumulative reinvestment factor per row
         cum_factor = pd.Series(1.0, index=sym_idx, dtype=float)
-        for _, div_row in sym_divs.iterrows():
-            ex_date = div_row["effective_date"]
-            div_cash = float(div_row["dividend_cash"])
+        for div_row in sym_divs.itertuples(index=False):
+            ex_date = div_row.effective_date
+            div_cash = float(div_row.dividend_cash)
             # Find the close price on or just before ex-date for reinvestment ratio
             pre_ex = sym_ts[sym_ts < ex_date]
             if pre_ex.empty:
