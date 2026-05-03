@@ -100,13 +100,16 @@ def add_congress_features(
     result["congress_trade_count_90d"] = 0
     result["congress_total_amount_90d"] = 0.0
 
+    # Pre-group events by symbol to avoid O(N*M) per-symbol filter
+    _events_by_sym = {sym: grp for sym, grp in events.groupby("symbol", sort=False)}
+
     # Group by symbol for efficient processing
     for symbol in result["symbol"].unique():
         symbol_mask = result["symbol"] == symbol
         symbol_prices = result[symbol_mask].copy()
 
         # Get events for this symbol
-        symbol_events = events[events["symbol"] == symbol].copy()
+        symbol_events = _events_by_sym.get(symbol, pd.DataFrame()).copy()
 
         if symbol_events.empty:
             continue

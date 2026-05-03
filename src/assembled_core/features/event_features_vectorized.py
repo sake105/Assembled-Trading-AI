@@ -95,13 +95,16 @@ def build_event_feature_panel_vectorized(
     # Determine value column for aggregation
     value_col = "value" if "value" in events.columns else None
 
+    # Pre-group events by symbol to avoid O(N*M) per-symbol filter
+    _events_by_sym = {sym: grp for sym, grp in events.groupby("symbol", sort=False)}
+
     # Step 4: Process per symbol (O(N log N) per symbol)
     for symbol in result["symbol"].unique():
         symbol_mask = result["symbol"] == symbol
         symbol_prices = result[symbol_mask].copy()
 
         # Get events for this symbol (already PIT-filtered globally)
-        symbol_events = events[events["symbol"] == symbol].copy()
+        symbol_events = _events_by_sym.get(symbol, pd.DataFrame()).copy()
 
         if symbol_events.empty:
             continue
@@ -311,13 +314,16 @@ def add_disclosure_count_feature_vectorized(
     # Initialize feature column
     result[out_col] = 0
 
+    # Pre-group events_normalized by symbol to avoid O(N*M) per-symbol filter
+    _events_norm_by_sym = {sym: grp for sym, grp in events_normalized.groupby("symbol", sort=False)}
+
     # Process per symbol
     for symbol in result["symbol"].unique():
         symbol_mask = result["symbol"] == symbol
         symbol_prices = result[symbol_mask].copy()
 
         # Get events for this symbol
-        symbol_events = events_normalized[events_normalized["symbol"] == symbol].copy()
+        symbol_events = _events_norm_by_sym.get(symbol, pd.DataFrame()).copy()
 
         if symbol_events.empty:
             continue

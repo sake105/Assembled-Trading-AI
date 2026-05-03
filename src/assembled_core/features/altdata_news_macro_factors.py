@@ -211,13 +211,8 @@ def build_news_sentiment_factors(
             [group_col, timestamp_col]
         ).reset_index(drop=True)
 
-        for symbol in sentiment_per_symbol[group_col].unique():
-            symbol_sentiment = sentiment_per_symbol[
-                sentiment_per_symbol[group_col] == symbol
-            ].copy()
-            symbol_sentiment = symbol_sentiment.sort_values(timestamp_col).reset_index(
-                drop=True
-            )
+        for symbol, symbol_sentiment in sentiment_per_symbol.groupby(group_col, sort=False):
+            symbol_sentiment = symbol_sentiment.reset_index(drop=True)
 
             # Rolling mean of sentiment
             symbol_sentiment[f"sentiment_mean_{lookback_days}d"] = (
@@ -286,8 +281,7 @@ def build_news_sentiment_factors(
 
     # Merge sentiment factors to prices (per symbol first, then market-wide)
     result_list = []
-    for symbol in result[group_col].unique():
-        symbol_result = result[result[group_col] == symbol].copy()
+    for symbol, symbol_result in result.groupby(group_col, sort=False):
         symbol_result = symbol_result.sort_values(timestamp_col).reset_index(drop=True)
 
         # First, try per-symbol sentiment
@@ -655,11 +649,10 @@ def build_macro_regime_factors(
 
     # Join regime factors to all symbols (market-wide factors)
     # All symbols on the same date get the same macro regime values
+    regime_df_sorted = regime_df.sort_values(timestamp_col).reset_index(drop=True)
     result_list = []
-    for symbol in result[group_col].unique():
-        symbol_result = result[result[group_col] == symbol].copy()
+    for symbol, symbol_result in result.groupby(group_col, sort=False):
         symbol_result = symbol_result.sort_values(timestamp_col).reset_index(drop=True)
-        regime_df_sorted = regime_df.sort_values(timestamp_col).reset_index(drop=True)
 
         # Use merge_asof to forward-fill regime factors
         symbol_result = pd.merge_asof(
