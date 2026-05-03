@@ -69,42 +69,45 @@ def check_risk(
         result.meta["qa_block_reason"] = ctx.qa_block_reason
         return result
 
+    # Shared pivot for EVT + Copula (compute once, reuse)
+    _prices_for_risk = prices_filtered if prices_filtered is not None else ctx.prices
+    _shared_rets = None
+    if not orders.empty and _prices_for_risk is not None and not _prices_for_risk.empty and "close" in _prices_for_risk.columns:
+        try:
+            _ts_col = "timestamp" if "timestamp" in _prices_for_risk.columns else _prices_for_risk.columns[0]
+            _pivot_risk = _prices_for_risk.pivot_table(index=_ts_col, columns="symbol" if "symbol" in _prices_for_risk.columns else None, values="close")
+            _shared_rets = _pivot_risk.pct_change(fill_method=None).dropna(how="all")
+        except Exception:
+            _shared_rets = None
+
     # EVT tail VaR
     try:
-        prices_for_evt = prices_filtered if prices_filtered is not None else ctx.prices
-        if not orders.empty and prices_for_evt is not None and not prices_for_evt.empty and "close" in prices_for_evt.columns:
+        if _shared_rets is not None and len(_shared_rets) >= 60:
             import numpy as _np_evt
             from src.assembled_core.risk.evt_tail_var import evt_var
-            _pivot_evt = prices_for_evt.pivot_table(index="timestamp" if "timestamp" in prices_for_evt.columns else prices_for_evt.columns[0], columns="symbol" if "symbol" in prices_for_evt.columns else None, values="close")
-            _rets_evt = _pivot_evt.pct_change(fill_method=None).dropna(how="all")
-            if len(_rets_evt) >= 60:
-                _port_rets = _rets_evt.mean(axis=1).dropna()
-                _losses = (-_port_rets).values
-                _hist_var_99 = float(_np_evt.quantile(_losses, 0.99))
-                try:
-                    _evt_var_99 = evt_var(_losses, alpha=0.99, threshold_pct=0.90)
-                except Exception:
-                    _evt_var_99 = None
-                if _evt_var_99 is not None and _hist_var_99 > 1e-8 and _evt_var_99 > 2.0 * _hist_var_99:
-                    orders = orders.copy()
-                    orders["qty"] = orders["qty"] * 0.80
-                    log.warning("[RISK] EVT VaR %.4f > 2× Hist VaR %.4f — reducing qty by 20%%", _evt_var_99, _hist_var_99)
+            _port_rets = _shared_rets.mean(axis=1).dropna()
+            _losses = (-_port_rets).values
+            _hist_var_99 = float(_np_evt.quantile(_losses, 0.99))
+            try:
+                _evt_var_99 = evt_var(_losses, alpha=0.99, threshold_pct=0.90)
+            except Exception:
+                _evt_var_99 = None
+            if _evt_var_99 is not None and _hist_var_99 > 1e-8 and _evt_var_99 > 2.0 * _hist_var_99:
+                orders = orders.copy()
+                orders["qty"] = orders["qty"] * 0.80
+                log.warning("[RISK] EVT VaR %.4f > 2× Hist VaR %.4f — reducing qty by 20%%", _evt_var_99, _hist_var_99)
     except Exception as e:
         log.debug("evt_tail_var skipped: %s", e)
 
     # Copula tail dependence
     try:
-        prices_for_cop = prices_filtered if prices_filtered is not None else ctx.prices
-        if not orders.empty and prices_for_cop is not None and not prices_for_cop.empty and "close" in prices_for_cop.columns:
+        if _shared_rets is not None and len(_shared_rets) >= 60 and 1 < _shared_rets.shape[1] <= 30:
             from src.assembled_core.ml.copula_models import compute_portfolio_tail_risk
-            _pivot_cop = prices_for_cop.pivot_table(index="timestamp" if "timestamp" in prices_for_cop.columns else prices_for_cop.columns[0], columns="symbol" if "symbol" in prices_for_cop.columns else None, values="close")
-            _rets_cop = _pivot_cop.pct_change(fill_method=None).dropna(how="all")
-            if len(_rets_cop) >= 60 and 1 < _rets_cop.shape[1] <= 30:
-                _cop_metrics = compute_portfolio_tail_risk(_rets_cop)
-                if float(_cop_metrics.get("avg_lower_tail_dep", 0.0)) > 0.5:
-                    orders = orders.copy()
-                    orders["qty"] = orders["qty"] * 0.80
-                    log.warning("[RISK] Copula avg_lower_tail_dep > 0.5 — reducing qty by 20%%")
+            _cop_metrics = compute_portfolio_tail_risk(_shared_rets)
+            if float(_cop_metrics.get("avg_lower_tail_dep", 0.0)) > 0.5:
+                orders = orders.copy()
+                orders["qty"] = orders["qty"] * 0.80
+                log.warning("[RISK] Copula avg_lower_tail_dep > 0.5 — reducing qty by 20%%")
     except Exception as e:
         log.debug("copula_tail_risk skipped: %s", e)
 
@@ -228,8 +231,8 @@ def check_risk(
                 OrderState,
             )
             _olt = OrderLifecycleTracker()
-            for _, _ord_row in result.orders_filtered.iterrows():
-                _oid = _olt.create(symbol=str(_ord_row.get("symbol", "")), side=str(_ord_row.get("side", "buy")), quantity=float(_ord_row.get("qty", 0)), price=float(_ord_row.get("price", 0)) or None, source="trading_cycle_v2")
+            for _ord_row in result.orders_filtered.itertuples(index=False):
+                _oid = _olt.create(symbol=str(getattr(_ord_row, "symbol", "")), side=str(getattr(_ord_row, "side", "buy")), quantity=float(getattr(_ord_row, "qty", 0) or 0), price=float(getattr(_ord_row, "price", 0) or 0) or None, source="trading_cycle_v2")
                 _olt.transition(_oid, OrderState.VALIDATED)
                 _olt.transition(_oid, OrderState.SUBMITTED)
             result.meta["order_lifecycle"] = {"n_orders_tracked": len(result.orders_filtered), "state": "SUBMITTED"}

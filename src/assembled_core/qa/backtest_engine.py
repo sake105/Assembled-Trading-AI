@@ -722,15 +722,8 @@ def _pb_run_cycle_fn_loop(
             orders["qty"] = orders["qty"].abs()
 
         if not orders.empty:
-            for _, row in orders.iterrows():
-                side = row.get("side", "BUY")
-                qty = float(row.get("qty", 0) or 0)
-                price = float(row.get("price", 0) or 0)
-                notional = qty * price
-                if side == "BUY":
-                    cash -= notional
-                else:
-                    cash += notional
+            _sign = np.where(orders["side"] == "BUY", -1.0, 1.0)
+            cash += float((orders["qty"].fillna(0).abs() * orders["price"].fillna(0) * _sign).sum())
 
         if not orders.empty:
             with timed_step(f"position_update_{timestamp}", timings, logger):
@@ -832,15 +825,10 @@ def _pb_run_legacy_loop(
 
         try:
             if not orders.empty:
-                for _, _row in orders.iterrows():
-                    _side = _row.get("side", "BUY")
-                    _qty = float(_row.get("qty", 0) or 0)
-                    _price = float(_row.get("price", 0) or 0)
-                    _notional = _qty * _price
-                    if _side == "BUY":
-                        _legacy_cash -= _notional
-                    else:
-                        _legacy_cash += _notional
+                _sign = np.where(orders["side"] == "BUY", -1.0, 1.0)
+                _legacy_cash += float(
+                    (orders["qty"].fillna(0).abs() * orders["price"].fillna(0) * _sign).sum()
+                )
         except Exception as _exc:
             logger.warning("[backtest] cash accounting failed at %s: %s", timestamp, _exc)
 

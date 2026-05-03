@@ -429,8 +429,9 @@ def compute_ic_weights(
     raw_ics: dict[str, list[float]] = {f: [] for f in factor_cols}
     ts_list: list = []
 
+    grouped = factor_df.groupby(timestamp_col)
     for ts in timestamps:
-        slice_df = factor_df[factor_df[timestamp_col] == ts]
+        slice_df = grouped.get_group(ts) if ts in grouped.groups else pd.DataFrame()
         ts_list.append(ts)
         for fcol in factor_cols:
             valid = slice_df[[fcol, forward_returns_col]].dropna()
@@ -450,15 +451,14 @@ def compute_ic_weights(
         rolling_ic = ic_df[raw_col].rolling(ic_window, min_periods=max(10, ic_window // 3)).mean()
         ic_df[f"ic_smooth_{fcol}"] = rolling_ic.ewm(halflife=ic_halflife, min_periods=5).mean()
 
-    # Step 3: normalise positive smoothed ICs into weights
+    # Step 3: normalise positive smoothed ICs into weights (vectorized)
     smooth_cols = [f"ic_smooth_{f}" for f in factor_cols]
-
-    for i in range(len(ic_df)):
-        values = ic_df.loc[i, smooth_cols].values.astype(float)
-        positive = np.where(values > 0, values, 0.0)
-        total = positive.sum()
-        for j, fcol in enumerate(factor_cols):
-            ic_df.loc[i, f"weight_{fcol}"] = positive[j] / total if total > 0 else 0.0
+    smooth_matrix = ic_df[smooth_cols].clip(lower=0)
+    row_totals = smooth_matrix.sum(axis=1).replace(0, np.nan)
+    for j, fcol in enumerate(factor_cols):
+        ic_df[f"weight_{fcol}"] = smooth_matrix[smooth_cols[j]] / row_totals
+    for fcol in factor_cols:
+        ic_df[f"weight_{fcol}"] = ic_df[f"weight_{fcol}"].fillna(0.0)
 
     # Aggregate IC: confidence indicator
     ic_df["aggregate_ic"] = ic_df[smooth_cols].clip(lower=0).sum(axis=1)

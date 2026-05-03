@@ -249,9 +249,7 @@ def generate_multifactor_long_short_signals(
                 if ym != prev_ym:
                     first_td_of_month.add(pd.Timestamp(ts).normalize())
                     prev_ym = ym
-            rebalance_mask = mf_df["timestamp"].apply(
-                lambda ts: pd.Timestamp(ts).normalize() in first_td_of_month
-            )
+            rebalance_mask = pd.to_datetime(mf_df["timestamp"]).dt.normalize().isin(first_td_of_month)
         else:
             rebalance_mask = mf_df["timestamp"].apply(
                 lambda ts: _is_rebalance_date(ts, config.rebalance_freq)
@@ -353,54 +351,46 @@ def generate_multifactor_long_short_signals(
             regime_state_df = None
 
     # Build signals DataFrame
-    signals = []
-    for timestamp in mf_df_rebalance["timestamp"].unique():
-        timestamp_df = mf_df_rebalance[mf_df_rebalance["timestamp"] == timestamp]
+    _base_cols = ["timestamp", "symbol", "mf_score"]
 
-        # Get regime label + posteriors for this timestamp if regime overlay is enabled
-        regime_label = None
-        regime_posteriors: dict[str, float] = {}
-        if regime_state_df is not None:
+    if regime_state_df is None:
+        # Fast path: no regime overlay — fully vectorized, no Python row loop
+        long_rows = mf_df_rebalance[mf_df_rebalance["mf_long_flag"] == 1][_base_cols].copy()
+        long_rows["direction"] = "LONG"
+        short_rows = mf_df_rebalance[mf_df_rebalance["mf_short_flag"] == 1][_base_cols].copy()
+        short_rows["direction"] = "SHORT"
+        signals_df = pd.concat([long_rows, short_rows], ignore_index=True).rename(
+            columns={"mf_score": "score"}
+        )
+    else:
+        # Regime path: per-timestamp lookup, but inner symbol loop replaced with concat
+        from src.assembled_core.signals.multifactor_signal import extract_regime_posteriors
+
+        ts_frames = []
+        for timestamp in mf_df_rebalance["timestamp"].unique():
+            timestamp_df = mf_df_rebalance[mf_df_rebalance["timestamp"] == timestamp]
+
+            regime_label = None
+            regime_posteriors: dict[str, float] = {}
             regime_for_ts = regime_state_df[regime_state_df["timestamp"] == timestamp]
             if not regime_for_ts.empty:
                 regime_label = regime_for_ts["regime_label"].iloc[0]
-                # Extract continuous HMM posteriors for smooth blending
-                from src.assembled_core.signals.multifactor_signal import (
-                    extract_regime_posteriors,
-                )
                 regime_posteriors = extract_regime_posteriors(regime_state_df, timestamp)
 
-        # Long signals (top quantile)
-        long_symbols = timestamp_df[timestamp_df["mf_long_flag"] == 1]
-        for _, row in long_symbols.iterrows():
-            signal_dict = {
-                "timestamp": row["timestamp"],
-                "symbol": row["symbol"],
-                "direction": "LONG",
-                "score": row["mf_score"],
-            }
+            long_rows = timestamp_df[timestamp_df["mf_long_flag"] == 1][_base_cols].copy()
+            long_rows["direction"] = "LONG"
+            short_rows = timestamp_df[timestamp_df["mf_short_flag"] == 1][_base_cols].copy()
+            short_rows["direction"] = "SHORT"
+            ts_df = pd.concat([long_rows, short_rows], ignore_index=True).rename(
+                columns={"mf_score": "score"}
+            )
             if regime_label is not None:
-                signal_dict["regime"] = regime_label
+                ts_df["regime"] = regime_label
             if regime_posteriors:
-                signal_dict["regime_posteriors"] = regime_posteriors
-            signals.append(signal_dict)
+                ts_df["regime_posteriors"] = [regime_posteriors] * len(ts_df)
+            ts_frames.append(ts_df)
 
-        # Short signals (bottom quantile)
-        short_symbols = timestamp_df[timestamp_df["mf_short_flag"] == 1]
-        for _, row in short_symbols.iterrows():
-            signal_dict = {
-                "timestamp": row["timestamp"],
-                "symbol": row["symbol"],
-                "direction": "SHORT",
-                "score": row["mf_score"],
-            }
-            if regime_label is not None:
-                signal_dict["regime"] = regime_label
-            if regime_posteriors:
-                signal_dict["regime_posteriors"] = regime_posteriors
-            signals.append(signal_dict)
-
-    signals_df = pd.DataFrame(signals)
+        signals_df = pd.concat(ts_frames, ignore_index=True) if ts_frames else pd.DataFrame()
 
     # Store regime_state_df as attribute for position sizing function
     if regime_state_df is not None:

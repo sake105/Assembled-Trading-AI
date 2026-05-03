@@ -190,13 +190,10 @@ def ensure_fill_schema(
         if not default_full_fill:
             raise ValueError("status column missing and default_full_fill=False")
         # Determine status based on fill_qty vs qty
-        fills["status"] = fills.apply(
-            lambda row: (
-                "filled"
-                if row["fill_qty"] == row["qty"]
-                else "partial" if row["fill_qty"] > 0 else "rejected"
-            ),
-            axis=1,
+        fills["status"] = np.select(
+            [fills["fill_qty"] == fills["qty"], fills["fill_qty"] > 0],
+            ["filled", "partial"],
+            default="rejected",
         )
 
     if "remaining_qty" not in fills.columns:
