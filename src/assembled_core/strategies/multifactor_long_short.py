@@ -518,8 +518,6 @@ def compute_multifactor_long_short_positions(
     long_signals = latest_signals[latest_signals["direction"] == "LONG"].copy()
     short_signals = latest_signals[latest_signals["direction"] == "SHORT"].copy()
 
-    positions = []
-
     # Calculate weights based on regime parameters
     # Formula:
     # Long side = (max_gross_exposure / 2 + target_net_exposure / 2)
@@ -528,40 +526,29 @@ def compute_multifactor_long_short_positions(
     # - Gross exposure = long + short = max_gross_exposure
     # - Net exposure = long - short = target_net_exposure
 
-    # Long positions: equal-weighted within long side
+    _parts = []
+
+    # Long positions: equal-weighted within long side (scalar broadcast — no loop needed)
     if not long_signals.empty:
-        n_long = len(long_signals)
-        # Long side allocation
-        long_side_allocation = (max_gross_exp / 2.0) + (target_net_exp / 2.0)
-        long_weight_per_symbol = long_side_allocation / n_long
+        long_weight_per_symbol = ((max_gross_exp / 2.0) + (target_net_exp / 2.0)) / len(long_signals)
+        _long_df = pd.DataFrame({
+            "symbol": long_signals[group_col].values,
+            "target_weight": long_weight_per_symbol,
+            "target_qty": long_weight_per_symbol * capital,
+        })
+        _parts.append(_long_df)
 
-        for _, row in long_signals.iterrows():
-            positions.append(
-                {
-                    "symbol": row[group_col],
-                    "target_weight": long_weight_per_symbol,
-                    "target_qty": long_weight_per_symbol * capital,
-                }
-            )
-
-    # Short positions: equal-weighted within short side (negative weights)
+    # Short positions: equal-weighted within short side — negative weights
     if not short_signals.empty:
-        n_short = len(short_signals)
-        # Short side allocation (negative)
-        short_side_allocation = (max_gross_exp / 2.0) - (target_net_exp / 2.0)
-        short_weight_per_symbol = -short_side_allocation / n_short
+        short_weight_per_symbol = -((max_gross_exp / 2.0) - (target_net_exp / 2.0)) / len(short_signals)
+        _short_df = pd.DataFrame({
+            "symbol": short_signals[group_col].values,
+            "target_weight": short_weight_per_symbol,
+            "target_qty": short_weight_per_symbol * capital,
+        })
+        _parts.append(_short_df)
 
-        for _, row in short_signals.iterrows():
-            positions.append(
-                {
-                    "symbol": row[group_col],
-                    "target_weight": short_weight_per_symbol,
-                    "target_qty": short_weight_per_symbol
-                    * capital,  # Negative quantity for short
-                }
-            )
-
-    positions_df = pd.DataFrame(positions)
+    positions_df = pd.concat(_parts, ignore_index=True) if _parts else pd.DataFrame()
 
     if not positions_df.empty:
         positions_df = positions_df.sort_values("symbol").reset_index(drop=True)
