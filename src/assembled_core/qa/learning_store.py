@@ -236,16 +236,16 @@ def compute_factor_attribution(
         for f in available_factors
     }
 
-    for _, row in records_df.iterrows():
+    for row in records_df.itertuples(index=False):
         try:
             # Extract factor values for this trade
             factor_values: dict[str, float] = {}
             for f in available_factors:
                 try:
-                    val = float(row[f])
+                    val = float(getattr(row, f))
                     if pd.notna(val):
                         factor_values[f] = val
-                except (TypeError, ValueError):
+                except (TypeError, ValueError, AttributeError):
                     pass
 
             if not factor_values:

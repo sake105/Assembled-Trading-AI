@@ -154,12 +154,12 @@ def label_trades(
     prices_indexed = prices.set_index(["symbol", "timestamp"])["close"]
 
     pnl_list = []
-    for idx, trade in trades.iterrows():
-        symbol = trade["symbol"]
-        open_time = trade["timestamp"]
-        close_time = trade["close_time"]
-        side = trade["side"]
-        open_price = trade["price"]
+    for trade in trades.itertuples(index=False):
+        symbol = trade.symbol
+        open_time = trade.timestamp
+        close_time = trade.close_time
+        side = trade.side
+        open_price = trade.price
 
         # Get entry price (from trade)
         entry_price = float(open_price)
@@ -488,9 +488,9 @@ def generate_trade_labels(
     # Process each signal
     results = []
 
-    for idx, signal in signals.iterrows():
-        symbol = signal["symbol"]
-        signal_time = signal["timestamp"]
+    for signal in signals.itertuples(index=False):
+        symbol = signal.symbol
+        signal_time = signal.timestamp
         entry_time = signal_time
         exit_time = entry_time + pd.Timedelta(days=horizon_days)
 
@@ -673,9 +673,9 @@ def generate_triple_barrier_labels(
 
     results: list[dict] = []
 
-    for _, signal in signals.iterrows():
-        symbol = signal["symbol"]
-        signal_time = signal["timestamp"]
+    for signal in signals.itertuples(index=False):
+        symbol = signal.symbol
+        signal_time = signal.timestamp
 
         sym_prices = prices_by_symbol.get(symbol)
         if sym_prices is None or sym_prices.empty:

@@ -184,15 +184,15 @@ def _check_invalid_prices(prices: pd.DataFrame, issues: list[QcIssue]) -> list[Q
         if invalid_mask.any():
             invalid_rows = prices[invalid_mask]
             _MAX_ISSUES = 100  # prevent unbounded growth on corrupted data
-            for _, row in invalid_rows.head(_MAX_ISSUES).iterrows():
+            for row in invalid_rows.head(_MAX_ISSUES).itertuples(index=False):
                 issues.append(
                     QcIssue(
                         check="negative_price",
                         severity="FAIL",
-                        symbol=str(row.get("symbol", "")),
-                        timestamp=row.get("timestamp"),
-                        message=f"Invalid close price: {row.get('close', 'NaN')}",
-                        details={"close": float(row.get("close", 0.0))},
+                        symbol=str(getattr(row, "symbol", "")),
+                        timestamp=getattr(row, "timestamp", None),
+                        message=f"Invalid close price: {getattr(row, 'close', 'NaN')}",
+                        details={"close": float(getattr(row, "close", 0.0))},
                     )
                 )
             if len(invalid_rows) > _MAX_ISSUES:

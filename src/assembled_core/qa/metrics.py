@@ -329,11 +329,13 @@ def _compute_round_trip_pnls(trades: pd.DataFrame) -> list[float]:
     positions: dict[str, tuple[float, float]] = {}  # symbol -> (qty, avg_price)
     pnls: list[float] = []
 
-    for _, row in df.iterrows():
-        sym = row.get("symbol", "")
-        side = row.get("side", "BUY")
-        raw_qty = float(row[qty_col]) if pd.notna(row[qty_col]) else 0.0
-        price = float(row[px_col]) if pd.notna(row[px_col]) else 0.0
+    for row in df.itertuples(index=False):
+        sym = getattr(row, "symbol", "")
+        side = getattr(row, "side", "BUY")
+        _qty_raw = getattr(row, qty_col, None)
+        raw_qty = float(_qty_raw) if _qty_raw is not None and pd.notna(_qty_raw) else 0.0
+        _px_raw = getattr(row, px_col, None)
+        price = float(_px_raw) if _px_raw is not None and pd.notna(_px_raw) else 0.0
 
         if raw_qty <= 0 or price <= 0:
             continue

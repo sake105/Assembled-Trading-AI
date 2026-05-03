@@ -188,10 +188,10 @@ def event_study(
     """
     results = []
 
-    for _, row in events_df.iterrows():
-        ticker = row["ticker"]
-        event_date = pd.Timestamp(row["event_date"])
-        label = row.get("sentiment_label", "unknown")
+    for row in events_df.itertuples(index=False):
+        ticker = row.ticker
+        event_date = pd.Timestamp(row.event_date)
+        label = getattr(row, "sentiment_label", "unknown")
 
         if ticker not in returns_df.columns:
             continue
