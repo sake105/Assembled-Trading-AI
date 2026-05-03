@@ -272,9 +272,12 @@ def compute_total_return_index(
     divs["effective_date"] = pd.to_datetime(divs["effective_date"], utc=True)
     result[ts_col] = pd.to_datetime(result[ts_col], utc=True)
 
+    # Pre-group divs by symbol to avoid O(N*M) per-symbol filter
+    _divs_by_sym = {sym: grp.sort_values("effective_date") for sym, grp in divs.groupby("symbol", sort=False)}
+
     # For each symbol, compute cumulative dividend adjustment
     for sym in result["symbol"].unique():
-        sym_divs = divs[divs["symbol"] == sym].sort_values("effective_date")
+        sym_divs = _divs_by_sym.get(sym, pd.DataFrame())
         if sym_divs.empty:
             continue
 

@@ -252,11 +252,14 @@ def build_earnings_surprise_factors(
     # Ensure result is sorted by [group_col, timestamp_col] (required for merge_asof with by=)
     result = result.sort_values([group_col, timestamp_col]).reset_index(drop=True)
 
+    # Pre-group events_sorted by symbol to avoid O(N*M) per-symbol filter
+    _events_sorted_by_sym = {sym: grp for sym, grp in events_sorted.groupby(group_col, sort=False)}
+
     # Perform merge_asof per group to avoid sorting issues with multiple groups
     merged_parts = []
-    for symbol in result[group_col].unique():
-        symbol_prices = result[result[group_col] == symbol].copy()
-        symbol_events = events_sorted[events_sorted[group_col] == symbol].copy()
+    for symbol, symbol_prices in result.groupby(group_col, sort=False):
+        symbol_prices = symbol_prices.copy()
+        symbol_events = _events_sorted_by_sym.get(symbol, pd.DataFrame())
 
         if symbol_events.empty:
             # No events for this symbol, add NaN columns
@@ -528,12 +531,15 @@ def build_insider_activity_factors(
         [group_col, timestamp_col]
     ).reset_index(drop=True)
 
+    # Pre-group events_filtered by symbol to avoid O(N*M) per-symbol filter
+    _events_filtered_by_sym = {sym: grp for sym, grp in events_filtered.groupby(group_col, sort=False)}
+
     # For each symbol, compute rolling aggregations over lookback window
     factors_list = []
 
-    for symbol in result[group_col].unique():
-        symbol_prices = result[result[group_col] == symbol].copy()
-        symbol_events = events_filtered[events_filtered[group_col] == symbol].copy()
+    for symbol, symbol_prices in result.groupby(group_col, sort=False):
+        symbol_prices = symbol_prices.copy()
+        symbol_events = _events_filtered_by_sym.get(symbol, pd.DataFrame())
 
         if symbol_events.empty:
             # No events for this symbol
