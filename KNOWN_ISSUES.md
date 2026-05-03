@@ -162,6 +162,59 @@ Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante 
 
 ### 4.3 ML-Experimente
 
+#### OOS-Holdout-Ergebnis (2025-2026) — ✅ DONE 2026-05-03
+
+**Backtest:** `multifactor_long_short` + `ai_tech_core_ml_bundle.yaml`, 2025-01-02 → 2026-04-01  
+**Panel:** `data/sample/watchlist_2020_2026.parquet` (29 Symbole), monatliches Rebalancing, mit Kosten  
+**Kontext:** ML-Schichten alle disabled (policy-Default). Reiner TA-Multifaktor-Baseline im Holdout-Zeitraum.
+
+| Metrik        | OOS 2025-2026 | Baseline 2023-2026 |
+|---------------|---------------|--------------------|
+| CAGR          | 22.75%        | 19.19%             |
+| Sharpe        | 2.59          | 2.99               |
+| MDD           | -3.58%        | -3.39%             |
+| Profit Factor | 2.64          | 1.77               |
+| Total Return  | +28.90%       | —                  |
+| Hit Rate      | 71%           | —                  |
+| Trades        | 223           | 438                |
+
+**Befund:** Strategie hält Profitabilität im Holdout. CAGR leicht besser (+3.6pp), Sharpe leicht
+schwächer (-0.4) als 3-Jahres-Periode. MDD unter Kontrolle. ⚠️ Survivorship-Bias verbleibt
+(Panel-Auswahl). 2025-2026 war AI/Tech-freundliches Marktumfeld.  
+**Report:** `output/oos_2025_2026_result.json/reports/metrics.json`
+
+#### Leakage-Audit ML-Features — ✅ DONE 2026-05-03
+
+**Geprüfte Features (14):** `ta_log_return_v1`, `ta_rsi_14_v1`, `ta_macd_hist_v1`, `ta_bb_pctb_v1`,
+`ta_bb_bandwidth_v1`, `ta_adx_v1`, `ta_atr_14_v1`, `rv_20`, `rv_60`, `vov_20_60`,
+`volume_zscore`, `amihud_illiq_20d`, `ret_5d`, `ret_20d`  
+**Methode:** `LeakageAnalyzer` — check_lookahead, check_recursive, check_normalization_leakage  
+**Train:** 25.229 Samples (< 2024-01-01), **Test:** 16.197 Samples (≥ 2024-01-01)
+
+| Check               | Findings | Verdict       |
+|---------------------|----------|---------------|
+| Lookahead Leakage   | 0        | ✅ CLEAN       |
+| Recursive Leakage   | 0        | ✅ CLEAN       |
+| Normalization (FP)  | 8 × low  | ⚠️ False Positives |
+
+**Normalization-Findings sind False Positives:** z-Scores 0.017–0.085 (Schwelle für echte
+Leakage liegt typischerweise > 0.5). Features sind rohe Rolling-TA ohne globale Normalisierung —
+stationäre Features haben ähnliche Train/Test-Means per Design.  
+**Report:** `output/leakage_report_ml_features_2026-05-03.json`  
+**Skript:** `scripts/run_leakage_audit.py`
+
+#### EDCL A/B-Test — ⚠️ Backtest-A/B nicht aussagekräftig (2026-05-03)
+
+**Befund:** EDCL-Multiplier feuert nur wenn `ctx.edcl_state.conviction > 0.70`. Im Backtest-Modus
+ist `conviction` immer 0.0 — kein Live-Event-Feed, keine historische Event-Replay-Infrastruktur.
+Ein A/B-Backtest (selbst mit `allow_in_backtest: true`) wäre numerisch identisch mit Baseline.
+
+**Code:** `src/assembled_core/pipeline/_tc_sizing.py:397` — multiplier bleibt 1.0 wenn conviction = 0.
+
+**Korrekter Validierungsweg:** Paper-Trading-Modus mit realem News-Event-Feed.  
+**Aktivierungskriterium (policy.yaml):** 30 Tage Paper-Run + 15% netto-Verbesserung über Baseline.  
+**Status:** System vollständig gewired (Phases A–H committed). Validierung ist ein Paper-Trading-Milestone, kein Backtest-Milestone.
+
 #### ML-Aktivierungskriterien (Stand 2026-05-01)
 
 Alle drei ML-Schichten sind policy-gated und per Default **disabled**. Die folgenden
