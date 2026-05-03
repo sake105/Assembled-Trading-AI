@@ -69,11 +69,11 @@ def load_sp500_historical_members(
     removed_rows: list[dict] = []
     if len(tables) > 1:
         changes = tables[1]
-        for _, row in changes.iterrows():
+        for row in changes.itertuples(index=False):
             try:
-                date_raw = row.iloc[0]
-                added_sym = str(row.iloc[1]).replace(".", "-") if pd.notna(row.iloc[1]) else None  # noqa: F841
-                removed_sym = str(row.iloc[2]).replace(".", "-") if pd.notna(row.iloc[2]) else None
+                date_raw = row[0]
+                added_sym = str(row[1]).replace(".", "-") if pd.notna(row[1]) else None  # noqa: F841
+                removed_sym = str(row[2]).replace(".", "-") if pd.notna(row[2]) else None
                 chg_date = pd.to_datetime(date_raw, errors="coerce")
                 if pd.isna(chg_date):
                     continue

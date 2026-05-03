@@ -945,12 +945,13 @@ def write_regime_metrics(
             ("trend", trend_regime),
             ("drawdown", dd_regime),
         ]:
-            for label in reg_series.dropna().unique():
-                mask = reg_series == label
-                if mask.sum() < 2:
+            reg_clean = reg_series.dropna()
+            for label, label_vals in reg_clean.groupby(reg_clean, sort=False):
+                mask_idx = label_vals.index
+                if len(mask_idx) < 2:
                     continue
-                r = ret[mask]
-                e = eq_on_ret[mask]
+                r = ret.loc[mask_idx]
+                e = eq_on_ret.loc[mask_idx]
                 tr = (e.iloc[-1] / e.iloc[0] - 1.0) if e.iloc[0] != 0 else None
                 sh = (r.mean() / r.std() * (252**0.5)) if r.std() > 0 else None
                 peak_r = e.expanding().max()
@@ -969,7 +970,7 @@ def write_regime_metrics(
                             if max_dd_pct is not None
                             else None
                         ),
-                        "bars_count": int(mask.sum()),
+                        "bars_count": len(mask_idx),
                     }
                 )
     fieldnames = [
@@ -1034,8 +1035,7 @@ def write_attribution_summary(
             from datetime import timedelta
 
             overlap = 0
-            for _, r in var_trades.iterrows():
-                sym, d = str(r["symbol"]), r["_date"]
+            for sym, d in zip(var_trades["symbol"].astype(str), var_trades["_date"]):
                 matched = (sym, d) in base_set
                 if not matched:
                     for delta in [-1, 1]:

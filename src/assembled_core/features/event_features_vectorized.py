@@ -99,9 +99,9 @@ def build_event_feature_panel_vectorized(
     _events_by_sym = {sym: grp for sym, grp in events.groupby("symbol", sort=False)}
 
     # Step 4: Process per symbol (O(N log N) per symbol)
-    for symbol in result["symbol"].unique():
-        symbol_mask = result["symbol"] == symbol
-        symbol_prices = result[symbol_mask].copy()
+    for symbol, symbol_prices in result.groupby("symbol", sort=False):
+        sym_idx = symbol_prices.index
+        symbol_prices = symbol_prices.copy()
 
         # Get events for this symbol (already PIT-filtered globally)
         symbol_events = _events_by_sym.get(symbol, pd.DataFrame()).copy()
@@ -119,13 +119,13 @@ def build_event_feature_panel_vectorized(
         )
 
         # Assign features back to result (convert to float to avoid LossySetitemError)
-        result.loc[symbol_mask, f"{feature_prefix}_count_{lookback_days}d"] = features[
+        result.loc[sym_idx, f"{feature_prefix}_count_{lookback_days}d"] = features[
             "count"
         ].values.astype(np.float64)
-        result.loc[symbol_mask, f"{feature_prefix}_sum_{lookback_days}d"] = features[
+        result.loc[sym_idx, f"{feature_prefix}_sum_{lookback_days}d"] = features[
             "sum"
         ].values.astype(np.float64)
-        result.loc[symbol_mask, f"{feature_prefix}_mean_{lookback_days}d"] = (
+        result.loc[sym_idx, f"{feature_prefix}_mean_{lookback_days}d"] = (
             pd.to_numeric(features["mean"], errors="coerce").values
         )
 
@@ -318,9 +318,9 @@ def add_disclosure_count_feature_vectorized(
     _events_norm_by_sym = {sym: grp for sym, grp in events_normalized.groupby("symbol", sort=False)}
 
     # Process per symbol
-    for symbol in result["symbol"].unique():
-        symbol_mask = result["symbol"] == symbol
-        symbol_prices = result[symbol_mask].copy()
+    for symbol, symbol_prices in result.groupby("symbol", sort=False):
+        sym_idx = symbol_prices.index
+        symbol_prices = symbol_prices.copy()
 
         # Get events for this symbol
         symbol_events = _events_norm_by_sym.get(symbol, pd.DataFrame()).copy()
@@ -337,7 +337,7 @@ def add_disclosure_count_feature_vectorized(
         )
 
         # Assign counts back to result
-        result.loc[symbol_mask, out_col] = counts.values
+        result.loc[sym_idx, out_col] = counts.values
 
     # Final deterministic sort (same as legacy)
     result = result.sort_values(["symbol", "timestamp"], kind="mergesort").reset_index(

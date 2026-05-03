@@ -142,9 +142,8 @@ def build_event_feature_panel(
     _events_by_sym = {sym: grp for sym, grp in events.groupby("symbol", sort=False)}
 
     # Group by symbol for efficient processing
-    for symbol in result["symbol"].unique():
-        symbol_mask = result["symbol"] == symbol
-        symbol_prices = result[symbol_mask].copy()
+    for symbol, symbol_prices in result.groupby("symbol", sort=False):
+        symbol_prices = symbol_prices.copy()
 
         # Get events for this symbol (already PIT-filtered globally)
         symbol_events = _events_by_sym.get(symbol, pd.DataFrame()).copy()
@@ -269,9 +268,8 @@ def add_disclosure_count_feature(
     _events_norm_by_sym = {sym: grp for sym, grp in events_normalized.groupby("symbol", sort=False)}
 
     # Group by symbol for efficient processing
-    for symbol in result["symbol"].unique():
-        symbol_mask = result["symbol"] == symbol
-        symbol_prices = result[symbol_mask].copy()
+    for symbol, symbol_prices in result.groupby("symbol", sort=False):
+        symbol_prices = symbol_prices.copy()
 
         # Get events for this symbol
         symbol_events = _events_norm_by_sym.get(symbol, pd.DataFrame()).copy()

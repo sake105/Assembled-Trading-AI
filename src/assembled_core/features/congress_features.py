@@ -104,9 +104,8 @@ def add_congress_features(
     _events_by_sym = {sym: grp for sym, grp in events.groupby("symbol", sort=False)}
 
     # Group by symbol for efficient processing
-    for symbol in result["symbol"].unique():
-        symbol_mask = result["symbol"] == symbol
-        symbol_prices = result[symbol_mask].copy()
+    for symbol, symbol_prices in result.groupby("symbol", sort=False):
+        symbol_prices = symbol_prices.copy()
 
         # Get events for this symbol
         symbol_events = _events_by_sym.get(symbol, pd.DataFrame()).copy()

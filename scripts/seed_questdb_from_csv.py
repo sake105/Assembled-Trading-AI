@@ -94,18 +94,18 @@ def main() -> None:
     total_written = 0
     batch: list[OHLCVTick] = []
 
-    for _, row in df.iterrows():
-        ts = row["timestamp"]
+    for row in df.itertuples(index=False):
+        ts = row.timestamp
         if ts.tzinfo is None:
             ts = ts.replace(tzinfo=timezone.utc)
         tick = OHLCVTick(
-            symbol=str(row["symbol"]),
+            symbol=str(row.symbol),
             ts=ts,
-            open=float(row.get("open", row["close"])),
-            high=float(row.get("high", row["close"])),
-            low=float(row.get("low", row["close"])),
-            close=float(row["close"]),
-            volume=float(row.get("volume", 0)),
+            open=float(getattr(row, "open", row.close)),
+            high=float(getattr(row, "high", row.close)),
+            low=float(getattr(row, "low", row.close)),
+            close=float(row.close),
+            volume=float(getattr(row, "volume", 0)),
         )
         batch.append(tick)
 

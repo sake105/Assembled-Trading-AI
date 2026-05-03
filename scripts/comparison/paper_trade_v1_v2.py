@@ -298,10 +298,9 @@ def _simulate_strategy(
 
         # Build close-price dict for today
         today_closes: dict[str, float] = {}
-        for _, row in prices_today.iterrows():
-            sym = str(row["symbol"])
-            if "close" in prices_today.columns and not pd.isna(row["close"]):
-                today_closes[sym] = float(row["close"])
+        if "close" in prices_today.columns:
+            _valid = prices_today.dropna(subset=["close"])
+            today_closes = dict(zip(_valid["symbol"].astype(str), _valid["close"].astype(float)))
 
         if not today_closes:
             equity_curve.append(cash + _mark_positions(positions, prices_up_to))
