@@ -195,33 +195,34 @@ def compute_kelly_weights(
     if isinstance(win_rates, dict):
         win_rates = pd.Series(win_rates)
 
-    kelly_weights = []
-    for _, row in long_signals.iterrows():
-        sym = row["symbol"]
-        if win_rates is not None and sym in win_rates.index:
-            p = float(win_rates[sym])
-        elif "score" in row.index and pd.notna(row.get("score")):
-            p = 0.5 + float(row["score"]) * 0.1  # Map score to slight edge
+    if win_rates is not None:
+        p = long_signals["symbol"].map(win_rates).astype(float)
+        if "score" in long_signals.columns:
+            score_p = (0.5 + long_signals["score"].astype(float) * 0.1).clip(0.0, 1.0)
         else:
-            p = 0.55
+            score_p = pd.Series(0.55, index=long_signals.index)
+        p = p.where(p.notna(), score_p).fillna(0.55)
+    elif "score" in long_signals.columns:
+        p = (0.5 + long_signals["score"].astype(float) * 0.1).clip(0.0, 1.0).fillna(0.55)
+    else:
+        p = pd.Series(0.55, index=long_signals.index)
 
-        if isinstance(payoff_ratios, pd.Series) and sym in payoff_ratios.index:
-            b = float(payoff_ratios[sym])
-        elif isinstance(payoff_ratios, dict) and sym in payoff_ratios:
-            b = float(payoff_ratios[sym])
-        else:
-            b = 1.5
+    if isinstance(payoff_ratios, (pd.Series, dict)):
+        b = long_signals["symbol"].map(
+            payoff_ratios if isinstance(payoff_ratios, dict) else payoff_ratios.to_dict()
+        ).astype(float).fillna(1.5)
+    else:
+        b = pd.Series(1.5, index=long_signals.index)
 
-        q = 1.0 - p
-        kelly_raw = (p * b - q) / b if b > 0 else 0.0
-        kelly_frac = max(0.0, kelly_raw * fraction)
-        kelly_capped = min(kelly_frac, max_weight)
+    q = 1.0 - p
+    kelly_raw = ((p * b - q) / b.replace(0.0, np.nan)).fillna(0.0)
+    kelly_frac = (kelly_raw.clip(lower=0.0) * fraction).clip(upper=max_weight)
 
-        kelly_weights.append(
-            {"symbol": sym, "kelly_raw": kelly_raw, "kelly_frac": kelly_capped}
-        )
-
-    result = pd.DataFrame(kelly_weights)
+    result = pd.DataFrame({
+        "symbol": long_signals["symbol"].values,
+        "kelly_raw": kelly_raw.values,
+        "kelly_frac": kelly_frac.values,
+    })
 
     # Normalize weights to sum to <=1
     total_w = result["kelly_frac"].sum()
@@ -274,19 +275,12 @@ def compute_risk_parity_weights(
     if isinstance(volatilities, dict):
         volatilities = pd.Series(volatilities)
 
-    rows = []
     skipped: list[str] = []
-    for _, row in long_signals.iterrows():
-        sym = row["symbol"]
-        # Drop symbols with missing / non-finite / zero vol — silently defaulting
-        # to 0.20 defeats the purpose of risk-parity (all missing symbols would
-        # get identical inverse-vol weights).
-        vol_raw = volatilities.get(sym, None) if hasattr(volatilities, "get") else None
-        vol = float(vol_raw) if vol_raw is not None and pd.notna(vol_raw) else float("nan")
-        if not np.isfinite(vol) or vol < 1e-8:
-            skipped.append(sym)
-            continue
-        rows.append({"symbol": sym, "inv_vol": 1.0 / vol, "volatility": vol})
+    vol_mapped = long_signals["symbol"].map(
+        volatilities.to_dict() if isinstance(volatilities, pd.Series) else volatilities
+    ).astype(float)
+    valid_mask = vol_mapped.notna() & np.isfinite(vol_mapped.values) & (vol_mapped >= 1e-8)
+    skipped = long_signals["symbol"][~valid_mask].tolist()
     if skipped:
         logger.warning(
             "[risk_parity] dropped %d symbols with missing/zero volatility: %s",
@@ -294,12 +288,16 @@ def compute_risk_parity_weights(
             skipped[:20],
         )
 
-    if not rows:
+    if not valid_mask.any():
         return pd.DataFrame(
             columns=["symbol", "target_weight", "target_qty", "volatility"]
         )
 
-    result = pd.DataFrame(rows)
+    result = pd.DataFrame({
+        "symbol": long_signals["symbol"][valid_mask].values,
+        "inv_vol": (1.0 / vol_mapped[valid_mask]).values,
+        "volatility": vol_mapped[valid_mask].values,
+    })
     total_inv_vol = result["inv_vol"].sum()
 
     if total_inv_vol > 0:
@@ -359,26 +357,15 @@ def compute_vol_scaled_weights(
     if top_n is not None and "score" in long_signals.columns:
         long_signals = long_signals.nlargest(top_n, "score")
 
-    if isinstance(volatilities, dict):
-        volatilities = pd.Series(volatilities)
-
     n_positions = len(long_signals)
     sqrt_n = np.sqrt(n_positions) if n_positions > 0 else 1.0
 
-    rows = []
-    skipped: list[str] = []
-    for _, row in long_signals.iterrows():
-        sym = row["symbol"]
-        vol_raw = volatilities.get(sym, None) if hasattr(volatilities, "get") else None
-        vol = float(vol_raw) if vol_raw is not None and pd.notna(vol_raw) else float("nan")
-        if not np.isfinite(vol) or vol < 1e-8:
-            skipped.append(sym)
-            continue
-
-        weight = target_vol / (sqrt_n * vol)
-        weight = min(weight, max_weight)
-
-        rows.append({"symbol": sym, "target_weight": weight, "volatility": vol})
+    vol_mapped = long_signals["symbol"].map(
+        volatilities if isinstance(volatilities, dict) else
+        (volatilities.to_dict() if isinstance(volatilities, pd.Series) else {})
+    ).astype(float)
+    valid_mask = vol_mapped.notna() & np.isfinite(vol_mapped.values) & (vol_mapped >= 1e-8)
+    skipped = long_signals["symbol"][~valid_mask].tolist()
     if skipped:
         logger.warning(
             "[vol_scaled] dropped %d symbols with missing/zero volatility: %s",
@@ -386,12 +373,19 @@ def compute_vol_scaled_weights(
             skipped[:20],
         )
 
-    if not rows:
+    if not valid_mask.any():
         return pd.DataFrame(
             columns=["symbol", "target_weight", "target_qty", "volatility"]
         )
 
-    result = pd.DataFrame(rows)
+    vols_valid = vol_mapped[valid_mask]
+    weights = (target_vol / (sqrt_n * vols_valid)).clip(upper=max_weight)
+
+    result = pd.DataFrame({
+        "symbol": long_signals["symbol"][valid_mask].values,
+        "target_weight": weights.values,
+        "volatility": vols_valid.values,
+    })
 
     # Normalize if total exceeds 1.0
     total_w = result["target_weight"].sum()
@@ -642,19 +636,19 @@ def apply_news_sentiment_weight_adjustment(
     if not sentiment_map:
         return result
 
+    sym_upper = result["symbol"].str.upper()
+    sentiment_series = sym_upper.map(sentiment_map)
+    has_sentiment = sentiment_series.notna()
     adjustments: list[dict] = []
-    for idx, row in result.iterrows():
-        sym = str(row["symbol"]).upper()
-        sent = sentiment_map.get(sym)
-        if sent is None:
-            continue
-        # Map sentiment [-1, 1] → weight delta [-max_adjustment, +max_adjustment]
-        delta = float(sent) * max_adjustment
-        old_w = float(row["target_weight"])
-        new_w = max(0.0, min(1.0, old_w + delta))
-        adjustments.append({"idx": idx, "symbol": sym, "old_w": old_w, "new_w": new_w, "delta": delta})
+    if has_sentiment.any():
+        delta_series = sentiment_series * max_adjustment
+        old_w_series = result["target_weight"].astype(float)
+        new_w_series = (old_w_series + delta_series.fillna(0.0)).clip(lower=0.0, upper=1.0)
+        for idx in result.index[has_sentiment]:
+            sym = sym_upper.loc[idx]
+            adjustments.append({"idx": idx, "symbol": sym, "old_w": float(old_w_series.loc[idx]), "new_w": float(new_w_series.loc[idx]), "delta": float(delta_series.loc[idx])})
         if not shadow_only:
-            result.at[idx, "target_weight"] = new_w
+            result.loc[has_sentiment, "target_weight"] = new_w_series[has_sentiment]
 
     if adjustments:
         logger.debug(

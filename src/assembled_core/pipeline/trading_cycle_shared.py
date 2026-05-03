@@ -1068,11 +1068,9 @@ def _apply_pre_trade_impact(
         and not pf.empty
         and {"symbol", "volume", "close"}.issubset(pf.columns)
     ):
-        for sym, grp in pf.groupby("symbol"):
-            grp_sorted = (
-                grp.sort_values("timestamp") if "timestamp" in grp.columns else grp
-            )
-            tail = grp_sorted.tail(adv_window)
+        _pf_sorted = pf.sort_values("timestamp") if "timestamp" in pf.columns else pf
+        for sym, grp in _pf_sorted.groupby("symbol", sort=False):
+            tail = grp.tail(adv_window)
             if tail.empty:
                 continue
             sym_key = str(sym).upper()
