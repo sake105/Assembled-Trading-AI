@@ -47,10 +47,12 @@ def generate_signals(
     if log is None:
         log = logger
 
-    try:
-        policy = load_policy()
-    except Exception:
-        policy = {}
+    policy = getattr(ctx, "_policy_cache", None)
+    if policy is None:
+        try:
+            policy = load_policy()
+        except Exception:
+            policy = {}
 
     from src.assembled_core.config.settings import get_settings
     from src.assembled_core.risk.zombie_killer import get_zombie_positions

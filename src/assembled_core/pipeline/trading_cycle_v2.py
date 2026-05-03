@@ -135,6 +135,11 @@ def ingest_data(
     except Exception as e:
         log.warning("load_policy failed, using empty policy: %s", e)
         policy = {}
+    # Cache on ctx so pipeline stages skip redundant disk reads
+    try:
+        object.__setattr__(ctx, "_policy_cache", policy)
+    except (AttributeError, TypeError):
+        ctx._policy_cache = policy  # type: ignore[attr-defined]
 
     rsm = policy.get("risk_state_machine") or {}
     base_dir = get_base_dir()

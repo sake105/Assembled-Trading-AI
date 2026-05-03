@@ -47,10 +47,12 @@ def build_features(
     if log is None:
         log = logger
 
-    try:
-        policy = load_policy()
-    except Exception:
-        policy = {}
+    policy = getattr(ctx, "_policy_cache", None)
+    if policy is None:
+        try:
+            policy = load_policy()
+        except Exception:
+            policy = {}
 
     prices_latest_update: pd.DataFrame | None = None
 
@@ -213,16 +215,18 @@ def build_features(
             if _req_cols.issubset(pwf.columns):
                 _beh_scores: dict[str, float] = {}
                 _beh_min_rows = int(beh_cfg.get("min_rows", 60))
-                for _sym in pwf["symbol"].unique()[:50]:
-                    _grp = pwf[pwf["symbol"] == _sym]
-                    if "timestamp" in _grp.columns:
-                        _grp = _grp.sort_values("timestamp")
+                _syms_cap = set(pwf["symbol"].unique()[:50])
+                _pwf_sub = pwf[pwf["symbol"].isin(_syms_cap)]
+                if "timestamp" in _pwf_sub.columns:
+                    _pwf_sub = _pwf_sub.sort_values("timestamp")
+                _has_volume = "volume" in _pwf_sub.columns
+                for _sym, _grp in _pwf_sub.groupby("symbol", sort=False):
                     if len(_grp) < _beh_min_rows:
                         continue
                     _bp = _grp["close"].reset_index(drop=True)
                     _bv = (
                         _grp["volume"].reset_index(drop=True)
-                        if "volume" in _grp.columns
+                        if _has_volume
                         else pd.Series(1.0, index=range(len(_grp)))
                     )
                     _br = _bp.pct_change(fill_method=None).fillna(0)

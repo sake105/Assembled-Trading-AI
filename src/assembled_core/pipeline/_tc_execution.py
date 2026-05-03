@@ -46,11 +46,13 @@ def route_orders(
     if not do_rebal or targets is None or targets.empty:
         return _empty
 
-    try:
-        policy = load_policy()
-    except Exception as _exc:
-        logger.debug("[_tc_execution] load_policy failed, using empty policy: %s", _exc)
-        policy = {}
+    policy = getattr(ctx, "_policy_cache", None)
+    if policy is None:
+        try:
+            policy = load_policy()
+        except Exception as _exc:
+            logger.debug("[_tc_execution] load_policy failed, using empty policy: %s", _exc)
+            policy = {}
 
     # Step 5: Generate orders
     try:
@@ -162,11 +164,13 @@ def book_fills(
     if log is None:
         log = logger
 
-    try:
-        policy = load_policy()
-    except Exception as _exc:
-        logger.debug("[_tc_execution] load_policy failed, using empty policy: %s", _exc)
-        policy = {}
+    policy = getattr(ctx, "_policy_cache", None)
+    if policy is None:
+        try:
+            policy = load_policy()
+        except Exception as _exc:
+            logger.debug("[_tc_execution] load_policy failed, using empty policy: %s", _exc)
+            policy = {}
 
     # Ensure orders_filtered exists
     if result.orders_filtered is None:

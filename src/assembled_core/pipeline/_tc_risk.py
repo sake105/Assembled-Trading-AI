@@ -48,11 +48,13 @@ def check_risk(
     if log is None:
         log = logger
 
-    try:
-        policy = load_policy()
-    except Exception as _policy_exc:
-        log.warning("[RISK] load_policy() failed — all policy-gated guards disabled: %s", _policy_exc)
-        policy = {}
+    policy = getattr(ctx, "_policy_cache", None)
+    if policy is None:
+        try:
+            policy = load_policy()
+        except Exception as _policy_exc:
+            log.warning("[RISK] load_policy() failed — all policy-gated guards disabled: %s", _policy_exc)
+            policy = {}
 
     # Fast path: if risk controls are disabled, skip all steps and pass orders through.
     if not getattr(ctx, "enable_risk_controls", True):

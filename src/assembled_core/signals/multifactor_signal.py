@@ -219,8 +219,9 @@ def build_multifactor_signal(
         # Step 2: Z-score (cross-sectional per timestamp)
         if bundle.options.zscore:
             logger.debug(f"Applying cross-sectional z-scoring to {factor_name}")
+            result_df[factor_name] = factor_series  # write in-place; z-score overwrites below
             zscore_series = _zscore_crosssectional(
-                result_df.assign(**{factor_name: factor_series}),
+                result_df,
                 factor_col=factor_name,
                 timestamp_col=timestamp_col,
             )
@@ -581,9 +582,8 @@ def build_adaptive_multifactor_signal(
             low, high = bundle.options.winsorize_limits
             series = _winsorize_series(series, low, high)
         if bundle.options.zscore:
-            z = _zscore_crosssectional(
-                result_df.assign(**{f.name: series}), f.name, timestamp_col,
-            )
+            result_df[f.name] = series  # write in-place; z-score overwrites below
+            z = _zscore_crosssectional(result_df, f.name, timestamp_col)
             result_df[f"{f.name}_z"] = z
             series = z
         if f.direction == "negative":
