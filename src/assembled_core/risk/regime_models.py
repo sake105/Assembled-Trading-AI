@@ -529,27 +529,21 @@ def compute_regime_transition_stats(
         for regime, durations in regime_durations.items()
     }
 
-    # Compute transition probabilities
-    transition_probs = []
-    for _, row in transition_counts.iterrows():
-        from_regime = row["from_regime"]
-        count = row["count"]
-
-        # Total transitions from this regime
-        total_from = transition_counts[transition_counts["from_regime"] == from_regime][
-            "count"
-        ].sum()
-        prob = count / total_from if total_from > 0 else 0.0
-
-        transition_probs.append(
-            {
-                "from_regime": from_regime,
-                "to_regime": row["to_regime"],
-                "count": count,
-                "avg_duration_days": avg_durations.get(from_regime, 0.0),
-                "transition_probability": prob,
-            }
-        )
+    # Compute transition probabilities (vectorized to avoid O(N²) per-row filter)
+    _total_from = transition_counts.groupby("from_regime")["count"].transform("sum")
+    transition_counts = transition_counts.copy()
+    transition_counts["_prob"] = np.where(_total_from > 0, transition_counts["count"] / _total_from, 0.0)
+    transition_counts["_avg_dur"] = transition_counts["from_regime"].map(avg_durations).fillna(0.0)
+    transition_probs = [
+        {
+            "from_regime": row.from_regime,
+            "to_regime": row.to_regime,
+            "count": row.count,
+            "avg_duration_days": row._avg_dur,
+            "transition_probability": row._prob,
+        }
+        for row in transition_counts.itertuples(index=False)
+    ]
 
     result_df = pd.DataFrame(transition_probs)
 

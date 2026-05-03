@@ -190,15 +190,17 @@ def _prd_make_strategy_fns(
                     ledger_state.get("positions", {}), prices_latest_exit, strategy_cfg,
                 )
                 if not exit_signals.empty:
-                    for _, ex in exit_signals[exit_signals["exit_qty_pct"] >= 1.0].iterrows():
-                        sym = ex["symbol"]
-                        if not signals.empty and sym in signals["symbol"].values:
-                            signals = signals[signals["symbol"] != sym]
-                        log.info("%s EXIT signal: %s — %s", _mf_tag, sym, ex["exit_reason"])
-                    for _, ex in exit_signals[exit_signals["exit_qty_pct"] < 1.0].iterrows():
+                    full_exits = exit_signals[exit_signals["exit_qty_pct"] >= 1.0]
+                    if not full_exits.empty:
+                        exit_syms = set(full_exits["symbol"])
+                        if not signals.empty:
+                            signals = signals[~signals["symbol"].isin(exit_syms)]
+                        for ex in full_exits.itertuples(index=False):
+                            log.info("%s EXIT signal: %s — %s", _mf_tag, ex.symbol, ex.exit_reason)
+                    for ex in exit_signals[exit_signals["exit_qty_pct"] < 1.0].itertuples(index=False):
                         log.info(
                             "%s PARTIAL EXIT signal: %s (%.0f%%) — %s",
-                            _mf_tag, ex["symbol"], ex["exit_qty_pct"] * 100, ex["exit_reason"],
+                            _mf_tag, ex.symbol, ex.exit_qty_pct * 100, ex.exit_reason,
                         )
             return signals
 

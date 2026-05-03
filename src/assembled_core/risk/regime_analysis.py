@@ -347,20 +347,21 @@ def summarize_metrics_by_regime(
                         sym_trades = sym_trades.sort_values(timestamp_col)
                         buys = sym_trades[sym_trades["side"].astype(str).str.upper() == "BUY"]
                         sells = sym_trades[sym_trades["side"].astype(str).str.upper() == "SELL"]
-                        for _, buy_row in buys.iterrows():
-                            next_sells = sells[sells[timestamp_col] > buy_row[timestamp_col]]
+                        for buy_row in buys.itertuples(index=False):
+                            buy_ts = getattr(buy_row, timestamp_col)
+                            next_sells = sells[sells[timestamp_col] > buy_ts]
                             if next_sells.empty:
                                 continue
                             sell_row = next_sells.iloc[0]
                             try:
-                                d = (pd.Timestamp(sell_row[timestamp_col]) - pd.Timestamp(buy_row[timestamp_col])).days
+                                d = (pd.Timestamp(sell_row[timestamp_col]) - pd.Timestamp(buy_ts)).days
                                 durations.append(float(d))
                             except Exception as _exc:
                                 logger.debug("[regime_analysis] trade duration calc skipped: %s", _exc)
                             if has_price:
-                                bp = float(buy_row.get("price") or 0)
+                                bp = float(getattr(buy_row, "price", None) or 0)
                                 sp = float(sell_row.get("price") or 0)
-                                qty = float(buy_row.get("qty") or 1)
+                                qty = float(getattr(buy_row, "qty", None) or 1)
                                 if bp > 0:
                                     pnls.append((sp - bp) / bp * qty)
                     result_row["avg_trade_duration"] = float(np.mean(durations)) if durations else None

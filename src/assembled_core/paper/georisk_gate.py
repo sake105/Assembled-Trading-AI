@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict
 
+import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -58,6 +59,6 @@ def apply_georisk_to_orders(
     out = orders.copy()
     if "qty" in out.columns:
         out["qty"] = out["qty"] * multiplier
-        out["qty"] = out["qty"].apply(lambda q: int(q) if abs(q) >= 0.5 else 0)
+        out["qty"] = np.where(out["qty"].abs() >= 0.5, out["qty"].astype(int), 0)
         out = out[out["qty"] != 0].reset_index(drop=True)
     return out
