@@ -26,6 +26,7 @@ import logging
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from itertools import combinations
 
 logger = logging.getLogger(__name__)
 
@@ -85,11 +86,9 @@ class EntityCoGraph:
                 for e in ents:
                     self._counts[e] += 1
                 self._ledger.append((ts, list(ents)))
-                for i in range(len(ents)):
-                    for j in range(i + 1, len(ents)):
-                        a, b = ents[i], ents[j]
-                        self._bump(a, b, ts)
-                        self._bump(b, a, ts)
+                for a, b in combinations(ents, 2):
+                    self._bump(a, b, ts)
+                    self._bump(b, a, ts)
             except Exception as exc:
                 logger.debug("[SKIP] EntityCoGraph.ingest: %s", exc)
         self.prune(now=now)
@@ -133,11 +132,9 @@ class EntityCoGraph:
                     self._counts[e] -= 1
                     if self._counts[e] == 0:
                         self._counts.pop(e, None)
-            for i in range(len(ents)):
-                for j in range(i + 1, len(ents)):
-                    a, b = ents[i], ents[j]
-                    self._decrement_edge(a, b)
-                    self._decrement_edge(b, a)
+            for a, b in combinations(ents, 2):
+                self._decrement_edge(a, b)
+                self._decrement_edge(b, a)
             dropped += 1
         # Drop stale / zero-weight edges and empty adjacency buckets.
         for a, edges in list(self._adj.items()):

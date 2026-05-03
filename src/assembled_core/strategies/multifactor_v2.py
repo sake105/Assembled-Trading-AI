@@ -310,7 +310,7 @@ def _compute_sector_rotation_bias(
         )
 
         # Extract sector ETF prices from df if available
-        sector_syms = [s for s in SECTOR_ETFS if s in df["symbol"].unique()]
+        sector_syms = [s for s in SECTOR_ETFS if s in set(df["symbol"])]
         if len(sector_syms) < 3:
             return pd.Series(0.0, index=latest_symbols)
 

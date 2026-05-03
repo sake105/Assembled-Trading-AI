@@ -246,8 +246,9 @@ def compute_sector_rotation_signal(
     df[timestamp_col] = pd.to_datetime(df[timestamp_col])
     df = df.sort_values([symbol_col, timestamp_col])
 
-    available_sectors = [s for s in SECTOR_ETF_MAP if s in df[symbol_col].unique()]
-    has_benchmark = _SECTOR_BENCHMARK in df[symbol_col].unique()
+    _sym_set = set(df[symbol_col])
+    available_sectors = [s for s in SECTOR_ETF_MAP if s in _sym_set]
+    has_benchmark = _SECTOR_BENCHMARK in _sym_set
 
     if not available_sectors:
         return pd.DataFrame(columns=[timestamp_col, symbol_col, "sector", "sector_signal"])

@@ -9,7 +9,7 @@ import re
 import string
 import time
 from collections import OrderedDict
-from itertools import zip_longest
+from itertools import combinations, zip_longest
 from datetime import timedelta
 from pathlib import Path
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
@@ -330,9 +330,7 @@ def detect_contradictions(
     for fp, group in grouped.items():
         if len(group) < 2:
             continue
-        for i in range(len(group)):
-            for j in range(i + 1, len(group)):
-                a, b = group[i], group[j]
+        for a, b in combinations(group, 2):
                 dir_a = getattr(a, "market_direction", "neutral")
                 dir_b = getattr(b, "market_direction", "neutral")
                 conf_a = float(getattr(a, "news_confidence", 0.0))

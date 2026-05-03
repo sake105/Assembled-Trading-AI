@@ -259,18 +259,16 @@ def _equal_weight_portfolio_returns(
     dates = return_pivot.index
     port_returns: list[float] = []
     port_dates: list[pd.Timestamp] = []
+    pivot_cols = set(return_pivot.columns)
 
-    for i in range(len(dates) - 1):
-        signal_date = dates[i]
-        return_date = dates[i + 1]
-
+    for signal_date, return_date in zip(dates[:-1], dates[1:]):
         longs = signals_by_date.get(signal_date, set())
         if not longs:
             port_returns.append(0.0)
             port_dates.append(return_date)
             continue
 
-        available = [s for s in longs if s in return_pivot.columns]
+        available = [s for s in longs if s in pivot_cols]
         if not available:
             port_returns.append(0.0)
             port_dates.append(return_date)
@@ -297,18 +295,16 @@ def _score_weight_portfolio_returns(
     dates = return_pivot.index
     port_returns: list[float] = []
     port_dates: list[pd.Timestamp] = []
+    pivot_cols = set(return_pivot.columns)
 
-    for i in range(len(dates) - 1):
-        signal_date = dates[i]
-        return_date = dates[i + 1]
-
+    for signal_date, return_date in zip(dates[:-1], dates[1:]):
         scores = scores_by_date.get(signal_date, {})
         if not scores:
             port_returns.append(0.0)
             port_dates.append(return_date)
             continue
 
-        available = {s: v for s, v in scores.items() if s in return_pivot.columns}
+        available = {s: v for s, v in scores.items() if s in pivot_cols}
         if not available:
             port_returns.append(0.0)
             port_dates.append(return_date)
