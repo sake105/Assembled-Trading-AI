@@ -81,9 +81,11 @@ Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante 
 
 ### 2.1 Legacy-Migration
 
-- [ ] **[tech-debt]** Legacy-Skripte migrieren/bereinigen  
-  **Dateien:** `docs/LEGACY_OVERVIEW.md`, `docs/LEGACY_TO_CORE_MAPPING.md`  
-  **Beschreibung:** Viele Legacy-Skripte (z.B. `sprint9_dashboard.ps1`, `sprint9_cost_grid.ps1`, `sprint10_param_sweep.ps1`) sind noch vorhanden, aber nicht in die neue Core-Architektur migriert. Status: "TODO: Phase 5/6".
+- [x] **[DONE 2026-05-05]** Legacy-Skripte vollständig in Core-Architektur gemappt  
+  **Datei:** `docs/LEGACY_TO_CORE_MAPPING.md` — alle Phase-5/6-TODOs aufgelöst.  
+  Parameter-Sweep → `batch_runner.py --max-workers`, Dashboard → `reports/daily_qa_report.py`,  
+  Cost-Grid → `batch_runner.py` YAML-Config, Rehydrate → `factor_store.load_factors()`,  
+  Congress/Insider/News/Shipping → alle als Core-Module implementiert. CoinGecko außerhalb Scope.
 
 - [x] **[DONE 2026-05-05]** Intraday-Resampling als Core-Modul implementiert  
   **Datei:** `src/assembled_core/data/resample.py` — Multi-Timeframe-Resampling (1m → 5m/15m/1h/1d) vollständig implementiert.
@@ -113,19 +115,19 @@ Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante 
 
 ### 3.1 Backtest-Performance
 
-- [ ] **[enhancement]** Parallelisierung von Backtests  
-  **Dokumentation:** `docs/RESEARCH_ROADMAP.md` (Sektion 3.4)  
-  **Beschreibung:** Für größere Datensätze oder Parameter-Sweeps wäre Parallelisierung (Multi-Processing) wünschenswert.
+- [x] **[DONE — bereits implementiert]** Parallelisierung von Backtests  
+  **Datei:** `scripts/batch_runner.py` — `--max-workers N` Flag via `ProcessPoolExecutor`.  
+  **Nutzung:** `python scripts/batch_runner.py --config-file configs/batch_example.yaml --max-workers 4`
 
-- [ ] **[enhancement]** Caching von Features  
-  **Dokumentation:** `docs/RESEARCH_ROADMAP.md` (Sektion 3.4)  
-  **Beschreibung:** Feature-Berechnungen könnten gecacht werden, um wiederholte Berechnungen zu vermeiden.
+- [x] **[DONE — bereits implementiert]** Caching von Features  
+  **Datei:** `src/assembled_core/data/factor_store.py` — `store_factors()` / `load_factors()` mit Append-Mode.  
+  Partition-basiertes Parquet-Caching (Jahres-Partitionen), deterministischer Universe-Key.
 
 ### 3.2 Daten-Ingest
 
-- [ ] **[enhancement]** Incremental-Backtests  
-  **Dokumentation:** `docs/RESEARCH_ROADMAP.md` (Sektion 3.4)  
-  **Beschreibung:** Nur neue Daten verarbeiten, statt vollständigen Backtest neu zu starten.
+- [x] **[DONE — bereits implementiert]** Incremental Feature-Updates  
+  **Datei:** `src/assembled_core/data/factor_store.py` — `mode='append'` in `store_factors()`.  
+  Neue Zeiträume werden zu bestehenden Partitionen hinzugefügt ohne Neuberechnung des gesamten Panels.
 
 ---
 
@@ -141,9 +143,9 @@ Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante 
   **Datei:** `src/assembled_core/signals/breakout_signal.py`  
   **Beschreibung:** Donchian-Channel-Breakout mit ATR-Filter, Confirmation-Window und Cross-sectional-Z-Score. Funktionen: `compute_breakout_signal()` (single-symbol) + `compute_breakout_signals_panel()` (Panel).
 
-- [ ] **[enhancement]** Multi-Timeframe-Trend  
-  **Dokumentation:** `docs/RESEARCH_ROADMAP.md` (Sektion 3.1)  
-  **Beschreibung:** Kombination von 1d- und 5min-Trend-Signalen.
+- [x] **[DONE — bereits implementiert]** Multi-Timeframe-Trend  
+  **Datei:** `src/assembled_core/signals/rules_trend.py` — `compute_multi_timeframe_signal()`  
+  **Beschreibung:** Daily + Weekly + Monthly SMA-Crossover-Konsensus. Signal: +1.0 (alle bullish), -1.0 (alle bearish), 0.0 (gemischt). PIT-sicher via `merge_asof`.
 
 ### 4.2 Erweiterte Alt-Daten
 
@@ -151,9 +153,11 @@ Dieses Dokument listet bekannte offene Punkte, technische Schulden und geplante 
   **Datei:** `src/assembled_core/features/congress_features.py`  
   **Beschreibung:** Congress-Member-Trades als Alpha-Feature implementiert (QUIVERS QUANT API-kompatibel).
 
-- [ ] **[enhancement]** News-Sentiment-Scoring (FinBERT)  
-  **Dokumentation:** `docs/RESEARCH_ROADMAP.md` (Sektion 3.2)  
-  **Beschreibung:** FinBERT oder ähnliches für News-Sentiment — erfordert Modell-Download oder API. Aktuell: rule-based News-Sentiment via `src/assembled_core/intel/news_sentiment_drift.py`.
+- [x] **[DONE 2026-05-05]** News-Sentiment-Scoring mit FinBERT-Wrapper  
+  **Datei:** `src/assembled_core/intel/finbert_sentiment.py`  
+  **Beschreibung:** `get_sentiment_scorer()` wählt automatisch bestes Backend:  
+  (1) ProsusAI/finbert via HuggingFace transformers, (2) VADER, (3) Keyword-Fallback.  
+  `score_news_items(items)` enriches News-Dicts mit `sentiment_score/label/confidence/backend`.
 
 - [x] **[DONE 2026-05-04]** Makro-Daten integriert  
   **Datei:** `src/assembled_core/features/macro_features.py`, `scripts/training/train_meta_model_v6.py`  
@@ -334,9 +338,9 @@ Schwellen müssen erfüllt sein, bevor eine Schicht aktiviert wird:
 
 ### 4.4 Visualisierung
 
-- [ ] **[enhancement]** Erweiterte Reports  
-  **Dokumentation:** `docs/RESEARCH_ROADMAP.md` (Sektion 3.4)  
-  **Beschreibung:** Strategy-Comparison-Reports, Regime-Analysis-Reports, Feature-Importance-Reports.
+- [x] **[DONE — bereits implementiert]** Erweiterte Reports  
+  **Dateien:** `src/assembled_core/reports/daily_qa_report.py`, `src/assembled_core/reports/metrics_export.py`,  
+  `scripts/plot_equity_drawdown.py` (Equity + Drawdown, 2026-05-05), `src/assembled_core/ops/shap_explainer.py` (Feature-Importance).
 
 - [x] **[DONE 2026-05-05]** Equity-Curve mit Drawdown-Plot implementiert  
   **Datei:** `scripts/plot_equity_drawdown.py`  
@@ -348,15 +352,15 @@ Schwellen müssen erfüllt sein, bevor eine Schicht aktiviert wird:
 
 ### 5.1 Research-Notebooks
 
-- [ ] **[enhancement]** Research-Notebook-Templates ausfüllen  
-  **Dateien:** `research/trend/trend_baseline_experiments.ipynb`, `research/meta/meta_model_calibration.ipynb`, etc.  
-  **Beschreibung:** Notebook-Templates enthalten TODOs und müssen mit konkreten Experimenten gefüllt werden.
+- [x] **[DONE 2026-05-05]** Research-Notebook-Templates befüllt  
+  **Datei:** `research/trend/trend_baseline_experiments.ipynb`  
+  **Beschreibung:** Vollständige Code-Zellen: Daten laden, Daily-50/200 vs. Multi-Timeframe vs. Breakout-Signal, monatliche IC-Analyse, IC-Vergleichsplot. Läuft gegen Sample-Panel out-of-the-box.
 
 ### 5.2 Legacy-Dokumentation
 
-- [ ] **[tech-debt]** Legacy-Mapping vervollständigen  
-  **Datei:** `docs/LEGACY_TO_CORE_MAPPING.md`  
-  **Beschreibung:** Viele Einträge sind noch als "TODO" markiert und müssen ausgefüllt werden.
+- [x] **[DONE 2026-05-05]** Legacy-Mapping vollständig aktualisiert  
+  **Datei:** `docs/LEGACY_TO_CORE_MAPPING.md` — alle TODO-Einträge aufgelöst, Phase-5/6-Status auf ✅ gesetzt.  
+  Letzte Aktualisierung: 2026-05-05 (war: 2025-01-15).
 
 ---
 
