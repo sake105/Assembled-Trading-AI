@@ -1,0 +1,75 @@
+name: weekly-drills
+
+# Plan 11/10 §4.2 — Weekly kill-switch and halt-flag drills.
+# Runs every Monday at 09:00 ET (14:00 UTC).
+# Both drills write JSON receipts to output/drills/.
+
+on:
+  schedule:
+    - cron: "0 14 * * 1"
+  workflow_dispatch: {}
+
+concurrency:
+  group: weekly-drills
+  cancel-in-progress: false
+
+jobs:
+  kill-switch-drill:
+    name: Kill-Switch Drill
+    runs-on: windows-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt --quiet
+
+      - name: Run kill-switch drill
+        run: python scripts/drills/drill_kill_switch.py
+
+      - name: Upload drill receipt
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kill-switch-drill-${{ github.run_id }}
+          path: output/drills/kill_switch_*.json
+          if-no-files-found: warn
+          retention-days: 90
+
+  halt-flag-drill:
+    name: Halt-Flag Drill
+    runs-on: windows-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt --quiet
+
+      - name: Run halt-flag drill
+        run: python scripts/drills/drill_halt_flag.py
+
+      - name: Upload drill receipt
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: halt-flag-drill-${{ github.run_id }}
+          path: output/drills/halt_flag_*.json
+          if-no-files-found: warn
+          retention-days: 90

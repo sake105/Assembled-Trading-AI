@@ -384,6 +384,46 @@ def execute_via_broker(
     t0 = time.monotonic()
     result = BrokerExecutionResult(dry_run=dry_run)
 
+    # Pre-trade sanity checks (§5.2) — runs in paper/live mode only
+    if not dry_run and not orders_df.empty:
+        try:
+            from src.assembled_core.qa.sanity_checks import SanityChecker
+            from src.assembled_core.ops.alerting import AlertManager
+            _checker = SanityChecker()
+            _alert = AlertManager()
+            _halted_syms: list[str] = []
+            for _, _row in orders_df.iterrows():
+                _order = {
+                    "symbol": _row.get("symbol", ""),
+                    "side": _row.get("side", ""),
+                    "qty": float(_row.get("qty", 0) or 0),
+                }
+                _result = _checker.check_order(_order)
+                if _result.get("halt_recommendation"):
+                    _sym = str(_order["symbol"])
+                    _halted_syms.append(_sym)
+                    _flags_str = "; ".join(
+                        f["rule"] for f in _result.get("flags", [])
+                    )
+                    _alert.fire("sanity_check_halt", {
+                        "symbol": _sym,
+                        "flags": _flags_str or "unknown",
+                    })
+                    logger.warning(
+                        "[broker_execution] SANITY HALT: %s %s — %s",
+                        _order["side"], _sym, _flags_str,
+                    )
+            if _halted_syms:
+                orders_df = orders_df[
+                    ~orders_df["symbol"].astype(str).isin(_halted_syms)
+                ].reset_index(drop=True)
+                logger.warning(
+                    "[broker_execution] %d order(s) removed by sanity checks: %s",
+                    len(_halted_syms), _halted_syms,
+                )
+        except Exception as _se:
+            logger.debug("[broker_execution] sanity check skipped: %s", _se)
+
     # Step 1: Submit
     logger.info(
         "[broker_execution] starting %s execution for %d orders",
@@ -450,6 +490,16 @@ def execute_via_broker(
         len(result.timed_out),
         len(result.fills_for_ledger),
     )
+
+    # Fire fill_rate_low alert if fill rate is below threshold
+    if submitted and not dry_run:
+        try:
+            fill_rate = len(result.filled) / len(submitted)
+            if fill_rate < 0.5:
+                from src.assembled_core.ops.alerting import AlertManager
+                AlertManager().fire("fill_rate_low", {"daily_fill_rate": fill_rate})
+        except Exception as _fe:
+            logger.debug("[broker_execution] fill rate alert skipped: %s", _fe)
 
     return result
 

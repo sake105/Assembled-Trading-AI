@@ -146,6 +146,11 @@ def activate_kill_switch(
     }
     write_ok = _write_state(state)
     _append_audit({"action": "ACTIVATE", "throttle_pct": throttle_pct, "reason": reason, "actor": actor})
+    try:
+        from src.assembled_core.ops.alerting import AlertManager
+        AlertManager().fire("kill_switch_activated", {"reason": reason or "no reason given"})
+    except Exception as _ae:
+        logger.debug("[KillSwitch] alert dispatch failed: %s", _ae)
     if write_ok:
         logger.warning(
             "[KillSwitch] ACTIVATED — throttle=%.0f%%, reason=%s, actor=%s",
