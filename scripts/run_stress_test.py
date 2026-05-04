@@ -23,7 +23,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 
-def _run_window(window: dict, policy: str, out_dir: Path) -> dict | None:
+def _run_window(window: dict, policy: str, out_dir: Path, price_file: str | None = None) -> dict | None:
     name = window["name"]
     out_path = out_dir / name
     out_path.mkdir(parents=True, exist_ok=True)
@@ -31,12 +31,14 @@ def _run_window(window: dict, policy: str, out_dir: Path) -> dict | None:
     cmd = [
         sys.executable,
         "scripts/run_backtest_strategy.py",
-        "--start", window["start"],
-        "--end", window["end"],
+        "--start-date", window["start"],
+        "--end-date", window["end"],
         "--out", str(out_path),
         "--policy", policy,
         "--freq", "1d",
     ]
+    if price_file:
+        cmd += ["--price-file", price_file]
 
     logger.info("[stress] %s  %s → %s", name, window["start"], window["end"])
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -51,15 +53,41 @@ def _run_window(window: dict, policy: str, out_dir: Path) -> dict | None:
     with open(metrics_path, encoding="utf-8") as f:
         metrics = json.load(f)
 
+    # max_drawdown_pct is already a percentage (e.g. -39.1 means -39.1%)
+    # convert to fraction for consistency with threshold checks
+    mdd_raw = metrics.get("max_drawdown_pct", None)
+    if mdd_raw is None:
+        mdd_raw = metrics.get("max_drawdown", 0.0)
+        # if it's in absolute dollar terms (>1 or <-1), skip using it
+        if abs(mdd_raw) > 1:
+            mdd_raw = None
+    mdd = float(mdd_raw) / 100.0 if mdd_raw is not None else 0.0
+
+    cagr_raw = metrics.get("cagr", None)
+    if cagr_raw is not None:
+        cagr = float(cagr_raw)
+    else:
+        # Annualize total_return for short windows where cagr is null
+        try:
+            from datetime import date as _date
+            import datetime as _dt
+            s = _dt.date.fromisoformat(window["start"])
+            e = _dt.date.fromisoformat(window["end"])
+            n_years = max((e - s).days / 365.25, 1/365.25)
+            tr = metrics.get("total_return", 0.0) or 0.0
+            cagr = float((1 + tr) ** (1 / n_years) - 1)
+        except Exception:
+            cagr = 0.0
+
     return {
         "window": name,
         "description": window.get("description", ""),
         "start": window["start"],
         "end": window["end"],
-        "cagr": metrics.get("cagr", 0.0),
+        "cagr": cagr,
         "sharpe": metrics.get("sharpe_ratio", metrics.get("sharpe", 0.0)),
-        "mdd": metrics.get("max_drawdown", 0.0),
-        "n_trades": metrics.get("n_trades", 0),
+        "mdd": mdd,
+        "n_trades": metrics.get("n_trades", metrics.get("total_trades", metrics.get("trades", 0))),
         "total_return": metrics.get("total_return", 0.0),
         "worst_day": metrics.get("worst_day_return", metrics.get("min_daily_return", None)),
     }
@@ -97,6 +125,7 @@ def main() -> int:
     parser.add_argument("--policy", default="configs/policy.yaml")
     parser.add_argument("--stress-config", default="configs/stress_windows.yaml")
     parser.add_argument("--out-dir", default="output/stress")
+    parser.add_argument("--price-file", default="", help="Explicit price parquet to pass to backtest")
     parser.add_argument("--windows", nargs="*", help="Subset of window names to run")
     args = parser.parse_args()
 
@@ -119,9 +148,10 @@ def main() -> int:
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    price_file = args.price_file or None
     results = []
     for window in windows:
-        r = _run_window(window, args.policy, out_dir)
+        r = _run_window(window, args.policy, out_dir, price_file=price_file)
         if r:
             results.append(r)
             logger.info(

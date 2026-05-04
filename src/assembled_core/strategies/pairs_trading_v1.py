@@ -47,15 +47,22 @@ class PairsTradingStrategy:
         symbols = prices["symbol"].unique().tolist()
         pairs: list[tuple[str, str, float]] = []
 
+        date_col = next((c for c in prices.columns if c in ("date", "timestamp")), None)
         for i, s1 in enumerate(symbols):
             for s2 in symbols[i + 1:]:
-                c1 = prices[prices["symbol"] == s1]["close"]
-                c2 = prices[prices["symbol"] == s2]["close"]
-                if len(c1) < self.lookback_days or len(c2) < self.lookback_days:
+                sub1 = prices[prices["symbol"] == s1]
+                sub2 = prices[prices["symbol"] == s2]
+                if date_col:
+                    c1 = sub1.set_index(date_col)["close"]
+                    c2 = sub2.set_index(date_col)["close"]
+                else:
+                    c1 = sub1["close"]
+                    c2 = sub2["close"]
+                if len(c1) < max(30, self.lookback_days // 4) or len(c2) < max(30, self.lookback_days // 4):
                     continue
                 try:
-                    p_val = cointegration_score(c1.iloc[-self.lookback_days:],
-                                                c2.iloc[-self.lookback_days:])
+                    # Use full available history for cointegration (more data = more power)
+                    p_val = cointegration_score(c1, c2)
                     if p_val < self.min_cointegration_p:
                         pairs.append((s1, s2, p_val))
                 except Exception as exc:
@@ -71,19 +78,62 @@ class PairsTradingStrategy:
         prices: pd.DataFrame,
         pairs: list[tuple[str, str]] | None = None,
     ) -> pd.DataFrame:
-        """Generate long/short signals for discovered pairs."""
-        from src.assembled_core.signals.pairs_trading import generate_pairs_signals
+        """Generate long/short signals for discovered pairs.
+
+        prices: long-format DataFrame with columns [date/timestamp, symbol, close, ...]
+        Returns: DataFrame with columns [symbol, direction, score] for backtest loop.
+        """
+        from src.assembled_core.signals.pairs_trading import generate_pairs_signals_from_panel
 
         if pairs is None:
             pairs = self.discover_pairs(prices)
 
         if not pairs:
             logger.warning("[pairs] no pairs available — returning empty signals")
-            return pd.DataFrame(columns=["symbol", "direction", "score", "timestamp"])
+            return pd.DataFrame(columns=["symbol", "direction", "score"])
 
-        return generate_pairs_signals(
-            prices,
-            pairs,
-            entry_z=self.entry_zscore,
-            exit_z=self.exit_zscore,
-        )
+        # Convert long-format → wide (dates × symbols) for generate_pairs_signals_from_panel
+        date_col = next((c for c in prices.columns if c in ("date", "timestamp")), None)
+        if date_col is None:
+            logger.warning("[pairs] no date column found — returning empty signals")
+            return pd.DataFrame(columns=["symbol", "direction", "score"])
+
+        wide = prices.pivot_table(index=date_col, columns="symbol", values="close")
+        wide.index = pd.to_datetime(wide.index).tz_localize(None)
+
+        try:
+            result = generate_pairs_signals_from_panel(
+                wide,
+                pairs=pairs,
+                entry_z=self.entry_zscore,
+                exit_z=self.exit_zscore,
+                window=min(60, max(20, len(wide) // 5)),
+            )
+        except Exception as exc:
+            logger.debug("[pairs] signal generation failed: %s", exc)
+            return pd.DataFrame(columns=["symbol", "direction", "score"])
+
+        if result.empty:
+            return pd.DataFrame(columns=["symbol", "direction", "score"])
+
+        # Translate direction to LONG/SHORT/EXIT for backtest loop
+        last_row = result[result.index == result.index.max()] if isinstance(result.index, pd.DatetimeIndex) else result.tail(1)
+
+        rows = []
+        for _, row in last_row.iterrows():
+            direction = str(row.get("direction", "HOLD")).upper()
+            if direction in ("HOLD",):
+                continue
+            sym_a = row.get("symbol_a", "")
+            sym_b = row.get("symbol_b", "")
+            if direction == "LONG_A":
+                rows.append({"symbol": sym_a, "direction": "LONG", "score": float(abs(row.get("z_score", 0)))})
+                rows.append({"symbol": sym_b, "direction": "SHORT", "score": float(abs(row.get("z_score", 0)))})
+            elif direction == "SHORT_A":
+                rows.append({"symbol": sym_a, "direction": "SHORT", "score": float(abs(row.get("z_score", 0)))})
+                rows.append({"symbol": sym_b, "direction": "LONG", "score": float(abs(row.get("z_score", 0)))})
+            elif direction == "EXIT":
+                rows.append({"symbol": sym_a, "direction": "EXIT", "score": 0.0})
+                rows.append({"symbol": sym_b, "direction": "EXIT", "score": 0.0})
+
+        return pd.DataFrame(rows)

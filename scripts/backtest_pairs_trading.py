@@ -49,13 +49,15 @@ def _load_prices(price_file: str, start: str, end: str) -> pd.DataFrame:
             df = df.rename(columns={df.columns[0]: "date"})
     df["date"] = pd.to_datetime(df["date"]).dt.tz_localize(None)
     df = df[(df["date"] >= start) & (df["date"] <= end)].copy()
+    # Sort by date so window slicing works correctly across all symbols
+    df = df.sort_values("date").reset_index(drop=True)
     logger.info("Loaded %d rows from %s (%s to %s)", len(df), path.name, start, end)
     return df
 
 
 def _run_pairs_backtest(
     prices: pd.DataFrame,
-    entry_z: float = 2.0,
+    entry_z: float = 1.8,
     exit_z: float = 0.5,
     lookback_days: int = 252,
     min_cointegration_p: float = 0.05,
@@ -82,10 +84,10 @@ def _run_pairs_backtest(
     trades: list[dict] = []
     open_positions: dict[str, dict] = {}
 
-    # Discover pairs on first lookback window
-    discovery_prices = prices[prices["date"] <= dates[lookback_days]].copy()
+    # Discover pairs using full historical dataset (cointegration needs max history)
+    discovery_prices = prices.copy()
     active_pairs = strategy.discover_pairs(discovery_prices)
-    logger.info("Active pairs: %s", active_pairs)
+    logger.info("Active pairs (%d): %s", len(active_pairs), active_pairs)
 
     if not active_pairs:
         logger.warning("No pairs discovered — check data coverage and cointegration settings")
@@ -93,7 +95,9 @@ def _run_pairs_backtest(
 
     # Walk-forward through dates
     for i, date in enumerate(dates[lookback_days:], start=lookback_days):
-        window = prices[prices["date"] <= date].tail(lookback_days * 2)
+        # Slice by date-count, not row-count (long format has n_symbols rows per date)
+        window_start = dates[max(0, i - lookback_days * 2)]
+        window = prices[(prices["date"] >= window_start) & (prices["date"] <= date)]
         try:
             signals = strategy.generate_signals(window, pairs=active_pairs)
         except Exception as exc:
@@ -212,7 +216,7 @@ def main(argv: list[str] | None = None) -> int:
         default="data/sample/watchlist_2020_2026.parquet",
     )
     parser.add_argument("--start-capital", type=float, default=100_000.0)
-    parser.add_argument("--entry-z", type=float, default=2.0)
+    parser.add_argument("--entry-z", type=float, default=1.8)
     parser.add_argument("--exit-z", type=float, default=0.5)
     parser.add_argument("--max-pairs", type=int, default=20)
     args = parser.parse_args(argv)
