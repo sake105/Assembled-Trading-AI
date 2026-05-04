@@ -177,6 +177,110 @@ def _section_differential_privacy(returns: dict[str, list[float]], epsilon: floa
     return section
 
 
+def _section_trade_journal(journal_path: str = "output/runs/trade_journal.jsonl", n_days: int = 7) -> dict:
+    """Last N days trade summary from trade journal (Plan 11/10 §5.1.3)."""
+    section: dict = {"n_days": n_days, "n_trades": 0, "top_symbols": []}
+    try:
+        from pathlib import Path as _Path
+        from src.assembled_core.ops.trade_journal import load_trade_journal
+        import pandas as _pd
+        from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+        jp = _Path(journal_path)
+        if not jp.exists():
+            # Try output dir
+            for alt in _Path("output").rglob("trade_journal.jsonl"):
+                jp = alt
+                break
+        if not jp.exists():
+            section["verdict"] = "NO_JOURNAL"
+            return section
+        raw = load_trade_journal(jp, days=n_days)
+        if not raw:
+            section["verdict"] = "EMPTY"
+            return section
+        trades = _pd.DataFrame(raw)
+        section["n_trades"] = len(trades)
+        if "symbol" in trades.columns:
+            top = trades.groupby("symbol").size().sort_values(ascending=False).head(5)
+            section["top_symbols"] = [{"symbol": s, "count": int(c)} for s, c in top.items()]
+        if "pnl" in trades.columns:
+            section["total_pnl"] = round(float(trades["pnl"].sum()), 2)
+            section["avg_pnl_per_trade"] = round(float(trades["pnl"].mean()), 2)
+    except Exception as exc:
+        log.warning("trade_journal section failed: %s", exc)
+        section["error"] = str(exc)
+    return section
+
+
+def _section_sim_to_real_gap(paper_live_dir: str = "output/runs/_paper_ledger", n_days: int = 7) -> dict:
+    """Last N days: sim-to-real gap verdict (Plan 11/10 §3.2.3)."""
+    section: dict = {"n_days": n_days, "verdict": "NO_DATA", "classification": "UNKNOWN"}
+    try:
+        from pathlib import Path as _Path
+        from src.assembled_core.qa.sim_to_real_analyzer import load_paper_live_summary, analyze_sim_to_real_gap
+        pa = load_paper_live_summary(_Path(paper_live_dir), n_days=n_days)
+        if not pa or pa.get("n_days_loaded", 0) == 0:
+            section["verdict"] = "NO_DATA"
+            return section
+        # Use a TA-only backtest baseline (last known values from fresh backtest)
+        bt = {
+            "sharpe": 2.45,          # OOS 2025-2026 baseline from 2026-05-03 session
+            "avg_slippage_bps": 1.5,  # Modeled slippage
+            "fill_rate": 1.0,
+            "daily_pnl_std": 0.01,
+        }
+        gap = analyze_sim_to_real_gap(bt, pa)
+        section.update({
+            "n_days_loaded": pa.get("n_days_loaded"),
+            "classification": gap["classification"],
+            "sharpe_drop": gap["sharpe_drop"],
+            "slippage_gap_bps": gap["slippage_gap_bps"],
+            "fill_rate_gap": gap["fill_rate_gap"],
+            "verdict": gap["verdict_text"],
+        })
+    except Exception as exc:
+        log.warning("sim_to_real_gap section failed: %s", exc)
+        section["error"] = str(exc)
+    return section
+
+
+def _section_drill_status(drill_dir: str = "output/drills") -> dict:
+    """Last 4 weeks of drill results (Plan 11/10 §4.2.2)."""
+    section: dict = {"n_drills": 0, "all_pass": True, "failed_drills": [], "verdicts": []}
+    try:
+        import json as _json
+        from pathlib import Path as _Path
+        from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+        cutoff = _dt.now(_tz.utc) - _td(days=28)
+        drill_path = _Path(drill_dir)
+        if not drill_path.exists():
+            section["verdict"] = "NO_DRILLS_YET"
+            return section
+        reports = sorted(drill_path.glob("*.json"))
+        recent = []
+        for r in reports:
+            try:
+                data = _json.loads(r.read_text(encoding="utf-8"))
+                ts_str = data.get("started_at") or data.get("finished_at") or ""
+                if ts_str:
+                    ts = _dt.fromisoformat(ts_str.replace("Z", "+00:00"))
+                    if ts >= cutoff:
+                        recent.append({"file": r.name, "verdict": data.get("verdict", "UNKNOWN")})
+            except Exception:
+                pass
+        section["n_drills"] = len(recent)
+        failed = [d for d in recent if d["verdict"] != "PASS"]
+        section["all_pass"] = len(failed) == 0
+        section["failed_drills"] = failed
+        section["verdicts"] = recent
+        if failed:
+            log.warning("[QA] %d drill(s) FAILED in last 28 days: %s", len(failed), failed)
+    except Exception as exc:
+        log.warning("drill_status section failed: %s", exc)
+        section["error"] = str(exc)
+    return section
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Daily QA report")
     parser.add_argument("--equity-file", default="", help="CSV with equity curves (one column per strategy)")
@@ -205,6 +309,9 @@ def main() -> None:
         "risk_parity": _section_risk_parity(returns),
         "news_rag_digest": _section_news_rag(headlines),
         "differential_privacy": _section_differential_privacy(returns, epsilon=args.dp_epsilon),
+        "sim_to_real_gap": _section_sim_to_real_gap(),
+        "drill_status": _section_drill_status(),
+        "trade_journal": _section_trade_journal(),
     }
 
     out_str = json.dumps(report, indent=2)

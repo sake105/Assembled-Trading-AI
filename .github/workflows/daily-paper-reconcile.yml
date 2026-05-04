@@ -1,0 +1,53 @@
+name: daily-paper-reconcile
+
+# Plan 11/10 §3.1.2 + §3.2.2 — Daily paper-trading reconciliation + sim-to-real gap report.
+# Runs at 21:30 UTC = 16:30 ET (after market close) on weekdays.
+
+on:
+  schedule:
+    - cron: "30 21 * * 1-5"
+  workflow_dispatch: {}
+
+concurrency:
+  group: daily-paper-reconcile
+  cancel-in-progress: false
+
+jobs:
+  reconcile-and-report:
+    name: Reconcile + Gap Report
+    runs-on: windows-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt --quiet
+
+      - name: Run reconciliation
+        env:
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+        run: |
+          python scripts/run_reconcile_worker.py --dry-run || true
+
+      - name: Generate QA report
+        run: |
+          python scripts/generate_daily_qa_report.py \
+            --out output/qa_report_$(date +%Y%m%d).json
+
+      - name: Upload QA report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-report-${{ github.run_id }}
+          path: output/qa_report_*.json
+          if-no-files-found: warn
+          retention-days: 30

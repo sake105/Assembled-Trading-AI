@@ -300,6 +300,11 @@ def _load_intel(
                 "CIRCUIT_BREAKER: %s — kill-switch engaged (block all)",
                 cb_trip["reason"],
             )
+            try:
+                from src.assembled_core.ops.alerting import AlertManager
+                AlertManager().fire("kill_switch_activated", {"reason": cb_trip["reason"]})
+            except Exception as _ae:
+                log.debug("[alert] circuit_breaker alert failed: %s", _ae)
     except Exception as e:
         log.warning(
             "[RISK-SAFETY] circuit_breaker_daily check failed: %s — breaker may not engage", e
@@ -595,6 +600,11 @@ def run_trading_cycle(
         result.error_message = f"Unexpected error: {exc}"
         log.exception("trading_cycle_v2: unexpected error in run_trading_cycle")
         _pub("cycle_error", error=str(exc))
+        try:
+            from src.assembled_core.ops.alerting import AlertManager
+            AlertManager().fire("cycle_error", {"error": str(exc)[:200]})
+        except Exception as _ae:
+            log.debug("[alert] cycle_error alert failed: %s", _ae)
     else:
         _pub("cycle_end", status=result.status)
     finally:

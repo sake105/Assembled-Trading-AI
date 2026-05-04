@@ -483,6 +483,69 @@ def generate_signals(
     except Exception as e:
         log.debug("[META-MODEL] meta_model skipped: %s", e)
 
+    signals = _ensemble_signals_if_enabled(signals, features, ctx, log)
+
+    return signals
+
+
+def _ensemble_signals_if_enabled(
+    signals: pd.DataFrame,
+    features: pd.DataFrame,
+    ctx: "TradingContext",
+    log: "logging.Logger",
+) -> pd.DataFrame:
+    """Optional multi-strategy ensemble layer (Plan 11/10 §1.1.2).
+
+    Activated by policy.strategies.ensemble.enabled=true (default: off).
+    When disabled this is a pure passthrough — no behavior change.
+    """
+    try:
+        from src.assembled_core.config.policy_loader import load_policy
+        _policy = load_policy()
+        _ens_cfg = (_policy.get("strategies") or {}).get("ensemble") or {}
+        if not _ens_cfg.get("enabled", False):
+            return signals
+
+        from src.assembled_core.portfolio.strategy_allocator import (
+            AllocationConfig,
+            StrategyAllocator,
+        )
+        _members = _ens_cfg.get("members", {})
+        if not _members:
+            log.debug("[ensemble] no members configured — skipping")
+            return signals
+
+        _method = _ens_cfg.get("method", "weighted_average")
+        _weights = {k: float(v.get("weight", 1.0)) for k, v in _members.items()}
+        _config = AllocationConfig(method=_method, weights=_weights)
+
+        # Build minimal strategy shims using the signal_fn already in ctx
+        _strategy_shims: dict = {}
+        for name, params in _members.items():
+            try:
+                from src.assembled_core.strategies.multifactor_long_short import (
+                    MultifactorLongShortStrategy,
+                )
+                _strategy_shims[name] = MultifactorLongShortStrategy(params)
+            except Exception:
+                pass
+
+        if not _strategy_shims:
+            log.debug("[ensemble] no valid strategy shims — passthrough")
+            return signals
+
+        _allocator = StrategyAllocator(_strategy_shims, config=_config)
+        _regime = (ctx.risk_state or {}).get("regime", None)
+        _result = _allocator.generate_combined_signals(features, regime=_regime)
+        if _result.combined_signals is not None and not _result.combined_signals.empty:
+            log.info(
+                "[ensemble] blended %d strategies -> %d signals",
+                len(_strategy_shims), len(_result.combined_signals),
+            )
+            return _result.combined_signals
+    except Exception as _e:
+        log.debug("[ensemble] ensemble layer skipped: %s", _e)
+
     return signals
 
 

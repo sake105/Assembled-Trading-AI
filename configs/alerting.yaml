@@ -57,3 +57,13 @@ alerts:
       severity: info
       message: "Fill rate today: {daily_fill_rate:.0%}"
       cooldown_minutes: 1440
+
+    - name: "cycle_error"
+      severity: warning
+      message: "Trading cycle error: {error}"
+      cooldown_minutes: 15
+
+    - name: "broker_connection_failure"
+      severity: critical
+      message: "Broker connection failed: {error}"
+      cooldown_minutes: 10
