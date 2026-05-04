@@ -56,9 +56,7 @@ def generate_premarket_digest(
         active_clusters, feed_health.
     """
     now = datetime.now(tz=timezone.utc)
-    cutoff = now - timedelta(  # noqa: F841
-        hours=lookback_hours
-    )
+    cutoff = now - timedelta(hours=lookback_hours)  # noqa: F841
 
     triggers = _load_json(intel_dir / "triggers_latest.json")
     crisis_state = _load_json(intel_dir / "crisis_state.json")
