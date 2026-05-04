@@ -441,3 +441,34 @@ API-Routers (FastAPI dynamic registration), Feature-Module (config-driven), Data
 **Stand:** ~2673 LOC (2026-04-29); wächst mit jeder Wiring-Welle weiter  
 **Action:** In 5–6 fokussierte Module aufteilen (z.B. steps, risk, execution, features, signals)  
 **Risiko bei weiterem Aufschub:** Datei überschreitet Wartbarkeitsschwelle; Diffs werden unlesbar
+
+---
+
+## 7. Live-Trading-Aktivierungs-Schwellen (Plan 11/10 §2.3.3)
+
+Bevor Live-Trading aktiviert wird, müssen folgende Stress-Schwellen **gemessen und bestätigt** sein.
+Diese gelten für `configs/stress_windows.yaml` (6 historische Krisen-Windows: GFC_2008, Flash_Crash_2010, Euro_Crisis_2011, COVID_2020, Inflation_2022, SVB_2023).
+
+### 7.1 Pflicht-Schwellen (must-pass vor Live-Activation)
+
+| Metrik | Schwelle | Methode |
+|--------|----------|---------|
+| Stress-Score CAGR (geom. Mittel über 6 Fenster) | ≥ 0% | `scripts/run_stress_test.py` |
+| Worst-MDD über alle Krisen-Fenster | ≥ -25% | `scripts/run_stress_test.py` |
+| Worst single day return | ≥ -8% | per Krisen-Fenster |
+| GFC 2008: Final Equity vs. Start | ≥ 50% | nicht totaler Bankrott |
+| COVID 2020: Recovery-Zeit | ≤ 6 Monate | maximale Recovery-Dauer |
+| Inflation 2022: MDD | ≥ -20% | kein Aussitzen >20% DD |
+
+**Hinweis:** Stress-Tests mit historischen Preis-Daten vor 2020 sind durch Survivorship-Bias begrenzt (aktuelles Panel: 29 Symbole, 2023–2026). Für echte Stress-Tests wird ein Panel ab 2008 benötigt.
+
+### 7.2 Paper-Pilot-Schwellen (must-pass für 30-Tage-Pilot-Abschluss)
+
+Aus `scripts/run_paper_pilot.py`:
+- Minimum erfolgreiche Tage: ≥ 25 von 30
+- Paper-Live-Sharpe vs. Backtest-Sharpe: Drop ≤ 0.7
+- Durchschnittlicher Slippage: ≤ 8 bps
+- Unerwartete Kill-Switch-Trips: ≤ 2
+- Fill-Rate: ≥ 95%
+
+**Status (2026-05-04):** Panel nur 2023–2026 → Stress-Tests gegen GFC/Flash-Crash/Euro-Krise können erst mit erweitertem Datenpanel ausgeführt werden. COVID_2020 und SVB_2023 sind möglicherweise abdeckbar (Panel beginnt 2023-01-03). Inflation_2022 nur mit historischem Panel-Erweiterung.
