@@ -255,12 +255,32 @@ Schwellen müssen erfüllt sein, bevor eine Schicht aktiviert wird:
   **Entscheidung: HMM bleibt DISABLED. Kein weiterer Grid-Search vorgesehen.**
 
 **Schicht 2 — Meta-Model Filter** (`meta_model.enabled` / policy `use_meta_model`)
-- Artefakt: `models/meta_model_lgbm_v4.joblib` (aktuell kanonisch, v4 = cs-rank target)
-- OOS AUC v1–v4: alle zwischen 0.50 und 0.51 — **near-random mit TA-Features alleine**
+- Kanonisches Artefakt: `models/meta_model_lgbm_v6.joblib` (v6, 2026-05-05)
 - Aktivierungsschwelle: OOS AUC ≥ 0.55 **und** Bootstrap-p-Value < 0.05 (5000 Iterationen)
-- Voraussetzung: News/Earnings/Macro-Features im Feature-Set (TA-Features alleine
-  reichen nicht — durch 4 Iterationen empirisch belegt).
-- Nächster Schritt: `events/news/` Pipeline als Feature-Source integrieren.
+- **Trainings-Historie und empirische AUC-Obergrenze:**
+
+  | Version | Features | OOS AUC | Bemerkung |
+  |---------|----------|---------|-----------|
+  | v1 | TA, raw fwd_return target | 0.6224 | Look-ahead bias vermutet |
+  | v2 | TA, raw fwd_return target | 0.6490 | Look-ahead bias vermutet |
+  | v3 | TA, cs-rank target, panel-native | 0.5100 | Purged split; feature-gap |
+  | v4 | TA, cs-rank target | 0.5017 | Baseline |
+  | v5 | v4 + earnings + pe/ps ratio | 0.5080 | +earnings/fundamentals |
+  | v6 | v5 + macro (VIX/yield) + roe/roa/margins | 0.5108 | Beste rigoros validierte Version |
+  | v7 | v6 + momentum (ret_60d, MA-Ratios) + Optuna | 0.5034 | Optuna verschlechterte: mehr Reg |
+
+- **Empirische AUC-Obergrenze: ~0.511** mit verfügbaren Daten (TA + Macro + spärliche Fundamentaldaten).
+  6 Iterationen (v1–v7) bestätigen Decke bei reinen TA/Macro-Features.
+- **Datenprobleme:** Insider-Trading-Daten: alle 59.506 Zeilen mit `transaction_type='unknown'` → kein Signal.
+  News-Sentiment: nur 23 unique Dates (< 60 Mindestschwelle) → zu spärlich.
+  Fundamentaldaten: nur 118 Zeilen gesamt → Forward-fill notwendig, aber sehr dünn.
+- **Was AUC ≥ 0.55 erfordern würde:**
+  - FinBERT-Embeddings über News-Headlines (semantische Sentiment-Signale)
+  - Analyst-Estimates-Revisionen (Consensus-Richtungsänderungen = starkes Signal)
+  - Options-Flow (Put/Call-Ratio, Implied-Volatility-Skew pro Symbol)
+  - Qualitäts-Fundamentaldaten mit hoher Coverage (mindestens 5 Jahre × Symbol)
+- **Entscheidung:** v6 bleibt kanonisch (policy.yaml), aber `enabled: false` solange AUC < 0.55.
+  Kein weiterer Trainingsversuch ohne rreichere Datenbasis.
 
 **Schicht 3 — Conformal Quantile Sizing** (`conformal.enabled`)
 - Artefakt: `models/conformal_position_v2.joblib` (v2 = q05/q95, 87% Coverage)
