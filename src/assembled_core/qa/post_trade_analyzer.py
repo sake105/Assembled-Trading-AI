@@ -104,8 +104,6 @@ def compute_signal_hit_rate(
         for sym, grp in fwd.groupby("symbol", sort=False)
     }
 
-    tol = pd.Timedelta(days=tolerance_days)
-
     results = []
     for symbol, sym_trades in trades.groupby("symbol", sort=False):
         sym_fwd_raw = _fwd_by_sym.get(symbol, pd.Series(dtype=float))
