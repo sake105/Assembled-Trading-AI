@@ -35,7 +35,7 @@ alerts:
 
     - name: "broker_connection_failure"
       severity: critical
-      message: "Broker connection failed {n_failures}x in 10 min"
+      message: "Broker connection failed: {error}"
       cooldown_minutes: 10
 
     - name: "sanity_check_halt"
@@ -62,8 +62,3 @@ alerts:
       severity: warning
       message: "Trading cycle error: {error}"
       cooldown_minutes: 15
-
-    - name: "broker_connection_failure"
-      severity: critical
-      message: "Broker connection failed: {error}"
-      cooldown_minutes: 10

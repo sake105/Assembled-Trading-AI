@@ -593,3 +593,24 @@ features:
       - trend_strength_20
       - trend_strength_50
       - momentum_12m_excl_1m
+
+# Multi-strategy ensemble (Plan 11/10 §1.1.1)
+# enabled: false until A/B backtest confirms Sharpe delta >= 0 AND MDD delta <= 1.5pp
+strategies:
+  ensemble:
+    enabled: false
+    method: "weighted_average"
+    members:
+      multifactor_v2:
+        weight: 0.40
+        regime_aware: true
+      composite_score_v1:
+        weight: 0.30
+        regime_aware: true
+      multifactor_long_short:
+        weight: 0.20
+        regime_aware: false
+      ema_trend_v0:
+        weight: 0.10
+        regime_aware: false
+    min_consensus: 0.30
