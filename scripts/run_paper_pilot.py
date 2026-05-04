@@ -134,7 +134,6 @@ def cmd_evaluate() -> int:
                     mean_r = statistics.mean(daily_returns)
                     std_r = statistics.stdev(daily_returns) if len(daily_returns) > 1 else 1e-9
                     sharpe = (mean_r / std_r) * (252 ** 0.5) if std_r > 0 else 0.0
-                    peak = max(equity_curve)
                     mdd = min(
                         (equity_curve[i] - max(equity_curve[:i + 1])) / max(equity_curve[:i + 1])
                         for i in range(1, len(equity_curve))

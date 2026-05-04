@@ -184,7 +184,6 @@ def _section_trade_journal(journal_path: str = "output/runs/trade_journal.jsonl"
         from pathlib import Path as _Path
         from src.assembled_core.ops.trade_journal import load_trade_journal
         import pandas as _pd
-        from datetime import datetime as _dt, timezone as _tz, timedelta as _td
         jp = _Path(journal_path)
         if not jp.exists():
             # Try output dir

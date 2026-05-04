@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import pandas as pd
-import pytest
 
 from src.assembled_core.data.universe import (
     build_universe_history_from_prices,

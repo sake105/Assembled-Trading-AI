@@ -151,18 +151,20 @@ def build_event_window_prices(
         if symbol_prices is None or symbol_prices.empty:
             continue
 
-        # Find event day index using searchsorted (O(log N)) — work in int64 ns to avoid tz warnings
-        ts_ns_arr = symbol_prices[timestamp_col].values.astype("int64")
-        event_ns = int(pd.Timestamp(event_timestamp).value)
-        pos = int(np.searchsorted(ts_ns_arr, event_ns))
-        if pos < len(ts_ns_arr) and ts_ns_arr[pos] == event_ns:
-            event_row_idx = pos
+        # Find event day index using pure-pandas comparison (avoids ns vs us unit mismatch
+        # on pandas 2.2+ where DatetimeArray.astype("int64") may return microseconds while
+        # pd.Timestamp.value always returns nanoseconds)
+        sym_ts_idx = pd.DatetimeIndex(symbol_prices[timestamp_col])
+        event_ts = pd.Timestamp(event_timestamp)
+        if event_ts.tzinfo is None:
+            event_ts = event_ts.tz_localize("UTC")
+        exact_mask = sym_ts_idx == event_ts  # numpy bool array
+        if exact_mask.any():
+            event_row_idx = int(np.argmax(exact_mask))
         else:
-            # Event timestamp not found — find closest within 1 day
-            diffs = np.abs(ts_ns_arr - event_ns)
+            diffs = (sym_ts_idx - event_ts).abs()
             closest_pos = int(diffs.argmin())
-            closest_diff = pd.Timedelta(int(diffs[closest_pos]), unit="ns")
-            if closest_diff > pd.Timedelta(days=1):
+            if diffs[closest_pos] > pd.Timedelta(days=1):
                 continue
             event_row_idx = closest_pos
 

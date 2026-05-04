@@ -34,10 +34,17 @@ TA_FEATURE_COLS = [
     "ta_log_return_v1",
     "ta_rsi_14_v1",
     "ta_macd_hist_v1",
+    "ta_macd_v1",
+    "ta_macd_signal_v1",
     "ta_bb_pctb_v1",
     "ta_bb_bandwidth_v1",
     "ta_adx_v1",
     "ta_atr_14_v1",
+    "ta_stoch_k_v1",
+    "ta_stoch_d_v1",
+    "ta_obv_v1",
+    "ta_plus_di_v1",
+    "ta_minus_di_v1",
     "rv_20",
     "rv_60",
     "vov_20_60",
@@ -49,6 +56,7 @@ TA_FEATURE_COLS = [
     "return_dispersion",
     "ret_5d",
     "ret_20d",
+    "fraction_above_ma_50",
 ]
 
 NEWS_FEATURE_COLS = ["sentiment_score_lag1", "sentiment_3d_avg", "sentiment_count_3d"]
@@ -77,6 +85,14 @@ def _load_news_features(panel_dates: pd.Series, panel_symbols: pd.Series) -> pd.
     news = pd.read_parquet(NEWS_FILE)
     news = news.rename(columns={"timestamp": "date"})
     news = _normalize_date(news, "date")
+
+    # Sparsity guard: skip news if fewer than 60 unique dates (< 3 months coverage)
+    # Near-zero-variance features from sparse news degrade model AUC
+    n_dates = news["date"].nunique() if "date" in news.columns else 0
+    if n_dates < 60:
+        print(f"[v5] News: only {n_dates} unique dates -- too sparse, skipping (need >=60)")
+        return pd.DataFrame()
+
     # 1-day lag: merge today's panel with yesterday's sentiment
     news["merge_date"] = news["date"] + pd.Timedelta(days=1)
 
@@ -284,15 +300,15 @@ def main():
         sys.exit(1)
 
     lgb_params = dict(
-        n_estimators=300,
-        learning_rate=0.05,
-        num_leaves=15,
-        max_depth=5,
-        min_child_samples=100,
-        subsample=0.6,
-        colsample_bytree=0.5,
-        reg_alpha=1.0,
-        reg_lambda=1.0,
+        n_estimators=500,
+        learning_rate=0.03,
+        num_leaves=20,
+        max_depth=4,
+        min_child_samples=200,
+        subsample=0.7,
+        colsample_bytree=0.6,
+        reg_alpha=2.0,
+        reg_lambda=2.0,
         random_state=42,
         verbose=-1,
     )

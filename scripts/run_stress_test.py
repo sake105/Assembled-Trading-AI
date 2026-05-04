@@ -69,7 +69,6 @@ def _run_window(window: dict, policy: str, out_dir: Path, price_file: str | None
     else:
         # Annualize total_return for short windows where cagr is null
         try:
-            from datetime import date as _date
             import datetime as _dt
             s = _dt.date.fromisoformat(window["start"])
             e = _dt.date.fromisoformat(window["end"])

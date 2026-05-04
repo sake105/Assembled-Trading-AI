@@ -1,5 +1,8 @@
 """Leakage audit for ML v3 features. Saves JSON report to output/."""
-import sys, json, datetime, warnings
+import sys
+import json
+import datetime
+import warnings
 warnings.filterwarnings("ignore")
 
 import pandas as pd
@@ -54,17 +57,18 @@ for sym, grp in prices.groupby("symbol", sort=False):
     # ATR-14
     if "high" in grp.columns and "low" in grp.columns:
         h = grp["high"].astype(float)
-        l = grp["low"].astype(float)
-        tr = pd.concat([h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
+        lo = grp["low"].astype(float)
+        tr = pd.concat([h - lo, (h - c.shift()).abs(), (lo - c.shift()).abs()], axis=1).max(axis=1)
     else:
         tr = (c - c.shift()).abs()
     atr14 = tr.ewm(span=14, adjust=False).mean()
 
     # ADX-14 (simplified: use ATR-normalized directional movement)
     if "high" in grp.columns and "low" in grp.columns:
-        h = grp["high"].astype(float); l = grp["low"].astype(float)
+        h = grp["high"].astype(float)
+        lo = grp["low"].astype(float)
         dm_plus = (h - h.shift()).clip(lower=0)
-        dm_minus = (l.shift() - l).clip(lower=0)
+        dm_minus = (lo.shift() - lo).clip(lower=0)
         di_plus = dm_plus.ewm(span=14, adjust=False).mean() / atr14.replace(0, np.nan) * 100
         di_minus = dm_minus.ewm(span=14, adjust=False).mean() / atr14.replace(0, np.nan) * 100
         dx = ((di_plus - di_minus).abs() / (di_plus + di_minus).replace(0, np.nan) * 100)

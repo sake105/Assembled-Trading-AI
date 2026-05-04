@@ -1,6 +1,6 @@
 """Pre-flight check automation script (Paper-Trading Pre-Flight §Check 1-6).
 
-Automates Checks 2-6. Check 1 (Alpaca .env setup) is manual.
+Automates all Checks 1-6. Check 1 inspects env vars (no broker call).
 
 Usage:
     python scripts/run_preflight_checks.py
@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -33,6 +34,27 @@ def _record(name: str, passed: bool, detail: str = "") -> None:
     _RESULTS.append({"check": name, "status": status, "detail": detail})
     icon = "OK" if passed else "FAIL"
     log.info("[%s] %s — %s", icon, name, detail or status)
+
+
+# ---------------------------------------------------------------------------
+# Check 1: Alpaca .env variables present (no broker call)
+# ---------------------------------------------------------------------------
+def check_alpaca_env() -> bool:
+    required = {
+        "ALPACA_API_KEY": os.environ.get("ALPACA_API_KEY", ""),
+        "ALPACA_API_SECRET": os.environ.get("ALPACA_API_SECRET", ""),
+        "ALPACA_BASE_URL": os.environ.get("ALPACA_BASE_URL", ""),
+    }
+    present = [k for k, v in required.items() if v]
+    missing = [k for k, v in required.items() if not v]
+    passed = len(missing) == 0
+    if passed:
+        _record("Check1_AlpacaEnv", True,
+                f"all vars set ({', '.join(present)})")
+    else:
+        _record("Check1_AlpacaEnv", False,
+                f"missing: {missing} — set in .env or environment before paper trading")
+    return passed
 
 
 # ---------------------------------------------------------------------------
@@ -226,6 +248,7 @@ def main() -> int:
     log.info("Config: %s  skip_broker: %s", args.config, args.skip_broker)
     log.info("=" * 60)
 
+    check_alpaca_env()
     check_dry_run(args.config, args.skip_broker)
     check_halt_mechanism()
     check_heartbeat()

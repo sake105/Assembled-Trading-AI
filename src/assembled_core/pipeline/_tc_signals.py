@@ -519,21 +519,25 @@ def _ensemble_signals_if_enabled(
         _weights = {k: float(v.get("weight", 1.0)) for k, v in _members.items()}
         _config = AllocationConfig(method=_method, weights=_weights)
 
-        # Build minimal strategy shims using the signal_fn already in ctx
-        _strategy_shims: dict = {}
-        for name, params in _members.items():
-            try:
-                from src.assembled_core.strategies.multifactor_long_short import (
-                    MultifactorLongShortStrategy,
-                )
-                _strategy_shims[name] = MultifactorLongShortStrategy(params)
-            except Exception:
-                pass
+        # Build strategy shims that delegate to ctx.signal_fn so each member
+        # uses the same signal source (future: swap per-member signal_fn if wired)
+        class _SignalFnShim:
+            """Minimal duck-type for StrategyAllocator: wraps ctx.signal_fn."""
+            def __init__(self, fn: object) -> None:
+                self._fn = fn
 
-        if not _strategy_shims:
-            log.debug("[ensemble] no valid strategy shims — passthrough")
+            def generate_signals(self, prices: "pd.DataFrame") -> "pd.DataFrame":
+                try:
+                    return self._fn(prices)  # type: ignore[operator]
+                except Exception:
+                    return pd.DataFrame()
+
+        _signal_fn = ctx.signal_fn if hasattr(ctx, "signal_fn") else None
+        if _signal_fn is None:
+            log.debug("[ensemble] ctx.signal_fn not available — passthrough")
             return signals
 
+        _strategy_shims = {name: _SignalFnShim(_signal_fn) for name in _members}
         _allocator = StrategyAllocator(_strategy_shims, config=_config)
         _regime = (ctx.risk_state or {}).get("regime", None)
         _result = _allocator.generate_combined_signals(features, regime=_regime)
