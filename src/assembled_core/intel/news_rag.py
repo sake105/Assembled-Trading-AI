@@ -106,7 +106,7 @@ class _TFIDFEmbedder:
         return text.lower().split()
 
     def _hash_token(self, tok: str) -> int:
-        return int(hashlib.md5(tok.encode()).hexdigest(), 16) % self._dim
+        return int(hashlib.md5(tok.encode(), usedforsecurity=False).hexdigest(), 16) % self._dim
 
     def encode(self, texts: list[str]) -> np.ndarray:
         result = np.zeros((len(texts), self._dim), dtype=float)
@@ -243,7 +243,7 @@ class NewsRAG:
             record_id: Unique ID; auto-generated from content if None.
         """
         if record_id is None:
-            record_id = hashlib.md5(f"{date}:{ticker}:{headline}".encode()).hexdigest()[:16]
+            record_id = hashlib.md5(f"{date}:{ticker}:{headline}".encode(), usedforsecurity=False).hexdigest()[:16]
 
         emb = self._embed([headline])[0]
 

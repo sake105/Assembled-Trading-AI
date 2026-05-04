@@ -175,7 +175,12 @@ exclude_dirs = ["tests", "scripts/tools"]
 # B101: assert used intentionally in guards and tests
 # B314: XML parsing of trusted gov/financial sources only (SEC EDGAR, House PTR).
 #       No user-supplied XML. Migration to defusedxml tracked as Sprint 4 hardening.
-skips = ["B101", "B314"]
+# B310: urllib.request.urlopen used only with internal API URLs (BIS, Telegram webhook).
+#       No user-supplied URLs; file:// risk is negligible in this context.
+# B608: DuckDB f-string SQL used only with internal paths and validated config values.
+#       No user-supplied SQL inputs; all view names, patterns, and ticker lists are
+#       generated from internal configuration and validated universe lists.
+skips = ["B101", "B314", "B310", "B608"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -149,7 +149,7 @@ def classification_to_signal(
     # 12 hex chars ≈ 48 bits → ~281T possible values, enough to make
     # collisions negligible across distinct event_type combinations.
     _etype_key = ",".join(sorted(event_types)) or "none"
-    _etype_hash = hashlib.sha1(_etype_key.encode("utf-8")).hexdigest()[:12]
+    _etype_hash = hashlib.sha1(_etype_key.encode("utf-8"), usedforsecurity=False).hexdigest()[:12]
     _safe_cluster = (cluster_id or "cls").replace("/", "_").replace(" ", "_")
     signal_id = f"ps_{_safe_cluster}_{_etype_hash}"
 
