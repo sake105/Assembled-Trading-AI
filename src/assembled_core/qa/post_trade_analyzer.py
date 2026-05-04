@@ -105,40 +105,37 @@ def compute_signal_hit_rate(
     }
 
     tol = pd.Timedelta(days=tolerance_days)
-    tol_ns = int(tol.value)
 
     results = []
     for symbol, sym_trades in trades.groupby("symbol", sort=False):
         sym_fwd_raw = _fwd_by_sym.get(symbol, pd.Series(dtype=float))
         if sym_fwd_raw.empty:
             continue
-        # Sort once per symbol; pre-extract int64 timestamps for searchsorted
         sym_fwd = sym_fwd_raw.sort_index()
-        sym_idx_ns = sym_fwd.index.values.astype("int64")
-        sym_vals = sym_fwd.values
+        sym_idx = pd.DatetimeIndex(sym_fwd.index)
 
         hits = 0
         total = 0
         fwd_returns = []
 
         for trade in sym_trades.itertuples(index=False):
-            ts = trade.event_ts
+            ts = pd.Timestamp(trade.event_ts)
+            if ts.tzinfo is None:
+                ts = ts.tz_localize("UTC")
             side = str(getattr(trade, "side", "")).upper()
             if not side:
-                # Try event_type: FILL implies BUY from sign of qty
                 qty = float(getattr(trade, "qty", 0))
                 side = "BUY" if qty > 0 else "SELL"
 
-            # Find closest forward return within tolerance using searchsorted (O(log N))
-            ts_ns = int(ts.value)
-            lo = int(np.searchsorted(sym_idx_ns, ts_ns - tol_ns))
-            hi = int(np.searchsorted(sym_idx_ns, ts_ns + tol_ns, side="right"))
-            if lo >= hi:
+            # get_indexer avoids int64 unit mismatch between ns/us pandas builds
+            locs = sym_idx.get_indexer([ts], method="nearest")
+            closest_pos = int(locs[0])
+            if closest_pos == -1:
+                continue
+            if abs((sym_idx[closest_pos] - ts).total_seconds()) > tolerance_days * 86400:
                 continue
 
-            window_ns = sym_idx_ns[lo:hi]
-            closest_local = int(np.abs(window_ns - ts_ns).argmin())
-            fwd_ret = float(sym_vals[lo + closest_local])
+            fwd_ret = float(sym_fwd.iloc[closest_pos])
             if np.isnan(fwd_ret):
                 continue
 
