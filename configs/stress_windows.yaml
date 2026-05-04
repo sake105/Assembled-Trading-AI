@@ -1,0 +1,42 @@
+# Historical stress windows for backtest validation (Plan 11/10 §2.3)
+# Run via: python scripts/run_stress_test.py
+
+stress_windows:
+  - name: "GFC_2008"
+    start: "2008-09-01"
+    end: "2009-06-30"
+    description: "Global Financial Crisis — bank failures, S&P -50%"
+
+  - name: "Flash_Crash_2010"
+    start: "2010-05-01"
+    end: "2010-06-30"
+    description: "May 6 flash crash + European sovereign debt"
+
+  - name: "Euro_Crisis_2011"
+    start: "2011-08-01"
+    end: "2011-12-31"
+    description: "European sovereign debt crisis, US debt downgrade"
+
+  - name: "COVID_2020"
+    start: "2020-02-15"
+    end: "2020-05-15"
+    description: "COVID crash + initial recovery"
+
+  - name: "Inflation_2022"
+    start: "2022-01-01"
+    end: "2022-12-31"
+    description: "Fed rate hike cycle, S&P -25%"
+
+  - name: "SVB_2023"
+    start: "2023-03-01"
+    end: "2023-04-30"
+    description: "Regional banking crisis (SVB, Signature)"
+
+# Live-trading activation thresholds (must all pass before go-live)
+live_activation_thresholds:
+  stress_score_cagr_min: 0.0          # geom. mean CAGR across crises ≥ 0%
+  worst_mdd_max: -0.25                # worst MDD across all crises ≥ -25%
+  worst_single_day_max: -0.08         # worst single-day return ≥ -8%
+  gfc_final_equity_min_pct: 0.50      # GFC: final equity ≥ 50% of start
+  covid_recovery_days_max: 180        # COVID: recover within 6 months
+  inflation_2022_mdd_max: -0.20       # 2022: MDD not worse than -20%

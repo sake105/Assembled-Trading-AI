@@ -39,3 +39,19 @@ random_seed: 42
 
 integration:
   enable_pit_checks: true
+
+# Pilot-phase risk limits (Pre-Flight Check 6)
+risk_limits:
+  max_total_exposure_pct: 0.30       # max 30% of capital deployed
+  max_position_pct: 0.05             # max 5% per symbol
+  max_daily_orders: 10               # safety cap
+  max_daily_loss_pct: -0.02          # -2% day → trigger halt review
+  allowed_order_types: [limit]       # no market orders in pilot
+  default_limit_offset_bps: 5        # 5 bps inside spread
+  forbidden_symbols: []              # add GME/AMC etc. if needed
+
+# Auto-halt rules (supplementary to kill-switch)
+auto_halt:
+  on_consecutive_losing_days: 3      # 3 red days → pause + review
+  on_drawdown_pct: -0.05             # -5% MDD from pilot start → halt
+  on_position_count_anomaly: 50      # >50 open positions = likely bug

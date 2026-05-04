@@ -2303,6 +2303,50 @@ def run_backtest_from_args(args: argparse.Namespace) -> int:
         reports_dir.mkdir(parents=True, exist_ok=True)
         export_metrics_json(metrics, reports_dir / "metrics.json")
 
+        # Bootstrap CIs (Plan 11/10 §2.1) — appended to metrics.json
+        if "equity" in result.equity.columns and len(result.equity) >= 60:
+            try:
+                import json as _json
+                from src.assembled_core.qa.bootstrap_metrics import compute_all_with_ci
+                daily_ret = result.equity["equity"].pct_change().dropna()
+                bci = compute_all_with_ci(daily_ret, n_bootstrap=2000, seed=42)
+                metrics.__dict__["bootstrap_ci"] = bci
+                mj = reports_dir / "metrics.json"
+                with open(mj, encoding="utf-8") as _f:
+                    mj_data = _json.load(_f)
+                mj_data["bootstrap_ci"] = bci
+                with open(mj, "w", encoding="utf-8") as _f:
+                    _json.dump(mj_data, _f, indent=2)
+                logger.info(
+                    "[bootstrap] Sharpe %.3f  95%%CI [%.3f – %.3f]  p(Sharpe>0)=%.0f%%",
+                    bci["sharpe"], bci["sharpe_ci_lower"], bci["sharpe_ci_upper"],
+                    (1 - bci["sharpe_p_value"]) * 100,
+                )
+            except Exception as _e:
+                logger.warning("[bootstrap] CI skipped: %s", _e)
+
+        # Monte Carlo trade-order permutation (Plan 11/10 §2.2)
+        if result.trades is not None and len(result.trades) >= 20:
+            try:
+                import json as _json
+                from src.assembled_core.qa.monte_carlo_paths import monte_carlo_trade_paths
+                mc = monte_carlo_trade_paths(result.trades, n_paths=5000, seed=42)
+                if "error" not in mc:
+                    metrics.__dict__["monte_carlo"] = mc
+                    mj = reports_dir / "metrics.json"
+                    with open(mj, encoding="utf-8") as _f:
+                        mj_data = _json.load(_f)
+                    mj_data["monte_carlo"] = mc
+                    with open(mj, "w", encoding="utf-8") as _f:
+                        _json.dump(mj_data, _f, indent=2)
+                    logger.info(
+                        "[monte_carlo] Sharpe P50=%.3f P10=%.3f  MDD P99=%.2f%%",
+                        mc["sharpe"]["p50"], mc["sharpe"]["p10"],
+                        mc["mdd"]["p99"] * 100,
+                    )
+            except Exception as _e:
+                logger.warning("[monte_carlo] simulation skipped: %s", _e)
+
         # Log Gross vs Net metrics
         if hasattr(metrics, "gross_metrics") and metrics.gross_metrics is not None:
             logger.info("=== GROSS vs NET PERFORMANCE ===")
