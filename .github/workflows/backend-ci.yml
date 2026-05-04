@@ -68,7 +68,7 @@ jobs:
           # - CVE-2025-8869, CVE-2026-1703 (pip): toolchain only, not shipped
           # - CVE-2026-4539 (pygments): docs/formatting only
           # - CVE-2026-25645 (requests): upgrade tracked in Sprint 4 dep refresh
-          pip-audit --strict --desc --skip-editable \
+          pip-audit --strict --desc -r requirements.txt \
             --ignore-vuln CVE-2026-33752 \
             --ignore-vuln CVE-2025-8869 \
             --ignore-vuln CVE-2026-1703 \
